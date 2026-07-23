@@ -203,23 +203,16 @@ public sealed class MetadataEndpointDataService(IDatabaseConnection db) : IMetad
         {
             var linkedId = await connection.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition("""
                 SELECT p.id
-                FROM person_media_links pml
-                INNER JOIN persons p ON p.id = pml.person_id
-                WHERE pml.media_asset_id = @assetId
-                  AND (
-                        pml.role IN ('Artist', 'Performer')
-                        OR EXISTS (
-                            SELECT 1
-                            FROM person_roles pr
-                            WHERE pr.person_id = p.id
-                              AND pr.role IN ('Artist', 'Performer')
-                        )
-                  )
+                FROM primary_person_media_credits primary_credit
+                INNER JOIN persons p ON p.id = primary_credit.person_id
+                WHERE primary_credit.media_asset_id = @assetId
+                  AND primary_credit.credit_key IN ('artist', 'performer')
                 ORDER BY CASE
-                    WHEN pml.role = 'Artist' THEN 0
-                    WHEN pml.role = 'Performer' THEN 1
+                    WHEN primary_credit.credit_key = 'artist' THEN 0
+                    WHEN primary_credit.credit_key = 'performer' THEN 1
                     ELSE 2
                 END,
+                primary_credit.billing_order,
                 p.name
                 LIMIT 1;
                 """, new { assetId = representativeAssetId.Value }, cancellationToken: ct));

@@ -363,7 +363,7 @@ public sealed class PersonRepository : IPersonRepository
                    p.is_group            AS IsGroup,
                    GROUP_CONCAT(pr.role, ',') AS RolesCsv
             FROM   persons p
-            JOIN   person_media_links l ON l.person_id = p.id
+            JOIN   primary_person_media_credits l ON l.person_id = p.id
             LEFT JOIN person_roles pr ON pr.person_id = p.id
             WHERE  l.media_asset_id = @mediaAssetId
             GROUP  BY p.id
@@ -418,7 +418,7 @@ public sealed class PersonRepository : IPersonRepository
                        p.is_group            AS IsGroup,
                        GROUP_CONCAT(pr.role, ',') AS RolesCsv
                 FROM   persons p
-                JOIN   person_media_links l ON l.person_id = p.id
+                JOIN   primary_person_media_credits l ON l.person_id = p.id
                 LEFT JOIN person_roles pr ON pr.person_id = p.id
                 WHERE  l.media_asset_id IN ({mediaAssetIdClause})
                 GROUP  BY p.id
@@ -700,7 +700,8 @@ public sealed class PersonRepository : IPersonRepository
             return Task.FromResult(new Dictionary<Guid, Dictionary<string, int>>());
 
         using var conn = _db.CreateConnection();
-        // Primary path: persons linked via person_media_links (populated during Wikidata Stage 2).
+        // Presence is presentation data, so it follows the same canonical credits
+        // as details and browse instead of the broader enrichment relationship graph.
         var rows = new List<PresenceRow>();
         foreach (var batch in idList.Chunk(SqliteBatching.MaxParametersPerQuery))
         {
@@ -708,54 +709,15 @@ public sealed class PersonRepository : IPersonRepository
             var p = new DynamicParameters();
             var personIdClause = AddGuidBlobList(p, "personId", batch);
             rows.AddRange(conn.Query<PresenceRow>($"""
-                SELECT p.id AS PersonId, cv.value AS MediaType, COUNT(DISTINCT w.id) AS Count
+                SELECT p.id AS PersonId, w.media_type AS MediaType, COUNT(DISTINCT w.id) AS Count
                 FROM persons p
-                JOIN person_media_links pml ON pml.person_id = p.id
-                JOIN media_assets ma ON ma.id = pml.media_asset_id
+                JOIN primary_person_media_credits primary_credit ON primary_credit.person_id = p.id
+                JOIN media_assets ma ON ma.id = primary_credit.media_asset_id
                 JOIN editions e ON e.id = ma.edition_id
                 JOIN works w ON w.id = e.work_id
-                JOIN canonical_values cv ON cv.entity_id = ma.id AND cv.key = 'media_type'
                 WHERE p.id IN ({personIdClause})
-                GROUP BY p.id, cv.value;
+                GROUP BY p.id, w.media_type;
                 """, p));
-        }
-
-        // For persons with no media links, fall back to matching by name in canonical_values
-        // (covers single-valued author/narrator/director fields stored during ingestion).
-        var linkedPersonIds = rows.Select(r => r.PersonId).ToHashSet();
-        var unlinkedIds = idList.Where(id => !linkedPersonIds.Contains(id)).ToList();
-
-        if (unlinkedIds.Count > 0)
-        {
-            foreach (var batch in unlinkedIds.Chunk(SqliteBatching.MaxParametersPerQuery))
-            {
-                ct.ThrowIfCancellationRequested();
-                var fallbackParams = new DynamicParameters();
-                var unlinkedIdClause = AddGuidBlobList(fallbackParams, "unlinkedId", batch);
-                rows.AddRange(conn.Query<PresenceRow>($"""
-                    SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-                    FROM persons p
-                    JOIN canonical_values cva ON cva.value = p.name
-                        AND cva.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                    JOIN media_assets ma ON ma.id = cva.entity_id
-                    JOIN editions e ON e.id = ma.edition_id
-                    JOIN works w ON w.id = e.work_id
-                    JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
-                    WHERE p.id IN ({unlinkedIdClause})
-                    GROUP BY p.id, cvmt.value
-                    UNION ALL
-                    SELECT p.id AS PersonId, cvmt.value AS MediaType, COUNT(DISTINCT w.id) AS Count
-                    FROM persons p
-                    JOIN canonical_value_arrays cvaa ON cvaa.value = p.name
-                        AND cvaa.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-                    JOIN media_assets ma ON ma.id = cvaa.entity_id
-                    JOIN editions e ON e.id = ma.edition_id
-                    JOIN works w ON w.id = e.work_id
-                    JOIN canonical_values cvmt ON cvmt.entity_id = ma.id AND cvmt.key = 'media_type'
-                    WHERE p.id IN ({unlinkedIdClause})
-                    GROUP BY p.id, cvmt.value;
-                    """, fallbackParams));
-            }
         }
 
         var result = new Dictionary<Guid, Dictionary<string, int>>();
@@ -767,8 +729,7 @@ public sealed class PersonRepository : IPersonRepository
                 mediaMap = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
                 result[personId] = mediaMap;
             }
-            // Use max rather than overwrite to handle UNION ALL duplicates from fallback
-            mediaMap[row.MediaType] = Math.Max(mediaMap.GetValueOrDefault(row.MediaType), row.Count);
+            mediaMap[row.MediaType] = row.Count;
         }
 
         return Task.FromResult(result);

@@ -104,11 +104,11 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
             SELECT DISTINCT w.collection_id
-            FROM person_media_links pml
-            JOIN media_assets ma ON ma.id = pml.media_asset_id
+            FROM primary_person_media_credits primary_credit
+            JOIN media_assets ma ON ma.id = primary_credit.media_asset_id
             JOIN editions e      ON e.id  = ma.edition_id
             JOIN works w         ON w.id  = e.work_id
-            WHERE pml.person_id = @personId
+            WHERE primary_credit.person_id = @personId
               AND w.collection_id IS NOT NULL;
             """;
         cmd.Parameters.Add("@personId", Microsoft.Data.Sqlite.SqliteType.Blob).Value = GuidSql.ToBlob(personId);
@@ -119,26 +119,6 @@ public sealed class PersonWorksReadService : IPersonWorksReadService
             while (reader.Read())
                 collectionIds.Add(GuidSql.FromDb(reader.GetValue(0)));
         }
-
-        if (collectionIds.Count > 0)
-            return collectionIds;
-
-        using var fallbackCmd = conn.CreateCommand();
-        fallbackCmd.CommandText = """
-            SELECT DISTINCT w.collection_id
-            FROM canonical_values cv
-            JOIN media_assets ma ON ma.id = cv.entity_id
-            JOIN editions e      ON e.id  = ma.edition_id
-            JOIN works w         ON w.id  = e.work_id
-            WHERE cv.key IN ('author', 'narrator', 'director', 'artist', 'composer', 'illustrator', 'performer')
-              AND cv.value = @personName
-              AND w.collection_id IS NOT NULL;
-            """;
-        fallbackCmd.Parameters.AddWithValue("@personName", person.Name);
-
-        using var fallbackReader = fallbackCmd.ExecuteReader();
-        while (fallbackReader.Read())
-            collectionIds.Add(GuidSql.FromDb(fallbackReader.GetValue(0)));
 
         return collectionIds;
     }

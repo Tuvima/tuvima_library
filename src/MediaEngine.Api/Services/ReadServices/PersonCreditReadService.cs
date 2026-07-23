@@ -299,23 +299,23 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<ActorOnlyRow>(
             """
-            SELECT MIN(pml.rowid)        AS LinkOrder,
+            SELECT MIN(primary_credit.billing_order) AS LinkOrder,
                    p.id                  AS ActorPersonId,
                    p.name                AS ActorName,
                    p.wikidata_qid        AS ActorQid,
                    p.headshot_url        AS ActorHeadshotUrl,
                    p.local_headshot_path AS ActorLocalHeadshotPath
-            FROM person_media_links pml
+            FROM primary_person_media_credits primary_credit
             INNER JOIN persons p
-                ON p.id = pml.person_id
+                ON p.id = primary_credit.person_id
             INNER JOIN media_assets ma
-                ON ma.id = pml.media_asset_id
+                ON ma.id = primary_credit.media_asset_id
             INNER JOIN editions e
                 ON e.id = ma.edition_id
             WHERE e.work_id = @workId
-              AND pml.role IN ('Actor', 'Voice Actor')
+              AND primary_credit.role = 'Actor'
             GROUP BY p.id, p.name, p.wikidata_qid, p.headshot_url, p.local_headshot_path
-            ORDER BY MIN(pml.rowid);
+            ORDER BY MIN(primary_credit.billing_order);
             """,
             new { workId })).ToList();
 
@@ -827,11 +827,11 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                    )                                      AS WorkQid,
                    COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), c.display_name, 'Untitled') AS Title,
                    MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS Year,
-                   pml.role                               AS Role,
+                   primary_credit.role                    AS Role,
                    MIN(ma.id)                             AS FirstAssetId
-            FROM person_media_links pml
+            FROM primary_person_media_credits primary_credit
             INNER JOIN media_assets ma
-                ON ma.id = pml.media_asset_id
+                ON ma.id = primary_credit.media_asset_id
             INNER JOIN editions e
                 ON e.id = ma.edition_id
             INNER JOIN works w
@@ -841,9 +841,9 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             LEFT JOIN canonical_values cv
                 ON cv.entity_id = w.id
                AND cv.key IN ('title', 'year')
-            WHERE pml.person_id = @personId
-            GROUP BY w.id, w.collection_id, w.media_type, w.wikidata_qid, c.display_name, pml.role
-            ORDER BY MAX(CASE WHEN cv.key = 'year' THEN cv.value END) DESC, Title, pml.role;
+            WHERE primary_credit.person_id = @personId
+            GROUP BY w.id, w.collection_id, w.media_type, w.wikidata_qid, c.display_name, primary_credit.role
+            ORDER BY MAX(CASE WHEN cv.key = 'year' THEN cv.value END) DESC, Title, primary_credit.role;
             """,
             new { personId })).ToList();
 

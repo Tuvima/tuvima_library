@@ -214,7 +214,7 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
-    public async Task CollectionRule_PersonQid_FollowsPersonMediaLinksToOwnedWork()
+    public async Task CollectionRule_PersonQid_FollowsPrimaryCanonicalCreditToOwnedWork()
     {
         var (workId, _, assetId) = await BuildStandaloneWorkAsync("Movies");
         var personRepo = new PersonRepository(_db);
@@ -225,6 +225,18 @@ public sealed class LineageReaderTests : IDisposable
             WikidataQid = "Q25191",
         });
         await personRepo.LinkToMediaAssetAsync(assetId, person.Id, "Director");
+        using (var conn = _db.CreateConnection())
+        using (var command = conn.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                VALUES ($workId, 'director', 0, $name, $qid);
+                """;
+            command.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
+            command.Parameters.AddWithValue("$name", person.Name);
+            command.Parameters.AddWithValue("$qid", person.WikidataQid);
+            command.ExecuteNonQuery();
+        }
 
         var evaluator = new CollectionRuleEvaluator(_db);
         var matches = evaluator.Evaluate(

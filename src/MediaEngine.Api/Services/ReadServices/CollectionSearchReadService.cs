@@ -41,23 +41,24 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                         'Work ' || substr(w.id, 1, 8)
                     ) AS Title,
                     COALESCE(
-                        (SELECT credited.name
-                         FROM person_media_links credit
-                         INNER JOIN persons credited ON credited.id = credit.person_id
+                        (SELECT credit.person_name
+                         FROM primary_person_media_credits credit
                          WHERE credit.media_asset_id = ma.id
                            AND (
-                               (w.media_type IN ('Books', 'Book', 'Comics', 'Comic') AND lower(credit.role) = 'author')
-                               OR (w.media_type IN ('Movies', 'Movie', 'TV', 'Television') AND lower(credit.role) = 'director')
-                               OR (w.media_type IN ('Music', 'Audio') AND lower(credit.role) = 'performer')
-                               OR (w.media_type IN ('Audiobooks', 'Audiobook') AND lower(credit.role) IN ('author', 'narrator'))
+                               (w.media_type IN ('Books', 'Book', 'Comics', 'Comic') AND credit.credit_key = 'author')
+                               OR (w.media_type IN ('Movies', 'Movie', 'TV', 'Television') AND credit.credit_key = 'director')
+                               OR (w.media_type IN ('Music', 'Audio') AND credit.credit_key IN ('artist', 'performer'))
+                               OR (w.media_type IN ('Audiobooks', 'Audiobook') AND credit.credit_key IN ('author', 'narrator'))
                            )
-                         ORDER BY CASE lower(credit.role)
+                         ORDER BY CASE credit.credit_key
                                       WHEN 'author' THEN 0
                                       WHEN 'director' THEN 0
+                                      WHEN 'artist' THEN 0
                                       WHEN 'performer' THEN 0
                                       ELSE 1
                                   END,
-                                  credited.name COLLATE NOCASE
+                                  credit.billing_order,
+                                  credit.person_name COLLATE NOCASE
                          LIMIT 1),
                         author_asset.value,
                         artist_asset.value,
@@ -168,10 +169,9 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                       )
                       OR EXISTS (
                           SELECT 1
-                          FROM person_media_links credit
-                          INNER JOIN persons credited ON credited.id = credit.person_id
+                          FROM primary_person_media_credits credit
                           WHERE credit.media_asset_id = ma.id
-                            AND credited.name LIKE @like COLLATE NOCASE
+                            AND credit.person_name LIKE @like COLLATE NOCASE
                       )
                   )
             )

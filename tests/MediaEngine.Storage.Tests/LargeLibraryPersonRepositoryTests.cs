@@ -194,6 +194,8 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
                 INSERT INTO person_roles (person_id, role) VALUES ($personId, 'Author');
                 INSERT INTO person_media_links (media_asset_id, person_id, role)
                     VALUES ($assetId, $personId, 'Author');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($workId, 'author', 0, $name);
                 """;
             cmd.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
             cmd.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));

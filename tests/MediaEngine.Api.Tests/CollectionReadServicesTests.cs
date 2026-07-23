@@ -151,7 +151,7 @@ public sealed class CollectionReadServicesTests : IDisposable
         string displayRole,
         string personName)
     {
-        var seeded = await SeedCreditedWorkAsync(mediaType, role, personName);
+        var seeded = await SeedCreditedWorkAsync(mediaType, groupField, role, personName);
 
         var groups = await _browse.GetSystemViewGroupsAsync(mediaType, groupField, CancellationToken.None);
 
@@ -266,12 +266,17 @@ public sealed class CollectionReadServicesTests : IDisposable
         return new SeededBook(workId, assetId);
     }
 
-    private async Task<SeededBook> SeedCreditedWorkAsync(string mediaType, string role, string personName)
+    private async Task<SeededBook> SeedCreditedWorkAsync(
+        string mediaType,
+        string creditKey,
+        string role,
+        string personName)
     {
         var workId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
         var personId = Guid.NewGuid();
+        var supplementaryPersonId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow.ToString("O");
         using var connection = _database.CreateConnection();
         await connection.ExecuteAsync(
@@ -283,11 +288,19 @@ public sealed class CollectionReadServicesTests : IDisposable
             INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
                 (@AssetId, 'title', @Title, @Now),
                 (@AssetId, 'year', '2026', @Now);
+            INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+            VALUES (@WorkId, @CreditKey, 0, @PersonName);
             INSERT INTO persons (id, name, headshot_url, created_at)
-            VALUES (@PersonId, @PersonName, 'https://images.example.test/person.jpg', @Now);
-            INSERT INTO person_roles (person_id, role) VALUES (@PersonId, @Role);
+            VALUES
+                (@PersonId, @PersonName, 'https://images.example.test/person.jpg', @Now),
+                (@SupplementaryPersonId, @SupplementaryPersonName, NULL, @Now);
+            INSERT INTO person_roles (person_id, role) VALUES
+                (@PersonId, @Role),
+                (@SupplementaryPersonId, @Role);
             INSERT INTO person_media_links (media_asset_id, person_id, role)
-            VALUES (@AssetId, @PersonId, @Role);
+            VALUES
+                (@AssetId, @PersonId, @Role),
+                (@AssetId, @SupplementaryPersonId, @Role);
             """,
             new
             {
@@ -300,6 +313,9 @@ public sealed class CollectionReadServicesTests : IDisposable
                 Title = $"A {role} Credit",
                 PersonId = personId,
                 PersonName = personName,
+                SupplementaryPersonId = supplementaryPersonId,
+                SupplementaryPersonName = $"Supplementary {role}",
+                CreditKey = creditKey,
                 Role = role,
                 Now = now,
             });

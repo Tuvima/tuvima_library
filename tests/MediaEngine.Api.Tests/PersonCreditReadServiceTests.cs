@@ -78,6 +78,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                         VALUES ($workId, 'year', '2008', $now);
                     INSERT INTO person_media_links (media_asset_id, person_id, role)
                         VALUES ($assetId, $personId, 'Director');
+                    INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                        VALUES ($workId, 'cast_member', 0, 'Bryan Test Person');
                     """;
                 AddGuid(episodeCmd, "$workId", workId);
                 AddGuid(episodeCmd, "$collectionId", collectionId);

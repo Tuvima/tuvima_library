@@ -605,7 +605,7 @@ public sealed class CollectionBrowseReadService(
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
-        var personRole = ResolvePersonRole(groupField);
+        var isPersonGroup = ResolvePersonRole(groupField) is not null;
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionSystemViewGroupReadModel>(new CommandDefinition(
             $"""
@@ -613,16 +613,16 @@ public sealed class CollectionBrowseReadService(
                 SELECT w.id AS WorkId,
                        ma.id AS AssetId,
                        COALESCE(gp.id, p.id, w.id) AS RootWorkId,
-                       linked_person.name AS LinkedPersonName
+                       primary_credit.person_name AS LinkedPersonName
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 LEFT JOIN works p ON p.id = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
-                LEFT JOIN person_media_links pml
-                    ON pml.media_asset_id = ma.id
-                   AND lower(pml.role) = lower(@PersonRole)
-                LEFT JOIN persons linked_person ON linked_person.id = pml.person_id
+                LEFT JOIN primary_person_media_credits primary_credit
+                    ON primary_credit.media_asset_id = ma.id
+                   AND primary_credit.credit_key = lower(@GroupField)
+                   AND @IsPersonGroup = 1
                 WHERE w.id IN @WorkIds
                   AND {visibleAssetPredicate}
             ),
@@ -735,7 +735,7 @@ public sealed class CollectionBrowseReadService(
                 WorkIds = workIds.Select(GuidSql.ToBlob).ToArray(),
                 GroupField = groupField,
                 IsMusicAlbumGroup = isMusicAlbumGroup ? 1 : 0,
-                PersonRole = personRole,
+                IsPersonGroup = isPersonGroup ? 1 : 0,
             },
             cancellationToken: ct)).ConfigureAwait(false);
         return rows.AsList();
@@ -755,7 +755,7 @@ public sealed class CollectionBrowseReadService(
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
-        var personRole = ResolvePersonRole(groupField);
+        var isPersonGroup = ResolvePersonRole(groupField) is not null;
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionSystemViewPreviewReadModel>(new CommandDefinition(
             $"""
@@ -763,19 +763,19 @@ public sealed class CollectionBrowseReadService(
                 SELECT w.id AS WorkId,
                        MIN(ma.id) AS AssetId,
                        COALESCE(gp.id, p.id, w.id) AS RootWorkId,
-                       linked_person.name AS LinkedPersonName
+                       primary_credit.person_name AS LinkedPersonName
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 LEFT JOIN works p ON p.id = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
-                LEFT JOIN person_media_links pml
-                    ON pml.media_asset_id = ma.id
-                   AND lower(pml.role) = lower(@PersonRole)
-                LEFT JOIN persons linked_person ON linked_person.id = pml.person_id
+                LEFT JOIN primary_person_media_credits primary_credit
+                    ON primary_credit.media_asset_id = ma.id
+                   AND primary_credit.credit_key = lower(@GroupField)
+                   AND @IsPersonGroup = 1
                 WHERE w.id IN @WorkIds
                   AND {visibleAssetPredicate}
-                GROUP BY w.id, COALESCE(gp.id, p.id, w.id), linked_person.name
+                GROUP BY w.id, COALESCE(gp.id, p.id, w.id), primary_credit.person_name
             )
             SELECT CASE WHEN @IsMusicAlbumGroup = 1 THEN COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
@@ -803,7 +803,7 @@ public sealed class CollectionBrowseReadService(
                 WorkIds = workIds.Select(GuidSql.ToBlob).ToArray(),
                 GroupField = groupField,
                 IsMusicAlbumGroup = isMusicAlbumGroup ? 1 : 0,
-                PersonRole = personRole,
+                IsPersonGroup = isPersonGroup ? 1 : 0,
             },
             cancellationToken: ct)).ConfigureAwait(false);
 
@@ -930,7 +930,7 @@ public sealed class CollectionBrowseReadService(
         "author" => "Author",
         "director" => "Director",
         "narrator" => "Narrator",
-        "artist" => "Performer",
+        "artist" => "Artist",
         _ => null,
     };
 

@@ -227,12 +227,13 @@ public sealed class CollectionRuleEvaluator
             return ($"w.collection_id IN (SELECT hr.collection_id FROM collection_relationships hr WHERE hr.rel_type IN ('franchise','fictional_universe') AND hr.rel_qid = {pName})", parameters);
         }
 
-        // Person QID — follow the canonical person-to-owned-asset relationship.
+        // Person QID — match only presentation-grade canonical credits. The raw
+        // relationship graph may contain assistant or supplementary credits.
         if (field == "person_qid")
         {
             var pName = $"@p{paramIdx++}";
             parameters.Add((pName, effectiveValues[0]));
-            return ($"w.id IN (SELECT e_p.work_id FROM editions e_p INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id INNER JOIN person_media_links pml ON pml.media_asset_id = ma_p.id INNER JOIN persons per ON per.id = pml.person_id WHERE per.wikidata_qid = {pName})", parameters);
+            return ($"w.id IN (SELECT e_p.work_id FROM editions e_p INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id INNER JOIN primary_person_media_credits credit ON credit.media_asset_id = ma_p.id WHERE credit.person_qid = {pName} COLLATE NOCASE)", parameters);
         }
 
         // All other fields: canonical_values lookup via edition → asset chain

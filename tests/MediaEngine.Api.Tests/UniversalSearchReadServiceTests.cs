@@ -154,6 +154,8 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
 
                 INSERT INTO person_media_links (media_asset_id, person_id, role)
                 VALUES ($assetId, $personId, 'Author');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES ($workId, 'author', 0, 'Frank Herbert');
                 """;
             cmd.Parameters.AddWithValue("$workId", GuidSql.ToBlob(workId));
             cmd.Parameters.AddWithValue("$editionId", GuidSql.ToBlob(editionId));

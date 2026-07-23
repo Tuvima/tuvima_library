@@ -68,6 +68,8 @@ public sealed class MetadataEndpointDataServiceTests : IDisposable
                 VALUES (@personId, 'The Artist', @now);
                 INSERT INTO person_media_links (media_asset_id, person_id, role)
                 VALUES (@assetId, @personId, 'Artist');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@assetId, 'artist', 0, 'The Artist');
                 """, new
             {
                 workId = hierarchy.ChildWorkId,

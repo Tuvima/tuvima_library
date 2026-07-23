@@ -1588,3 +1588,165 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_identity_jobs_entity_pass_active
 CREATE UNIQUE INDEX IF NOT EXISTS ux_media_operations_idempotency
 ON media_operations(idempotency_key);
 
+-- Presentation-facing person credits must follow the same ordered canonical
+-- contributor source used by detail pages. person_media_links intentionally
+-- remains the broader enrichment graph and can include assistant directors,
+-- additional performers, and other non-primary relationships.
+CREATE VIEW IF NOT EXISTS primary_person_media_credits AS
+WITH asset_scope AS (
+    SELECT ma.id AS media_asset_id,
+           w.id AS work_id,
+           COALESCE(gp.id, p.id, w.id) AS root_work_id
+    FROM media_assets ma
+    INNER JOIN editions e ON e.id = ma.edition_id
+    INNER JOIN works w ON w.id = e.work_id
+    LEFT JOIN works p ON p.id = w.parent_work_id
+    LEFT JOIN works gp ON gp.id = p.parent_work_id
+),
+array_candidates AS (
+    SELECT scope.media_asset_id,
+           cva.key AS credit_key,
+           cva.ordinal AS billing_order,
+           TRIM(cva.value) AS person_name,
+           NULLIF(TRIM(cva.value_qid), '') AS person_qid,
+           CASE
+               WHEN cva.entity_id = scope.root_work_id THEN 0
+               WHEN cva.entity_id = scope.work_id THEN 1
+               ELSE 2
+           END AS scope_priority
+    FROM asset_scope scope
+    INNER JOIN canonical_value_arrays cva
+        ON cva.entity_id IN (scope.root_work_id, scope.work_id, scope.media_asset_id)
+    WHERE cva.key IN (
+              'author', 'narrator', 'director', 'artist', 'performer',
+              'composer', 'illustrator', 'screenwriter', 'cast_member')
+      AND NULLIF(TRIM(cva.value), '') IS NOT NULL
+),
+selected_arrays AS (
+    SELECT candidate.media_asset_id,
+           candidate.credit_key,
+           candidate.billing_order,
+           candidate.person_name,
+           candidate.person_qid
+    FROM array_candidates candidate
+    WHERE candidate.scope_priority = (
+        SELECT MIN(peer.scope_priority)
+        FROM array_candidates peer
+        WHERE peer.media_asset_id = candidate.media_asset_id
+          AND peer.credit_key = candidate.credit_key
+    )
+),
+claim_candidates AS (
+    SELECT scope.media_asset_id,
+           mc.claim_key AS credit_key,
+           mc.rowid AS billing_order,
+           TRIM(mc.claim_value) AS person_name,
+           NULL AS person_qid,
+           CASE
+               WHEN mc.entity_id = scope.root_work_id THEN 0
+               WHEN mc.entity_id = scope.work_id THEN 1
+               ELSE 2
+           END AS scope_priority
+    FROM asset_scope scope
+    INNER JOIN metadata_claims mc
+        ON mc.entity_id IN (scope.root_work_id, scope.work_id, scope.media_asset_id)
+    WHERE mc.claim_key IN (
+              'author', 'narrator', 'director', 'artist', 'performer',
+              'composer', 'illustrator', 'screenwriter', 'cast_member')
+      AND NULLIF(TRIM(mc.claim_value), '') IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM selected_arrays array_credit
+          WHERE array_credit.media_asset_id = scope.media_asset_id
+            AND array_credit.credit_key = mc.claim_key
+      )
+),
+selected_claims AS (
+    SELECT candidate.media_asset_id,
+           candidate.credit_key,
+           candidate.billing_order,
+           candidate.person_name,
+           candidate.person_qid
+    FROM claim_candidates candidate
+    WHERE candidate.scope_priority = (
+        SELECT MIN(peer.scope_priority)
+        FROM claim_candidates peer
+        WHERE peer.media_asset_id = candidate.media_asset_id
+          AND peer.credit_key = candidate.credit_key
+    )
+),
+scalar_candidates AS (
+    SELECT scope.media_asset_id,
+           cv.key AS credit_key,
+           0 AS billing_order,
+           TRIM(cv.value) AS person_name,
+           NULL AS person_qid,
+           CASE
+               WHEN cv.entity_id = scope.root_work_id THEN 0
+               WHEN cv.entity_id = scope.work_id THEN 1
+               ELSE 2
+           END AS scope_priority
+    FROM asset_scope scope
+    INNER JOIN canonical_values cv
+        ON cv.entity_id IN (scope.root_work_id, scope.work_id, scope.media_asset_id)
+    WHERE cv.key IN (
+              'author', 'narrator', 'director', 'artist', 'performer',
+              'composer', 'illustrator', 'screenwriter', 'cast_member')
+      AND NULLIF(TRIM(cv.value), '') IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM selected_arrays array_credit
+          WHERE array_credit.media_asset_id = scope.media_asset_id
+            AND array_credit.credit_key = cv.key
+      )
+      AND NOT EXISTS (
+          SELECT 1
+          FROM selected_claims claim_credit
+          WHERE claim_credit.media_asset_id = scope.media_asset_id
+            AND claim_credit.credit_key = cv.key
+      )
+),
+selected_scalars AS (
+    SELECT candidate.media_asset_id,
+           candidate.credit_key,
+           candidate.billing_order,
+           candidate.person_name,
+           candidate.person_qid
+    FROM scalar_candidates candidate
+    WHERE candidate.scope_priority = (
+        SELECT MIN(peer.scope_priority)
+        FROM scalar_candidates peer
+        WHERE peer.media_asset_id = candidate.media_asset_id
+          AND peer.credit_key = candidate.credit_key
+    )
+),
+selected_credits AS (
+    SELECT * FROM selected_arrays
+    UNION ALL
+    SELECT * FROM selected_claims
+    UNION ALL
+    SELECT * FROM selected_scalars
+)
+SELECT DISTINCT credit.media_asset_id,
+       person.id AS person_id,
+       person.name AS person_name,
+       person.wikidata_qid AS person_qid,
+       credit.credit_key,
+       credit.billing_order,
+       CASE credit.credit_key
+           WHEN 'author' THEN 'Author'
+           WHEN 'narrator' THEN 'Narrator'
+           WHEN 'director' THEN 'Director'
+           WHEN 'artist' THEN 'Artist'
+           WHEN 'performer' THEN 'Performer'
+           WHEN 'composer' THEN 'Composer'
+           WHEN 'illustrator' THEN 'Illustrator'
+           WHEN 'screenwriter' THEN 'Screenwriter'
+           WHEN 'cast_member' THEN 'Actor'
+       END AS role
+FROM selected_credits credit
+INNER JOIN persons person
+    ON (credit.person_qid IS NOT NULL
+        AND person.wikidata_qid = credit.person_qid COLLATE NOCASE)
+    OR person.name = credit.person_name COLLATE NOCASE;
+
