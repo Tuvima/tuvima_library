@@ -141,13 +141,43 @@
         gap: 8px;
     }
 
+    .listen-player__transport-line {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: 100%;
+    }
+
+    ::deep .listen-player__mode-button {
+        width: 34px;
+        height: 34px;
+        flex: 0 0 34px;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--tl-text-muted);
+        cursor: pointer;
+    }
+
+    ::deep .listen-player__mode-button:hover,
+    ::deep .listen-player__mode-button:focus-visible {
+        color: var(--tl-text-primary);
+        background: var(--tl-bg-surface-raised);
+    }
+
+    ::deep .listen-player__mode-button.is-active {
+        color: var(--tl-accent-primary);
+        background: var(--tl-accent-primary-soft);
+    }
+
     .listen-player__actions {
         justify-content: flex-end;
     }
 
     .listen-player-shell--audiobook .listen-player {
         --listen-skip-center-bg: #07111f;
-        border-color: rgba(245, 158, 11, 0.26);
+        border-color: color-mix(in srgb, var(--tl-accent-primary) 32%, transparent);
         background:
             linear-gradient(180deg, rgba(9, 20, 34, 0.96), rgba(6, 13, 24, 0.98)),
             var(--app-surface, #1e1f27);
@@ -163,7 +193,7 @@
 
     .listen-player-shell--audiobook .listen-player__progress-slider,
     .listen-player-shell--audiobook .listen-player__volume-slider {
-        accent-color: var(--tl-status-warning, #f59e0b);
+        accent-color: var(--tl-accent-primary);
     }
 
     .listen-player__progress {
@@ -275,7 +305,7 @@
 
     .listen-player-panel__tabs {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 8px;
         padding: 14px 16px 0;
     }
@@ -438,8 +468,8 @@
 
     ::deep .listen-player-panel__tool-row:hover,
     ::deep .listen-player-panel__tool-row.is-active {
-        background: rgba(245, 158, 11, 0.12);
-        color: var(--tl-status-warning, #f59e0b);
+        background: var(--tl-accent-primary-soft);
+        color: var(--tl-accent-primary);
     }
 
     ::deep .listen-player-panel__tool-row--chapter {
@@ -476,7 +506,7 @@
     }
 
     .listen-player-panel__resume {
-        color: var(--tl-status-warning, #f59e0b);
+        color: var(--tl-accent-primary);
         font-size: 0.8rem;
         font-weight: 700;
         white-space: nowrap;

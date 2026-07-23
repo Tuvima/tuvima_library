@@ -22,7 +22,6 @@ public sealed class CollectionReadServicesTests : IDisposable
         _database.RunStartupChecks();
         _browse = new CollectionBrowseReadService(
             new CollectionRepository(_database),
-            new PersonRepository(_database),
             _database,
             NullLogger<CollectionBrowseReadService>.Instance);
         _lookup = new CollectionMediaLookupReadService(_database);
@@ -199,6 +198,65 @@ public sealed class CollectionReadServicesTests : IDisposable
         Assert.Equal(seeded.PersonId, group.PersonId);
         Assert.Equal($"/persons/{seeded.PersonId:D}/headshot", group.PersonPhotoUrl);
         Assert.Contains(displayRole, group.PersonRoles, StringComparer.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task SystemViewGroups_PreferTheEnrichedArtistWhenDuplicateNamesExist()
+    {
+        var seeded = await SeedCreditedWorkAsync("Music", "artist", "Author", "Hans Zimmer");
+        var enrichedPersonId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                UPDATE persons
+                SET wikidata_qid = 'Q-WRONG',
+                    headshot_url = NULL,
+                    local_headshot_path = NULL,
+                    biography = NULL,
+                    enriched_at = NULL
+                WHERE id = @StubPersonId;
+
+                INSERT INTO persons (
+                    id,
+                    name,
+                    wikidata_qid,
+                    biography,
+                    occupation,
+                    local_headshot_path,
+                    created_at,
+                    enriched_at)
+                VALUES (
+                    @EnrichedPersonId,
+                    'Hans Zimmer',
+                    'Q-CANONICAL',
+                    'Canonical composer biography',
+                    'composer',
+                    'C:\assets\people\hans-zimmer.jpg',
+                    @Now,
+                    @Now);
+
+                INSERT INTO person_roles (person_id, role)
+                VALUES (@EnrichedPersonId, 'Performer');
+                """,
+                new
+                {
+                    StubPersonId = seeded.PersonId,
+                    EnrichedPersonId = enrichedPersonId,
+                    Now = DateTimeOffset.UtcNow.ToString("O"),
+                });
+        }
+
+        var group = Assert.Single(await _browse.GetSystemViewGroupsAsync(
+            "Music",
+            "artist",
+            CancellationToken.None));
+
+        Assert.Equal(enrichedPersonId, group.PersonId);
+        Assert.Equal($"/persons/{enrichedPersonId:D}/headshot", group.PersonPhotoUrl);
+        Assert.Contains("Artist", group.PersonRoles, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains("Performer", group.PersonRoles, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]

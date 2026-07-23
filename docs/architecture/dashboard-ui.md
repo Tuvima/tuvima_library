@@ -47,6 +47,8 @@ Listen playback is coordinated through `PlaybackSessionController` in `Services/
 
 Browser-only behavior belongs in `wwwroot/app.js` behind the `listenPlayback` bridge and is configured by `config/ui/playback-client.json`. User-facing listening settings remain in the playback settings API.
 
+The bottom player remains the persistent playback surface; Listen does not use a side player. Music exposes shuffle, repeat, queue, history, lyrics, volume, and a music-specific popout. Audiobooks expose speed, chapters, qualified listening history, bookmarks, sleep timer, volume, and an audiobook-specific popout. The Songs browse mode composes `ListenSongTable`, preserving artwork, play and queue controls, alternating row shading, drag targets for the queue and manual playlists, and resizable columns. `music_play_stats` stores play totals per profile; a play qualifies after 30 seconds of genuine forward playback, or after 50% for tracks shorter than 30 seconds. Forward seeks are excluded.
+
 ## Primary surfaces
 
 - `/` is Home/discovery, rendered by `LibraryBrowsePage` with a rotating cinematic hero and Read/Watch/Listen/Collections filters.

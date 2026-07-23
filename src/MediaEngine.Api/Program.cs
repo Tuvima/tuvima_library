@@ -289,6 +289,7 @@ builder.Services.AddSingleton<PlaybackStateRepository>();
 builder.Services.AddSingleton<PlaybackCapabilitiesService>();
 builder.Services.AddSingleton<PlayerSessionRepository>();
 builder.Services.AddSingleton<AudiobookListenHistoryRepository>();
+builder.Services.AddSingleton<MusicPlayStatsRepository>();
 builder.Services.AddSingleton<AudiobookBookmarkRepository>();
 builder.Services.AddSingleton<AudiobookChapterTitleOverrideRepository>();
 builder.Services.AddSingleton<AudiobookChapterNamingService>();

@@ -20,6 +20,7 @@ public sealed class PlayerService
     private readonly IUserPlaybackSettingsService _settings;
     private readonly AudiobookListenHistoryRepository _history;
     private readonly AudiobookBookmarkRepository _bookmarks;
+    private readonly MusicPlayStatsRepository _musicStats;
 
     public PlayerService(
         PlayerSessionRepository sessions,
@@ -29,7 +30,8 @@ public sealed class PlayerService
         IUserStateStore userStates,
         IUserPlaybackSettingsService settings,
         AudiobookListenHistoryRepository history,
-        AudiobookBookmarkRepository bookmarks)
+        AudiobookBookmarkRepository bookmarks,
+        MusicPlayStatsRepository musicStats)
     {
         _sessions = sessions;
         _playback = playback;
@@ -39,6 +41,7 @@ public sealed class PlayerService
         _settings = settings;
         _history = history;
         _bookmarks = bookmarks;
+        _musicStats = musicStats;
     }
 
     public async Task<PlayerStateDto> GetStateAsync(Guid? profileId, string? deviceId, string? client, CancellationToken ct = default)
@@ -283,6 +286,10 @@ public sealed class PlayerService
                 deviceId,
                 client,
                 ct);
+        }
+        else if (historyItem is not null && IsMusic(historyItem.MediaType))
+        {
+            await _musicStats.TrackHeartbeatAsync(profileId, historyItem, heartbeat, ct);
         }
 
         return await GetStateAsync(profileId, deviceId, client, ct);

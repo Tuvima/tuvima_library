@@ -47,6 +47,8 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? Description { get; set; }
     public string? Author { get; set; }
     public string? Artist { get; set; }
+    public Guid? ArtistPersonId { get; set; }
+    public string? ArtistPersonName { get; set; }
     public string? Album { get; set; }
     public string? Year { get; set; }
     public string? ContentRating { get; set; }

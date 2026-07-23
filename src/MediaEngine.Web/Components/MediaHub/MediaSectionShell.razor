@@ -15,7 +15,10 @@
                     var active = IsActive(item);
                     <a @key="item.Route"
                        href="@item.Route"
-                       class="media-section-shell__rail-item @(active ? "is-active" : null)"
+                       class="media-section-shell__rail-item @(active ? "is-active" : null) @(item.DropCollectionId.HasValue ? "is-drop-target" : null)"
+                       @ondragover:preventDefault="@item.DropCollectionId.HasValue"
+                       @ondrop:preventDefault="@item.DropCollectionId.HasValue"
+                       @ondrop="@(() => DropOnNavigationItemAsync(item))"
                        aria-current="@(active ? "page" : null)">
                         <MudIcon Icon="@item.Icon" />
                         <span>@item.Label</span>
@@ -38,6 +41,7 @@
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+    [Parameter] public EventCallback<Guid> OnNavigationItemDrop { get; set; }
 
     protected override void OnInitialized()
     {
@@ -79,6 +83,11 @@
     private static string NormalizePathAndQuery(Uri uri) => $"{NormalizePath(uri)}{uri.Query}";
 
     private static string NormalizePath(Uri uri) => uri.AbsolutePath.TrimEnd('/');
+
+    private Task DropOnNavigationItemAsync(MediaSectionNavigationItem item) =>
+        item.DropCollectionId is Guid collectionId && OnNavigationItemDrop.HasDelegate
+            ? OnNavigationItemDrop.InvokeAsync(collectionId)
+            : Task.CompletedTask;
 
     private static string GroupId(MediaSectionNavigationGroup group) =>
         $"media-section-{new string(group.Label.ToLowerInvariant().Select(character => char.IsLetterOrDigit(character) ? character : '-').ToArray()).Trim('-')}";

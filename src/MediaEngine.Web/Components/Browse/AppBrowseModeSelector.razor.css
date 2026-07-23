@@ -30,6 +30,18 @@
     border-right: 0;
 }
 
+.app-browse-mode ::deep .app-browse-mode__option:first-child {
+    border-radius: 9px 0 0 9px;
+}
+
+.app-browse-mode ::deep .app-browse-mode__option:last-child {
+    border-radius: 0 9px 9px 0;
+}
+
+.app-browse-mode ::deep .app-browse-mode__option:only-child {
+    border-radius: 9px;
+}
+
 .app-browse-mode ::deep .app-browse-mode__option:hover,
 .app-browse-mode ::deep .app-browse-mode__option:focus-visible {
     color: #fff;

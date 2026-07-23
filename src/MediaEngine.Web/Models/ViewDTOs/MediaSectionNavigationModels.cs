@@ -5,7 +5,8 @@ public sealed record MediaSectionNavigationItem(
     string Route,
     string Icon,
     string? Meta = null,
-    bool Exact = false);
+    bool Exact = false,
+    Guid? DropCollectionId = null);
 
 public sealed record MediaSectionNavigationGroup(
     string Label,

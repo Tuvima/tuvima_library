@@ -16,6 +16,7 @@ else
         <MediaTileShelf Shelf="@Shelf.ToMediaTileShelf()"
                         HoverMode="@HoverMode"
                         HideSourceBadges="@HideSourceBadges"
+                        HideGroupIndicators="@HideGroupIndicators"
                         ShowHeader="false"
                         ShowCompactCaptions="@(SectionType == MediaHubSectionType.Listen)"
                         UseContinueWatchingOrListeningTiles="@UseContinueWatchingOrListeningTiles" />
@@ -32,6 +33,11 @@ else
     private MediaTileHoverMode HoverMode => SectionType == MediaHubSectionType.Listen
         ? MediaTileHoverMode.GlowOnly
         : MediaTileHoverMode.Expanded;
+
+    private bool HideGroupIndicators =>
+        SectionType == MediaHubSectionType.Listen
+        && Shelf.Items.Count > 0
+        && Shelf.Items.All(item => item.Presentation == MediaTilePresentation.Album);
 
     private bool UseContinueWatchingOrListeningTiles =>
         Shelf.IsContinueShelf

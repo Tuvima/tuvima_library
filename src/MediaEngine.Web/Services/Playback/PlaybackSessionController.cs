@@ -64,6 +64,8 @@ public sealed class PlaybackSessionController
     public bool IsMuted { get; private set; }
     public bool IsPlaying { get; private set; } = true;
     public double PlaybackRate { get; private set; } = 1d;
+    public bool ShuffleEnabled { get; private set; }
+    public string RepeatMode { get; private set; } = PlayerRepeatModes.Off;
     public long PlaybackStartVersion { get; private set; }
     public string Experience { get; private set; } = PlayerExperienceModes.Music;
     public bool NeedsUserGestureToStart { get; private set; }
@@ -117,6 +119,8 @@ public sealed class PlaybackSessionController
         IsMuted = IsMuted,
         IsPlaying = IsPlaying,
         PlaybackRate = PlaybackRate,
+        ShuffleEnabled = ShuffleEnabled,
+        RepeatMode = RepeatMode,
         PlaybackStartVersion = PlaybackStartVersion,
         Experience = MediaKindClassifier.FromPlayerExperienceString(Experience),
         Phase = Phase,
@@ -603,7 +607,8 @@ public sealed class PlaybackSessionController
 
     public async Task<bool> SkipNextAsync(CancellationToken ct = default)
     {
-        if (CurrentIndex + 1 >= _queue.Count)
+        var nextIndex = ResolveNextIndex(automaticAdvance: false);
+        if (!nextIndex.HasValue)
         {
             CurrentTimeSeconds = DurationSeconds;
             IsPlaying = false;
@@ -612,20 +617,7 @@ public sealed class PlaybackSessionController
             return false;
         }
 
-        RememberCurrentItem();
-        CurrentIndex++;
-        Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(_queue[CurrentIndex].MediaType));
-        CurrentTimeSeconds = await InitialPositionForAsync(_queue[CurrentIndex], ct);
-        DurationSeconds = 0;
-        PlaybackRate = await InitialPlaybackRateForAsync(_queue[CurrentIndex], ct);
-        IsPlaying = true;
-        _stateMachine.SetLoading();
-        NeedsUserGestureToStart = false;
-        CurrentError = null;
-        await EnsurePlayableAsync(CurrentIndex, ct);
-        await RefreshAudiobookHistoryAsync(ct);
-        MarkPlaybackStart();
-        NotifyChanged();
+        await PlayIndexAsync(nextIndex.Value, ct);
         return true;
     }
 
@@ -655,12 +647,14 @@ public sealed class PlaybackSessionController
 
     public async Task CompleteCurrentAsync(CancellationToken ct = default)
     {
-        if (CurrentItem is not null)
+        var nextIndex = ResolveNextIndex(automaticAdvance: true);
+        if (CurrentItem is not null
+            && (!nextIndex.HasValue || nextIndex.Value == CurrentIndex))
         {
             AddHistoryItem(CurrentItem with { PlayedAt = DateTimeOffset.UtcNow });
         }
 
-        if (CurrentIndex + 1 >= _queue.Count)
+        if (!nextIndex.HasValue)
         {
             IsPlaying = false;
             CurrentTimeSeconds = DurationSeconds;
@@ -669,19 +663,33 @@ public sealed class PlaybackSessionController
             return;
         }
 
-        CurrentIndex++;
-        Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(_queue[CurrentIndex].MediaType));
-        CurrentTimeSeconds = await InitialPositionForAsync(_queue[CurrentIndex], ct);
-        DurationSeconds = 0;
-        PlaybackRate = await InitialPlaybackRateForAsync(_queue[CurrentIndex], ct);
-        IsPlaying = true;
-        _stateMachine.SetLoading();
-        NeedsUserGestureToStart = false;
-        CurrentError = null;
-        await EnsurePlayableAsync(CurrentIndex, ct);
-        await RefreshAudiobookHistoryAsync(ct);
-        MarkPlaybackStart();
-        NotifyChanged();
+        await PlayIndexAsync(nextIndex.Value, ct);
+    }
+
+    private int? ResolveNextIndex(bool automaticAdvance)
+    {
+        if (_queue.Count == 0 || CurrentIndex < 0)
+        {
+            return null;
+        }
+
+        if (automaticAdvance && RepeatMode == PlayerRepeatModes.One)
+        {
+            return CurrentIndex;
+        }
+
+        if (ShuffleEnabled && _queue.Count > 1)
+        {
+            var candidate = Random.Shared.Next(_queue.Count - 1);
+            return candidate >= CurrentIndex ? candidate + 1 : candidate;
+        }
+
+        if (CurrentIndex + 1 < _queue.Count)
+        {
+            return CurrentIndex + 1;
+        }
+
+        return RepeatMode == PlayerRepeatModes.All ? 0 : null;
     }
 
     public void RemoveUpcomingAt(int absoluteIndex)
@@ -1126,6 +1134,35 @@ public sealed class PlaybackSessionController
         return Task.CompletedTask;
     }
 
+    public async Task ToggleShuffleAsync(CancellationToken ct = default)
+    {
+        var next = !ShuffleEnabled;
+        ShuffleEnabled = next;
+        NotifyChanged(PlaybackChangeKind.TransportState);
+        await SyncPlayerModeAsync(
+            PlayerCommands.Shuffle,
+            shuffleEnabled: next,
+            repeatMode: null,
+            ct);
+    }
+
+    public async Task CycleRepeatModeAsync(CancellationToken ct = default)
+    {
+        var next = RepeatMode switch
+        {
+            PlayerRepeatModes.Off => PlayerRepeatModes.All,
+            PlayerRepeatModes.All => PlayerRepeatModes.One,
+            _ => PlayerRepeatModes.Off,
+        };
+        RepeatMode = next;
+        NotifyChanged(PlaybackChangeKind.TransportState);
+        await SyncPlayerModeAsync(
+            PlayerCommands.Repeat,
+            shuffleEnabled: null,
+            repeatMode: next,
+            ct);
+    }
+
     public async Task ReportHeartbeatAsync(bool force = false, CancellationToken ct = default)
     {
         if (_apiClient is null || CurrentItem?.AssetId is not Guid assetId)
@@ -1142,10 +1179,12 @@ public sealed class PlaybackSessionController
         _lastHeartbeatAt = now;
         try
         {
+            var profile = await _orchestrator.GetActiveProfileAsync(ct);
             var current = CurrentItem;
             var chapter = current is null ? null : ResolveCurrentChapter(current, CurrentTimeSeconds);
             var state = await _apiClient.PostPlayerHeartbeatAsync(new PlayerHeartbeatDto
             {
+                ProfileId = profile?.Id,
                 SessionId = _sessionId,
                 DeviceId = _clientContext.DeviceId,
                 Client = _clientContext.Client,
@@ -1230,6 +1269,8 @@ public sealed class PlaybackSessionController
         Volume = _clientSettings.DefaultVolume;
         IsMuted = false;
         PlaybackRate = 1d;
+        ShuffleEnabled = false;
+        RepeatMode = PlayerRepeatModes.Off;
         Experience = PlayerExperienceModes.Music;
         NeedsUserGestureToStart = false;
         IsPlaying = false;
@@ -1270,6 +1311,8 @@ public sealed class PlaybackSessionController
         Volume = snapshot.Volume is > 0 and <= 1 ? snapshot.Volume : _clientSettings.DefaultVolume;
         IsMuted = snapshot.IsMuted;
         PlaybackRate = snapshot.PlaybackRate is >= 0.5d and <= 32d ? snapshot.PlaybackRate : 1d;
+        ShuffleEnabled = snapshot.ShuffleEnabled;
+        RepeatMode = NormalizeRepeatMode(snapshot.RepeatMode);
         Experience = string.Equals(snapshot.Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase)
             ? PlayerExperienceModes.Audiobook
             : PlayerExperienceModes.Music;
@@ -1319,6 +1362,8 @@ public sealed class PlaybackSessionController
         Volume = Volume,
         IsMuted = IsMuted,
         PlaybackRate = PlaybackRate,
+        ShuffleEnabled = ShuffleEnabled,
+        RepeatMode = RepeatMode,
         NeedsUserGestureToStart = NeedsUserGestureToStart,
         IsPlaying = IsPlaying,
         IsPopupOpen = IsPopupOpen,
@@ -1486,9 +1531,11 @@ public sealed class PlaybackSessionController
 
         try
         {
+            var profile = await _orchestrator.GetActiveProfileAsync(ct);
             var start = Math.Clamp(startIndex, 0, items.Count - 1);
             await _apiClient.ReplacePlayerQueueAsync(new PlayerQueueMutationDto
             {
+                ProfileId = profile?.Id,
                 DeviceId = _clientContext.DeviceId,
                 Client = _clientContext.Client,
                 Items = items.Select(ToPlayerQueueMutationItem).ToList(),
@@ -1518,8 +1565,10 @@ public sealed class PlaybackSessionController
 
         try
         {
+            var profile = await _orchestrator.GetActiveProfileAsync(ct);
             await _apiClient.AddPlayerQueueItemsAsync(new PlayerQueueMutationDto
             {
+                ProfileId = profile?.Id,
                 DeviceId = _clientContext.DeviceId,
                 Client = _clientContext.Client,
                 Mode = mode,
@@ -1665,6 +1714,8 @@ public sealed class PlaybackSessionController
             ? PlayerExperienceModes.Audiobook
             : PlayerExperienceModes.Music;
         PlaybackRate = state.PlaybackRate is >= 0.5d and <= 32d ? state.PlaybackRate : PlaybackRate;
+        ShuffleEnabled = state.ShuffleEnabled;
+        RepeatMode = NormalizeRepeatMode(state.RepeatMode);
         _audiobookHistory.Clear();
         _audiobookHistory.AddRange(CleanAudiobookHistory(state.AudiobookHistory ?? []));
     }
@@ -1751,6 +1802,40 @@ public sealed class PlaybackSessionController
             AudiobookStartKinds.Bookmark => AudiobookStartKinds.Bookmark,
             _ => AudiobookStartKinds.Resume,
         };
+
+    private static string NormalizeRepeatMode(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            PlayerRepeatModes.One => PlayerRepeatModes.One,
+            PlayerRepeatModes.All => PlayerRepeatModes.All,
+            _ => PlayerRepeatModes.Off,
+        };
+
+    private async Task SyncPlayerModeAsync(
+        string command,
+        bool? shuffleEnabled,
+        string? repeatMode,
+        CancellationToken ct)
+    {
+        try
+        {
+            var profile = await _orchestrator.GetActiveProfileAsync();
+            var state = await _apiClient.SendPlayerCommandAsync(new PlayerCommandRequestDto
+            {
+                ProfileId = profile?.Id,
+                DeviceId = _clientContext.DeviceId,
+                Client = _clientContext.Client,
+                Command = command,
+                ShuffleEnabled = shuffleEnabled,
+                RepeatMode = repeatMode,
+            }, ct);
+            ApplyPlayerState(state);
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogDebug(ex, "Could not sync player mode command {Command}.", command);
+        }
+    }
 
     private async Task CompleteSleepTimerAfterDelayAsync(TimeSpan duration, CancellationToken ct)
     {

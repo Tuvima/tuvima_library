@@ -788,6 +788,27 @@ CREATE TABLE IF NOT EXISTS audiobook_bookmarks (
     created_at             TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS music_play_active_segments (
+    profile_id             BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
+    work_id                BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    asset_id               BLOB REFERENCES media_assets(id) ON DELETE SET NULL,
+    queue_item_id          BLOB,
+    started_at             TEXT NOT NULL,
+    last_position_seconds  REAL NOT NULL DEFAULT 0.0,
+    listened_seconds       REAL NOT NULL DEFAULT 0.0,
+    duration_seconds       REAL,
+    qualified              INTEGER NOT NULL DEFAULT 0 CHECK (qualified IN (0, 1)),
+    last_heartbeat_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS music_play_stats (
+    profile_id             BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    work_id                BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
+    play_count             INTEGER NOT NULL DEFAULT 0,
+    last_played_at         TEXT NOT NULL,
+    PRIMARY KEY (profile_id, work_id)
+);
+
 CREATE TABLE IF NOT EXISTS audiobook_chapter_title_overrides (
     work_id                BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
     asset_id               BLOB NOT NULL REFERENCES media_assets(id) ON DELETE CASCADE,
@@ -1456,6 +1477,9 @@ CREATE INDEX IF NOT EXISTS idx_audiobook_listen_history_profile_work
 
 CREATE INDEX IF NOT EXISTS idx_audiobook_listen_history_profile_asset
     ON audiobook_listen_history(profile_id, asset_id, ended_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_music_play_stats_profile_recent
+    ON music_play_stats(profile_id, last_played_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_audiobook_bookmarks_profile_work
     ON audiobook_bookmarks(profile_id, work_id, created_at DESC);

@@ -1,3 +1,4 @@
+using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Display;
 
 namespace MediaEngine.Api.Services.Display;
@@ -7,12 +8,18 @@ public sealed class DisplayComposerService
     private readonly IDisplayProjectionRepository _repository;
     private readonly DisplayCardBuilder _cards;
     private readonly DisplayShelfBuilder _shelves;
+    private readonly MusicPlayStatsRepository? _musicStats;
 
-    public DisplayComposerService(IDisplayProjectionRepository repository, DisplayCardBuilder cards, DisplayShelfBuilder shelves)
+    public DisplayComposerService(
+        IDisplayProjectionRepository repository,
+        DisplayCardBuilder cards,
+        DisplayShelfBuilder shelves,
+        MusicPlayStatsRepository? musicStats = null)
     {
         _repository = repository;
         _cards = cards;
         _shelves = shelves;
+        _musicStats = musicStats;
     }
 
     public async Task<DisplayPageDto> BuildHomeAsync(bool includeCatalog = true, Guid? profileId = null, CancellationToken ct = default, int shelfLimit = 18)
@@ -275,12 +282,20 @@ public sealed class DisplayComposerService
         }
 
         var context = normalizedLane ?? "browse";
-        var cards = filteredWorks
+        var pagedWorks = filteredWorks
             .Skip(Math.Max(0, offset))
             .Take(Math.Clamp(limit <= 0 ? 48 : limit, 1, 200))
+            .ToList();
+        var musicStats = _musicStats is not null
+                         && profileId.HasValue
+                         && pagedWorks.Any(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
+            ? await _musicStats.GetStatsAsync(profileId.Value, pagedWorks.Select(work => work.WorkId), ct)
+            : new Dictionary<Guid, MusicPlayStat>();
+        var cards = pagedWorks
             .Select(work => MarkFavorite(
                 _cards.FromWork(work, context, progressByWork.GetValueOrDefault(work.WorkId)),
                 favoriteWorkIds))
+            .Select(card => ApplyMusicStats(card, musicStats))
             .ToList();
 
         return new DisplayPageDto(
@@ -746,6 +761,27 @@ public sealed class DisplayComposerService
         return card with { Flags = card.Flags with { IsFavorite = true } };
     }
 
+    private static DisplayCardDto ApplyMusicStats(
+        DisplayCardDto card,
+        IReadOnlyDictionary<Guid, MusicPlayStat> stats)
+    {
+        if (card.WorkId is not Guid workId
+            || card.ListMetadata is null
+            || !stats.TryGetValue(workId, out var stat))
+        {
+            return card;
+        }
+
+        return card with
+        {
+            ListMetadata = card.ListMetadata with
+            {
+                PlayCount = stat.PlayCount,
+                LastPlayedAt = stat.LastPlayedAt,
+            },
+        };
+    }
+
     private static DisplayCardDto? ToMusicAlbumCard(IReadOnlyList<DisplayWorkRow> works)
     {
         if (works.Count == 0)
@@ -813,12 +849,21 @@ public sealed class DisplayComposerService
             .OrderByDescending(work => !string.IsNullOrWhiteSpace(work.SquareUrl) || !string.IsNullOrWhiteSpace(work.CoverUrl))
             .ThenByDescending(work => work.CreatedAt)
             .First();
+        var artistPersonId = works
+            .Where(work => work.ArtistPersonId.HasValue)
+            .OrderByDescending(work => string.Equals(work.ArtistPersonName, artist, StringComparison.OrdinalIgnoreCase))
+            .ThenBy(work => work.ArtistPersonName, StringComparer.OrdinalIgnoreCase)
+            .Select(work => work.ArtistPersonId)
+            .FirstOrDefault();
         var albumCount = works
             .Select(work => work.Album)
             .Where(album => !string.IsNullOrWhiteSpace(album))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
-        var action = new DisplayActionDto("openCollection", "Browse artist", representative.WorkId, representative.AssetId, representative.CollectionId, $"/listen/music/artists/{Uri.EscapeDataString(artist)}");
+        var route = artistPersonId.HasValue
+            ? $"/details/person/{artistPersonId.Value:D}"
+            : $"/search?q={Uri.EscapeDataString(artist)}&type=person";
+        var action = new DisplayActionDto("openPerson", "Open artist", representative.WorkId, representative.AssetId, representative.CollectionId, route);
 
         return new DisplayCardDto(
             Id: representative.CollectionId ?? representative.WorkId,

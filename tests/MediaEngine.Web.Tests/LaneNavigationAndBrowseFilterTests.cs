@@ -54,6 +54,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var sectionShellStyles = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor.css");
         var browseShell = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
         var browseShellStyles = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor.css");
+        var browseModeStyles = ReadSource("src/MediaEngine.Web/Components/Browse/AppBrowseModeSelector.razor.css");
         var multiSelect = ReadSource("src/MediaEngine.Web/Components/Browse/BrowseMultiSelect.razor");
         var multiSelectStyles = ReadSource("src/MediaEngine.Web/Components/Browse/BrowseMultiSelect.razor.css");
         var mediaShelf = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaShelf.razor");
@@ -108,6 +109,10 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("SelectedValuesChanged=\"OnYearsChanged\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("SupportsFacetFilters => true", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppBrowseModeSelector", browseShell, StringComparison.Ordinal);
+        Assert.Contains(".app-browse-mode__option:first-child", browseModeStyles, StringComparison.Ordinal);
+        Assert.Contains("border-radius: 9px 0 0 9px", browseModeStyles, StringComparison.Ordinal);
+        Assert.Contains(".app-browse-mode__option:last-child", browseModeStyles, StringComparison.Ordinal);
+        Assert.Contains("border-radius: 0 9px 9px 0", browseModeStyles, StringComparison.Ordinal);
         Assert.Contains("<AppQuickFilterToggle", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppActiveFilterSummary", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppTimelineResults", browseShell, StringComparison.Ordinal);

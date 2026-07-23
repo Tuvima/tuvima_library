@@ -1,5 +1,5 @@
 .listen-popup {
-    --listen-accent: var(--tl-status-warning, #f59e0b);
+    --listen-accent: var(--tl-accent-primary);
     --listen-skip-center-bg: #07111f;
     height: 100dvh;
     min-height: 0;
@@ -9,7 +9,7 @@
     flex-direction: column;
     color: rgba(248, 250, 252, 0.94);
     background:
-        radial-gradient(circle at 50% 12%, rgba(245, 158, 11, 0.18), transparent 24rem),
+        radial-gradient(circle at 50% 12%, color-mix(in srgb, var(--listen-accent) 22%, transparent), transparent 24rem),
         linear-gradient(180deg, rgba(8, 18, 32, 0.92), rgba(4, 10, 19, 0.98)),
         #07111f;
 }
@@ -115,6 +115,10 @@
     display: block;
 }
 
+.listen-popup--audiobook .listen-popup__cover img {
+    object-fit: contain;
+}
+
 .listen-popup__identity {
     width: 100%;
     text-align: center;
@@ -196,18 +200,26 @@
 }
 
 .listen-popup__sheet-action {
-    width: 62px;
-    height: 62px;
-    min-width: 62px;
-    min-height: 62px;
-    border-radius: 999px;
+    width: 100%;
+    min-width: 0;
+    min-height: 66px;
+    border-radius: 12px;
     background: transparent;
     color: rgba(226, 232, 240, 0.82);
-    display: inline-flex;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
     align-items: center;
     justify-content: center;
-    padding: 0;
+    padding: 6px 4px;
     text-align: center;
+}
+
+.listen-popup__sheet-action:hover,
+.listen-popup__sheet-action:focus-visible,
+.listen-popup__sheet-action.is-active {
+    background: color-mix(in srgb, var(--listen-accent) 14%, transparent);
+    color: var(--listen-accent);
 }
 
 .listen-popup__sheet-action span {
@@ -217,7 +229,9 @@
 
 .listen-popup__music-actions {
     width: 100%;
-    gap: 16px;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 5px;
 }
 
 .listen-popup-sheet {
@@ -247,6 +261,69 @@
     min-height: 0;
     overflow: auto;
     padding: 0 24px 24px;
+}
+
+.listen-popup-sheet__music-list {
+    min-height: 0;
+    overflow: auto;
+    padding: 0 20px 24px;
+}
+
+::deep .listen-popup-sheet__music-row {
+    width: 100%;
+    min-height: 64px;
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 6px;
+    border: 0;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+    background: transparent;
+    color: rgba(248, 250, 252, 0.92);
+    cursor: pointer;
+    text-align: left;
+}
+
+::deep .listen-popup-sheet__music-row:hover,
+::deep .listen-popup-sheet__music-row:focus-visible {
+    background: color-mix(in srgb, var(--listen-accent) 12%, transparent);
+}
+
+.listen-popup-sheet__music-thumb {
+    width: 42px;
+    height: 42px;
+    overflow: hidden;
+    border-radius: 6px;
+    display: grid;
+    place-items: center;
+    background: rgba(148, 163, 184, 0.14);
+    color: rgba(203, 213, 225, 0.72);
+}
+
+.listen-popup-sheet__music-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.listen-popup-sheet__music-copy {
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+}
+
+.listen-popup-sheet__music-copy strong,
+.listen-popup-sheet__music-copy span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.listen-popup-sheet__music-copy span,
+.listen-popup-sheet__duration {
+    color: rgba(203, 213, 225, 0.68);
+    font-size: 0.82rem;
 }
 
 .listen-popup-sheet__row {

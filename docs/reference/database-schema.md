@@ -627,6 +627,33 @@ Display-only audiobook chapter title overrides. These can come from manual entry
 | `title_source` | TEXT | `Override` or `AiSuggested` |
 | `updated_at` | TEXT | Timestamp |
 
+### music_play_active_segments
+
+One in-flight music listening segment per profile. This transient row accumulates genuine forward playback time while excluding seeks and is replaced when the active track or queue item changes.
+
+| Column | Type | Notes |
+|---|---|---|
+| `profile_id` | BLOB | FK -> `profiles.id`; primary key |
+| `work_id` | BLOB | FK -> `works.id` |
+| `asset_id` | BLOB | Optional FK -> `media_assets.id` |
+| `queue_item_id` | BLOB | Player queue identity |
+| `last_position_seconds` | REAL | Most recent observed transport position |
+| `listened_seconds` | REAL | Credited playback time for this segment |
+| `duration_seconds` | REAL | Track duration when known |
+| `qualified` | INTEGER | Whether this segment has already incremented the play count |
+| `last_heartbeat_at` | TEXT | Timestamp used for gap and seek detection |
+
+### music_play_stats
+
+Durable per-profile music play totals. A play qualifies after 30 seconds, or 50% of duration for a track shorter than 30 seconds.
+
+| Column | Type | Notes |
+|---|---|---|
+| `profile_id` | BLOB | FK -> `profiles.id`; part of primary key |
+| `work_id` | BLOB | FK -> `works.id`; part of primary key |
+| `play_count` | INTEGER | Qualified play total |
+| `last_played_at` | TEXT | Timestamp of the most recent qualified play |
+
 ### reader_highlights
 
 Text highlights and annotations.

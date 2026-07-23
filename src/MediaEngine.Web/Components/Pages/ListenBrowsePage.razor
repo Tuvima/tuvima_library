@@ -8,13 +8,18 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject MediaTileComposerService MediaTiles
+@inject ListenAudioDragService AudioDrag
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@inject ILogger<ListenBrowsePage> Logger
 
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Listen - Tuvima</PageTitle>
 
-<MediaSectionShell Title="Listen" NavigationGroups="@ListenNavigationGroups">
+<MediaSectionShell Title="Listen"
+                   NavigationGroups="@ListenNavigationGroups"
+                   OnNavigationItemDrop="AddDraggedSongsToPlaylistAsync">
     <MediaLaneHeader Title="Listen"
                      Modes="@ListenBrowseConfiguration.LaneModes"
                      ActiveMode="@ActiveListenMode" />
@@ -70,6 +75,7 @@
     private Guid? _activeProfileId;
     private bool _loading = true;
     private bool _loadFailed;
+    private bool _playlistsLoaded;
 
     private string ActiveListenMode => NormalizedTab switch
     {
@@ -84,31 +90,48 @@
         ListenBrowseConfiguration.Preset.Tabs.Any(
             tab => string.Equals(tab.Id, NormalizedTab, StringComparison.OrdinalIgnoreCase));
 
-    private static IReadOnlyList<MediaSectionNavigationGroup> ListenNavigationGroups =>
-    [
-        new("Library",
-        [
-            new("Discover", "/listen", Icons.Material.Outlined.Explore, Exact: true),
-            new("Music", "/listen/music", Icons.Material.Outlined.MusicNote),
-            new("Audiobooks", "/listen/audiobooks", Icons.Material.Outlined.Headphones),
-        ]),
-        new("Listen next",
-        [
-            new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
-            new("Continue Listening", "/listen/audiobooks?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
-            new("Recently Played", "/listen/music?sort=recently-played", Icons.Material.Outlined.History, Exact: true),
-            new("Recently Added", "/listen/music?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
-        ]),
-        MediaBrowseNavigationBuilder.BuildBrowseGroup(
-            ListenBrowseConfiguration.Preset,
-            "Music",
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "music" }),
-        new("Playlists",
-        [
-            new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
-            new("All Playlists", "/listen/music?browse=playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
-        ]),
-    ];
+    private IReadOnlyList<MediaSectionNavigationGroup> ListenNavigationGroups
+    {
+        get
+        {
+            var playlistItems = new List<MediaSectionNavigationItem>
+            {
+                new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
+                new("All Playlists", "/listen/music?browse=playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
+            };
+            playlistItems.AddRange(_playlists
+                .Where(playlist => string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+                .Take(8)
+                .Select(playlist => new MediaSectionNavigationItem(
+                    playlist.Name,
+                    $"/listen/music/playlists/{playlist.Id:D}",
+                    Icons.Material.Outlined.PlaylistPlay,
+                    playlist.ItemCount.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    DropCollectionId: playlist.Id)));
+
+            return
+            [
+                new("Library",
+                [
+                    new("Discover", "/listen", Icons.Material.Outlined.Explore, Exact: true),
+                    new("Music", "/listen/music", Icons.Material.Outlined.MusicNote),
+                    new("Audiobooks", "/listen/audiobooks", Icons.Material.Outlined.Headphones),
+                ]),
+                new("Listen next",
+                [
+                    new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
+                    new("Continue Listening", "/listen/audiobooks?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
+                    new("Recently Played", "/listen/music?sort=recently-played", Icons.Material.Outlined.History, Exact: true),
+                    new("Recently Added", "/listen/music?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
+                ]),
+                MediaBrowseNavigationBuilder.BuildBrowseGroup(
+                    ListenBrowseConfiguration.Preset,
+                    "Music",
+                    new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "music" }),
+                new("Playlists", playlistItems),
+            ];
+        }
+    }
 
     private IReadOnlyList<MediaHubShelfViewModel> ListenHubShelves
     {
@@ -168,6 +191,8 @@
             }
         }
 
+        await EnsurePlaylistNavigationAsync();
+
         if (!string.IsNullOrWhiteSpace(Tab) || _landingPage is not null)
         {
             _loading = false;
@@ -175,6 +200,33 @@
         }
 
         await LoadLandingAsync();
+    }
+
+    private async Task EnsurePlaylistNavigationAsync()
+    {
+        if (_playlistsLoaded)
+        {
+            return;
+        }
+
+        try
+        {
+            _activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
+            _playlists = (await ApiClient.GetManagedCollectionsAsync(_activeProfileId))
+                .Where(IsUserVisiblePlaylist)
+                .OrderByDescending(playlist => playlist.ModifiedAt ?? playlist.CreatedAt)
+                .ThenBy(playlist => playlist.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not load Listen playlist shortcuts.");
+            _playlists = [];
+        }
+        finally
+        {
+            _playlistsLoaded = true;
+        }
     }
 
     private Guid? RequestedTrackId
@@ -193,25 +245,54 @@
 
         try
         {
-            _activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
-            var landingTask = MediaTiles.BuildListenAsync(_activeProfileId);
-            var playlistsTask = ApiClient.GetManagedCollectionsAsync(_activeProfileId);
-            await Task.WhenAll(landingTask, playlistsTask);
-            _landingPage = await landingTask;
-            _playlists = (await playlistsTask)
-                .Where(IsUserVisiblePlaylist)
-                .OrderByDescending(playlist => playlist.ModifiedAt ?? playlist.CreatedAt)
-                .ThenBy(playlist => playlist.Name, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            _landingPage = await MediaTiles.BuildListenAsync(_activeProfileId);
         }
-        catch
+        catch (Exception ex)
         {
             _loadFailed = true;
+            Logger.LogError(ex, "Failed to load the Listen landing page.");
         }
         finally
         {
             _loading = false;
         }
+    }
+
+    private async Task AddDraggedSongsToPlaylistAsync(Guid playlistId)
+    {
+        if (!AudioDrag.HasItems)
+        {
+            return;
+        }
+
+        var playlist = _playlists.FirstOrDefault(item => item.Id == playlistId);
+        if (playlist is null
+            || !string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        var workIds = AudioDrag.WorkIds.ToList();
+        var added = 0;
+        foreach (var workId in workIds)
+        {
+            if (await ApiClient.AddCollectionItemAsync(playlistId, workId, _activeProfileId))
+            {
+                added++;
+            }
+        }
+
+        AudioDrag.Clear();
+        if (added == 0)
+        {
+            Snackbar.Add("Those songs are already in the playlist or could not be added.", Severity.Info);
+            return;
+        }
+
+        playlist.ItemCount += added;
+        Snackbar.Add(
+            added == 1 ? $"Added a song to {playlist.Name}." : $"Added {added} songs to {playlist.Name}.",
+            Severity.Success);
     }
 
     private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection) =>

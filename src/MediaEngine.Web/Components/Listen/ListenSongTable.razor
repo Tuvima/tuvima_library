@@ -44,11 +44,11 @@
         @{
             var trackTitle = DisplayTrackTitle(track);
         }
-        <AppCssElement Tag="div" Class="listen-song-table__row"
+        <AppCssElement Tag="div" Class="@RowClass(track)"
              @key="track.Id"
              Css="@($"grid-template-columns: {GridTemplate}")"
              role="row"
-             draggable="true"
+             draggable="@EnableDrag"
              @ondragstart="@(() => StartDragAsync(track.Id))"
              @ondragend="EndDragAsync"
              @ondblclick="@(() => PlayAsync(track.Id, false))">
@@ -143,6 +143,10 @@
     [Parameter] public bool ShowGenre { get; set; } = true;
     [Parameter] public bool ShowPlays { get; set; } = true;
     [Parameter] public bool ShowDateAdded { get; set; } = true;
+    [Parameter] public bool ShowFavorite { get; set; } = true;
+    [Parameter] public bool ShowQueue { get; set; } = true;
+    [Parameter] public bool ShowEditDelete { get; set; } = true;
+    [Parameter] public Guid? CurrentWorkId { get; set; }
     [Parameter] public string DefaultSortColumn { get; set; } = "dateAdded";
     [Parameter] public bool DefaultSortDescending { get; set; } = true;
     [Parameter] public Func<IReadOnlyList<WorkViewModel>, Guid?, string?, bool, Task>? OnPlayRequested { get; set; }
@@ -198,8 +202,14 @@
         "genre" => ShowGenre,
         "plays" => ShowPlays,
         "dateAdded" => ShowDateAdded,
+        "favorite" => ShowFavorite,
+        "queue" => ShowQueue,
+        "editDelete" => ShowEditDelete,
         _ => true,
     };
+
+    private string RowClass(WorkViewModel track) =>
+        $"listen-song-table__row {(CurrentWorkId == track.Id ? "is-playing" : string.Empty)}".Trim();
 
     private static bool IsSortableColumn(string key) => key is not "queue" and not "editDelete";
 

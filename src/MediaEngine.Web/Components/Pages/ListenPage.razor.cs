@@ -2087,7 +2087,13 @@ public partial class ListenPage
     }
 
     private void OpenArtist(string artistName)
-        => NavigateTo($"/listen/music/artists/{Uri.EscapeDataString(artistName)}");
+    {
+        var identity = _artistGroups.FirstOrDefault(group =>
+            string.Equals(group.DisplayName, artistName, StringComparison.OrdinalIgnoreCase));
+        NavigateTo(MediaPersonGroupTileComposer.NavigationUrl(
+            identity?.PersonId ?? identity?.ArtistPersonId,
+            artistName));
+    }
 
     private Task OnTrackArtistClicked(string artistName)
     {

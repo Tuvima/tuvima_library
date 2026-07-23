@@ -12,6 +12,7 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("app.MapPlayerEndpoints();", routeBuilderSource, StringComparison.Ordinal);
         Assert.Contains("builder.Services.AddSingleton<PlayerSessionRepository>();", programSource, StringComparison.Ordinal);
         Assert.Contains("builder.Services.AddSingleton<AudiobookListenHistoryRepository>();", programSource, StringComparison.Ordinal);
+        Assert.Contains("builder.Services.AddSingleton<MusicPlayStatsRepository>();", programSource, StringComparison.Ordinal);
         Assert.Contains("builder.Services.AddSingleton<AudiobookBookmarkRepository>();", programSource, StringComparison.Ordinal);
         Assert.Contains("builder.Services.AddSingleton<AudiobookChapterTitleOverrideRepository>();", programSource, StringComparison.Ordinal);
         Assert.Contains("builder.Services.AddSingleton<AudiobookChapterNamingService>();", programSource, StringComparison.Ordinal);
@@ -52,6 +53,8 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("CREATE TABLE IF NOT EXISTS audiobook_listen_active_segments", schema, StringComparison.Ordinal);
         Assert.Contains("CREATE TABLE IF NOT EXISTS audiobook_listen_history", schema, StringComparison.Ordinal);
         Assert.Contains("CREATE TABLE IF NOT EXISTS audiobook_bookmarks", schema, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS music_play_active_segments", schema, StringComparison.Ordinal);
+        Assert.Contains("CREATE TABLE IF NOT EXISTS music_play_stats", schema, StringComparison.Ordinal);
         Assert.Contains("CREATE TABLE IF NOT EXISTS audiobook_chapter_title_overrides", schema, StringComparison.Ordinal);
         Assert.Contains("position_seconds", schema, StringComparison.Ordinal);
         Assert.Contains("progress_pct", schema, StringComparison.Ordinal);

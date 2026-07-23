@@ -133,7 +133,6 @@ public sealed class CollectionSystemViewPreviewReadModel
 
 public sealed class CollectionBrowseReadService(
     ICollectionRepository collectionRepo,
-    IPersonRepository personRepo,
     IDatabaseConnection db,
     ILogger<CollectionBrowseReadService> logger) : ICollectionBrowseReadService
 {
@@ -876,13 +875,16 @@ public sealed class CollectionBrowseReadService(
             {
                 try
                 {
-                    var person = await personRepo.FindByNameAsync(row.GroupName, ct).ConfigureAwait(false);
+                    var person = await ResolvePreferredPersonAsync(
+                        row.GroupName,
+                        groupByField,
+                        ct).ConfigureAwait(false);
                     if (person is not null)
                     {
                         personId = person.Id;
                         personRoles = BuildPersonRoles(
                             ResolvePersonDisplayRole(primaryMediaType, groupByField),
-                            person.Roles);
+                            person.StoredRoles);
                         if (!string.IsNullOrWhiteSpace(person.LocalHeadshotPath)
                             || !string.IsNullOrWhiteSpace(person.HeadshotUrl))
                         {
@@ -946,6 +948,63 @@ public sealed class CollectionBrowseReadService(
         }
     }
 
+    private async Task<PreferredPersonRouteReadModel?> ResolvePreferredPersonAsync(
+        string personName,
+        string groupByField,
+        CancellationToken ct)
+    {
+        var preferredRoles = groupByField.Trim().ToLowerInvariant() switch
+        {
+            "artist" => new[] { "Artist", "Performer", "Composer" },
+            "author" => new[] { "Author", "Screenwriter" },
+            "director" => new[] { "Director" },
+            "narrator" => new[] { "Narrator", "Voice Actor" },
+            _ => Array.Empty<string>(),
+        };
+
+        using var conn = db.CreateConnection();
+        return await conn.QuerySingleOrDefaultAsync<PreferredPersonRouteReadModel>(new CommandDefinition(
+            """
+            SELECT
+                person.id AS Id,
+                person.local_headshot_path AS LocalHeadshotPath,
+                person.headshot_url AS HeadshotUrl,
+                GROUP_CONCAT(role.role, '|') AS RolesCsv
+            FROM persons person
+            LEFT JOIN person_roles role ON role.person_id = person.id
+            WHERE person.name = @PersonName COLLATE NOCASE
+            GROUP BY
+                person.id,
+                person.local_headshot_path,
+                person.headshot_url,
+                person.biography,
+                person.wikidata_qid,
+                person.enriched_at,
+                person.created_at
+            ORDER BY
+                CASE WHEN EXISTS (
+                    SELECT 1
+                    FROM person_roles preferred_role
+                    WHERE preferred_role.person_id = person.id
+                      AND preferred_role.role IN @PreferredRoles
+                ) THEN 0 ELSE 1 END,
+                CASE WHEN NULLIF(TRIM(person.local_headshot_path), '') IS NOT NULL THEN 0 ELSE 1 END,
+                CASE WHEN NULLIF(TRIM(person.headshot_url), '') IS NOT NULL THEN 0 ELSE 1 END,
+                CASE WHEN NULLIF(TRIM(person.biography), '') IS NOT NULL THEN 0 ELSE 1 END,
+                CASE WHEN person.enriched_at IS NOT NULL THEN 0 ELSE 1 END,
+                CASE WHEN NULLIF(TRIM(person.wikidata_qid), '') IS NOT NULL THEN 0 ELSE 1 END,
+                person.created_at,
+                person.id
+            LIMIT 1
+            """,
+            new
+            {
+                PersonName = personName,
+                PreferredRoles = preferredRoles,
+            },
+            cancellationToken: ct)).ConfigureAwait(false);
+    }
+
     private static int? ToInt32(long? value) =>
         value is >= int.MinValue and <= int.MaxValue ? (int)value.Value : null;
 
@@ -989,4 +1048,15 @@ public sealed class CollectionBrowseReadService(
     }
 
     private sealed record PrimaryAssetReadRow(Guid WorkId, Guid? AssetId);
+
+    private sealed record PreferredPersonRouteReadModel
+    {
+        public Guid Id { get; init; }
+        public string? LocalHeadshotPath { get; init; }
+        public string? HeadshotUrl { get; init; }
+        public string? RolesCsv { get; init; }
+        public IReadOnlyList<string> StoredRoles => string.IsNullOrWhiteSpace(RolesCsv)
+            ? []
+            : RolesCsv.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+    }
 }

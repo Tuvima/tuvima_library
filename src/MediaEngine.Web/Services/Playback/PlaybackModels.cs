@@ -155,6 +155,8 @@ public sealed record PlaybackSessionState
     public bool IsMuted { get; init; }
     public bool IsPlaying { get; init; }
     public double PlaybackRate { get; init; }
+    public bool ShuffleEnabled { get; init; }
+    public string RepeatMode { get; init; } = PlayerRepeatModes.Off;
     public long PlaybackStartVersion { get; init; }
     public PlaybackExperience Experience { get; init; } = PlaybackExperience.Music;
     public PlaybackPhase Phase { get; init; } = PlaybackPhase.Idle;
@@ -307,6 +309,12 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("playback_rate")]
     public double PlaybackRate { get; init; } = 1d;
+
+    [JsonPropertyName("shuffle_enabled")]
+    public bool ShuffleEnabled { get; init; }
+
+    [JsonPropertyName("repeat_mode")]
+    public string RepeatMode { get; init; } = PlayerRepeatModes.Off;
 
     [JsonPropertyName("needs_user_gesture_to_start")]
     public bool NeedsUserGestureToStart { get; init; }

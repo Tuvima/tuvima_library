@@ -94,7 +94,11 @@ public sealed record DisplayCardListMetadataDto(
     string? Year,
     string? ShowName,
     string? SeasonNumber,
-    string? EpisodeNumber);
+    string? EpisodeNumber)
+{
+    public int? PlayCount { get; init; }
+    public DateTimeOffset? LastPlayedAt { get; init; }
+}
 
 public sealed record DisplayCardBadgeDto(
     string Kind,

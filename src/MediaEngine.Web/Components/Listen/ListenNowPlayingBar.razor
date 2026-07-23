@@ -8,10 +8,12 @@
 @using MediaEngine.Web.Services.Playback
 @using MediaEngine.Web.Services.Integration
 @inject PlaybackSessionController Playback
+@inject ListenAudioDragService AudioDrag
 @inject IEngineApiClient ApiClient
 @inject IJSRuntime JS
 @inject ILogger<ListenNowPlayingBar> Logger
 @inject NavigationManager Nav
+@inject ISnackbar Snackbar
 @implements IAsyncDisposable
 
 <audio @ref="_audioRef"
@@ -28,7 +30,12 @@
 
 @if (Playback.HasQueue && Playback.CurrentItem is not null)
 {
-    <div class="@PlayerShellClass" @ref="_playerShellRef" tabindex="0">
+    <div class="@PlayerShellClass"
+         @ref="_playerShellRef"
+         tabindex="0"
+         @ondragover:preventDefault="true"
+         @ondrop:preventDefault="true"
+         @ondrop="QueueDraggedItemsAsync">
         @if (Playback.IsPanelOpen)
         {
             <div class="listen-player-panel-backdrop" role="presentation" aria-hidden="true" @onclick="Playback.ClosePanel"></div>
@@ -324,27 +331,51 @@
             </div>
 
             <div class="listen-player__transport">
-                <ListenTransportControls Variant="bar"
-                                         IsAudiobookMode="@Playback.IsAudiobookMode"
-                                         IsPlaying="@Playback.IsPlaying"
-                                         NeedsUserGestureToStart="@Playback.NeedsUserGestureToStart"
-                                         IsMuted="@Playback.IsMuted"
-                                         HasChapters="@(Playback.CurrentItem?.Chapters.Count is > 0)"
-                                         CanPreviousTrack="@(Playback.CurrentIndex > 0)"
-                                         CanNextTrack="@(Playback.CurrentIndex < Playback.Queue.Count - 1)"
-                                         SkipBackSeconds="@Playback.SkipBackSeconds"
-                                         SkipForwardSeconds="@Playback.SkipForwardSeconds"
-                                         CurrentBrowserStreamUrl="@Playback.CurrentBrowserStreamUrl"
-                                         CurrentTimeSeconds="@Playback.CurrentTimeSeconds"
-                                         PlaybackRate="@Playback.PlaybackRate"
-                                         Volume="@Playback.Volume"
-                                         OnTogglePlay="TogglePlayPauseAsync"
-                                         OnPreviousTrack="PlayPreviousAsync"
-                                         OnNextTrack="PlayNextAsync"
-                                         OnPreviousChapter="PlayPreviousChapterAsync"
-                                         OnNextChapter="PlayNextChapterAsync"
-                                         OnSkipBack="SkipBackAsync"
-                                         OnSkipForward="SkipForwardAsync" />
+                <div class="listen-player__transport-line">
+                    @if (Playback.IsMusicMode)
+                    {
+                        <AppNativeButton Type="button"
+                                         Class="@PlayerModeButtonClass(Playback.ShuffleEnabled)"
+                                         OnClick="@(() => Playback.ToggleShuffleAsync())"
+                                         AriaLabel="Toggle shuffle"
+                                         title="Shuffle"
+                                         aria-pressed="@Playback.ShuffleEnabled">
+                            <MudIcon Icon="@Icons.Material.Outlined.Shuffle" Class="tl-u-font-size-18px" />
+                        </AppNativeButton>
+                    }
+                    <ListenTransportControls Variant="bar"
+                                             IsAudiobookMode="@Playback.IsAudiobookMode"
+                                             IsPlaying="@Playback.IsPlaying"
+                                             NeedsUserGestureToStart="@Playback.NeedsUserGestureToStart"
+                                             IsMuted="@Playback.IsMuted"
+                                             HasChapters="@(Playback.CurrentItem?.Chapters.Count is > 0)"
+                                             CanPreviousTrack="@(Playback.CurrentIndex > 0)"
+                                             CanNextTrack="@CanPlayNext"
+                                             SkipBackSeconds="@Playback.SkipBackSeconds"
+                                             SkipForwardSeconds="@Playback.SkipForwardSeconds"
+                                             CurrentBrowserStreamUrl="@Playback.CurrentBrowserStreamUrl"
+                                             CurrentTimeSeconds="@Playback.CurrentTimeSeconds"
+                                             PlaybackRate="@Playback.PlaybackRate"
+                                             Volume="@Playback.Volume"
+                                             OnTogglePlay="TogglePlayPauseAsync"
+                                             OnPreviousTrack="PlayPreviousAsync"
+                                             OnNextTrack="PlayNextAsync"
+                                             OnPreviousChapter="PlayPreviousChapterAsync"
+                                             OnNextChapter="PlayNextChapterAsync"
+                                             OnSkipBack="SkipBackAsync"
+                                             OnSkipForward="SkipForwardAsync" />
+                    @if (Playback.IsMusicMode)
+                    {
+                        <AppNativeButton Type="button"
+                                         Class="@PlayerModeButtonClass(Playback.RepeatMode != PlayerRepeatModes.Off)"
+                                         OnClick="@(() => Playback.CycleRepeatModeAsync())"
+                                         AriaLabel="@RepeatAriaLabel"
+                                         title="@RepeatAriaLabel"
+                                         aria-pressed="@(Playback.RepeatMode != PlayerRepeatModes.Off)">
+                            <MudIcon Icon="@(Playback.RepeatMode == PlayerRepeatModes.One ? Icons.Material.Outlined.RepeatOne : Icons.Material.Outlined.Repeat)" Class="tl-u-font-size-18px" />
+                        </AppNativeButton>
+                    }
+                </div>
 
                 <div class="listen-player__progress">
                     <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
@@ -430,6 +461,16 @@
     private string VolumeStep => Playback.ClientSettings.VolumeStep.ToString("0.###", CultureInfo.InvariantCulture);
     private string ProgressValueText => $"{FormatTimestamp(Playback.CurrentTimeSeconds)} of {FormatTimestamp(ProgressMax)}";
     private string VolumeValueText => $"{Math.Clamp((int)Math.Round(Playback.Volume * 100d), 0, 100)}%";
+    private bool CanPlayNext =>
+        Playback.CurrentIndex < Playback.Queue.Count - 1
+        || Playback.Queue.Count > 1 && Playback.ShuffleEnabled
+        || Playback.Queue.Count > 0 && Playback.RepeatMode == PlayerRepeatModes.All;
+    private string RepeatAriaLabel => Playback.RepeatMode switch
+    {
+        PlayerRepeatModes.One => "Repeat one",
+        PlayerRepeatModes.All => "Repeat queue",
+        _ => "Repeat off",
+    };
     private PlaybackExperience CurrentMiniPlayerExperience => Playback.IsAudiobookMode ? PlaybackExperience.Audiobook : PlaybackExperience.Music;
     private IReadOnlyList<PlaybackChapterDto> CurrentChapters =>
         Playback.CurrentItem is { Chapters.Count: > 1 } item ? item.Chapters : [];
@@ -464,6 +505,9 @@
     };
 
     private LrcDisplayLine? ActiveLyricLine => _lyricsLines.LastOrDefault(line => line.StartSeconds <= Playback.CurrentTimeSeconds + 0.25);
+
+    private static string PlayerModeButtonClass(bool active) =>
+        $"listen-player__mode-button {(active ? "is-active" : string.Empty)}".Trim();
 
     protected override void OnInitialized()
     {
@@ -1055,6 +1099,35 @@
         Playback.SetPopupOpen(opened);
     }
 
+    private async Task QueueDraggedItemsAsync()
+    {
+        if (!AudioDrag.HasItems)
+        {
+            return;
+        }
+
+        if (Playback.IsAudiobookMode)
+        {
+            Snackbar.Add("Finish or close the audiobook before adding music to its queue.", Severity.Info);
+            AudioDrag.Clear();
+            return;
+        }
+
+        var items = AudioDrag.Items.ToList();
+        foreach (var item in items)
+        {
+            await Playback.AddQueueItemAsync(item);
+        }
+
+        AudioDrag.Clear();
+        if (items.Count > 0)
+        {
+            Snackbar.Add(
+                items.Count == 1 ? "Song added to the queue." : $"{items.Count} songs added to the queue.",
+                Severity.Success);
+        }
+    }
+
     private async Task ClosePlayerAsync()
     {
         await JS.InvokeVoidAsync("listenPlayback.closePopup");
@@ -1161,6 +1234,12 @@
             case "toggle-mute":
                 Playback.UpdateTransportState(isMuted: !Playback.IsMuted);
                 await Playback.ReportHeartbeatAsync(force: true);
+                break;
+            case "toggle-shuffle":
+                await Playback.ToggleShuffleAsync();
+                break;
+            case "cycle-repeat":
+                await Playback.CycleRepeatModeAsync();
                 break;
             case "close-player":
                 await ClosePlayerAsync();

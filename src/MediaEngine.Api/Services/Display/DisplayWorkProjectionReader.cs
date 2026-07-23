@@ -41,6 +41,32 @@ public sealed class DisplayWorkProjectionReader
                 WHERE w.work_kind != 'parent'
                   AND {visibleWorkPredicate}
                   AND {visibleAssetPredicate}
+            ),
+            canonical_artist_credits AS (
+                SELECT
+                    credit.media_asset_id,
+                    person.id AS person_id,
+                    person.name AS person_name,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY credit.media_asset_id
+                        ORDER BY
+                            credit.billing_order,
+                            CASE WHEN NULLIF(TRIM(person.local_headshot_path), '') IS NOT NULL THEN 0 ELSE 1 END,
+                            CASE WHEN NULLIF(TRIM(person.headshot_url), '') IS NOT NULL THEN 0 ELSE 1 END,
+                            CASE WHEN NULLIF(TRIM(person.biography), '') IS NOT NULL THEN 0 ELSE 1 END,
+                            CASE WHEN person.enriched_at IS NOT NULL THEN 0 ELSE 1 END,
+                            CASE WHEN NULLIF(TRIM(person.wikidata_qid), '') IS NOT NULL THEN 0 ELSE 1 END,
+                            person.created_at,
+                            person.id
+                    ) AS identity_rank
+                FROM primary_person_media_credits credit
+                INNER JOIN persons person
+                    ON person.name = credit.person_name COLLATE NOCASE
+                    OR (
+                        NULLIF(TRIM(credit.person_qid), '') IS NOT NULL
+                        AND person.wikidata_qid = credit.person_qid COLLATE NOCASE
+                    )
+                WHERE credit.credit_key = 'artist'
             )
             SELECT
                 WorkId,
@@ -84,6 +110,16 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artist' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'artist' LIMIT 1)
                 ) AS Artist,
+                (SELECT primary_credit.person_id
+                 FROM canonical_artist_credits primary_credit
+                 WHERE primary_credit.media_asset_id = AssetId
+                   AND primary_credit.identity_rank = 1
+                 LIMIT 1) AS ArtistPersonId,
+                (SELECT primary_credit.person_name
+                 FROM canonical_artist_credits primary_credit
+                 WHERE primary_credit.media_asset_id = AssetId
+                   AND primary_credit.identity_rank = 1
+                 LIMIT 1) AS ArtistPersonName,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'album' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'album' LIMIT 1),

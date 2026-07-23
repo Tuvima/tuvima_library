@@ -64,6 +64,11 @@
     box-shadow: inset 3px 0 0 var(--tl-accent-primary);
 }
 
+.media-section-shell__rail-item.is-drop-target:hover {
+    border-color: color-mix(in srgb, var(--tl-accent-primary) 62%, transparent);
+    background: color-mix(in srgb, var(--tl-accent-primary) 22%, transparent);
+}
+
 .media-section-shell__rail-meta {
     color: rgba(203, 213, 225, 0.48);
     font-size: 0.72rem;

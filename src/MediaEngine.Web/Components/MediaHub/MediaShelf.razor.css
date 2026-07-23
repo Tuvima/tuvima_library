@@ -13,7 +13,7 @@
 }
 
 .media-hub-shelf--listen {
-    --media-tile-media-height: clamp(148px, 9vw, 160px);
+    --media-tile-media-height: clamp(168px, 10.4vw, 184px);
 }
 
 .media-hub-shelf--continue.media-hub-shelf--watch {
@@ -67,15 +67,15 @@
 }
 
 .media-hub-shelf--listen ::deep .media-tile.is-square {
-    --media-tile-media-height: clamp(148px, 9vw, 160px);
+    --media-tile-media-height: clamp(168px, 10.4vw, 184px);
 }
 
 .media-hub-shelf--listen ::deep .media-tile.is-portrait {
-    --media-tile-media-height: clamp(216px, 13.5vw, 240px);
+    --media-tile-media-height: clamp(246px, 15.2vw, 270px);
 }
 
 .media-hub-shelf--listen ::deep .media-tile.is-landscape:not(.is-collection-card):not(.is-ordered-series-card) {
-    --media-tile-media-height: clamp(148px, 9vw, 160px);
+    --media-tile-media-height: clamp(168px, 10.4vw, 184px);
 }
 
 ::deep .media-tile-shelf-arrow {

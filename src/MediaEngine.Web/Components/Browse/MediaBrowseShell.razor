@@ -2,6 +2,7 @@
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
+@using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.MediaTiles
@@ -17,6 +18,8 @@
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject FavoriteService Favorites
+@inject PlaybackSessionController Playback
+@inject ListenAudioDragService AudioDrag
 @inject NavigationManager Nav
 @inject ISnackbar Snackbar
 @inject ILogger<MediaBrowseShell> Logger
@@ -272,6 +275,25 @@
                        Details="@_loadError"
                        Retry="ReloadAsync" />
     }
+    else if (UseListLayout && IsMusicSongsGrouping)
+    {
+        <div class="browse-shell__list">
+            <ListenSongTable Tracks="@SongTracks"
+                             FavoriteIds="@SongFavoriteIds"
+                             SourceLabel="All Songs"
+                             AriaLabel="Songs"
+                             ShowGenre="false"
+                             ShowPlays="true"
+                             ShowDateAdded="true"
+                             ShowEditDelete="false"
+                             CurrentWorkId="@Playback.CurrentItem?.WorkId"
+                             OnPlayRequested="PlaySongTracksAsync"
+                             OnFavoriteToggled="ToggleSongFavoriteAsync"
+                             OnQueueRequested="QueueSongAsync"
+                             OnDragStarted="BeginSongDragAsync"
+                             OnDragEnded="EndSongDragAsync" />
+        </div>
+    }
     else if (UseListLayout)
     {
         <div class="browse-shell__list">
@@ -389,6 +411,8 @@
                                             && string.Equals(_grouping, "timeline", StringComparison.OrdinalIgnoreCase);
     private bool IsPlaylistGrouping => IsMusicTab
                                        && string.Equals(_grouping, "playlists", StringComparison.OrdinalIgnoreCase);
+    private bool IsMusicSongsGrouping => IsMusicTab
+                                         && _grouping is "tracks" or "songs";
     private bool IsTvShowsGrouping =>
         string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
         && string.Equals(_grouping, "shows", StringComparison.OrdinalIgnoreCase)
@@ -487,7 +511,7 @@
     private int DefaultTileSizePx => CurrentTab.MediaType switch
     {
         "Music" => 136,
-        "Audiobooks" => 160,
+        "Audiobooks" => 176,
         "Books" or "Comics" => 168,
         _ => 176,
     };
@@ -547,11 +571,24 @@
 
     private List<LibraryItemViewModel> ActiveTableItems =>
         IsContainerGrouping ? BuildContainerDisplayItems() : _items;
+    private IReadOnlyList<WorkViewModel> SongTracks =>
+        ActiveTableItems.Select(ToSongWork).ToList();
+    private IReadOnlySet<Guid> SongFavoriteIds =>
+        ActiveTableItems.Where(item => item.IsFavorite).Select(item => item.EntityId).ToHashSet();
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
         StateContainer.MediaAddedReceived += OnMediaAdded;
+        Playback.Changed += OnPlaybackChanged;
+    }
+
+    private void OnPlaybackChanged(PlaybackChangeKind kind)
+    {
+        if (kind != PlaybackChangeKind.TransportTick)
+        {
+            _ = InvokeAsync(StateHasChanged);
+        }
     }
 
     protected override async Task OnParametersSetAsync()
@@ -967,6 +1004,8 @@
         return new LibraryItemViewModel
         {
             EntityId = card.WorkId ?? card.Id,
+            AssetId = card.AssetId,
+            CollectionId = card.CollectionId,
             Title = card.Title,
             Author = metadata?.Author,
             Director = metadata?.Director,
@@ -990,13 +1029,47 @@
             BackgroundUrl = FirstValue(card.Artwork.BackgroundUrl, card.Artwork.BackgroundMediumUrl),
             BannerUrl = FirstValue(card.Artwork.BannerUrl, card.Artwork.BannerMediumUrl),
             CreatedAt = card.SortTimestamp,
-            LastPlayedAt = card.Progress?.LastAccessed,
+            LastPlayedAt = metadata?.LastPlayedAt ?? card.Progress?.LastAccessed,
+            PlayCount = metadata?.PlayCount,
             IsFavorite = card.Flags.IsFavorite,
             Status = "Ready",
             IsReadyForLibrary = true,
             LibraryVisibility = "visible",
             ArtworkState = string.IsNullOrWhiteSpace(coverUrl) ? "missing" : "settled",
         };
+    }
+
+    private static WorkViewModel ToSongWork(LibraryItemViewModel item)
+    {
+        var values = new List<CanonicalValueViewModel>();
+
+        AddCanonical(values, "title", item.Title);
+        AddCanonical(values, "artist", item.Artist ?? item.Author);
+        AddCanonical(values, "album", item.Album);
+        AddCanonical(values, "genre", item.Genre);
+        AddCanonical(values, "track_number", item.TrackNumber);
+        AddCanonical(values, "release_year", item.Year);
+        AddCanonical(values, "duration_seconds", item.DurationSeconds?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        AddCanonical(values, "play_count", item.PlayCount?.ToString(System.Globalization.CultureInfo.InvariantCulture));
+
+        return new WorkViewModel
+        {
+            Id = item.EntityId,
+            AssetId = item.AssetId,
+            CollectionId = item.CollectionId,
+            MediaType = "Music",
+            CreatedAt = item.CreatedAt,
+            ResolvedCoverUrl = item.CoverUrl,
+            CanonicalValues = values,
+        };
+    }
+
+    private static void AddCanonical(List<CanonicalValueViewModel> values, string key, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            values.Add(new CanonicalValueViewModel { Key = key, Value = value });
+        }
     }
 
     private static long? NormalizeListDurationSeconds(string? value, bool isMusic)
@@ -1344,6 +1417,50 @@
         Snackbar.Add(membership.IsFavorite ? "Added to Favorites." : "Removed from Favorites.", Severity.Success);
         await LoadBrowseContentAsync();
     }
+
+    private async Task PlaySongTracksAsync(
+        IReadOnlyList<WorkViewModel> tracks,
+        Guid? startWorkId,
+        string? sourceLabel,
+        bool shuffle)
+    {
+        if (tracks.Count == 0)
+        {
+            return;
+        }
+
+        var startIndex = startWorkId.HasValue
+            ? Math.Max(0, tracks.ToList().FindIndex(track => track.Id == startWorkId.Value))
+            : 0;
+        await Playback.ReplaceQueueAsync(tracks, startIndex, sourceLabel ?? "All Songs", shuffle);
+    }
+
+    private Task ToggleSongFavoriteAsync(WorkViewModel track) =>
+        ToggleFavoriteAsync(track.Id);
+
+    private async Task QueueSongAsync(WorkViewModel track)
+    {
+        await Playback.AddToQueueAsync(track);
+        Snackbar.Add($"{track.Title} added to the queue.", Severity.Success);
+    }
+
+    private Task BeginSongDragAsync(Guid workId)
+    {
+        var track = SongTracks.FirstOrDefault(item => item.Id == workId);
+        if (track is not null)
+        {
+            AudioDrag.BeginDrag([workId], [ListenQueueItemFactory.Create(track)]);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private Task EndSongDragAsync()
+    {
+        AudioDrag.Clear();
+        return Task.CompletedTask;
+    }
+
 
     private async Task OpenPlaylistBuilderAsync(bool smart)
     {
@@ -1998,6 +2115,7 @@
     {
         Nav.LocationChanged -= OnLocationChanged;
         StateContainer.MediaAddedReceived -= OnMediaAdded;
+        Playback.Changed -= OnPlaybackChanged;
     }
 
     private static int GetSelectedIndex(IEnumerable<string> keys, string activeKey)

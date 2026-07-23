@@ -97,7 +97,7 @@
                                      IsMuted="@_snapshot.IsMuted"
                                      HasChapters="@HasChapters"
                                      CanPreviousTrack="@(_snapshot.CurrentIndex > 0)"
-                                     CanNextTrack="@(_snapshot.CurrentIndex < _snapshot.Queue.Count - 1)"
+                                     CanNextTrack="@CanPlayNext"
                                      SkipBackSeconds="@_snapshot.SkipBackSeconds"
                                      SkipForwardSeconds="@_snapshot.SkipForwardSeconds"
                                      CurrentBrowserStreamUrl="@CurrentBrowserStreamUrl"
@@ -123,16 +123,32 @@
             else
             {
                 <section class="listen-popup__music-actions" aria-label="Music controls">
+                    <AppNativeButton Type="button" Class="@MusicActionClass(_snapshot.ShuffleEnabled)" OnClick="ToggleShuffleAsync" AriaLabel="Toggle shuffle" title="Shuffle" aria-pressed="@_snapshot.ShuffleEnabled">
+                        <MudIcon Icon="@Icons.Material.Outlined.Shuffle" Class="tl-u-font-size-24px" />
+                        <span>Shuffle</span>
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="@MusicActionClass(_activeSheet == "music-queue")" OnClick="@(() => ToggleSheet("music-queue"))" AriaLabel="Open queue" title="Queue">
+                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-24px" />
+                        <span>Queue</span>
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="@MusicActionClass(_activeSheet == "music-history")" OnClick="@(() => ToggleSheet("music-history"))" AriaLabel="Open listening history" title="History">
+                        <MudIcon Icon="@Icons.Material.Outlined.History" Class="tl-u-font-size-24px" />
+                        <span>History</span>
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="@MusicActionClass(_snapshot.RepeatMode != PlayerRepeatModes.Off)" OnClick="CycleRepeatAsync" AriaLabel="@RepeatLabel" title="@RepeatLabel" aria-pressed="@(_snapshot.RepeatMode != PlayerRepeatModes.Off)">
+                        <MudIcon Icon="@(_snapshot.RepeatMode == PlayerRepeatModes.One ? Icons.Material.Outlined.RepeatOne : Icons.Material.Outlined.Repeat)" Class="tl-u-font-size-24px" />
+                        <span>@RepeatShortLabel</span>
+                    </AppNativeButton>
                     <AppNativeButton Type="button" Class="listen-popup__sheet-action" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
                         <MudIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="tl-u-font-size-24px" />
                         <span>Volume</span>
                     </AppNativeButton>
-                    <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
                 </section>
+                <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
             }
         </main>
 
-        @if (IsAudiobookMode && _activeSheet is not null)
+        @if (_activeSheet is not null)
         {
             <div class="listen-popup-sheet__backdrop" role="presentation" aria-hidden="true" @onclick="CloseSheet"></div>
             <PlaybackToolSheet Title="@SheetTitle"
@@ -242,6 +258,70 @@
                                                    EndOfSectionChanged="SetTimerEndOfChapterAsync"
                                                    Class="listen-popup-sheet__sleep-control" />
                         break;
+                    case "music-queue":
+                        <div class="listen-popup-sheet__music-list">
+                            @if (_snapshot.CurrentIndex >= _snapshot.Queue.Count - 1)
+                            {
+                                <div class="listen-popup-sheet__empty">The queue ends with the current track.</div>
+                            }
+                            else
+                            {
+                                @for (var index = _snapshot.CurrentIndex + 1; index < _snapshot.Queue.Count; index++)
+                                {
+                                    var queueIndex = index;
+                                    var item = _snapshot.Queue[index];
+                                    <AppNativeButton Type="button" Class="listen-popup-sheet__music-row" OnClick="@(() => PlayQueueIndexAsync(queueIndex))">
+                                        <span class="listen-popup-sheet__music-thumb">
+                                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                            {
+                                                <img src="@item.CoverUrl" alt="" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Outlined.MusicNote" />
+                                            }
+                                        </span>
+                                        <span class="listen-popup-sheet__music-copy">
+                                            <strong>@item.Title</strong>
+                                            <span>@PlayerSubtitle(item)</span>
+                                        </span>
+                                        <span class="listen-popup-sheet__duration">@item.Duration</span>
+                                    </AppNativeButton>
+                                }
+                            }
+                        </div>
+                        break;
+                    case "music-history":
+                        <div class="listen-popup-sheet__music-list">
+                            @if (_snapshot.History.Count == 0)
+                            {
+                                <div class="listen-popup-sheet__empty">Played tracks will appear here for this session.</div>
+                            }
+                            else
+                            {
+                                @foreach (var item in _snapshot.History)
+                                {
+                                    <AppNativeButton Type="button" Class="listen-popup-sheet__music-row" OnClick="@(() => PlayMusicHistoryItemAsync(item))">
+                                        <span class="listen-popup-sheet__music-thumb">
+                                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                            {
+                                                <img src="@item.CoverUrl" alt="" />
+                                            }
+                                            else
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Outlined.History" />
+                                            }
+                                        </span>
+                                        <span class="listen-popup-sheet__music-copy">
+                                            <strong>@item.Title</strong>
+                                            <span>@PlayerSubtitle(item)</span>
+                                        </span>
+                                        <span class="listen-popup-sheet__duration">@item.Duration</span>
+                                    </AppNativeButton>
+                                }
+                            }
+                        </div>
+                        break;
                 }
             </PlaybackToolSheet>
         }
@@ -286,6 +366,10 @@
     private string VolumeStep => PlaybackClientSettings.VolumeStep.ToString("0.###", CultureInfo.InvariantCulture);
     private string ProgressValueText => $"{FormatTimestamp(_snapshot.CurrentTimeSeconds)} of {FormatTimestamp(ProgressMax)}";
     private string VolumeValueText => $"{Math.Clamp((int)Math.Round(_snapshot.Volume * 100d), 0, 100)}%";
+    private bool CanPlayNext =>
+        _snapshot.CurrentIndex < _snapshot.Queue.Count - 1
+        || _snapshot.Queue.Count > 1 && _snapshot.ShuffleEnabled
+        || _snapshot.Queue.Count > 0 && _snapshot.RepeatMode == PlayerRepeatModes.All;
     private IReadOnlyList<PlaybackChapterDto> CurrentChapters =>
         CurrentItem is { Chapters.Count: > 1 } item ? item.Chapters : [];
     private bool HasChapters => CurrentChapters.Count > 0;
@@ -315,6 +399,8 @@
         "history" => "History",
         "bookmarks" => "Bookmarks",
         "sleep" => "Sleep Timer",
+        "music-queue" => "Playing Next",
+        "music-history" => "History",
         _ => string.Empty,
     };
     private string SheetSubtitle => _activeSheet switch
@@ -324,6 +410,8 @@
         "history" => "Recent listening positions",
         "bookmarks" => "Saved audiobook positions",
         "sleep" => "Stop playback automatically",
+        "music-queue" => "Your current music queue",
+        "music-history" => "Played during this session",
         _ => string.Empty,
     };
     private IReadOnlyList<PlaybackControlDefinition> AudiobookToolControls =>
@@ -337,6 +425,20 @@
                 IsSleepTimerActive: _snapshot.SleepTimerMode != ListenSleepTimerModes.Off,
                 HistoryCount: _snapshot.AudiobookHistory.Count,
                 BookmarkCount: _snapshot.AudiobookBookmarks.Count));
+    private string RepeatLabel => _snapshot.RepeatMode switch
+    {
+        PlayerRepeatModes.One => "Repeat one",
+        PlayerRepeatModes.All => "Repeat queue",
+        _ => "Repeat off",
+    };
+    private string RepeatShortLabel => _snapshot.RepeatMode switch
+    {
+        PlayerRepeatModes.One => "Repeat 1",
+        PlayerRepeatModes.All => "Repeat all",
+        _ => "Repeat",
+    };
+    private static string MusicActionClass(bool active) =>
+        $"listen-popup__sheet-action {(active ? "is-active" : string.Empty)}".Trim();
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -509,6 +611,37 @@
     }
     private Task DeleteBookmarkAsync(Guid bookmarkId) => SendCommandAsync(new PopupCommand { Action = "delete-audiobook-bookmark", BookmarkId = bookmarkId });
     private Task ToggleMuteAsync() => SendCommandAsync(new PopupCommand { Action = "toggle-mute" });
+    private async Task ToggleShuffleAsync()
+    {
+        _snapshot = _snapshot with { ShuffleEnabled = !_snapshot.ShuffleEnabled };
+        await SendCommandAsync(new PopupCommand { Action = "toggle-shuffle" });
+    }
+
+    private async Task CycleRepeatAsync()
+    {
+        _snapshot = _snapshot with
+        {
+            RepeatMode = _snapshot.RepeatMode switch
+            {
+                PlayerRepeatModes.Off => PlayerRepeatModes.All,
+                PlayerRepeatModes.All => PlayerRepeatModes.One,
+                _ => PlayerRepeatModes.Off,
+            },
+        };
+        await SendCommandAsync(new PopupCommand { Action = "cycle-repeat" });
+    }
+
+    private async Task PlayQueueIndexAsync(int index)
+    {
+        await SendCommandAsync(new PopupCommand { Action = "play-index", Index = index });
+        CloseSheet();
+    }
+
+    private async Task PlayMusicHistoryItemAsync(ListenQueueItem item)
+    {
+        await SendCommandAsync(new PopupCommand { Action = "play-history", Item = item });
+        CloseSheet();
+    }
     private async Task SetSpeedAsync(double rate)
     {
         _snapshot = _snapshot with { PlaybackRate = Math.Clamp(rate, 0.5d, 2.5d) };
@@ -680,11 +813,13 @@
     private sealed class PopupCommand
     {
         public string Action { get; set; } = string.Empty;
+        public int? Index { get; set; }
         public int? ChapterIndex { get; set; }
         public double? Value { get; set; }
         public int? TimerMinutes { get; set; }
         public string? TimerMode { get; set; }
         public Guid? BookmarkId { get; set; }
+        public ListenQueueItem? Item { get; set; }
         public AudiobookListenHistoryItemDto? AudiobookHistoryItem { get; set; }
         public AudiobookBookmarkDto? AudiobookBookmark { get; set; }
     }

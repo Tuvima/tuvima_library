@@ -522,6 +522,8 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardListMetad
   ShowName: System.String | nullability=nullable | accessors=get,init
   SeasonNumber: System.String | nullability=nullable | accessors=get,init
   EpisodeNumber: System.String | nullability=nullable | accessors=get,init
+  PlayCount: System.Int32? | nullability=nullable | accessors=get,init
+  LastPlayedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardPreviewItemDto
   WorkId: System.Guid? | nullability=nullable | accessors=get,init
