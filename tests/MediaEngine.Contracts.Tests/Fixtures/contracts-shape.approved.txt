@@ -499,6 +499,7 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
   PreviewTotalCount: System.Int32? | nullability=nullable | accessors=get,init
   GroupSummary: MediaEngine.Contracts.Display.DisplayGroupSummaryDto | nullability=nullable | accessors=get,init
   SortYear: System.Int32 | nullability=not-null | accessors=get,init
+  ListMetadata: MediaEngine.Contracts.Display.DisplayCardListMetadataDto | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
@@ -506,6 +507,21 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   CanAddToCollection: System.Boolean | nullability=not-null | accessors=get,init
   IsCollection: System.Boolean | nullability=not-null | accessors=get,init
   IsFavorite: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardListMetadataDto
+  Author: System.String | nullability=nullable | accessors=get,init
+  Artist: System.String | nullability=nullable | accessors=get,init
+  Director: System.String | nullability=nullable | accessors=get,init
+  Narrator: System.String | nullability=nullable | accessors=get,init
+  Album: System.String | nullability=nullable | accessors=get,init
+  Series: System.String | nullability=nullable | accessors=get,init
+  Genre: System.String | nullability=nullable | accessors=get,init
+  Duration: System.String | nullability=nullable | accessors=get,init
+  TrackNumber: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  ShowName: System.String | nullability=nullable | accessors=get,init
+  SeasonNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeNumber: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardPreviewItemDto
   WorkId: System.Guid? | nullability=nullable | accessors=get,init

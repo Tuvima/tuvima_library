@@ -156,6 +156,17 @@ Listen profile navigation JSON is decoded, reordered, and encoded through
 `ListenPlaylistOrderState`. `ListenPage` should coordinate user intent and API
 work rather than own the persistence format.
 
+Listen discovery and direct browse follow the same lane-shell contract as Read
+and Watch. `ListenBrowsePage` owns `/listen`, `/listen/music`, and
+`/listen/audiobooks`; `ListenBrowseConfiguration` is the single typed source for
+Music/Audiobook browse modes and rail shortcuts. Music browse state is expressed
+with query parameters, for example `/listen/music?browse=artists` and
+`/listen/music?browse=songs`, while album, artist, playlist, and audiobook
+details retain dedicated routes. The landing remains album-first and separates
+square music shelves from portrait audiobook shelves. Personal playlist artwork
+must come from managed Engine URLs. Playback remains in the globally mounted
+bottom host; Listen pages do not reserve a permanent right-side player column.
+
 Dashboard Engine calls continue to be exposed through `IEngineApiClient`.
 Feature-focused typed clients or `EngineApiClient.*.cs` partials own cohesive
 endpoint families so the facade remains source-compatible while its

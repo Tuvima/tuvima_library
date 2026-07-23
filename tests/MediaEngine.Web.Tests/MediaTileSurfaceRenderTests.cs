@@ -142,6 +142,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             Id = Guid.NewGuid(),
             WorkId = Guid.NewGuid(),
             Title = "All of Us Strangers",
+            Subtitle = "Andrew Scott",
             SortYear = 2023,
             MediaKind = "Movie",
             Shape = MediaTileShape.Portrait,
@@ -161,6 +162,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("media-tile-grid--size-168", grid.ClassList);
         Assert.Null(grid.GetAttribute("style"));
         Assert.Equal("All of Us Strangers", cut.Find(".media-tile-caption__title").TextContent);
+        Assert.Equal("Andrew Scott", cut.Find(".media-tile-caption__subtitle").TextContent);
         Assert.Equal("2023", cut.Find(".media-tile-caption__year").TextContent);
         Assert.True(cut.FindComponent<MediaTile>().Instance.ShowCompactCaption);
     }
@@ -1074,7 +1076,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("window.updateMediaTileShelfStableHeight", appJs);
         Assert.Contains("window.getSwimlaneItems", appJs);
         Assert.Contains("el.querySelectorAll('.media-tile, .media-group-tile')", appJs);
-        Assert.Contains("tile.querySelector('.media-tile-frame, .media-group-tile__frame')", appJs);
+        Assert.Contains("var rect = tile.getBoundingClientRect()", appJs);
         Assert.Contains("panel.classList.add('is-inline-expanded')", appJs);
         Assert.Contains("window.keepMediaTileHoverInRowViewport", appJs);
         Assert.Contains("window.mountMediaTileHover(cardEl);", appJs);

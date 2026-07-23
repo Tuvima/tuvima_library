@@ -1359,7 +1359,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
         string? genres = null,
         string? creator = null,
         string? status = null,
-        string? year = null)
+        string? year = null,
+        string? sort = null)
     {
         const string endpoint = "GET /api/v1/display/browse";
         try
@@ -1373,6 +1374,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             AddQuery(query, "creator", creator);
             AddQuery(query, "status", status);
             AddQuery(query, "year", year);
+            AddQuery(query, "sort", sort);
             AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
             AddQuery(query, "includeCatalog", includeCatalog?.ToString().ToLowerInvariant());

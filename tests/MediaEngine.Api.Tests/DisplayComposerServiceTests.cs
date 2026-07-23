@@ -5,6 +5,54 @@ namespace MediaEngine.Api.Tests;
 public sealed class DisplayComposerServiceTests
 {
     [Fact]
+    public async Task MusicBrowse_ReturnsStructuredSongMetadataArtworkAndServerSort()
+    {
+        var second = Work(
+            Guid.NewGuid(),
+            "Music",
+            "Zenith",
+            artist: "Example Artist",
+            album: "Example Album",
+            year: "2025",
+            genre: "Ambient",
+            track: "2",
+            duration: "4:12");
+        second.SquareUrl = "/stream/example/square";
+        var first = Work(
+            Guid.NewGuid(),
+            "Music",
+            "Arrival",
+            artist: "Example Artist",
+            album: "Example Album",
+            year: "2025",
+            genre: "Ambient",
+            track: "1",
+            duration: "3:48");
+        first.SquareUrl = "/stream/example/square";
+        var composer = CreateComposer(new StubDisplayProjectionRepository([second, first], []));
+
+        var page = await composer.BuildBrowseAsync(
+            "listen",
+            "Music",
+            "songs",
+            null,
+            0,
+            48,
+            sort: "title");
+
+        Assert.Equal(["Arrival", "Zenith"], page.Catalog.Select(card => card.Title));
+        var card = page.Catalog[0];
+        Assert.Equal("/stream/example/square", card.Artwork.SquareUrl);
+        Assert.NotNull(card.ListMetadata);
+        Assert.Equal("Example Artist", card.ListMetadata.Artist);
+        Assert.Equal("Example Album", card.ListMetadata.Album);
+        Assert.Equal("Ambient", card.ListMetadata.Genre);
+        Assert.Equal("3:48", card.ListMetadata.Duration);
+        Assert.Equal("1", card.ListMetadata.TrackNumber);
+        Assert.Equal("2025", card.ListMetadata.Year);
+    }
+
+    [Fact]
     public async Task Browse_AppliesUrlFiltersBeforePagingAndReturnsFullScopeFacets()
     {
         var matchingId = Guid.NewGuid();
@@ -227,12 +275,12 @@ public sealed class DisplayComposerServiceTests
         var page = await composer.BuildBrowseAsync("listen", null, "all", null, 0, 48);
 
         Assert.Contains(page.Shelves, shelf => shelf.Key == "continue-listening");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "new-tracks-added");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "albums");
-        Assert.Contains(page.Shelves, shelf => shelf.Key == "audiobooks");
+        Assert.Contains(page.Shelves, shelf => shelf.Key == "recently-updated-albums");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "albums");
+        Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "audiobooks");
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "listen-collections");
 
-        var albumCard = page.Shelves.Single(shelf => shelf.Key == "albums").Items.Single();
+        var albumCard = page.Shelves.Single(shelf => shelf.Key == "recently-updated-albums").Items.Single();
         Assert.Equal("The Record", albumCard.Title);
         Assert.Equal("album", albumCard.Presentation);
         Assert.Equal("square", albumCard.PreferredShape);
@@ -242,6 +290,65 @@ public sealed class DisplayComposerServiceTests
         var audiobookCard = page.Shelves.Single(shelf => shelf.Key == "continue-listening").Items.Single();
         Assert.Equal(58, audiobookCard.Progress?.Percent);
         Assert.Equal("Continue Listening", audiobookCard.Actions[0].Label);
+        Assert.DoesNotContain(
+            page.Shelves.Where(shelf => shelf.Key == "recently-added-audiobooks").SelectMany(shelf => shelf.Items),
+            card => card.WorkId == audiobookId);
+    }
+
+    [Fact]
+    public async Task ListenLane_DeduplicatesRecentlyPlayedAlbumsFromRecentlyUpdatedAlbums()
+    {
+        var playedWorkId = Guid.Parse("56565656-5656-5656-5656-565656565656");
+        var updatedWorkId = Guid.Parse("57575757-5757-5757-5757-575757575757");
+        var playedAlbumId = Guid.Parse("58585858-5858-5858-5858-585858585858");
+        var updatedAlbumId = Guid.Parse("59595959-5959-5959-5959-595959595959");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(playedWorkId, "Music", "Played Track", artist: "Played Artist", album: "Played Album", track: "1", collectionId: playedAlbumId),
+                Work(updatedWorkId, "Music", "Updated Track", artist: "Updated Artist", album: "Updated Album", track: "1", collectionId: updatedAlbumId),
+            ],
+            [
+                Journey(playedWorkId, "Music", "Played Track", progressPct: 100, artist: "Played Artist", album: "Played Album", track: "1", collectionId: playedAlbumId),
+            ]);
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync("listen", null, "all", null, 0, 48);
+
+        var recentlyPlayed = page.Shelves.Single(shelf => shelf.Key == "recently-played");
+        var recentlyUpdated = page.Shelves.Single(shelf => shelf.Key == "recently-updated-albums");
+        Assert.Contains(recentlyPlayed.Items, card => card.CollectionId == playedAlbumId);
+        Assert.DoesNotContain(recentlyUpdated.Items, card => card.CollectionId == playedAlbumId);
+        Assert.Contains(recentlyUpdated.Items, card => card.CollectionId == updatedAlbumId);
+    }
+
+    [Fact]
+    public async Task BrowseMusic_FavoritesFilterReturnsOnlyProfileFavorites()
+    {
+        var favoriteId = Guid.Parse("60606060-6060-6060-6060-606060606060");
+        var otherId = Guid.Parse("61616161-6161-6161-6161-616161616161");
+        var profileId = Guid.Parse("62626262-6262-6262-6262-626262626262");
+        var repository = new StubDisplayProjectionRepository(
+            [
+                Work(favoriteId, "Music", "Favorite Track", artist: "Artist", album: "Album"),
+                Work(otherId, "Music", "Other Track", artist: "Artist", album: "Album"),
+            ],
+            [],
+            new HashSet<Guid> { favoriteId });
+        var composer = CreateComposer(repository);
+
+        var page = await composer.BuildBrowseAsync(
+            "listen",
+            "Music",
+            "songs",
+            null,
+            0,
+            48,
+            profileId: profileId,
+            status: "favorite");
+
+        var card = Assert.Single(page.Catalog);
+        Assert.Equal(favoriteId, card.WorkId);
+        Assert.True(card.Flags.IsFavorite);
     }
 
     [Fact]
@@ -749,7 +856,9 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("square", albumCard.PreferredShape);
         Assert.Equal(2, albumCard.PreviewItems.Count);
         Assert.Contains("7 min", albumCard.Facts);
-        Assert.Equal($"/listen/music/albums/{albumId:D}", albumCard.Actions[0].WebUrl);
+        Assert.StartsWith("/stream/", albumCard.Artwork.CoverUrl, StringComparison.Ordinal);
+        Assert.EndsWith("/cover", albumCard.Artwork.CoverUrl, StringComparison.Ordinal);
+        Assert.Equal("/listen/music/albums/by-name/Static%20On%20The%20Line?artist=Among%20The%20Outcasts", albumCard.Actions[0].WebUrl);
 
         Assert.NotNull(page.Hero);
         Assert.Equal("album", page.Hero.Presentation);

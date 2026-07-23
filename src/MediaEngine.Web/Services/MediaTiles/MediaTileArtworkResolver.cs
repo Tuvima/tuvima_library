@@ -28,9 +28,9 @@ public sealed record MediaTileArtworkVariant(
 
     public string? TileUrl => FirstNonBlank(SmallUrl, MediumUrl);
 
-    public string? HoverUrl => FirstNonBlank(MediumUrl, LargeUrl);
+    public string? HoverUrl => FirstNonBlank(MediumUrl, LargeUrl, SmallUrl);
 
-    public string? HeroUrl => FirstNonBlank(LargeUrl, MediumUrl);
+    public string? HeroUrl => FirstNonBlank(LargeUrl, MediumUrl, SmallUrl);
 
     public MediaTileShape Shape => MediaTileArtworkResolver.ShapeFor(this);
 

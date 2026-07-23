@@ -136,6 +136,7 @@ public sealed record LibraryItemDetail
     [JsonPropertyName("author")]          public string? Author { get; init; }
     [JsonPropertyName("director")]        public string? Director { get; init; }
     [JsonPropertyName("artist")]          public string? Artist { get; init; }
+    [JsonPropertyName("album")]           public string? Album { get; init; }
     [JsonPropertyName("composer")]        public string? Composer { get; init; }
     [JsonPropertyName("illustrator")]     public string? Illustrator { get; init; }
     [JsonPropertyName("writer")]          public string? Writer { get; init; }

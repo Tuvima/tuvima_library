@@ -13,7 +13,7 @@
 }
 
 .media-hub-shelf--listen {
-    --media-tile-media-height: clamp(154px, 12.6vw, 206px);
+    --media-tile-media-height: clamp(148px, 9vw, 160px);
 }
 
 .media-hub-shelf--continue.media-hub-shelf--watch {
@@ -30,14 +30,30 @@
 }
 
 ::deep .media-tile-shelf-track {
-    grid-template-columns: 0 minmax(0, 1fr) 54px;
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+::deep .media-tile-shelf-window {
+    grid-column: 1 !important;
+    grid-row: 1 !important;
+}
+
+::deep .media-tile-shelf-arrow-slot {
+    position: absolute;
+    inset-block: 0;
+    z-index: 5;
+    width: 48px;
+    padding: 0;
+    pointer-events: none;
 }
 
 ::deep .media-tile-shelf-arrow-slot-left {
-    display: none;
+    left: -8px;
+    justify-content: flex-start;
 }
 
 ::deep .media-tile-shelf-arrow-slot-right {
+    right: -8px;
     justify-content: flex-end;
 }
 
@@ -50,11 +66,30 @@
     overflow: visible;
 }
 
+.media-hub-shelf--listen ::deep .media-tile.is-square {
+    --media-tile-media-height: clamp(148px, 9vw, 160px);
+}
+
+.media-hub-shelf--listen ::deep .media-tile.is-portrait {
+    --media-tile-media-height: clamp(216px, 13.5vw, 240px);
+}
+
+.media-hub-shelf--listen ::deep .media-tile.is-landscape:not(.is-collection-card):not(.is-ordered-series-card) {
+    --media-tile-media-height: clamp(148px, 9vw, 160px);
+}
+
 ::deep .media-tile-shelf-arrow {
     width: 44px !important;
     min-width: 44px !important;
     height: 48px !important;
     border-radius: 8px !important;
+    opacity: 0 !important;
+    pointer-events: auto;
+}
+
+::deep .media-tile-shelf-track:hover .media-tile-shelf-arrow,
+::deep .media-tile-shelf-track:focus-within .media-tile-shelf-arrow {
+    opacity: 1 !important;
 }
 
 ::deep .media-tile.is-landscape {
@@ -75,7 +110,7 @@
     }
 
     ::deep .media-tile-shelf-track {
-        grid-template-columns: minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) !important;
     }
 
     ::deep .media-tile-shelf-arrow-slot {

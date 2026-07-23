@@ -261,6 +261,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         var card = new DisplayCardBuilder().FromWork(row, "read", progress: null);
 
         Assert.Equal(1965, card.SortYear);
+        Assert.Equal($"/stream/{row.AssetId:D}/cover", card.Artwork.CoverUrl);
     }
 
     private static DisplayWorkRow CreateWork(

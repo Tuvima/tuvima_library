@@ -25,8 +25,10 @@ public sealed class MediaTileComposerService
     public async Task<DiscoveryPageViewModel> BuildWatchAsync(CancellationToken ct = default) =>
         FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "watch", grouping: "all", ct: ct), "watch"));
 
-    public async Task<DiscoveryPageViewModel> BuildListenAsync(CancellationToken ct = default) =>
-        FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", ct: ct), "listen"));
+    public async Task<DiscoveryPageViewModel> BuildListenAsync(Guid? profileId = null, CancellationToken ct = default) =>
+        FromDisplayPage(await RequireDisplayPageAsync(
+            _api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", profileId: profileId, ct: ct),
+            "listen"));
 
     public static DiscoveryPageViewModel FromDisplayPage(DisplayPageDto page)
     {
@@ -222,10 +224,10 @@ public sealed class MediaTileComposerService
             bucket,
             presentation,
             [
-                new MediaTileArtworkVariant(ArtworkRole.Background, card.Artwork.BackgroundSmallUrl, card.Artwork.BackgroundMediumUrl, card.Artwork.BackgroundLargeUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
-                new MediaTileArtworkVariant(ArtworkRole.Banner, card.Artwork.BannerSmallUrl, card.Artwork.BannerMediumUrl, card.Artwork.BannerLargeUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
-                new MediaTileArtworkVariant(ArtworkRole.Square, card.Artwork.SquareSmallUrl, card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
-                new MediaTileArtworkVariant(ArtworkRole.Cover, card.Artwork.CoverSmallUrl, card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Background, FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BackgroundUrl), card.Artwork.BackgroundMediumUrl, card.Artwork.BackgroundLargeUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Banner, FirstNonBlank(card.Artwork.BannerSmallUrl, card.Artwork.BannerUrl), card.Artwork.BannerMediumUrl, card.Artwork.BannerLargeUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Square, FirstNonBlank(card.Artwork.SquareSmallUrl, card.Artwork.SquareUrl), card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Cover, FirstNonBlank(card.Artwork.CoverSmallUrl, card.Artwork.CoverUrl), card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
             ],
             preferLandscapeTile: isTvEpisode);
         var artworkStackItems = BuildArtworkStackItems(card);

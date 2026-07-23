@@ -677,7 +677,7 @@ internal class EngineApiClientStub : DispatchProxy
     private static DisplayPageDto CreateDisplayPage(string key, string title)
     {
         var workId = Guid.Parse("90000000-0000-0000-0000-000000000001");
-        var action = new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: "/listen/music/songs");
+        var action = new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: "/listen/music?browse=songs");
         var artwork = new DisplayArtworkDto(
             CoverUrl: "/art/test-cover.jpg",
             CoverSmallUrl: "/art/test-cover-s.jpg",

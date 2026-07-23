@@ -46,7 +46,7 @@ public static class BrowseQueryBuilder
 
     public static LibraryLayoutMode ResolveLayout(string? requestedLayout, BrowseTabPreset tab, string grouping)
     {
-        if (grouping == "tracks")
+        if (grouping is "tracks" or "songs")
         {
             return LibraryLayoutMode.List;
         }
@@ -64,11 +64,36 @@ public static class BrowseQueryBuilder
             return requestedSort;
         }
 
-        return grouping == "timeline" ? "oldest" : IsContainerGrouping(grouping) ? "featured" : "newest";
+        if (grouping == "timeline")
+        {
+            return "oldest";
+        }
+
+        if (string.Equals(activeTabId, "music", StringComparison.OrdinalIgnoreCase))
+        {
+            return grouping == "artists" ? "title" : "newest";
+        }
+
+        return IsContainerGrouping(grouping) ? "featured" : "newest";
     }
 
     public static IReadOnlyList<(string Value, string Label)> GetSortOptions(string activeTabId, string grouping) =>
-        grouping == "timeline"
+        string.Equals(activeTabId, "music", StringComparison.OrdinalIgnoreCase)
+        && grouping == "albums"
+            ? [
+                ("newest", "Recently added"),
+                ("recently-played", "Recently played"),
+                ("title", "Title A-Z"),
+                ("creator", "Artist"),
+                ("year", "Release year"),
+            ]
+        : string.Equals(activeTabId, "music", StringComparison.OrdinalIgnoreCase)
+          && grouping == "artists"
+            ? [("title", "A-Z"), ("featured", "Most albums"), ("newest", "Recently added")]
+        : string.Equals(activeTabId, "music", StringComparison.OrdinalIgnoreCase)
+          && grouping == "playlists"
+            ? [("newest", "Recently updated"), ("title", "Title A-Z"), ("oldest", "Oldest")]
+        : grouping == "timeline"
             ? [("oldest", "Oldest first"), ("newest", "Newest first"), ("title", "Title A-Z")]
             : IsContainerGrouping(grouping)
             ? [("featured", "Top"), ("title", "A-Z"), ("newest", "Newest")]

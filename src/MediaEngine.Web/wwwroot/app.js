@@ -322,10 +322,9 @@ window.updateMediaTileShelfStableHeight = function (el) {
     var restingHeight = 0;
     Array.prototype.forEach.call(el.querySelectorAll('.media-tile, .media-group-tile'), function (tile) {
         if (tile.closest('.media-tile-shelf-scroll') !== el) return;
-        var frame = tile.querySelector('.media-tile-frame, .media-group-tile__frame');
-        if (!frame) return;
-        var rect = frame.getBoundingClientRect();
-        restingHeight = Math.max(restingHeight, rect.height || frame.offsetHeight || 0);
+        // Include captions beneath artwork as well as fixed-size group tiles.
+        var rect = tile.getBoundingClientRect();
+        restingHeight = Math.max(restingHeight, rect.height || tile.offsetHeight || 0);
     });
 
     if (restingHeight > 0) {

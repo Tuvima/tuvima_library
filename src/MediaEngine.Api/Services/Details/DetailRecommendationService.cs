@@ -349,7 +349,7 @@ public sealed class DetailRecommendationService
             DetailEntityType.Movie when !string.IsNullOrWhiteSpace(collectionId) => $"/watch/movie/{workId}?collectionId={collectionId}",
             DetailEntityType.Movie => $"/watch/movie/{workId}",
             DetailEntityType.MusicTrack when !string.IsNullOrWhiteSpace(collectionId) => $"/listen/music/albums/{collectionId}?track={workId}",
-            DetailEntityType.MusicTrack => $"/listen/music/songs?track={workId}",
+            DetailEntityType.MusicTrack => $"/listen/music?browse=songs&track={workId}",
             DetailEntityType.Audiobook => $"/listen/audiobook/{workId}",
             DetailEntityType.ComicIssue => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}?mode=read",
@@ -487,4 +487,3 @@ public sealed class DetailRecommendationService
         public double Score { get; init; }
     }
 }
-

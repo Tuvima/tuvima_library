@@ -116,6 +116,12 @@
     {
         <div class="media-tile-caption" aria-hidden="true">
             <span class="media-tile-caption__title" title="@Item.Title">@Item.Title</span>
+            @if (!string.IsNullOrWhiteSpace(DisplaySubtitle)
+                 && !string.Equals(DisplaySubtitle, Item.Title, StringComparison.OrdinalIgnoreCase)
+                 && !string.Equals(DisplaySubtitle, MediaKindLabel, StringComparison.OrdinalIgnoreCase))
+            {
+                <span class="media-tile-caption__subtitle" title="@DisplaySubtitle">@DisplaySubtitle</span>
+            }
             @if (!string.IsNullOrWhiteSpace(HoverIdentityYear))
             {
                 <span class="media-tile-caption__year">@HoverIdentityYear</span>

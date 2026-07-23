@@ -78,7 +78,23 @@ public sealed record DisplayCardDto(
     public int? PreviewTotalCount { get; init; }
     public DisplayGroupSummaryDto? GroupSummary { get; init; }
     public int SortYear { get; init; }
+    public DisplayCardListMetadataDto? ListMetadata { get; init; }
 }
+
+public sealed record DisplayCardListMetadataDto(
+    string? Author,
+    string? Artist,
+    string? Director,
+    string? Narrator,
+    string? Album,
+    string? Series,
+    string? Genre,
+    string? Duration,
+    string? TrackNumber,
+    string? Year,
+    string? ShowName,
+    string? SeasonNumber,
+    string? EpisodeNumber);
 
 public sealed record DisplayCardBadgeDto(
     string Kind,

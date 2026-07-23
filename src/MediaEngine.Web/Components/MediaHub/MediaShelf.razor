@@ -17,6 +17,7 @@ else
                         HoverMode="@HoverMode"
                         HideSourceBadges="@HideSourceBadges"
                         ShowHeader="false"
+                        ShowCompactCaptions="@(SectionType == MediaHubSectionType.Listen)"
                         UseContinueWatchingOrListeningTiles="@UseContinueWatchingOrListeningTiles" />
     </section>
 }
@@ -28,7 +29,9 @@ else
 
     private string RootClass => $"media-hub-shelf media-hub-shelf--{SectionType.ToString().ToLowerInvariant()} {(Shelf.IsContinueShelf ? "media-hub-shelf--continue" : null)}";
 
-    private MediaTileHoverMode HoverMode => MediaTileHoverMode.Expanded;
+    private MediaTileHoverMode HoverMode => SectionType == MediaHubSectionType.Listen
+        ? MediaTileHoverMode.GlowOnly
+        : MediaTileHoverMode.Expanded;
 
     private bool UseContinueWatchingOrListeningTiles =>
         Shelf.IsContinueShelf

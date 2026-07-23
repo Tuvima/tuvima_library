@@ -672,6 +672,13 @@
     font-size: 0.78rem;
 }
 
+.browse-shell__playlist-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
 .browse-shell__active-filters {
     display: flex;
     justify-content: flex-end;

@@ -138,6 +138,43 @@ public sealed class CollectionReadServicesTests : IDisposable
             });
     }
 
+    [Fact]
+    public async Task SystemViewGroups_MusicAlbumsExposeTheTrackLevelArtist()
+    {
+        var seeded = await SeedMusicHierarchyAsync();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                DELETE FROM canonical_values
+                WHERE key = 'artist' AND entity_id IN (@AlbumWorkId, @AssetId);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@TrackWorkId, 'author', 0, 'The Artist');
+                """,
+                new
+                {
+                    seeded.AlbumWorkId,
+                    seeded.TrackWorkId,
+                    seeded.AssetId,
+                    Now = DateTimeOffset.UtcNow.ToString("O"),
+                });
+        }
+
+        var groups = await _browse.GetSystemViewGroupsAsync("Music", "album", CancellationToken.None);
+        var detailRows = await _browse.GetSystemViewDetailWorksAsync(
+            "album",
+            "The Album",
+            "Music",
+            "The Artist",
+            CancellationToken.None);
+
+        var group = Assert.Single(groups);
+        var detail = Assert.Single(detailRows);
+        Assert.Equal("The Album", group.DisplayName);
+        Assert.Equal("The Artist", group.Creator);
+        Assert.Equal("The Artist", detail.Author);
+    }
+
     [Theory]
     [InlineData("Books", "author", "Author", "Author", "Ursula K. Le Guin")]
     [InlineData("Comics", "author", "Author", "Creator", "Marjane Satrapi")]

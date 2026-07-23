@@ -3,10 +3,11 @@ namespace MediaEngine.Web.Services.Navigation;
 public static class ListenNavigation
 {
     public const string MusicHomeRoute = "/listen/music";
-    public const string AlbumsRoute = "/listen/music/albums";
-    public const string ArtistsRoute = "/listen/music/artists";
-    public const string SongsRoute = "/listen/music/songs";
-    public const string PlaylistsRoute = "/listen/music/playlists";
+    public const string AlbumsRoute = MusicHomeRoute;
+    public const string ArtistsRoute = "/listen/music?browse=artists";
+    public const string SongsRoute = "/listen/music?browse=songs";
+    public const string PlaylistsRoute = "/listen/music?browse=playlists";
+    public const string TimelineRoute = "/listen/music?browse=timeline";
     public const string AudiobooksRoute = "/listen/audiobooks";
 
     public static string ResolveEntryRoute(string? savedMode, string? savedMusicRoute)
@@ -16,7 +17,8 @@ public static class ListenNavigation
 
     public static string NormalizeMusicSurfaceRoute(string? route)
     {
-        var path = NormalizeRoute(route);
+        var normalizedRoute = NormalizeRoute(route);
+        var path = normalizedRoute?.Split('?', 2)[0];
         if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("/listen/music", StringComparison.OrdinalIgnoreCase))
         {
             return MusicHomeRoute;
@@ -24,20 +26,28 @@ public static class ListenNavigation
 
         if (string.Equals(path, MusicHomeRoute, StringComparison.OrdinalIgnoreCase))
         {
-            return MusicHomeRoute;
+            var query = System.Web.HttpUtility.ParseQueryString(
+                Uri.TryCreate(normalizedRoute, UriKind.Absolute, out var absolute)
+                    ? absolute.Query
+                    : normalizedRoute?.Contains('?') == true
+                        ? normalizedRoute[(normalizedRoute.IndexOf('?'))..]
+                        : string.Empty);
+            return query["browse"]?.Trim().ToLowerInvariant() switch
+            {
+                "artists" => ArtistsRoute,
+                "songs" => SongsRoute,
+                "playlists" => PlaylistsRoute,
+                "timeline" => TimelineRoute,
+                _ => AlbumsRoute,
+            };
         }
 
-        if (path.StartsWith(ArtistsRoute, StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWith("/listen/music/artists/", StringComparison.OrdinalIgnoreCase))
         {
             return ArtistsRoute;
         }
 
-        if (path.StartsWith(SongsRoute, StringComparison.OrdinalIgnoreCase))
-        {
-            return SongsRoute;
-        }
-
-        if (path.StartsWith(PlaylistsRoute, StringComparison.OrdinalIgnoreCase))
+        if (path.StartsWith("/listen/music/playlists/", StringComparison.OrdinalIgnoreCase))
         {
             return PlaylistsRoute;
         }

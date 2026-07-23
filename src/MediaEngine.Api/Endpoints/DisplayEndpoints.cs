@@ -28,6 +28,7 @@ public static class DisplayEndpoints
             string? creator,
             string? status,
             string? year,
+            string? sort,
             int? offset,
             int? limit,
             bool? includeCatalog,
@@ -47,7 +48,8 @@ public static class DisplayEndpoints
                 genres,
                 creator,
                 status,
-                year)))
+                year,
+                sort)))
             .WithName("GetDisplayBrowse")
             .WithSummary("Returns cross-platform display cards for a media lane or browse query.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)

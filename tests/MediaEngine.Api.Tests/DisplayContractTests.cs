@@ -137,7 +137,8 @@ public sealed class DisplayContractTests
         Assert.Contains("\"continue-watching\"", shelfBuilderSource, StringComparison.Ordinal);
         Assert.Contains("\"continue-reading\"", shelfBuilderSource, StringComparison.Ordinal);
         Assert.Contains("\"continue-listening\"", source, StringComparison.Ordinal);
-        Assert.Contains("\"new-tracks-added\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"recently-updated-albums\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"recently-added-audiobooks\"", source, StringComparison.Ordinal);
         Assert.Contains("\"openCollection\"", cardBuilderSource, StringComparison.Ordinal);
     }
 

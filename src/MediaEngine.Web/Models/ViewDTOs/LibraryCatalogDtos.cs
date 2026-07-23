@@ -303,6 +303,12 @@ public sealed class LibraryItemDetailViewModel
     [JsonPropertyName("author")]
     public string? Author { get; set; }
 
+    [JsonPropertyName("album")]
+    public string? Album { get; set; }
+
+    [JsonPropertyName("artist")]
+    public string? Artist { get; set; }
+
     [JsonPropertyName("director")]
     public string? Director { get; set; }
 

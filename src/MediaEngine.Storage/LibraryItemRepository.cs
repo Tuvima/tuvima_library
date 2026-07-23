@@ -599,6 +599,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             Author = resolvedAuthor,
             Director = projection?.Director ?? Canonical("director"),
             Artist = projection?.Artist ?? Canonical("artist"),
+            Album = Canonical("album"),
             Composer = Canonical("composer"),
             Illustrator = Canonical("illustrator"),
             Writer = Canonical("writer") ?? Canonical("screenwriter"),

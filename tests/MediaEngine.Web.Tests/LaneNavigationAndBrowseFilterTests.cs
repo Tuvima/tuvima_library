@@ -45,8 +45,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
     {
         var read = ReadSource("src/MediaEngine.Web/Components/Pages/ReadPage.razor");
         var watch = ReadSource("src/MediaEngine.Web/Components/Pages/WatchPage.razor");
-        var listen = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor");
-        var listenCode = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.cs");
+        var listen = ReadSource("src/MediaEngine.Web/Components/Pages/ListenBrowsePage.razor");
+        var listenPreset = ReadSource("src/MediaEngine.Web/Components/Pages/ListenBrowseConfiguration.cs");
         var collections = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionsPage.razor");
         var hub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
         var laneHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaLaneHeader.razor");
@@ -126,17 +126,19 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("HideGroupIndicators=\"true\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__tile-size", browseShell, StringComparison.Ordinal);
         Assert.Contains("TileSizePx", browseShell, StringComparison.Ordinal);
-        Assert.Contains("HoverMode => MediaTileHoverMode.Expanded", mediaShelf, StringComparison.Ordinal);
+        Assert.Contains("SectionType == MediaHubSectionType.Listen", mediaShelf, StringComparison.Ordinal);
+        Assert.Contains("ShowCompactCaptions=\"@(SectionType == MediaHubSectionType.Listen)\"", mediaShelf, StringComparison.Ordinal);
+        Assert.Contains("MediaTileHoverMode.GlowOnly", mediaShelf, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", collections, StringComparison.Ordinal);
         Assert.Contains("Nav.NavigateTo(target.Route)", hub, StringComparison.Ordinal);
 
-        Assert.Contains("ArtistPersonTiles", listen, StringComparison.Ordinal);
-        Assert.Contains("AudiobookAuthorPersonTiles", listen, StringComparison.Ordinal);
-        Assert.Contains("AudiobookNarratorPersonTiles", listen, StringComparison.Ordinal);
-        Assert.Contains("PersonNamesMatch(group.DisplayName, personGroup.Name)", listenCode, StringComparison.Ordinal);
-        Assert.Contains("MediaTileGrid Items=\"@ArtistPersonTiles\"", listen, StringComparison.Ordinal);
-        Assert.Contains("MediaTileGrid Items=\"@AudiobookAuthorPersonTiles\"", listen, StringComparison.Ordinal);
-        Assert.Contains("MediaTileGrid Items=\"@AudiobookNarratorPersonTiles\"", listen, StringComparison.Ordinal);
+        Assert.Contains("ListenBrowseConfiguration.Preset", listen, StringComparison.Ordinal);
+        Assert.Contains("MediaBrowseNavigationBuilder.BuildBrowseGroup", listen, StringComparison.Ordinal);
+        Assert.Contains("new(\"albums\", \"Albums\"", listenPreset, StringComparison.Ordinal);
+        Assert.Contains("new(\"artists\", \"Artists\"", listenPreset, StringComparison.Ordinal);
+        Assert.Contains("new(\"songs\", \"Songs\"", listenPreset, StringComparison.Ordinal);
+        Assert.Contains("new(\"playlists\", \"Playlists\"", listenPreset, StringComparison.Ordinal);
+        Assert.Contains("new(\"narrators\", \"Narrators\"", listenPreset, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath) =>

@@ -955,7 +955,9 @@ public static class CollectionEndpoints
                 var rootWorkId = row.RootWorkId;
                 var title = row.Title;
                 var episodeTitle = row.EpisodeTitle;
-                var cover = row.Cover;
+                var cover = string.IsNullOrWhiteSpace(row.Cover) && assetId.HasValue
+                    ? $"/stream/{assetId.Value:D}/cover"
+                    : row.Cover;
                 var background = row.Background;
                 var banner = row.Banner;
                 var hero = row.Hero;

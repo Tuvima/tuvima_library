@@ -185,7 +185,8 @@
     .media-tile-hover-panel.is-placement-bottom .media-tile-hover-fact { font-size:.7rem; }
     .media-tile-caption { display:flex; min-width:0; flex-direction:column; gap:3px; padding:0 3px; font-family:var(--font-ui); transition:opacity .18s ease,transform .18s ease; }
     .media-tile-caption__title { overflow:hidden; color:rgba(248,250,252,.92); font-size:.78rem; font-weight:600; line-height:1.35; text-overflow:ellipsis; white-space:nowrap; }
-    .media-tile-caption__year { color:rgba(148,163,184,.72); font-size:.72rem; font-weight:500; line-height:1.3; }
+    .media-tile-caption__subtitle,
+    .media-tile-caption__year { overflow:hidden; color:rgba(148,163,184,.72); font-size:.72rem; font-weight:500; line-height:1.3; text-overflow:ellipsis; white-space:nowrap; }
     .media-tile:focus-within .media-tile-caption, .media-tile.is-expanded .media-tile-caption, .media-tile.is-hover-active .media-tile-caption { opacity:0; transform:translateY(-12px); pointer-events:none; }
     .media-tile.is-hover-glow-only:focus-within .media-tile-caption,
     .media-tile.is-hover-glow-only.is-expanded .media-tile-caption,

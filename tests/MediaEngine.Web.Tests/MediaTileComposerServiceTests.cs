@@ -80,6 +80,64 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_UsesManagedBaseCoverWhenSizedRenditionsAreUnavailable()
+    {
+        var albumId = Guid.Parse("33333333-1111-1111-1111-333333333333");
+        var coverUrl = "http://localhost:61495/stream/33333333-1111-1111-1111-333333333333/cover";
+        var card = new DisplayCardDto(
+            Id: albumId,
+            WorkId: null,
+            AssetId: null,
+            CollectionId: albumId,
+            MediaType: "Music",
+            GroupingType: "album",
+            Title: "Abbey Road",
+            Subtitle: "The Beatles",
+            Facts: ["1969", "17 tracks"],
+            Artwork: new DisplayArtworkDto(
+                CoverUrl: coverUrl,
+                CoverSmallUrl: null,
+                CoverMediumUrl: null,
+                CoverLargeUrl: null,
+                SquareUrl: null,
+                SquareSmallUrl: null,
+                SquareMediumUrl: null,
+                SquareLargeUrl: null,
+                BannerUrl: null,
+                BannerSmallUrl: null,
+                BannerMediumUrl: null,
+                BannerLargeUrl: null,
+                BackgroundUrl: null,
+                BackgroundSmallUrl: null,
+                BackgroundMediumUrl: null,
+                BackgroundLargeUrl: null,
+                LogoUrl: null,
+                CoverWidthPx: 600,
+                CoverHeightPx: 600,
+                SquareWidthPx: null,
+                SquareHeightPx: null,
+                BannerWidthPx: null,
+                BannerHeightPx: null,
+                BackgroundWidthPx: null,
+                BackgroundHeightPx: null,
+                AccentColor: "#7C3AED"),
+            PreferredShape: "square",
+            Presentation: "album",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions: [new DisplayActionDto("openCollection", "Explore", CollectionId: albumId, WebUrl: $"/listen/music/albums/{albumId}")],
+            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.Equal(MediaTileShape.Square, mapped.Shape);
+        Assert.Equal(coverUrl, mapped.TileImageUrl);
+        Assert.Equal(coverUrl, mapped.HoverImageUrl);
+    }
+
+    [Fact]
     public void FromDisplayCard_MapsWatchBadgesToTileFieldsAndLogos()
     {
         var workId = Guid.Parse("44444444-1111-1111-1111-444444444444");

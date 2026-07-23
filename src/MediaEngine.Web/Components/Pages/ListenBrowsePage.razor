@@ -1,0 +1,258 @@
+@page "/listen"
+@page "/listen/{Tab}"
+@using MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.MediaTiles
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject MediaTileComposerService MediaTiles
+@inject NavigationManager Nav
+
+@namespace MediaEngine.Web.Components.Pages
+
+<PageTitle>Listen - Tuvima</PageTitle>
+
+<MediaSectionShell Title="Listen" NavigationGroups="@ListenNavigationGroups">
+    <MediaLaneHeader Title="Listen"
+                     Modes="@ListenBrowseConfiguration.LaneModes"
+                     ActiveMode="@ActiveListenMode" />
+
+    @if (string.IsNullOrWhiteSpace(Tab))
+    {
+        @if (_loading)
+        {
+            <div class="browse-shell__loading">
+                <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
+            </div>
+        }
+        else if (_loadFailed)
+        {
+            <AppErrorState Title="Listen failed to load"
+                           Message="The Dashboard could not load the Listen landing from the Engine."
+                           Retry="LoadLandingAsync" />
+        }
+        else if (_landingPage is not null)
+        {
+            <MediaHubPage SectionType="MediaHubSectionType.Listen"
+                          Title="Listen"
+                          Subtitle="Music and audiobooks from your local library"
+                          SelectedMode="all"
+                          AvailableModes="@ListenBrowseConfiguration.LaneModes"
+                          Shelves="@ListenHubShelves"
+                          SearchPlaceholder="Search music and audiobooks..."
+                          RouteBase="/listen"
+                          SupportsHero="false"
+                          SupportsHeader="false"
+                          SupportsNavigation="false" />
+        }
+    }
+    else if (IsSupportedBrowseTab)
+    {
+        <MediaBrowseShell Tab="@Tab"
+                          Preset="@ListenBrowseConfiguration.Preset"
+                          ShowTitleBlock="false"
+                          ShowTabNavigation="false" />
+    }
+    else
+    {
+        <AppErrorState Title="Listen page not found"
+                       Message="Choose Music or Audiobooks to browse your library." />
+    }
+</MediaSectionShell>
+
+@code {
+    [Parameter] public string? Tab { get; set; }
+
+    private DiscoveryPageViewModel? _landingPage;
+    private IReadOnlyList<ManagedCollectionViewModel> _playlists = [];
+    private Guid? _activeProfileId;
+    private bool _loading = true;
+    private bool _loadFailed;
+
+    private string ActiveListenMode => NormalizedTab switch
+    {
+        "music" => "music",
+        "audiobooks" => "audiobooks",
+        _ => "all",
+    };
+
+    private string NormalizedTab => Tab?.Trim().ToLowerInvariant() ?? string.Empty;
+
+    private bool IsSupportedBrowseTab =>
+        ListenBrowseConfiguration.Preset.Tabs.Any(
+            tab => string.Equals(tab.Id, NormalizedTab, StringComparison.OrdinalIgnoreCase));
+
+    private static IReadOnlyList<MediaSectionNavigationGroup> ListenNavigationGroups =>
+    [
+        new("Library",
+        [
+            new("Discover", "/listen", Icons.Material.Outlined.Explore, Exact: true),
+            new("Music", "/listen/music", Icons.Material.Outlined.MusicNote),
+            new("Audiobooks", "/listen/audiobooks", Icons.Material.Outlined.Headphones),
+        ]),
+        new("Listen next",
+        [
+            new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
+            new("Continue Listening", "/listen/audiobooks?status=in-progress", Icons.Material.Outlined.PlayCircle, Exact: true),
+            new("Recently Played", "/listen/music?sort=recently-played", Icons.Material.Outlined.History, Exact: true),
+            new("Recently Added", "/listen/music?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
+        ]),
+        MediaBrowseNavigationBuilder.BuildBrowseGroup(
+            ListenBrowseConfiguration.Preset,
+            "Music",
+            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "music" }),
+        new("Playlists",
+        [
+            new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
+            new("All Playlists", "/listen/music?browse=playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
+        ]),
+    ];
+
+    private IReadOnlyList<MediaHubShelfViewModel> ListenHubShelves
+    {
+        get
+        {
+            var shelves = _landingPage?.Shelves
+                .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))
+                .ToList() ?? [];
+            var playlistTiles = _playlists.Take(12).Select(ToPlaylistTile).ToList();
+            if (playlistTiles.Count == 0)
+            {
+                return shelves;
+            }
+
+            var playlistShelf = new MediaHubShelfViewModel
+            {
+                Key = "your-playlists",
+                Title = "Your Playlists",
+                Subtitle = "Manual and smart playlists from your library",
+                Items = playlistTiles,
+                SeeAllRoute = "/listen/music?browse=playlists",
+                ShapeOverride = MediaTileShape.Square,
+            };
+            var seriesIndex = shelves.FindIndex(
+                shelf => string.Equals(shelf.Key, "audiobook-series", StringComparison.OrdinalIgnoreCase));
+            if (seriesIndex >= 0)
+            {
+                shelves.Insert(seriesIndex, playlistShelf);
+            }
+            else
+            {
+                shelves.Add(playlistShelf);
+            }
+
+            return shelves;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.Equals(NormalizedTab, "music", StringComparison.OrdinalIgnoreCase)
+            && RequestedTrackId is Guid trackId)
+        {
+            var detail = await ApiClient.GetLibraryItemDetailAsync(trackId);
+            if (!string.IsNullOrWhiteSpace(detail?.Album))
+            {
+                var query = new List<string> { $"track={trackId:D}" };
+                if (!string.IsNullOrWhiteSpace(detail.Artist))
+                {
+                    query.Add($"artist={Uri.EscapeDataString(detail.Artist)}");
+                }
+
+                Nav.NavigateTo(
+                    $"/listen/music/albums/by-name/{Uri.EscapeDataString(detail.Album)}?{string.Join("&", query)}",
+                    replace: true);
+                return;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(Tab) || _landingPage is not null)
+        {
+            _loading = false;
+            return;
+        }
+
+        await LoadLandingAsync();
+    }
+
+    private Guid? RequestedTrackId
+    {
+        get
+        {
+            var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
+            return Guid.TryParse(query["track"], out var trackId) ? trackId : null;
+        }
+    }
+
+    private async Task LoadLandingAsync()
+    {
+        _loading = true;
+        _loadFailed = false;
+
+        try
+        {
+            _activeProfileId = (await Orchestrator.GetActiveProfileAsync())?.Id;
+            var landingTask = MediaTiles.BuildListenAsync(_activeProfileId);
+            var playlistsTask = ApiClient.GetManagedCollectionsAsync(_activeProfileId);
+            await Task.WhenAll(landingTask, playlistsTask);
+            _landingPage = await landingTask;
+            _playlists = (await playlistsTask)
+                .Where(IsUserVisiblePlaylist)
+                .OrderByDescending(playlist => playlist.ModifiedAt ?? playlist.CreatedAt)
+                .ThenBy(playlist => playlist.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+        catch
+        {
+            _loadFailed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection) =>
+        !string.Equals(collection.Name, "Watchlist", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(collection.Name, "Favorites", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(collection.Name, "Liked Media", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(collection.Name, "Loved Media", StringComparison.OrdinalIgnoreCase)
+        && (string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase));
+
+    private static MediaTileViewModel ToPlaylistTile(ManagedCollectionViewModel playlist)
+    {
+        var route = $"/listen/music/playlists/{playlist.Id:D}";
+        var smallArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "s");
+        var mediumArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "m");
+        return new MediaTileViewModel
+        {
+            Id = playlist.Id,
+            CollectionId = playlist.Id,
+            Title = playlist.Name,
+            Subtitle = playlist.ItemCount == 1 ? "1 item" : $"{playlist.ItemCount} items",
+            Description = playlist.Description,
+            CoverUrl = playlist.SquareArtworkUrl,
+            MediaKind = "Music",
+            AccentColor = "var(--tl-media-audio)",
+            Shape = MediaTileShape.Square,
+            HoverArtworkShape = MediaTileShape.Square,
+            Presentation = MediaTilePresentation.Album,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverMode = MediaTileHoverMode.GlowOnly,
+            TileTextMode = MediaTileTextMode.Caption,
+            TileImageUrl = smallArtwork ?? playlist.SquareArtworkUrl,
+            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(smallArtwork, mediumArtwork),
+            HoverImageUrl = mediumArtwork ?? playlist.SquareArtworkUrl,
+            NavigationUrl = route,
+            DetailsNavigationUrl = route,
+            PrimaryNavigationUrl = route,
+            PrimaryActionLabel = "Open",
+            SortTimestamp = playlist.ModifiedAt ?? playlist.CreatedAt,
+            IsCollection = true,
+        };
+    }
+}

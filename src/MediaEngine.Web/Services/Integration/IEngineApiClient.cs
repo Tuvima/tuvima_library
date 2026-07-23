@@ -136,7 +136,8 @@ public interface IEngineApiClient
         string? genres = null,
         string? creator = null,
         string? status = null,
-        string? year = null);
+        string? year = null,
+        string? sort = null);
 
     /// <summary>GET /api/v1/display/search - ranked universal search across local media and entities.</summary>
     Task<UniversalSearchResponseDto?> GetUniversalSearchAsync(

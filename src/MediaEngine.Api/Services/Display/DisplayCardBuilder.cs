@@ -22,7 +22,7 @@ public sealed class DisplayCardBuilder
             Title: title,
             Subtitle: SubtitleFor(mediaKind, CreatorFor(row), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
             Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating, row.Narrator, row.Publisher),
-            Artwork: ArtworkFor(row),
+            Artwork: ArtworkFor(row, row.AssetId),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
@@ -36,6 +36,20 @@ public sealed class DisplayCardBuilder
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
             SortYear = ParseSortYear(row.Year),
+            ListMetadata = new DisplayCardListMetadataDto(
+                row.Author,
+                row.Artist,
+                row.Director,
+                row.Narrator,
+                row.Album,
+                row.Series,
+                row.Genre,
+                FirstNonBlank(row.Duration, row.Runtime),
+                row.TrackNumber,
+                row.Year,
+                row.ShowName,
+                row.SeasonNumber,
+                row.EpisodeNumber),
         };
     }
 
@@ -58,7 +72,7 @@ public sealed class DisplayCardBuilder
                     ?? SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber)
                 : SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
             Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating, row.Narrator),
-            Artwork: ArtworkFor(row),
+            Artwork: ArtworkFor(row, row.AssetId),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
             Presentation: PresentationFor(mediaKind),
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
@@ -72,6 +86,20 @@ public sealed class DisplayCardBuilder
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
             SortYear = ParseSortYear(row.Year),
+            ListMetadata = new DisplayCardListMetadataDto(
+                row.Author,
+                row.Artist,
+                null,
+                row.Narrator,
+                row.Album,
+                row.Series,
+                row.Genre,
+                FirstNonBlank(row.Duration, row.Runtime),
+                row.TrackNumber,
+                row.Year,
+                row.ShowName,
+                row.SeasonNumber,
+                row.EpisodeNumber),
         };
     }
 
@@ -359,9 +387,22 @@ public sealed class DisplayCardBuilder
     private static DisplayCardFlagsDto FlagsFor(string mediaType, bool isCollection) =>
         new(DisplayMediaRules.IsWatchKind(mediaType) || DisplayMediaRules.IsListenKind(mediaType), DisplayMediaRules.IsReadKind(mediaType), !isCollection, isCollection, false);
 
-    private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row) =>
-        new(
-            row.CoverUrl,
+    private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row, Guid? assetId = null)
+    {
+        var hasPrimaryArtwork = !string.IsNullOrWhiteSpace(row.CoverUrl)
+                                || !string.IsNullOrWhiteSpace(row.CoverSmallUrl)
+                                || !string.IsNullOrWhiteSpace(row.CoverMediumUrl)
+                                || !string.IsNullOrWhiteSpace(row.CoverLargeUrl)
+                                || !string.IsNullOrWhiteSpace(row.SquareUrl)
+                                || !string.IsNullOrWhiteSpace(row.SquareSmallUrl)
+                                || !string.IsNullOrWhiteSpace(row.SquareMediumUrl)
+                                || !string.IsNullOrWhiteSpace(row.SquareLargeUrl);
+        var managedCoverFallback = !hasPrimaryArtwork && assetId.HasValue
+            ? $"/stream/{assetId.Value:D}/cover"
+            : null;
+
+        return new DisplayArtworkDto(
+            FirstNonBlank(row.CoverUrl, managedCoverFallback),
             row.CoverSmallUrl,
             row.CoverMediumUrl,
             row.CoverLargeUrl,
@@ -387,6 +428,7 @@ public sealed class DisplayCardBuilder
             ParseInt(row.BackgroundWidthPx),
             ParseInt(row.BackgroundHeightPx),
             row.AccentColor);
+    }
 
     private static DisplayArtworkDto CollectionArtworkFor(DisplayWorkRow representative)
     {
@@ -426,7 +468,7 @@ public sealed class DisplayCardBuilder
             AccentColor = FirstNonBlank(representative.CollectionAccentColor, representative.RootAccentColor, representative.AccentColor),
         };
 
-        return ArtworkFor(row);
+        return ArtworkFor(row, representative.AssetId);
     }
 
     private static DisplayArtworkDto RootArtworkFor(DisplayWorkRow representative)
@@ -1019,7 +1061,7 @@ public sealed class DisplayCardBuilder
                 : $"/watch/movie/{workId:D}",
             "Music" => collectionId.HasValue
                 ? $"/listen/music/albums/{collectionId.Value:D}?track={workId:D}"
-                : $"/listen/music/songs?track={workId:D}",
+                : $"/listen/music?browse=songs&track={workId:D}",
             "Audiobook" => $"/listen/audiobook/{workId:D}",
             "Book" or "Comic" => $"/book/{workId:D}?mode=read",
             _ => $"/details/work/{workId:D}",

@@ -9,8 +9,15 @@ namespace MediaEngine.Web.Components.Browse;
 public static class MediaBrowseNavigationBuilder
 {
     public static MediaSectionNavigationGroup BuildBrowseGroup(LibraryBrowsePreset preset)
+        => BuildBrowseGroup(preset, "Browse as", null);
+
+    public static MediaSectionNavigationGroup BuildBrowseGroup(
+        LibraryBrowsePreset preset,
+        string label,
+        IReadOnlySet<string>? tabIds)
     {
         var items = preset.Tabs
+            .Where(tab => tabIds is null || tabIds.Contains(tab.Id))
             .SelectMany(tab => tab.GroupingOptions.Select(option => new { Tab = tab, Option = option }))
             .Where(item => !item.Option.Disabled)
             .Select(item => new MediaSectionNavigationItem(
@@ -21,7 +28,7 @@ public static class MediaBrowseNavigationBuilder
             .DistinctBy(item => item.Route, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        return new MediaSectionNavigationGroup("Browse as", items);
+        return new MediaSectionNavigationGroup(label, items);
     }
 
     public static string BuildRoute(

@@ -529,24 +529,40 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenPage_RendersPermanentRailWithoutDrawerControls()
+    public void ListenBrowsePage_RendersSharedPersistentRailWithoutRightPlayer()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        navigationManager.NavigateTo("/listen/music/songs");
+        navigationManager.NavigateTo("/listen/music?browse=songs");
 
-        var cut = RenderComponent<ListenPage>(parameters => parameters
-            .Add(page => page.Section, "songs"));
+        var cut = RenderListenBrowsePageWithProviders("music");
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".listen-page"));
-            Assert.Single(cut.FindAll(".listen-rail-shell"));
-            Assert.Single(cut.FindAll(".listen-rail"));
-            Assert.Single(cut.FindAll(".listen-content"));
-            Assert.Single(cut.FindAll(".listen-now-panel"));
-            Assert.Empty(cut.FindAll(".listen-topbar__menu"));
-            Assert.Empty(cut.FindAll(".listen-rail__close"));
-            Assert.DoesNotContain("Pins", cut.Markup);
+            Assert.Single(cut.FindAll(".media-section-shell"));
+            Assert.Single(cut.FindAll(".media-section-shell__rail"));
+            Assert.Single(cut.FindAll(".media-section-shell__content"));
+            Assert.Single(cut.FindAll(".browse-shell"));
+            Assert.Empty(cut.FindAll(".listen-now-panel"));
+            Assert.Contains(">Albums<", cut.Markup);
+            Assert.Contains(">Artists<", cut.Markup);
+            Assert.Contains(">Songs<", cut.Markup);
+            Assert.Contains(">Playlists<", cut.Markup);
+            Assert.Contains("Search songs, artists, or albums...", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void ListenBrowsePage_RestoresSearchTextFromTheQueryString()
+    {
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/listen/music?browse=songs&q=Abbey%20Road");
+
+        var cut = RenderListenBrowsePageWithProviders("music");
+
+        cut.WaitForAssertion(() =>
+        {
+            var search = cut.Find("input[placeholder='Search songs, artists, or albums...']");
+            Assert.Equal("Abbey Road", search.GetAttribute("value"));
         });
     }
 
@@ -556,7 +572,7 @@ public sealed class UiShellRenderTests : TestContext
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen");
 
-        var cut = RenderListenPageWithProviders();
+        var cut = RenderListenBrowsePageWithProviders();
 
         cut.WaitForAssertion(() =>
         {
@@ -567,100 +583,84 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains(">Music<", cut.Markup);
             Assert.Contains(">Audiobooks<", cut.Markup);
             Assert.Single(cut.FindAll(".media-hub__shelves"));
-            Assert.Single(cut.FindAll(".listen-rail-shell"));
-            Assert.Single(cut.FindAll(".listen-now-panel"));
-            Assert.Single(cut.FindAll(".listen-page"));
+            Assert.Single(cut.FindAll(".media-section-shell__rail"));
+            Assert.Empty(cut.FindAll(".listen-now-panel"));
+            Assert.Single(cut.FindAll(".media-section-shell"));
         });
     }
 
     [Fact]
-    public void ListenPage_RendersMusicQuickAccessAndPlaylistsInOrder()
+    public void ListenBrowsePage_RendersQuickAccessMusicAndPlaylistShortcutsInOrder()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
-        navigationManager.NavigateTo("/listen/music/songs");
+        navigationManager.NavigateTo("/listen/music?browse=songs");
 
-        var cut = RenderComponent<ListenPage>(parameters => parameters
-            .Add(page => page.Section, "songs"));
+        var cut = RenderListenBrowsePageWithProviders("music");
 
         cut.WaitForAssertion(() =>
         {
             var markup = cut.Markup;
             var library = markup.IndexOf(">Library<", StringComparison.Ordinal);
-            var formats = markup.IndexOf(">Formats<", StringComparison.Ordinal);
-            var yourLibrary = markup.IndexOf(">Your Library<", StringComparison.Ordinal);
+            var listenNext = markup.IndexOf(">Listen next<", StringComparison.Ordinal);
+            var music = markup.IndexOf(">Music<", listenNext + 1, StringComparison.Ordinal);
             var playlists = markup.IndexOf(">Playlists<", StringComparison.Ordinal);
 
             Assert.True(library >= 0, "Library section should render.");
-            Assert.True(formats > library, "Formats should render below Library.");
-            Assert.True(yourLibrary > formats, "Your Library should render below Formats.");
-            Assert.True(playlists > yourLibrary, "Playlists should render below Your Library.");
-            Assert.DoesNotContain(">All Audio<", markup);
+            Assert.True(listenNext > library, "Quick access should render below Library.");
+            Assert.True(music > listenNext, "Music shortcuts should render below quick access.");
+            Assert.True(playlists > music, "Playlists should render below Music.");
             Assert.Contains(">Audiobooks<", markup);
-            Assert.Contains(">Music<", markup);
+            Assert.Contains(">Albums<", markup);
+            Assert.Contains(">Artists<", markup);
             Assert.Contains(">Songs<", markup);
-            Assert.Single(Regex.Matches(markup, ">Recently Added<"));
-            Assert.DoesNotContain(">Genres<", markup);
-            Assert.Single(cut.FindAll(".listen-rail__section-toggle"));
-            Assert.Contains("Summer Movies", markup);
-            Assert.Contains("Add playlist", markup);
-            Assert.Contains("Drag to reorder Summer Movies", markup);
-            Assert.DoesNotContain(">Podcasts<", markup);
-            Assert.DoesNotContain(">Radio<", markup);
-            Assert.DoesNotContain("Edit playlist", markup);
-            Assert.DoesNotContain("New Playlist Folder", markup);
-            Assert.DoesNotContain("listen-create-modal", markup);
+            Assert.Contains(">All Playlists<", markup);
+            Assert.Contains(">Recently Played<", markup);
+            Assert.Contains(">Recently Added<", markup);
+            Assert.DoesNotContain("Drag to reorder", markup);
+            Assert.Empty(cut.FindAll(".listen-now-panel"));
         });
     }
 
     [Fact]
-    public void ListenPage_AudiobooksUsesDedicatedDashboardWithoutBrowseShellChrome()
+    public void ListenBrowsePage_AudiobooksUsesSharedBrowseShellWithAudiobookModes()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/audiobooks");
 
-        var cut = RenderListenPageWithProviders();
+        var cut = RenderListenBrowsePageWithProviders("audiobooks");
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".listen-page"));
-            Assert.Single(cut.FindAll(".listen-page--audiobooks"));
-            Assert.Single(cut.FindAll(".audiobooks-dashboard"));
-            Assert.Single(cut.FindAll(".audiobooks-toolbar"));
-            Assert.Empty(cut.FindAll(".browse-shell--embedded"));
+            Assert.Single(cut.FindAll(".media-section-shell"));
+            Assert.Single(cut.FindAll(".browse-shell"));
             Assert.Contains("Search audiobooks", cut.Markup);
             Assert.Contains(">Audiobooks<", cut.Markup);
             Assert.Contains("Series", cut.Markup);
             Assert.Contains("Authors", cut.Markup);
             Assert.Contains("Narrators", cut.Markup);
             Assert.Contains("Timeline", cut.Markup);
-            Assert.Contains("In Progress", cut.Markup);
-            Assert.Contains("Unread", cut.Markup);
-            Assert.Contains("Length", cut.Markup);
-            Assert.Contains("Recently Added", cut.Markup);
-            Assert.Contains("Title", cut.Markup);
-            Assert.Contains("Author", cut.Markup);
+            Assert.Contains("In progress", cut.Markup);
+            Assert.Contains("Not started", cut.Markup);
+            Assert.Contains("Finished", cut.Markup);
             Assert.Contains("Cards", cut.Markup);
             Assert.Contains("List", cut.Markup);
             Assert.Contains("Continue Listening", cut.Markup);
-            Assert.Contains("Browse All", cut.Markup);
-            Assert.Contains("Featured Series", cut.Markup);
-            Assert.Contains("Dune Audiobook", cut.Markup);
-            Assert.Contains("Frank Herbert", cut.Markup);
-            Assert.DoesNotContain("Test Track", cut.Markup);
+            Assert.Empty(cut.FindAll(".audiobooks-dashboard"));
+            Assert.Empty(cut.FindAll(".listen-now-panel"));
         });
     }
 
     [Fact]
-    public void ListenPage_AudiobookSeriesTabChangesDashboardView()
+    public void ListenBrowsePage_AudiobookSeriesModeUpdatesUrlBackedState()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/audiobooks");
 
-        var cut = RenderListenPageWithProviders();
+        var cut = RenderListenBrowsePageWithProviders("audiobooks");
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".audiobooks-dashboard"));
+            Assert.Single(cut.FindAll(".browse-shell"));
             Assert.Contains("Series", cut.Markup);
         });
 
@@ -672,30 +672,27 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.EndsWith("/listen/audiobooks?browse=series", navigationManager.Uri, StringComparison.OrdinalIgnoreCase);
             Assert.Contains(">Series<", cut.Markup);
-            Assert.Contains("No audiobook series match these filters.", cut.Markup);
         });
     }
 
     [Fact]
-    public void ListenPage_LeftRailAudiobooksUsesRealLinkForFirstClickNavigation()
+    public void ListenBrowsePage_LeftRailAudiobooksUsesRealRoute()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/music");
 
-        var cut = RenderListenPageWithProviders();
+        var cut = RenderListenBrowsePageWithProviders("music");
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".listen-page"));
+            Assert.Single(cut.FindAll(".media-section-shell"));
             Assert.Contains("Audiobooks", cut.Markup);
         });
 
-        var audiobooksLink = cut.FindAll("a.listen-rail__item[href='/listen/audiobooks']")
+        var audiobooksLink = cut.FindAll("a.media-section-shell__rail-item[href='/listen/audiobooks']")
             .Single(link => link.TextContent.Contains("Audiobooks", StringComparison.OrdinalIgnoreCase));
         Assert.Equal("/listen/audiobooks", audiobooksLink.GetAttribute("href"));
-        Assert.Equal("_top", audiobooksLink.GetAttribute("target"));
-        Assert.Equal("false", audiobooksLink.GetAttribute("data-enhance-nav"));
-        Assert.Empty(cut.FindAll("button.listen-rail__item"));
+        Assert.Empty(cut.FindAll("button.media-section-shell__rail-item"));
     }
 
     [Fact]
@@ -723,24 +720,19 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenDesktopPlayer_UsesPersistentRightPanelAndHidesBottomHostOnListenRoutes()
+    public void ListenPlayer_RemainsInPersistentBottomHostOnListenRoutes()
     {
-        var panelSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingPanel.razor"));
-        var panelCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingPanel.razor.css"));
+        var listenPageSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
         var hostSource = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingBar.razor"));
         var hostCss = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Listen", "ListenNowPlayingBar.razor.css"));
 
-        Assert.Contains("listen-now-panel", panelSource, StringComparison.Ordinal);
-        Assert.Contains("Now Playing", panelSource, StringComparison.Ordinal);
-        Assert.Contains("Up Next", panelSource, StringComparison.Ordinal);
-        Assert.Contains("Drag tracks here", panelSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ListenNowPlayingPanel", listenPageSource, StringComparison.Ordinal);
         Assert.Contains("TransportCommandRequested", hostSource, StringComparison.Ordinal);
         Assert.Contains("ReportHeartbeatAsync", hostSource, StringComparison.Ordinal);
         Assert.Contains("listen-player-shell--listen-route", hostSource, StringComparison.Ordinal);
-        Assert.Contains("@media (min-width: 1181px)", hostCss, StringComparison.Ordinal);
-        Assert.Contains(".listen-player-shell--listen-route", hostCss, StringComparison.Ordinal);
-        Assert.Contains("@media (max-width: 1180px)", panelCss, StringComparison.Ordinal);
-        Assert.Contains("display: none;", panelCss, StringComparison.Ordinal);
+        Assert.DoesNotContain(".listen-player-shell--listen-route {", hostCss, StringComparison.Ordinal);
+        Assert.Contains("position: fixed", hostCss, StringComparison.Ordinal);
+        Assert.Contains("bottom: 0", hostCss, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -753,34 +745,31 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenPage_MusicEntryUsesDirectTiledAlbumBrowse()
+    public void ListenBrowsePage_MusicEntryUsesSharedAlbumFirstBrowse()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/music");
 
-        var cut = RenderListenPageWithProviders();
+        var cut = RenderListenBrowsePageWithProviders("music");
 
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Search albums or artists", cut.Markup);
-            Assert.Single(cut.FindAll(".listen-filter-bar--surface"));
-            Assert.Single(cut.FindAll(".listen-filter-search"));
-            Assert.Contains("Filter albums by genre", cut.Markup);
-            Assert.Empty(cut.FindAll(".listen-home"));
-            Assert.Empty(cut.FindAll(".media-tile-shelf-scroll"));
-            Assert.DoesNotContain("listen-mode-switch", cut.Markup);
+            Assert.Single(cut.FindAll(".browse-shell__filter-surface"));
+            Assert.Single(cut.FindAll(".browse-shell__search"));
+            Assert.Contains(">Albums<", cut.Markup);
+            Assert.Contains(">Artists<", cut.Markup);
+            Assert.Contains(">Songs<", cut.Markup);
+            Assert.Contains(">Playlists<", cut.Markup);
+            Assert.Contains("Tile size", cut.Markup);
+            Assert.Empty(cut.FindAll(".listen-now-panel"));
         });
 
-        var markup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Pages", "ListenPage.razor"));
-        Assert.Contains("<MediaTileGrid Items=\"@AlbumTiles\"", markup, StringComparison.Ordinal);
-        Assert.Contains("Class=\"listen-card-grid listen-card-grid--albums\"", markup, StringComparison.Ordinal);
+        var markup = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Browse", "MediaBrowseShell.razor"));
+        Assert.Contains("<MediaTileGrid Items=\"@_cards\"", markup, StringComparison.Ordinal);
         Assert.Contains("ShowCompactCaptions=\"true\"", markup, StringComparison.Ordinal);
-        Assert.Contains("TileSizePx=\"@_albumTileSizePx\"", markup, StringComparison.Ordinal);
-        Assert.Contains("AriaLabel=\"Album tile size\"", markup, StringComparison.Ordinal);
-        Assert.True(
-            markup.IndexOf("listen-filter-bar--surface", StringComparison.Ordinal)
-            < markup.IndexOf("listen-section__header listen-section__header--results", StringComparison.Ordinal));
-        Assert.DoesNotContain("ShowAllAudiobooks", markup, StringComparison.Ordinal);
+        Assert.Contains("TileSizePx=\"@TileSizePx\"", markup, StringComparison.Ordinal);
+        Assert.Contains("\"Music\" => 136", markup, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -929,7 +918,7 @@ public sealed class UiShellRenderTests : TestContext
     private static string GetRepoFile(params string[] segments) =>
         Path.GetFullPath(Path.Combine(new[] { AppContext.BaseDirectory, "..", "..", "..", "..", ".." }.Concat(segments).ToArray()));
 
-    private IRenderedFragment RenderListenPageWithProviders() => Render(builder =>
+    private IRenderedFragment RenderListenBrowsePageWithProviders(string? tab = null) => Render(builder =>
     {
         builder.OpenComponent<MudPopoverProvider>(0);
         builder.CloseComponent();
@@ -937,7 +926,11 @@ public sealed class UiShellRenderTests : TestContext
         builder.CloseComponent();
         builder.OpenComponent<MudSnackbarProvider>(2);
         builder.CloseComponent();
-        builder.OpenComponent<ListenPage>(3);
+        builder.OpenComponent<ListenBrowsePage>(3);
+        if (!string.IsNullOrWhiteSpace(tab))
+        {
+            builder.AddAttribute(4, nameof(ListenBrowsePage.Tab), tab);
+        }
         builder.CloseComponent();
     });
 

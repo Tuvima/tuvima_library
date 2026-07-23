@@ -53,7 +53,7 @@ public static class MediaNavigation
                 : $"/watch/movie/{workId}",
             MediaBucket.Music => collectionId.HasValue
                 ? $"/listen/music/albums/{collectionId.Value}?track={workId}"
-                : $"/listen/music/songs?track={workId}",
+                : $"/listen/music?browse=songs&track={workId}",
             MediaBucket.Audiobook => $"/listen/audiobook/{workId}",
             MediaBucket.Read => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}",

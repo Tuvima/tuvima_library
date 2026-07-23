@@ -41,7 +41,7 @@ public sealed class LibraryMusicGridTests
             .ToArray();
 
         Assert.Equal(
-            ["checkbox", "title", "time", "artist", "album", "genre", "favorite", "plays", "date_added"],
+            ["checkbox", "cover", "title", "time", "artist", "album", "genre", "favorite", "date_added"],
             visibleKeys);
     }
 

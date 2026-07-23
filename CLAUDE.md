@@ -646,7 +646,8 @@ Reusable visual components, organised by feature slice.
 | `/watch/movie/{WorkId:guid}` | `WatchMoviePage.razor` | Movie detail |
 | `/watch/tv/show/{CollectionId:guid}` | `WatchTvShowPage.razor` | TV show detail |
 | `/watch/player/{AssetId:guid}` | `WatchPlayerPage.razor` | Video player |
-| `/listen`, `/listen/music`, `/listen/music/{Section}`, `/listen/music/albums/{CollectionId:guid}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobooks`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` (+ `.razor.cs` code-behind) | Music + audiobooks browse |
+| `/listen`, `/listen/music`, `/listen/audiobooks` | `ListenBrowsePage.razor` + `ListenBrowseConfiguration.cs` | Shared-shell Listen discovery and query-backed Music/Audiobook browse |
+| `/listen/music/albums/{CollectionId:guid}`, `/listen/music/albums/by-name/{AlbumKey}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` (+ `.razor.cs` code-behind) | Album, artist, playlist, and audiobook detail surfaces |
 | `/listen/player-popup` | `ListenPlayerPopupPage.razor` | Detached listen window |
 | `/collections` | `Collections.razor` | Browse / create / manage collections |
 | `/collection/{Id:guid}` | `CollectionDetail.razor` | Collection detail |

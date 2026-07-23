@@ -1,12 +1,8 @@
-@page "/listen"
-@page "/listen/music"
-@page "/listen/music/{Section}"
 @page "/listen/music/albums/{CollectionId:guid}"
 @page "/listen/music/albums/by-name/{AlbumKey}"
 @page "/listen/music/artists/{ArtistKey}"
 @page "/listen/music/playlists/{CollectionId:guid}"
 @page "/listen/music/playlists/system/{PlaylistKey}"
-@page "/listen/audiobooks"
 @page "/listen/audiobook/{WorkId:guid}"
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
@@ -1111,6 +1107,5 @@ else
                 </section>
             }
         </main>
-        <ListenNowPlayingPanel />
     </div>
 }

@@ -18,7 +18,7 @@
 
 .listen-page {
     display: grid;
-    grid-template-columns: 284px minmax(0, 1fr) 360px;
+    grid-template-columns: 256px minmax(0, 1fr);
     height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem);
     min-height: 0;
     padding-bottom: 0;
@@ -2283,13 +2283,12 @@
 }
 
 .listen-page--detail {
-    display: block;
-    height: auto;
-    min-height: calc(100dvh - var(--app-topbar-height, 65px));
-    margin-top: -24px;
+    display: grid;
+    height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem);
+    min-height: 0;
+    margin-top: 0;
 }
 
-.listen-page--detail .listen-rail-shell,
 .listen-page--detail .listen-topbar,
 .listen-page--detail ::deep .listen-now-panel {
     display: none;
@@ -2297,7 +2296,7 @@
 
 .listen-page--detail .listen-content {
     padding: 0;
-    overflow: visible;
+    overflow-y: auto;
 }
 
 .listen-page--detail .listen-audio-detail-host {
