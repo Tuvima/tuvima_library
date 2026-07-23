@@ -115,6 +115,15 @@ public sealed class ContentGroupViewModel
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; set; }
 
+    [JsonPropertyName("person_id")]
+    public Guid? PersonId { get; set; }
+
+    [JsonPropertyName("person_photo_url")]
+    public string? PersonPhotoUrl { get; set; }
+
+    [JsonPropertyName("person_roles")]
+    public List<string> PersonRoles { get; set; } = [];
+
     [JsonPropertyName("network")]
     public string? Network { get; set; }
 

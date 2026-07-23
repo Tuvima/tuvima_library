@@ -837,29 +837,37 @@ public sealed class CollectionBrowseReadService(
         string groupByField,
         CancellationToken ct)
     {
-        var isArtistGroup = string.Equals(groupByField, "artist", StringComparison.OrdinalIgnoreCase);
+        var personRole = ResolvePersonRole(groupByField);
         foreach (var row in rows)
         {
-            string? artistPhotoUrl = null;
-            Guid? artistPersonId = null;
-            if (isArtistGroup)
+            string? personPhotoUrl = null;
+            Guid? personId = null;
+            IReadOnlyList<string> personRoles = [];
+            if (personRole is not null)
             {
                 try
                 {
                     var person = await personRepo.FindByNameAsync(row.GroupName, ct).ConfigureAwait(false);
                     if (person is not null)
                     {
-                        artistPersonId = person.Id;
+                        personId = person.Id;
+                        personRoles = BuildPersonRoles(
+                            ResolvePersonDisplayRole(primaryMediaType, groupByField),
+                            person.Roles);
                         if (!string.IsNullOrWhiteSpace(person.LocalHeadshotPath)
                             || !string.IsNullOrWhiteSpace(person.HeadshotUrl))
                         {
-                            artistPhotoUrl = $"/persons/{person.Id}/headshot";
+                            personPhotoUrl = $"/persons/{person.Id}/headshot";
                         }
                     }
                 }
                 catch (Exception ex)
                 {
-                    logger.LogDebug(ex, "Artist lookup failed for system-view group {Artist}", row.GroupName);
+                    logger.LogDebug(
+                        ex,
+                        "Person lookup failed for {GroupField} system-view group {PersonName}",
+                        groupByField,
+                        row.GroupName);
                 }
             }
 
@@ -894,8 +902,11 @@ public sealed class CollectionBrowseReadService(
                 Creator = row.Creator ?? (ResolvePersonRole(groupByField) is not null ? row.GroupName : null),
                 UniverseStatus = "Complete",
                 CreatedAt = collection.CreatedAt,
-                ArtistPhotoUrl = artistPhotoUrl,
-                ArtistPersonId = artistPersonId,
+                ArtistPhotoUrl = string.Equals(groupByField, "artist", StringComparison.OrdinalIgnoreCase) ? personPhotoUrl : null,
+                ArtistPersonId = string.Equals(groupByField, "artist", StringComparison.OrdinalIgnoreCase) ? personId : null,
+                PersonPhotoUrl = personPhotoUrl,
+                PersonId = personId,
+                PersonRoles = personRoles,
                 Network = row.Network,
                 Year = row.Year,
                 EarliestYear = row.EarliestYear,
@@ -922,6 +933,31 @@ public sealed class CollectionBrowseReadService(
         "artist" => "Performer",
         _ => null,
     };
+
+    private static IReadOnlyList<string> BuildPersonRoles(string primaryRole, IEnumerable<string> storedRoles) =>
+        new[] { primaryRole }
+            .Concat(storedRoles)
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static string ResolvePersonDisplayRole(string primaryMediaType, string groupField)
+    {
+        if (string.Equals(primaryMediaType, "Comics", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "author", StringComparison.OrdinalIgnoreCase))
+        {
+            return "Creator";
+        }
+
+        return groupField.Trim().ToLowerInvariant() switch
+        {
+            "artist" => "Artist",
+            "author" => "Author",
+            "director" => "Director",
+            "narrator" => "Narrator",
+            _ => "Creator",
+        };
+    }
 
     private sealed record PrimaryAssetReadRow(Guid WorkId, Guid? AssetId);
 }

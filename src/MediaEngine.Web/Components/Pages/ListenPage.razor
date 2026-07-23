@@ -19,7 +19,6 @@
 @using MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
 @using MudBlazor
-
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>@PageTitleText</PageTitle>
@@ -343,7 +342,47 @@ else
             }
             else if (IsArtistsSurface)
             {
-                <section class="listen-artists">
+                @if (string.IsNullOrWhiteSpace(ArtistKey))
+                {
+                    <section class="listen-section listen-section--people">
+                        <div class="listen-section__header">
+                            <div>
+                                <div class="listen-kicker">Music</div>
+                                <h2>Artists</h2>
+                                <p class="listen-section__summary">@Pluralize(ArtistPersonTiles.Count, "artist") in your library.</p>
+                            </div>
+                        </div>
+
+                        <div class="listen-filter-bar listen-filter-bar--compact">
+                            <AppNativeInput Class="listen-filter-input" @bind="_artistSearch" @bind:event="oninput" Placeholder="Search artists" />
+                            <AppNativeSelect Class="listen-filter-select" @bind="_artistSort">
+                                <option value="name">Artist name</option>
+                                <option value="tracks">Most tracks</option>
+                            </AppNativeSelect>
+                        </div>
+
+                        @if (ArtistPersonTiles.Count == 0)
+                        {
+                            <div class="listen-empty">
+                                <div>
+                                    <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Class="tl-u-font-size-56px tl-u-opacity-0-22" />
+                                    <p>No artists match these filters.</p>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <MediaTileGrid Items="@ArtistPersonTiles"
+                                           ShowCompactCaptions="true"
+                                           HideGroupIndicators="true"
+                                           TileSizePx="300"
+                                           Class="listen-card-grid listen-card-grid--people" />
+                        }
+                    </section>
+                }
+                else
+                {
+                    <section class="listen-artists">
                     <div class="listen-artists__list">
                         <div class="listen-section__header">
                             <div>
@@ -500,7 +539,8 @@ else
                             </section>
                         }
                     </div>
-                </section>
+                    </section>
+                }
             }
             else if (IsSongsView)
             {
@@ -943,70 +983,32 @@ else
                         }
                         else if (_audiobookView == "authors")
                         {
-                            @if (AudiobookAuthorGroups.Count == 0)
+                            @if (AudiobookAuthorPersonTiles.Count == 0)
                             {
                                 <div class="audiobooks-empty">No audiobook authors match these filters.</div>
                             }
                             else
                             {
-                                <div class="audiobooks-author-grid">
-                                    @foreach (var author in AudiobookAuthorGroups)
-                                    {
-                                        var firstItem = author.Items.FirstOrDefault();
-                                        var coverUrl = firstItem is null ? null : AudiobookCoverUrl(firstItem);
-                                        <article class="audiobooks-author-card">
-                                            <div class="audiobooks-author-card__cover">
-                                                @if (!string.IsNullOrWhiteSpace(coverUrl))
-                                                {
-                                                    <img src="@coverUrl" alt="@author.Name" />
-                                                }
-                                                else
-                                                {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.PersonOutline" Class="tl-u-font-size-42px" />
-                                                }
-                                            </div>
-                                            <div>
-                                                <h3>@author.Name</h3>
-                                                <span>@AudiobookAuthorMeta(author)</span>
-                                            </div>
-                                            <AppNativeButton Type="button" Class="audiobooks-author-card__action" OnClick="@(() => ViewAudiobookAuthor(author))">View Author</AppNativeButton>
-                                        </article>
-                                    }
-                                </div>
+                                <MediaTileGrid Items="@AudiobookAuthorPersonTiles"
+                                               ShowCompactCaptions="true"
+                                               HideGroupIndicators="true"
+                                               TileSizePx="300"
+                                               Class="listen-card-grid listen-card-grid--people" />
                             }
                         }
                         else if (_audiobookView == "narrators")
                         {
-                            @if (AudiobookNarratorGroups.Count == 0)
+                            @if (AudiobookNarratorPersonTiles.Count == 0)
                             {
                                 <div class="audiobooks-empty">No audiobook narrators match these filters.</div>
                             }
                             else
                             {
-                                <div class="audiobooks-author-grid">
-                                    @foreach (var narrator in AudiobookNarratorGroups)
-                                    {
-                                        var firstItem = narrator.Items.FirstOrDefault();
-                                        var coverUrl = firstItem is null ? null : AudiobookCoverUrl(firstItem);
-                                        <article class="audiobooks-author-card">
-                                            <div class="audiobooks-author-card__cover">
-                                                @if (!string.IsNullOrWhiteSpace(coverUrl))
-                                                {
-                                                    <img src="@coverUrl" alt="@narrator.Name" />
-                                                }
-                                                else
-                                                {
-                                                    <MudIcon Icon="@Icons.Material.Outlined.RecordVoiceOver" Class="tl-u-font-size-42px" />
-                                                }
-                                            </div>
-                                            <div>
-                                                <h3>@narrator.Name</h3>
-                                                <span>@AudiobookAuthorMeta(narrator)</span>
-                                            </div>
-                                            <AppNativeButton Type="button" Class="audiobooks-author-card__action" OnClick="@(() => ViewAudiobookNarrator(narrator))">View Narrator</AppNativeButton>
-                                        </article>
-                                    }
-                                </div>
+                                <MediaTileGrid Items="@AudiobookNarratorPersonTiles"
+                                               ShowCompactCaptions="true"
+                                               HideGroupIndicators="true"
+                                               TileSizePx="300"
+                                               Class="listen-card-grid listen-card-grid--people" />
                             }
                         }
                         else if (_audiobookView == "timeline")

@@ -139,12 +139,16 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Theory]
-    [InlineData("Books", "author", "Author", "Ursula K. Le Guin")]
-    [InlineData("Movies", "director", "Director", "Denis Villeneuve")]
-    public async Task SystemViewGroups_ResolveNormalizedPersonCredits(
+    [InlineData("Books", "author", "Author", "Author", "Ursula K. Le Guin")]
+    [InlineData("Comics", "author", "Author", "Creator", "Marjane Satrapi")]
+    [InlineData("Movies", "director", "Director", "Director", "Denis Villeneuve")]
+    [InlineData("Music", "artist", "Performer", "Artist", "Nina Simone")]
+    [InlineData("Audiobooks", "narrator", "Narrator", "Narrator", "Bahni Turpin")]
+    public async Task SystemViewGroups_ResolvePersonIdentityForEveryLane(
         string mediaType,
         string groupField,
         string role,
+        string displayRole,
         string personName)
     {
         var seeded = await SeedCreditedWorkAsync(mediaType, role, personName);
@@ -155,6 +159,9 @@ public sealed class CollectionReadServicesTests : IDisposable
         Assert.Equal(personName, group.DisplayName);
         Assert.Equal(personName, group.Creator);
         Assert.Equal(seeded.WorkId, Assert.Single(group.PreviewItems).WorkId);
+        Assert.Equal(seeded.PersonId, group.PersonId);
+        Assert.Equal($"/persons/{seeded.PersonId:D}/headshot", group.PersonPhotoUrl);
+        Assert.Contains(displayRole, group.PersonRoles, StringComparer.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -276,7 +283,9 @@ public sealed class CollectionReadServicesTests : IDisposable
             INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
                 (@AssetId, 'title', @Title, @Now),
                 (@AssetId, 'year', '2026', @Now);
-            INSERT INTO persons (id, name, created_at) VALUES (@PersonId, @PersonName, @Now);
+            INSERT INTO persons (id, name, headshot_url, created_at)
+            VALUES (@PersonId, @PersonName, 'https://images.example.test/person.jpg', @Now);
+            INSERT INTO person_roles (person_id, role) VALUES (@PersonId, @Role);
             INSERT INTO person_media_links (media_asset_id, person_id, role)
             VALUES (@AssetId, @PersonId, @Role);
             """,
@@ -295,7 +304,7 @@ public sealed class CollectionReadServicesTests : IDisposable
                 Now = now,
             });
 
-        return new SeededBook(workId, assetId);
+        return new SeededBook(workId, assetId, personId);
     }
 
     public void Dispose()
@@ -305,5 +314,5 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     private sealed record SeededMusic(Guid AlbumWorkId, Guid TrackWorkId, Guid AssetId);
-    private sealed record SeededBook(Guid WorkId, Guid AssetId);
+    private sealed record SeededBook(Guid WorkId, Guid AssetId, Guid? PersonId = null);
 }

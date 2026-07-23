@@ -63,6 +63,8 @@ public partial class ListenPage
     private readonly List<ContentGroupViewModel> _albumGroups = [];
     private readonly List<ContentGroupViewModel> _artistGroups = [];
     private readonly List<ContentGroupViewModel> _audiobookSeriesGroups = [];
+    private readonly List<ContentGroupViewModel> _audiobookAuthorPersonGroups = [];
+    private readonly List<ContentGroupViewModel> _audiobookNarratorPersonGroups = [];
     private readonly List<ManagedCollectionViewModel> _managedCollections = [];
     private readonly List<CollectionItemViewModel> _playlistItems = [];
     private readonly Dictionary<Guid, WorkViewModel> _workLookup = [];
@@ -209,6 +211,9 @@ public partial class ListenPage
     private string SongsGridTemplate => BuildSongsGridTemplate();
     private IReadOnlyList<ContentGroupViewModel> FilteredAlbumGroups => ApplyAlbumFilters();
     private IReadOnlyList<ContentGroupViewModel> FilteredArtistGroups => ApplyArtistFilters();
+    private IReadOnlyList<MediaTileViewModel> ArtistPersonTiles => FilteredArtistGroups
+        .Select(group => ToContentPersonTile(group, "Artist"))
+        .ToList();
     private string ListenPageClass => IsAudioDetailSurface
         ? "listen-page listen-page--detail"
         : IsAudiobooksMode
@@ -228,6 +233,12 @@ public partial class ListenPage
         .ToList();
     private IReadOnlyList<AudiobookAuthorGroup> AudiobookAuthorGroups => BuildAudiobookAuthorGroups(FilteredAudiobookItems);
     private IReadOnlyList<AudiobookAuthorGroup> AudiobookNarratorGroups => BuildAudiobookNarratorGroups(FilteredAudiobookItems);
+    private IReadOnlyList<MediaTileViewModel> AudiobookAuthorPersonTiles => AudiobookAuthorGroups
+        .Select(group => ToAudiobookPersonTile(group, "Author", _audiobookAuthorPersonGroups))
+        .ToList();
+    private IReadOnlyList<MediaTileViewModel> AudiobookNarratorPersonTiles => AudiobookNarratorGroups
+        .Select(group => ToAudiobookPersonTile(group, "Narrator", _audiobookNarratorPersonGroups))
+        .ToList();
     private IReadOnlyList<MediaTileViewModel> MusicTimelineTiles => AlbumTiles;
     private string AudiobookBrowseTitle => _audiobookView switch
     {
@@ -517,11 +528,27 @@ public partial class ListenPage
             var audiobookSeriesGroupsTask = IsAudiobooksMode
                 ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Audiobooks", groupField: "series", ct: ct)
                 : Task.FromResult(new List<ContentGroupViewModel>());
+            var audiobookAuthorGroupsTask = IsAudiobooksMode
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Audiobooks", groupField: "author", ct: ct)
+                : Task.FromResult(new List<ContentGroupViewModel>());
+            var audiobookNarratorGroupsTask = IsAudiobooksMode
+                ? ApiClient.GetSystemViewGroupsAsync(mediaType: "Audiobooks", groupField: "narrator", ct: ct)
+                : Task.FromResult(new List<ContentGroupViewModel>());
             var collectionsTask = _activeProfileId.HasValue
                 ? ApiClient.GetManagedCollectionsAsync(_activeProfileId.Value, ct)
                 : Task.FromResult(new List<ManagedCollectionViewModel>());
 
-            await Task.WhenAll(worksTask, journeyTask, listenHubTask, albumGroupsTask, artistGroupsTask, audiobookBrowseTask, audiobookSeriesGroupsTask, collectionsTask);
+            await Task.WhenAll(
+                worksTask,
+                journeyTask,
+                listenHubTask,
+                albumGroupsTask,
+                artistGroupsTask,
+                audiobookBrowseTask,
+                audiobookSeriesGroupsTask,
+                audiobookAuthorGroupsTask,
+                audiobookNarratorGroupsTask,
+                collectionsTask);
             if (!IsCurrentLoad(loadVersion))
             {
                 return;
@@ -570,6 +597,12 @@ public partial class ListenPage
             _audiobookSeriesGroups.AddRange(audiobookSeriesGroupsTask.Result
                 .Where(group => group.WorkCount >= 2)
                 .OrderBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase));
+
+            _audiobookAuthorPersonGroups.Clear();
+            _audiobookAuthorPersonGroups.AddRange(audiobookAuthorGroupsTask.Result);
+
+            _audiobookNarratorPersonGroups.Clear();
+            _audiobookNarratorPersonGroups.AddRange(audiobookNarratorGroupsTask.Result);
 
             _managedCollections.Clear();
             _managedCollections.AddRange(collectionsTask.Result);
@@ -3062,6 +3095,149 @@ public partial class ListenPage
             SortYear = int.TryParse(work?.Year, out var audiobookYear) ? audiobookYear : 0,
         };
     }
+
+    private MediaTileViewModel ToContentPersonTile(ContentGroupViewModel group, string defaultRole)
+    {
+        var personId = group.PersonId ?? group.ArtistPersonId;
+        var roles = group.PersonRoles.Count > 0 ? group.PersonRoles : [defaultRole];
+        var artworkItems = BuildContentGroupArtwork(group);
+        return MediaPersonGroupTileComposer.Compose(
+            personId ?? GenerateDeterministicGuid($"{defaultRole}:{group.DisplayName}"),
+            group.DisplayName,
+            personId,
+            group.PersonPhotoUrl ?? group.ArtistPhotoUrl,
+            roles,
+            group.PrimaryMediaType,
+            group.WorkCount,
+            group.EarliestYear,
+            group.LatestYear,
+            group.CreatedAt,
+            artworkItems,
+            MediaPersonGroupTileComposer.NavigationUrl(personId, group.DisplayName),
+            group.MediaTypeColor);
+    }
+
+    private MediaTileViewModel ToAudiobookPersonTile(
+        AudiobookAuthorGroup personGroup,
+        string role,
+        IReadOnlyList<ContentGroupViewModel> identityGroups)
+    {
+        var identity = identityGroups.FirstOrDefault(group =>
+            PersonNamesMatch(group.DisplayName, personGroup.Name));
+        var personId = identity?.PersonId ?? identity?.ArtistPersonId;
+        var roles = identity?.PersonRoles.Count > 0 ? identity.PersonRoles : [role];
+        var artworkItems = personGroup.Items
+            .Select(item =>
+            {
+                var workId = AudiobookWorkId(item);
+                return new ArtworkStackItem
+                {
+                    Id = workId?.ToString("D") ?? GenerateDeterministicGuid($"{personGroup.Name}:{AudiobookTitle(item)}").ToString("D"),
+                    WorkId = workId,
+                    Title = AudiobookTitle(item),
+                    ImageUrl = AudiobookCoverUrl(item) ?? string.Empty,
+                    MediaType = "Audiobooks",
+                    NavigationUrl = AudiobookRoute(item),
+                    Shape = ArtworkShape.Portrait,
+                };
+            })
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .Take(4)
+            .ToList();
+        var years = personGroup.Items
+            .Select(AudiobookPublicationYear)
+            .Where(year => year.HasValue)
+            .Select(year => year!.Value)
+            .ToList();
+        var latestTimestamp = personGroup.Items.Count == 0
+            ? DateTimeOffset.MinValue
+            : personGroup.Items.Max(AudiobookSortTimestamp);
+
+        return MediaPersonGroupTileComposer.Compose(
+            personId ?? GenerateDeterministicGuid($"{role}:{personGroup.Name}"),
+            personGroup.Name,
+            personId,
+            identity?.PersonPhotoUrl ?? identity?.ArtistPhotoUrl,
+            roles,
+            "Audiobooks",
+            personGroup.Items.Count,
+            years.Count == 0 ? null : years.Min(),
+            years.Count == 0 ? null : years.Max(),
+            latestTimestamp,
+            artworkItems,
+            MediaPersonGroupTileComposer.NavigationUrl(personId, personGroup.Name),
+            "var(--tl-media-audio)");
+    }
+
+    private static IReadOnlyList<ArtworkStackItem> BuildContentGroupArtwork(ContentGroupViewModel group)
+    {
+        var artworkItems = group.PreviewItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .Select(item => new ArtworkStackItem
+            {
+                Id = item.WorkId.ToString("D"),
+                WorkId = item.WorkId,
+                Title = item.Title,
+                ImageUrl = item.ImageUrl,
+                MediaType = group.PrimaryMediaType,
+                Shape = item.Shape.Trim().ToLowerInvariant() switch
+                {
+                    "square" => ArtworkShape.Square,
+                    "wide" or "landscape" => ArtworkShape.Wide,
+                    _ => ArtworkShape.Portrait,
+                },
+                Position = item.Position,
+                Description = item.Description,
+                Facts = item.Facts,
+            })
+            .Take(4)
+            .ToList();
+
+        if (artworkItems.Count == 0 && !string.IsNullOrWhiteSpace(group.CoverUrl))
+        {
+            artworkItems.Add(new ArtworkStackItem
+            {
+                Id = group.CollectionId.ToString("D"),
+                Title = group.DisplayName,
+                ImageUrl = group.CoverUrl,
+                MediaType = group.PrimaryMediaType,
+                Shape = ArtworkShape.Portrait,
+            });
+        }
+
+        return artworkItems;
+    }
+
+    private static int? AudiobookPublicationYear(AudiobookDisplayItem item)
+    {
+        if (int.TryParse(item.Work?.Year, NumberStyles.Integer, CultureInfo.InvariantCulture, out var workYear))
+        {
+            return workYear;
+        }
+
+        foreach (var fact in item.Card?.Facts ?? [])
+        {
+            if (fact.Length == 4
+                && int.TryParse(fact, NumberStyles.Integer, CultureInfo.InvariantCulture, out var factYear))
+            {
+                return factYear;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool PersonNamesMatch(string left, string right) =>
+        string.Equals(
+            NormalizePersonName(left),
+            NormalizePersonName(right),
+            StringComparison.Ordinal);
+
+    private static string NormalizePersonName(string value) =>
+        new(value
+            .Where(char.IsLetterOrDigit)
+            .Select(char.ToLowerInvariant)
+            .ToArray());
 
     private MediaTileViewModel ToAlbumTile(ContentGroupViewModel album) =>
         SquareTile(

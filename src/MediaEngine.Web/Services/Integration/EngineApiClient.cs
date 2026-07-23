@@ -6459,6 +6459,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
                 if (group.ArtistPhotoUrl is not null)
                     group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
+                if (group.PersonPhotoUrl is not null)
+                    group.PersonPhotoUrl = AbsoluteUrl(group.PersonPhotoUrl);
                 foreach (var preview in group.PreviewItems)
                     preview.ImageUrl = AbsoluteUrl(preview.ImageUrl);
             }
@@ -6499,6 +6501,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
                     g.LogoUrl = AbsoluteUrl(g.LogoUrl);
                 if (g.ArtistPhotoUrl is not null)
                     g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
+                if (g.PersonPhotoUrl is not null)
+                    g.PersonPhotoUrl = AbsoluteUrl(g.PersonPhotoUrl);
                 foreach (var preview in g.PreviewItems)
                     preview.ImageUrl = AbsoluteUrl(preview.ImageUrl);
             }

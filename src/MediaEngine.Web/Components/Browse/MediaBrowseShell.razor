@@ -879,6 +879,11 @@
 
     private MediaTileViewModel ToGroupCard(ContentGroupViewModel group)
     {
+        if (IsPersonGrouping)
+        {
+            return ToPersonGroupCard(group);
+        }
+
         var presentation = (_activeTabId, _grouping) switch
         {
             ("tv", "shows") => "tvSeries",
@@ -1389,6 +1394,11 @@
 
     private string BuildGroupNavigationUrl(ContentGroupViewModel group)
     {
+        if (IsPersonGrouping)
+        {
+            return MediaPersonGroupTileComposer.NavigationUrl(group.PersonId ?? group.ArtistPersonId, group.DisplayName);
+        }
+
         return (_activeTabId, _grouping) switch
         {
             ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
@@ -1398,9 +1408,6 @@
             ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
             ("music", "albums") => $"/listen/music/albums/{group.CollectionId:D}",
-            ("music", "artists") => $"/listen/music/artists/{Uri.EscapeDataString(group.DisplayName)}",
-            (_, "authors" or "creators" or "directors" or "narrators") =>
-                $"/search?q={Uri.EscapeDataString(group.DisplayName)}&type=person",
             (_, "publishers" or "networks") =>
                 $"/search?q={Uri.EscapeDataString(group.DisplayName)}",
             _ => BuildCurrentUrl(),
@@ -1408,7 +1415,9 @@
     }
 
     private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
-        GetSystemViewGroupField() is not null
+        IsPersonGrouping && (group.PersonId ?? group.ArtistPersonId) is Guid personId
+            ? personId
+            : GetSystemViewGroupField() is not null
             ? GenerateDeterministicGuid(group.DisplayName)
             : IsTvShowsGrouping
                 ? GetTvShowGroupRouteId(group)
@@ -1419,6 +1428,78 @@
 
     private string? GetSystemViewGroupField() =>
         BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);
+
+    private bool IsPersonGrouping => _grouping is "authors" or "creators" or "directors" or "artists" or "narrators";
+
+    private MediaTileViewModel ToPersonGroupCard(ContentGroupViewModel group)
+    {
+        var navigationUrl = MediaPersonGroupTileComposer.NavigationUrl(
+            group.PersonId ?? group.ArtistPersonId,
+            group.DisplayName);
+        var artworkItems = group.PreviewItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .Select(item => new ArtworkStackItem
+            {
+                Id = item.WorkId.ToString("D"),
+                WorkId = item.WorkId,
+                Title = item.Title,
+                ImageUrl = item.ImageUrl!,
+                MediaType = group.PrimaryMediaType,
+                NavigationUrl = BuildGroupPreviewNavigationUrl(group, item.WorkId),
+                Shape = item.Shape?.Trim().ToLowerInvariant() switch
+                {
+                    "square" => ArtworkShape.Square,
+                    "wide" or "landscape" => ArtworkShape.Wide,
+                    _ => ArtworkShape.Portrait,
+                },
+                Position = item.Position,
+                Description = item.Description,
+                Facts = item.Facts,
+            })
+            .Take(4)
+            .ToList();
+
+        if (artworkItems.Count == 0 && !string.IsNullOrWhiteSpace(group.CoverUrl))
+        {
+            artworkItems.Add(new ArtworkStackItem
+            {
+                Id = group.CollectionId.ToString("D"),
+                Title = group.DisplayName,
+                ImageUrl = group.CoverUrl,
+                MediaType = group.PrimaryMediaType,
+                Shape = ArtworkShape.Portrait,
+            });
+        }
+
+        var roles = group.PersonRoles.Count > 0
+            ? group.PersonRoles
+            : new List<string> { PersonGroupingRoleLabel };
+
+        return MediaPersonGroupTileComposer.Compose(
+            GetGroupNavigationId(group),
+            group.DisplayName,
+            group.PersonId ?? group.ArtistPersonId,
+            group.PersonPhotoUrl ?? group.ArtistPhotoUrl,
+            roles,
+            group.PrimaryMediaType,
+            group.WorkCount,
+            group.EarliestYear,
+            group.LatestYear,
+            group.CreatedAt,
+            artworkItems,
+            navigationUrl,
+            group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType));
+    }
+
+    private string PersonGroupingRoleLabel => _grouping switch
+    {
+        "authors" => "Author",
+        "creators" => "Creator",
+        "directors" => "Director",
+        "artists" => "Artist",
+        "narrators" => "Narrator",
+        _ => "Creator",
+    };
 
     private void ClearActiveGroupState()
     {

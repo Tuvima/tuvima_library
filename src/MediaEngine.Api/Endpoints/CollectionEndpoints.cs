@@ -3678,6 +3678,9 @@ public static class CollectionEndpoints
                     CreatedAt = preferred.CreatedAt,
                     ArtistPhotoUrl = preferred.ArtistPhotoUrl,
                     ArtistPersonId = preferred.ArtistPersonId,
+                    PersonPhotoUrl = preferred.PersonPhotoUrl,
+                    PersonId = preferred.PersonId,
+                    PersonRoles = preferred.PersonRoles,
                     Network = preferred.Network,
                     Year = preferred.Year,
                     EarliestYear = earliestYears.Count == 0 ? null : earliestYears.Min(),
@@ -3750,6 +3753,7 @@ public static class CollectionEndpoints
         var score = 0;
         score += string.IsNullOrWhiteSpace(group.CoverUrl) ? 0 : 8;
         score += string.IsNullOrWhiteSpace(group.ArtistPhotoUrl) ? 0 : 8;
+        score += string.IsNullOrWhiteSpace(group.PersonPhotoUrl) ? 0 : 8;
         score += string.IsNullOrWhiteSpace(group.Description) ? 0 : 4;
         score += string.IsNullOrWhiteSpace(group.Creator) ? 0 : 2;
         return score + group.WorkCount;

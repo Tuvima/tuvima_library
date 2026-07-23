@@ -408,6 +408,9 @@ public sealed class EngineApiClientLibraryWorksTests
                 "description": "Album group",
                 "tagline": "Fresh in your library",
                 "creator": "boygenius",
+                "person_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+                "person_photo_url": "/persons/cccccccc-cccc-cccc-cccc-cccccccccccc/headshot",
+                "person_roles": ["Artist"],
                 "year": "2023",
                 "earliest_year": 2021,
                 "latest_year": 2023,
@@ -442,6 +445,11 @@ public sealed class EngineApiClientLibraryWorksTests
         Assert.Equal(2021, group.EarliestYear);
         Assert.Equal(2023, group.LatestYear);
         Assert.Equal("Fresh in your library", group.Tagline);
+        Assert.Equal(Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc"), group.PersonId);
+        Assert.Equal(
+            "http://localhost:61495/persons/cccccccc-cccc-cccc-cccc-cccccccccccc/headshot",
+            group.PersonPhotoUrl);
+        Assert.Equal(["Artist"], group.PersonRoles);
     }
 
     [Fact]

@@ -46,6 +46,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var read = ReadSource("src/MediaEngine.Web/Components/Pages/ReadPage.razor");
         var watch = ReadSource("src/MediaEngine.Web/Components/Pages/WatchPage.razor");
         var listen = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor");
+        var listenCode = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.cs");
         var collections = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionsPage.razor");
         var hub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
         var laneHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaLaneHeader.razor");
@@ -89,6 +90,10 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("ShowTabNavigation=\"false\"", read, StringComparison.Ordinal);
         Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
         Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
+        Assert.Contains("if (IsPersonGrouping)", browseShell, StringComparison.Ordinal);
+        Assert.Contains("MediaPersonGroupTileComposer.Compose", browseShell, StringComparison.Ordinal);
+        Assert.Contains("group.PersonId ?? group.ArtistPersonId", browseShell, StringComparison.Ordinal);
+        Assert.Contains("MediaPersonGroupTileComposer.NavigationUrl", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__filter-surface", browseShell, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: max-content minmax(0, 1fr) max-content", browseShellStyles, StringComparison.Ordinal);
         Assert.Contains(".browse-shell__control-group--filters", browseShellStyles, StringComparison.Ordinal);
@@ -124,6 +129,14 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("HoverMode => MediaTileHoverMode.Expanded", mediaShelf, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", collections, StringComparison.Ordinal);
         Assert.Contains("Nav.NavigateTo(target.Route)", hub, StringComparison.Ordinal);
+
+        Assert.Contains("ArtistPersonTiles", listen, StringComparison.Ordinal);
+        Assert.Contains("AudiobookAuthorPersonTiles", listen, StringComparison.Ordinal);
+        Assert.Contains("AudiobookNarratorPersonTiles", listen, StringComparison.Ordinal);
+        Assert.Contains("PersonNamesMatch(group.DisplayName, personGroup.Name)", listenCode, StringComparison.Ordinal);
+        Assert.Contains("MediaTileGrid Items=\"@ArtistPersonTiles\"", listen, StringComparison.Ordinal);
+        Assert.Contains("MediaTileGrid Items=\"@AudiobookAuthorPersonTiles\"", listen, StringComparison.Ordinal);
+        Assert.Contains("MediaTileGrid Items=\"@AudiobookNarratorPersonTiles\"", listen, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath) =>

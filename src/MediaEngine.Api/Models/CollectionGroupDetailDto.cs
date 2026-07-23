@@ -350,6 +350,18 @@ public sealed class ContentGroupDto
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; init; }
 
+    /// <summary>Person identity for author, creator, director, artist, and narrator browse groups.</summary>
+    [JsonPropertyName("person_id")]
+    public Guid? PersonId { get; init; }
+
+    /// <summary>Managed headshot URL for the grouped person, when artwork is available.</summary>
+    [JsonPropertyName("person_photo_url")]
+    public string? PersonPhotoUrl { get; init; }
+
+    /// <summary>Roles shown on the shared person collection card.</summary>
+    [JsonPropertyName("person_roles")]
+    public IReadOnlyList<string> PersonRoles { get; init; } = [];
+
     /// <summary>Network name â€” populated for TV show groups.</summary>
     [JsonPropertyName("network")]
     public string? Network { get; init; }
