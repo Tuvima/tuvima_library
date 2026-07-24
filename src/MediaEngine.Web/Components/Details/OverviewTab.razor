@@ -4,13 +4,13 @@
 <div class="tl-detail-tab-panel tl-overview-surface @(Model.EntityType == DetailEntityType.Person ? "tl-overview-surface--person" : "tl-overview-surface--media")">
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
-        <section class="tl-overview-card tl-overview-card--copy">
-            <header class="tl-overview-card__heading">
+        <section class="tl-overview-section tl-overview-section--copy">
+            <header class="tl-overview-section__heading">
                 <span>Biography</span>
             </header>
             @if (!string.IsNullOrWhiteSpace(PersonOverviewDescription))
             {
-                <div class="tl-overview-card__prose">
+                <div class="tl-overview-section__prose">
                     @foreach (var paragraph in OverviewParagraphs(PersonOverviewDescription))
                     {
                         <p>@paragraph</p>
@@ -20,12 +20,12 @@
             }
             else
             {
-                <p class="tl-overview-card__empty">No biography is available yet.</p>
+                <p class="tl-overview-section__empty">No biography is available yet.</p>
             }
         </section>
 
-        <aside class="tl-overview-card tl-overview-card--facts">
-            <header class="tl-overview-card__heading">
+        <aside class="tl-overview-section tl-overview-section--secondary tl-overview-section--facts">
+            <header class="tl-overview-section__heading">
                 <span>Details</span>
             </header>
             @if (QuickFacts.Count > 0)
@@ -61,17 +61,17 @@
     }
     else
     {
-        <section class="tl-overview-card tl-overview-card--copy">
-            <header class="tl-overview-card__heading">
+        <section class="tl-overview-section tl-overview-section--copy">
+            <header class="tl-overview-section__heading">
                 <span>Overview</span>
             </header>
             @if (OverviewDescriptionParagraphs.Count == 0)
             {
-                <p class="tl-overview-card__empty">No overview is available yet.</p>
+                <p class="tl-overview-section__empty">No overview is available yet.</p>
             }
             else
             {
-                <div class="tl-overview-card__prose">
+                <div class="tl-overview-section__prose">
                     @foreach (var paragraph in OverviewDescriptionParagraphs)
                     {
                         <p>@paragraph</p>
@@ -81,13 +81,22 @@
             }
         </section>
 
-        <aside class="tl-overview-card tl-overview-card--credits">
-            <header class="tl-overview-card__heading">
+        <aside class="tl-overview-section tl-overview-section--secondary tl-overview-section--credits">
+            <header class="tl-overview-section__heading">
                 <span>@CreditPanelTitle</span>
+                @if (OverviewCreditRows.Count > 0)
+                {
+                    <AppNativeButton Type="button"
+                                     Class="tl-overview-section__credits-link"
+                                     OnClick="@(() => OnTabRequested.InvokeAsync(CreditTabKey))">
+                        View full @CreditPanelTitle.ToLowerInvariant()
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
+                    </AppNativeButton>
+                }
             </header>
             @if (OverviewCreditRows.Count == 0)
             {
-                <p class="tl-overview-card__empty">No linked people are available yet.</p>
+                <p class="tl-overview-section__empty">No linked people are available yet.</p>
             }
             else
             {
@@ -97,41 +106,8 @@
                         <PersonCreditCard Credit="credit" Compact="true" />
                     }
                 </div>
-                <AppNativeButton Type="button"
-                                 Class="tl-overview-card__credits-link"
-                                 OnClick="@(() => OnTabRequested.InvokeAsync(CreditTabKey))">
-                    View full @CreditPanelTitle.ToLowerInvariant()
-                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
-                </AppNativeButton>
             }
         </aside>
-
-        @if (MoreLikeThisItems.Count > 0)
-        {
-            <section class="tl-overview-card tl-overview-card--related">
-                <header class="tl-overview-card__heading">
-                    <span>Related</span>
-                </header>
-                <div class="tl-overview-related-strip">
-                    @foreach (var item in MoreLikeThisItems)
-                    {
-                        <article class="tl-overview-related-item">
-                            <div class="tl-overview-related-item__art">
-                                @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                                {
-                                    <img src="@item.ArtworkUrl" alt="@item.Title" />
-                                }
-                                else
-                                {
-                                    <GeneratedIdentity Name="@item.Title" />
-                                }
-                            </div>
-                            <h3>@item.Title</h3>
-                        </article>
-                    }
-                </div>
-            </section>
-        }
     }
 </div>
 
@@ -193,35 +169,6 @@
             .Select(group => group.First())
             .Take(IsVideo ? 4 : 3)
             .ToList();
-
-    private IReadOnlyList<MediaGroupingItemViewModel> MoreLikeThisItems =>
-        Model.MediaGroups
-            .Where(IsRecommendationGroup)
-            .SelectMany(group => group.Items)
-            .Where(item => !string.Equals(item.Id, Model.Id, StringComparison.OrdinalIgnoreCase))
-            .Where(IsRecommendationCandidate)
-            .GroupBy(item => item.Id, StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .Take(8)
-            .ToList();
-
-    private static bool IsRecommendationGroup(MediaGroupingViewModel group)
-    {
-        var key = group.Key ?? string.Empty;
-        var title = group.Title ?? string.Empty;
-        return key.Equals("related", StringComparison.OrdinalIgnoreCase)
-            || key.Equals("recommendations", StringComparison.OrdinalIgnoreCase)
-            || key.Equals("more-like-this", StringComparison.OrdinalIgnoreCase)
-            || title.Contains("more like", StringComparison.OrdinalIgnoreCase)
-            || title.Contains("recommend", StringComparison.OrdinalIgnoreCase)
-            || title.Contains("similar", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static bool IsRecommendationCandidate(MediaGroupingItemViewModel item)
-        => item.EntityType is not DetailEntityType.TvEpisode
-           && !item.Actions.Any(action =>
-               action.Route?.Contains("/episode/", StringComparison.OrdinalIgnoreCase) == true
-               || action.Route?.Contains("/tvepisode/", StringComparison.OrdinalIgnoreCase) == true);
 
     private IReadOnlyList<(string Label, string Value)> QuickFacts
     {

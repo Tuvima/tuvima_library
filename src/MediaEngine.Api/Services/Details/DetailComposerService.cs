@@ -10,6 +10,7 @@ using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -36,6 +37,8 @@ public sealed class DetailComposerService
     private readonly PlaybackCapabilitiesService? _playback;
     private readonly ILogger<DetailComposerService>? _logger;
     private readonly ICollectionBrowseReadService? _collectionBrowse;
+    private readonly CollectionCatalogReadService? _collectionCatalog;
+    private readonly IProfileRepository? _profiles;
 
     public DetailComposerService(
         IDatabaseConnection db,
@@ -48,7 +51,9 @@ public sealed class DetailComposerService
         DetailRecommendationService recommendations,
         PlaybackCapabilitiesService? playback = null,
         ILogger<DetailComposerService>? logger = null,
-        ICollectionBrowseReadService? collectionBrowse = null)
+        ICollectionBrowseReadService? collectionBrowse = null,
+        CollectionCatalogReadService? collectionCatalog = null,
+        IProfileRepository? profiles = null)
     {
         _db = db;
         _libraryItems = libraryItems;
@@ -61,6 +66,8 @@ public sealed class DetailComposerService
         _playback = playback;
         _logger = logger;
         _collectionBrowse = collectionBrowse;
+        _collectionCatalog = collectionCatalog;
+        _profiles = profiles;
     }
 
     public async Task<DetailPageViewModel?> BuildAsync(
@@ -79,7 +86,14 @@ public sealed class DetailComposerService
             DetailEntityType.Person or DetailEntityType.MusicArtist => await BuildPersonAsync(id, entityType, context, isAdminView, ct),
             DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, favoriteWorkIds, profileId, ct),
             DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries
-                or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(id, entityType, context, isAdminView, favoriteWorkIds, ct),
+                or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(
+                    id,
+                    entityType,
+                    context,
+                    isAdminView,
+                    favoriteWorkIds,
+                    ct,
+                    profileId: profileId),
             DetailEntityType.Character => await BuildCharacterAsync(id, context, isAdminView, ct),
             DetailEntityType.Universe => await BuildUniverseAsync(id, context, isAdminView, ct),
             _ => await BuildWorkAsync(id, entityType, context, isAdminView, selectedContainerId, favoriteWorkIds, profileId, ct),
@@ -215,7 +229,8 @@ public sealed class DetailComposerService
                 isAdminView,
                 favoriteWorkIds,
                 ct,
-                workId))?.SequencePlacement;
+                workId,
+                profileId))?.SequencePlacement;
         }
 
         sequencePlacement ??= await BuildSequencePlacementAsync(workId, detail, entityType, selectedContainerId, ct);
@@ -307,7 +322,8 @@ public sealed class DetailComposerService
             context,
             isAdminView,
             favoriteWorkIds,
-            ct);
+            ct,
+            profileId: profileId);
         if (canonicalSeries is not null || _collectionBrowse is null)
         {
             return canonicalSeries;
@@ -445,7 +461,8 @@ public sealed class DetailComposerService
         bool isAdminView,
         IReadOnlySet<Guid> favoriteWorkIds,
         CancellationToken ct,
-        Guid? currentWorkId = null)
+        Guid? currentWorkId = null,
+        Guid? profileId = null)
     {
         using var conn = _db.CreateConnection();
         var rawRow = await conn.QueryFirstOrDefaultAsync(new CommandDefinition(
@@ -518,9 +535,27 @@ public sealed class DetailComposerService
             : entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum
                 ? collectionId
                 : null;
+        IReadOnlyList<Guid> resolvedCollectionWorkIds = [];
+        if (hasCollectionRow
+            && entityType == DetailEntityType.Collection
+            && _collectionCatalog is not null)
+        {
+            Profile? activeProfile = profileId.HasValue && _profiles is not null
+                ? await _profiles.GetByIdAsync(profileId.Value, ct)
+                : null;
+            var resolvedItems = await _collectionCatalog.GetItemsAsync(
+                collectionId,
+                activeProfile,
+                int.MaxValue,
+                ct);
+            resolvedCollectionWorkIds = resolvedItems.Found && !resolvedItems.Forbidden
+                ? resolvedItems.Items.Select(item => item.WorkId).Distinct().ToList()
+                : [];
+        }
+
         var ownedWorks = musicAlbumGroup is not null
             ? await LoadMusicAlbumSystemViewWorksAsync(musicAlbumGroup, ct)
-            : await LoadCollectionWorksAsync(collectionId, rootWorkId, ct);
+            : await LoadCollectionWorksAsync(collectionId, rootWorkId, ct, resolvedCollectionWorkIds);
         if (!hasCollectionRow
             && entityType is (DetailEntityType.TvShow or DetailEntityType.MusicAlbum)
             && ownedWorks.Count == 0)
@@ -534,11 +569,6 @@ public sealed class DetailComposerService
         var works = entityType == DetailEntityType.MusicAlbum
             ? MergeMusicAlbumManifestTracks(ownedWorks, values, row.CoverUrl)
             : ownedWorks;
-
-        if (entityType == DetailEntityType.Collection)
-        {
-            entityType = InferCollectionEntityType(works);
-        }
 
         var tvInProgressEpisode = entityType == DetailEntityType.TvShow
             ? SelectInProgressTvEpisode(works)
@@ -3715,7 +3745,11 @@ public sealed class DetailComposerService
         => string.Equals(value, "collection", StringComparison.OrdinalIgnoreCase)
            || string.Equals(value, "series", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(Guid collectionId, Guid? rootWorkId, CancellationToken ct)
+    private async Task<IReadOnlyList<CollectionWorkSummary>> LoadCollectionWorksAsync(
+        Guid collectionId,
+        Guid? rootWorkId,
+        CancellationToken ct,
+        IReadOnlyList<Guid>? resolvedWorkIds = null)
     {
         using var conn = _db.CreateConnection();
         var rawRows = await conn.QueryAsync(new CommandDefinition(
@@ -3830,6 +3864,7 @@ public sealed class DetailComposerService
                                     AND us.user_id = @defaultOwnerUserId
             WHERE w.collection_id = @collectionId
                OR ci.collection_id = @collectionId
+               OR w.id IN @resolvedWorkIds
                OR (
                    @rootWorkId IS NOT NULL
                    AND (
@@ -3854,9 +3889,12 @@ public sealed class DetailComposerService
                 collectionId = GuidSql.ToBlob(collectionId),
                 rootWorkId = rootWorkId.HasValue ? GuidSql.ToBlob(rootWorkId.Value) : null,
                 defaultOwnerUserId = GuidSql.ToBlob(DefaultOwnerUserId),
+                resolvedWorkIds = resolvedWorkIds is { Count: > 0 }
+                    ? resolvedWorkIds.Select(GuidSql.ToBlob).ToArray()
+                    : [GuidSql.ToBlob(Guid.Empty)],
             },
             cancellationToken: ct));
-        return rawRows.Select(row => new CollectionWorkSummary(
+        var works = rawRows.Select(row => new CollectionWorkSummary(
             StringValue(row.Id) ?? string.Empty,
             StringValue(row.MediaType) ?? string.Empty,
             IntValue(row.Ordinal),
@@ -3883,6 +3921,21 @@ public sealed class DetailComposerService
             ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)),
             StringValue(row.AssetId))).ToList();
+
+        if (resolvedWorkIds is not { Count: > 0 })
+        {
+            return works;
+        }
+
+        var resolvedOrder = resolvedWorkIds
+            .Select((id, index) => (id, index))
+            .ToDictionary(item => item.id.ToString("D"), item => item.index, StringComparer.OrdinalIgnoreCase);
+        return works
+            .Select(work => resolvedOrder.ContainsKey(work.Id)
+                ? work with { HasAsset = true, IsCatalogOnly = false, Ownership = "Owned" }
+                : work)
+            .OrderBy(work => resolvedOrder.TryGetValue(work.Id, out var index) ? index : int.MaxValue)
+            .ToList();
     }
 
     private async Task<Dictionary<string, string>> LoadWorkDisplayOverridesAsync(Guid workId, CancellationToken ct)
@@ -5069,31 +5122,31 @@ public sealed class DetailComposerService
     {
         string[] keys = entityType switch
         {
-            DetailEntityType.TvShow => hasUniverse ? ["overview", "cast", "universe", "details"] : ["overview", "cast", "details"],
-            DetailEntityType.TvSeason when hasUniverse => ["overview", "cast", "universe", "details"],
-            DetailEntityType.TvSeason => ["overview", "cast", "details"],
-            DetailEntityType.Movie when hasUniverse => ["overview", "cast", "universe", "details"],
-            DetailEntityType.Movie => ["overview", "cast", "details"],
-            DetailEntityType.MovieSeries when hasUniverse => ["overview", "cast", "universe", "details"],
-            DetailEntityType.MovieSeries => ["overview", "cast", "details"],
-            DetailEntityType.TvEpisode when hasUniverse => ["overview", "cast", "characters", "universe", "details"],
-            DetailEntityType.TvEpisode => ["overview", "cast", "characters", "details"],
-            DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "details"],
-            DetailEntityType.Book => ["overview", "credits", "details"],
+            DetailEntityType.TvShow => hasUniverse ? ["overview", "cast", "universe", "related", "details"] : ["overview", "cast", "related", "details"],
+            DetailEntityType.TvSeason when hasUniverse => ["overview", "cast", "universe", "related", "details"],
+            DetailEntityType.TvSeason => ["overview", "cast", "related", "details"],
+            DetailEntityType.Movie when hasUniverse => ["overview", "cast", "universe", "related", "details"],
+            DetailEntityType.Movie => ["overview", "cast", "related", "details"],
+            DetailEntityType.MovieSeries when hasUniverse => ["overview", "cast", "universe", "related", "details"],
+            DetailEntityType.MovieSeries => ["overview", "cast", "related", "details"],
+            DetailEntityType.TvEpisode when hasUniverse => ["overview", "cast", "characters", "universe", "related", "details"],
+            DetailEntityType.TvEpisode => ["overview", "cast", "characters", "related", "details"],
+            DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "related", "details"],
+            DetailEntityType.Book => ["overview", "credits", "related", "details"],
             DetailEntityType.Audiobook when hasChapters => ["chapters", "overview", "credits", "editions", "related", "details"],
-            DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "details"],
-            DetailEntityType.Audiobook => ["overview", "credits", "details"],
-            DetailEntityType.BookSeries when hasUniverse => ["overview", "credits", "universe", "details"],
-            DetailEntityType.BookSeries => ["overview", "credits", "details"],
-            DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "details"],
-            DetailEntityType.Work => ["overview", "credits", "formats", "details"],
-            DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "editions", "details"],
-            DetailEntityType.ComicIssue => ["overview", "credits", "editions", "details"],
-            DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "details"],
-            DetailEntityType.ComicSeries => ["overview", "credits", "details"],
+            DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "related", "details"],
+            DetailEntityType.Audiobook => ["overview", "credits", "related", "details"],
+            DetailEntityType.BookSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
+            DetailEntityType.BookSeries => ["overview", "credits", "related", "details"],
+            DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "related", "details"],
+            DetailEntityType.Work => ["overview", "credits", "formats", "related", "details"],
+            DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "editions", "related", "details"],
+            DetailEntityType.ComicIssue => ["overview", "credits", "editions", "related", "details"],
+            DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
+            DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicAlbum => ["tracks", "overview", "credits", "editions", "related", "details"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicArtist or DetailEntityType.Person => ["overview", "details"],
+            DetailEntityType.MusicArtist or DetailEntityType.Person => ["overview", "related", "details"],
             DetailEntityType.Character when hasUniverse => ["overview", "portrayals", "relationships", "universe", "details"],
             DetailEntityType.Character => ["overview", "portrayals", "relationships", "details"],
             DetailEntityType.Universe => ["overview", "characters", "people", "relationships", "details"],
@@ -8226,10 +8279,27 @@ public sealed class DetailComposerService
                 ?? structuralTitle;
         }
 
-        return SeriesDisplayFormatter.NormalizeContainerTitle(
+        var containerTitle = SeriesDisplayFormatter.NormalizeContainerTitle(
                 FirstNonBlank(displayName, GetValue(values, MetadataFieldConstants.Title), "Collection"),
                 isStructuralSeries: false)
             ?? "Collection";
+        return entityType == DetailEntityType.MusicAlbum
+            ? TrimWrappingQuotationMarks(containerTitle)
+            : containerTitle;
+    }
+
+    private static string TrimWrappingQuotationMarks(string value)
+    {
+        var title = value.Trim();
+        if (title.Length < 2)
+        {
+            return title;
+        }
+
+        var isQuoted = (title[0] == '"' && title[^1] == '"')
+            || (title[0] == '\u201c' && title[^1] == '\u201d')
+            || (title[0] == '\u2018' && title[^1] == '\u2019');
+        return isQuoted ? title[1..^1].Trim() : title;
     }
 
     private static string? StripUniverseSuffix(string? value)

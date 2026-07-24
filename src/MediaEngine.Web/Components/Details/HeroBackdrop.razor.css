@@ -1,0 +1,6 @@
+@media (min-width: 721px) {
+    .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
+        top: 50% !important;
+        transform: translateY(-50%) !important;
+    }
+}

@@ -7,44 +7,44 @@
         @if (ShowHeader)
         {
             <header class="tl-detail-primary-module__header">
-                <div>
-                    <span class="tl-detail-primary-module__eyebrow">@ModuleEyebrow</span>
+                <div class="tl-detail-primary-module__title">
+                    <MudIcon Icon="@ModuleIcon" Size="Size.Small" />
                     <h2 id="detail-primary-module-title">@Model.PrimaryModule.Title</h2>
                 </div>
 
-                @if (Model.PrimaryModule.SupportsLaneFilter && HasMultipleOwnedLanes)
-                {
-                    <div class="tl-detail-primary-module__filters" aria-label="Filter works by library lane">
-                        @foreach (var lane in LaneOptions)
+                <div class="tl-detail-primary-module__controls">
+                    <div class="tl-detail-primary-module__selectors">
+                        @if (Model.PrimaryModule.SupportsRoleFilter && RoleOptions.Count > 1)
                         {
-                            <AppNativeButton Type="button"
-                                             Class="@FilterClass(_selectedLane, lane.Key)"
-                                             OnClick="@(() => SelectLane(lane.Key))"
-                                             aria-pressed="@(_selectedLane == lane.Key)">
-                                @if (LaneIcon(lane.Key) is { } icon)
-                                {
-                                    <MudIcon Icon="@icon" Size="Size.Small" />
-                                }
-                                @lane.Label
-                                <span>@lane.Count</span>
-                            </AppNativeButton>
+                            <AppSelect Value="@_selectedRole"
+                                       ValueChanged="SelectRole"
+                                       Options="@RoleSelectOptions"
+                                       LeadingIcon="@Icons.Material.Outlined.Badge"
+                                       Class="tl-detail-primary-module__role-filter"
+                                       aria-label="Filter works by role" />
                         }
                     </div>
-                }
 
-                @if (Model.PrimaryModule.SupportsRoleFilter && RoleOptions.Count > 1)
-                {
-                    <label class="tl-detail-primary-module__role-filter">
-                        <span>Role</span>
-                        <AppNativeSelect @bind="_selectedRole"
-                                         aria-label="Filter works by role">
-                            @foreach (var role in RoleOptions)
+                    @if (Model.PrimaryModule.SupportsLaneFilter && HasMultipleOwnedLanes)
+                    {
+                        <div class="tl-detail-primary-module__filters" aria-label="Filter works by library lane">
+                            @foreach (var lane in LaneOptions.Where(option => option.Key != "all"))
                             {
-                                <option value="@role.Key">@role.Label (@role.Count)</option>
+                                <AppNativeButton Type="button"
+                                                 Class="@FilterClass(_selectedLane, lane.Key)"
+                                                 OnClick="@(() => SelectLane(lane.Key))"
+                                                 aria-pressed="@(_selectedLane == lane.Key)">
+                                    @if (LaneIcon(lane.Key) is { } icon)
+                                    {
+                                        <MudIcon Icon="@icon" Size="Size.Small" />
+                                    }
+                                    @lane.Label
+                                    <span>@lane.Count</span>
+                                </AppNativeButton>
                             }
-                        </AppNativeSelect>
-                    </label>
-                }
+                        </div>
+                    }
+                </div>
             </header>
         }
 
@@ -185,9 +185,15 @@
         and not DetailPrimaryModuleKind.Sequence
         and not DetailPrimaryModuleKind.Episodes;
 
-    private string ModuleEyebrow => Model.EntityType is DetailEntityType.Person or DetailEntityType.MusicArtist
-        ? "Owned media"
-        : Model.PrimaryModule.Kind.ToString();
+    private string ModuleIcon => Model.EntityType is DetailEntityType.Person or DetailEntityType.MusicArtist
+        ? Icons.Material.Outlined.Workspaces
+        : Model.EntityType == DetailEntityType.Collection
+            ? Icons.Material.Outlined.CollectionsBookmark
+            : Icons.Material.Outlined.AccountTree;
+
+    private IReadOnlyList<AppSelectOption> RoleSelectOptions => RoleOptions
+        .Select(role => new AppSelectOption(role.Key, $"{role.Label} ({role.Count})"))
+        .ToList();
 
     private string? ArtworkUrl => Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.HeroArtwork.Url;
 
@@ -256,6 +262,9 @@
         _ => 3,
     };
 
-    private void SelectLane(string lane) => _selectedLane = lane;
+    private void SelectLane(string lane)
+        => _selectedLane = string.Equals(_selectedLane, lane, StringComparison.OrdinalIgnoreCase) ? "all" : lane;
+
+    private void SelectRole(string? role) => _selectedRole = role ?? "all";
     private sealed record FilterOption(string Key, string Label, int Count);
 }

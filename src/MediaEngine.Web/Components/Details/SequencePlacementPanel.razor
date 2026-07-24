@@ -12,51 +12,88 @@
 @if (DetailSurface)
 {
 <section class="tl-series-detail @MediaShapeClass" aria-label="@($"{Placement.ContainerTitle} {Placement.ItemPluralLabel}")">
-    <div class="tl-series-detail__controls">
-        <div class="tl-series-detail__identity">
-            <h2>@HeadingLabel: @ContainerTitleDisplay</h2>
-            <small>
-                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                <span>@OwnedSummary</span>
-            </small>
-            @if (CanChooseDistinctContainer)
-            {
-                <div class="tl-series-detail__alternate-controls">
-                    <AppSelect Value="@SelectedContainerValue"
-                               ValueChanged="SelectContainerValueAsync"
-                               Options="@ContainerSelectOptions"
-                               Class="tl-series-detail__select"
-                               PopoverClass="app-select__popover tl-series-select-popover"
-                               aria-label="Choose series" />
-                    @if (ShowSetDefault)
-                    {
-                        <AppIconButton Icon="@Icons.Material.Outlined.Check"
-                                       Size="Size.Small"
-                                       AriaLabel="Make this the default series"
-                                       Tooltip="Make default"
-                                       Disabled="@_settingDefault"
-                                       OnClick="SetDefaultSequenceAsync" />
-                    }
-                </div>
-            }
+    <header class="tl-series-detail__header">
+        <div class="tl-series-detail__container-title">
+            <MudIcon Icon="@ContainerIcon" Size="Size.Small" />
+            <span>@ContainerTitleDisplay</span>
         </div>
 
-        @if (ShowGroupSelector)
-        {
-            <div class="tl-series-detail__control tl-series-detail__control--group">
-                <span>@(IsSeasonContainer ? "Season" : "Arc / sub-series")</span>
-                <AppSelect Value="@SelectedGroupKey"
-                           ValueChanged="SelectGroup"
-                           Options="@GroupSelectOptions"
-                           Class="tl-series-detail__select"
-                           PopoverClass="app-select__popover tl-series-select-popover"
-                           aria-label="@GroupSelectorAriaLabel" />
-            </div>
-        }
+        <div class="tl-series-detail__controls">
+            <div class="tl-series-detail__selectors">
+                @if (CanChooseDistinctContainer)
+                {
+                    <div class="tl-series-detail__control tl-series-detail__control--container">
+                        <span class="sr-only">Choose series</span>
+                        <div class="tl-series-detail__select-with-action">
+                            <AppSelect Value="@SelectedContainerValue"
+                                       ValueChanged="SelectContainerValueAsync"
+                                       Options="@ContainerSelectOptions"
+                                       LeadingIcon="@ContainerIcon"
+                                       Class="tl-series-detail__select"
+                                       PopoverClass="app-select__popover tl-series-select-popover"
+                                       aria-label="Choose series" />
+                            @if (ShowSetDefault)
+                            {
+                                <AppIconButton Icon="@Icons.Material.Outlined.Check"
+                                               Size="Size.Small"
+                                               AriaLabel="Make this the default series"
+                                               Tooltip="Make default"
+                                               Disabled="@_settingDefault"
+                                               OnClick="SetDefaultSequenceAsync" />
+                            }
+                        </div>
+                    </div>
+                }
 
+                @if (ShowGroupSelector)
+                {
+                    <div class="tl-series-detail__control tl-series-detail__control--group">
+                        <span class="sr-only">@(IsSeasonContainer ? "Season" : "Arc / sub-series")</span>
+                        <AppSelect Value="@SelectedGroupKey"
+                                   ValueChanged="SelectGroup"
+                                   Options="@GroupSelectOptions"
+                                   LeadingIcon="@(IsSeasonContainer ? Icons.Material.Outlined.Tv : Icons.Material.Outlined.AccountTree)"
+                                   Class="tl-series-detail__select"
+                                   PopoverClass="app-select__popover tl-series-select-popover"
+                                   aria-label="@GroupSelectorAriaLabel" />
+                    </div>
+                    }
+            </div>
+
+            <div class="tl-series-detail__utilities">
+                @if (CanShowMissingToggle)
+                {
+                    <div class="tl-series-detail__missing">
+                        <MudCheckBox T="bool"
+                                     Value="@_showMissing"
+                                     ValueChanged="ShowMissingChangedAsync"
+                                     Color="Color.Primary"
+                                     Dense="true"
+                                     Disabled="@_savingMissingPreference"
+                                     Label="Show missing" />
+                        @if (_hasMissingPreferenceOverride)
+                        {
+                            <AppIconButton Icon="@Icons.Material.Outlined.Restore"
+                                           Size="Size.Small"
+                                           AriaLabel="Use the configured media default"
+                                           Tooltip="Use media default"
+                                           Disabled="@_savingMissingPreference"
+                                           OnClick="ResetMissingPreferenceAsync" />
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </header>
+
+    <div class="tl-series-detail__heading">
+        <div>
+            <span>@Placement.ItemPluralLabel</span>
+            <small>@OwnedSummary</small>
+        </div>
         @if (ShowJumpSelector)
         {
-            <div class="tl-series-detail__control tl-series-detail__control--jump">
+            <div class="tl-series-detail__jump">
                 <span>Jump to @ItemNoun.ToLowerInvariant()</span>
                 <AppSelect Value="@JumpSelectionValue"
                            ValueChanged="SelectJump"
@@ -67,34 +104,6 @@
                            aria-label="@($"Jump to {ItemNoun.ToLowerInvariant()} by name")" />
             </div>
         }
-
-        @if (CanShowMissingToggle)
-        {
-            <div class="tl-series-detail__missing">
-                <MudCheckBox T="bool"
-                             Value="@_showMissing"
-                             ValueChanged="ShowMissingChangedAsync"
-                             Color="Color.Primary"
-                             Dense="true"
-                             Disabled="@_savingMissingPreference"
-                             Label="Show missing" />
-                @if (_hasMissingPreferenceOverride)
-                {
-                    <AppIconButton Icon="@Icons.Material.Outlined.Restore"
-                                   Size="Size.Small"
-                                   AriaLabel="Use the configured media default"
-                                   Tooltip="Use media default"
-                                   Disabled="@_savingMissingPreference"
-                                   OnClick="ResetMissingPreferenceAsync" />
-                }
-            </div>
-        }
-
-    </div>
-
-    <div class="tl-series-detail__heading">
-        <span>@Placement.ItemPluralLabel</span>
-        <small>@OwnedSummary</small>
     </div>
 
     <div class="tl-series-detail__carousel">
@@ -544,7 +553,7 @@ else
         && UsesPagedMissingItems
         && GroupItems.Count(item => !item.IsOwned) > _visibleMissingLimit;
     private bool IsLongSequence => TotalItems >= LongSequenceThreshold;
-    private bool ShowJumpSelector => ActiveItems.Count > 5;
+    private bool ShowJumpSelector => ActiveItems.Count > 10;
     private string? JumpSelectionValue => _jumpSelectionValue;
     private IReadOnlyList<AppSelectOption> JumpSelectOptions => ActiveItems
         .Select((item, index) => new AppSelectOption(
@@ -581,7 +590,16 @@ else
         !HasCurrentPosition && OwnedCount > 0 ? $"{OwnedSummary} in {LowerContainerLabel}" : null,
         HasCurrentPosition ? $"{ItemNoun} {CurrentPositionText} in {Placement.ContainerTitle}" : null,
         ContainerTitleDisplay)!;
-    private string ContainerTitleDisplay => TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel);
+    private string ContainerTitleDisplay => FirstNonBlank(Placement.ContainerTitle, Placement.ContainerLabel, "Series")!;
+    private string ContainerIcon => Placement.CurrentItem.EntityType switch
+    {
+        DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Tv,
+        DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => Icons.Material.Outlined.AutoStories,
+        DetailEntityType.Movie or DetailEntityType.MovieSeries => Icons.Material.Outlined.LocalMovies,
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => Icons.Material.Outlined.Album,
+        DetailEntityType.Audiobook => Icons.Material.Outlined.Headphones,
+        _ => Icons.Material.Outlined.AccountTree,
+    };
     private string LowerContainerLabel => FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
     private string SequenceGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
     private int VisibleCount => ActiveItems.Count <= WindowSize ? ActiveItems.Count : WindowSize;

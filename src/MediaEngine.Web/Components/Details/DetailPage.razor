@@ -59,7 +59,7 @@
                         ActiveTabChanged="SetActiveTabAsync" />
         </div>
 
-        @if (HasPrimaryModuleAfterNavigation)
+        @if (ShowPrimaryModuleAfterNavigation)
         {
             <section class="tl-detail-page__primary-content">
                 <DetailPrimaryModule Model="Model"
@@ -133,9 +133,13 @@
             {
                 <CharactersSection Groups="Model.CharacterGroups" />
             }
-            else if (CurrentActiveTab is "universe" or "timeline" or "relationships" or "related")
+            else if (CurrentActiveTab is "universe" or "timeline" or "relationships")
             {
                 <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
+            }
+            else if (CurrentActiveTab is "related")
+            {
+                <RelatedTab Model="Model" />
             }
             else if (CurrentActiveTab is "formats")
             {
@@ -197,6 +201,10 @@
 
     private bool HasPrimaryModuleAfterNavigation => Model?.PrimaryModule.Kind is not
         (DetailPrimaryModuleKind.None or DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters);
+
+    private bool ShowPrimaryModuleAfterNavigation =>
+        HasPrimaryModuleAfterNavigation
+        && CurrentActiveTab == "overview";
 
     private bool IsEmbeddedPrimaryModuleTab =>
         HasPrimaryModuleBeforeNavigation

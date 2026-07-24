@@ -6,6 +6,18 @@
     {
         <img class="tl-detail-hero__artwork tl-detail-media-stage__background" src="@HeroImageUrl" alt="" aria-hidden="true" @onerror="HandleImageError" />
         <div class="tl-detail-hero__overlays tl-detail-media-stage__overlay" aria-hidden="true"></div>
+        @if (ShowAlbumForeground)
+        {
+            <div class="tl-detail-hero__foreground-art tl-detail-media-stage__cover-wrap tl-detail-media-stage__cover-wrap--over-backdrop">
+                <div class="@ForegroundClass">
+                    <span class="tl-detail-media-stage__vinyl" aria-hidden="true"></span>
+                    <img class="tl-detail-media-stage__cover"
+                         src="@ForegroundArtworkUrl"
+                         alt=""
+                         @onerror="HandleForegroundImageError" />
+                </div>
+            </div>
+        }
     }
     else if (IsArtworkFallbackMode && !string.IsNullOrWhiteSpace(HeroImageUrl))
     {
@@ -54,7 +66,9 @@
     [Parameter] public HeroBrandViewModel? HeroBrand { get; set; }
 
     private bool _imageFailed;
+    private bool _foregroundImageFailed;
     private string? _lastHeroImageUrl;
+    private string? _lastForegroundImageUrl;
 
     private bool ShouldRenderHeroBrand => !string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl);
     private HeroArtworkViewModel HeroArtwork => Artwork.HeroArtwork;
@@ -66,6 +80,11 @@
         : HeroArtwork.Mode;
     private bool IsBackdropMode => EffectiveMode is HeroArtworkMode.BackdropWithLogo or HeroArtworkMode.BackdropWithRenderedTitle;
     private bool IsArtworkFallbackMode => EffectiveMode == HeroArtworkMode.ArtworkFallback;
+    private string? ForegroundArtworkUrl => !_foregroundImageFailed
+        ? Artwork.CoverUrl ?? Artwork.PosterUrl
+        : null;
+    private bool ShowAlbumForeground => EntityType == DetailEntityType.MusicAlbum
+        && !string.IsNullOrWhiteSpace(ForegroundArtworkUrl);
     private HeroForegroundTreatment ForegroundTreatment => EntityType switch
     {
         DetailEntityType.Book or DetailEntityType.Work => HeroForegroundTreatment.Book,
@@ -123,9 +142,17 @@
             _imageFailed = false;
             _lastHeroImageUrl = nextUrl;
         }
+
+        var nextForegroundUrl = Artwork.CoverUrl ?? Artwork.PosterUrl;
+        if (!string.Equals(nextForegroundUrl, _lastForegroundImageUrl, StringComparison.Ordinal))
+        {
+            _foregroundImageFailed = false;
+            _lastForegroundImageUrl = nextForegroundUrl;
+        }
     }
 
     private void HandleImageError() => _imageFailed = true;
+    private void HandleForegroundImageError() => _foregroundImageFailed = true;
 
     private static string EscapeCssString(string value)
         => value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);

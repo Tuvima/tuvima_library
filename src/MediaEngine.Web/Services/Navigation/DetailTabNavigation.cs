@@ -57,7 +57,20 @@ public static class DetailTabNavigation
             "characters" or "portrayals" =>
                 model.CharacterGroups.Count > 0,
             "series" => model.SequencePlacement is not null,
+            "related" => model.MediaGroups.Any(IsRecommendationGroup),
             _ => true,
         };
+    }
+
+    private static bool IsRecommendationGroup(MediaGroupingViewModel group)
+    {
+        var key = group.Key ?? string.Empty;
+        var title = group.Title ?? string.Empty;
+        return key.Equals("related", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("recommendations", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("more-like-this", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("more like", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("recommend", StringComparison.OrdinalIgnoreCase)
+            || title.Contains("similar", StringComparison.OrdinalIgnoreCase);
     }
 }

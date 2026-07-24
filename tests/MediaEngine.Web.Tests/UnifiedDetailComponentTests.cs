@@ -371,17 +371,15 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("tl-overview-surface", source);
-        Assert.Contains("tl-overview-card--copy", source);
-        Assert.Contains("tl-overview-card--credits", source);
+        Assert.Contains("tl-overview-section--copy", source);
+        Assert.Contains("tl-overview-section--credits", source);
         Assert.Contains("tl-overview-credit-rows", source);
         Assert.Contains("OverviewDescriptionParagraphs", source);
         Assert.Contains("ShowSeriesDescription", source);
         Assert.DoesNotContain("SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
-        Assert.Contains("MoreLikeThisItems", source);
-        Assert.Contains("IsRecommendationGroup", source);
-        Assert.Contains("IsRecommendationCandidate", source);
-        Assert.Contains("item.EntityType is not DetailEntityType.TvEpisode", source);
-        Assert.Contains("tl-overview-card--related", source);
+        Assert.DoesNotContain("MoreLikeThisItems", source);
+        Assert.DoesNotContain("IsRecommendationGroup", source);
+        Assert.DoesNotContain("tl-overview-card--related", source);
         Assert.Contains("BuildVideoCreditGroups", source);
         Assert.Contains("IsTv ? [] : CreditsFor(CreditGroupType.Directors)", source);
         Assert.Contains("new OverviewCreditGroup(\"Cast\"", source);
@@ -396,12 +394,28 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Split('\\n'", source);
         Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
         Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
-        Assert.Contains("grid-template-columns: minmax(0, 1.15fr) minmax(24rem, 0.95fr)", styles);
-        Assert.Contains(".tl-overview-card--related", styles);
+        Assert.Contains("grid-template-columns: minmax(0, 1.15fr) minmax(28rem, 1fr)", styles);
+        Assert.Contains(".tl-overview-section--secondary", styles);
         Assert.Contains(".tl-overview-credit-rows .tl-credit-card--compact", styles);
         Assert.Contains("width: calc(100% - clamp(6.5rem, 7vw, 9rem))", styles);
         Assert.Contains("white-space: pre-line", styles);
-        Assert.Contains(".tl-overview-card__prose p", styles);
+        Assert.Contains(".tl-overview-section__prose p", styles);
+    }
+
+    [Fact]
+    public void RelatedContent_UsesItsOwnRenderableTab()
+    {
+        var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
+        var overview = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");
+        var related = ReadSource("src/MediaEngine.Web/Components/Details/RelatedTab.razor");
+        var navigation = ReadSource("src/MediaEngine.Web/Services/Navigation/DetailTabNavigation.cs");
+
+        Assert.Contains("CurrentActiveTab is \"related\"", detailPage);
+        Assert.Contains("<RelatedTab Model=\"Model\"", detailPage);
+        Assert.DoesNotContain("MoreLikeThisItems", overview);
+        Assert.Contains("More from your library", related);
+        Assert.Contains("item.EntityType is not DetailEntityType.TvEpisode", related);
+        Assert.Contains("\"related\" => model.MediaGroups.Any(IsRecommendationGroup)", navigation);
     }
 
     [Fact]
@@ -490,7 +504,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-placement--compact", source);
         Assert.DoesNotContain("IsNextSequenceItem", source);
         Assert.DoesNotContain("Part of", source);
-        Assert.Contains("TitleCaseDisplay(Placement.ContainerTitle, Placement.ContainerLabel)", source);
+        Assert.Contains("FirstNonBlank(Placement.ContainerTitle, Placement.ContainerLabel, \"Series\")", source);
+        Assert.Contains("tl-series-detail__container-title", source);
         Assert.Contains("VisibleItems", source);
         Assert.Contains("tl-series-carousel__arrow", source);
         Assert.Contains("MudChart T=\"double\"", source);
@@ -504,7 +519,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-position-summary__donut", source);
         Assert.Contains("tl-series-position-summary__center", source);
         Assert.Contains("ValueChanged=\"SelectContainerValueAsync\"", source);
-        Assert.Contains("ShowJumpSelector => ActiveItems.Count > 5", source);
+        Assert.Contains("ShowJumpSelector => ActiveItems.Count > 10", source);
         Assert.Contains("ValueChanged=\"SelectJump\"", source);
         Assert.Contains("tl-series-content", source);
         Assert.Contains("ResetWindowToCurrentItem()", source);
@@ -851,6 +866,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("HasPrimaryModuleBeforeNavigation", detailPage);
         Assert.Contains("DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters", detailPage);
         Assert.Contains("HasPrimaryModuleAfterNavigation", detailPage);
+        Assert.Contains("ShowPrimaryModuleAfterNavigation", detailPage);
+        Assert.Contains("CurrentActiveTab == \"overview\"", detailPage);
         Assert.Contains("IsEmbeddedPrimaryModuleTab", detailPage);
         Assert.Contains("@if (!IsEmbeddedPrimaryModuleTab)", detailPage);
         Assert.Contains("tl-detail-page__primary-content", detailPage);
@@ -865,7 +882,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Save to My List", audioTable);
         Assert.Contains("height: 70svh", detailStyles);
         Assert.DoesNotContain("height: clamp(34rem, 70svh, 47.5rem)", detailStyles);
-        Assert.Contains("flex: 0 0 39svh", detailStyles);
+        Assert.Contains("flex-basis: 37svh", detailStyles);
+        Assert.Contains("tl-detail-media-stage__cover-wrap--over-backdrop", ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor"));
         Assert.Contains("Structural rails and navigation are", detailStyles);
         Assert.Contains(".tl-detail-stage__navigation", detailStyles);
         Assert.Contains("padding-inline: clamp(4rem, 4.25vw, 5.5rem)", detailStyles);
@@ -891,7 +909,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Icons.Material.Outlined.GraphicEq", chapterList);
         Assert.DoesNotContain("Math.Round(item.ProgressPercent.Value)", chapterList);
         Assert.DoesNotContain("tl-audiobook-chapters__progress", chapterList);
-        Assert.DoesNotContain("transform: translateY", audiobookChapterStyles);
+        Assert.DoesNotContain(".tl-audiobook-chapters__row {\n    transform:", audiobookChapterStyles);
         Assert.Contains("grid-template-columns: minmax(0, 1fr) 8.25rem 5.4rem 3rem", detailStyles);
         Assert.Contains("PlayAudiobookChapterAsync", chapterList);
         Assert.Contains("ChapterDuration", nowPlayingPanel);

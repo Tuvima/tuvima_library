@@ -153,19 +153,18 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("DetailEntityType.Movie when hasUniverse => [\"overview\", \"cast\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"details\"]", source);
-        Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie when hasUniverse => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
-        Assert.Contains("DetailEntityType.TvShow => hasUniverse ? [\"overview\", \"cast\", \"universe\", \"details\"] : [\"overview\", \"cast\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.TvSeason => [\"overview\", \"cast\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.TvShow => hasUniverse ? [\"overview\", \"cast\", \"universe\", \"related\", \"details\"] : [\"overview\", \"cast\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.TvSeason => [\"overview\", \"cast\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Audiobook when hasChapters => [\"chapters\", \"overview\", \"credits\", \"editions\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicAlbum => [\"tracks\", \"overview\", \"credits\", \"editions\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
@@ -316,7 +315,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("PositionSort = positionSort", source);
         Assert.DoesNotContain("?? index + 1", source);
         Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
-        Assert.Contains("workId))?.SequencePlacement", source);
+        Assert.Contains("workId,\n                profileId))?.SequencePlacement", source);
         Assert.Contains(".Where(work => expectedTotal is > 0 || work.IsOwned)", source);
         Assert.Contains("selectedGroup?.HasAuthoritativeTotal == true", source);
         Assert.Contains("HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue", source);
@@ -390,6 +389,11 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("collectionId = collectionId.ToString()", source, StringComparison.Ordinal);
         Assert.Contains("LEFT JOIN collection_items ci ON ci.work_id = w.id AND ci.collection_id = @collectionId", source);
         Assert.Contains("OR ci.collection_id = @collectionId", source);
+        Assert.Contains("_collectionCatalog.GetItemsAsync(", source);
+        Assert.Contains("OR w.id IN @resolvedWorkIds", source);
+        Assert.Contains("resolvedWorkIds.Select(GuidSql.ToBlob).ToArray()", source);
+        Assert.Contains("work with { HasAsset = true, IsCatalogOnly = false, Ownership = \"Owned\" }", source);
+        Assert.DoesNotContain("entityType = InferCollectionEntityType(works)", source);
         Assert.Contains("ORDER BY COALESCE(ci.sort_order, 9999)", source);
         var contributorStart = source.IndexOf("LoadContributorTargetIdsAsync", StringComparison.Ordinal);
         var contributorEnd = source.IndexOf("if (row is null)", contributorStart, StringComparison.Ordinal);

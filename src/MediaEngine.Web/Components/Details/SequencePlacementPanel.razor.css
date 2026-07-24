@@ -1,0 +1,43 @@
+@media (min-width: 721px) {
+    .tl-series-detail.tl-series-panel--landscape ::deep .tl-series-detail__strip {
+        grid-auto-columns: clamp(18rem, 19vw, 22rem);
+        grid-template-columns: repeat(var(--series-count, 1), clamp(18rem, 19vw, 22rem));
+        height: auto;
+        min-height: 17.5rem;
+        align-items: start;
+    }
+
+    .tl-series-detail.tl-series-panel--landscape .tl-series-item {
+        grid-template-rows: auto auto auto auto;
+        height: auto;
+        max-height: none;
+        align-self: start;
+        overflow: visible;
+    }
+
+    .tl-series-detail.tl-series-panel--landscape .tl-series-item__title-row {
+        min-height: 2.1rem;
+        margin-top: 0.55rem;
+        overflow: visible;
+    }
+
+    .tl-series-detail.tl-series-panel--landscape .tl-series-item__meta {
+        display: flex;
+        min-height: 1.25rem;
+        height: auto;
+        overflow: visible;
+        font-size: 0.78rem;
+    }
+
+    .tl-series-detail.tl-series-panel--landscape .tl-series-item__description {
+        display: -webkit-box;
+        min-height: 2.7rem;
+        margin-top: 0.4rem;
+        overflow: hidden;
+        color: rgba(225, 231, 242, 0.64);
+        font-size: 0.78rem;
+        line-height: 1.45;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+    }
+}
