@@ -12,7 +12,7 @@
                     <h2 id="detail-primary-module-title">@Model.PrimaryModule.Title</h2>
                 </div>
 
-                @if (Model.PrimaryModule.SupportsLaneFilter && LaneOptions.Count > 1)
+                @if (Model.PrimaryModule.SupportsLaneFilter && HasMultipleOwnedLanes)
                 {
                     <div class="tl-detail-primary-module__filters" aria-label="Filter works by library lane">
                         @foreach (var lane in LaneOptions)
@@ -21,6 +21,10 @@
                                              Class="@FilterClass(_selectedLane, lane.Key)"
                                              OnClick="@(() => SelectLane(lane.Key))"
                                              aria-pressed="@(_selectedLane == lane.Key)">
+                                @if (LaneIcon(lane.Key) is { } icon)
+                                {
+                                    <MudIcon Icon="@icon" Size="Size.Small" />
+                                }
                                 @lane.Label
                                 <span>@lane.Count</span>
                             </AppNativeButton>
@@ -49,6 +53,7 @@
                  && Model.SequencePlacement is not null)
             {
                 <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                        DetailSurface="true"
                                         OnContainerSelected="OnContainerSelected" />
             }
             else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Tracks)
@@ -56,7 +61,9 @@
                 <MusicTrackList Groups="PrimaryGroups"
                                 AlbumTitle="@Model.Title"
                                 AlbumArtworkUrl="@ArtworkUrl"
-                                Compact="Embedded" />
+                                Compact="Embedded"
+                                AlbumIsSaved="IsInMyList"
+                                OnSaveToList="OnSaveToList" />
             }
             else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters)
             {
@@ -103,6 +110,7 @@
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+    [Parameter] public EventCallback OnSaveToList { get; set; }
 
     private string _selectedLane = "all";
     private string _selectedRole = "all";
@@ -170,6 +178,8 @@
         }
     }
 
+    private bool HasMultipleOwnedLanes => LaneOptions.Count(option => option.Key != "all") > 1;
+
     private bool ShowHeader => Model.PrimaryModule.Kind is not DetailPrimaryModuleKind.Tracks
         and not DetailPrimaryModuleKind.Chapters
         and not DetailPrimaryModuleKind.Sequence
@@ -181,17 +191,28 @@
 
     private string? ArtworkUrl => Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.HeroArtwork.Url;
 
+    private bool IsInMyList => Model.PrimaryActions
+        .Concat(Model.SecondaryActions)
+        .Concat(Model.OverflowActions)
+        .FirstOrDefault(action => action.Key is "my-list" or "favorite")?.IsSelected == true;
+
     private string RootClass =>
         $"tl-detail-primary-module tl-detail-primary-module--{Model.PrimaryModule.Kind.ToString().ToLowerInvariant()} {(Embedded ? "tl-detail-primary-module--embedded" : "tl-detail-primary-module--below-hero")}";
 
     private static string FilterClass(string selected, string key)
         => $"tl-detail-primary-module__filter{(string.Equals(selected, key, StringComparison.OrdinalIgnoreCase) ? " is-active" : string.Empty)}";
 
-    private static string ItemClass(MediaGroupingItemViewModel item)
+    private string ItemClass(MediaGroupingItemViewModel item)
         => $"tl-detail-primary-module__item tl-detail-primary-module__item--{ArtworkShape(item.EntityType)}";
 
-    private static string ArtworkShape(DetailEntityType entityType)
-        => entityType switch
+    private string ArtworkShape(DetailEntityType entityType)
+        => Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Works
+            ? entityType switch
+            {
+                DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "square",
+                _ => "portrait",
+            }
+            : entityType switch
         {
             DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "square",
             DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "wide",
@@ -217,6 +238,14 @@
         "watch" => "Watch",
         "listen" => "Listen",
         _ => "Other",
+    };
+
+    private static string? LaneIcon(string key) => key switch
+    {
+        "read" => Icons.Material.Outlined.MenuBook,
+        "watch" => Icons.Material.Outlined.Tv,
+        "listen" => Icons.Material.Outlined.Headphones,
+        _ => null,
     };
 
     private static int LaneSort(string key) => key switch

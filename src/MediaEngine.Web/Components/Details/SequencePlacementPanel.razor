@@ -9,6 +9,149 @@
 @inject IJSRuntime Js
 @inject ISnackbar Snackbar
 
+@if (DetailSurface)
+{
+<section class="tl-series-detail @MediaShapeClass" aria-label="@($"{Placement.ContainerTitle} {Placement.ItemPluralLabel}")">
+    <div class="tl-series-detail__controls">
+        <div class="tl-series-detail__identity">
+            <h2>@HeadingLabel: @ContainerTitleDisplay</h2>
+            <small>
+                <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
+                <span>@OwnedSummary</span>
+            </small>
+            @if (CanChooseDistinctContainer)
+            {
+                <div class="tl-series-detail__alternate-controls">
+                    <AppSelect Value="@SelectedContainerValue"
+                               ValueChanged="SelectContainerValueAsync"
+                               Options="@ContainerSelectOptions"
+                               Class="tl-series-detail__select"
+                               PopoverClass="app-select__popover tl-series-select-popover"
+                               aria-label="Choose series" />
+                    @if (ShowSetDefault)
+                    {
+                        <AppIconButton Icon="@Icons.Material.Outlined.Check"
+                                       Size="Size.Small"
+                                       AriaLabel="Make this the default series"
+                                       Tooltip="Make default"
+                                       Disabled="@_settingDefault"
+                                       OnClick="SetDefaultSequenceAsync" />
+                    }
+                </div>
+            }
+        </div>
+
+        @if (ShowGroupSelector)
+        {
+            <div class="tl-series-detail__control tl-series-detail__control--group">
+                <span>@(IsSeasonContainer ? "Season" : "Arc / sub-series")</span>
+                <AppSelect Value="@SelectedGroupKey"
+                           ValueChanged="SelectGroup"
+                           Options="@GroupSelectOptions"
+                           Class="tl-series-detail__select"
+                           PopoverClass="app-select__popover tl-series-select-popover"
+                           aria-label="@GroupSelectorAriaLabel" />
+            </div>
+        }
+
+        @if (ShowJumpSelector)
+        {
+            <div class="tl-series-detail__control tl-series-detail__control--jump">
+                <span>Jump to @ItemNoun.ToLowerInvariant()</span>
+                <AppSelect Value="@JumpSelectionValue"
+                           ValueChanged="SelectJump"
+                           Options="@JumpSelectOptions"
+                           Size="AppControlSize.Large"
+                           Class="tl-series-detail__select"
+                           PopoverClass="app-select__popover tl-series-select-popover"
+                           aria-label="@($"Jump to {ItemNoun.ToLowerInvariant()} by name")" />
+            </div>
+        }
+
+        @if (CanShowMissingToggle)
+        {
+            <div class="tl-series-detail__missing">
+                <MudCheckBox T="bool"
+                             Value="@_showMissing"
+                             ValueChanged="ShowMissingChangedAsync"
+                             Color="Color.Primary"
+                             Dense="true"
+                             Disabled="@_savingMissingPreference"
+                             Label="Show missing" />
+                @if (_hasMissingPreferenceOverride)
+                {
+                    <AppIconButton Icon="@Icons.Material.Outlined.Restore"
+                                   Size="Size.Small"
+                                   AriaLabel="Use the configured media default"
+                                   Tooltip="Use media default"
+                                   Disabled="@_savingMissingPreference"
+                                   OnClick="ResetMissingPreferenceAsync" />
+                }
+            </div>
+        }
+
+    </div>
+
+    <div class="tl-series-detail__heading">
+        <span>@Placement.ItemPluralLabel</span>
+        <small>@OwnedSummary</small>
+    </div>
+
+    <div class="tl-series-detail__carousel">
+        <AppIconButton Class="@LeftArrowClass"
+                       Icon="@Icons.Material.Outlined.ChevronLeft"
+                       Size="Size.Large"
+                       aria-label="@($"Previous {Placement.ItemPluralLabel.ToLowerInvariant()}")"
+                       Disabled="@(!CanPageLeft)"
+                       OnClick="PageLeft" />
+        <AppCssElement Tag="div"
+                       Class="tl-series-detail__strip"
+                       Css="@SequenceGridStyle"
+                       aria-label="@($"{Placement.ContainerTitle} order")">
+            @for (var index = 0; index < VisibleItems.Count; index++)
+            {
+                var item = VisibleItems[index];
+                var previousItem = index > 0 ? VisibleItems[index - 1] : null;
+                var route = SequenceItemRoute(item);
+                if (route is not null)
+                {
+                    <a class="@SequenceItemClass(item)"
+                       href="@route"
+                       aria-current="@(item.IsCurrent ? "page" : null)"
+                       aria-label="Open @SequenceItemTitle(item)">
+                        @SequenceItemContent(item, previousItem)
+                    </a>
+                }
+                else
+                {
+                    <article class="@SequenceItemClass(item)"
+                             aria-current="@(item.IsCurrent ? "page" : null)"
+                             aria-label="@SequenceItemAccessibilityLabel(item)">
+                        @SequenceItemContent(item, previousItem)
+                    </article>
+                }
+            }
+        </AppCssElement>
+        <AppIconButton Class="@RightArrowClass"
+                       Icon="@Icons.Material.Outlined.ChevronRight"
+                       Size="Size.Large"
+                       aria-label="@($"More {Placement.ItemPluralLabel.ToLowerInvariant()}")"
+                       Disabled="@(!CanPageRight)"
+                       OnClick="PageRight" />
+    </div>
+
+    @if (HasMoreConfiguredMissingItems)
+    {
+        <AppNativeButton Type="button"
+                         Class="tl-series-load-missing"
+                         OnClick="LoadMoreMissingItems">
+            Load more missing @Placement.ItemPluralLabel.ToLowerInvariant()
+        </AppNativeButton>
+    }
+</section>
+}
+else
+{
 <section class="tl-series-placement @PanelClass">
     <div class="tl-series-layout">
     <aside class="tl-series-header">
@@ -271,11 +414,13 @@
     </div>
     </div>
 </section>
+}
 
 @code {
     [Parameter, EditorRequired] public SequencePlacementViewModel Placement { get; set; } = default!;
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool DetailSurface { get; set; }
 
     private const int LongSequenceThreshold = 6;
     private const int WindowSize = 12;
@@ -1191,4 +1336,5 @@
            && value.Length > 1
            && value[0] is 'Q' or 'q'
            && value.Skip(1).All(char.IsDigit);
+
 }

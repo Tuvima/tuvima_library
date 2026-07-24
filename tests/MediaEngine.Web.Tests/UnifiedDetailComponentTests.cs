@@ -806,6 +806,21 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
+    public void DetailPrimaryModulesKeepLaneFiltersOnMixedMediaContainersOnly()
+    {
+        var sequence = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
+        var primaryModule = ReadSource("src/MediaEngine.Web/Components/Details/DetailPrimaryModule.razor");
+
+        Assert.DoesNotContain("Available media lanes", sequence);
+        Assert.DoesNotContain("DetailLaneOptions", sequence);
+        Assert.Contains("Model.PrimaryModule.SupportsLaneFilter && HasMultipleOwnedLanes", primaryModule);
+        Assert.Contains("LaneOptions.Count(option => option.Key != \"all\") > 1", primaryModule);
+        Assert.Contains("\"read\" => Icons.Material.Outlined.MenuBook", primaryModule);
+        Assert.Contains("\"watch\" => Icons.Material.Outlined.Tv", primaryModule);
+        Assert.Contains("\"listen\" => Icons.Material.Outlined.Headphones", primaryModule);
+    }
+
+    [Fact]
     public void AudioDetailPagesUseTheBoundedSharedStageWithoutChangingHomeHeroDefault()
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
@@ -842,18 +857,24 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("DetailEntityType.MusicAlbum or DetailEntityType.Audiobook", detailPage);
         Assert.Contains("<DetailPrimaryModule Model=\"Model\"", detailPage);
-        Assert.Contains("HasEmbeddedPrimaryModule", detailPage);
+        Assert.Contains("HasPrimaryModuleBeforeNavigation", detailPage);
         Assert.Contains("DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters", detailPage);
-        Assert.Contains("HasBelowHeroPrimaryModule", detailPage);
+        Assert.Contains("HasPrimaryModuleAfterNavigation", detailPage);
         Assert.Contains("IsEmbeddedPrimaryModuleTab", detailPage);
         Assert.Contains("@if (!IsEmbeddedPrimaryModuleTab)", detailPage);
-        Assert.Contains("tl-detail-page__primary-content", detailPage);
+        Assert.DoesNotContain("tl-detail-page__primary-content", detailPage);
         Assert.Contains("Embedded=\"true\"", detailPage);
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.Contains("<MusicTrackList", primaryModule);
         Assert.Contains("<AudiobookChapterList", primaryModule);
-        Assert.Contains("height: clamp(34rem, 70svh, 47.5rem)", detailStyles);
-        Assert.Contains("max-height: 70svh", detailStyles);
+        Assert.Contains("tl-embedded-audio__toolbar", audioTable);
+        Assert.Contains("tl-embedded-audio__scroller", audioTable);
+        Assert.Contains("Placeholder=\"@($\"Search {ItemNounPlural}\")\"", audioTable);
+        Assert.Contains("Save to My List", audioTable);
+        Assert.Contains("height: 70svh", detailStyles);
+        Assert.DoesNotContain("height: clamp(34rem, 70svh, 47.5rem)", detailStyles);
+        Assert.Contains("flex: 0 0 41svh", detailStyles);
+        Assert.Contains("flex: 0 0 35svh", detailStyles);
         Assert.Contains(".tl-detail-stage__navigation", detailStyles);
         Assert.Contains("padding: 0.3rem max(2.5rem, calc((100% - 106rem) / 2)) 0.4rem", detailStyles);
         Assert.Contains(".tl-detail-primary-module--tracks .tl-detail-primary-module__viewport", detailStyles);

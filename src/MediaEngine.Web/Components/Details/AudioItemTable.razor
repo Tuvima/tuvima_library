@@ -15,6 +15,112 @@
 
 @if (Items.Count > 0)
 {
+    @if (Compact)
+    {
+        <section class="tl-embedded-audio" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
+            <header class="tl-embedded-audio__toolbar">
+                <div class="tl-embedded-audio__primary-actions">
+                    <AppNativeButton Type="button"
+                                     Class="tl-embedded-audio__play-all"
+                                     Disabled="@(OwnedCount == 0)"
+                                     OnClick="PlayAllAsync">
+                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                        <span>Play all</span>
+                    </AppNativeButton>
+                    <AppNativeButton Type="button"
+                                     Class="@($"tl-embedded-audio__save{(SourceIsSaved ? " is-saved" : string.Empty)}")"
+                                     Disabled="@(!OnSaveToList.HasDelegate)"
+                                     OnClick="SaveToListAsync">
+                        <MudIcon Icon="@(SourceIsSaved ? Icons.Material.Filled.Bookmark : Icons.Material.Outlined.Add)" Size="Size.Small" />
+                        <span>@(SourceIsSaved ? "In My List" : "Save to My List")</span>
+                    </AppNativeButton>
+                </div>
+
+                <div class="tl-embedded-audio__tools">
+                    @if (!IsAudiobook)
+                    {
+                        <label class="tl-embedded-audio__missing">
+                            <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
+                            <span>Show missing tracks</span>
+                        </label>
+                    }
+                    <label class="tl-embedded-audio__search">
+                        <MudIcon Icon="@Icons.Material.Outlined.Search" Size="Size.Small" />
+                        <AppNativeInput Value="@_searchQuery"
+                                        OnInput="SearchChanged"
+                                        Placeholder="@($"Search {ItemNounPlural}")"
+                                        AriaLabel="@($"Search {ItemNounPlural}")" />
+                    </label>
+                </div>
+            </header>
+
+            <div class="tl-embedded-audio__scroller">
+                <div class="tl-embedded-audio__table" role="table" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
+                    @for (var index = 0; index < CompactVisibleItems.Count; index++)
+                    {
+                        var item = CompactVisibleItems[index];
+                        var isPlaying = IsCurrentItem(item);
+                        <div class="@CompactRowClass(item, isPlaying)"
+                             role="row"
+                             draggable="@item.IsOwned"
+                             data-work-id="@item.Id"
+                             data-asset-id="@item.AssetId"
+                             @ondragstart="@(() => StartDrag(item))"
+                             @ondragend="EndDrag"
+                             @ondblclick="@(() => PlayItemAsync(item))">
+                            <div class="tl-embedded-audio__ordinal" role="cell">
+                                @if (isPlaying)
+                                {
+                                    <span class="tl-embedded-audio__playing" aria-label="Currently playing">
+                                        <MudIcon Icon="@Icons.Material.Filled.GraphicEq" Size="Size.Small" />
+                                    </span>
+                                }
+                                else if (item.IsOwned)
+                                {
+                                    <AppNativeButton Type="button"
+                                                     Class="tl-embedded-audio__row-play"
+                                                     AriaLabel="@($"Play {item.Title}")"
+                                                     StopPropagation="true"
+                                                     OnClick="@(() => PlayItemAsync(item))">
+                                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
+                                    </AppNativeButton>
+                                }
+                                <span>@DisplayOrdinal(item, index)</span>
+                            </div>
+                            <div class="tl-embedded-audio__title" role="cell">
+                                <strong>@item.Title</strong>
+                                @if (item.IsExplicit)
+                                {
+                                    <span>E</span>
+                                }
+                            </div>
+                            <div class="tl-embedded-audio__duration" role="cell">@DisplayDuration(item)</div>
+                            <div class="tl-embedded-audio__status" role="cell">
+                                <span class="@(item.IsOwned ? "is-owned" : "is-missing")">
+                                    <MudIcon Icon="@(item.IsOwned ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.CloudOff)" Size="Size.Small" />
+                                    <span>@(item.IsOwned ? "Owned" : "Missing")</span>
+                                </span>
+                            </div>
+                            <AppIconButton Icon="@Icons.Material.Outlined.MoreHoriz"
+                                           Size="Size.Small"
+                                           Class="tl-embedded-audio__more"
+                                           AriaLabel="@($"Add {item.Title} to queue")"
+                                           Tooltip="Add to queue"
+                                           Disabled="@(!item.IsOwned)"
+                                           OnClick="@(() => QueueItemAsync(item))" />
+                        </div>
+                    }
+                </div>
+            </div>
+
+            @if (CompactVisibleItems.Count == 0)
+            {
+                <div class="tl-detail-track-empty">No tracks match the current view.</div>
+            }
+        </section>
+    }
+    else
+    {
     <section class="tl-detail-track-section" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
         @if (!IsAudiobook)
         {
@@ -172,6 +278,7 @@
             <div class="tl-detail-track-empty">No owned tracks match the current view.</div>
         }
     </section>
+    }
 }
 
 @code {
@@ -180,6 +287,8 @@
     [Parameter] public string? ArtworkUrl { get; set; }
     [Parameter] public bool IsAudiobook { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool SourceIsSaved { get; set; }
+    [Parameter] public EventCallback OnSaveToList { get; set; }
 
     private readonly HashSet<Guid> _favoriteIds = [];
     private readonly List<AudioTableColumn> _columns = [];
@@ -188,6 +297,7 @@
     private bool _sortDescending;
     private bool _showMissingItems = true;
     private string? _resizingColumnKey;
+    private string _searchQuery = string.Empty;
     private double _resizeStartX;
     private int _resizeStartWidth;
 
@@ -202,6 +312,14 @@
 
     private IReadOnlyList<MediaGroupingItemViewModel> VisibleItems =>
         SortItems(_showMissingItems || IsAudiobook ? Items : Items.Where(item => item.IsOwned));
+
+    private IReadOnlyList<MediaGroupingItemViewModel> CompactVisibleItems =>
+        VisibleItems
+            .Where(item => string.IsNullOrWhiteSpace(_searchQuery)
+                || item.Title.Contains(_searchQuery.Trim(), StringComparison.OrdinalIgnoreCase)
+                || (!string.IsNullOrWhiteSpace(item.Artist)
+                    && item.Artist.Contains(_searchQuery.Trim(), StringComparison.OrdinalIgnoreCase)))
+            .ToList();
 
     private int OwnedCount => Items.Count(item => item.IsOwned);
 
@@ -260,6 +378,21 @@
         new("duration", "Time", 156, 126, true, "right"),
         new("queue", "Queue", 86, 72, false, "center"),
     ];
+
+    private async Task PlayAllAsync()
+    {
+        var first = CompactVisibleItems.FirstOrDefault(item => item.IsOwned);
+        if (first is not null)
+        {
+            await PlayItemAsync(first);
+        }
+    }
+
+    private Task SaveToListAsync()
+        => OnSaveToList.HasDelegate ? OnSaveToList.InvokeAsync() : Task.CompletedTask;
+
+    private void SearchChanged(ChangeEventArgs args)
+        => _searchQuery = args.Value?.ToString() ?? string.Empty;
 
     private async Task PlayItemAsync(MediaGroupingItemViewModel item)
     {
@@ -557,6 +690,9 @@
 
     private string RowClass(MediaGroupingItemViewModel item, bool isPlaying)
         => $"tl-detail-track-row tl-audio-item-table__row{(isPlaying ? " is-playing" : string.Empty)}{(!item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
+
+    private string CompactRowClass(MediaGroupingItemViewModel item, bool isPlaying)
+        => $"tl-embedded-audio__row{(isPlaying ? " is-playing" : string.Empty)}{(!item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
 
     private string ColumnHeaderClass(AudioTableColumn column)
         => $"tl-audio-item-table__head-cell tl-audio-item-table__head-cell--{column.Key}{(column.Align is "right" ? " is-right" : column.Align is "center" ? " is-center" : string.Empty)}";

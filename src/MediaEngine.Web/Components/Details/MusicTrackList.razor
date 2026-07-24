@@ -5,11 +5,15 @@
                 SourceTitle="@AlbumTitle"
                 ArtworkUrl="@AlbumArtworkUrl"
                 IsAudiobook="false"
-                Compact="Compact" />
+                Compact="Compact"
+                SourceIsSaved="AlbumIsSaved"
+                OnSaveToList="OnSaveToList" />
 
 @code {
     [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
     [Parameter] public string AlbumTitle { get; set; } = "Album";
     [Parameter] public string? AlbumArtworkUrl { get; set; }
     [Parameter] public bool Compact { get; set; }
+    [Parameter] public bool AlbumIsSaved { get; set; }
+    [Parameter] public EventCallback OnSaveToList { get; set; }
 }

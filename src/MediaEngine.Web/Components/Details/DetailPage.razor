@@ -44,10 +44,11 @@
                 }
             </div>
 
-            @if (HasEmbeddedPrimaryModule)
+            @if (HasPrimaryModuleBeforeNavigation)
             {
                 <DetailPrimaryModule Model="Model"
                                      Embedded="true"
+                                     OnSaveToList="HandlePrimarySaveToListAsync"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
             }
 
@@ -56,15 +57,15 @@
                             ActiveTab="@CurrentActiveTab"
                             ActiveTabChanged="SetActiveTabAsync" />
             </div>
-        </section>
 
-        @if (HasBelowHeroPrimaryModule)
-        {
-            <div class="tl-detail-page__primary-content">
+            @if (HasPrimaryModuleAfterNavigation)
+            {
                 <DetailPrimaryModule Model="Model"
+                                     Embedded="true"
+                                     OnSaveToList="HandlePrimarySaveToListAsync"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
-            </div>
-        }
+            }
+        </section>
 
         @if (!IsEmbeddedPrimaryModuleTab)
         {
@@ -80,6 +81,7 @@
                 @if (Model.SequencePlacement is not null)
                 {
                     <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                            DetailSurface="true"
                                             OnContainerSelected="HandleContainerSelectedAsync" />
                 }
                 else
@@ -92,6 +94,7 @@
                 @if (Model.SequencePlacement is not null)
                 {
                     <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                            DetailSurface="true"
                                             OnContainerSelected="HandleContainerSelectedAsync" />
                 }
                 else
@@ -104,6 +107,7 @@
                 @if (Model.SequencePlacement is not null && CurrentActiveTab is "issues" or "media" or "works")
                 {
                     <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                            DetailSurface="true"
                                             OnContainerSelected="HandleContainerSelectedAsync" />
                 }
                 else if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
@@ -186,20 +190,36 @@
 
     private bool IsAudioDetail => Model?.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.Audiobook;
 
-    private bool HasEmbeddedPrimaryModule => Model?.PrimaryModule.Kind is
+    private bool HasPrimaryModuleBeforeNavigation => Model?.PrimaryModule.Kind is
         DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters;
 
-    private bool HasBelowHeroPrimaryModule => Model?.PrimaryModule.Kind is not
+    private bool HasPrimaryModuleAfterNavigation => Model?.PrimaryModule.Kind is not
         (DetailPrimaryModuleKind.None or DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters);
 
     private bool IsEmbeddedPrimaryModuleTab =>
-        HasEmbeddedPrimaryModule
+        HasPrimaryModuleBeforeNavigation
         && CurrentActiveTab is ("tracks" or "chapters");
 
     private string DetailStageClass =>
-        $"tl-detail-stage{(HasEmbeddedPrimaryModule ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}";
+        $"tl-detail-stage{(HasPrimaryModuleBeforeNavigation || HasPrimaryModuleAfterNavigation ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}" +
+        $"{(HasPrimaryModuleBeforeNavigation ? " tl-detail-stage--primary-before-navigation" : string.Empty)}" +
+        $"{(HasPrimaryModuleAfterNavigation ? " tl-detail-stage--primary-after-navigation" : string.Empty)}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
+
+    private Task HandlePrimarySaveToListAsync()
+    {
+        if (Model is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        var action = Model.PrimaryActions
+            .Concat(Model.SecondaryActions)
+            .Concat(Model.OverflowActions)
+            .FirstOrDefault(candidate => candidate.Key is "my-list" or "favorite");
+        return action is null ? Task.CompletedTask : HandleDetailActionAsync(action);
+    }
 
     private async Task HandleContainerSelectedAsync(SequenceContainerOptionViewModel option)
     {
