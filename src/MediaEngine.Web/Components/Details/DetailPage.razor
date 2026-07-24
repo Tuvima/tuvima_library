@@ -51,21 +51,23 @@
                                      OnSaveToList="HandlePrimarySaveToListAsync"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
             }
+        </section>
 
-            <div class="tl-detail-stage__navigation">
-                <DetailTabs Tabs="VisibleTabs"
-                            ActiveTab="@CurrentActiveTab"
-                            ActiveTabChanged="SetActiveTabAsync" />
-            </div>
+        <div class="tl-detail-stage__navigation">
+            <DetailTabs Tabs="VisibleTabs"
+                        ActiveTab="@CurrentActiveTab"
+                        ActiveTabChanged="SetActiveTabAsync" />
+        </div>
 
-            @if (HasPrimaryModuleAfterNavigation)
-            {
+        @if (HasPrimaryModuleAfterNavigation)
+        {
+            <section class="tl-detail-page__primary-content">
                 <DetailPrimaryModule Model="Model"
-                                     Embedded="true"
+                                     Embedded="false"
                                      OnSaveToList="HandlePrimarySaveToListAsync"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
-            }
-        </section>
+            </section>
+        }
 
         @if (!IsEmbeddedPrimaryModuleTab)
         {

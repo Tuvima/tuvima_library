@@ -48,7 +48,8 @@
 
 .tl-detail-primary-module--below-hero .tl-detail-primary-module__header,
 .tl-detail-primary-module--below-hero .tl-detail-primary-module__viewport {
-    width: min(100% - 5rem, 106rem);
+    width: calc(100% - clamp(6.5rem, 7vw, 9rem));
+    max-width: none;
     margin-inline: auto;
 }
 

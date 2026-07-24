@@ -370,26 +370,23 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
-        Assert.Contains("tl-media-overview-panel", source);
-        Assert.Contains("tl-media-overview-card", source);
-        Assert.Contains("tl-media-overview-card__top", source);
-        Assert.Contains("tl-media-overview-card__summary", source);
-        Assert.Contains("tl-media-overview-card__credits", source);
-        Assert.Contains("Series Description", source);
+        Assert.Contains("tl-overview-surface", source);
+        Assert.Contains("tl-overview-card--copy", source);
+        Assert.Contains("tl-overview-card--credits", source);
+        Assert.Contains("tl-overview-credit-rows", source);
+        Assert.Contains("OverviewDescriptionParagraphs", source);
+        Assert.Contains("ShowSeriesDescription", source);
         Assert.DoesNotContain("SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
         Assert.Contains("MoreLikeThisItems", source);
         Assert.Contains("IsRecommendationGroup", source);
         Assert.Contains("IsRecommendationCandidate", source);
         Assert.Contains("item.EntityType is not DetailEntityType.TvEpisode", source);
-        Assert.Contains("More Like This", source);
-        Assert.DoesNotContain("tl-media-overview-card__art", source);
+        Assert.Contains("tl-overview-card--related", source);
         Assert.Contains("BuildVideoCreditGroups", source);
         Assert.Contains("IsTv ? [] : CreditsFor(CreditGroupType.Directors)", source);
         Assert.Contains("new OverviewCreditGroup(\"Cast\"", source);
-        Assert.Contains("tl-media-overview-credits-list--bookish", source);
-        Assert.Contains("tl-media-overview-credits-list--video", source);
-        Assert.Contains("View all cast", source);
-        Assert.Contains("View all credits", source);
+        Assert.Contains("View full @CreditPanelTitle.ToLowerInvariant()", source);
+        Assert.Contains("OverviewCreditRows", source);
         Assert.Contains("CreditGroupType.Authors", source);
         Assert.Contains("CreditGroupType.Narrators", source);
         Assert.Contains("CreditGroupType.Writers", source);
@@ -399,18 +396,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Split('\\n'", source);
         Assert.Contains("Replace(\"\\\\n\", \"\\n\", StringComparison.Ordinal)", source);
         Assert.Contains("DescriptionAttribution Attribution=\"Model.DescriptionAttribution\" Compact=\"true\"", source);
-        Assert.Contains("width: min(90vw, calc(100% - clamp(2rem, 4vw, 4rem)))", styles);
-        Assert.Contains(".tl-detail-tab-panel.tl-media-overview-panel", styles);
-        Assert.Contains("grid-template-columns: 1fr", styles);
-        Assert.Contains(".tl-media-overview-card__top", styles);
-        Assert.Contains(".tl-media-overview-card__series .tl-series-placement--compact", styles);
-        Assert.Contains(".tl-overview-related-strip", styles);
-        Assert.Contains(".tl-overview-credit-grid", styles);
-        Assert.Contains(".tl-media-overview-credits-list--bookish", styles);
-        Assert.Contains(".tl-media-overview-credits-list--video", styles);
-        Assert.Contains("font-size: 0.96rem", styles);
+        Assert.Contains("grid-template-columns: minmax(0, 1.15fr) minmax(24rem, 0.95fr)", styles);
+        Assert.Contains(".tl-overview-card--related", styles);
+        Assert.Contains(".tl-overview-credit-rows .tl-credit-card--compact", styles);
+        Assert.Contains("width: calc(100% - clamp(6.5rem, 7vw, 9rem))", styles);
         Assert.Contains("white-space: pre-line", styles);
-        Assert.Contains(".tl-detail-copy p", styles);
+        Assert.Contains(".tl-overview-card__prose p", styles);
     }
 
     [Fact]
@@ -862,8 +853,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("HasPrimaryModuleAfterNavigation", detailPage);
         Assert.Contains("IsEmbeddedPrimaryModuleTab", detailPage);
         Assert.Contains("@if (!IsEmbeddedPrimaryModuleTab)", detailPage);
-        Assert.DoesNotContain("tl-detail-page__primary-content", detailPage);
+        Assert.Contains("tl-detail-page__primary-content", detailPage);
         Assert.Contains("Embedded=\"true\"", detailPage);
+        Assert.Contains("Embedded=\"false\"", detailPage);
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.Contains("<MusicTrackList", primaryModule);
         Assert.Contains("<AudiobookChapterList", primaryModule);
@@ -873,10 +865,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Save to My List", audioTable);
         Assert.Contains("height: 70svh", detailStyles);
         Assert.DoesNotContain("height: clamp(34rem, 70svh, 47.5rem)", detailStyles);
-        Assert.Contains("flex: 0 0 41svh", detailStyles);
-        Assert.Contains("flex: 0 0 35svh", detailStyles);
+        Assert.Contains("flex: 0 0 39svh", detailStyles);
+        Assert.Contains("Structural rails and navigation are", detailStyles);
         Assert.Contains(".tl-detail-stage__navigation", detailStyles);
-        Assert.Contains("padding: 0.3rem max(2.5rem, calc((100% - 106rem) / 2)) 0.4rem", detailStyles);
+        Assert.Contains("padding-inline: clamp(4rem, 4.25vw, 5.5rem)", detailStyles);
         Assert.Contains(".tl-detail-primary-module--tracks .tl-detail-primary-module__viewport", detailStyles);
         Assert.Contains(".tl-detail-primary-module--tracks .tl-detail-track-table-shell", detailStyles);
         Assert.Contains("height: 100%", detailStyles);
@@ -887,7 +879,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".tl-detail-actions--watch .tl-detail-secondary-actions", detailStyles);
         Assert.Contains("flex-wrap: nowrap", detailStyles);
         Assert.Contains(".tl-detail-hero--person .tl-detail-person-hero__inner", detailStyles);
-        Assert.Contains("height: min(17rem, calc(100% - 2rem))", detailStyles);
+        Assert.Contains("height: clamp(18rem, 30svh, 22rem)", detailStyles);
         Assert.Contains(".tl-detail-hero--person .tl-detail-person-summary", detailStyles);
         Assert.DoesNotContain("<AudioItemTable", chapterList);
         Assert.Contains("tl-audiobook-chapters__row", chapterList);

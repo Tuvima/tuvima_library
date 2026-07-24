@@ -1,41 +1,50 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-tab-panel @(Model.EntityType == DetailEntityType.Person ? null : "tl-media-overview-panel")">
+<div class="tl-detail-tab-panel tl-overview-surface @(Model.EntityType == DetailEntityType.Person ? "tl-overview-surface--person" : "tl-overview-surface--media")">
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
-        <section class="tl-detail-panel tl-detail-person-facts-panel">
-            <div class="tl-section-heading"><h2>Quick Facts</h2></div>
-            <div class="tl-detail-person-facts-grid">
-                @foreach (var fact in QuickFacts)
-                {
-                    <div class="tl-detail-person-fact-card">
-                        <span class="tl-detail-person-fact-card__label">@fact.Label</span>
-                        <span class="tl-detail-person-fact-card__value">@fact.Value</span>
-                    </div>
-                }
-            </div>
-        </section>
-
-        @if (!string.IsNullOrWhiteSpace(PersonOverviewDescription))
-        {
-            <section class="tl-detail-panel">
-                <div class="tl-section-heading"><h2>Biography</h2></div>
-                <div class="tl-detail-copy tl-detail-copy--person">
+        <section class="tl-overview-card tl-overview-card--copy">
+            <header class="tl-overview-card__heading">
+                <span>Biography</span>
+            </header>
+            @if (!string.IsNullOrWhiteSpace(PersonOverviewDescription))
+            {
+                <div class="tl-overview-card__prose">
                     @foreach (var paragraph in OverviewParagraphs(PersonOverviewDescription))
                     {
                         <p>@paragraph</p>
                     }
                     <DescriptionAttribution Attribution="Model.DescriptionAttribution" />
                 </div>
-            </section>
-        }
+            }
+            else
+            {
+                <p class="tl-overview-card__empty">No biography is available yet.</p>
+            }
+        </section>
 
-        @if (RelatedPeople.Count > 0)
-        {
-            <section class="tl-detail-panel">
-                <div class="tl-section-heading"><h2>Linked People</h2></div>
-                <div class="tl-detail-person-related-list">
+        <aside class="tl-overview-card tl-overview-card--facts">
+            <header class="tl-overview-card__heading">
+                <span>Details</span>
+            </header>
+            @if (QuickFacts.Count > 0)
+            {
+                <dl class="tl-overview-facts">
+                    @foreach (var fact in QuickFacts)
+                    {
+                        <div>
+                            <dt>@fact.Label</dt>
+                            <dd>@fact.Value</dd>
+                        </div>
+                    }
+                </dl>
+            }
+
+            @if (RelatedPeople.Count > 0)
+            {
+                <div class="tl-overview-linked-people">
+                    <h3>Linked people</h3>
                     @foreach (var person in RelatedPeople)
                     {
                         <a class="tl-detail-person-related" href="@person.Route">
@@ -47,138 +56,82 @@
                         </a>
                     }
                 </div>
-            </section>
-        }
+            }
+        </aside>
     }
     else
     {
-        @if (ShowSeriesDescription)
-        {
-            <section class="tl-detail-panel tl-series-description-panel">
-                <div class="tl-section-heading"><h2>Series Description</h2></div>
-                <div class="tl-detail-copy">
-                    @foreach (var paragraph in OverviewParagraphs(Model.SequencePlacement?.ContainerDescription))
+        <section class="tl-overview-card tl-overview-card--copy">
+            <header class="tl-overview-card__heading">
+                <span>Overview</span>
+            </header>
+            @if (OverviewDescriptionParagraphs.Count == 0)
+            {
+                <p class="tl-overview-card__empty">No overview is available yet.</p>
+            }
+            else
+            {
+                <div class="tl-overview-card__prose">
+                    @foreach (var paragraph in OverviewDescriptionParagraphs)
                     {
                         <p>@paragraph</p>
                     }
                 </div>
-            </section>
-        }
-
-        <section class="tl-detail-panel tl-media-overview-card">
-            @{
-                var paragraphs = OverviewParagraphs(Model.Description);
-            }
-
-            <div class="tl-media-overview-card__top">
-                <div class="tl-media-overview-card__summary">
-                    <h2>@Model.Title</h2>
-                    @if (paragraphs.Count == 0)
-                    {
-                        <p class="tl-detail-empty">No overview is available yet.</p>
-                    }
-                    else
-                    {
-                        <div class="tl-detail-copy tl-media-overview-copy">
-                            @foreach (var paragraph in paragraphs)
-                            {
-                                <p>@paragraph</p>
-                            }
-                        </div>
-                        <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
-                    }
-                </div>
-
-                <div class="tl-media-overview-card__credits">
-                    @if (ShowCreditsHeader)
-                    {
-                        <div class="tl-media-overview-card__credits-heading">
-                            <h2>@CreditPanelTitle</h2>
-                            @if (ShowCastTabLink)
-                            {
-                                <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync("cast"))">
-                                    View all cast
-                                </AppNativeButton>
-                            }
-                        </div>
-                    }
-                    else if (ShowCastTabLink)
-                    {
-                        <div class="tl-media-overview-card__credits-heading tl-media-overview-card__credits-heading--link-only">
-                            <AppNativeButton Type="button" OnClick="@(() => OnTabRequested.InvokeAsync("cast"))">
-                                View all cast
-                            </AppNativeButton>
-                        </div>
-                    }
-
-                    @if (Model.ContributorGroups.Count == 0 && Model.CharacterGroups.Count == 0)
-                    {
-                        <p class="tl-detail-empty">No linked people are available yet.</p>
-                    }
-                    else
-                    {
-                        <div class="@OverviewCreditsListClass">
-                            @foreach (var group in OverviewCreditGroups)
-                            {
-                                <div class="@OverviewCreditGroupClass(group)">
-                                    <div class="tl-overview-credit-group__heading">
-                                        <h3>@group.Title</h3>
-                                        @if (ShowCreditCounts)
-                                        {
-                                            <span>@group.TotalCount</span>
-                                        }
-                                    </div>
-                                    <div class="tl-overview-credit-grid">
-                                        @foreach (var credit in group.Credits)
-                                        {
-                                            <PersonCreditCard Credit="credit" Compact="true" />
-                                        }
-                                    </div>
-                                </div>
-                            }
-                        </div>
-
-                        @if (ShowInlineCreditsToggle)
-                        {
-                            <AppNativeButton Type="button" Class="tl-credit-group__toggle" OnClick="ToggleCreditsExpanded">
-                                @(_creditsExpanded ? "Show fewer credits" : "View all credits")
-                            </AppNativeButton>
-                        }
-                    }
-                </div>
-            </div>
-
-            @if (MoreLikeThisItems.Count > 0)
-            {
-                <div class="tl-media-overview-card__more-like-this">
-                    <div class="tl-media-overview-card__row-heading">
-                        <h2>More Like This</h2>
-                    </div>
-                    <div class="tl-overview-related-strip">
-                        @foreach (var item in MoreLikeThisItems)
-                        {
-                            <article class="tl-overview-related-item">
-                                <div class="tl-overview-related-item__art">
-                                    @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                                    {
-                                        <img src="@item.ArtworkUrl" alt="@item.Title" />
-                                    }
-                                    else
-                                    {
-                                        <GeneratedIdentity Name="@item.Title" />
-                                    }
-                                </div>
-                                <h3>@item.Title</h3>
-                                @if (!string.IsNullOrWhiteSpace(item.Description))
-                                {
-                                    <p>@item.Description</p>
-                                }
-                            </article>
-                        }
-                    </div>
-                </div>
+                <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
             }
         </section>
+
+        <aside class="tl-overview-card tl-overview-card--credits">
+            <header class="tl-overview-card__heading">
+                <span>@CreditPanelTitle</span>
+            </header>
+            @if (OverviewCreditRows.Count == 0)
+            {
+                <p class="tl-overview-card__empty">No linked people are available yet.</p>
+            }
+            else
+            {
+                <div class="tl-overview-credit-rows">
+                    @foreach (var credit in OverviewCreditRows)
+                    {
+                        <PersonCreditCard Credit="credit" Compact="true" />
+                    }
+                </div>
+                <AppNativeButton Type="button"
+                                 Class="tl-overview-card__credits-link"
+                                 OnClick="@(() => OnTabRequested.InvokeAsync(CreditTabKey))">
+                    View full @CreditPanelTitle.ToLowerInvariant()
+                    <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
+                </AppNativeButton>
+            }
+        </aside>
+
+        @if (MoreLikeThisItems.Count > 0)
+        {
+            <section class="tl-overview-card tl-overview-card--related">
+                <header class="tl-overview-card__heading">
+                    <span>Related</span>
+                </header>
+                <div class="tl-overview-related-strip">
+                    @foreach (var item in MoreLikeThisItems)
+                    {
+                        <article class="tl-overview-related-item">
+                            <div class="tl-overview-related-item__art">
+                                @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                                {
+                                    <img src="@item.ArtworkUrl" alt="@item.Title" />
+                                }
+                                else
+                                {
+                                    <GeneratedIdentity Name="@item.Title" />
+                                }
+                            </div>
+                            <h3>@item.Title</h3>
+                        </article>
+                    }
+                </div>
+            </section>
+        }
     }
 </div>
 
@@ -202,6 +155,23 @@
             Model.Description?.Trim(),
             StringComparison.Ordinal);
 
+    private IReadOnlyList<string> OverviewDescriptionParagraphs
+    {
+        get
+        {
+            var paragraphs = new List<string>();
+            if (ShowSeriesDescription)
+                paragraphs.AddRange(OverviewParagraphs(Model.SequencePlacement?.ContainerDescription));
+
+            paragraphs.AddRange(OverviewParagraphs(Model.Description));
+            return paragraphs
+                .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
+                .Distinct(StringComparer.Ordinal)
+                .Take(4)
+                .ToList();
+        }
+    }
+
     private sealed record OverviewCreditGroup(string Title, IReadOnlyList<EntityCreditViewModel> Credits, int TotalCount);
 
     private string CreditPanelTitle => Model.EntityType switch
@@ -209,6 +179,20 @@
         DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast",
         _ => "Credits",
     };
+
+    private string CreditTabKey => IsVideo ? "cast" : "credits";
+
+    private IReadOnlyList<EntityCreditViewModel> OverviewCreditRows =>
+        OverviewCreditGroups
+            .SelectMany(group => group.Credits)
+            .GroupBy(
+                credit => string.IsNullOrWhiteSpace(credit.EntityId)
+                    ? $"{credit.DisplayName}:{credit.PrimaryRole}"
+                    : credit.EntityId,
+                StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .Take(IsVideo ? 4 : 3)
+            .ToList();
 
     private IReadOnlyList<MediaGroupingItemViewModel> MoreLikeThisItems =>
         Model.MediaGroups
