@@ -26,7 +26,9 @@ public static class MediaNavigation
     public static string ForContentGroup(ContentGroupViewModel group, string? tab = null)
         => NormalizeBucket(group.PrimaryMediaType) == MediaBucket.Television && group.RootWorkId.HasValue
             ? $"/watch/tv/show/{group.RootWorkId.Value}"
-            : ForCollectionMedia(group.PrimaryMediaType, group.CollectionId, tab: tab);
+            : NormalizeBucket(group.PrimaryMediaType) == MediaBucket.Music && group.RootWorkId.HasValue
+                ? $"/details/musicalbum/{group.RootWorkId.Value}?context=listen"
+                : ForCollectionMedia(group.PrimaryMediaType, group.CollectionId, tab: tab);
 
     public static string ForCollectionMedia(string? mediaType, Guid collectionId, Guid? workId = null, string? tab = null)
     {
@@ -35,10 +37,10 @@ public static class MediaNavigation
             MediaBucket.Television => workId.HasValue
                 ? $"/watch/tv/show/{workId.Value}"
                 : $"/watch/tv/show/{collectionId}",
-            MediaBucket.Music => $"/listen/music/albums/{collectionId}",
-            MediaBucket.Movie when workId.HasValue => $"/watch/movie/{workId.Value}?collectionId={collectionId}",
+            MediaBucket.Music => $"/details/musicalbum/{collectionId}?context=listen",
+            MediaBucket.Movie when workId.HasValue => $"/details/movie/{workId.Value}?context=watch",
             MediaBucket.Read when workId.HasValue => ForMedia(mediaType, workId.Value, collectionId),
-            _ => $"/collection/{collectionId}",
+            _ => $"/details/collection/{collectionId}",
         };
     }
 
@@ -48,17 +50,18 @@ public static class MediaNavigation
         {
             MediaBucket.Television when collectionId.HasValue => $"/watch/tv/show/{collectionId.Value}",
             MediaBucket.Television => "/watch",
-            MediaBucket.Movie => collectionId.HasValue
-                ? $"/watch/movie/{workId}?collectionId={collectionId.Value}"
-                : $"/watch/movie/{workId}",
-            MediaBucket.Music => collectionId.HasValue
-                ? $"/listen/music/albums/{collectionId.Value}?track={workId}"
-                : $"/listen/music?browse=songs&track={workId}",
-            MediaBucket.Audiobook => $"/listen/audiobook/{workId}",
-            MediaBucket.Read => $"/book/{workId}?mode=read",
-            _ => $"/book/{workId}",
+            MediaBucket.Movie => $"/details/movie/{workId}?context=watch",
+            MediaBucket.Music => $"/details/musictrack/{workId}?context=listen",
+            MediaBucket.Audiobook => $"/details/audiobook/{workId}?context=listen",
+            MediaBucket.Read => $"/details/{ResolveReadEntity(mediaType)}/{workId}?context=read",
+            _ => $"/details/work/{workId}",
         };
     }
+
+    private static string ResolveReadEntity(string? mediaType)
+        => mediaType?.Contains("comic", StringComparison.OrdinalIgnoreCase) == true
+            ? "comicissue"
+            : "book";
 
     private static MediaBucket NormalizeBucket(string? mediaType)
     {

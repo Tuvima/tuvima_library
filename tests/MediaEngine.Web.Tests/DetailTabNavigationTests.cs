@@ -90,8 +90,23 @@ public sealed class DetailTabNavigationTests
         var route = MediaNavigation.ForMedia("Movies", workId, collectionId, "cast");
 
         Assert.Equal(
-            "/watch/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?collectionId=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+            "/details/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?context=watch",
             route);
+        Assert.DoesNotContain("tab=", route, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void MediaNavigation_OpensTracksAndAlbumsOnTheirOwnCanonicalDetails()
+    {
+        var trackId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        var albumId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+
+        Assert.Equal(
+            $"/details/musictrack/{trackId:D}?context=listen",
+            MediaNavigation.ForMedia("Music", trackId, albumId));
+        Assert.Equal(
+            $"/details/musicalbum/{albumId:D}?context=listen",
+            MediaNavigation.ForCollectionMedia("Music", albumId));
     }
 
     [Fact]
@@ -107,6 +122,23 @@ public sealed class DetailTabNavigationTests
         };
 
         Assert.Equal($"/watch/tv/show/{rootWorkId:D}", MediaNavigation.ForContentGroup(group));
+    }
+
+    [Fact]
+    public void MediaNavigation_UsesRootWorkIdForMusicAlbumContentGroups()
+    {
+        var collectionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var rootWorkId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+        var group = new ContentGroupViewModel
+        {
+            CollectionId = collectionId,
+            RootWorkId = rootWorkId,
+            PrimaryMediaType = "Music",
+        };
+
+        Assert.Equal(
+            $"/details/musicalbum/{rootWorkId:D}?context=listen",
+            MediaNavigation.ForContentGroup(group));
     }
 
     [Fact]

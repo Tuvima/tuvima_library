@@ -192,7 +192,7 @@
 
     private Task OpenCollection(CollectionManagementCatalogViewModel collection)
     {
-        Nav.NavigateTo($"/collection/{collection.Id:D}");
+        Nav.NavigateTo($"/details/collection/{collection.Id:D}");
         return Task.CompletedTask;
     }
 
@@ -220,7 +220,7 @@
     private static MediaTileViewModel ToMediaTile(CollectionManagementCatalogViewModel collection)
     {
         var navigationUrl = collection.Person is null
-            ? $"/collection/{collection.Id:D}"
+            ? $"/details/collection/{collection.Id:D}"
             : $"/details/person/{collection.Person.Id:D}";
         var previewImages = collection.ArtworkItems
             .Select(item => MediaTileArtworkUrl.Sized(item.CoverUrl, "s"))

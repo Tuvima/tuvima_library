@@ -157,19 +157,30 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Movie => [\"overview\", \"people\"", source);
-        Assert.Contains("DetailEntityType.TvShow => hasUniverse ? [\"episodes\", \"overview\", \"cast\", \"universe\", \"details\"] : [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.TvSeason => [\"episodes\", \"overview\", \"cast\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.TvShow => hasUniverse ? [\"overview\", \"cast\", \"universe\", \"details\"] : [\"overview\", \"cast\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.TvSeason => [\"overview\", \"cast\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasUniverse && hasChapters => [\"overview\", \"chapters\", \"credits\", \"universe\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasChapters => [\"overview\", \"chapters\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
         Assert.Contains("BuildOverflowActions(workId, entityType, isAdminView)", source);
+    }
+
+    [Fact]
+    public void DetailComposer_UsesAlbumRootWorksForSharedMusicAlbumDetails()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("LoadMusicAlbumSystemViewGroupAsync(collectionId, ct)", source);
+        Assert.Contains("LoadMusicAlbumSystemViewWorksAsync(musicAlbumGroup, ct)", source);
+        Assert.Contains("GetSystemViewDetailWorksAsync(", source);
+        Assert.Contains("MergeMusicAlbumManifestTracks(ownedWorks, values, row.CoverUrl)", source);
+        Assert.Contains("AssetId = work.AssetId", source);
     }
 
     [Fact]
@@ -309,7 +320,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("HasAuthoritativeTotal = mainSequenceExpectedTotal.HasValue", source);
         Assert.Contains("SequencePlacement = sequencePlacement", source);
         Assert.Contains("entityType == DetailEntityType.TvShow", source);
-        Assert.Contains("MediaGroups = entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("var mediaGroups = entityType == DetailEntityType.TvShow", source);
+        Assert.Contains("MediaGroups = mediaGroups", source);
+        Assert.Contains("PrimaryModule = BuildPrimaryModule(entityType, sequencePlacement, mediaGroups)", source);
         Assert.Contains("var total = Math.Max(group.Items.Count, group.TotalCount)", source);
         Assert.Contains("DetailEntityType.MovieSeries => \"Films\"", source);
         Assert.Contains("DetailEntityType.BookSeries => \"Books\"", source);
@@ -1094,8 +1107,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("AddCreditLine(lines, \"Author\", CreditGroupType.Authors, CreditGroupType.Writers)", heroSource);
         Assert.Contains("AddCreditLine(lines, \"Illustrator\", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam)", heroSource);
         Assert.Contains("BuildPersonCreditEntityId(credit.PersonId, credit.WikidataQid, credit.Name)", source);
-        Assert.Contains("Subtitle = BuildPersonMediaCreditSubtitle(c)", source);
-        Assert.Contains("FirstNonBlank(characterSummary, credit.Role)", source);
+        Assert.Contains(".GroupBy(CreditDisplayId, StringComparer.OrdinalIgnoreCase)", source);
+        Assert.Contains("BuildPersonMediaItem(creditGroup.ToList(), context)", source);
+        Assert.Contains("Roles = roles", source);
+        Assert.Contains("Lane = DetailLane(entityType)", source);
+        Assert.Contains("FirstNonBlank(characterSummary, roleSummary)", source);
         Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
         Assert.Contains("return group.GroupType == CreditGroupType.Cast;", source);
         Assert.Contains("Title = \"Actors\"", source);
@@ -1150,7 +1166,7 @@ public sealed class DetailComposerServiceTests
     [InlineData(DetailEntityType.Audiobook)]
     [InlineData(DetailEntityType.Movie)]
     [InlineData(DetailEntityType.ComicIssue)]
-    public void BuildTabs_PlacesSeriesBeforeOverviewForSeriesMembers(DetailEntityType entityType)
+    public void BuildTabs_KeepsPrimarySeriesContentOutsideTheOverviewTabs(DetailEntityType entityType)
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1161,9 +1177,61 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal("series", tabs[0].Key);
-        Assert.Equal("overview", tabs[1].Key);
+        Assert.Equal("overview", tabs[0].Key);
+        Assert.DoesNotContain(tabs, tab => tab.Key == "series");
         Assert.DoesNotContain(tabs, tab => tab.Key == "sequence");
+    }
+
+    [Theory]
+    [InlineData(DetailEntityType.MusicAlbum, DetailPrimaryModuleKind.Tracks)]
+    [InlineData(DetailEntityType.Person, DetailPrimaryModuleKind.Works)]
+    [InlineData(DetailEntityType.MusicArtist, DetailPrimaryModuleKind.Works)]
+    [InlineData(DetailEntityType.Collection, DetailPrimaryModuleKind.CollectionItems)]
+    [InlineData(DetailEntityType.Universe, DetailPrimaryModuleKind.CollectionItems)]
+    public void BuildPrimaryModule_UsesTheEntitySpecificOwnedContentPresentation(
+        DetailEntityType entityType,
+        DetailPrimaryModuleKind expectedKind)
+    {
+        IReadOnlyList<MediaGroupingViewModel> groups =
+        [
+            new MediaGroupingViewModel
+            {
+                Key = "owned",
+                Title = "Owned",
+                Items = [new MediaGroupingItemViewModel { Id = "owned-1", Title = "Owned item", IsOwned = true }],
+            },
+        ];
+
+        var module = InvokePrivate<DetailPrimaryModuleViewModel>(
+            "BuildPrimaryModule",
+            entityType,
+            null,
+            groups);
+
+        Assert.Equal(expectedKind, module.Kind);
+        Assert.Equal(expectedKind == DetailPrimaryModuleKind.Works, module.SupportsRoleFilter);
+    }
+
+    [Fact]
+    public void BuildPrimaryModule_DoesNotTreatTrackRecommendationsAsAlbumTracks()
+    {
+        IReadOnlyList<MediaGroupingViewModel> groups =
+        [
+            new MediaGroupingViewModel
+            {
+                Key = "more-like-this",
+                Title = "More Like This",
+                Items = [new MediaGroupingItemViewModel { Id = "recommended-1", Title = "Recommended track" }],
+            },
+        ];
+
+        var module = InvokePrivate<DetailPrimaryModuleViewModel>(
+            "BuildPrimaryModule",
+            DetailEntityType.MusicTrack,
+            null,
+            groups);
+
+        Assert.Equal(DetailPrimaryModuleKind.None, module.Kind);
     }
 
     [Theory]

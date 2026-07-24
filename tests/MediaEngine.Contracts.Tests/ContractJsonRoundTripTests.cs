@@ -80,6 +80,12 @@ public sealed class ContractJsonRoundTripTests
                     PageCount = 304,
                 },
             ],
+            PrimaryModule = new DetailPrimaryModuleViewModel
+            {
+                Kind = DetailPrimaryModuleKind.Chapters,
+                Title = "Chapters",
+                GroupKeys = ["chapters"],
+            },
             MediaGroups =
             [
                 new MediaGroupingViewModel
@@ -98,6 +104,8 @@ public sealed class ContractJsonRoundTripTests
                             StartSeconds = 12.5,
                             EndSeconds = 1800,
                             ResumePositionSeconds = 420.25,
+                            Lane = "listen",
+                            Roles = ["Narrator"],
                             IsFavorite = true,
                         },
                     ],
@@ -122,6 +130,9 @@ public sealed class ContractJsonRoundTripTests
         Assert.Equal("Q754868", roundTrip.Facts.Identifiers["wikidata_qid"]);
         Assert.Equal(dto.OwnedFormats[0].FormatType, roundTrip.OwnedFormats[0].FormatType);
         Assert.Equal("asset-1", roundTrip.MediaGroups[0].Items[0].AssetId);
+        Assert.Equal(DetailPrimaryModuleKind.Chapters, roundTrip.PrimaryModule.Kind);
+        Assert.Equal("listen", roundTrip.MediaGroups[0].Items[0].Lane);
+        Assert.Equal("Narrator", Assert.Single(roundTrip.MediaGroups[0].Items[0].Roles));
         Assert.Equal(12.5, roundTrip.MediaGroups[0].Items[0].StartSeconds);
         Assert.Equal(420.25, roundTrip.MediaGroups[0].Items[0].ResumePositionSeconds);
         Assert.True(roundTrip.MediaGroups[0].Items[0].IsFavorite);

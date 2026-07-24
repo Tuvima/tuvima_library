@@ -25,7 +25,7 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLibraryCreditsAsync_CollapsesTvEpisodesToSeriesAndPrefersActorEvidence()
+    public async Task GetLibraryCreditsAsync_CollapsesTvEpisodesToSeriesAndPreservesEveryRole()
     {
         var personId = Guid.NewGuid();
         var collectionId = Guid.NewGuid();
@@ -76,8 +76,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                         VALUES ($workId, 'title', $title, $now);
                     INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
                         VALUES ($workId, 'year', '2008', $now);
-                    INSERT INTO person_media_links (media_asset_id, person_id, role)
-                        VALUES ($assetId, $personId, 'Director');
+                    INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                        VALUES ($workId, 'director', 0, 'Bryan Test Person');
                     INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
                         VALUES ($workId, 'cast_member', 0, 'Bryan Test Person');
                     """;
@@ -99,12 +99,59 @@ public sealed class PersonCreditReadServiceTests : IDisposable
         var service = CreateService();
         var credits = await service.GetLibraryCreditsAsync(personId, CancellationToken.None);
 
-        var credit = Assert.Single(credits);
-        Assert.Equal(collectionId, credit.CollectionId);
-        Assert.Equal("Sample Crime Show", credit.Title);
-        Assert.Equal("Actor", credit.Role);
-        Assert.Single(credit.Characters);
-        Assert.Equal("Lead Chemistry Teacher", credit.Characters[0].CharacterName);
+        Assert.Equal(2, credits.Count);
+        Assert.All(credits, credit =>
+        {
+            Assert.Equal(collectionId, credit.CollectionId);
+            Assert.Equal("Sample Crime Show", credit.Title);
+        });
+        var actorCredit = Assert.Single(credits, credit => credit.Role == "Actor");
+        Assert.Single(actorCredit.Characters);
+        Assert.Equal("Lead Chemistry Teacher", actorCredit.Characters[0].CharacterName);
+        Assert.Single(credits, credit => credit.Role == "Director");
+    }
+
+    [Fact]
+    public async Task GetLibraryCreditsAsync_PreservesMultipleRolesForOneOwnedWork()
+    {
+        var personId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'Test Musician', $now);
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($workId, 'Music', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'multi-role-album', 'C:/library/Multi Role Album.flac');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($workId, 'title', 'Multi Role Album', $now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($workId, 'artist', 0, 'Test Musician');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($workId, 'composer', 0, 'Test Musician');
+                """;
+            AddGuid(cmd, "$personId", personId);
+            AddGuid(cmd, "$workId", workId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var service = CreateService();
+        var credits = await service.GetLibraryCreditsAsync(personId, CancellationToken.None);
+
+        Assert.Equal(["Artist", "Composer"], credits.Select(credit => credit.Role).Order());
+        Assert.Single(credits.Select(credit => credit.WorkId).Distinct());
     }
 
     [Fact]

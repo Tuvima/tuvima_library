@@ -24,125 +24,123 @@
 @if (Model is not null)
 {
     <article class="tl-detail-page">
-        <div class="tl-detail-edit-stage tl-detail-edit-stage--@_inlineEditorPhase">
-            <div class="tl-detail-edit-face tl-detail-edit-face--detail" @attributes="DetailFaceAttributes">
-                <DetailHero Model="Model"
-                            OnActionSelected="HandleDetailActionAsync"
-                            OnTabRequested="SetActiveTabAsync"
-                            ActionAttributes="@(IsAudioDetail ? AudiobookActionAttributes : null)" />
+        <section class="@DetailStageClass">
+            <div class="tl-detail-edit-stage tl-detail-edit-stage--@_inlineEditorPhase">
+                <div class="tl-detail-edit-face tl-detail-edit-face--detail" @attributes="DetailFaceAttributes">
+                    <DetailHero Model="Model"
+                                OnActionSelected="HandleDetailActionAsync"
+                                OnTabRequested="SetActiveTabAsync"
+                                ActionAttributes="@(IsAudioDetail ? AudiobookActionAttributes : null)" />
+                </div>
+
+                @if (_inlineEditorSession is not null)
+                {
+                    <div class="tl-detail-edit-face tl-detail-edit-face--editor">
+                        <SharedMediaEditorShell Request="_inlineEditorSession.Request"
+                                                Inline="true"
+                                                HeroConstrained="true"
+                                                Closed="HandleInlineEditorClosedAsync" />
+                    </div>
+                }
             </div>
 
-            @if (_inlineEditorSession is not null)
+            @if (HasPrimaryModule)
             {
-                <div class="tl-detail-edit-face tl-detail-edit-face--editor">
-                    <SharedMediaEditorShell Request="_inlineEditorSession.Request"
-                                            Inline="true"
-                                            HeroConstrained="true"
-                                            Closed="HandleInlineEditorClosedAsync" />
-                </div>
+                <DetailPrimaryModule Model="Model"
+                                     OnContainerSelected="HandleContainerSelectedAsync" />
             }
-        </div>
 
-        @if (IsAudioDetail)
-        {
-            <AudioDetailLayout Model="Model"
-                               IncludeHero="false"
-                               Tabs="VisibleTabs"
-                               ActiveTab="@CurrentActiveTab"
-                               ActiveTabChanged="SetActiveTabAsync"
-                               OnActionSelected="HandleDetailActionAsync"
-                               ActionAttributes="AudiobookActionAttributes"
-                               OnContainerSelected="HandleContainerSelectedAsync" />
-        }
-        else
-        {
-            <DetailTabs Tabs="VisibleTabs" ActiveTab="@CurrentActiveTab" ActiveTabChanged="SetActiveTabAsync" />
+            <div class="tl-detail-stage__navigation">
+                <DetailTabs Tabs="VisibleTabs"
+                            ActiveTab="@CurrentActiveTab"
+                            ActiveTabChanged="SetActiveTabAsync" />
+            </div>
+        </section>
 
-            <section id="overview" class="tl-detail-body">
-                @if (CurrentActiveTab is "overview")
+        <section id="overview" class="tl-detail-body">
+            @if (CurrentActiveTab is "overview")
+            {
+                <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
+                                                                 OnTabRequested="SetActiveTabAsync"
+                                                                 OnContainerSelected="HandleContainerSelectedAsync" />
+            }
+            else if (CurrentActiveTab is "episodes")
+            {
+                @if (Model.SequencePlacement is not null)
                 {
-                    <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
-                                                                     OnTabRequested="SetActiveTabAsync"
-                                                                     OnContainerSelected="HandleContainerSelectedAsync" />
-                }
-                else if (CurrentActiveTab is "episodes")
-                {
-                    @if (Model.SequencePlacement is not null)
-                    {
-                        <SequencePlacementPanel Placement="Model.SequencePlacement"
-                                                OnContainerSelected="HandleContainerSelectedAsync" />
-                    }
-                    else
-                    {
-                        <ChildrenListTab Groups="Model.MediaGroups" />
-                    }
-                }
-                else if (CurrentActiveTab is "series")
-                {
-                    @if (Model.SequencePlacement is not null)
-                    {
-                        <SequencePlacementPanel Placement="Model.SequencePlacement"
-                                                OnContainerSelected="HandleContainerSelectedAsync" />
-                    }
-                    else
-                    {
-                        <ChildrenListTab Groups="Model.MediaGroups" />
-                    }
-                }
-                else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
-                {
-                    @if (Model.SequencePlacement is not null && CurrentActiveTab is "issues" or "media" or "works")
-                    {
-                        <SequencePlacementPanel Placement="Model.SequencePlacement"
-                                                OnContainerSelected="HandleContainerSelectedAsync" />
-                    }
-                    else if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
-                    {
-                        <MusicTrackList Groups="Model.MediaGroups"
-                                        AlbumTitle="@Model.Title"
-                                        AlbumArtworkUrl="@(Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl)" />
-                    }
-                    else
-                    {
-                        <ChildrenListTab Groups="Model.MediaGroups" />
-                    }
-                }
-                else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
-                {
-                    <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
-                                            CharacterGroups="Model.CharacterGroups"
-                                            IncludeCharacters="IncludeCharactersInPeopleTab" />
-                }
-                else if (CurrentActiveTab is "characters" or "portrayals")
-                {
-                    <CharactersSection Groups="Model.CharacterGroups" />
-                }
-                else if (CurrentActiveTab is "universe" or "timeline" or "relationships" or "related")
-                {
-                    <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
-                }
-                else if (CurrentActiveTab is "formats")
-                {
-                    <FormatsTab Formats="Model.OwnedFormats" />
-                }
-                else if (CurrentActiveTab is "sync")
-                {
-                    <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
-                }
-                else if (CurrentActiveTab is "editions")
-                {
-                    <EditionsTab Formats="Model.OwnedFormats" />
-                }
-                else if (CurrentActiveTab is "registry")
-                {
-                    <RegistryTab Model="Model" />
+                    <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                            OnContainerSelected="HandleContainerSelectedAsync" />
                 }
                 else
                 {
-                    <DetailsTab Model="Model" />
+                    <ChildrenListTab Groups="Model.MediaGroups" />
                 }
-            </section>
-        }
+            }
+            else if (CurrentActiveTab is "series")
+            {
+                @if (Model.SequencePlacement is not null)
+                {
+                    <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                            OnContainerSelected="HandleContainerSelectedAsync" />
+                }
+                else
+                {
+                    <ChildrenListTab Groups="Model.MediaGroups" />
+                }
+            }
+            else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
+            {
+                @if (Model.SequencePlacement is not null && CurrentActiveTab is "issues" or "media" or "works")
+                {
+                    <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                            OnContainerSelected="HandleContainerSelectedAsync" />
+                }
+                else if (Model.EntityType == DetailEntityType.MusicAlbum && CurrentActiveTab == "tracks")
+                {
+                    <MusicTrackList Groups="Model.MediaGroups"
+                                    AlbumTitle="@Model.Title"
+                                    AlbumArtworkUrl="@(Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl)" />
+                }
+                else
+                {
+                    <ChildrenListTab Groups="Model.MediaGroups" />
+                }
+            }
+            else if (CurrentActiveTab is "contributors" or "people" or "credits" or "cast")
+            {
+                <PeopleAndCharactersTab ContributorGroups="Model.ContributorGroups"
+                                        CharacterGroups="Model.CharacterGroups"
+                                        IncludeCharacters="IncludeCharactersInPeopleTab" />
+            }
+            else if (CurrentActiveTab is "characters" or "portrayals")
+            {
+                <CharactersSection Groups="Model.CharacterGroups" />
+            }
+            else if (CurrentActiveTab is "universe" or "timeline" or "relationships" or "related")
+            {
+                <UniverseTab Relationships="Model.RelationshipStrip" Groups="Model.MediaGroups" />
+            }
+            else if (CurrentActiveTab is "formats")
+            {
+                <FormatsTab Formats="Model.OwnedFormats" />
+            }
+            else if (CurrentActiveTab is "sync")
+            {
+                <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
+            }
+            else if (CurrentActiveTab is "editions")
+            {
+                <EditionsTab Formats="Model.OwnedFormats" />
+            }
+            else if (CurrentActiveTab is "registry")
+            {
+                <RegistryTab Model="Model" />
+            }
+            else
+            {
+                <DetailsTab Model="Model" />
+            }
+        </section>
     </article>
 }
 
@@ -175,6 +173,11 @@
     private bool IncludeCharactersInPeopleTab => CurrentActiveTab is not "cast";
 
     private bool IsAudioDetail => Model?.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.Audiobook;
+
+    private bool HasPrimaryModule => Model?.PrimaryModule.Kind != DetailPrimaryModuleKind.None;
+
+    private string DetailStageClass =>
+        $"tl-detail-stage{(HasPrimaryModule ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 

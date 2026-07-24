@@ -17,12 +17,12 @@
             </div>
         </section>
 
-        @if (!string.IsNullOrWhiteSpace(Model.Description))
+        @if (!string.IsNullOrWhiteSpace(PersonOverviewDescription))
         {
             <section class="tl-detail-panel">
                 <div class="tl-section-heading"><h2>Biography</h2></div>
                 <div class="tl-detail-copy tl-detail-copy--person">
-                    @foreach (var paragraph in OverviewParagraphs(Model.Description))
+                    @foreach (var paragraph in OverviewParagraphs(PersonOverviewDescription))
                     {
                         <p>@paragraph</p>
                     }
@@ -52,10 +52,17 @@
     }
     else
     {
-        @if (IsCanonicalSeriesContainer && Model.SequencePlacement is not null)
+        @if (ShowSeriesDescription)
         {
-            <SequencePlacementPanel Placement="Model.SequencePlacement"
-                                    OnContainerSelected="OnContainerSelected" />
+            <section class="tl-detail-panel tl-series-description-panel">
+                <div class="tl-section-heading"><h2>Series Description</h2></div>
+                <div class="tl-detail-copy">
+                    @foreach (var paragraph in OverviewParagraphs(Model.SequencePlacement?.ContainerDescription))
+                    {
+                        <p>@paragraph</p>
+                    }
+                </div>
+            </section>
         }
 
         <section class="tl-detail-panel tl-media-overview-card">
@@ -185,6 +192,15 @@
     private bool IsCanonicalSeriesContainer => Model.EntityType is DetailEntityType.MovieSeries
         or DetailEntityType.BookSeries
         or DetailEntityType.ComicSeries;
+
+    private string? PersonOverviewDescription => Model.PersonDetails?.Biography ?? Model.Description;
+
+    private bool ShowSeriesDescription =>
+        !string.IsNullOrWhiteSpace(Model.SequencePlacement?.ContainerDescription)
+        && !string.Equals(
+            Model.SequencePlacement.ContainerDescription.Trim(),
+            Model.Description?.Trim(),
+            StringComparison.Ordinal);
 
     private sealed record OverviewCreditGroup(string Title, IReadOnlyList<EntityCreditViewModel> Credits, int TotalCount);
 

@@ -135,7 +135,9 @@ public sealed class DetailHeroPresentation
 
     private static string? ResolveSubtitle(DetailPageViewModel model, bool isWatchHero)
     {
-        if (isWatchHero || UsesPrimaryHeroChrome(model.EntityType))
+        if (isWatchHero
+            || UsesPrimaryHeroChrome(model.EntityType)
+               && model.EntityType != DetailEntityType.MusicAlbum)
             return null;
 
         return model.Subtitle;

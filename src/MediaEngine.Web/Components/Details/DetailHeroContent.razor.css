@@ -57,7 +57,7 @@
     color: rgba(255, 255, 255, 0.78);
     font-family: var(--media-identity-font-family, var(--font-ui));
     font-size: clamp(1rem, 1.3vw, 1.22rem);
-    font-weight: var(--media-identity-subtitle-weight, 650);
+    font-weight: var(--media-identity-subtitle-weight, 600);
     line-height: 1.35;
 }
 

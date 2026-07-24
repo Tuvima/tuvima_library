@@ -604,13 +604,31 @@
             return false;
         }
 
-        if (TimeSpan.TryParse(value, out var span))
+        var parts = value.Trim().Split(':', StringSplitOptions.TrimEntries);
+        if (parts.Length == 2
+            && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes)
+            && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var remainingSeconds))
+        {
+            seconds = minutes * 60d + remainingSeconds;
+            return seconds > 0;
+        }
+
+        if (parts.Length == 3
+            && double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var hours)
+            && double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out minutes)
+            && double.TryParse(parts[2], NumberStyles.Float, CultureInfo.InvariantCulture, out remainingSeconds))
+        {
+            seconds = hours * 3600d + minutes * 60d + remainingSeconds;
+            return seconds > 0;
+        }
+
+        if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var span))
         {
             seconds = span.TotalSeconds;
             return seconds > 0;
         }
 
-        if (double.TryParse(value, out var numeric))
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
         {
             seconds = numeric >= 60000 ? numeric / 1000d : numeric;
             return seconds > 0;

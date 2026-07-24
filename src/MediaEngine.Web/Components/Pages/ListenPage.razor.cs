@@ -72,7 +72,6 @@ public partial class ListenPage
 
     private CollectionGroupDetailViewModel? _albumDetail;
     private CollectionGroupDetailViewModel? _artistDetail;
-    private DetailPageViewModel? _audioDetail;
     private DiscoveryPageViewModel _listenHubPage = new() { Key = "listen" };
     private ProfileViewModel? _activeProfile;
     private Guid? _activeProfileId;
@@ -105,7 +104,6 @@ public partial class ListenPage
     private int _audiobookTileSizePx = 160;
     private string? _audiobookSeriesFocus;
     private string? _lastHandledTrackContext;
-    private string? _audioDetailTab;
     private string? _selectedArtistName;
     private string? _restoredArtistName;
     private string? _restoredMode;
@@ -177,9 +175,7 @@ public partial class ListenPage
     private bool IsArtistsSurface => IsMusicMode && (string.Equals(NormalizedSection, "artists", StringComparison.OrdinalIgnoreCase) || CurrentPath.StartsWith("/listen/music/artists/", StringComparison.OrdinalIgnoreCase));
     private string SelectedArtistName => _selectedArtistName ?? string.Empty;
 
-    private string PageTitleText => _audioDetail is not null
-        ? $"{_audioDetail.Title} - Listen"
-        : IsAlbumDetail && _albumDetail is not null
+    private string PageTitleText => IsAlbumDetail && _albumDetail is not null
         ? $"{_albumDetail.DisplayName} - Listen"
         : IsPlaylistSurface
             ? $"{ActivePlaylistTitle} - Listen"
@@ -470,8 +466,6 @@ public partial class ListenPage
         _redirecting = false;
         _albumDetail = null;
         _artistDetail = null;
-        _audioDetail = null;
-        _audioDetailTab = null;
         _artistLoading = false;
         _playlistItems.Clear();
         _selectedTrackIds.Clear();
@@ -618,31 +612,6 @@ public partial class ListenPage
             {
                 _listenHubPage = MediaTileComposerService.FromDisplayPage(
                     listenHubTask.Result ?? throw new InvalidOperationException("Display API did not return the listen hub page."));
-            }
-
-            if (IsAlbumDetail)
-            {
-                _albumDetail = await LoadAlbumDetailAsync(ct);
-                if (!IsCurrentLoad(loadVersion))
-                {
-                    return;
-                }
-
-                _audioDetail = BuildAlbumDetailModel(_albumDetail);
-            }
-
-            if (IsAudiobookDetail && WorkId.HasValue)
-            {
-                _audioDetail = await ApiClient.GetDetailPageAsync(
-                    DetailEntityType.Audiobook,
-                    WorkId.Value,
-                    DetailPresentationContext.Listen,
-                    profileId: _activeProfileId,
-                    ct: ct);
-                if (!IsCurrentLoad(loadVersion))
-                {
-                    return;
-                }
             }
 
             if (CollectionId.HasValue && IsPlaylistSurface)
@@ -1244,12 +1213,6 @@ public partial class ListenPage
     private void NavigateRailLink(string route)
         => NavigateTo(route, forceLoad: true);
 
-    private Task SetAudioDetailTabAsync(string tab)
-    {
-        _audioDetailTab = tab;
-        return Task.CompletedTask;
-    }
-
     private async Task<CollectionGroupDetailViewModel?> LoadAlbumDetailAsync(CancellationToken ct = default)
     {
         if (!string.IsNullOrWhiteSpace(AlbumKey))
@@ -1465,29 +1428,19 @@ public partial class ListenPage
 
     private string BuildAlbumDetailRoute(string? albumName, string? artistName = null, Guid? trackId = null, bool edit = false)
     {
-        if (string.IsNullOrWhiteSpace(albumName))
+        var album = _albumGroups.FirstOrDefault(group =>
+            string.Equals(group.DisplayName, albumName, StringComparison.OrdinalIgnoreCase)
+            && (string.IsNullOrWhiteSpace(artistName)
+                || string.Equals(group.Creator, artistName, StringComparison.OrdinalIgnoreCase)));
+        if (album is not null)
         {
-            return AlbumsRoute;
+            var trackQuery = trackId.HasValue ? $"&track={trackId.Value:D}" : string.Empty;
+            return $"/details/musicalbum/{album.CollectionId:D}?context=listen{trackQuery}";
         }
 
-        var queryParts = new List<string>();
-        if (!string.IsNullOrWhiteSpace(artistName))
-        {
-            queryParts.Add($"artist={Uri.EscapeDataString(artistName)}");
-        }
-
-        if (trackId.HasValue)
-        {
-            queryParts.Add($"track={trackId.Value:D}");
-        }
-
-        if (edit)
-        {
-            queryParts.Add("edit=true");
-        }
-
-        var query = queryParts.Count == 0 ? string.Empty : "?" + string.Join("&", queryParts);
-        return $"/listen/music/albums/by-name/{Uri.EscapeDataString(albumName)}{query}";
+        return trackId.HasValue
+            ? $"/details/musictrack/{trackId.Value:D}?context=listen"
+            : AlbumsRoute;
     }
 
     private bool IsRouteActive(string route)
@@ -1625,10 +1578,7 @@ public partial class ListenPage
     {
         if (work.CollectionId.HasValue)
         {
-            var query = edit
-                ? $"?track={work.Id:D}&edit=true"
-                : $"?track={work.Id:D}";
-            return $"/listen/music/albums/{work.CollectionId.Value:D}{query}";
+            return $"/details/musicalbum/{work.CollectionId.Value:D}?context=listen&track={work.Id:D}";
         }
 
         if (string.IsNullOrWhiteSpace(work.Album))
@@ -2522,7 +2472,7 @@ public partial class ListenPage
             TileTextMode: "caption",
             PreviewPlacement: "smart",
             Progress: journey is null ? null : new DisplayProgressDto(journey.ProgressPct, journey.ProgressDisplay, journey.LastAccessed, null),
-            Actions: [new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/listen/audiobook/{workId:D}")],
+            Actions: [new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/details/audiobook/{workId:D}?context=listen")],
             Flags: new DisplayCardFlagsDto(true, false, true, false, false),
             SortTimestamp: journey?.LastAccessed ?? DateTimeOffset.MinValue);
 
@@ -3256,7 +3206,7 @@ public partial class ListenPage
             logoUrl: album.LogoUrl,
             description: album.Description,
             facts: string.IsNullOrWhiteSpace(album.Year) ? [] : [album.Year],
-            route: BuildAlbumDetailRoute(album.DisplayName, album.Creator),
+            route: $"/details/musicalbum/{album.CollectionId:D}?context=listen",
             presentation: MediaTilePresentation.Album,
             primaryActionLabel: "Open",
             sortYear: int.TryParse(album.Year, out var albumYear) ? albumYear : 0);
@@ -3265,7 +3215,7 @@ public partial class ListenPage
     {
         var title = album.SeasonLabel ?? $"Album {album.SeasonNumber}";
         var route = album.AlbumCollectionId.HasValue
-            ? $"/listen/music/albums/{album.AlbumCollectionId.Value}"
+            ? $"/details/musicalbum/{album.AlbumCollectionId.Value}?context=listen"
             : BuildAlbumDetailRoute(album.SeasonLabel, _artistDetail?.DisplayName);
 
         return SquareTile(

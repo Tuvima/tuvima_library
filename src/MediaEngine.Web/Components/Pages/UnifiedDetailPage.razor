@@ -5,6 +5,7 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
 @namespace MediaEngine.Web.Components.Pages
 
@@ -29,7 +30,19 @@ else if (_detail is null)
 }
 else
 {
-    <DetailPage Model="_detail" ActiveTab="@_activeTab" ActiveTabChanged="HandleTabChangedAsync" OnActionSelected="HandleActionAsync" />
+    <div class="tl-unified-detail-shell">
+        <AppNativeButton Type="button"
+                         Class="tl-detail-origin-back"
+                         OnClick="NavigateBackAsync"
+                         aria-label="@BackLabel">
+            <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />
+            <span>@BackLabel</span>
+        </AppNativeButton>
+        <DetailPage Model="_detail"
+                    ActiveTab="@_activeTab"
+                    ActiveTabChanged="HandleTabChangedAsync"
+                    OnActionSelected="HandleActionAsync" />
+    </div>
 }
 
 @code {
@@ -42,6 +55,12 @@ else
     private DetailPageViewModel? _detail;
     private bool _loading = true;
     private string? _activeTab;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+            await JS.InvokeVoidAsync("detailOrigin.initialize");
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -74,6 +93,25 @@ else
         _activeTab = tab;
         return Task.CompletedTask;
     }
+
+    private async Task NavigateBackAsync()
+        => await JS.InvokeVoidAsync("detailOrigin.back", FallbackRoute);
+
+    private string BackLabel => ParseContext(Context) switch
+    {
+        DetailPresentationContext.Listen => "Back to Listen",
+        DetailPresentationContext.Watch => "Back to Watch",
+        DetailPresentationContext.Read or DetailPresentationContext.Comics => "Back to Read",
+        _ => "Back",
+    };
+
+    private string FallbackRoute => ParseContext(Context) switch
+    {
+        DetailPresentationContext.Listen => "/listen",
+        DetailPresentationContext.Watch => "/watch",
+        DetailPresentationContext.Read or DetailPresentationContext.Comics => "/read",
+        _ => "/",
+    };
 
     private void ApplyDetailTabRoute()
     {

@@ -161,11 +161,21 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   RelationshipStrip: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.RelationshipGroup> | nullability=not-null | accessors=get,init
   Tabs: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailTab> | nullability=not-null | accessors=get,init
   MediaGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MediaGroupingViewModel> | nullability=not-null | accessors=get,init
+  PrimaryModule: MediaEngine.Contracts.Details.DetailPrimaryModuleViewModel | nullability=not-null | accessors=get,init
   IdentityStatus: MediaEngine.Contracts.Details.CanonicalIdentityStatus | nullability=not-null | accessors=get,init
   LibraryStatus: MediaEngine.Contracts.Details.LibraryStatus | nullability=not-null | accessors=get,init
   IsAdminView: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPresentationContext
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPrimaryModuleKind
+
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPrimaryModuleViewModel
+  Kind: MediaEngine.Contracts.Details.DetailPrimaryModuleKind | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  GroupKeys: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
+  SupportsLaneFilter: System.Boolean | nullability=not-null | accessors=get,init
+  SupportsRoleFilter: System.Boolean | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailTab
   Key: System.String | nullability=not-null | accessors=get,init
@@ -235,6 +245,8 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MediaGroupingItemVie
   IsExplicit: System.Boolean | nullability=not-null | accessors=get,init
   Quality: System.String | nullability=nullable | accessors=get,init
   ProgressPercent: System.Double? | nullability=nullable | accessors=get,init
+  Lane: System.String | nullability=nullable | accessors=get,init
+  Roles: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   Metadata: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MetadataPill> | nullability=not-null | accessors=get,init
   Actions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailAction> | nullability=not-null | accessors=get,init
   IsOwned: System.Boolean | nullability=not-null | accessors=get,init

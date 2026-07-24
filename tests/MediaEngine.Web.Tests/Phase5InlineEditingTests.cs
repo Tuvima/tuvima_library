@@ -13,7 +13,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("<SharedMediaEditorShell", source, StringComparison.Ordinal);
         Assert.Contains("Inline=\"true\"", source, StringComparison.Ordinal);
         Assert.Contains("HeroConstrained=\"true\"", source, StringComparison.Ordinal);
-        Assert.Contains("IncludeHero=\"false\"", source, StringComparison.Ordinal);
+        Assert.Contains("<DetailPrimaryModule Model=\"Model\"", source, StringComparison.Ordinal);
         Assert.Contains("ActiveProfileId = activeProfile?.Id", source, StringComparison.Ordinal);
         Assert.Contains("Mode = SharedMediaEditorMode.Normal", source, StringComparison.Ordinal);
     }
@@ -24,13 +24,15 @@ public sealed class Phase5InlineEditingTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var stageIndex = source.IndexOf("tl-detail-edit-stage", StringComparison.Ordinal);
         var editorIndex = source.IndexOf("HeroConstrained=\"true\"", stageIndex, StringComparison.Ordinal);
-        var stageEndIndex = source.IndexOf("@if (IsAudioDetail)", editorIndex, StringComparison.Ordinal);
-        var tabsIndex = source.IndexOf("<DetailTabs Tabs=\"VisibleTabs\"", stageEndIndex, StringComparison.Ordinal);
+        var primaryIndex = source.IndexOf("<DetailPrimaryModule Model=\"Model\"", editorIndex, StringComparison.Ordinal);
+        var tabsIndex = source.IndexOf("<DetailTabs Tabs=\"VisibleTabs\"", primaryIndex, StringComparison.Ordinal);
+        var bodyIndex = source.IndexOf("<section id=\"overview\"", tabsIndex, StringComparison.Ordinal);
 
         Assert.True(stageIndex >= 0);
         Assert.True(editorIndex > stageIndex);
-        Assert.True(stageEndIndex > editorIndex);
-        Assert.True(tabsIndex > stageEndIndex);
+        Assert.True(primaryIndex > editorIndex);
+        Assert.True(tabsIndex > primaryIndex);
+        Assert.True(bodyIndex > tabsIndex);
     }
 
     [Fact]

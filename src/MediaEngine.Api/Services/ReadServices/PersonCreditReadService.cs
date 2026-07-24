@@ -917,7 +917,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         IReadOnlyDictionary<string, List<CharacterPortrayalDto>> charactersByWorkQid)
         => baseRows
             .GroupBy(LibraryCreditGroupKey)
-            .Select(group =>
+            .SelectMany(group =>
             {
                 var orderedRows = group
                     .OrderBy(row => row.Year, StringComparer.OrdinalIgnoreCase)
@@ -926,7 +926,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
                 var representative = orderedRows.First();
                 var isTvSeriesCredit = IsTvMediaType(representative.MediaType) && representative.CollectionId.HasValue;
-                var role = ResolveLibraryCreditRole(orderedRows, charactersByWorkQid, preferSeriesRole: isTvSeriesCredit);
+                var roles = ResolveLibraryCreditRoles(orderedRows, charactersByWorkQid);
                 var characterQids = orderedRows
                     .SelectMany(row => new[] { row.CollectionQid, row.WorkQid })
                     .Where(qid => !string.IsNullOrWhiteSpace(qid))
@@ -941,24 +941,27 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                     .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                var includeCharacters = role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
-                    || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase);
-
-                return new PersonLibraryCreditDto
+                return roles.Select(role =>
                 {
-                    WorkId = representative.WorkId,
-                    CollectionId = representative.CollectionId,
-                    MediaType = representative.MediaType,
-                    Title = isTvSeriesCredit
-                        ? FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
-                        : FirstNonBlank(representative.Title, "Untitled")!,
-                    CoverUrl = representative.FirstAssetId.HasValue
-                        ? $"/stream/{representative.FirstAssetId.Value}/cover-thumb"
-                        : null,
-                    Year = representative.Year,
-                    Role = role,
-                    Characters = includeCharacters ? characters : [],
-                };
+                    var includeCharacters = role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
+                        || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase);
+
+                    return new PersonLibraryCreditDto
+                    {
+                        WorkId = representative.WorkId,
+                        CollectionId = representative.CollectionId,
+                        MediaType = representative.MediaType,
+                        Title = isTvSeriesCredit
+                            ? FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
+                            : FirstNonBlank(representative.Title, "Untitled")!,
+                        CoverUrl = representative.FirstAssetId.HasValue
+                            ? $"/stream/{representative.FirstAssetId.Value}/cover-thumb"
+                            : null,
+                        Year = representative.Year,
+                        Role = role,
+                        Characters = includeCharacters ? characters : [],
+                    };
+                });
             })
             .OrderByDescending(credit => credit.Year, StringComparer.OrdinalIgnoreCase)
             .ThenBy(credit => credit.Title, StringComparer.OrdinalIgnoreCase)
@@ -970,20 +973,14 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             ? $"tv::{row.CollectionId.Value:D}"
             : $"work::{row.WorkId:D}";
 
-    private static string ResolveLibraryCreditRole(
+    private static IReadOnlyList<string> ResolveLibraryCreditRoles(
         IReadOnlyList<PersonLibraryCreditRow> rows,
-        IReadOnlyDictionary<string, List<CharacterPortrayalDto>> charactersByWorkQid,
-        bool preferSeriesRole)
+        IReadOnlyDictionary<string, List<CharacterPortrayalDto>> charactersByWorkQid)
     {
         var hasCharacterEvidence = rows
             .SelectMany(row => new[] { row.CollectionQid, row.WorkQid })
             .Where(qid => !string.IsNullOrWhiteSpace(qid))
             .Any(qid => charactersByWorkQid.ContainsKey(qid!));
-
-        if (hasCharacterEvidence)
-        {
-            return "Actor";
-        }
 
         var roles = rows
             .Select(row => row.Role)
@@ -993,23 +990,18 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             .ThenBy(role => role, StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (roles.Count == 0)
+        if (hasCharacterEvidence
+            && !roles.Any(role => role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
+                || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase)))
         {
-            return "Credit";
+            roles.Add("Actor");
+            roles = roles
+                .OrderBy(LibraryCreditRoleRank)
+                .ThenBy(role => role, StringComparer.OrdinalIgnoreCase)
+                .ToList();
         }
 
-        if (preferSeriesRole)
-        {
-            var seriesRole = roles.FirstOrDefault(role =>
-                role.Equals("Actor", StringComparison.OrdinalIgnoreCase)
-                || role.Equals("Voice Actor", StringComparison.OrdinalIgnoreCase));
-            if (!string.IsNullOrWhiteSpace(seriesRole))
-            {
-                return seriesRole;
-            }
-        }
-
-        return roles[0];
+        return roles.Count == 0 ? ["Credit"] : roles;
     }
 
     private static int LibraryCreditRoleRank(string role)

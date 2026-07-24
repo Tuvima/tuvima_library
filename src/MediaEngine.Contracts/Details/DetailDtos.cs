@@ -39,6 +39,7 @@ public sealed class DetailPageViewModel
     public IReadOnlyList<RelationshipGroup> RelationshipStrip { get; init; } = [];
     public IReadOnlyList<DetailTab> Tabs { get; init; } = [];
     public IReadOnlyList<MediaGroupingViewModel> MediaGroups { get; init; } = [];
+    public DetailPrimaryModuleViewModel PrimaryModule { get; init; } = new();
 
     public CanonicalIdentityStatus IdentityStatus { get; init; } = CanonicalIdentityStatus.Unknown;
     public LibraryStatus LibraryStatus { get; init; } = LibraryStatus.Unknown;
@@ -257,6 +258,27 @@ public sealed class DetailTab
     public string Key { get; init; } = string.Empty;
     public string Label { get; init; } = string.Empty;
     public bool IsAdminOnly { get; init; }
+}
+
+public sealed class DetailPrimaryModuleViewModel
+{
+    public DetailPrimaryModuleKind Kind { get; init; } = DetailPrimaryModuleKind.None;
+    public string Title { get; init; } = string.Empty;
+    public IReadOnlyList<string> GroupKeys { get; init; } = [];
+    public bool SupportsLaneFilter { get; init; }
+    public bool SupportsRoleFilter { get; init; }
+}
+
+public enum DetailPrimaryModuleKind
+{
+    None,
+    Sequence,
+    Tracks,
+    Chapters,
+    Episodes,
+    Works,
+    CollectionItems,
+    Appearances
 }
 
 public sealed class PersonDetailFacts
@@ -623,6 +645,8 @@ public sealed class MediaGroupingItemViewModel
     public bool IsExplicit { get; init; }
     public string? Quality { get; init; }
     public double? ProgressPercent { get; init; }
+    public string? Lane { get; init; }
+    public IReadOnlyList<string> Roles { get; init; } = [];
     public IReadOnlyList<MetadataPill> Metadata { get; init; } = [];
     public IReadOnlyList<DetailAction> Actions { get; init; } = [];
     public bool IsOwned { get; init; } = true;

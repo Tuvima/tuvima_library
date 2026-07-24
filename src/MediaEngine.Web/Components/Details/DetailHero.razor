@@ -350,8 +350,8 @@
                 AddCreditLine(lines, "Illustrator", CreditGroupType.Illustrators, CreditGroupType.CreativeTeam);
                 break;
             case DetailEntityType.MusicAlbum:
-                AddCreditLine(lines, "Artist", CreditGroupType.PrimaryArtists);
-                AddCreditLine(lines, "Featuring", CreditGroupType.FeaturedArtists);
+                // Album identity presents the artist as the subtitle, matching the
+                // compact Listen hierarchy without duplicating the same credit.
                 break;
             case DetailEntityType.MusicTrack:
                 AddCreditLine(lines, "Artist", CreditGroupType.PrimaryArtists);

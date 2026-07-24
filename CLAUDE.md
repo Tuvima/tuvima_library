@@ -218,7 +218,7 @@ Dark-mode-only cinematic design with an ambient gradient background. The Dashboa
 - `/read`, `/read/{Tab}` — ReadPage (books + comics)
 - `/watch`, `/watch/{Tab}`, `/watch/movie/{WorkId}`, `/watch/tv/show/{CollectionId}/...`, `/watch/player/{AssetId}` — Watch surfaces
 - `/listen`, `/listen/music/...`, `/listen/audiobooks`, `/listen/audiobook/{WorkId}` — Listen surfaces
-- `/collections`, `/collection/{Id}` — Collections browse + detail
+- `/collections`, `/details/collection/{Id}` — Collections browse + canonical full-width detail
 - `/book/{Id}`, `/person/{Id}` — detail pages
 - `/universe/{Qid}/explore` — Chronicle Explorer (Cytoscape graph)
 - `/search` — global search
@@ -647,10 +647,11 @@ Reusable visual components, organised by feature slice.
 | `/watch/tv/show/{CollectionId:guid}` | `WatchTvShowPage.razor` | TV show detail |
 | `/watch/player/{AssetId:guid}` | `WatchPlayerPage.razor` | Video player |
 | `/listen`, `/listen/music`, `/listen/audiobooks` | `ListenBrowsePage.razor` + `ListenBrowseConfiguration.cs` | Shared-shell Listen discovery and query-backed Music/Audiobook browse |
-| `/listen/music/albums/{CollectionId:guid}`, `/listen/music/albums/by-name/{AlbumKey}`, `/listen/music/artists/{ArtistKey}`, `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}`, `/listen/audiobook/{WorkId:guid}` | `ListenPage.razor` (+ `.razor.cs` code-behind) | Album, artist, playlist, and audiobook detail surfaces |
+| `/details/musicalbum/{Id:guid}`, `/details/musictrack/{Id:guid}`, `/details/audiobook/{Id:guid}`, `/details/person/{Id:guid}` | `UnifiedDetailPage.razor` | Canonical full-width Listen and person details |
+| `/listen/music/playlists/{CollectionId:guid}`, `/listen/music/playlists/system/{PlaylistKey}` | `ListenPage.razor` (+ `.razor.cs` code-behind) | Specialized playlist queue and editing surfaces |
 | `/listen/player-popup` | `ListenPlayerPopupPage.razor` | Detached listen window |
 | `/collections` | `Collections.razor` | Browse / create / manage collections |
-| `/collection/{Id:guid}` | `CollectionDetail.razor` | Collection detail |
+| `/details/collection/{Id:guid}` | `UnifiedDetailPage.razor` | Standard collection detail |
 | `/book/{Id:guid}` | `BookDetail.razor` | Book detail |
 | `/detail/{Type}/{Id}` (and similar) | `UnifiedDetailPage.razor` | Unified detail surface (work / edition / collection / person) — uses `Components/Details/` slice |
 | `/universe/{Qid}/explore` | `ChronicleExplorer.razor` | Universe graph explorer |

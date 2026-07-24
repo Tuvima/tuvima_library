@@ -375,9 +375,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-media-overview-card__top", source);
         Assert.Contains("tl-media-overview-card__summary", source);
         Assert.Contains("tl-media-overview-card__credits", source);
-        Assert.Contains("IsCanonicalSeriesContainer", source);
-        Assert.Contains("SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
-        Assert.Contains("OnContainerSelected=\"OnContainerSelected\"", source);
+        Assert.Contains("Series Description", source);
+        Assert.DoesNotContain("SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
         Assert.Contains("MoreLikeThisItems", source);
         Assert.Contains("IsRecommendationGroup", source);
         Assert.Contains("IsRecommendationCandidate", source);
@@ -798,6 +797,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Show missing tracks", audioTable);
         Assert.Contains("item.IsOwned", audioTable);
         Assert.Contains("DurationSeconds", audioTable);
+        Assert.Contains("seconds = minutes * 60d + remainingSeconds", audioTable);
         Assert.Contains("ToggleSort", audioTable);
         Assert.Contains("BeginColumnResize", audioTable);
         Assert.Contains("draggable=\"@item.IsOwned\"", audioTable);
@@ -806,10 +806,11 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void AudioDetailPagesUseCompactListenLayoutWithoutChangingHeroDefault()
+    public void AudioDetailPagesUseTheBoundedSharedStageWithoutChangingHomeHeroDefault()
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
-        var audioLayout = ReadSource("src/MediaEngine.Web/Components/Details/AudioDetailLayout.razor");
+        var primaryModule = ReadSource("src/MediaEngine.Web/Components/Details/DetailPrimaryModule.razor");
+        var primaryModuleStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPrimaryModule.razor.css");
         var chapterList = ReadSource("src/MediaEngine.Web/Components/Details/AudiobookChapterList.razor");
         var nowPlayingPanel = ReadSource("src/MediaEngine.Web/Components/Listen/ListenNowPlayingPanel.razor");
         var popupPlayer = ReadSource("src/MediaEngine.Web/Components/Pages/ListenPlayerPopupPage.razor");
@@ -840,12 +841,26 @@ public sealed class UnifiedDetailComponentTests
         var audiobookChapterStyles = detailStyles[detailStyles.IndexOf("::deep .tl-audiobook-chapters", StringComparison.Ordinal)..];
 
         Assert.Contains("DetailEntityType.MusicAlbum or DetailEntityType.Audiobook", detailPage);
-        Assert.Contains("<AudioDetailLayout", detailPage);
+        Assert.Contains("<DetailPrimaryModule Model=\"Model\"", detailPage);
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
-        Assert.Contains("<DetailHero Model=\"Model\"", audioLayout);
-        Assert.DoesNotContain("<HeroActionRow", audioLayout);
-        Assert.Contains("<MusicTrackList", audioLayout);
-        Assert.Contains("<AudiobookChapterList", audioLayout);
+        Assert.Contains("<MusicTrackList", primaryModule);
+        Assert.Contains("<AudiobookChapterList", primaryModule);
+        Assert.Contains("height: clamp(34rem, 70svh, 47.5rem)", detailStyles);
+        Assert.Contains("max-height: 70svh", detailStyles);
+        Assert.Contains(".tl-detail-stage__navigation", detailStyles);
+        Assert.Contains("padding: 0.3rem max(2.5rem, calc((100% - 106rem) / 2)) 0.4rem", detailStyles);
+        Assert.Contains(".tl-detail-primary-module--tracks .tl-detail-primary-module__viewport", detailStyles);
+        Assert.Contains(".tl-detail-primary-module--tracks .tl-detail-track-table-shell", detailStyles);
+        Assert.Contains("height: 100%", detailStyles);
+        Assert.Contains("overflow: auto", detailStyles);
+        Assert.Contains(".tl-detail-primary-module--tracks .tl-detail-track-table thead", detailStyles);
+        Assert.Contains("position: sticky", detailStyles);
+        Assert.Contains("inset: 0 -2rem", primaryModuleStyles);
+        Assert.Contains(".tl-detail-actions--watch .tl-detail-secondary-actions", detailStyles);
+        Assert.Contains("flex-wrap: nowrap", detailStyles);
+        Assert.Contains(".tl-detail-hero--person .tl-detail-person-hero__inner", detailStyles);
+        Assert.Contains("height: min(17rem, calc(100% - 2rem))", detailStyles);
+        Assert.Contains(".tl-detail-hero--person .tl-detail-person-summary", detailStyles);
         Assert.DoesNotContain("<AudioItemTable", chapterList);
         Assert.Contains("tl-audiobook-chapters__row", chapterList);
         Assert.Contains("private sealed record ChapterRow", chapterList);
@@ -1064,15 +1079,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("SecondaryActionLabel=\"Delete bookmark\"", popupPlayer);
         Assert.Contains("CurrentChapterProgressLabel", popupPlayer);
         Assert.DoesNotContain("FormatChapterTimeRange", chapterList);
-        Assert.Contains("SupplementalActiveTab is \"chapters\"", audioLayout);
-        Assert.DoesNotContain("tl-audio-detail__hero-artwash", audioLayout);
-        Assert.DoesNotContain("tl-audio-detail__metadata", audioLayout);
-        Assert.DoesNotContain("tl-audio-detail__hero--title-dense", audioLayout);
-        Assert.Contains("ActionAttributes=\"ActionAttributes\"", audioLayout);
+        Assert.DoesNotContain("AudioDetailLayout", detailPage);
+        Assert.Contains("Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters", primaryModule);
+        Assert.Contains("Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Tracks", primaryModule);
         Assert.Contains("listen-page listen-page--detail", listenPage);
         Assert.Contains(".listen-page--detail", ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.css"));
-        Assert.DoesNotContain("HeroMetadataPills", audioLayout);
-        Assert.DoesNotContain("<AudiobookChapterList Groups=\"Model.MediaGroups\"", audioLayout[..audioLayout.IndexOf("<DetailTabs", StringComparison.Ordinal)]);
+        Assert.DoesNotContain("HeroMetadataPills", primaryModule);
         Assert.Contains("InitialPositionSeconds = ResumePositionFor(item)", audioTable);
         Assert.Contains("ResolveAudiobookTotalSeconds(chapters)", detailPage);
         Assert.Contains("ResolveAudiobookResumePosition(chapters, Model.Progress?.Percent, Playback.AudiobookNearStartGuardSeconds, totalDurationSeconds)", detailPage);
@@ -1118,7 +1130,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("openPopupFromImmediateAction", playerScript);
         Assert.Contains("data-listen-popup-route", playerBar);
         Assert.Contains("AudiobookActionAttributes", detailPage);
-        Assert.Contains("ActionAttributes=\"AudiobookActionAttributes\"", detailPage);
+        Assert.Contains("ActionAttributes=\"@(IsAudioDetail ? AudiobookActionAttributes : null)\"", detailPage);
+        Assert.Contains("window.detailOrigin.initialize();", playerScript);
+        Assert.Contains("[data-detail-origin-scroll]", playerScript);
         Assert.Contains("registerAudioStateObserver: function", playerScript);
         Assert.Contains("grid-template-columns: 4.35rem minmax(0, 1fr) 4.35rem", playerStyles);
         Assert.Contains("width: min(100%, 720px);", playerStyles);
@@ -1126,8 +1140,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("FormatChapterTimeRange(item.StartSeconds.Value, item.EndSeconds)", audioTable);
         Assert.Contains("Playback.CurrentTimeSeconds", audioTable);
         Assert.Contains("currentItem.AssetId.Value != assetId", audioTable);
-        Assert.Contains("GetDetailPageAsync(", listenPage);
-        Assert.Contains("DetailEntityType.Audiobook", listenPage);
+        Assert.DoesNotContain("GetDetailPageAsync(", listenPage);
+        Assert.DoesNotContain("<DetailPage", ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor"));
         Assert.DoesNotContain("NavigateTo($\"/book/{WorkId.Value}?mode=listen\"", listenPage, StringComparison.Ordinal);
     }
 

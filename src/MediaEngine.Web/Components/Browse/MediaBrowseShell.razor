@@ -1553,15 +1553,7 @@
             && IsMusicTab
             && !string.IsNullOrWhiteSpace(selectedItem.Album))
         {
-            var query = new List<string> { $"track={selectedItem.EntityId:D}" };
-            var artist = selectedItem.Artist ?? selectedItem.Author;
-            if (!string.IsNullOrWhiteSpace(artist))
-            {
-                query.Add($"artist={Uri.EscapeDataString(artist)}");
-            }
-
-            Nav.NavigateTo(
-                $"/listen/music/albums/by-name/{Uri.EscapeDataString(selectedItem.Album)}?{string.Join("&", query)}");
+            Nav.NavigateTo($"/details/musictrack/{selectedItem.EntityId:D}?context=listen");
             return;
         }
 
@@ -1775,14 +1767,17 @@
     {
         if (IsPersonGrouping)
         {
-            return MediaPersonGroupTileComposer.NavigationUrl(group.PersonId ?? group.ArtistPersonId, group.DisplayName);
+            return MediaPersonGroupTileComposer.NavigationUrl(
+                group.PersonId ?? group.ArtistPersonId,
+                group.DisplayName,
+                PersonDetailContext);
         }
 
         return (_activeTabId, _grouping) switch
         {
             ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
-            ("movies", "collections") => $"/collection/{group.CollectionId:D}",
+            ("movies", "collections") => $"/details/collection/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
             ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
@@ -1794,12 +1789,15 @@
     }
 
     private static string BuildMusicAlbumNavigationUrl(ContentGroupViewModel group)
+        => $"/details/musicalbum/{(group.RootWorkId ?? group.CollectionId):D}?context=listen";
+
+    private string? PersonDetailContext => _activeTabId switch
     {
-        var query = string.IsNullOrWhiteSpace(group.Creator)
-            ? string.Empty
-            : $"?artist={Uri.EscapeDataString(group.Creator)}";
-        return $"/listen/music/albums/by-name/{Uri.EscapeDataString(group.DisplayName)}{query}";
-    }
+        "music" or "audiobooks" => "listen",
+        "movies" or "tv" => "watch",
+        "books" or "comics" => "read",
+        _ => null,
+    };
 
     private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
         IsPersonGrouping && (group.PersonId ?? group.ArtistPersonId) is Guid personId
@@ -2072,11 +2070,11 @@
     private string BuildGroupPreviewNavigationUrl(ContentGroupViewModel group, Guid workId) =>
         (_activeTabId, _grouping) switch
         {
-            ("movies", "series") => $"/watch/movie/{workId:D}?collectionId={group.CollectionId:D}",
-            ("books", "series") => $"/book/{workId:D}?mode=read",
-            ("audiobooks", "series") => $"/listen/audiobook/{workId:D}",
-            ("comics", "series") => $"/book/{workId:D}?mode=read",
-            ("music", "albums") => $"/listen/music/albums/{group.CollectionId:D}?track={workId:D}",
+            ("movies", "series") => $"/details/movie/{workId:D}?context=watch",
+            ("books", "series") => $"/details/book/{workId:D}?context=read",
+            ("audiobooks", "series") => $"/details/audiobook/{workId:D}?context=listen",
+            ("comics", "series") => $"/details/comicissue/{workId:D}?context=comics",
+            ("music", "albums") => $"/details/musicalbum/{(group.RootWorkId ?? group.CollectionId):D}?context=listen&track={workId:D}",
             _ => $"/details/work/{workId:D}",
         };
 

@@ -164,7 +164,7 @@ public sealed record PosterItemViewModel
     {
         if (card.CollectionId.HasValue && card.Flags.IsCollection)
         {
-            return $"/collection/{card.CollectionId.Value}";
+            return $"/details/collection/{card.CollectionId.Value}";
         }
 
         return card.WorkId.HasValue ? $"/book/{card.WorkId.Value}" : "/";

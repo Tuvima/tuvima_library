@@ -1,9 +1,5 @@
-@page "/listen/music/albums/{CollectionId:guid}"
-@page "/listen/music/albums/by-name/{AlbumKey}"
-@page "/listen/music/artists/{ArtistKey}"
 @page "/listen/music/playlists/{CollectionId:guid}"
 @page "/listen/music/playlists/system/{PlaylistKey}"
-@page "/listen/audiobook/{WorkId:guid}"
 @using Microsoft.AspNetCore.Components.Forms
 @using Microsoft.AspNetCore.Components.Web
 @using MediaEngine.Contracts.Details
@@ -255,14 +251,6 @@ else
                                        Class="listen-card-grid listen-card-grid--albums" />
                     }
                 </section>
-            }
-            else if (IsAudioDetailSurface && _audioDetail is not null)
-            {
-                <div class="listen-audio-detail-host">
-                    <DetailPage Model="_audioDetail"
-                                ActiveTab="@_audioDetailTab"
-                                ActiveTabChanged="SetAudioDetailTabAsync" />
-                </div>
             }
             else if (IsAlbumDetail && _albumDetail is not null)
             {

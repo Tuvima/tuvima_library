@@ -42,4 +42,14 @@ public sealed class MediaPersonGroupTileComposerTests
         Assert.Equal("audiobook", count.Label);
         Assert.Equal(1, count.Count);
     }
+
+    [Fact]
+    public void NavigationUrl_PreservesTheOriginatingLaneContext()
+    {
+        var personId = Guid.NewGuid();
+
+        var route = MediaPersonGroupTileComposer.NavigationUrl(personId, "David Bowie", "listen");
+
+        Assert.Equal($"/details/person/{personId:D}?context=listen", route);
+    }
 }

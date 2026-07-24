@@ -83,9 +83,14 @@ public static class MediaPersonGroupTileComposer
         };
     }
 
-    public static string NavigationUrl(Guid? personId, string personName) => personId.HasValue
-        ? $"/details/person/{personId.Value:D}"
+    public static string NavigationUrl(Guid? personId, string personName, string? context = null) => personId.HasValue
+        ? $"/details/person/{personId.Value:D}{ContextQuery(context)}"
         : $"/search?q={Uri.EscapeDataString(personName)}&type=person";
+
+    private static string ContextQuery(string? context)
+        => string.IsNullOrWhiteSpace(context)
+            ? string.Empty
+            : $"?context={Uri.EscapeDataString(context.Trim().ToLowerInvariant())}";
 
     private static string MediaCountIcon(string mediaType)
     {

@@ -175,20 +175,8 @@
         if (string.Equals(NormalizedTab, "music", StringComparison.OrdinalIgnoreCase)
             && RequestedTrackId is Guid trackId)
         {
-            var detail = await ApiClient.GetLibraryItemDetailAsync(trackId);
-            if (!string.IsNullOrWhiteSpace(detail?.Album))
-            {
-                var query = new List<string> { $"track={trackId:D}" };
-                if (!string.IsNullOrWhiteSpace(detail.Artist))
-                {
-                    query.Add($"artist={Uri.EscapeDataString(detail.Artist)}");
-                }
-
-                Nav.NavigateTo(
-                    $"/listen/music/albums/by-name/{Uri.EscapeDataString(detail.Album)}?{string.Join("&", query)}",
-                    replace: true);
-                return;
-            }
+            Nav.NavigateTo($"/details/musictrack/{trackId:D}?context=listen", replace: true);
+            return;
         }
 
         await EnsurePlaylistNavigationAsync();

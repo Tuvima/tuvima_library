@@ -1,0 +1,229 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Model.PrimaryModule.Kind != DetailPrimaryModuleKind.None)
+{
+    <section class="@RootClass" aria-labelledby="detail-primary-module-title">
+        @if (ShowHeader)
+        {
+            <header class="tl-detail-primary-module__header">
+                <div>
+                    <span class="tl-detail-primary-module__eyebrow">@ModuleEyebrow</span>
+                    <h2 id="detail-primary-module-title">@Model.PrimaryModule.Title</h2>
+                </div>
+
+                @if (Model.PrimaryModule.SupportsLaneFilter && LaneOptions.Count > 1)
+                {
+                    <div class="tl-detail-primary-module__filters" aria-label="Filter works by library lane">
+                        @foreach (var lane in LaneOptions)
+                        {
+                            <AppNativeButton Type="button"
+                                             Class="@FilterClass(_selectedLane, lane.Key)"
+                                             OnClick="@(() => SelectLane(lane.Key))"
+                                             aria-pressed="@(_selectedLane == lane.Key)">
+                                @lane.Label
+                                <span>@lane.Count</span>
+                            </AppNativeButton>
+                        }
+                    </div>
+                }
+
+                @if (Model.PrimaryModule.SupportsRoleFilter && RoleOptions.Count > 1)
+                {
+                    <label class="tl-detail-primary-module__role-filter">
+                        <span>Role</span>
+                        <AppNativeSelect @bind="_selectedRole"
+                                         aria-label="Filter works by role">
+                            @foreach (var role in RoleOptions)
+                            {
+                                <option value="@role.Key">@role.Label (@role.Count)</option>
+                            }
+                        </AppNativeSelect>
+                    </label>
+                }
+            </header>
+        }
+
+        <div class="tl-detail-primary-module__viewport">
+            @if (Model.PrimaryModule.Kind is DetailPrimaryModuleKind.Sequence or DetailPrimaryModuleKind.Episodes
+                 && Model.SequencePlacement is not null)
+            {
+                <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                        OnContainerSelected="OnContainerSelected" />
+            }
+            else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Tracks)
+            {
+                <MusicTrackList Groups="PrimaryGroups"
+                                AlbumTitle="@Model.Title"
+                                AlbumArtworkUrl="@ArtworkUrl" />
+            }
+            else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters)
+            {
+                <AudiobookChapterList Groups="PrimaryGroups"
+                                      AudiobookTitle="@Model.Title"
+                                      AudiobookArtworkUrl="@ArtworkUrl" />
+            }
+            else if (FilteredItems.Count == 0)
+            {
+                <p class="tl-detail-primary-module__empty">No owned library items are available for this section.</p>
+            }
+            else
+            {
+                <div class="tl-detail-primary-module__rail">
+                    @foreach (var item in FilteredItems)
+                    {
+                        <a class="@ItemClass(item)" href="@ResolveRoute(item)">
+                            <span class="tl-detail-primary-module__art">
+                                @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
+                                {
+                                    <img src="@item.ArtworkUrl" alt="" />
+                                }
+                                else
+                                {
+                                    <GeneratedIdentity Name="@item.Title" />
+                                }
+                            </span>
+                            <span class="tl-detail-primary-module__copy">
+                                <strong>@item.Title</strong>
+                                @if (!string.IsNullOrWhiteSpace(item.Subtitle))
+                                {
+                                    <small>@item.Subtitle</small>
+                                }
+                            </span>
+                        </a>
+                    }
+                </div>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+    [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+
+    private string _selectedLane = "all";
+    private string _selectedRole = "all";
+    private string? _modelId;
+
+    protected override void OnParametersSet()
+    {
+        if (string.Equals(_modelId, Model.Id, StringComparison.Ordinal))
+            return;
+
+        _modelId = Model.Id;
+        _selectedLane = "all";
+        _selectedRole = "all";
+    }
+
+    private IReadOnlyList<MediaGroupingViewModel> PrimaryGroups
+        => Model.PrimaryModule.GroupKeys.Count == 0
+            ? Model.MediaGroups
+            : Model.MediaGroups
+                .Where(group => Model.PrimaryModule.GroupKeys.Contains(group.Key, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+
+    private IReadOnlyList<MediaGroupingItemViewModel> AllItems
+        => PrimaryGroups
+            .SelectMany(group => group.Items)
+            .Where(item => item.IsOwned)
+            .GroupBy(item => $"{item.EntityType}:{item.Id}", StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+    private IReadOnlyList<MediaGroupingItemViewModel> FilteredItems
+        => AllItems
+            .Where(item => _selectedLane == "all" || string.Equals(ResolveLane(item), _selectedLane, StringComparison.OrdinalIgnoreCase))
+            .Where(item => _selectedRole == "all" || item.Roles.Contains(_selectedRole, StringComparer.OrdinalIgnoreCase))
+            .OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private IReadOnlyList<FilterOption> LaneOptions
+    {
+        get
+        {
+            var values = AllItems
+                .GroupBy(ResolveLane, StringComparer.OrdinalIgnoreCase)
+                .Where(group => !string.Equals(group.Key, "other", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(group => LaneSort(group.Key))
+                .Select(group => new FilterOption(group.Key, LaneLabel(group.Key), group.Count()))
+                .ToList();
+            return [new FilterOption("all", "All", AllItems.Count), .. values];
+        }
+    }
+
+    private IReadOnlyList<FilterOption> RoleOptions
+    {
+        get
+        {
+            var values = AllItems
+                .SelectMany(item => item.Roles)
+                .Where(role => !string.IsNullOrWhiteSpace(role))
+                .GroupBy(role => role, StringComparer.OrdinalIgnoreCase)
+                .OrderByDescending(group => group.Count())
+                .ThenBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new FilterOption(group.Key, group.Key, group.Count()))
+                .ToList();
+            return [new FilterOption("all", "All roles", AllItems.Count), .. values];
+        }
+    }
+
+    private bool ShowHeader => Model.PrimaryModule.Kind is not DetailPrimaryModuleKind.Tracks
+        and not DetailPrimaryModuleKind.Chapters
+        and not DetailPrimaryModuleKind.Sequence
+        and not DetailPrimaryModuleKind.Episodes;
+
+    private string ModuleEyebrow => Model.EntityType is DetailEntityType.Person or DetailEntityType.MusicArtist
+        ? "Owned media"
+        : Model.PrimaryModule.Kind.ToString();
+
+    private string? ArtworkUrl => Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.HeroArtwork.Url;
+
+    private string RootClass => $"tl-detail-primary-module tl-detail-primary-module--{Model.PrimaryModule.Kind.ToString().ToLowerInvariant()}";
+
+    private static string FilterClass(string selected, string key)
+        => $"tl-detail-primary-module__filter{(string.Equals(selected, key, StringComparison.OrdinalIgnoreCase) ? " is-active" : string.Empty)}";
+
+    private static string ItemClass(MediaGroupingItemViewModel item)
+        => $"tl-detail-primary-module__item tl-detail-primary-module__item--{ArtworkShape(item.EntityType)}";
+
+    private static string ArtworkShape(DetailEntityType entityType)
+        => entityType switch
+        {
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "square",
+            DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "wide",
+            _ => "portrait",
+        };
+
+    private static string ResolveRoute(MediaGroupingItemViewModel item)
+        => item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
+           ?? $"/details/{item.EntityType.ToString().ToLowerInvariant()}/{item.Id}";
+
+    private static string ResolveLane(MediaGroupingItemViewModel item)
+        => !string.IsNullOrWhiteSpace(item.Lane) ? item.Lane : item.EntityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
+            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+            DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "read",
+            _ => "other",
+        };
+
+    private static string LaneLabel(string key) => key switch
+    {
+        "read" => "Read",
+        "watch" => "Watch",
+        "listen" => "Listen",
+        _ => "Other",
+    };
+
+    private static int LaneSort(string key) => key switch
+    {
+        "read" => 0,
+        "watch" => 1,
+        "listen" => 2,
+        _ => 3,
+    };
+
+    private void SelectLane(string lane) => _selectedLane = lane;
+    private sealed record FilterOption(string Key, string Label, int Count);
+}

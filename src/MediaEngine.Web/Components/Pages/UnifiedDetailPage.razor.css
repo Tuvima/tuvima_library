@@ -1,0 +1,34 @@
+.tl-unified-detail-shell {
+    position: relative;
+}
+
+.tl-detail-origin-back {
+    position: absolute;
+    top: 0.8rem;
+    left: clamp(1rem, 4vw, 4rem);
+    z-index: 20;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.1rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(5, 8, 14, 0.54);
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.78rem;
+    backdrop-filter: blur(14px);
+}
+
+.tl-detail-origin-back:hover,
+.tl-detail-origin-back:focus-visible {
+    border-color: rgba(167, 139, 250, 0.72);
+    color: #fff;
+}
+
+@media (max-width: 720px) {
+    .tl-detail-origin-back {
+        top: 0.55rem;
+        left: 0.75rem;
+    }
+}

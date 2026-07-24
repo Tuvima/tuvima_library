@@ -153,61 +153,21 @@ public sealed class CollectionsHubTests
     }
 
     [Fact]
-    public void CollectionDetail_UsesDedicatedCollectionDetailSurface()
+    public void CollectionDetail_UsesCanonicalSharedDetailSurface()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\CollectionDetail.razor"));
-        var css = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\CollectionDetail.razor.css"));
+        var pagesPath = Path.GetDirectoryName(
+            GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\UnifiedDetailPage.razor"))!;
+        var route = File.ReadAllText(Path.Combine(pagesPath, "UnifiedDetailPage.razor"));
+        var detail = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Details\DetailPage.razor"));
+        var collections = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
 
-        Assert.Contains("@page \"/collection/{Id:guid}\"", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionSummaryAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionItemsAsync", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionEditorLauncher.BeginInline", source, StringComparison.Ordinal);
-        Assert.Contains("<CollectionEditorShell", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("LookupCollectionMediaAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("AddCollectionItemAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("RemoveCollectionItemAsync", source, StringComparison.Ordinal);
-        Assert.Contains("collection-detail-hero", source, StringComparison.Ordinal);
-        Assert.Contains("Edit collection", source, StringComparison.Ordinal);
-        Assert.Contains("OVERVIEW", source, StringComparison.Ordinal);
-        Assert.Contains("HeroArtworkStackItems", source, StringComparison.Ordinal);
-        Assert.Contains("<TuvimaArtworkStack", source, StringComparison.Ordinal);
-        Assert.Contains("Palette=\"@_collection.ArtworkPalette\"", source, StringComparison.Ordinal);
-        Assert.Contains("Variant=\"ArtworkStackVariant.Hero\"", source, StringComparison.Ordinal);
-        Assert.Contains("ResolveHeroPalette", source, StringComparison.Ordinal);
-        Assert.Contains("ToRgbCss", source, StringComparison.Ordinal);
-        Assert.Contains("ItemGroups", source, StringComparison.Ordinal);
-        Assert.Contains("tl-detail-page collection-detail-page", source, StringComparison.Ordinal);
-        Assert.Contains("GENERATED COLLECTION", source, StringComparison.Ordinal);
-        Assert.Contains("CUSTOM COLLECTION", source, StringComparison.Ordinal);
-        Assert.Contains("MediaCountKey", source, StringComparison.Ordinal);
-        Assert.Contains("Icons.Material.Outlined.Tv", source, StringComparison.Ordinal);
-        var clientSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\EngineApiClient.ManagedCollections.cs"));
-        Assert.Contains("foreach (var artworkItem in collection.ArtworkItems)", clientSource, StringComparison.Ordinal);
-        Assert.Contains("artworkItem.CoverUrl = AbsoluteUrl(artworkItem.CoverUrl)", clientSource, StringComparison.Ordinal);
-        Assert.DoesNotContain("GLOBAL COLLECTION", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("WATCH COLLECTION\",", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("READ COLLECTION\",", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Back to Collections", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("VisibilityLabel", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("UpdatedLabel", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("<DetailPage Model=", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Play All", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Shuffle", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("collection-detail-back", css, StringComparison.Ordinal);
-        Assert.Contains("font-family: Georgia", css, StringComparison.Ordinal);
-        Assert.Contains("height: 60svh", css, StringComparison.Ordinal);
-        Assert.Contains("max-height: 60svh", css, StringComparison.Ordinal);
-        Assert.Contains(".collection-detail-page ::deep .collection-detail-hero", css, StringComparison.Ordinal);
-        Assert.Contains("height: auto", css, StringComparison.Ordinal);
-        Assert.Contains("max-height: none", css, StringComparison.Ordinal);
-        Assert.Contains("align-items: center", css, StringComparison.Ordinal);
-        Assert.Contains("align-self: center", css, StringComparison.Ordinal);
-        Assert.DoesNotContain("transform: translateY", css, StringComparison.Ordinal);
-        Assert.Contains("collection-detail-artwork-stack", css, StringComparison.Ordinal);
-        Assert.Contains("collection-detail-hero__cascade", css, StringComparison.Ordinal);
-        Assert.Contains("collection-detail-item-grid", css, StringComparison.Ordinal);
-        Assert.DoesNotContain("position: sticky", css, StringComparison.Ordinal);
+        Assert.False(File.Exists(Path.Combine(pagesPath, "CollectionDetail.razor")));
+        Assert.False(File.Exists(Path.Combine(pagesPath, "CollectionDetail.razor.css")));
+        Assert.Contains("@page \"/details/{EntityType}/{Id:guid}\"", route, StringComparison.Ordinal);
+        Assert.Contains("/details/collection/", collections, StringComparison.Ordinal);
+        Assert.Contains("CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest", detail, StringComparison.Ordinal);
+        Assert.Contains("<DetailPrimaryModule Model=\"Model\"", detail, StringComparison.Ordinal);
+        Assert.Contains("<DetailTabs Tabs=\"VisibleTabs\"", detail, StringComparison.Ordinal);
     }
 
     [Fact]

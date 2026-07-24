@@ -1824,3 +1824,101 @@ window.listenUi = {
         localStorage.setItem('listen-track-grid-columns-' + viewKey, json);
     }
 };
+
+window.detailOrigin = (() => {
+    const prefix = 'tuvima:detail-origin:';
+    let initialized = false;
+    const routeKey = () => `${window.location.pathname}${window.location.search}`;
+
+    const capture = () => {
+        try {
+            const active = document.activeElement;
+            sessionStorage.setItem(prefix + routeKey(), JSON.stringify({
+                scrollY: window.scrollY,
+                scrollContainers: Array.from(document.querySelectorAll('[data-detail-origin-scroll]'))
+                    .map((element, index) => ({
+                        key: element.getAttribute('data-detail-origin-scroll') || String(index),
+                        top: element.scrollTop
+                    })),
+                activeHref: active instanceof HTMLAnchorElement ? active.getAttribute('href') : null,
+                capturedAt: Date.now()
+            }));
+            sessionStorage.setItem(prefix + 'last', routeKey());
+        } catch (error) {
+            // Navigation remains functional when private browsing or policy
+            // prevents this best-effort state from being stored.
+            console.debug('Detail origin state could not be captured.', error);
+        }
+    };
+
+    const restore = () => {
+        try {
+            const raw = sessionStorage.getItem(prefix + routeKey());
+            if (!raw) return;
+            const state = JSON.parse(raw);
+            window.requestAnimationFrame(() => {
+                window.setTimeout(() => {
+                    window.scrollTo({ top: Number(state.scrollY) || 0, behavior: 'instant' });
+                    const scrollContainers = Array.from(document.querySelectorAll('[data-detail-origin-scroll]'));
+                    (state.scrollContainers || []).forEach((position, index) => {
+                        const element = scrollContainers.find(candidate =>
+                            candidate.getAttribute('data-detail-origin-scroll') === position.key)
+                            || scrollContainers[index];
+                        if (element) {
+                            element.scrollTop = Number(position.top) || 0;
+                        }
+                    });
+                    if (state.activeHref) {
+                        const links = Array.from(document.querySelectorAll('a[href]'));
+                        links.find(link => link.getAttribute('href') === state.activeHref)
+                            ?.focus({ preventScroll: true });
+                    }
+                }, 80);
+            });
+        } catch (error) {
+            console.debug('Detail origin state could not be restored.', error);
+        }
+    };
+
+    const initialize = () => {
+        if (initialized) {
+            restore();
+            return;
+        }
+
+        initialized = true;
+        document.addEventListener('click', event => {
+            const link = event.target instanceof Element
+                ? event.target.closest('a[href]')
+                : null;
+            if (!(link instanceof HTMLAnchorElement)) return;
+            const destination = new URL(link.href, window.location.href);
+            if (destination.origin === window.location.origin
+                && destination.pathname.startsWith('/details/')
+                && !window.location.pathname.startsWith('/details/')) {
+                capture();
+            }
+        }, true);
+        window.addEventListener('popstate', () => window.setTimeout(restore, 0));
+        restore();
+    };
+
+    const back = fallback => {
+        try {
+            const last = sessionStorage.getItem(prefix + 'last');
+            if (last && last !== routeKey()) {
+                window.history.back();
+                return;
+            }
+        } catch (error) {
+            console.debug('Detail origin state could not be read.', error);
+        }
+        window.location.assign(fallback || '/');
+    };
+
+    return { initialize, capture, restore, back };
+})();
+
+// Register before the first detail link is clicked so the originating lane
+// position can be captured on the initial navigation.
+window.detailOrigin.initialize();

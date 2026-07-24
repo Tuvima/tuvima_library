@@ -5368,6 +5368,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             PreviewCharacters = detail.PreviewCharacters.Select(NormalizeCredit).ToList(),
             RelationshipStrip = detail.RelationshipStrip,
             Tabs = detail.Tabs,
+            PrimaryModule = detail.PrimaryModule,
             MediaGroups = detail.MediaGroups.Select(group => new MediaGroupingViewModel
             {
                 Key = group.Key,
@@ -5397,6 +5398,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
                     IsExplicit = item.IsExplicit,
                     Quality = item.Quality,
                     ProgressPercent = item.ProgressPercent,
+                    Lane = item.Lane,
+                    Roles = item.Roles,
                     Metadata = item.Metadata,
                     Actions = item.Actions,
                     IsOwned = item.IsOwned,

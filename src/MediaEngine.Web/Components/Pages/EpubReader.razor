@@ -790,7 +790,7 @@
         _progressAlreadySaved = true;
 
         var returnUrl = ReturnCollectionId.HasValue
-            ? $"/collection/{ReturnCollectionId.Value}?lastAssetId={AssetId}"
+            ? $"/details/collection/{ReturnCollectionId.Value}?lastAssetId={AssetId}"
             : "/";
         Nav.NavigateTo(returnUrl, replace: true);
     }

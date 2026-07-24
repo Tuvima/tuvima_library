@@ -1,97 +1,7 @@
-﻿@namespace MediaEngine.Web.Components.Details
+@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-@if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
-{
-    <div class="tl-detail-tab-panel tl-person-details-panel">
-        <section class="tl-detail-panel tl-person-about-panel">
-            <div class="tl-section-heading"><h2>About</h2></div>
-            @if (BiographyParagraphs.Count == 0)
-            {
-                <p class="tl-detail-empty">No biography is available yet.</p>
-            }
-            else
-            {
-                <div class="tl-person-biography">
-                    @foreach (var paragraph in BiographyParagraphs)
-                    {
-                        <p>@paragraph</p>
-                    }
-                </div>
-                <DescriptionAttribution Attribution="Model.DescriptionAttribution" Compact="true" />
-            }
-        </section>
-
-        <section class="tl-detail-panel tl-person-library-panel">
-            <div class="tl-person-library-header">
-                <div class="tl-section-heading"><h2>In Your Library</h2></div>
-                @if (LibraryLanes.Count > 0)
-                {
-                    <div class="tl-person-library-pills" aria-label="Library categories">
-                        @foreach (var lane in LibraryLanes)
-                        {
-                            <span class="tl-person-library-pill">
-                                <MudIcon Icon="@LaneIcon(lane.Key)" Size="Size.Small" />
-                                <span>@lane.Title</span>
-                                <strong>@lane.Items.Count</strong>
-                            </span>
-                        }
-                    </div>
-                }
-            </div>
-
-            @if (LibraryLanes.Count == 0)
-            {
-                <p class="tl-detail-empty">No linked works in the library yet.</p>
-            }
-            else
-            {
-                <div class="tl-person-library-lanes">
-                    @foreach (var lane in LibraryLanes)
-                    {
-                        <section class="tl-person-library-lane tl-person-library-lane--@lane.Key">
-                            <h3>
-                                <MudIcon Icon="@LaneIcon(lane.Key)" Size="Size.Small" />
-                                <span>@lane.Title</span>
-                            </h3>
-                            <div class="tl-person-work-grid">
-                                @foreach (var item in lane.Items)
-                                {
-                                    <a class="tl-person-work-card" href="@ResolveWorkRoute(item)">
-                                        <span class="tl-person-work-card__art">
-                                            @if (!string.IsNullOrWhiteSpace(item.ArtworkUrl))
-                                            {
-                                                <img src="@item.ArtworkUrl" alt="@item.Title" />
-                                            }
-                                            else
-                                            {
-                                                <GeneratedIdentity Name="@item.Title" />
-                                            }
-                                        </span>
-                                        <span class="tl-person-work-card__body">
-                                            <span class="tl-person-work-card__title">@item.Title</span>
-                                            @if (!string.IsNullOrWhiteSpace(item.Subtitle))
-                                            {
-                                                <span class="tl-person-work-card__meta">@item.Subtitle</span>
-                                            }
-                                        </span>
-                                    </a>
-                                }
-                            </div>
-                        </section>
-                    }
-                </div>
-            }
-        </section>
-
-        @if (Model.SourceLinks.Count > 0)
-        {
-            @SourceLinksPanel(Model.SourceLinks)
-        }
-    </div>
-}
-else
-{
+<div class="tl-detail-tab-panel">
     <section class="tl-detail-panel">
         <div class="tl-section-heading"><h2>Details</h2></div>
         <dl class="tl-detail-dl">
@@ -101,140 +11,51 @@ else
             <dd>@Model.LibraryStatus</dd>
             <dt>Identity</dt>
             <dd>@Model.IdentityStatus</dd>
+            @if (Model.PersonDetails is not null)
+            {
+                @if (!string.IsNullOrWhiteSpace(Model.PersonDetails.Occupation))
+                {
+                    <dt>Occupation</dt>
+                    <dd>@Model.PersonDetails.Occupation</dd>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.PersonDetails.Nationality))
+                {
+                    <dt>Nationality</dt>
+                    <dd>@Model.PersonDetails.Nationality</dd>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.PersonDetails.WikidataQid))
+                {
+                    <dt>Canonical identity</dt>
+                    <dd>@Model.PersonDetails.WikidataQid</dd>
+                }
+            }
         </dl>
     </section>
 
     @if (Model.SourceLinks.Count > 0)
     {
-        @SourceLinksPanel(Model.SourceLinks)
+        <section class="tl-detail-panel tl-source-links-panel">
+            <div class="tl-section-heading"><h2>Sources</h2></div>
+            <div class="tl-source-links">
+                @foreach (var link in Model.SourceLinks)
+                {
+                    <a class="tl-source-link"
+                       href="@link.Url"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       title="@link.Tooltip">
+                        <MudIcon Icon="@SourceIcon(link.Key)" Size="Size.Small" />
+                        <span>@link.Label</span>
+                        <small>@link.SourceName</small>
+                    </a>
+                }
+            </div>
+        </section>
     }
-}
+</div>
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
-
-    private IReadOnlyList<string> BiographyParagraphs
-        => SplitParagraphs(Model.PersonDetails?.Biography ?? Model.Description);
-
-    private IReadOnlyList<PersonLibraryLane> LibraryLanes
-        => Model.MediaGroups
-            .SelectMany(group => group.Items)
-            .GroupBy(item => LaneKey(item.EntityType))
-            .OrderBy(group => LaneSort(group.Key))
-            .Select(group => new PersonLibraryLane(
-                group.Key,
-                LaneTitle(group.Key),
-                group
-                    .OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
-                    .ToList()))
-            .Where(lane => lane.Items.Count > 0)
-            .ToList();
-
-    private static string ResolveWorkRoute(MediaGroupingItemViewModel item)
-        => item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
-           ?? $"/details/{ToRouteEntityType(item.EntityType)}/{item.Id}";
-
-    private static string ToRouteEntityType(DetailEntityType entityType)
-        => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
-
-    private static string LaneKey(DetailEntityType entityType) => entityType switch
-    {
-        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
-        DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "read",
-        _ => "other",
-    };
-
-    private static string LaneTitle(string key) => key switch
-    {
-        "watch" => "Watch",
-        "listen" => "Listen",
-        "read" => "Read",
-        _ => "Other",
-    };
-
-    private static string LaneIcon(string key) => key switch
-    {
-        "watch" => Icons.Material.Outlined.LiveTv,
-        "listen" => Icons.Material.Outlined.Headphones,
-        "read" => Icons.Material.Outlined.MenuBook,
-        _ => Icons.Material.Outlined.CollectionsBookmark,
-    };
-
-    private static int LaneSort(string key) => key switch
-    {
-        "watch" => 0,
-        "listen" => 1,
-        "read" => 2,
-        _ => 3,
-    };
-
-    private static IReadOnlyList<string> SplitParagraphs(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return [];
-
-        var normalized = value
-            .Replace("\\r\\n", "\n", StringComparison.Ordinal)
-            .Replace("\\n", "\n", StringComparison.Ordinal)
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Replace("<br />", "\n", StringComparison.OrdinalIgnoreCase)
-            .Replace("<br/>", "\n", StringComparison.OrdinalIgnoreCase)
-            .Replace("<br>", "\n", StringComparison.OrdinalIgnoreCase);
-
-        var paragraphs = normalized
-            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph))
-            .ToList();
-
-        if (paragraphs.Count == 1 && paragraphs[0].Length > 700)
-            return SplitLongParagraph(paragraphs[0]);
-
-        return paragraphs;
-    }
-
-    private static IReadOnlyList<string> SplitLongParagraph(string paragraph)
-    {
-        var sentences = paragraph
-            .Split([". "], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select((sentence, index) => index == 0 || sentence.EndsWith('.') ? sentence : $"{sentence}.")
-            .ToList();
-
-        var result = new List<string>();
-        var current = string.Empty;
-        foreach (var sentence in sentences)
-        {
-            if (current.Length > 0 && current.Length + sentence.Length > 520)
-            {
-                result.Add(current.Trim());
-                current = string.Empty;
-            }
-
-            current = string.IsNullOrWhiteSpace(current)
-                ? sentence
-                : $"{current} {sentence}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(current))
-            result.Add(current.Trim());
-
-        return result.Count == 0 ? [paragraph] : result;
-    }
-
-    private RenderFragment SourceLinksPanel(IReadOnlyList<ExternalSourceLinkViewModel> links) => @<section class="tl-detail-panel tl-source-links-panel">
-        <div class="tl-section-heading"><h2>Sources</h2></div>
-        <div class="tl-source-links">
-            @foreach (var link in links)
-            {
-                <a class="tl-source-link" href="@link.Url" target="_blank" rel="noopener noreferrer" title="@link.Tooltip">
-                    <MudIcon Icon="@SourceIcon(link.Key)" Size="Size.Small" />
-                    <span>@link.Label</span>
-                    <small>@link.SourceName</small>
-                </a>
-            }
-        </div>
-    </section>;
 
     private static string SourceIcon(string key) => key switch
     {
@@ -242,6 +63,4 @@ else
         "wikipedia" => Icons.Material.Outlined.Article,
         _ => Icons.Material.Outlined.OpenInNew,
     };
-
-    private sealed record PersonLibraryLane(string Key, string Title, IReadOnlyList<MediaGroupingItemViewModel> Items);
 }

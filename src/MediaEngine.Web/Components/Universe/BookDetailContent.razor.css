@@ -10,7 +10,7 @@
 
 .book-detail-title {
     font-family: var(--media-identity-font-family);
-    font-weight: var(--media-identity-title-weight, 850);
+    font-weight: var(--media-identity-title-weight, 800);
     line-height: var(--media-identity-title-line-height, .96);
     letter-spacing: var(--media-identity-title-letter-spacing, 0);
     text-transform: none;
@@ -784,7 +784,7 @@
 
     .book-detail-title {
         font-family: var(--media-identity-font-family);
-        font-weight: var(--media-identity-title-weight, 850);
+        font-weight: var(--media-identity-title-weight, 800);
         line-height: var(--media-identity-title-line-height, .96);
         letter-spacing: var(--media-identity-title-letter-spacing, 0);
         text-transform: none;
