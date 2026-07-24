@@ -795,11 +795,17 @@ public sealed class DisplayComposerService
             .First();
         var title = representative.Album ?? representative.Title;
         var artist = FirstNonBlank(representative.Artist, representative.Author);
-        var route = $"/listen/music/albums/by-name/{Uri.EscapeDataString(title)}{(string.IsNullOrWhiteSpace(artist) ? string.Empty : $"?artist={Uri.EscapeDataString(artist)}")}";
+        // Album grouping is a system view rooted at the canonical album work.
+        // A track's collection can be a broader/shared container and must not
+        // become the album identity.
+        var albumDetailId = representative.RootWorkId != Guid.Empty
+            ? representative.RootWorkId
+            : representative.WorkId;
+        var route = $"/details/musicalbum/{albumDetailId:D}?context=listen";
         var action = new DisplayActionDto("playAlbum", "Play Album", representative.WorkId, representative.AssetId, representative.CollectionId, route);
 
         return new DisplayCardDto(
-            Id: representative.CollectionId ?? representative.WorkId,
+            Id: albumDetailId,
             WorkId: representative.WorkId,
             AssetId: representative.AssetId,
             CollectionId: representative.CollectionId,
@@ -835,7 +841,7 @@ public sealed class DisplayComposerService
                     "square",
                     work.TrackNumber,
                     "Music",
-                    $"/listen/music/tracks/{work.WorkId:D}",
+                    $"/details/musictrack/{work.WorkId:D}?context=listen",
                     work.Description,
                     [.. AlbumFacts([work], artist, work.Year, work.Genre, work.Rating)]))
                 .ToList(),
@@ -861,7 +867,7 @@ public sealed class DisplayComposerService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Count();
         var route = artistPersonId.HasValue
-            ? $"/details/person/{artistPersonId.Value:D}"
+            ? $"/details/person/{artistPersonId.Value:D}?context=listen"
             : $"/search?q={Uri.EscapeDataString(artist)}&type=person";
         var action = new DisplayActionDto("openPerson", "Open artist", representative.WorkId, representative.AssetId, representative.CollectionId, route);
 
@@ -1021,14 +1027,14 @@ public sealed class DisplayComposerService
     }
 
     private static string AlbumGroupKey(DisplayWorkRow work) =>
-        AlbumGroupKey(work.CollectionId, work.Album, FirstNonBlank(work.Artist, work.Author));
+        AlbumGroupKey(work.WorkId, work.RootWorkId, work.Album, FirstNonBlank(work.Artist, work.Author));
 
     private static string AlbumGroupKey(DisplayJourneyRow item) =>
-        AlbumGroupKey(item.CollectionId, item.Album, FirstNonBlank(item.Artist, item.Author));
+        AlbumGroupKey(item.WorkId, item.RootWorkId, item.Album, FirstNonBlank(item.Artist, item.Author));
 
-    private static string AlbumGroupKey(Guid? collectionId, string? album, string? artist) =>
-        collectionId.HasValue
-            ? $"collection:{collectionId.Value:N}"
+    private static string AlbumGroupKey(Guid workId, Guid rootWorkId, string? album, string? artist) =>
+        rootWorkId != Guid.Empty && rootWorkId != workId
+            ? $"root:{rootWorkId:N}"
             : $"local:{album?.Trim()}|{artist?.Trim()}";
 
     private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row, Guid? assetId = null)

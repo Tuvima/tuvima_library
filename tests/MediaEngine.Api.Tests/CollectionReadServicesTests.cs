@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage;
@@ -172,6 +173,49 @@ public sealed class CollectionReadServicesTests : IDisposable
         Assert.Equal("The Album", group.DisplayName);
         Assert.Equal("The Artist", group.Creator);
         Assert.Equal("The Artist", detail.Author);
+    }
+
+    [Fact]
+    public async Task MusicAlbumGrouping_StopsAtImmediateAlbumParent()
+    {
+        var seeded = await SeedMusicHierarchyAsync();
+        var catalogueWorkId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@CatalogueWorkId, 'Music', 'parent');
+                UPDATE works
+                SET parent_work_id = @CatalogueWorkId
+                WHERE id = @AlbumWorkId;
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES
+                    (@CatalogueWorkId, 'title', 'Artist Catalogue', @Now),
+                    (@CatalogueWorkId, 'album', 'Artist Catalogue', @Now);
+                """,
+                new
+                {
+                    CatalogueWorkId = catalogueWorkId,
+                    seeded.AlbumWorkId,
+                    Now = DateTimeOffset.UtcNow.ToString("O"),
+                });
+        }
+
+        var groups = await _browse.GetSystemViewGroupsAsync("Music", "album", CancellationToken.None);
+        var group = Assert.Single(groups);
+        var detailRows = await _browse.GetSystemViewDetailWorksAsync(
+            "album",
+            "The Album",
+            "Music",
+            "The Artist",
+            CancellationToken.None);
+        var projected = Assert.Single(await new DisplayWorkProjectionReader(_database).LoadAsync(CancellationToken.None));
+
+        Assert.Equal("The Album", group.DisplayName);
+        Assert.Equal(seeded.AlbumWorkId, group.RootWorkId);
+        Assert.Equal(seeded.AlbumWorkId, Assert.Single(detailRows).RootWorkId);
+        Assert.Equal(seeded.AlbumWorkId, projected.RootWorkId);
     }
 
     [Theory]

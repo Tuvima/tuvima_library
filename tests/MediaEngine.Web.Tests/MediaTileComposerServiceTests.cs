@@ -138,6 +138,42 @@ public sealed class MediaTileComposerServiceTests
     }
 
     [Fact]
+    public void FromDisplayCard_AlbumSurfaceAlwaysOpensAlbumDetailWhenResumeTrackIsPresent()
+    {
+        var albumId = Guid.NewGuid();
+        var trackId = Guid.NewGuid();
+        var albumRoute = $"/details/musicalbum/{albumId:D}?context=listen";
+        var card = new DisplayCardDto(
+            Id: albumId,
+            WorkId: trackId,
+            AssetId: Guid.NewGuid(),
+            CollectionId: albumId,
+            MediaType: "Music",
+            GroupingType: "album",
+            Title: "Heroes",
+            Subtitle: "David Bowie",
+            Facts: ["1977", "8 tracks"],
+            Artwork: EmptyArtwork("#7C3AED"),
+            PreferredShape: "square",
+            Presentation: "album",
+            TileTextMode: "caption",
+            PreviewPlacement: "smart",
+            Progress: null,
+            Actions:
+            [
+                new DisplayActionDto("playAsset", "Resume", trackId, WebUrl: $"/details/musictrack/{trackId:D}?context=listen"),
+                new DisplayActionDto("openWork", "Track details", trackId, WebUrl: $"/details/musictrack/{trackId:D}?context=listen"),
+                new DisplayActionDto("playAlbum", "Play Album", trackId, CollectionId: albumId, WebUrl: albumRoute),
+            ],
+            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            SortTimestamp: DateTimeOffset.Parse("2026-07-14T12:00:00Z"));
+
+        var mapped = MediaTileComposerService.FromDisplayCard(card);
+
+        Assert.Equal(albumRoute, mapped.DetailsNavigationUrl);
+    }
+
+    [Fact]
     public void FromDisplayCard_MapsWatchBadgesToTileFieldsAndLogos()
     {
         var workId = Guid.Parse("44444444-1111-1111-1111-444444444444");

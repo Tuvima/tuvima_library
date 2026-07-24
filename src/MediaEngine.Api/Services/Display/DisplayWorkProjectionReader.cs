@@ -25,7 +25,10 @@ public sealed class DisplayWorkProjectionReader
                     w.collection_id AS CollectionId,
                     w.media_type AS MediaType,
                     w.work_kind AS WorkKind,
-                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                    CASE
+                        WHEN w.media_type = 'Music' THEN COALESCE(p.id, w.id)
+                        ELSE COALESCE(gp.id, p.id, w.id)
+                    END AS RootWorkId,
                     ma.id AS AssetId,
                     MIN(mc.claimed_at) OVER (PARTITION BY w.id) AS CreatedAt,
                     ROW_NUMBER() OVER (

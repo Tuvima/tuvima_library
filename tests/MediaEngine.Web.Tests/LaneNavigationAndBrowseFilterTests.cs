@@ -95,6 +95,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("MediaPersonGroupTileComposer.Compose", browseShell, StringComparison.Ordinal);
         Assert.Contains("group.PersonId ?? group.ArtistPersonId", browseShell, StringComparison.Ordinal);
         Assert.Contains("MediaPersonGroupTileComposer.NavigationUrl", browseShell, StringComparison.Ordinal);
+        Assert.Contains("group.DisplayName,\n            PersonDetailContext)", browseShell.Replace("\r\n", "\n"), StringComparison.Ordinal);
+        Assert.Contains("(\"audiobooks\", \"series\") => $\"/details/bookseries/{group.CollectionId:D}?context=listen\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__filter-surface", browseShell, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: max-content minmax(0, 1fr) max-content", browseShellStyles, StringComparison.Ordinal);
         Assert.Contains(".browse-shell__control-group--filters", browseShellStyles, StringComparison.Ordinal);

@@ -281,12 +281,12 @@ public sealed class ProfileOverviewReadService(
 
         if (normalized.Contains("audio"))
         {
-            return $"/listen/audiobook/{workId}";
+            return $"/details/audiobook/{workId}?context=listen";
         }
 
         if (normalized.Contains("music"))
         {
-            return "/listen/music";
+            return $"/details/musictrack/{workId}?context=listen";
         }
 
         if (normalized.Contains("movie") || normalized.Contains("show") || normalized.Contains("tv") || normalized.Contains("episode") || normalized.Contains("video"))

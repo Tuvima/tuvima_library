@@ -436,7 +436,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
 
         if (row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/listen/audiobook/{row.WorkId:D}";
+            return $"/details/audiobook/{row.WorkId:D}?context=listen";
         }
 
         if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))

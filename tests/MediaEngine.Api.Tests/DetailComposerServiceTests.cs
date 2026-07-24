@@ -163,9 +163,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook when hasChapters => [\"chapters\", \"overview\", \"credits\", \"editions\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicAlbum => [\"tracks\", \"overview\", \"credits\", \"editions\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
         Assert.Contains("BuildOverflowActions(workId, entityType, isAdminView)", source);
@@ -1177,9 +1179,43 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal("overview", tabs[0].Key);
+        Assert.Equal(entityType == DetailEntityType.Audiobook ? "chapters" : "overview", tabs[0].Key);
         Assert.DoesNotContain(tabs, tab => tab.Key == "series");
         Assert.DoesNotContain(tabs, tab => tab.Key == "sequence");
+    }
+
+    [Fact]
+    public void BuildTabs_MusicAlbumUsesEmbeddedTracksAsItsDefaultSection()
+    {
+        var tabs = InvokePrivate<List<DetailTab>>(
+            "BuildTabs",
+            DetailEntityType.MusicAlbum,
+            DetailPresentationContext.Listen,
+            false,
+            false,
+            false,
+            true);
+
+        Assert.Equal(
+            ["tracks", "overview", "credits", "editions", "related", "details"],
+            tabs.Select(tab => tab.Key));
+    }
+
+    [Fact]
+    public void BuildTabs_AudiobookUsesEmbeddedChaptersAsItsDefaultSectionWhenAvailable()
+    {
+        var tabs = InvokePrivate<List<DetailTab>>(
+            "BuildTabs",
+            DetailEntityType.Audiobook,
+            DetailPresentationContext.Listen,
+            false,
+            false,
+            false,
+            true);
+
+        Assert.Equal(
+            ["chapters", "overview", "credits", "editions", "related", "details"],
+            tabs.Select(tab => tab.Key));
     }
 
     [Theory]

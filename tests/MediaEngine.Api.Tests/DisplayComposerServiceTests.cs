@@ -285,11 +285,20 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("album", albumCard.Presentation);
         Assert.Equal("square", albumCard.PreferredShape);
         Assert.Single(albumCard.PreviewItems);
+        Assert.StartsWith("/details/musicalbum/", albumCard.Actions[0].WebUrl, StringComparison.Ordinal);
+        Assert.EndsWith("?context=listen", albumCard.Actions[0].WebUrl, StringComparison.Ordinal);
+        Assert.All(albumCard.PreviewItems, item =>
+        {
+            Assert.StartsWith("/details/musictrack/", item.WebUrl, StringComparison.Ordinal);
+            Assert.EndsWith("?context=listen", item.WebUrl, StringComparison.Ordinal);
+        });
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Items.Any(card => card.GroupingType == "item" && card.MediaType == "Music"));
 
         var audiobookCard = page.Shelves.Single(shelf => shelf.Key == "continue-listening").Items.Single();
         Assert.Equal(58, audiobookCard.Progress?.Percent);
         Assert.Equal("Continue Listening", audiobookCard.Actions[0].Label);
+        Assert.All(audiobookCard.Actions, action =>
+            Assert.Equal($"/details/audiobook/{audiobookId:D}?context=listen", action.WebUrl));
         Assert.DoesNotContain(
             page.Shelves.Where(shelf => shelf.Key == "recently-added-audiobooks").SelectMany(shelf => shelf.Items),
             card => card.WorkId == audiobookId);
@@ -858,7 +867,9 @@ public sealed class DisplayComposerServiceTests
         Assert.Contains("7 min", albumCard.Facts);
         Assert.StartsWith("/stream/", albumCard.Artwork.CoverUrl, StringComparison.Ordinal);
         Assert.EndsWith("/cover", albumCard.Artwork.CoverUrl, StringComparison.Ordinal);
-        Assert.Equal("/listen/music/albums/by-name/Static%20On%20The%20Line?artist=Among%20The%20Outcasts", albumCard.Actions[0].WebUrl);
+        Assert.Equal($"/details/musicalbum/{firstTrack:D}?context=listen", albumCard.Actions[0].WebUrl);
+        Assert.All(albumCard.PreviewItems, item =>
+            Assert.Equal($"/details/musictrack/{item.WorkId:D}?context=listen", item.WebUrl));
 
         Assert.NotNull(page.Hero);
         Assert.Equal("album", page.Hero.Presentation);

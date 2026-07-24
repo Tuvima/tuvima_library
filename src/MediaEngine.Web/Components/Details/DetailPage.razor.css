@@ -7236,8 +7236,9 @@
     }
 }
 
-/* A detail page is one bounded stage: identity, the entity's primary owned
-   content, and the section navigation share 70% of the visible viewport. */
+/* Every detail page uses the same 70% viewport stage. Only bounded audio
+   tracks or chapters share that stage with the identity hero; structural
+   series and owned-work rails begin below the stage navigation. */
 .tl-detail-stage {
     --cinematic-hero-height: 100%;
     --cinematic-hero-min-height: 0;
@@ -7254,6 +7255,21 @@
         #080c12;
 }
 
+.tl-detail-page__primary-content {
+    position: relative;
+    z-index: 3;
+    padding: clamp(1rem, 2vw, 1.75rem) 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+    background:
+        radial-gradient(circle at 72% 8%, color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 10%, transparent), transparent 38rem),
+        #090d14;
+}
+
+.tl-detail-page__primary-content ::deep .tl-series-placement:not(.tl-series-placement--compact) {
+    width: min(100% - 5rem, 106rem);
+    margin: 0 auto;
+}
+
 .tl-detail-stage .tl-detail-edit-stage {
     min-height: 0;
     flex: 1 1 auto;
@@ -7261,7 +7277,7 @@
 }
 
 .tl-detail-stage--with-primary .tl-detail-edit-stage {
-    flex: 0 0 clamp(21rem, 44svh, 25rem);
+    flex: 0 0 clamp(19.5rem, 44.5svh, 25rem);
 }
 
 .tl-detail-stage .tl-detail-edit-face {
@@ -7350,7 +7366,12 @@
 }
 
 .tl-detail-stage__navigation ::deep .detail-surface-navigation {
-    min-height: 2.8rem;
+    min-height: 3.25rem;
+}
+
+.tl-detail-stage__navigation ::deep .detail-surface-navigation .surface-navigation-bar__tabs,
+.tl-detail-stage__navigation ::deep .detail-surface-navigation .surface-navigation-bar__tab {
+    min-height: 3.25rem;
 }
 
 .tl-detail-stage--with-primary ::deep .tl-detail-primary-module--tracks .tl-detail-primary-module__viewport,
@@ -7378,6 +7399,11 @@
     backdrop-filter: blur(14px);
 }
 
+.tl-detail-stage--with-primary ::deep .tl-detail-primary-module--tracks .tl-detail-track-toolbar {
+    min-height: 2.65rem;
+    padding-block: 0.4rem;
+}
+
 .tl-detail-stage--with-primary ::deep .tl-detail-primary-module--tracks .tl-audio-item-table {
     min-height: 0;
     flex: 1 1 auto;
@@ -7396,6 +7422,14 @@
     z-index: 2;
 }
 
+.tl-detail-stage--with-primary ::deep .tl-detail-primary-module--tracks .tl-audio-item-table__table thead th {
+    height: 2.45rem;
+}
+
+.tl-detail-stage--with-primary ::deep .tl-detail-primary-module--tracks .tl-audio-item-table__table tbody td {
+    height: 2.85rem;
+}
+
 .tl-detail-stage--with-primary ::deep .tl-detail-primary-module--chapters .tl-audiobook-chapters {
     height: 100%;
     min-height: 0;
@@ -7405,6 +7439,22 @@
     max-height: calc(100% - 4rem);
     overflow-y: auto;
     overscroll-behavior: contain;
+}
+
+/* Portrait covers remain restrained inside the larger identity-only hero.
+   The added viewport height belongs to the cinematic field, not oversized art. */
+.tl-detail-stage--identity-only ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+.tl-detail-stage--identity-only ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+.tl-detail-stage--identity-only ::deep .tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback .tl-detail-media-stage__cover-wrap {
+    width: clamp(12rem, 13.5vw, 14.75rem);
+    max-width: clamp(12rem, 13.5vw, 14.75rem);
+    height: min(23rem, 44svh);
+}
+
+.tl-detail-stage--with-primary ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
+    width: min(clamp(17.5rem, 22vw, 22rem), calc(100% - 2rem));
+    max-width: min(clamp(17.5rem, 22vw, 22rem), calc(100% - 2rem));
+    height: min(clamp(17.5rem, 22vw, 22rem), calc(100% - 1.25rem));
 }
 
 @media (max-width: 720px), (max-height: 620px) {
@@ -7426,5 +7476,9 @@
 
     .tl-detail-stage__navigation {
         padding-inline: 1rem;
+    }
+
+    .tl-detail-page__primary-content ::deep .tl-series-placement:not(.tl-series-placement--compact) {
+        width: min(100% - 2rem, 106rem);
     }
 }

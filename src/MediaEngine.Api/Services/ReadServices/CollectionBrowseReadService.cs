@@ -338,6 +338,9 @@ public sealed class CollectionBrowseReadService(
             : "INNER JOIN works w ON w.id = e.work_id AND w.media_type = @MediaType";
         var isMusicAlbumGroup = string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+        var hierarchyRootSql = isMusicAlbumGroup
+            ? "COALESCE(p.id, w.id)"
+            : "COALESCE(gp.id, p.id, w.id)";
 
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionSystemViewDetailWorkReadModel>(new CommandDefinition(
@@ -355,12 +358,12 @@ public sealed class CollectionBrowseReadService(
                         AND COALESCE(
                             (SELECT cv_parent_album.value
                              FROM canonical_values cv_parent_album
-                             WHERE cv_parent_album.entity_id = COALESCE(gp.id, p.id, w.id)
+                             WHERE cv_parent_album.entity_id = {hierarchyRootSql}
                                AND cv_parent_album.key = 'album'
                              LIMIT 1),
                             (SELECT cv_parent_title.value
                              FROM canonical_values cv_parent_title
-                             WHERE cv_parent_title.entity_id = COALESCE(gp.id, p.id, w.id)
+                             WHERE cv_parent_title.entity_id = {hierarchyRootSql}
                                AND cv_parent_title.key = 'title'
                              LIMIT 1),
                             (SELECT cv_asset_album.value
@@ -403,7 +406,7 @@ public sealed class CollectionBrowseReadService(
                 SELECT
                     mw.work_id AS WorkId,
                     MIN(ma.id) AS AssetId,
-                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                    {hierarchyRootSql} AS RootWorkId,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS Title,
                     MAX(CASE WHEN cv.key = 'episode_title' THEN cv.value END) AS EpisodeTitle,
                     MAX(CASE WHEN cv.key = 'show_name' THEN cv.value END) AS ShowName,
@@ -437,42 +440,42 @@ public sealed class CollectionBrowseReadService(
                     MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS Runtime,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('cover_url', 'cover', 'poster_url', 'poster') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('cover_url', 'cover', 'poster_url', 'poster') THEN NULLIF(cv.value, '') END)) AS Cover,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('background_url', 'background') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('background_url', 'background') THEN NULLIF(cv.value, '') END)) AS Background,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('banner_url', 'banner') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('banner_url', 'banner') THEN NULLIF(cv.value, '') END)) AS Banner,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('hero_url', 'hero') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('hero_url', 'hero') THEN NULLIF(cv.value, '') END)) AS Hero,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('clear_logo_url', 'clear_logo', 'logo_url', 'logo') THEN NULLIF(cv.value, '') END)) AS Logo,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('artwork_primary_hex', 'cover_primary_hex', 'primary_color') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('artwork_primary_hex', 'cover_primary_hex', 'primary_color') THEN NULLIF(cv.value, '') END)) AS PrimaryColor,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('artwork_secondary_hex', 'cover_secondary_hex', 'secondary_color') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('artwork_secondary_hex', 'cover_secondary_hex', 'secondary_color') THEN NULLIF(cv.value, '') END)) AS SecondaryColor,
                     COALESCE(
                         (SELECT NULLIF(value, '') FROM canonical_values
-                         WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                         WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color') THEN NULLIF(cv.value, '') END)) AS AccentColor,
                     MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS Genre,
@@ -623,13 +626,16 @@ public sealed class CollectionBrowseReadService(
         var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
         var isPersonGroup = ResolvePersonRole(groupField) is not null;
+        var hierarchyRootSql = isMusicAlbumGroup
+            ? "COALESCE(p.id, w.id)"
+            : "COALESCE(gp.id, p.id, w.id)";
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionSystemViewGroupReadModel>(new CommandDefinition(
             $"""
             WITH work_assets AS (
                 SELECT w.id AS WorkId,
                        ma.id AS AssetId,
-                       COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                       {hierarchyRootSql} AS RootWorkId,
                        primary_credit.person_name AS LinkedPersonName
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
@@ -784,13 +790,16 @@ public sealed class CollectionBrowseReadService(
         var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
         var isPersonGroup = ResolvePersonRole(groupField) is not null;
+        var hierarchyRootSql = isMusicAlbumGroup
+            ? "COALESCE(p.id, w.id)"
+            : "COALESCE(gp.id, p.id, w.id)";
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionSystemViewPreviewReadModel>(new CommandDefinition(
             $"""
             WITH work_assets AS (
                 SELECT w.id AS WorkId,
                        MIN(ma.id) AS AssetId,
-                       COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                       {hierarchyRootSql} AS RootWorkId,
                        primary_credit.person_name AS LinkedPersonName
                 FROM works w
                 INNER JOIN editions e ON e.work_id = w.id
@@ -803,7 +812,7 @@ public sealed class CollectionBrowseReadService(
                    AND @IsPersonGroup = 1
                 WHERE w.id IN @WorkIds
                   AND {visibleAssetPredicate}
-                GROUP BY w.id, COALESCE(gp.id, p.id, w.id), primary_credit.person_name
+                GROUP BY w.id, {hierarchyRootSql}, primary_credit.person_name
             )
             SELECT CASE WHEN @IsMusicAlbumGroup = 1 THEN COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),

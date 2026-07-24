@@ -303,10 +303,8 @@ public sealed class MediaTileComposerService
             PreviewImageUrl = surface.PreviewImageUrl,
             TileImageFitMode = surface.TileImageFitMode,
             HoverImageFitMode = surface.HoverImageFitMode,
-            NavigationUrl = card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl ?? "/",
-            DetailsNavigationUrl = card.Actions.Skip(1).FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl
-                ?? card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl
-                ?? "/",
+            NavigationUrl = ResolveCardNavigationUrl(card),
+            DetailsNavigationUrl = ResolveCardDetailsNavigationUrl(card),
             PrimaryNavigationUrl = card.Progress?.ResumeAction?.WebUrl
                 ?? card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl,
             PrimaryActionLabel = card.Actions.FirstOrDefault()?.Label ?? "Open",
@@ -318,6 +316,29 @@ public sealed class MediaTileComposerService
             IsCollection = card.Flags.IsCollection,
             UseLandscapeGroupTile = useLandscapeGroupTile,
         };
+    }
+
+    private static string ResolveCardNavigationUrl(DisplayCardDto card)
+        => card.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl ?? "/";
+
+    private static string ResolveCardDetailsNavigationUrl(DisplayCardDto card)
+    {
+        // Album cards may carry a track-resume action as well as their album action.
+        // The card itself always opens the album detail; playback stays inside that surface.
+        if (string.Equals(card.Presentation, "album", StringComparison.OrdinalIgnoreCase))
+        {
+            return card.Actions.FirstOrDefault(action =>
+                       action.WebUrl?.StartsWith("/details/musicalbum/", StringComparison.OrdinalIgnoreCase) == true)
+                   ?.WebUrl
+                   ?? ResolveCardNavigationUrl(card);
+        }
+
+        return card.Actions.FirstOrDefault(action =>
+                   action.Type.StartsWith("open", StringComparison.OrdinalIgnoreCase)
+                   && !string.IsNullOrWhiteSpace(action.WebUrl))
+               ?.WebUrl
+               ?? card.Actions.Skip(1).FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.WebUrl))?.WebUrl
+               ?? ResolveCardNavigationUrl(card);
     }
 
     private static async Task<DisplayPageDto> RequireDisplayPageAsync(Task<DisplayPageDto?> request, string surface)

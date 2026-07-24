@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 3.11 and Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last audited: 2026-07-20 | Auditor: Codex
+> Last audited: 2026-07-23 | Auditor: Codex
 
 ---
 
@@ -17,7 +17,7 @@ The Dashboard is the user-facing surface for a local-first story library. It is 
 - **Collections** (`/collections`) is for broader rollups where multiple shelves share a series, franchise, or universe relationship.
 - **Search** (`/search`) searches across the library.
 - **My List** (`/my-list`) shows the active profile's saved shortlist.
-- **Detail pages** use one canonical full-width surface for media, series, standard collections, and people. A 70svh desktop stage combines the shared identity hero with a bounded Engine-selected tracks, chapters, episodes, sequence, collection-items, appearances, or owned-works module and places shared navigation at the bottom. Overview combines description/biography, credits or cast, series/collection context, and related content. Person works are owned-only canonical credits; playlists remain specialized Listen surfaces.
+- **Detail pages** use one canonical full-width surface for media, series, standard collections, and people. A 70svh desktop stage combines the shared identity hero with only bounded, internally scrolling album tracks or audiobook chapters and places shared navigation at the bottom. Episodes, ordered sequences, collection items, appearances, and owned person works render intact below the stage and before Overview. Portrait cover art remains restrained, and long sequences retain the named Jump to selector. Overview combines description/biography, credits or cast, series/collection context, and related content. Person works are owned-only canonical credits; playlists remain specialized Listen surfaces.
 - **Settings/Admin** owns configuration and operations, including Review Queue.
 
 Lane-level shelves stay in their lane. A single book series, film series, album, or audio series should not duplicate itself as a top-level Collections tile unless it connects to a broader cross-shelf relationship.

@@ -842,6 +842,13 @@ public sealed class UnifiedDetailComponentTests
 
         Assert.Contains("DetailEntityType.MusicAlbum or DetailEntityType.Audiobook", detailPage);
         Assert.Contains("<DetailPrimaryModule Model=\"Model\"", detailPage);
+        Assert.Contains("HasEmbeddedPrimaryModule", detailPage);
+        Assert.Contains("DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters", detailPage);
+        Assert.Contains("HasBelowHeroPrimaryModule", detailPage);
+        Assert.Contains("IsEmbeddedPrimaryModuleTab", detailPage);
+        Assert.Contains("@if (!IsEmbeddedPrimaryModuleTab)", detailPage);
+        Assert.Contains("tl-detail-page__primary-content", detailPage);
+        Assert.Contains("Embedded=\"true\"", detailPage);
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.Contains("<MusicTrackList", primaryModule);
         Assert.Contains("<AudiobookChapterList", primaryModule);

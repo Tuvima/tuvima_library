@@ -179,6 +179,7 @@
     [Parameter] public string SourceTitle { get; set; } = "Audio";
     [Parameter] public string? ArtworkUrl { get; set; }
     [Parameter] public bool IsAudiobook { get; set; }
+    [Parameter] public bool Compact { get; set; }
 
     private readonly HashSet<Guid> _favoriteIds = [];
     private readonly List<AudioTableColumn> _columns = [];
@@ -213,7 +214,10 @@
             .Count() > 1;
 
     private IReadOnlyList<AudioTableColumn> VisibleColumns =>
-        _columns.Where(column => column.Key != "artist" || ShowArtistColumn).ToList();
+        _columns
+            .Where(column => !Compact || column.Key is "track" or "title" or "duration" or "status")
+            .Where(column => column.Key != "artist" || ShowArtistColumn)
+            .ToList();
 
     protected override void OnParametersSet()
     {

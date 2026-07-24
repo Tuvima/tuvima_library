@@ -216,7 +216,10 @@ public sealed class DisplayCardBuilder
         var title = mediaKind is "Movie" or "Book" or "Comic" or "Audiobook"
             ? SeriesDisplayFormatter.NormalizeContainerTitle(rawTitle, isStructuralSeries: true) ?? rawTitle
             : rawTitle;
-        var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representative.WorkId, mediaKind, title));
+        var representativeRootWorkId = representative.RootWorkId != Guid.Empty
+            ? representative.RootWorkId
+            : representative.WorkId;
+        var action = new DisplayActionDto(CollectionActionKind(mediaKind), CollectionActionLabel(mediaKind), null, null, collectionId, CollectionUrlFor(collectionId, representativeRootWorkId, mediaKind, title));
         var artwork = CollectionArtworkFor(representative);
         var presentation = CollectionPresentation(lane, mediaKind);
         var previewItems = BuildSeriesPreviewItems(mediaKind, works, collectionId, progressByWork: progressByWork);
@@ -352,8 +355,8 @@ public sealed class DisplayCardBuilder
             {
                 "Movie" => $"/watch/movie/{workId}?collectionId={collectionId.Value}",
                 "TV" => $"/watch/tv/show/{collectionId.Value}",
-                "Music" => $"/listen/music/albums/{collectionId}",
-                "Audiobook" => $"/listen/audiobook/{workId}",
+                "Music" => $"/details/musictrack/{workId:D}?context=listen",
+                "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
                 "Comic" => $"/book/{workId}?mode=read",
                 "Book" => $"/book/{workId}?mode=read",
                 _ => $"/collection/{collectionId}",
@@ -364,8 +367,8 @@ public sealed class DisplayCardBuilder
         {
             "Movie" => $"/watch/movie/{workId}",
             "TV" => $"/watch/player/resolve?workId={workId:D}",
-            "Music" => $"/listen/music/tracks/{workId}",
-            "Audiobook" => $"/listen/audiobook/{workId}",
+            "Music" => $"/details/musictrack/{workId:D}?context=listen",
+            "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
             "Comic" => $"/book/{workId}?mode=read",
             "Book" => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}",
@@ -377,8 +380,8 @@ public sealed class DisplayCardBuilder
         {
             "Movie" => $"/watch/movie/{representativeWorkId}?collectionId={collectionId}",
             "TV" => $"/watch/tv/show/{collectionId}",
-            "Music" => $"/listen/music/albums/{collectionId}",
-            "Audiobook" => $"/listen/audiobook/{representativeWorkId}",
+            "Music" => $"/details/musicalbum/{representativeWorkId:D}?context=listen",
+            "Audiobook" => $"/details/bookseries/{collectionId:D}?context=listen",
             "Comic" => $"/details/comicseries/{collectionId}?context=comics",
             "Book" => $"/details/bookseries/{collectionId}?context=read",
             _ => $"/collection/{collectionId}",
@@ -1059,10 +1062,8 @@ public sealed class DisplayCardBuilder
             "Movie" => collectionId.HasValue
                 ? $"/watch/movie/{workId:D}?collectionId={collectionId.Value:D}"
                 : $"/watch/movie/{workId:D}",
-            "Music" => collectionId.HasValue
-                ? $"/listen/music/albums/{collectionId.Value:D}?track={workId:D}"
-                : $"/listen/music?browse=songs&track={workId:D}",
-            "Audiobook" => $"/listen/audiobook/{workId:D}",
+            "Music" => $"/details/musictrack/{workId:D}?context=listen",
+            "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
             "Book" or "Comic" => $"/book/{workId:D}?mode=read",
             _ => $"/details/work/{workId:D}",
         };

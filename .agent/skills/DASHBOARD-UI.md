@@ -2,7 +2,7 @@
 
 > **Mirrors:** `CLAUDE.md` Section 6. Keep both in sync per `.agent/SYNC-MAP.md`.
 
-> Last updated: 2026-07-21
+> Last updated: 2026-07-23
 
 ---
 
@@ -16,7 +16,7 @@ Use this skill when changing Dashboard visual components, routed pages, navigati
 
 Home, Read, Watch, Listen, Collections, and Search are the user-facing discovery and media surfaces. Detail pages and media rows/cards launch inline editing through the shared media editor. Review Queue is only for blocked or uncertain items that need human confirmation. Settings/Admin is for configuration and operational/system concerns.
 
-Canonical detail pages use a full-width 70svh desktop stage, capped at 760 px. The shared cinematic identity stays above a bounded Engine-selected primary array, and the shared section navigation sits below that array inside the stage. Audio rows scroll internally and may not overlap the navigation. Overview combines attributed description/biography, cast or credits, series/collection context, and related content. Person works show only owned canonical eligible credits, deduplicated per work with all eligible roles. Listen playlists remain lane-local specialized queue/edit surfaces.
+Canonical detail pages use a full-width 70svh desktop stage, capped at 760 px. Album tracks and audiobook chapters are the only primary arrays embedded between the shared cinematic identity and section navigation; they scroll internally and may not overlap either region. Episodes, ordered sequences, collection items, appearances, and owned person works render intact below the stage and before Overview. Portrait cover art remains restrained in the larger hero, and long sequences keep the existing named Jump to selector. Overview combines attributed description/biography, cast or credits, series/collection context, and related content. Person works show only owned canonical eligible credits, deduplicated per work with all eligible roles. Listen playlists remain lane-local specialized queue/edit surfaces.
 
 Home is the only cinematic landing and shares `CinematicHeroCarousel`/`CinematicHeroSurface` with detail presentation through `DetailHeroContent`. Read, Watch, and Listen use compact rail-navigated Discover pages, while Collections opens as a browse-first grid. `MediaLaneHeader` keeps only the compact `SurfaceNavigationBar` mounted at the top across each lane's Discover and scoped browse routes; do not repeat the lane identity above it or as a Read/Watch rail title. On desktop, keep the rail viewport-anchored and scroll only the adjacent lane content pane. Filters and tiled results replace only the content beneath it. Direct filters are unboxed page content close beneath the menu, with prominent search first and larger shared controls below. Genre, creator, and year all use the same searchable multi-select checklist; boolean filters stay stable native checkboxes, while tile sizing and Cards/List are right aligned. Series-only changes results without replacing or restyling the controls. Lane scope controls navigate directly to complete tiled libraries; only recommendation shelves use **View all**, and direct browse filters do not repeat the media switcher. Detail tabs retain their existing state behavior.
 

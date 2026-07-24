@@ -44,9 +44,10 @@
                 }
             </div>
 
-            @if (HasPrimaryModule)
+            @if (HasEmbeddedPrimaryModule)
             {
                 <DetailPrimaryModule Model="Model"
+                                     Embedded="true"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
             }
 
@@ -57,6 +58,16 @@
             </div>
         </section>
 
+        @if (HasBelowHeroPrimaryModule)
+        {
+            <div class="tl-detail-page__primary-content">
+                <DetailPrimaryModule Model="Model"
+                                     OnContainerSelected="HandleContainerSelectedAsync" />
+            </div>
+        }
+
+        @if (!IsEmbeddedPrimaryModuleTab)
+        {
         <section id="overview" class="tl-detail-body">
             @if (CurrentActiveTab is "overview")
             {
@@ -141,6 +152,7 @@
                 <DetailsTab Model="Model" />
             }
         </section>
+        }
     </article>
 }
 
@@ -174,10 +186,18 @@
 
     private bool IsAudioDetail => Model?.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.Audiobook;
 
-    private bool HasPrimaryModule => Model?.PrimaryModule.Kind != DetailPrimaryModuleKind.None;
+    private bool HasEmbeddedPrimaryModule => Model?.PrimaryModule.Kind is
+        DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters;
+
+    private bool HasBelowHeroPrimaryModule => Model?.PrimaryModule.Kind is not
+        (DetailPrimaryModuleKind.None or DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters);
+
+    private bool IsEmbeddedPrimaryModuleTab =>
+        HasEmbeddedPrimaryModule
+        && CurrentActiveTab is ("tracks" or "chapters");
 
     private string DetailStageClass =>
-        $"tl-detail-stage{(HasPrimaryModule ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}";
+        $"tl-detail-stage{(HasEmbeddedPrimaryModule ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 

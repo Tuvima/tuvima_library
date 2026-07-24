@@ -1779,7 +1779,7 @@
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("movies", "collections") => $"/details/collection/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
-            ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
+            ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=listen",
             ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
             ("music", "albums" or "timeline") => BuildMusicAlbumNavigationUrl(group),
             (_, "publishers" or "networks") =>
@@ -1871,7 +1871,8 @@
     {
         var navigationUrl = MediaPersonGroupTileComposer.NavigationUrl(
             group.PersonId ?? group.ArtistPersonId,
-            group.DisplayName);
+            group.DisplayName,
+            PersonDetailContext);
         var artworkItems = group.PreviewItems
             .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
             .Select(item => new ArtworkStackItem

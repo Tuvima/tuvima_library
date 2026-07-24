@@ -102,11 +102,12 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     [Fact]
     public async Task SearchAsync_DoesNotRepeatTheTitleAsCreatorOrSubtitle()
     {
+        var workId = Guid.NewGuid();
         var service = new UniversalSearchReadService(_db, new StubWorkSearch(
         [
             new SearchResultDto
             {
-                WorkId = Guid.NewGuid(),
+                WorkId = workId,
                 Title = "Dune",
                 Author = "Dune",
                 MediaType = "Audiobooks",
@@ -120,6 +121,28 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
         Assert.Null(response.TopResult.Creator);
         Assert.Null(response.TopResult.Subtitle);
         Assert.DoesNotContain("Dune", response.TopResult.Facts);
+        Assert.Equal($"/details/audiobook/{workId:D}?context=listen", response.TopResult.DetailRoute);
+    }
+
+    [Fact]
+    public async Task SearchAsync_MusicTrackUsesCanonicalDetailRoute()
+    {
+        var workId = Guid.NewGuid();
+        var service = new UniversalSearchReadService(_db, new StubWorkSearch(
+        [
+            new SearchResultDto
+            {
+                WorkId = workId,
+                CollectionId = Guid.NewGuid(),
+                Title = "Heroes",
+                Author = "David Bowie",
+                MediaType = "Music",
+            },
+        ]));
+
+        var response = await service.SearchAsync("Heroes", 12, CancellationToken.None);
+
+        Assert.Equal($"/details/musictrack/{workId:D}?context=listen", response.TopResult?.DetailRoute);
     }
 
     [Fact]

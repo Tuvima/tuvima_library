@@ -169,6 +169,11 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
             CreateMusicTrack(collectionId, "First Track", "1", "/covers/album.jpg", createdAt.AddMinutes(1)),
             CreateMusicTrack(collectionId, "Second Track", "2", "/covers/album.jpg", createdAt.AddMinutes(2)),
         };
+        var albumRootWorkId = Guid.NewGuid();
+        foreach (var work in works)
+        {
+            work.RootWorkId = albumRootWorkId;
+        }
 
         var card = new DisplayCardBuilder()
             .BuildCollectionCards(works, "listen", minimumSeriesItems: 2)
@@ -178,8 +183,9 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(["First Track", "Second Track", "Third Track"], card.PreviewItems.Select(item => item.Title));
         Assert.Equal(["1", "2", "3"], card.PreviewItems.Select(item => item.Position));
         Assert.Equal(
-            works.OrderBy(work => work.TrackNumber).Select(work => $"/listen/music/albums/{collectionId:D}?track={work.WorkId:D}"),
+            works.OrderBy(work => work.TrackNumber).Select(work => $"/details/musictrack/{work.WorkId:D}?context=listen"),
             card.PreviewItems.Select(item => item.WebUrl));
+        Assert.Equal($"/details/musicalbum/{albumRootWorkId:D}?context=listen", card.Actions[0].WebUrl);
     }
 
     [Fact]
@@ -262,6 +268,46 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
 
         Assert.Equal(1965, card.SortYear);
         Assert.Equal($"/stream/{row.AssetId:D}/cover", card.Artwork.CoverUrl);
+    }
+
+    [Theory]
+    [InlineData("Music", "musictrack")]
+    [InlineData("Audiobook", "audiobook")]
+    public void FromWork_UsesCanonicalListenDetailRoute(string mediaType, string detailType)
+    {
+        var row = new DisplayWorkRow
+        {
+            WorkId = Guid.NewGuid(),
+            AssetId = Guid.NewGuid(),
+            RootWorkId = Guid.NewGuid(),
+            MediaType = mediaType,
+            Title = "Listen item",
+            CreatedAt = DateTimeOffset.Parse("2026-07-14T12:00:00Z"),
+        };
+
+        var card = new DisplayCardBuilder().FromWork(row, "listen", progress: null);
+
+        Assert.All(card.Actions, action =>
+            Assert.Equal($"/details/{detailType}/{row.WorkId:D}?context=listen", action.WebUrl));
+    }
+
+    [Fact]
+    public void BuildCollectionCards_UsesCanonicalAudiobookSeriesDetailRoute()
+    {
+        var collectionId = Guid.NewGuid();
+        var createdAt = DateTimeOffset.Parse("2026-07-14T12:00:00Z");
+        var works = new[]
+        {
+            CreateWork(collectionId, "Audiobook", "Volume One", "1", "/covers/one.jpg", createdAt),
+            CreateWork(collectionId, "Audiobook", "Volume Two", "2", "/covers/two.jpg", createdAt.AddDays(1)),
+        };
+
+        var card = new DisplayCardBuilder().BuildCollectionCards(works, "listen").Single();
+
+        Assert.Equal("audiobookSeries", card.Presentation);
+        Assert.Equal($"/details/bookseries/{collectionId:D}?context=listen", card.Actions[0].WebUrl);
+        Assert.All(card.PreviewItems, item =>
+            Assert.Equal($"/details/audiobook/{item.WorkId:D}?context=listen", item.WebUrl));
     }
 
     private static DisplayWorkRow CreateWork(
