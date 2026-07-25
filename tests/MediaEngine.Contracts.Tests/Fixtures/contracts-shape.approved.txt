@@ -332,6 +332,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.PersonRelatedLink
   Id: System.String | nullability=not-null | accessors=get,init
   Name: System.String | nullability=not-null | accessors=get,init
   Subtitle: System.String | nullability=nullable | accessors=get,init
+  ImageUrl: System.String | nullability=nullable | accessors=get,init
   Route: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ProgressViewModel

@@ -235,20 +235,6 @@
     font-size: 0.82rem;
 }
 
-.tl-music-album-track-surface__details {
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.075);
-}
-
-.tl-music-album-track-surface__details ::deep .tl-detail-tab-panel {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: clamp(1.5rem, 2.5vw, 3rem);
-    width: 100%;
-    margin: 0;
-    padding: 0;
-}
-
 @media (max-width: 980px) {
     .tl-music-album-track-surface__grid {
         grid-template-columns: 1fr;
@@ -265,8 +251,7 @@
         padding: 1.5rem 1rem 4rem;
     }
 
-    .tl-music-album-track-surface__credit-list,
-    .tl-music-album-track-surface__details ::deep .tl-detail-tab-panel {
+    .tl-music-album-track-surface__credit-list {
         grid-template-columns: 1fr;
     }
 

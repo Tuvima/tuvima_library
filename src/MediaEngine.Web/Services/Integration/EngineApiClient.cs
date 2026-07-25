@@ -5310,7 +5310,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             Description = detail.Description,
             DescriptionAttribution = detail.DescriptionAttribution,
             SourceLinks = detail.SourceLinks,
-            PersonDetails = detail.PersonDetails,
+            PersonDetails = NormalizePersonDetails(detail.PersonDetails),
             Facts = detail.Facts,
             Artwork = new ArtworkSet
             {
@@ -5462,6 +5462,45 @@ public sealed partial class EngineApiClient : IEngineApiClient
             ImageUrl = imageUrl,
         };
     }
+
+    private PersonDetailFacts? NormalizePersonDetails(PersonDetailFacts? details)
+    {
+        if (details is null)
+        {
+            return null;
+        }
+
+        return new PersonDetailFacts
+        {
+            WikidataQid = details.WikidataQid,
+            WikidataUrl = details.WikidataUrl,
+            Biography = details.Biography,
+            Occupation = details.Occupation,
+            Roles = details.Roles,
+            DateOfBirth = details.DateOfBirth,
+            DateOfDeath = details.DateOfDeath,
+            PlaceOfBirth = details.PlaceOfBirth,
+            PlaceOfDeath = details.PlaceOfDeath,
+            Nationality = details.Nationality,
+            IsPseudonym = details.IsPseudonym,
+            IsGroup = details.IsGroup,
+            CreatedAt = details.CreatedAt,
+            EnrichedAt = details.EnrichedAt,
+            ExternalLinks = details.ExternalLinks,
+            Aliases = details.Aliases.Select(NormalizePersonRelatedLink).ToList(),
+            GroupMembers = details.GroupMembers.Select(NormalizePersonRelatedLink).ToList(),
+            MemberOfGroups = details.MemberOfGroups.Select(NormalizePersonRelatedLink).ToList(),
+        };
+    }
+
+    private PersonRelatedLink NormalizePersonRelatedLink(PersonRelatedLink link) => new()
+    {
+        Id = link.Id,
+        Name = link.Name,
+        Subtitle = link.Subtitle,
+        ImageUrl = NormalizeOptionalUrl(link.ImageUrl),
+        Route = link.Route,
+    };
 
     private CreditGroupViewModel NormalizeCreditGroup(CreditGroupViewModel group) => new()
     {

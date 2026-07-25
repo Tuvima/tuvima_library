@@ -44,17 +44,13 @@
             @if (RelatedPeople.Count > 0)
             {
                 <div class="tl-overview-linked-people">
-                    <h3>Linked people</h3>
-                    @foreach (var person in RelatedPeople)
-                    {
-                        <a class="tl-detail-person-related" href="@person.Route">
-                            <span>@person.Name</span>
-                            @if (!string.IsNullOrWhiteSpace(person.Subtitle))
-                            {
-                                <small>@person.Subtitle</small>
-                            }
-                        </a>
-                    }
+                    <h3>Linked identities</h3>
+                    <div class="tl-overview-credit-rows">
+                        @foreach (var person in RelatedPeople)
+                        {
+                            <PersonCreditCard Credit="@ToRelatedIdentityCredit(person)" Compact="true" />
+                        }
+                    </div>
                 </div>
             }
         </aside>
@@ -233,6 +229,18 @@
                 .ToList();
         }
     }
+
+    private static EntityCreditViewModel ToRelatedIdentityCredit(PersonRelatedLink person)
+        => new()
+        {
+            EntityId = person.Id,
+            EntityType = RelatedEntityType.Person,
+            DisplayName = person.Name,
+            ImageUrl = person.ImageUrl,
+            PrimaryRole = person.Subtitle ?? "Related identity",
+            IsPrimary = true,
+            IsCanonical = true,
+        };
 
     private IReadOnlyList<OverviewCreditGroup> OverviewCreditGroups
     {

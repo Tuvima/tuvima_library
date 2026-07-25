@@ -334,6 +334,7 @@ public sealed class PersonRelatedLink
     public string Id { get; init; } = string.Empty;
     public string Name { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
+    public string? ImageUrl { get; init; }
     public string? Route { get; init; }
 }
 

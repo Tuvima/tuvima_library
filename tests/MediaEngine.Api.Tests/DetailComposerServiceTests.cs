@@ -172,7 +172,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Kind = $\"{lane}_count\"", source);
         Assert.DoesNotContain("BuildCollectionLaneActions", source);
         Assert.DoesNotContain("Key = $\"collection-{lane}\"", source);
-        Assert.Contains("DetailEntityType.MusicAlbum => [\"tracks\"]", source);
+        Assert.Contains("DetailEntityType.MusicAlbum => [\"tracks\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
@@ -1230,7 +1230,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void BuildTabs_MusicAlbumUsesTheSingleTracksSurface()
+    public void BuildTabs_MusicAlbumSeparatesTracksFromDetails()
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1241,7 +1241,7 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal(["tracks"], tabs.Select(tab => tab.Key));
+        Assert.Equal(["tracks", "details"], tabs.Select(tab => tab.Key));
     }
 
     [Fact]

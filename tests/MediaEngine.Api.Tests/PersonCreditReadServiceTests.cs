@@ -155,6 +155,51 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLibraryCreditsAsync_UsesOwnedAssetTitleBeforeCollectionTitle()
+    {
+        var personId = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'Test Author', $now);
+                INSERT INTO collections (id, display_name, collection_type, created_at)
+                    VALUES ($collectionId, 'The Parent Series', 'Series', $now);
+                INSERT INTO works (id, collection_id, media_type, work_kind)
+                    VALUES ($workId, $collectionId, 'Books', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'asset-title-fallback', 'C:/library/First Novel.epub');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($assetId, 'title', 'First Novel', $now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($workId, 'author', 0, 'Test Author');
+                """;
+            AddGuid(cmd, "$personId", personId);
+            AddGuid(cmd, "$collectionId", collectionId);
+            AddGuid(cmd, "$workId", workId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var service = CreateService();
+        var credit = Assert.Single(await service.GetLibraryCreditsAsync(personId, CancellationToken.None));
+
+        Assert.Equal("First Novel", credit.Title);
+        Assert.NotEqual("The Parent Series", credit.Title);
+    }
+
+    [Fact]
     public async Task BuildForWorkAsync_UsesTmdbCharacterClaimsWhenExplicitCharacterLinksAreMissing()
     {
         var workId = Guid.NewGuid();
@@ -231,6 +276,12 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                     VALUES ($firstMemberId, 'Zed Member', $now);
                 INSERT INTO persons (id, name, created_at)
                     VALUES ($secondMemberId, 'Amy Member', $now);
+                UPDATE persons
+                    SET headshot_url = 'https://images.example.test/zed.jpg'
+                    WHERE id = $firstMemberId;
+                UPDATE persons
+                    SET headshot_url = 'https://images.example.test/amy.jpg'
+                    WHERE id = $secondMemberId;
                 INSERT INTO person_group_members (group_id, member_id)
                     VALUES ($groupId, $firstMemberId);
                 INSERT INTO person_group_members (group_id, member_id)
@@ -249,6 +300,7 @@ public sealed class PersonCreditReadServiceTests : IDisposable
         var groups = await service.GetGroupMembersAsync(firstMemberId, isGroup: false, CancellationToken.None);
 
         Assert.Equal(["Amy Member", "Zed Member"], members.Select(member => member.Name));
+        Assert.All(members, member => Assert.Contains($"/persons/{member.Id:D}/headshot", member.HeadshotUrl));
         Assert.Equal("The Test Group", Assert.Single(groups).Name);
     }
 

@@ -5330,7 +5330,7 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicAlbum => ["tracks"],
+            DetailEntityType.MusicAlbum => ["tracks", "details"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist => ["overview", "related", "details"],
             DetailEntityType.Person => ["overview"],
@@ -6961,7 +6961,8 @@ public sealed class DetailComposerService
     {
         if (entityType != DetailEntityType.TvShow)
         {
-            var collectionCredits = await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
+            var contributorValues = BuildCollectionContributorValues(entityType, canonicalValues, works);
+            var collectionCredits = await BuildCollectionTextCreditsAsync(collectionId, entityType, contributorValues, ct);
             rootWorkId ??= works
                 .Where(work => work.IsOwned)
                 .Select(work => Guid.TryParse(work.Id, out var parsed) ? parsed : (Guid?)null)
@@ -7024,6 +7025,35 @@ public sealed class DetailComposerService
         return ApplyContributorGroupPresentation(
             entityType,
             textCredits.Concat(SplitCastGroups(credits)).ToList());
+    }
+
+    private static IReadOnlyDictionary<string, string> BuildCollectionContributorValues(
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IReadOnlyList<CollectionWorkSummary> works)
+    {
+        if (entityType != DetailEntityType.MusicAlbum
+            || !string.IsNullOrWhiteSpace(GetValue(canonicalValues, MetadataFieldConstants.Artist)))
+        {
+            return canonicalValues;
+        }
+
+        var artists = works
+            .SelectMany(work => SplitMetadataValues(work.Artist))
+            .Where(artist => !string.IsNullOrWhiteSpace(artist))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (artists.Count == 0)
+        {
+            return canonicalValues;
+        }
+
+        var values = canonicalValues.ToDictionary(
+            pair => pair.Key,
+            pair => pair.Value,
+            StringComparer.OrdinalIgnoreCase);
+        values[MetadataFieldConstants.Artist] = string.Join(", ", artists);
+        return values;
     }
 
     private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionTextCreditsAsync(
@@ -8048,6 +8078,10 @@ public sealed class DetailComposerService
                 Id = alias.Id.ToString("D"),
                 Name = alias.Name,
                 Subtitle = alias.IsPseudonym ? "Pen name" : "Related identity",
+                ImageUrl = ApiImageUrls.BuildPersonHeadshotUrl(
+                    alias.Id,
+                    alias.LocalHeadshotPath,
+                    alias.HeadshotUrl),
                 Route = $"/details/person/{alias.Id:D}",
             }).ToList(),
             GroupMembers = groupMembers.Select(member => new PersonRelatedLink
@@ -8055,6 +8089,7 @@ public sealed class DetailComposerService
                 Id = member.Id.ToString("D"),
                 Name = member.Name,
                 Subtitle = member.DateRange,
+                ImageUrl = member.HeadshotUrl,
                 Route = $"/details/person/{member.Id:D}",
             }).ToList(),
             MemberOfGroups = memberOfGroups.Select(group => new PersonRelatedLink
@@ -8062,6 +8097,7 @@ public sealed class DetailComposerService
                 Id = group.Id.ToString("D"),
                 Name = group.Name,
                 Subtitle = group.DateRange,
+                ImageUrl = group.HeadshotUrl,
                 Route = $"/details/person/{group.Id:D}",
             }).ToList(),
         };

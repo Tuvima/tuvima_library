@@ -770,7 +770,9 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             isGroup
                 ? """
                   SELECT p.id AS Id,
-                         p.name AS Name
+                         p.name AS Name,
+                         p.headshot_url AS HeadshotUrl,
+                         p.local_headshot_path AS LocalHeadshotPath
                   FROM person_group_members pgm
                   INNER JOIN persons p ON p.id = pgm.member_id
                   WHERE pgm.group_id = @personId
@@ -778,7 +780,9 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   """
                 : """
                   SELECT p.id AS Id,
-                         p.name AS Name
+                         p.name AS Name,
+                         p.headshot_url AS HeadshotUrl,
+                         p.local_headshot_path AS LocalHeadshotPath
                   FROM person_group_members pgm
                   INNER JOIN persons p ON p.id = pgm.group_id
                   WHERE pgm.member_id = @personId
@@ -791,6 +795,10 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             {
                 Id = row.Id,
                 Name = row.Name ?? string.Empty,
+                HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(
+                    row.Id,
+                    row.LocalHeadshotPath,
+                    row.HeadshotUrl),
             })
             .ToList();
     }
@@ -825,8 +833,34 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                         ORDER BY ij.updated_at DESC, ij.created_at DESC
                         LIMIT 1)
                    )                                      AS WorkQid,
-                   COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), c.display_name, 'Untitled') AS Title,
-                   MAX(CASE WHEN cv.key = 'year' THEN cv.value END) AS Year,
+                   COALESCE(
+                       MAX(CASE WHEN cv.key = 'title' THEN cv.value END),
+                       (SELECT asset_title.value
+                        FROM editions asset_edition
+                        INNER JOIN media_assets title_asset
+                            ON title_asset.edition_id = asset_edition.id
+                        INNER JOIN canonical_values asset_title
+                            ON asset_title.entity_id = title_asset.id
+                           AND asset_title.key = 'title'
+                        WHERE asset_edition.work_id = w.id
+                        ORDER BY title_asset.id, asset_title.last_scored_at DESC
+                        LIMIT 1),
+                       c.display_name,
+                       'Untitled'
+                   )                                      AS Title,
+                   COALESCE(
+                       MAX(CASE WHEN cv.key = 'year' THEN cv.value END),
+                       (SELECT asset_year.value
+                        FROM editions asset_edition
+                        INNER JOIN media_assets year_asset
+                            ON year_asset.edition_id = asset_edition.id
+                        INNER JOIN canonical_values asset_year
+                            ON asset_year.entity_id = year_asset.id
+                           AND asset_year.key = 'year'
+                        WHERE asset_edition.work_id = w.id
+                        ORDER BY year_asset.id, asset_year.last_scored_at DESC
+                        LIMIT 1)
+                   )                                      AS Year,
                    primary_credit.role                    AS Role,
                    MIN(ma.id)                             AS FirstAssetId
             FROM primary_person_media_credits primary_credit
@@ -1122,6 +1156,8 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     {
         public Guid Id { get; init; }
         public string? Name { get; init; }
+        public string? HeadshotUrl { get; init; }
+        public string? LocalHeadshotPath { get; init; }
     }
 
     private sealed class PersonLibraryCreditRow

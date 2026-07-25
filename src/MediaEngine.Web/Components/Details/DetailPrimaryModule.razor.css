@@ -993,6 +993,7 @@
     display: inline-flex;
     align-items: center;
     align-content: normal;
+    gap: 1.05rem;
     flex: 0 0 auto;
     flex-wrap: nowrap;
     min-width: max-content;

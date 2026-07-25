@@ -91,6 +91,9 @@ public sealed class PersonGroupMemberDto
 
     [JsonPropertyName("date_range")]
     public string? DateRange { get; init; }
+
+    [JsonPropertyName("headshot_url")]
+    public string? HeadshotUrl { get; init; }
 }
 
 public sealed class PersonCharacterRoleDto

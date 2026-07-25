@@ -810,7 +810,7 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void MusicAlbumDetailsUseTheSharedHeroAndSingleTracksSurface()
+    public void MusicAlbumDetailsUseTheSharedHeroAndSeparateTracksSurface()
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var detailPageStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
@@ -832,7 +832,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("BuildAlbumCredits", trackSurface);
         Assert.Contains("MoreByAlbums.Count: > 0", trackSurface);
         Assert.Contains("loading=\"lazy\"", trackSurface);
-        Assert.Contains("<DetailsTab Model=\"Model\"", trackSurface);
+        Assert.DoesNotContain("<DetailsTab Model=\"Model\"", trackSurface);
         Assert.Contains("grid-template-columns: minmax(0, 66fr) minmax(18rem, 34fr)", trackSurfaceStyles);
         Assert.Contains("grid-auto-flow: column", trackSurfaceStyles);
         Assert.Contains("border: 0", trackSurfaceStyles);
@@ -843,6 +843,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-media-stage__foreground--album", detailPageStyles);
         Assert.Contains("width: 100% !important", detailPageStyles);
         Assert.Contains("width: min(30vw, 50svh) !important", detailPageStyles);
+        Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", detailPageStyles);
+        Assert.Contains("tl-detail-media-stage--landscape.tl-detail-media-stage--cover-fallback", detailPageStyles);
+        Assert.Contains("height: min(64svh", detailPageStyles);
         Assert.Contains("IsMusicAlbumBackdrop", backdrop);
         Assert.Contains("Artwork.CoverUrl ?? Artwork.PosterUrl", backdrop);
         Assert.Contains("tl-detail-media-stage--music-cover-background", backdrop);
@@ -867,6 +870,22 @@ public sealed class UnifiedDetailComponentTests
         Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/MusicAlbumHeroWorkspace.razor")));
         Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/MusicAlbumWorkspaceNavigation.razor")));
         Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/MusicAlbumOverview.razor")));
+    }
+
+    [Fact]
+    public void PersonDetailsUsePortraitCardsForLinkedIdentitiesAndReadableWorksSpacing()
+    {
+        var overview = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");
+        var primaryModuleStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPrimaryModule.razor.css");
+        var apiClient = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+
+        Assert.Contains("<h3>Linked identities</h3>", overview);
+        Assert.Contains("<PersonCreditCard Credit=\"@ToRelatedIdentityCredit(person)\"", overview);
+        Assert.Contains("ImageUrl = person.ImageUrl", overview);
+        Assert.Contains("NormalizePersonDetails(detail.PersonDetails)", apiClient);
+        Assert.Contains("ImageUrl = NormalizeOptionalUrl(link.ImageUrl)", apiClient);
+        Assert.Contains(".tl-detail-primary-module--works .tl-detail-primary-module__header > div.tl-detail-primary-module__title", primaryModuleStyles);
+        Assert.Contains("gap: 1.05rem", primaryModuleStyles);
     }
 
     [Fact]
