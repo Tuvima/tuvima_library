@@ -152,17 +152,18 @@ public sealed class DashboardReliabilityGuardrailTests
 
         Assert.Contains("class=\"cinematic-hero-surface-scope\"", surface, StringComparison.Ordinal);
         Assert.Contains(".cinematic-hero-surface-scope ::deep .cinematic-hero-surface", surfaceStyles, StringComparison.Ordinal);
-        Assert.Contains("object-fit: contain", surfaceStyles, StringComparison.Ordinal);
-        Assert.Contains("mask-image: linear-gradient(to right, transparent 0%", surfaceStyles, StringComparison.Ordinal);
-        Assert.Contains("linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.86)", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("object-fit: cover", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("object-position: var(--hero-image-position, center top)", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("mask-image: none", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("linear-gradient(to right, rgba(var(--hero-shadow-rgb), 0.9)", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("--hero-wash-accent", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("tl-detail-media-stage--background::before", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("content: none", surfaceStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("tl-detail-media-stage__background", carouselStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("object-fit: cover", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("height: 60svh", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("max-height: 60svh", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("height: 60svh !important", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: 100svh", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 100svh", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: var(--cinematic-hero-height, 100svh) !important", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("@media (max-width: 720px), (max-height: 620px)", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("height: auto !important", surfaceStyles, StringComparison.Ordinal);
     }
@@ -183,6 +184,11 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains("Continue Reading", carousel, StringComparison.Ordinal);
         Assert.Contains("Continue Listening", carousel, StringComparison.Ordinal);
         Assert.Contains("Icon = IsOpenAction ? null : PrimaryActionIcon", carousel, StringComparison.Ordinal);
+        Assert.Contains("cinematic-hero-carousel__detail-link", carousel, StringComparison.Ordinal);
+        Assert.Contains("OpenLandingReaderAsync", carousel, StringComparison.Ordinal);
+        Assert.Contains("PlayLandingAlbumAsync", carousel, StringComparison.Ordinal);
+        Assert.Contains("PlayLandingAudiobookAsync", carousel, StringComparison.Ordinal);
+        Assert.Contains("RestartRoute(primary.Route)", carousel, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -205,7 +211,7 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Fact]
-    public void HomeDetailAndLanePages_UseTheSameSurfaceNavigationBar()
+    public void DetailAndLanePagesUseSurfaceNavigationWhileHomeFlowsDirectlyIntoShelves()
     {
         var detailTabs = Read(@"src\MediaEngine.Web\Components\Details\DetailTabs.razor");
         var mediaHub = Read(@"src\MediaEngine.Web\Components\MediaHub\MediaHubPage.razor");
@@ -215,14 +221,14 @@ public sealed class DashboardReliabilityGuardrailTests
 
         Assert.Contains("<SurfaceNavigationBar", detailTabs, StringComparison.Ordinal);
         Assert.Contains("<SurfaceNavigationBar", mediaHub, StringComparison.Ordinal);
-        Assert.Contains("<SurfaceNavigationBar", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SurfaceNavigationBar", home, StringComparison.Ordinal);
         Assert.DoesNotContain("<SurfaceTabBar", home, StringComparison.Ordinal);
         Assert.Contains("min-height: 4.25rem", navigationStyles, StringComparison.Ordinal);
         Assert.Contains("border-bottom: 2px solid transparent", navigationStyles, StringComparison.Ordinal);
         Assert.Contains(".cinematic-hero-carousel ::deep .cinematic-hero__content", carouselStyles, StringComparison.Ordinal);
         Assert.Contains("height: 100%", carouselStyles, StringComparison.Ordinal);
         Assert.Contains("min-height: 100%", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("padding-block: clamp(1rem, 2.5svh, 1.75rem)", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("clamp(10rem, 23svh, 16rem)", carouselStyles, StringComparison.Ordinal);
     }
 
     [Fact]

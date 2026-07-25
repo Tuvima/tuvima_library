@@ -1,6 +1,7 @@
 ﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Models.ViewDTOs
 
 <CinematicHeroSurface Artwork="Model.Artwork"
                       EntityType="Model.EntityType"
@@ -9,6 +10,17 @@
                       ShowTitleBar="Presentation.ShowTitleBar"
                       Class="@($"cinematic-hero-surface--detail {Presentation.HeroClass} {TitleDensityClass}")"
                       Css="Presentation.GradientStyle">
+    @if (Model.EntityType == DetailEntityType.Collection && CollectionHeroArtwork.Count > 0)
+    {
+        <div class="tl-detail-collection-artwork" aria-hidden="true">
+            <MediaArtworkGroupPreview Items="CollectionHeroArtwork"
+                                      TotalCount="CollectionHeroArtworkTotal"
+                                      Layout="MediaArtworkGroupPreviewLayout.Cluster"
+                                      ShowOverflowCount="false"
+                                      AriaLabel="@($"{Model.Title} representative artwork")" />
+        </div>
+    }
+
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
         <div class="tl-detail-hero__inner tl-detail-person-hero__inner">
@@ -166,6 +178,10 @@
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
+    private IReadOnlyList<ArtworkStackItem> CollectionHeroArtwork => BuildCollectionHeroArtwork();
+    private int CollectionHeroArtworkTotal => Model.MediaGroups
+        .SelectMany(group => group.Items)
+        .Count(item => item.IsOwned);
     private string HeroCreditStackClass => Model.EntityType == DetailEntityType.Audiobook
         ? "tl-detail-hero-credit-stack tl-detail-hero-credit-stack--audiobook"
         : "tl-detail-hero-credit-stack";
@@ -403,6 +419,45 @@
             "website" => "fa:globe",
             _ => "fa:up-right-from-square",
         };
+
+    private IReadOnlyList<ArtworkStackItem> BuildCollectionHeroArtwork()
+    {
+        if (Model.EntityType != DetailEntityType.Collection)
+            return [];
+
+        return Model.MediaGroups
+            .Where(group => !IsRecommendationGroup(group))
+            .SelectMany(group => group.Items)
+            .Where(item => item.IsOwned && !string.IsNullOrWhiteSpace(item.ArtworkUrl))
+            .DistinctBy(item => $"{item.EntityType}:{item.Id}", StringComparer.OrdinalIgnoreCase)
+            .Take(4)
+            .Select(item => new ArtworkStackItem
+            {
+                Id = $"{item.EntityType}:{item.Id}",
+                WorkId = Guid.TryParse(item.Id, out var workId) ? workId : null,
+                AssetId = Guid.TryParse(item.AssetId, out var assetId) ? assetId : null,
+                Title = item.Title,
+                ImageUrl = item.ArtworkUrl!,
+                MediaType = item.EntityType.ToString(),
+                Shape = ArtworkShapeFor(item.EntityType),
+            })
+            .ToList();
+    }
+
+    private static bool IsRecommendationGroup(MediaGroupingViewModel group)
+    {
+        var key = group.Key ?? string.Empty;
+        return key.Equals("related", StringComparison.OrdinalIgnoreCase)
+               || key.Equals("recommendations", StringComparison.OrdinalIgnoreCase)
+               || key.Equals("more-like-this", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static ArtworkShape ArtworkShapeFor(DetailEntityType entityType) => entityType switch
+    {
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => ArtworkShape.Square,
+        DetailEntityType.TvEpisode => ArtworkShape.Wide,
+        _ => ArtworkShape.Portrait,
+    };
 
     private static IReadOnlyList<string> PersonParagraphs(string? value)
     {

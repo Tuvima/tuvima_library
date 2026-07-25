@@ -12,17 +12,16 @@
 @if (DetailSurface)
 {
 <section class="tl-series-detail @MediaShapeClass" aria-label="@($"{Placement.ContainerTitle} {Placement.ItemPluralLabel}")">
+    @if (HasTopControls)
+    {
     <header class="tl-series-detail__header">
-        <div class="tl-series-detail__container-title">
-            <MudIcon Icon="@ContainerIcon" Size="Size.Small" />
-            <span>@ContainerTitleDisplay</span>
-        </div>
-
         <div class="tl-series-detail__controls">
             <div class="tl-series-detail__selectors">
                 @if (CanChooseDistinctContainer)
                 {
-                    <div class="tl-series-detail__control tl-series-detail__control--container">
+                    <AppCssElement Tag="div"
+                                   Class="tl-series-detail__control tl-series-detail__control--container"
+                                   Css="@ContainerControlStyle">
                         <span class="sr-only">Choose series</span>
                         <div class="tl-series-detail__select-with-action">
                             <AppSelect Value="@SelectedContainerValue"
@@ -42,12 +41,14 @@
                                                OnClick="SetDefaultSequenceAsync" />
                             }
                         </div>
-                    </div>
+                    </AppCssElement>
                 }
 
                 @if (ShowGroupSelector)
                 {
-                    <div class="tl-series-detail__control tl-series-detail__control--group">
+                    <AppCssElement Tag="div"
+                                   Class="tl-series-detail__control tl-series-detail__control--group"
+                                   Css="@GroupControlStyle">
                         <span class="sr-only">@(IsSeasonContainer ? "Season" : "Arc / sub-series")</span>
                         <AppSelect Value="@SelectedGroupKey"
                                    ValueChanged="SelectGroup"
@@ -56,7 +57,7 @@
                                    Class="tl-series-detail__select"
                                    PopoverClass="app-select__popover tl-series-select-popover"
                                    aria-label="@GroupSelectorAriaLabel" />
-                    </div>
+                    </AppCssElement>
                     }
             </div>
 
@@ -85,11 +86,15 @@
             </div>
         </div>
     </header>
+    }
 
     <div class="tl-series-detail__heading">
-        <div>
-            <span>@Placement.ItemPluralLabel</span>
-            <small>@OwnedSummary</small>
+        <div class="tl-series-detail__identity">
+            <MudIcon Icon="@ContainerIcon" Size="Size.Small" />
+            <div>
+                <span>@ContainerTitleDisplay</span>
+                <small>@Placement.ItemPluralLabel · @OwnedSummary</small>
+            </div>
         </div>
         @if (ShowJumpSelector)
         {
@@ -122,7 +127,15 @@
                 var item = VisibleItems[index];
                 var previousItem = index > 0 ? VisibleItems[index - 1] : null;
                 var route = SequenceItemRoute(item);
-                if (route is not null)
+                if (IsSeasonContainer)
+                {
+                    <article class="@SequenceItemClass(item)"
+                             aria-current="@(item.IsCurrent ? "page" : null)"
+                             aria-label="@SequenceItemAccessibilityLabel(item)">
+                        @SequenceItemContent(item, previousItem)
+                    </article>
+                }
+                else if (route is not null)
                 {
                     <a class="@SequenceItemClass(item)"
                        href="@route"
@@ -450,12 +463,13 @@ else
     private int _visibleMissingLimit;
     private MissingItemDisplayPolicy? _missingItemPolicy;
     private ElementReference _seriesDescriptionElement;
+    private readonly HashSet<string> _expandedEpisodeDescriptions = new(StringComparer.OrdinalIgnoreCase);
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-series-panel--square",
+        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "tl-series-panel--square",
         _ => "tl-series-panel--portrait",
     };
 
@@ -616,6 +630,9 @@ else
     private IReadOnlyList<AppSelectOption> ContainerSelectOptions => DistinctAvailableContainers
         .Select(option => new AppSelectOption(option.ContainerId, option.ContainerTitle))
         .ToList();
+    private bool HasTopControls => CanChooseDistinctContainer || ShowGroupSelector || CanShowMissingToggle;
+    private string ContainerControlStyle => SelectWidthStyle(ContainerSelectOptions);
+    private string GroupControlStyle => SelectWidthStyle(GroupSelectOptions);
     private bool ShowSetDefault => _canCurateSequence && CanChooseDistinctContainer && Placement.CanSetDefaultContainer && !string.IsNullOrWhiteSpace(Placement.SelectedContainerId);
     private string CoverageVisualClass => $"tl-series-position-summary__donut{(ShowCoverageDonut ? string.Empty : " is-count-only")}";
     private string CoverageCenterClass => $"tl-series-position-summary__center{(!ShowCoverageDonut ? " is-stacked" : string.Empty)}{(IsComicSequence && HasCurrentPosition ? " is-comic-position" : string.Empty)}";
@@ -630,6 +647,15 @@ else
             ? ItemNoun.ToLowerInvariant()
             : "owned";
     private string OwnedSummary => $"{OwnedCount} {(OwnedCount == 1 ? ItemNoun : Placement.ItemPluralLabel).ToLowerInvariant()} owned";
+
+    private static string SelectWidthStyle(IReadOnlyList<AppSelectOption> options)
+    {
+        var longestLabel = options
+            .Select(option => option.Label?.Length ?? 0)
+            .DefaultIfEmpty(16)
+            .Max();
+        return $"--tl-select-width:{Math.Clamp(longestLabel, 20, 56)}ch;";
+    }
     private List<ChartSeries<double>> SequenceDonutSeries =>
     [
         new() { Name = Placement.ItemPluralLabel, Data = new ChartData<double>([Math.Max(OwnedCount, 0), Math.Max(MissingCount, 0)]) },
@@ -1058,7 +1084,20 @@ else
         }
         @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Description))
         {
-            <p class="tl-series-item__description">@item.Description</p>
+            <div class="tl-series-item__description-wrap">
+                <p id="@EpisodeDescriptionId(item)"
+                   class="@EpisodeDescriptionClass(item)">@item.Description</p>
+                @if (HasExpandableEpisodeDescription(item))
+                {
+                    <AppNativeButton Type="button"
+                                     Class="tl-series-item__description-toggle"
+                                     OnClick="@(() => ToggleEpisodeDescription(item))"
+                                     aria-controls="@EpisodeDescriptionId(item)"
+                                     aria-expanded="@IsEpisodeDescriptionExpanded(item)">
+                        @(IsEpisodeDescriptionExpanded(item) ? "Less" : "More")
+                    </AppNativeButton>
+                }
+            </div>
         }
         @if (!IsSeasonContainer && SequenceItemDate(item) is { } itemDate)
         {
@@ -1068,17 +1107,46 @@ else
 
     private static bool AreCanonicallyAdjacent(SequenceItemViewModel left, SequenceItemViewModel right)
     {
-        if (!string.Equals(left.GroupKey, right.GroupKey, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(left.MembershipScope, right.MembershipScope, StringComparison.OrdinalIgnoreCase)
-            || SequenceNumberOrNull(left) is null
-            || SequenceNumberOrNull(right) is null
-            || !left.PositionSort.HasValue
-            || !right.PositionSort.HasValue)
-        {
+        var leftPosition = CanonicalSequencePosition(left);
+        var rightPosition = CanonicalSequencePosition(right);
+        if (!leftPosition.HasValue || !rightPosition.HasValue)
             return false;
-        }
 
-        return Math.Abs((right.PositionSort.Value - left.PositionSort.Value) - 1d) < 0.0001d;
+        return Math.Abs((rightPosition.Value - leftPosition.Value) - 1d) < 0.0001d;
+    }
+
+    private static double? CanonicalSequencePosition(SequenceItemViewModel item)
+    {
+        if (item.PositionSort.HasValue)
+            return item.PositionSort.Value;
+
+        var label = SequenceNumberOrNull(item);
+        if (string.IsNullOrWhiteSpace(label))
+            return null;
+
+        var match = System.Text.RegularExpressions.Regex.Match(label, @"-?\d+(?:\.\d+)?");
+        return match.Success
+            && double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : null;
+    }
+
+    private bool HasExpandableEpisodeDescription(SequenceItemViewModel item)
+        => item.Description?.Length > 165;
+
+    private bool IsEpisodeDescriptionExpanded(SequenceItemViewModel item)
+        => _expandedEpisodeDescriptions.Contains(item.Id);
+
+    private string EpisodeDescriptionClass(SequenceItemViewModel item)
+        => $"tl-series-item__description{(IsEpisodeDescriptionExpanded(item) ? " is-expanded" : string.Empty)}";
+
+    private static string EpisodeDescriptionId(SequenceItemViewModel item)
+        => $"episode-description-{item.Id}";
+
+    private void ToggleEpisodeDescription(SequenceItemViewModel item)
+    {
+        if (!_expandedEpisodeDescriptions.Add(item.Id))
+            _expandedEpisodeDescriptions.Remove(item.Id);
     }
 
     private string SequenceItemDisplayTitle(SequenceItemViewModel item)

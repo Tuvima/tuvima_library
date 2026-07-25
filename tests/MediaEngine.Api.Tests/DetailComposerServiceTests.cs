@@ -162,10 +162,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasChapters => [\"chapters\", \"overview\", \"credits\", \"editions\", \"related\", \"details\"]", source);
+        Assert.DoesNotContain("DetailEntityType.Audiobook when hasChapters", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.MusicAlbum => [\"tracks\", \"overview\", \"credits\", \"editions\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicAlbum => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
@@ -421,6 +421,15 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("var foregroundArtworkUrl = FirstNonBlank(", source);
         Assert.Contains("ownedCoverUrls.FirstOrDefault(),", source);
         Assert.Contains("detail.CoverUrl,", source);
+        Assert.Contains("var managedCurrentArtworkUrl = await LoadManagedWorkCoverUrlAsync(", source);
+        Assert.Contains("entityType,", source);
+        Assert.Contains("row.WorkId == workId ? currentArtworkUrl : null", source);
+        Assert.Contains("mc.claim_key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
+        Assert.Contains("var detail = await _libraryItems.GetDetailAsync(workId, ct)", source);
+        Assert.Contains("var managedArtworkUrl = await LoadManagedWorkCoverUrlAsync(", source);
+        Assert.Contains("$\"/stream/artwork/{preferred.Id:D}\"", source);
+        Assert.Contains("$\"/stream/entity/{ToDetailRouteEntityType(entityType)}/{entityId:D}/cover\"", source);
+        Assert.Contains("artworkFallback.CoverUrl", source);
         Assert.Contains("WHERE entity_id = AssetId AND key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
         Assert.Contains("WHERE entity_id = WorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
         Assert.Contains("WHERE entity_id = RootWorkId AND key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
@@ -1119,7 +1128,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Lane = DetailLane(entityType)", source);
         Assert.Contains("FirstNonBlank(characterSummary, roleSummary)", source);
         Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
-        Assert.Contains("return group.GroupType == CreditGroupType.Cast;", source);
+        Assert.Contains("return group.GroupType is CreditGroupType.Directors or CreditGroupType.Cast;", source);
+        Assert.Contains("textCredits.Concat(SplitCastGroups(credits))", source);
         Assert.Contains("Title = \"Actors\"", source);
         Assert.Contains("CreditGroupType.Directors", source);
 
@@ -1183,13 +1193,13 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal(entityType == DetailEntityType.Audiobook ? "chapters" : "overview", tabs[0].Key);
+        Assert.Equal("overview", tabs[0].Key);
         Assert.DoesNotContain(tabs, tab => tab.Key == "series");
         Assert.DoesNotContain(tabs, tab => tab.Key == "sequence");
     }
 
     [Fact]
-    public void BuildTabs_MusicAlbumUsesEmbeddedTracksAsItsDefaultSection()
+    public void BuildTabs_MusicAlbumKeepsEmbeddedTracksOutOfNavigation()
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1201,12 +1211,13 @@ public sealed class DetailComposerServiceTests
             true);
 
         Assert.Equal(
-            ["tracks", "overview", "credits", "editions", "related", "details"],
+            ["overview", "credits", "related", "details"],
             tabs.Select(tab => tab.Key));
+        Assert.DoesNotContain(tabs, tab => tab.Key is "tracks" or "editions");
     }
 
     [Fact]
-    public void BuildTabs_AudiobookUsesEmbeddedChaptersAsItsDefaultSectionWhenAvailable()
+    public void BuildTabs_AudiobookKeepsEmbeddedChaptersOutOfNavigation()
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1218,8 +1229,9 @@ public sealed class DetailComposerServiceTests
             true);
 
         Assert.Equal(
-            ["chapters", "overview", "credits", "editions", "related", "details"],
+            ["overview", "credits", "related", "details"],
             tabs.Select(tab => tab.Key));
+        Assert.DoesNotContain(tabs, tab => tab.Key == "chapters");
     }
 
     [Theory]

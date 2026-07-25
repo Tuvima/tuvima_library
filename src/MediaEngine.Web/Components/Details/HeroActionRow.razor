@@ -19,8 +19,9 @@
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class='@($"tl-detail-watch-secondary tl-detail-watch-secondary--icon {ActionStateClass(action)} {(action.IsStub ? " tl-detail-watch-secondary--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
+                        <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--flat tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                            <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
                     </MudTooltip>
                 </div>
@@ -71,10 +72,11 @@
             }
             else if (action.Key == "format-tools")
             {
-                <div class="tl-detail-secondary-action">
+                <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                     <div class="tl-hover-action-menu tl-format-menu" tabindex="0" aria-label="@action.Label">
-                        <AppNativeButton Type="button" Class="tl-detail-icon-action" AriaLabel="@action.Label">
+                        <AppNativeButton Type="button" Class="tl-media-action tl-media-action--flat tl-detail-flat-action" AriaLabel="@action.Label">
                             <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
+                            <span>@SecondaryLabel(action)</span>
                         </AppNativeButton>
                         <div class="tl-hover-action-menu__tray">
                             @foreach (var child in action.Children)
@@ -87,7 +89,6 @@
                             }
                         </div>
                     </div>
-                    <span>@SecondaryLabel(action)</span>
                 </div>
             }
             else if (UsePrimaryHeroChrome && action.Key == "add-to-collection")
@@ -140,6 +141,7 @@
                 <OverflowActionMenu Actions="OverflowMenuActions"
                                     ButtonClass="tl-detail-watch-secondary tl-detail-watch-secondary--icon"
                                     OnActionSelected="OnActionSelected" />
+                <span class="tl-detail-secondary-label">More</span>
             </div>
         }
         else if (!IsPrimaryHeroActionRow && OverflowMenuActions.Count > 0)
@@ -162,8 +164,8 @@
     [Parameter] public Func<DetailAction, IReadOnlyDictionary<string, object>?>? ActionAttributes { get; set; }
 
     // Every media detail uses the same compact hero action hierarchy. Keeping
-    // this shared prevents Read/Listen/group details from reverting to the
-    // older oversized two-row treatment that can overflow a 60svh hero.
+    // this shared prevents Read/Listen/group details from drifting into
+    // media-specific action layouts.
     private bool IsPrimaryHeroActionRow => true;
     private IReadOnlyList<DetailAction> VisibleSecondaryActions
         => (InlineEditAction is null ? SecondaryActions : SecondaryActions.Concat([InlineEditAction]))

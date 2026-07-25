@@ -3881,6 +3881,13 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     text-align: left !important;
 }
 
+.app-select .mud-input-adornment-start {
+    width: auto !important;
+    min-width: 0 !important;
+    flex: 0 0 auto !important;
+    padding-right: 0 !important;
+}
+
 .app-select .mud-input-adornment-end {
     display: none !important;
 }
@@ -5014,3 +5021,50 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 /* -- End inline-style utility classes ---------------------------------- */
+
+/* Full-viewport cinematic routes begin behind the fixed application bar.
+   These selectors are global because MudMainContent and MudAppBar render
+   their own component roots outside MainLayout's CSS-isolation scope. */
+.main-content-with-topbar--cinematic.mud-main-content {
+    padding-top: 0 !important;
+    background: #05070c !important;
+}
+
+.layout-shell__appbar--cinematic.mud-appbar {
+    color: rgba(248, 250, 252, 0.96) !important;
+    background:
+        linear-gradient(
+            to bottom,
+            rgba(3, 6, 12, 0.7) 0%,
+            rgba(3, 6, 12, 0.34) 62%,
+            transparent 100%) !important;
+    border-bottom-color: transparent !important;
+    box-shadow: none !important;
+    backdrop-filter: blur(0.7rem) saturate(115%);
+}
+
+/* The shared button renders outside UnifiedDetailPage's isolated style scope.
+   Keep the origin action inside the hero without consuming layout height. */
+.tl-detail-origin-back {
+    position: absolute !important;
+    top: calc(var(--app-topbar-height, 65px) + 0.75rem);
+    left: clamp(1rem, 4vw, 4rem);
+    z-index: 20;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.4rem;
+    min-height: 2.1rem;
+    padding: 0.35rem 0.65rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 999px;
+    background: rgba(5, 8, 14, 0.54);
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.78rem;
+    backdrop-filter: blur(14px);
+}
+
+.tl-detail-origin-back:hover,
+.tl-detail-origin-back:focus-visible {
+    border-color: rgba(167, 139, 250, 0.72);
+    color: #fff;
+}

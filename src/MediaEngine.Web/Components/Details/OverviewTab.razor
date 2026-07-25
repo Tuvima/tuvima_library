@@ -94,16 +94,24 @@
                     </AppNativeButton>
                 }
             </header>
-            @if (OverviewCreditRows.Count == 0)
+            @if (DisplayedOverviewCreditGroups.Count == 0)
             {
                 <p class="tl-overview-section__empty">No linked people are available yet.</p>
             }
             else
             {
-                <div class="tl-overview-credit-rows">
-                    @foreach (var credit in OverviewCreditRows)
+                <div class="tl-overview-credit-groups">
+                    @foreach (var group in DisplayedOverviewCreditGroups)
                     {
-                        <PersonCreditCard Credit="credit" Compact="true" />
+                        <section class="@OverviewCreditGroupClass(group)">
+                            <h3>@OverviewCreditGroupTitle(group)</h3>
+                            <div class="tl-overview-credit-rows">
+                                @foreach (var credit in group.Credits)
+                                {
+                                    <PersonCreditCard Credit="credit" Compact="true" />
+                                }
+                            </div>
+                        </section>
                     }
                 </div>
             }
@@ -152,14 +160,37 @@
 
     private string CreditPanelTitle => Model.EntityType switch
     {
-        DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast",
+        DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Cast",
         _ => "Credits",
     };
 
     private string CreditTabKey => IsVideo ? "cast" : "credits";
 
+    private IReadOnlyList<OverviewCreditGroup> DisplayedOverviewCreditGroups
+    {
+        get
+        {
+            var groups = new List<OverviewCreditGroup>();
+            var seenPeople = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var (group, index) in OverviewCreditGroups.Take(3).Select((group, index) => (group, index)))
+            {
+                var limit = IsVideo
+                    ? string.Equals(group.Title, "Director", StringComparison.OrdinalIgnoreCase) ? 2 : 8
+                    : index == 0 ? 4 : 3;
+                var credits = group.Credits
+                    .Where(credit => seenPeople.Add(OverviewCreditIdentity(credit)))
+                    .Take(limit)
+                    .ToList();
+                if (credits.Count > 0)
+                    groups.Add(new OverviewCreditGroup(group.Title, credits, group.TotalCount));
+            }
+
+            return groups;
+        }
+    }
+
     private IReadOnlyList<EntityCreditViewModel> OverviewCreditRows =>
-        OverviewCreditGroups
+        DisplayedOverviewCreditGroups
             .SelectMany(group => group.Credits)
             .GroupBy(
                 credit => string.IsNullOrWhiteSpace(credit.EntityId)
@@ -167,7 +198,6 @@
                     : credit.EntityId,
                 StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
-            .Take(IsVideo ? 4 : 3)
             .ToList();
 
     private IReadOnlyList<(string Label, string Value)> QuickFacts
@@ -230,9 +260,9 @@
         }
     }
 
-    private bool IsVideo => Model.EntityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+    private bool IsVideo => Model.EntityType is DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
     private bool IsTv => Model.EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
-    private bool IsBookish => Model.EntityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work;
+    private bool IsBookish => Model.EntityType is DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.Audiobook or DetailEntityType.Work;
     private bool IsComic => Model.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
     private bool ShowCreditsHeader => !IsBookish && !IsVideo;
     private bool ShowCreditCounts => !IsBookish && !IsVideo;
@@ -264,7 +294,7 @@
     private IReadOnlyList<OverviewCreditGroup> BuildVideoCreditGroups()
     {
         var groups = new List<OverviewCreditGroup>();
-        var directors = IsTv ? [] : CreditsFor(CreditGroupType.Directors).Take(2).ToList();
+        var directors = CreditsFor(CreditGroupType.Directors).Take(2).ToList();
         if (directors.Count > 0)
             groups.Add(new OverviewCreditGroup("Director", directors, TotalCredits(CreditGroupType.Directors)));
 
@@ -285,6 +315,8 @@
         return classes;
     }
 
+    private static string OverviewCreditGroupTitle(OverviewCreditGroup group) => group.Title;
+
     private IReadOnlyList<OverviewCreditGroup> BuildPrimaryThenExpandableGroups(
         IReadOnlySet<CreditGroupType> primaryTypes,
         IReadOnlySet<CreditGroupType> collapsedTypes)
@@ -296,8 +328,7 @@
 
         return Model.ContributorGroups
             .Where(group => visibleTypes.Contains(group.GroupType))
-            .OrderBy(group => primaryTypes.Contains(group.GroupType) ? 0 : 1)
-            .ThenBy(group => group.DisplayPriority)
+            .OrderBy(group => OverviewGroupPriority(group, primaryTypes))
             .ThenBy(group => group.Title, StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
@@ -309,6 +340,42 @@
             .Where(group => group.Credits.Count > 0)
             .ToList();
     }
+
+    private int OverviewGroupPriority(
+        CreditGroupViewModel group,
+        IReadOnlySet<CreditGroupType> primaryTypes)
+    {
+        if (IsComic)
+        {
+            return group.GroupType switch
+            {
+                CreditGroupType.Writers => 0,
+                CreditGroupType.Illustrators => 1,
+                CreditGroupType.CreativeTeam => 2,
+                CreditGroupType.Authors => 3,
+                _ => 20 + group.DisplayPriority,
+            };
+        }
+
+        if (IsBookish)
+        {
+            return group.GroupType switch
+            {
+                CreditGroupType.Authors => 0,
+                CreditGroupType.Narrators => 1,
+                CreditGroupType.Illustrators => 2,
+                CreditGroupType.Writers => 3,
+                _ => 20 + group.DisplayPriority,
+            };
+        }
+
+        return (primaryTypes.Contains(group.GroupType) ? 0 : 10) + group.DisplayPriority;
+    }
+
+    private static string OverviewCreditIdentity(EntityCreditViewModel credit)
+        => string.IsNullOrWhiteSpace(credit.EntityId)
+            ? credit.DisplayName
+            : credit.EntityId;
 
     private OverviewCreditGroup ToOverviewGroup(CreditGroupViewModel group, IReadOnlyList<EntityCreditViewModel> credits)
         => new(group.Title, credits, group.Credits.Count);

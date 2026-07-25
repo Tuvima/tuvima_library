@@ -1,11 +1,12 @@
 .cinematic-hero-carousel {
     position: relative;
+    min-height: 100svh;
     isolation: isolate;
     background: #05070c;
 }
 
 .cinematic-hero-carousel__slide {
-    min-height: inherit;
+    min-height: 100svh;
 }
 
 /* DetailHeroContent normally inherits a surface's minimum height. Landing
@@ -14,22 +15,45 @@
 .cinematic-hero-carousel ::deep .cinematic-hero__content {
     height: 100%;
     min-height: 100%;
+    align-items: flex-end;
     box-sizing: border-box;
-    padding-block: clamp(1rem, 2.5svh, 1.75rem);
+    padding:
+        calc(var(--app-topbar-height, 65px) + clamp(1.5rem, 4svh, 3rem))
+        clamp(1.5rem, 4.5vw, 5.5rem)
+        clamp(10rem, 23svh, 16rem);
+    pointer-events: none;
+}
+
+.cinematic-hero-carousel ::deep .cinematic-hero__content a,
+.cinematic-hero-carousel ::deep .cinematic-hero__content button,
+.cinematic-hero-carousel ::deep .cinematic-hero__content .tl-detail-actions {
+    pointer-events: auto;
 }
 
 ::deep .cinematic-hero--landing {
     position: relative;
-    height: 60svh;
-    min-height: min(60svh, 28rem);
-    max-height: 60svh;
+    height: 100svh;
+    min-height: 100svh;
+    max-height: none;
     color: rgb(var(--hero-text-rgb));
+}
+
+.cinematic-hero-carousel__detail-link {
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    cursor: pointer;
+}
+
+.cinematic-hero-carousel__detail-link:focus-visible {
+    outline: 3px solid var(--tl-accent-primary, #8b5cf6);
+    outline-offset: -6px;
 }
 
 .cinematic-hero-carousel__context {
     position: absolute;
     z-index: 8;
-    top: clamp(1.4rem, 3vw, 2.4rem);
+    top: calc(var(--app-topbar-height, 65px) + clamp(1rem, 2svh, 1.75rem));
     right: clamp(1.5rem, 4vw, 4rem);
     padding: 0.48rem 0.72rem;
     border: 1px solid rgba(255, 255, 255, 0.13);
@@ -44,9 +68,9 @@
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero--landing {
-    height: 60svh;
-    min-height: min(60svh, 28rem);
-    max-height: 60svh;
+    height: 100svh;
+    min-height: 100svh;
+    max-height: none;
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
@@ -61,7 +85,7 @@
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero__content {
-    padding-block: 2.5rem;
+    padding-bottom: clamp(10rem, 23svh, 16rem);
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__copy {
@@ -99,7 +123,7 @@
     position: absolute;
     z-index: 9;
     right: clamp(1.25rem, 4vw, 4rem);
-    bottom: 1rem;
+    bottom: clamp(8.5rem, 19svh, 13.5rem);
     display: flex;
     align-items: center;
     gap: 0.45rem;
@@ -190,7 +214,7 @@
 
 @media (max-width: 960px) {
     ::deep .cinematic-hero--landing {
-        min-height: min(60svh, 28rem);
+        min-height: 100svh;
     }
 
     .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
@@ -201,13 +225,13 @@
 @media (max-width: 720px) {
     ::deep .cinematic-hero--landing,
     .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero--landing {
-        height: 60svh;
-        min-height: 60svh;
-        max-height: 60svh;
+        height: auto;
+        min-height: 100svh;
+        max-height: none;
     }
 
     .cinematic-hero-carousel__context {
-        top: 1rem;
+        top: calc(var(--app-topbar-height, 65px) + 0.75rem);
         right: 1rem;
     }
 
@@ -221,7 +245,14 @@
 
     .cinematic-hero-carousel__controls {
         right: 1rem;
-        bottom: 0.75rem;
+        bottom: 5.75rem;
+    }
+
+    .cinematic-hero-carousel ::deep .cinematic-hero__content {
+        padding:
+            calc(var(--app-topbar-height, 65px) + 4rem)
+            1.25rem
+            7rem;
     }
 }
 

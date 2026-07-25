@@ -98,7 +98,7 @@ public sealed class DetailHeroPresentation
             model.Progress,
             isWatchHero,
             usePrimaryHeroChrome,
-            mode is not HeroArtworkMode.ArtworkFallback,
+            false,
             BuildCapabilityPills(model, usePrimaryHeroChrome));
     }
 
@@ -117,6 +117,9 @@ public sealed class DetailHeroPresentation
 
         if (entityType == DetailEntityType.Person)
             return $"{modeClass} tl-detail-hero--person";
+
+        if (entityType == DetailEntityType.Collection)
+            return $"{modeClass} tl-detail-hero--collection";
 
         var surfaceClass = entityType switch
         {
@@ -164,7 +167,8 @@ public sealed class DetailHeroPresentation
             or DetailEntityType.Work
             or DetailEntityType.MusicAlbum
             or DetailEntityType.MusicArtist
-            or DetailEntityType.MusicTrack;
+            or DetailEntityType.MusicTrack
+            or DetailEntityType.Collection;
 
     private static bool UsesReadOverviewCopy(DetailEntityType entityType)
         => entityType is DetailEntityType.Book

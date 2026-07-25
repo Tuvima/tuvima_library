@@ -110,9 +110,8 @@
             {
                 DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-detail-media-stage--landscape",
                 DetailEntityType.MusicAlbum => "tl-detail-media-stage--square",
-                DetailEntityType.Book or DetailEntityType.Work => "tl-detail-media-stage--book",
+                DetailEntityType.Book or DetailEntityType.Work or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "tl-detail-media-stage--book",
                 DetailEntityType.Audiobook => "tl-detail-media-stage--audiobook",
-                DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "tl-detail-media-stage--poster",
                 DetailEntityType.Person or DetailEntityType.MusicArtist or DetailEntityType.Character => "tl-detail-media-stage--portrait",
                 _ => "tl-detail-media-stage--poster",
             };
@@ -128,8 +127,9 @@
             if (string.IsNullOrWhiteSpace(HeroImageUrl))
                 return string.Empty;
 
-            var position = HeroArtwork.BackgroundPosition ?? "center";
-            var mobilePosition = HeroArtwork.MobilePosition ?? position;
+            var defaultPosition = IsBackdropMode ? "center top" : "center";
+            var position = HeroArtwork.BackgroundPosition ?? defaultPosition;
+            var mobilePosition = HeroArtwork.MobilePosition ?? (IsBackdropMode ? "center top" : position);
             return $"--hero-image:url(\"{EscapeCssString(HeroImageUrl)}\");--hero-image-position:{position};--mobile-image-position:{mobilePosition};";
         }
     }

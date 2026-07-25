@@ -102,11 +102,6 @@ else
                                   AriaLabel="Home featured media" />
         }
 
-        <SurfaceNavigationBar Items="@HomeFilters"
-                              ActiveKey="@_activeLane"
-                              ActiveKeyChanged="SetActiveLaneAsync"
-                              AriaLabel="Filter Home" />
-
         <div class="home-discovery-content-shell">
             <div class="home-discovery-shelves">
                 @foreach (var shelf in VisibleShelves)
@@ -130,17 +125,7 @@ else
     private bool _seeding;
     private bool _scanStarting;
     private bool _canScan;
-    private string _activeLane = "all";
     private DiscoveryPageViewModel _page = new() { Key = "home" };
-
-    private static readonly IReadOnlyList<SurfaceTabItem> HomeFilters =
-    [
-        new("all", "All"),
-        new("read", "Read"),
-        new("watch", "Watch"),
-        new("listen", "Listen"),
-        new("collections", "Collections & Lists"),
-    ];
 
     private IReadOnlyList<MediaTileShelfViewModel> VisibleShelves => _page.Shelves
         .Select(shelf => new MediaTileShelfViewModel
@@ -148,7 +133,7 @@ else
             Key = shelf.Key,
             Title = shelf.Title,
             Subtitle = shelf.Subtitle,
-            Items = shelf.Items.Where(MatchesActiveLane).ToList(),
+            Items = shelf.Items,
             SeeAllRoute = shelf.SeeAllRoute,
         })
         .Where(shelf => shelf.Items.Count > 0)
@@ -161,10 +146,10 @@ else
             var explicitHeroes = _page.Spotlights.Count > 0
                 ? _page.Spotlights
                 : _page.Hero is null ? [] : [_page.Hero];
-            var matchingHeroes = explicitHeroes.Where(MatchesActiveLane).Take(5).ToList();
-            if (matchingHeroes.Count > 0)
+            var heroes = explicitHeroes.Take(5).ToList();
+            if (heroes.Count > 0)
             {
-                return matchingHeroes;
+                return heroes;
             }
 
             return VisibleShelves
@@ -188,29 +173,6 @@ else
         State.MediaAddedReceived += OnMediaAdded;
         await Orchestrator.StartSignalRAsync();
         await LoadAsync();
-    }
-
-    private Task SetActiveLaneAsync(string lane)
-    {
-        _activeLane = lane;
-        return Task.CompletedTask;
-    }
-
-    private bool MatchesActiveLane(MediaTileViewModel item) => MatchesActiveLane(item.MediaKind);
-
-    private bool MatchesActiveLane(DiscoveryHeroViewModel item) => MatchesActiveLane(item.MediaKind);
-
-    private bool MatchesActiveLane(string? mediaKind)
-    {
-        var normalized = (mediaKind ?? string.Empty).Trim().ToLowerInvariant();
-        return _activeLane switch
-        {
-            "read" => normalized is "book" or "comic",
-            "watch" => normalized is "movie" or "tv",
-            "listen" => normalized is "music" or "audiobook",
-            "collections" => normalized == "collection",
-            _ => true,
-        };
     }
 
     private static DiscoveryHeroViewModel HeroFromTile(MediaTileViewModel item) => new()

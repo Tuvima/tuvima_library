@@ -218,6 +218,12 @@ public sealed class DetailComposerService
         var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
         var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
         var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
+        var managedCurrentArtworkUrl = await LoadManagedWorkCoverUrlAsync(
+                workId,
+                entityType,
+                foregroundArtworkUrl,
+                ct)
+            ?? ownedCoverUrls.FirstOrDefault(IsManagedArtworkUrl);
         SequencePlacementViewModel? sequencePlacement = null;
         if (entityType == DetailEntityType.TvEpisode
             && Guid.TryParse(selectedContainerId, out var showId))
@@ -233,7 +239,13 @@ public sealed class DetailComposerService
                 profileId))?.SequencePlacement;
         }
 
-        sequencePlacement ??= await BuildSequencePlacementAsync(workId, detail, entityType, selectedContainerId, ct);
+        sequencePlacement ??= await BuildSequencePlacementAsync(
+            workId,
+            detail,
+            entityType,
+            selectedContainerId,
+            managedCurrentArtworkUrl,
+            ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
         var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
@@ -1241,7 +1253,7 @@ public sealed class DetailComposerService
     {
         if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
         {
-            return group.GroupType == CreditGroupType.Cast;
+            return group.GroupType is CreditGroupType.Directors or CreditGroupType.Cast;
         }
 
         return true;
@@ -1578,7 +1590,13 @@ public sealed class DetailComposerService
             : [new CharacterGroupViewModel { Title = "Characters", GroupType = CharacterGroupType.MainCharacters, Characters = characters }];
     }
 
-    private async Task<SequencePlacementViewModel?> BuildSequencePlacementAsync(Guid workId, LibraryItemDetail detail, DetailEntityType entityType, string? requestedContainerId, CancellationToken ct)
+    private async Task<SequencePlacementViewModel?> BuildSequencePlacementAsync(
+        Guid workId,
+        LibraryItemDetail detail,
+        DetailEntityType entityType,
+        string? requestedContainerId,
+        string? currentArtworkUrl,
+        CancellationToken ct)
     {
         var labels = ResolveSequenceLabels(entityType);
         var availableContainers = new List<SequenceContainerOptionViewModel>();
@@ -1801,7 +1819,9 @@ public sealed class DetailComposerService
                 Id = row.WorkId.ToString("D"),
                 EntityType = entityType,
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
-                ArtworkUrl = ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), artworkKind, row.ArtworkState),
+                ArtworkUrl = FirstNonBlank(
+                    ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), artworkKind, row.ArtworkState),
+                    row.WorkId == workId ? currentArtworkUrl : null),
                 Description = row.Description,
                 Duration = FormatTrackDuration(row.Duration),
                 Route = entityType == DetailEntityType.TvEpisode
@@ -1844,7 +1864,7 @@ public sealed class DetailComposerService
                         GetDetailCanonicalValue(detail, "episode_still"),
                         detail.BackgroundUrl,
                         detail.CoverUrl)
-                    : detail.CoverUrl,
+                    : FirstNonBlank(currentArtworkUrl, detail.CoverUrl),
                 Description = detail.Description,
                 Duration = FormatTrackDuration(detail.Runtime),
                 PublicationDate = FirstNonBlank(detail.ReleaseDate, detail.Year),
@@ -3822,8 +3842,10 @@ public sealed class DetailComposerService
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('poster_url', 'poster') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('cover_url', 'cover') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('poster_url', 'poster') LIMIT 1),
+                       (SELECT NULLIF(CAST(mc.claim_value AS TEXT), '') FROM metadata_claims mc WHERE mc.entity_id = w.id AND mc.claim_key IN ('cover_url', 'cover', 'poster_url', 'poster') ORDER BY mc.confidence DESC, mc.claimed_at DESC LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('cover_url', 'cover') LIMIT 1),
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('poster_url', 'poster') LIMIT 1)) AS TEXT) AS ArtworkUrl,
+                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('poster_url', 'poster') LIMIT 1),
+                       (SELECT NULLIF(CAST(mc.claim_value AS TEXT), '') FROM metadata_claims mc WHERE mc.entity_id = COALESCE(gp.id, p.id, w.id) AND mc.claim_key IN ('cover_url', 'cover', 'poster_url', 'poster') ORDER BY mc.confidence DESC, mc.claimed_at DESC LIMIT 1)) AS TEXT) AS ArtworkUrl,
                    CAST(COALESCE(
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('episode_still_url', 'episode_still') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('episode_still_url', 'episode_still') LIMIT 1),
@@ -3918,9 +3940,57 @@ public sealed class DetailComposerService
             IsTruthy(StringValue(row.HasAsset)),
             StringValue(row.Ownership),
             IsTruthy(StringValue(row.IsCatalogOnly)),
-            ResolveCollectionArtworkUrl(StringValue(row.ArtworkUrl), StringValue(row.AssetId), "cover", StringValue(row.CoverState)),
+            ResolveOwnedCollectionCoverUrl(
+                StringValue(row.ArtworkUrl),
+                StringValue(row.AssetId),
+                StringValue(row.CoverState)),
             ResolveCollectionArtworkUrl(StringValue(row.BackgroundUrl), StringValue(row.AssetId), "background", StringValue(row.BackgroundState)),
             StringValue(row.AssetId))).ToList();
+
+        // Dynamic collections can include an owned work before its edition and
+        // asset rows have been linked into this query. The canonical work detail
+        // still knows the correct title and provider artwork, so use that same
+        // presentation instead of emitting a misleading generated placeholder.
+        for (var index = 0; index < works.Count; index++)
+        {
+            var work = works[index];
+            if (!string.IsNullOrWhiteSpace(work.ArtworkUrl)
+                || !Guid.TryParse(work.Id, out var workId))
+            {
+                continue;
+            }
+
+            var detail = await _libraryItems.GetDetailAsync(workId, ct);
+            if (detail is null)
+            {
+                continue;
+            }
+
+            var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
+            var workValues = await LoadWorkCanonicalMapAsync(workId, detail, ct);
+            var managedArtworkUrl = await LoadManagedWorkCoverUrlAsync(
+                workId,
+                InferWorkEntityType(detail.MediaType, detail),
+                FirstNonBlank(
+                    detail.CoverUrl,
+                    GetValue(workValues, "cover_url"),
+                    GetValue(workValues, "cover"),
+                    GetValue(workValues, "poster_url"),
+                    GetValue(workValues, "poster"),
+                    artworkFallback.CoverUrl,
+                    artworkFallback.SquareUrl),
+                ct);
+            works[index] = work with
+            {
+                Title = FirstNonBlank(detail.Title, work.Title) ?? work.Title,
+                Description = FirstNonBlank(work.Description, detail.Description),
+                Year = FirstNonBlank(work.Year, detail.Year),
+                ArtworkUrl = FirstNonBlank(
+                    managedArtworkUrl,
+                    artworkFallback.CoverUrl,
+                    artworkFallback.SquareUrl),
+            };
+        }
 
         if (resolvedWorkIds is not { Count: > 0 })
         {
@@ -4884,7 +4954,7 @@ public sealed class DetailComposerService
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", Route = $"/details/audiobook/{id}?context=listen", IsPrimary = true }],
-            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Listen", Icon = "headphones", IsPrimary = true }],
+            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
             DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Listen", Icon = "headphones", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
@@ -5133,7 +5203,6 @@ public sealed class DetailComposerService
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "related", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.Book => ["overview", "credits", "related", "details"],
-            DetailEntityType.Audiobook when hasChapters => ["chapters", "overview", "credits", "editions", "related", "details"],
             DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.Audiobook => ["overview", "credits", "related", "details"],
             DetailEntityType.BookSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
@@ -5144,9 +5213,10 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "credits", "editions", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicAlbum => ["tracks", "overview", "credits", "editions", "related", "details"],
+            DetailEntityType.MusicAlbum => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist or DetailEntityType.Person => ["overview", "related", "details"],
+            DetailEntityType.Collection => ["overview", "details"],
             DetailEntityType.Character when hasUniverse => ["overview", "portrayals", "relationships", "universe", "details"],
             DetailEntityType.Character => ["overview", "portrayals", "relationships", "details"],
             DetailEntityType.Universe => ["overview", "characters", "people", "relationships", "details"],
@@ -6479,7 +6549,9 @@ public sealed class DetailComposerService
                 ? FirstNonBlank(work.Artist, work.Year, FormatTrackDuration(work.Duration))
                 : FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
             Description = work.Description,
-            ArtworkUrl = FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl),
+            ArtworkUrl = entityType == DetailEntityType.TvEpisode
+                ? FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl)
+                : FirstNonBlank(work.ArtworkUrl, work.BackgroundUrl),
             TrackNumber = work.TrackNumber,
             Duration = FormatTrackDuration(work.Duration),
             Artist = work.Artist,
@@ -6716,22 +6788,48 @@ public sealed class DetailComposerService
     {
         if (entityType != DetailEntityType.TvShow)
         {
-            return await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
+            var collectionCredits = await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
+            rootWorkId ??= works
+                .Where(work => work.IsOwned)
+                .Select(work => Guid.TryParse(work.Id, out var parsed) ? parsed : (Guid?)null)
+                .FirstOrDefault(id => id.HasValue);
+            if (collectionCredits.Count > 0 || !rootWorkId.HasValue)
+            {
+                return collectionCredits;
+            }
+
+            var rootDetail = await _libraryItems.GetDetailAsync(rootWorkId.Value, ct);
+            if (rootDetail is null)
+            {
+                return collectionCredits;
+            }
+
+            var rootEntityType = InferWorkEntityType(rootDetail.MediaType, rootDetail);
+            var rootValues = await LoadWorkCanonicalMapAsync(rootWorkId.Value, rootDetail, ct);
+            var rootContributors = await BuildWorkContributorsAsync(rootWorkId.Value, rootDetail, rootEntityType, ct);
+            return await BuildContributorGroupsAsync(
+                rootWorkId.Value,
+                rootDetail,
+                rootEntityType,
+                rootContributors.CastCredits,
+                rootValues,
+                ct);
         }
 
+        var textCredits = await BuildCollectionTextCreditsAsync(collectionId, entityType, canonicalValues, ct);
         rootWorkId ??= works
             .Select(work => Guid.TryParse(work.Id, out var parsed) ? parsed : (Guid?)null)
             .FirstOrDefault(id => id.HasValue);
 
         if (!rootWorkId.HasValue)
         {
-            return [];
+            return textCredits;
         }
 
         var cast = await _personCredits.BuildForWorkAsync(rootWorkId.Value, ct);
         if (cast.Count == 0)
         {
-            return [];
+            return textCredits;
         }
 
         var credits = cast.Select((credit, index) => new EntityCreditViewModel
@@ -6750,7 +6848,9 @@ public sealed class DetailComposerService
             IsCanonical = !string.IsNullOrWhiteSpace(credit.WikidataQid),
         }).ToList();
 
-        return ApplyContributorGroupPresentation(entityType, SplitCastGroups(credits));
+        return ApplyContributorGroupPresentation(
+            entityType,
+            textCredits.Concat(SplitCastGroups(credits)).ToList());
     }
 
     private async Task<IReadOnlyList<CreditGroupViewModel>> BuildCollectionTextCreditsAsync(
@@ -6813,6 +6913,9 @@ public sealed class DetailComposerService
 
         switch (entityType)
         {
+            case DetailEntityType.TvShow:
+                await AddTextCreditAsync("Directors", CreditGroupType.Directors, "Director", "director");
+                break;
             case DetailEntityType.MusicAlbum:
                 await AddTextCreditAsync("Artists", CreditGroupType.PrimaryArtists, "Artist", "artist");
                 await AddTextCreditAsync("Performers", CreditGroupType.FeaturedArtists, "Performer", "performer");
@@ -8569,6 +8672,42 @@ public sealed class DetailComposerService
         // route the same local image stream URLs used by work/movie detail pages.
         return DisplayArtworkUrlResolver.Resolve(value, assetId, kind, state);
     }
+
+    private static string? ResolveOwnedCollectionCoverUrl(string? value, string? assetIdValue, string? state)
+    {
+        var resolved = ResolveCollectionArtworkUrl(value, assetIdValue, "cover", state);
+        if (!string.IsNullOrWhiteSpace(resolved))
+            return resolved;
+
+        // An owned asset can already serve an extracted cover even when an
+        // older metadata row has not recorded cover_state yet. Detail pages
+        // use this same managed endpoint, so collection arrays should not
+        // regress to a blank tile for the identical work.
+        return Guid.TryParse(assetIdValue, out var assetId)
+            ? $"/stream/{assetId:D}/cover"
+            : null;
+    }
+
+    private async Task<string?> LoadManagedWorkCoverUrlAsync(
+        Guid entityId,
+        DetailEntityType entityType,
+        string? canonicalArtworkUrl,
+        CancellationToken ct)
+    {
+        var preferred = await _entityAssets.GetPreferredAsync(entityId.ToString("D"), "CoverArt", ct)
+            ?? await _entityAssets.GetPreferredAsync(entityId.ToString("D"), "SquareArt", ct);
+
+        if (preferred is not null)
+            return $"/stream/artwork/{preferred.Id:D}";
+
+        return string.IsNullOrWhiteSpace(canonicalArtworkUrl)
+            ? null
+            : $"/stream/entity/{ToDetailRouteEntityType(entityType)}/{entityId:D}/cover";
+    }
+
+    private static bool IsManagedArtworkUrl(string? value)
+        => !string.IsNullOrWhiteSpace(value)
+           && value.StartsWith("/", StringComparison.Ordinal);
 
     private static int? IntValue(object? value)
     {

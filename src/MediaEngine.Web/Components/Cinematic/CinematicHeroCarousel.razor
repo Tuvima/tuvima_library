@@ -1,9 +1,13 @@
 @namespace MediaEngine.Web.Components.Cinematic
 @using MediaEngine.Contracts.Details
 @using MediaEngine.Web.Components.Details
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+@inject IEngineApiClient ApiClient
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 @inject ILogger<CinematicHeroCarousel> Logger
+@inject PlaybackSessionController Playback
 @implements IAsyncDisposable
 
 @if (Slides.Count > 0)
@@ -21,6 +25,10 @@
                                   Title="@ActiveHero.Title"
                                   Class="@HeroClass"
                                   Css="@HeroStyle">
+                <a class="cinematic-hero-carousel__detail-link"
+                   href="@ActiveDetailsUrl"
+                   aria-label="@($"Open details for {ActiveHero.Title}")"></a>
+
                 <div class="cinematic-hero-carousel__context">@CarouselContextLabel</div>
 
                 <DetailHeroContent Title="@ActiveHero.Title"
@@ -169,14 +177,37 @@
         .DistinctBy(item => $"{item.Kind}:{item.Label}", StringComparer.OrdinalIgnoreCase)
         .ToList();
 
-    private IReadOnlyList<DetailAction> LandingPrimaryActions => [new DetailAction
+    private IReadOnlyList<DetailAction> LandingPrimaryActions
     {
-        Key = IsContinuation ? "resume" : IsOpenAction ? "open-feature" : PrimaryActionKey,
-        Label = ActiveHero.PrimaryActionLabel,
-        Icon = IsOpenAction ? null : PrimaryActionIcon,
-        Route = ActiveHero.PrimaryNavigationUrl,
-        IsPrimary = true,
-    }];
+        get
+        {
+            var primary = new DetailAction
+            {
+                Key = IsContinuation ? "resume" : IsOpenAction ? "open-feature" : PrimaryActionKey,
+                Label = LandingPrimaryLabel,
+                Icon = IsOpenAction ? null : PrimaryActionIcon,
+                Route = ActiveHero.PrimaryNavigationUrl,
+                IsPrimary = true,
+            };
+
+            if (!IsWatchHero || !IsContinuation || string.IsNullOrWhiteSpace(primary.Route))
+                return [primary];
+
+            return
+            [
+                primary,
+                new DetailAction
+                {
+                    Key = "restart",
+                    Label = "Restart",
+                    Icon = "restart_alt",
+                    Route = RestartRoute(primary.Route),
+                    IsPrimary = true,
+                    DisplayStyle = "secondary",
+                },
+            ];
+        }
+    }
 
     private ProgressViewModel? LandingProgress => ActiveHero.ProgressPct is > 0
         ? new ProgressViewModel
@@ -197,16 +228,26 @@
     };
     private string HeroStyle => $"--cinematic-hero-accent: {ActiveHero.AccentColor};";
     private bool IsOpenAction => ActiveHero.PrimaryActionLabel.StartsWith("Open", StringComparison.OrdinalIgnoreCase);
+    private string LandingPrimaryLabel => ActiveEntityType switch
+    {
+        DetailEntityType.MusicAlbum when !IsOpenAction => "Play",
+        DetailEntityType.Audiobook when IsContinuation => "Resume",
+        DetailEntityType.Audiobook when !IsOpenAction => "Listen",
+        _ => ActiveHero.PrimaryActionLabel,
+    };
+    private string ActiveDetailsUrl => FirstNonBlank(ActiveHero.SecondaryNavigationUrl, ActiveHero.PrimaryNavigationUrl) ?? "/";
     private string PrimaryActionKey => ActiveEntityType switch
     {
         DetailEntityType.Book or DetailEntityType.ComicIssue => "read",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.MusicAlbum => "play-album",
+        DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
         _ => "watch",
     };
     private string PrimaryActionIcon => ActiveEntityType switch
     {
         DetailEntityType.Book or DetailEntityType.ComicIssue => "auto_stories",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "headphones",
+        DetailEntityType.MusicAlbum => "play_arrow",
+        DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "headphones",
         _ => "play_arrow",
     };
     private string PauseButtonLabel => IsPaused ? "Resume featured item rotation" : "Pause featured item rotation";
@@ -252,8 +293,8 @@
                                 ? HeroArtworkMode.BackdropWithRenderedTitle
                                 : HeroArtworkMode.BackdropWithLogo
                             : HeroArtworkMode.ArtworkFallback,
-                    BackgroundPosition = ActiveEntityType == DetailEntityType.MusicAlbum ? "72% center" : "center",
-                    MobilePosition = "center",
+                    BackgroundPosition = ActiveEntityType == DetailEntityType.MusicAlbum ? "72% top" : "center top",
+                    MobilePosition = "center top",
                 },
             };
         }
@@ -339,7 +380,94 @@
         return Task.CompletedTask;
     }
 
-    private Task OpenLandingActionAsync(DetailAction action) => OpenAsync(action.Route);
+    private async Task OpenLandingActionAsync(DetailAction action)
+    {
+        if (ActiveEntityType is DetailEntityType.Book or DetailEntityType.ComicIssue
+            && action.Key is "read" or "resume")
+        {
+            if (await OpenLandingReaderAsync())
+                return;
+        }
+
+        if (ActiveEntityType == DetailEntityType.MusicAlbum && action.Key is "play-album" or "resume")
+        {
+            if (await PlayLandingAlbumAsync())
+                return;
+        }
+
+        if (ActiveEntityType == DetailEntityType.Audiobook && action.Key is "listen" or "resume")
+        {
+            if (await PlayLandingAudiobookAsync())
+                return;
+        }
+
+        await OpenAsync(action.Route);
+    }
+
+    private async Task<bool> OpenLandingReaderAsync()
+    {
+        var assetId = ActiveHero.PreviewItems
+            .Select(item => item.AssetId)
+            .FirstOrDefault(id => id.HasValue);
+        if (!assetId.HasValue)
+        {
+            var workId = ActiveHero.WorkId ?? ActiveHero.RepresentativeEntityId;
+            if (workId.HasValue)
+                assetId = await ApiClient.ResolveWorkToAssetAsync(workId.Value);
+        }
+
+        if (!assetId.HasValue)
+            return false;
+
+        Nav.NavigateTo($"/read/{assetId.Value:D}");
+        return true;
+    }
+
+    private async Task<bool> PlayLandingAlbumAsync()
+    {
+        var tracks = ActiveHero.PreviewItems
+            .Where(item => item.WorkId.HasValue)
+            .OrderBy(item => TrackPosition(item.Position))
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(item => new ListenQueueItem
+            {
+                WorkId = item.WorkId!.Value,
+                AssetId = item.AssetId,
+                MediaType = "Music",
+                Title = item.Title,
+                Subtitle = ActiveHero.Subtitle,
+                Album = ActiveHero.Title,
+                CoverUrl = FirstNonBlank(item.ImageUrl, ActiveHero.PreviewImageUrl),
+            })
+            .ToList();
+        if (tracks.Count == 0)
+            return false;
+
+        await Playback.ReplaceQueueItemsAsync(tracks, 0, ActiveHero.Title, shuffle: false);
+        return true;
+    }
+
+    private async Task<bool> PlayLandingAudiobookAsync()
+    {
+        var workId = ActiveHero.WorkId
+                     ?? ActiveHero.PreviewItems.Select(item => item.WorkId).FirstOrDefault(id => id.HasValue);
+        if (!workId.HasValue)
+            return false;
+
+        var preview = ActiveHero.PreviewItems.FirstOrDefault(item => item.WorkId == workId);
+        var item = new ListenQueueItem
+        {
+            WorkId = workId.Value,
+            AssetId = preview?.AssetId,
+            MediaType = "Audiobooks",
+            Title = ActiveHero.Title,
+            Subtitle = ActiveHero.Subtitle,
+            Album = ActiveHero.Title,
+            CoverUrl = FirstNonBlank(preview?.ImageUrl, ActiveHero.PreviewImageUrl),
+        };
+        await Playback.PlayAudiobookAsync(item, ActiveHero.Title);
+        return true;
+    }
 
     private Task OpenAsync(string? url)
     {
@@ -362,6 +490,14 @@
 
     private static string? FirstNonBlank(params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+    private static double TrackPosition(string? value)
+        => double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var position)
+            ? position
+            : double.MaxValue;
+
+    private static string RestartRoute(string route)
+        => $"{route}{(route.Contains("?", StringComparison.Ordinal) ? "&" : "?")}restart=true";
 
     private static MetadataPill ToMetadataPill(string value)
     {

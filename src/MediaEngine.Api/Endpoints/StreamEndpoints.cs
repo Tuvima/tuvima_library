@@ -1,4 +1,6 @@
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.Details;
+using MediaEngine.Contracts.Details;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -171,6 +173,67 @@ public static class StreamEndpoints
         .WithSummary("Serve artwork by variant id.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status302Found)
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
+
+        group.MapGet("/entity/{entityType}/{entityId:guid}/cover", async (
+            string entityType,
+            Guid entityId,
+            IEntityAssetRepository entityAssetRepo,
+            DetailComposerService detailComposer,
+            IHttpClientFactory httpFactory,
+            CancellationToken ct) =>
+        {
+            if (!DetailComposerService.TryParseEntityType(entityType, out var parsedEntityType))
+                return Results.BadRequest($"Unsupported detail entity type '{entityType}'.");
+
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "CoverArt", ct)
+                ?? await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "SquareArt", ct);
+            var localArtworkResult = CreateLocalArtworkResult(preferredVariant?.LocalImagePath);
+            if (localArtworkResult is not null)
+            {
+                return localArtworkResult;
+            }
+
+            var imageUrl = preferredVariant?.ImageUrl;
+            if (string.IsNullOrWhiteSpace(imageUrl))
+            {
+                var detail = await detailComposer.BuildAsync(
+                    parsedEntityType,
+                    entityId,
+                    DetailPresentationContext.Default,
+                    ct);
+                imageUrl = detail?.Artwork.CoverUrl
+                    ?? detail?.Artwork.PosterUrl
+                    ?? detail?.Artwork.HeroArtwork.Url;
+            }
+
+            if (!string.IsNullOrWhiteSpace(imageUrl)
+                && imageUrl.StartsWith("/", StringComparison.Ordinal)
+                && !imageUrl.StartsWith($"/stream/entity/{entityType}/", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Redirect(imageUrl);
+            }
+
+            if (!string.IsNullOrWhiteSpace(imageUrl)
+                && Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri)
+                && (imageUri.Scheme == Uri.UriSchemeHttp || imageUri.Scheme == Uri.UriSchemeHttps))
+            {
+                using var client = httpFactory.CreateClient("cover_download");
+                using var response = await client.GetAsync(imageUri, ct);
+                if (response.IsSuccessStatusCode)
+                {
+                    var bytes = await response.Content.ReadAsByteArrayAsync(ct);
+                    var contentType = response.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
+                    return Results.File(bytes, contentType);
+                }
+            }
+
+            return CreateArtworkPlaceholderResult();
+        })
+        .WithName("GetEntityCover")
+        .WithSummary("Serve the same managed or canonical cover artwork used by a detail page.")
+        .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 

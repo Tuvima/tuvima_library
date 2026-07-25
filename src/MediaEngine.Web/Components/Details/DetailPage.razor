@@ -48,23 +48,21 @@
             {
                 <DetailPrimaryModule Model="Model"
                                      Embedded="true"
-                                     OnSaveToList="HandlePrimarySaveToListAsync"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
             }
-        </section>
 
-        <div class="tl-detail-stage__navigation">
-            <DetailTabs Tabs="VisibleTabs"
-                        ActiveTab="@CurrentActiveTab"
-                        ActiveTabChanged="SetActiveTabAsync" />
-        </div>
+            <div class="tl-detail-stage__navigation">
+                <DetailTabs Tabs="VisibleTabs"
+                            ActiveTab="@CurrentActiveTab"
+                            ActiveTabChanged="SetActiveTabAsync" />
+            </div>
+        </section>
 
         @if (ShowPrimaryModuleAfterNavigation)
         {
             <section class="tl-detail-page__primary-content">
                 <DetailPrimaryModule Model="Model"
                                      Embedded="false"
-                                     OnSaveToList="HandlePrimarySaveToListAsync"
                                      OnContainerSelected="HandleContainerSelectedAsync" />
             </section>
         }
@@ -74,9 +72,12 @@
         <section id="overview" class="tl-detail-body">
             @if (CurrentActiveTab is "overview")
             {
-                <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
-                                                                 OnTabRequested="SetActiveTabAsync"
-                                                                 OnContainerSelected="HandleContainerSelectedAsync" />
+                @if (Model.EntityType != DetailEntityType.Collection)
+                {
+                    <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
+                                                                     OnTabRequested="SetActiveTabAsync"
+                                                                     OnContainerSelected="HandleContainerSelectedAsync" />
+                }
             }
             else if (CurrentActiveTab is "episodes")
             {
@@ -216,20 +217,6 @@
         $"{(HasPrimaryModuleAfterNavigation ? " tl-detail-stage--primary-after-navigation" : string.Empty)}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
-
-    private Task HandlePrimarySaveToListAsync()
-    {
-        if (Model is null)
-        {
-            return Task.CompletedTask;
-        }
-
-        var action = Model.PrimaryActions
-            .Concat(Model.SecondaryActions)
-            .Concat(Model.OverflowActions)
-            .FirstOrDefault(candidate => candidate.Key is "my-list" or "favorite");
-        return action is null ? Task.CompletedTask : HandleDetailActionAsync(action);
-    }
 
     private async Task HandleContainerSelectedAsync(SequenceContainerOptionViewModel option)
     {

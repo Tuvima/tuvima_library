@@ -19,23 +19,6 @@
     {
         <section class="tl-embedded-audio" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
             <header class="tl-embedded-audio__toolbar">
-                <div class="tl-embedded-audio__primary-actions">
-                    <AppNativeButton Type="button"
-                                     Class="tl-embedded-audio__play-all"
-                                     Disabled="@(OwnedCount == 0)"
-                                     OnClick="PlayAllAsync">
-                        <MudIcon Icon="@Icons.Material.Filled.PlayArrow" Size="Size.Small" />
-                        <span>Play all</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button"
-                                     Class="@($"tl-embedded-audio__save{(SourceIsSaved ? " is-saved" : string.Empty)}")"
-                                     Disabled="@(!OnSaveToList.HasDelegate)"
-                                     OnClick="SaveToListAsync">
-                        <MudIcon Icon="@(SourceIsSaved ? Icons.Material.Filled.Bookmark : Icons.Material.Outlined.Add)" Size="Size.Small" />
-                        <span>@(SourceIsSaved ? "In My List" : "Save to My List")</span>
-                    </AppNativeButton>
-                </div>
-
                 <div class="tl-embedded-audio__tools">
                     @if (!IsAudiobook)
                     {
@@ -287,8 +270,6 @@
     [Parameter] public string? ArtworkUrl { get; set; }
     [Parameter] public bool IsAudiobook { get; set; }
     [Parameter] public bool Compact { get; set; }
-    [Parameter] public bool SourceIsSaved { get; set; }
-    [Parameter] public EventCallback OnSaveToList { get; set; }
 
     private readonly HashSet<Guid> _favoriteIds = [];
     private readonly List<AudioTableColumn> _columns = [];
@@ -378,18 +359,6 @@
         new("duration", "Time", 156, 126, true, "right"),
         new("queue", "Queue", 86, 72, false, "center"),
     ];
-
-    private async Task PlayAllAsync()
-    {
-        var first = CompactVisibleItems.FirstOrDefault(item => item.IsOwned);
-        if (first is not null)
-        {
-            await PlayItemAsync(first);
-        }
-    }
-
-    private Task SaveToListAsync()
-        => OnSaveToList.HasDelegate ? OnSaveToList.InvokeAsync() : Task.CompletedTask;
 
     private void SearchChanged(ChangeEventArgs args)
         => _searchQuery = args.Value?.ToString() ?? string.Empty;

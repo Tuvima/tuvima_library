@@ -7236,9 +7236,8 @@
     }
 }
 
-/* Every detail page uses the same 70% viewport stage. Audio lists sit between
-   identity and navigation; structural series and owned-work rails sit after
-   navigation in the remaining stage space. */
+/* Every detail page uses one viewport-sized cinematic stage. Audio lists and
+   navigation overlay the lower fade; structural arrays follow the stage. */
 .tl-detail-stage {
     --cinematic-hero-height: 100%;
     --cinematic-hero-min-height: 0;
@@ -7246,7 +7245,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    height: 70svh;
+    height: 100svh;
     overflow: hidden;
     isolation: isolate;
     background:
@@ -8151,10 +8150,407 @@
     }
 }
 
+/* Viewport cinematic contract
+   ---------------------------
+   This is the single current geometry layer. The media surface owns the full
+   viewport, the global app bar floats above it, and the transparent section
+   navigation occupies the lower fade. */
+@media (min-width: 721px) {
+    .tl-detail-stage {
+        --detail-navigation-height: 3.75rem;
+        height: 100svh;
+        min-height: 100svh;
+        max-height: 100svh;
+        overflow: hidden;
+    }
+
+    .tl-detail-stage .tl-detail-edit-stage,
+    .tl-detail-stage--primary-before-navigation .tl-detail-edit-stage,
+    .tl-detail-stage--primary-after-navigation .tl-detail-edit-stage,
+    .tl-detail-stage--identity-only .tl-detail-edit-stage {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        flex: none;
+    }
+
+    .tl-detail-stage ::deep .cinematic-hero-surface,
+    .tl-detail-stage ::deep .tl-detail-hero {
+        width: 100%;
+        height: 100% !important;
+        min-height: 100% !important;
+        max-height: 100% !important;
+    }
+
+    .tl-detail-stage__navigation {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 9;
+        width: 100%;
+        min-height: var(--detail-navigation-height);
+        border-color: rgba(255, 255, 255, 0.08);
+        background:
+            linear-gradient(
+                to bottom,
+                rgba(5, 8, 14, 0.18),
+                rgba(5, 8, 14, 0.52));
+        box-shadow: none;
+        backdrop-filter: blur(1.15rem) saturate(120%);
+    }
+
+    .tl-detail-stage__navigation ::deep .detail-surface-navigation {
+        min-height: var(--detail-navigation-height);
+        border: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .tl-detail-stage__navigation ::deep .detail-surface-navigation .surface-navigation-bar__tabs,
+    .tl-detail-stage__navigation ::deep .detail-surface-navigation .surface-navigation-bar__tab {
+        min-height: var(--detail-navigation-height);
+    }
+
+    .tl-detail-stage:not(.tl-detail-stage--primary-before-navigation)
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        padding:
+            calc(var(--app-topbar-height, 65px) + clamp(2rem, 4svh, 3.5rem))
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(var(--detail-navigation-height) + clamp(2.5rem, 6svh, 4.5rem));
+    }
+
+    .tl-detail-stage:not(.tl-detail-stage--primary-before-navigation)
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+        align-content: end;
+        width: min(43rem, 46vw);
+        max-width: 43rem;
+        transform: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        padding:
+            calc(var(--app-topbar-height, 65px) + 1.5rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(var(--detail-navigation-height) + clamp(22rem, 42svh, 30rem));
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+        align-content: end;
+        width: min(43rem, 46vw);
+        max-width: 43rem;
+        gap: 0.48rem;
+        transform: none;
+    }
+
+    .tl-detail-stage--identity-only ::deep .tl-detail-hero__synopsis,
+    .tl-detail-stage--primary-after-navigation ::deep .tl-detail-hero__synopsis {
+        display: block;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-hero__synopsis {
+        display: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-primary-module--embedded {
+        position: absolute;
+        right: clamp(2rem, 4.5vw, 5.5rem);
+        bottom: var(--detail-navigation-height);
+        left: clamp(2rem, 4.5vw, 5.5rem);
+        z-index: 7;
+        width: auto;
+        height: clamp(19rem, 38svh, 28rem);
+        min-height: 0;
+        margin: 0;
+        padding: 0 0 clamp(0.75rem, 1.5svh, 1.15rem);
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-primary-module--embedded .tl-detail-primary-module__viewport {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio,
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+        overflow: hidden;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__toolbar {
+        justify-content: flex-end;
+        min-height: 3rem;
+        padding: 0.35rem 0;
+        border: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__tools {
+        justify-content: flex-end;
+        width: 100%;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__scroller,
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__list {
+        min-height: 0;
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+        scrollbar-color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 54%, transparent) transparent;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__row {
+        background: transparent;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters {
+        gap: 0.35rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__header {
+        flex: 0 0 auto;
+        min-height: 3rem;
+        padding: 0.2rem 0 0.45rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__header h2 {
+        font-size: 1rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__header p {
+        margin-top: 0.2rem;
+        font-size: 0.78rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__row {
+        min-height: 3.15rem;
+        padding: 0.42rem 0.6rem 0.42rem 0.25rem;
+        border: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__row:hover,
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__row.is-current {
+        background:
+            linear-gradient(
+                to right,
+                color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 18%, transparent),
+                transparent 72%);
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch {
+        display: grid;
+        justify-items: start;
+        width: min(44rem, 100%);
+        gap: 0.55rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        width: auto;
+        max-width: 100%;
+        gap: 0.25rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-width: 0;
+        padding: 0;
+        flex: 0 0 auto;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch + .tl-detail-secondary-action--watch::before {
+        content: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action {
+        width: auto;
+        min-width: 0;
+        min-height: 2.65rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.48rem;
+        padding: 0.38rem 0.68rem;
+        white-space: nowrap;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action .mud-icon-root {
+        font-size: 1.28rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action span,
+    .tl-detail-stage ::deep .tl-detail-secondary-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-hero:not(.tl-detail-hero--watch):not(.tl-detail-hero--person) .tl-detail-primary-actions {
+        width: fit-content;
+        grid-template-columns: minmax(10rem, 14rem);
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-hero:not(.tl-detail-hero--watch):not(.tl-detail-hero--person) .tl-detail-action--primary {
+        min-height: 3.45rem;
+        padding-inline: 1.6rem;
+        font-size: 1.05rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-actions--watch {
+        display: grid;
+        width: min(44rem, 46vw);
+        gap: 0.55rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-primary-actions {
+        width: fit-content;
+        flex: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-secondary-actions {
+        width: auto;
+        flex: none;
+        justify-content: flex-start;
+    }
+
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__cover-wrap {
+        top: 50%;
+        right: clamp(3rem, 6vw, 8rem);
+        width: auto;
+        max-width: min(32vw, 34rem);
+        height: clamp(26rem, 46svh, 35rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - var(--detail-navigation-height) - 4rem);
+        transform: translateY(-50%);
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
+        top: 29%;
+        right: clamp(3rem, 6vw, 8rem);
+        width: clamp(17rem, 24vw, 26rem);
+        max-width: clamp(17rem, 24vw, 26rem);
+        height: clamp(17rem, 24vw, 26rem);
+        max-height: 34svh;
+        transform: translateY(-50%);
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__foreground--poster {
+        width: auto;
+        max-width: none;
+        height: 100%;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__foreground--poster .tl-detail-media-stage__cover {
+        width: auto;
+        max-width: none;
+        height: 100%;
+        max-height: 100%;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-hero__inner {
+        height: 100%;
+        min-height: 100%;
+        grid-template-columns: minmax(0, 47rem) minmax(18rem, 32vw);
+        align-items: center;
+        padding:
+            calc(var(--app-topbar-height, 65px) + 2rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(var(--detail-navigation-height) + 2.5rem);
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-portrait {
+        width: auto;
+        max-width: min(32vw, 30rem);
+        height: clamp(26rem, 46svh, 35rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - var(--detail-navigation-height) - 4rem);
+        aspect-ratio: 2 / 3;
+        justify-self: end;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--collection .tl-detail-media-stage__cover-wrap {
+        display: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-titlebar {
+        display: none;
+    }
+}
+
+@media (max-width: 720px), (max-height: 620px) {
+    .tl-detail-stage {
+        min-height: 100svh;
+    }
+
+    .tl-detail-stage__navigation {
+        background: rgba(5, 8, 14, 0.58);
+        backdrop-filter: blur(1rem);
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-primary-module--embedded {
+        width: calc(100% - 2rem);
+        margin-inline: auto;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+        justify-content: flex-start;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action {
+        flex-direction: row;
+        width: auto;
+    }
+}
+
 /* Unified detail target
    ---------------------
    These rules are intentionally last. They define the final geometry for the
-   shared 70svh hero, the structural Overview array, and the separate content
+   shared viewport hero, the structural Overview array, and the separate content
    tabs without inheriting the earlier compact-in-hero sequence treatment. */
 ::deep .tl-detail-hero--person .tl-detail-person-hero__copy h1 {
     max-width: 15ch;
@@ -8647,6 +9043,432 @@
     }
 }
 
+/* Final structural-array scale. Covers and episode stills are intentionally
+   about twenty percent larger than the preceding detail pass. */
+@media (min-width: 721px) {
+    .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
+        grid-auto-columns: clamp(14.4rem, 13.2vw, 16.8rem);
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-detail__strip {
+        grid-auto-columns: clamp(19.2rem, 21.6vw, 25.2rem);
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__title,
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__title-row {
+        min-height: 2.4rem;
+        margin-top: 0.6rem;
+        padding-inline: 0.3rem;
+        overflow: visible;
+        font-size: 1rem;
+        line-height: 1.3;
+        text-overflow: clip;
+        white-space: normal;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__meta {
+        min-height: 1.35rem;
+        padding-inline: 0.3rem;
+        overflow: visible;
+        font-size: 0.86rem;
+        line-height: 1.35;
+        white-space: normal;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description {
+        display: -webkit-box;
+        min-height: 3.9rem;
+        margin: 0;
+        overflow: hidden;
+        color: rgba(225, 231, 242, 0.7);
+        font-size: 0.88rem;
+        line-height: 1.48;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description.is-expanded {
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description-wrap {
+        margin: 0.45rem 0.3rem 0;
+    }
+}
+
+@media (min-width: 721px) and (max-height: 800px) {
+    .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
+        grid-auto-columns: clamp(12.6rem, 11.8vw, 14.4rem);
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-detail__strip {
+        grid-auto-columns: clamp(16.8rem, 20.4vw, 21.6rem);
+    }
+}
+
+/* Final cascade lock for the viewport cinematic contract. */
+@media (min-width: 721px) {
+    .tl-detail-stage,
+    .tl-detail-stage--with-primary {
+        height: 100svh;
+        min-height: 100svh;
+        max-height: 100svh;
+    }
+
+    .tl-detail-stage .tl-detail-edit-stage,
+    .tl-detail-stage--primary-before-navigation .tl-detail-edit-stage,
+    .tl-detail-stage--primary-after-navigation .tl-detail-edit-stage {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        flex: none;
+    }
+
+    .tl-detail-stage__navigation {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 9;
+        min-height: 3.75rem;
+        padding: 0;
+        border-color: rgba(255, 255, 255, 0.08);
+        background: linear-gradient(to bottom, rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54));
+        box-shadow: none;
+        backdrop-filter: blur(1.15rem) saturate(120%);
+    }
+
+    .tl-detail-stage__navigation ::deep .detail-surface-navigation {
+        margin: 0;
+        border: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-primary-module--embedded {
+        position: absolute;
+        right: clamp(2rem, 4.5vw, 5.5rem);
+        bottom: 3.75rem;
+        left: clamp(2rem, 4.5vw, 5.5rem);
+        z-index: 7;
+        width: auto;
+        height: clamp(19rem, 38svh, 28rem);
+        min-height: 0;
+        margin: 0;
+        padding: 0 0 clamp(0.75rem, 1.5svh, 1.15rem);
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-primary-module--embedded .tl-detail-primary-module__viewport {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        padding:
+            calc(var(--app-topbar-height, 65px) + 1.5rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(3.75rem + clamp(22rem, 42svh, 30rem));
+    }
+
+    .tl-detail-stage:not(.tl-detail-stage--primary-before-navigation)
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        padding:
+            calc(var(--app-topbar-height, 65px) + clamp(2rem, 4svh, 3.5rem))
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(3.75rem + clamp(2.5rem, 6svh, 4.5rem));
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+        align-content: end;
+        transform: none;
+    }
+
+    .tl-detail-stage--identity-only ::deep .tl-detail-hero__synopsis,
+    .tl-detail-stage--primary-after-navigation ::deep .tl-detail-hero__synopsis {
+        display: block;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-hero__synopsis {
+        display: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio,
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters {
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__toolbar {
+        justify-content: flex-end;
+        padding-inline: 0;
+        border: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__tools {
+        justify-content: flex-end;
+        width: 100%;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__list {
+        min-height: 0;
+        overflow-y: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__row {
+        min-height: 3.15rem;
+        padding: 0.42rem 0.6rem 0.42rem 0.25rem;
+        border: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch {
+        display: grid;
+        justify-items: start;
+        width: min(44rem, 100%);
+        gap: 0.55rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions,
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-secondary-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        width: auto;
+        max-width: 100%;
+        min-height: 0;
+        gap: 0.25rem;
+        flex: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-width: 0;
+        padding: 0;
+        flex: 0 0 auto;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch + .tl-detail-secondary-action--watch::before {
+        content: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action {
+        width: auto;
+        min-width: 0;
+        min-height: 2.65rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.48rem;
+        padding: 0.38rem 0.68rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action .mud-icon-root {
+        font-size: 1.28rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-actions--watch {
+        display: grid;
+        width: min(44rem, 46vw);
+        gap: 0.55rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-primary-actions {
+        width: fit-content;
+        flex: none;
+    }
+
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__cover-wrap {
+        top: 50%;
+        right: clamp(3rem, 6vw, 8rem);
+        width: auto;
+        max-width: min(32vw, 34rem);
+        height: clamp(26rem, 46svh, 35rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - 7.75rem);
+        transform: translateY(-50%);
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-hero__inner {
+        height: 100%;
+        min-height: 100%;
+        grid-template-columns: minmax(0, 47rem) minmax(18rem, 32vw);
+        padding:
+            calc(var(--app-topbar-height, 65px) + 2rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            6.25rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-portrait {
+        width: auto;
+        max-width: min(32vw, 30rem);
+        height: clamp(26rem, 46svh, 35rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - 7.75rem);
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--collection .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage ::deep .tl-detail-titlebar {
+        display: none;
+    }
+}
+
+/* Comics share the full book-sized cover envelope without book-page decoration. */
+@media (min-width: 721px) {
+    .tl-detail-stage
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__foreground--poster {
+        width: fit-content;
+        max-width: none;
+        height: min(47rem, 55svh);
+        max-height: min(47rem, 55svh);
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__foreground--poster .tl-detail-media-stage__cover {
+        width: auto;
+        max-width: none;
+        height: min(47rem, 55svh);
+        max-height: min(47rem, 55svh) !important;
+    }
+}
+
+/* Overview follow-up: size selectors from their content, keep container
+   identity with the array heading, enlarge cover-led rails, and keep every
+   contributor portrait on the same visual footing. */
+@media (min-width: 721px) {
+    .tl-detail-page ::deep .tl-series-detail__header {
+        display: block;
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__controls {
+        min-height: 3.6rem;
+        padding-bottom: 0.65rem;
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__control--container,
+    .tl-detail-page ::deep .tl-series-detail__control--group {
+        width: clamp(
+            20rem,
+            calc(var(--tl-select-width, 20ch) + 7rem),
+            42rem
+        );
+        max-width: min(46vw, 42rem);
+        flex: 0 1 auto;
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__identity {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+        min-width: 0;
+        color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 72%, #fff);
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__identity > .mud-icon-root {
+        flex: 0 0 auto;
+        font-size: 1.15rem;
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__identity > div {
+        display: grid;
+        gap: 0.18rem;
+        min-width: 0;
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__identity span {
+        overflow: hidden;
+        font-size: clamp(0.86rem, 1vw, 1rem);
+        font-weight: 700;
+        letter-spacing: 0.22em;
+        line-height: 1.2;
+        text-overflow: ellipsis;
+        text-transform: uppercase;
+        white-space: nowrap;
+    }
+
+    .tl-detail-page ::deep .tl-series-detail__identity small {
+        display: block;
+        color: rgba(239, 242, 249, 0.52);
+        font-size: 0.68rem;
+        letter-spacing: 0.04em;
+        text-transform: none;
+    }
+
+    .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
+        grid-auto-columns: clamp(10.5rem, 9.8vw, 12rem);
+    }
+
+    .tl-detail-page ::deep .tl-overview-credit-rows .tl-credit-card--compact,
+    .tl-detail-page ::deep .tl-overview-credit-rows .tl-credit-card--compact:first-child {
+        display: block;
+        width: clamp(6.5rem, 6.8vw, 7.75rem);
+        max-width: clamp(6.5rem, 6.8vw, 7.75rem);
+        min-height: 0;
+    }
+
+    .tl-detail-page ::deep .tl-overview-credit-rows .tl-credit-card--compact:first-child .tl-credit-card__image,
+    .tl-detail-page ::deep .tl-overview-credit-rows .tl-credit-card--compact:first-child .tl-credit-card__image .tl-person-avatar,
+    .tl-detail-page ::deep .tl-overview-credit-rows .tl-credit-card--compact:first-child .tl-credit-card__image img {
+        width: 100%;
+        height: auto;
+    }
+
+    .tl-detail-page ::deep .tl-overview-credit-rows .tl-credit-card--compact:first-child .tl-credit-card__body {
+        padding: 0.45rem 0.05rem 0;
+    }
+}
+
+@media (min-width: 721px) and (max-height: 800px) {
+    .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
+        grid-auto-columns: clamp(9.5rem, 9vw, 10.75rem);
+    }
+}
+
 /* Approved target-state cascade lock. */
 @media (min-width: 721px) {
     .tl-detail-page__primary-content
@@ -8917,9 +9739,9 @@
 @media (min-width: 721px) {
     .tl-detail-page__primary-content
         ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-detail__strip {
-        grid-auto-columns: clamp(18rem, 19vw, 22rem);
+        grid-auto-columns: clamp(19.2rem, 21.6vw, 25.2rem);
         height: auto;
-        min-height: 17.5rem;
+        min-height: 21rem;
         align-items: start;
     }
 
@@ -8934,31 +9756,45 @@
 
     .tl-detail-page__primary-content
         ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__title-row {
-        min-height: 2.1rem;
-        margin-top: 0.55rem;
+        min-height: 2.4rem;
+        margin-top: 0.6rem;
         overflow: visible;
+        font-size: 1rem;
+        line-height: 1.3;
     }
 
     .tl-detail-page__primary-content
         ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__meta {
         display: flex;
-        min-height: 1.25rem;
+        min-height: 1.35rem;
         height: auto;
         overflow: visible;
-        font-size: 0.78rem;
+        font-size: 0.86rem;
     }
 
     .tl-detail-page__primary-content
         ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description {
         display: -webkit-box;
-        min-height: 2.7rem;
-        margin-top: 0.4rem;
+        min-height: 3.9rem;
+        margin: 0;
         overflow: hidden;
-        color: rgba(225, 231, 242, 0.64);
-        font-size: 0.78rem;
-        line-height: 1.45;
+        color: rgba(225, 231, 242, 0.7);
+        font-size: 0.88rem;
+        line-height: 1.48;
         -webkit-box-orient: vertical;
         -webkit-line-clamp: 3;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description.is-expanded {
+        display: block;
+        overflow: visible;
+        -webkit-line-clamp: unset;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description-wrap {
+        margin: 0.45rem 0.3rem 0;
     }
 
     ::deep .tl-overview-credit-rows {
@@ -9339,14 +10175,14 @@
 
 /* Final detail composition
    ------------------------
-   The cinematic identity is the 70% hero. Structural rails and navigation are
+   The cinematic identity fills the viewport. Structural rails and navigation are
    full-width surfaces below it. Audio is the only primary module composed
    inside the hero and receives the remaining height after its identity block. */
 @media (min-width: 721px) {
     .tl-detail-stage {
-        height: 70svh;
-        min-height: 70svh;
-        max-height: 70svh;
+        height: 100svh;
+        min-height: 100svh;
+        max-height: 100svh;
         overflow: hidden;
     }
 
@@ -9717,14 +10553,14 @@
     }
 
     .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
-        grid-auto-columns: clamp(9rem, 8.6vw, 10.25rem);
+        grid-auto-columns: clamp(14.4rem, 13.2vw, 16.8rem);
         gap: clamp(1rem, 1.4vw, 1.7rem);
         padding-block: 0.35rem 1rem;
     }
 
     .tl-detail-page__primary-content
         ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-detail__strip {
-        grid-auto-columns: clamp(16rem, 18vw, 21rem);
+        grid-auto-columns: clamp(19.2rem, 21.6vw, 25.2rem);
     }
 }
 
@@ -9746,12 +10582,250 @@
     }
 
     .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
-        grid-auto-columns: clamp(8rem, 8.2vw, 9.25rem);
+        grid-auto-columns: clamp(12.6rem, 11.8vw, 14.4rem);
         gap: 1rem;
     }
 
     .tl-detail-page__primary-content
         ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-detail__strip {
-        grid-auto-columns: clamp(14rem, 17vw, 18rem);
+        grid-auto-columns: clamp(16.8rem, 20.4vw, 21.6rem);
+    }
+}
+
+/* CINEMATIC_CONTRACT_EOF: keep these current-state declarations at EOF. */
+@media (min-width: 721px) {
+    .tl-detail-stage,
+    .tl-detail-stage--with-primary {
+        height: 100svh;
+        min-height: 100svh;
+        max-height: 100svh;
+    }
+
+    .tl-detail-stage .tl-detail-edit-stage,
+    .tl-detail-stage--primary-before-navigation .tl-detail-edit-stage,
+    .tl-detail-stage--primary-after-navigation .tl-detail-edit-stage {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        min-height: 100%;
+        max-height: 100%;
+        flex: none;
+    }
+
+    .tl-detail-stage__navigation {
+        position: absolute;
+        inset: auto 0 0;
+        z-index: 9;
+        min-height: 3.75rem;
+        padding: 0;
+        border-color: rgba(255, 255, 255, 0.08);
+        background: linear-gradient(to bottom, rgba(5, 8, 14, 0.16), rgba(5, 8, 14, 0.54));
+        box-shadow: none;
+        backdrop-filter: blur(1.15rem) saturate(120%);
+    }
+
+    .tl-detail-stage__navigation ::deep .detail-surface-navigation {
+        margin: 0;
+        border: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-primary-module--embedded {
+        position: absolute;
+        right: clamp(2rem, 4.5vw, 5.5rem);
+        bottom: 3.75rem;
+        left: clamp(2rem, 4.5vw, 5.5rem);
+        z-index: 7;
+        width: auto;
+        height: clamp(19rem, 38svh, 28rem);
+        min-height: 0;
+        margin: 0;
+        padding: 0 0 clamp(0.75rem, 1.5svh, 1.15rem);
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-primary-module--embedded .tl-detail-primary-module__viewport {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        padding:
+            calc(var(--app-topbar-height, 65px) + 1.5rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(3.75rem + clamp(22rem, 42svh, 30rem));
+    }
+
+    .tl-detail-stage:not(.tl-detail-stage--primary-before-navigation)
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        align-items: flex-end;
+        padding:
+            calc(var(--app-topbar-height, 65px) + clamp(2rem, 4svh, 3.5rem))
+            clamp(2rem, 4.5vw, 5.5rem)
+            calc(3.75rem + clamp(2.5rem, 6svh, 4.5rem));
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
+        align-content: end;
+        transform: none;
+    }
+
+    .tl-detail-stage--identity-only ::deep .tl-detail-hero__synopsis,
+    .tl-detail-stage--primary-after-navigation ::deep .tl-detail-hero__synopsis {
+        display: block;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-detail-hero__synopsis {
+        display: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio,
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters {
+        height: 100%;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__toolbar {
+        justify-content: flex-end;
+        padding-inline: 0;
+        border: 0;
+        background: transparent;
+        backdrop-filter: none;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-embedded-audio__tools {
+        justify-content: flex-end;
+        width: 100%;
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__list {
+        min-height: 0;
+        overflow-y: auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.09);
+    }
+
+    .tl-detail-stage--primary-before-navigation ::deep .tl-audiobook-chapters__row {
+        min-height: 3.15rem;
+        padding: 0.42rem 0.6rem 0.42rem 0.25rem;
+        border: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.075);
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch,
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-actions--watch {
+        display: grid;
+        justify-items: start;
+        width: min(44rem, 100%);
+        gap: 0.55rem;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-primary-actions {
+        width: min(34rem, 100%);
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-secondary-actions,
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-secondary-actions {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: nowrap;
+        width: auto;
+        max-width: 100%;
+        min-height: 0;
+        gap: 0.25rem;
+        flex: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        min-width: 0;
+        padding: 0;
+        flex: 0 0 auto;
+    }
+
+    .tl-detail-stage
+        ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch + .tl-detail-secondary-action--watch::before {
+        content: none;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-flat-action {
+        width: auto;
+        min-width: 0;
+        min-height: 2.65rem;
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 0.48rem;
+        padding: 0.38rem 0.68rem;
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero--music .tl-detail-primary-actions {
+        width: fit-content;
+        flex: none;
+    }
+
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--identity-only
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--portrait .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--poster .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-after-navigation
+        ::deep .tl-detail-media-stage--book .tl-detail-media-stage__cover-wrap {
+        top: 50%;
+        right: clamp(3rem, 6vw, 8rem);
+        width: auto;
+        max-width: min(32vw, 34rem);
+        height: clamp(26rem, 46svh, 35rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - 7.75rem);
+        transform: translateY(-50%);
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-hero__inner {
+        height: 100%;
+        min-height: 100%;
+        grid-template-columns: minmax(0, 47rem) minmax(18rem, 32vw);
+        padding:
+            calc(var(--app-topbar-height, 65px) + 2rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            6.25rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-portrait {
+        width: auto;
+        max-width: min(32vw, 30rem);
+        height: clamp(26rem, 46svh, 35rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - 7.75rem);
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--collection .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage ::deep .tl-detail-titlebar {
+        display: none;
     }
 }

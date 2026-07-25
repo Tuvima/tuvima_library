@@ -13,9 +13,9 @@
     --hero-backdrop-bottom-rgb: var(--hero-bg-rgb);
     --hero-wash-accent: var(--cinematic-hero-accent, var(--tl-detail-accent, #8b5cf6));
     position: relative;
-    height: var(--cinematic-hero-height, 60svh) !important;
-    min-height: var(--cinematic-hero-min-height, min(60svh, 28rem)) !important;
-    max-height: var(--cinematic-hero-max-height, 60svh) !important;
+    height: var(--cinematic-hero-height, 100svh) !important;
+    min-height: var(--cinematic-hero-min-height, 100svh) !important;
+    max-height: var(--cinematic-hero-max-height, none) !important;
     overflow: hidden;
     isolation: isolate;
     background-color: rgb(var(--hero-shadow-rgb));
@@ -50,29 +50,23 @@
     filter: none;
 }
 
-/* The sharp frame follows the detail-page contract: it remains uncropped on
-   the right while a mask fades its intrinsic left edge into the copy area. */
+/* Cinematic landscape art fills the viewport and protects the source's upper
+   composition. On ultrawide screens the expendable region is the darkened
+   bottom, rather than an equal crop from both vertical edges. */
 ::deep .tl-detail-hero__artwork,
 ::deep .tl-detail-media-stage__background {
     position: absolute;
-    top: 50%;
-    right: 0;
-    bottom: auto;
-    left: auto;
+    inset: 0;
     z-index: 1;
-    width: auto;
-    max-width: 100%;
+    width: 100%;
+    max-width: none;
     height: 100%;
     max-height: 100%;
-    object-fit: contain;
-    object-position: var(--hero-image-position, center right);
-    transform: translateY(-50%);
-    -webkit-mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 6%, rgba(0, 0, 0, 0.6) 14%, rgba(0, 0, 0, 0.86) 23%, #000 32%, #000 100%);
-    mask-image: linear-gradient(to right, transparent 0%, rgba(0, 0, 0, 0.25) 6%, rgba(0, 0, 0, 0.6) 14%, rgba(0, 0, 0, 0.86) 23%, #000 32%, #000 100%);
-    -webkit-mask-repeat: no-repeat;
-    mask-repeat: no-repeat;
-    -webkit-mask-size: 100% 100%;
-    mask-size: 100% 100%;
+    object-fit: cover;
+    object-position: var(--hero-image-position, center top);
+    transform: none;
+    -webkit-mask-image: none;
+    mask-image: none;
 }
 
 ::deep .tl-detail-hero__overlays,
@@ -82,18 +76,18 @@
     z-index: 1;
     pointer-events: none;
     background:
-        linear-gradient(to right, rgba(var(--hero-shadow-rgb), 0.86) 0%, rgba(var(--hero-shadow-rgb), 0.74) 22%, rgba(var(--hero-shadow-rgb), 0.5) 42%, rgba(var(--hero-shadow-rgb), 0.22) 62%, rgba(var(--hero-shadow-rgb), 0.06) 78%, transparent 100%),
+        linear-gradient(to right, rgba(var(--hero-shadow-rgb), 0.9) 0%, rgba(var(--hero-shadow-rgb), 0.78) 20%, rgba(var(--hero-shadow-rgb), 0.52) 38%, rgba(var(--hero-shadow-rgb), 0.2) 52%, rgba(var(--hero-shadow-rgb), 0.04) 64%, transparent 76%),
         radial-gradient(ellipse at 72% 42%, color-mix(in srgb, var(--hero-wash-accent) 30%, transparent) 0%, color-mix(in srgb, var(--hero-wash-accent) 14%, transparent) 28%, transparent 70%),
-        linear-gradient(to bottom, transparent 45%, rgba(var(--hero-shadow-rgb), 0.52) 76%, rgba(var(--hero-shadow-rgb), 0.95) 100%),
+        linear-gradient(to bottom, rgba(var(--hero-shadow-rgb), 0.54) 0%, rgba(var(--hero-shadow-rgb), 0.08) 14%, transparent 42%, rgba(var(--hero-shadow-rgb), 0.34) 55%, rgba(var(--hero-shadow-rgb), 0.78) 78%, rgba(var(--hero-shadow-rgb), 0.99) 100%),
         radial-gradient(ellipse at center, transparent 42%, rgba(var(--hero-shadow-rgb), 0.28) 100%);
 }
 
 .cinematic-hero-surface-scope ::deep .cinematic-hero-surface.tl-detail-hero--watch .tl-detail-media-stage__overlay {
     z-index: 2;
     background:
-        linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.86) 0%, rgba(var(--hero-bg-rgb), 0.76) 14%, rgba(var(--hero-bg-rgb), 0.58) 26%, rgba(var(--hero-bg-rgb), 0.38) 38%, rgba(var(--hero-bg-rgb), 0.2) 48%, rgba(var(--hero-bg-rgb), 0.09) 58%, rgba(var(--hero-bg-rgb), 0.03) 68%, transparent 78%),
+        linear-gradient(to right, rgba(var(--hero-bg-rgb), 0.92) 0%, rgba(var(--hero-bg-rgb), 0.8) 16%, rgba(var(--hero-bg-rgb), 0.58) 29%, rgba(var(--hero-bg-rgb), 0.32) 41%, rgba(var(--hero-bg-rgb), 0.12) 51%, rgba(var(--hero-bg-rgb), 0.03) 61%, transparent 72%),
         radial-gradient(ellipse at 72% 42%, color-mix(in srgb, var(--hero-wash-accent) 26%, transparent) 0%, color-mix(in srgb, var(--hero-wash-accent) 11%, transparent) 30%, transparent 72%),
-        linear-gradient(to bottom, rgba(var(--hero-shadow-rgb), 0.24) 0%, rgba(var(--hero-shadow-rgb), 0.06) 42%, rgba(var(--hero-shadow-rgb), 0.58) 78%, rgba(var(--hero-shadow-rgb), 0.96) 100%),
+        linear-gradient(to bottom, rgba(var(--hero-shadow-rgb), 0.58) 0%, rgba(var(--hero-shadow-rgb), 0.08) 15%, transparent 44%, rgba(var(--hero-shadow-rgb), 0.35) 56%, rgba(var(--hero-shadow-rgb), 0.8) 79%, rgba(var(--hero-shadow-rgb), 0.99) 100%),
         radial-gradient(ellipse at center, transparent 38%, rgba(var(--hero-shadow-rgb), 0.32) 100%);
 }
 
@@ -130,7 +124,7 @@
     right: clamp(3.5rem, 8vw, 8.75rem);
     width: fit-content;
     max-width: clamp(18rem, 30vw, 30rem);
-    height: min(32rem, 48svh);
+    height: clamp(24rem, 46svh, 34rem);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -158,12 +152,12 @@
     box-shadow: 0 2.25rem 5.625rem rgba(0, 0, 0, 0.56);
 }
 
-/* Poster and book fallbacks must scale inside the shorter hero instead of
-   keeping their intrinsic height and being clipped by the surface boundary. */
+/* Portrait media shares one visual-height envelope. Natural aspect ratios are
+   retained, so comics are no longer rendered shorter than books. */
 ::deep .tl-detail-media-stage__foreground:not(.tl-detail-media-stage__foreground--album) .tl-detail-media-stage__cover {
     width: auto;
     height: auto;
-    max-height: min(32rem, 48svh) !important;
+    max-height: clamp(24rem, 46svh, 34rem) !important;
 }
 
 ::deep .tl-detail-media-stage__foreground--album {
@@ -195,24 +189,23 @@
 
 @media (max-width: 640px) {
     ::deep .tl-detail-media-stage__background {
-        top: 0;
-        right: 50%;
-        width: auto;
+        inset: 0;
+        width: 100%;
         max-width: none;
-        height: 62%;
-        transform: translateX(50%);
-        -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 52%, rgba(0, 0, 0, 0.72) 70%, transparent 100%);
-        mask-image: linear-gradient(to bottom, #000 0%, #000 52%, rgba(0, 0, 0, 0.72) 70%, transparent 100%);
+        height: 100%;
+        object-position: var(--mobile-image-position, center top);
+        transform: none;
+        -webkit-mask-image: none;
+        mask-image: none;
     }
 }
 
-/* Sixty percent is the desktop target. On narrow or unusually short
-   viewports, let the content establish the height so the identity column is
-   never clipped by an arbitrary viewport cap. */
+/* Narrow or unusually short viewports let content establish a safe minimum
+   while keeping the background cinematic. */
 @media (max-width: 720px), (max-height: 620px) {
     .cinematic-hero-surface-scope ::deep .cinematic-hero-surface {
         height: auto !important;
-        min-height: 60svh !important;
+        min-height: 100svh !important;
         max-height: none !important;
     }
 }

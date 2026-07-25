@@ -1,0 +1,39 @@
+.tl-detail-collection-artwork {
+    position: absolute;
+    top: 50%;
+    right: clamp(2.5rem, 5.5vw, 7.5rem);
+    z-index: 4;
+    width: clamp(24rem, 36vw, 43rem);
+    height: clamp(22rem, 44svh, 34rem);
+    transform: translateY(-50%);
+    pointer-events: none;
+    filter: drop-shadow(0 2.2rem 4rem rgba(0, 0, 0, 0.58));
+}
+
+.tl-detail-collection-artwork ::deep .media-artwork-group-preview {
+    overflow: visible;
+}
+
+.tl-detail-collection-artwork ::deep .media-artwork-group-preview__artwork {
+    border-radius: 0.65rem;
+    box-shadow: 0 1.7rem 3.5rem rgba(0, 0, 0, 0.62);
+}
+
+@media (max-width: 960px) {
+    .tl-detail-collection-artwork {
+        right: 1.5rem;
+        width: 40vw;
+        opacity: 0.58;
+    }
+}
+
+@media (max-width: 720px) {
+    .tl-detail-collection-artwork {
+        top: calc(var(--app-topbar-height, 65px) + 2rem);
+        right: 1rem;
+        width: min(72vw, 24rem);
+        height: 30svh;
+        transform: none;
+        opacity: 0.42;
+    }
+}

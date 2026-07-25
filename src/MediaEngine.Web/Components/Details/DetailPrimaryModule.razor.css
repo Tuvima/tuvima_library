@@ -361,6 +361,392 @@
     }
 }
 
+/* Overview arrays use one predictable hierarchy: optional controls first,
+   the section identity immediately above the artwork, and uniformly tall
+   library covers regardless of their native square/portrait ratio. */
+.tl-detail-primary-module__header,
+.tl-detail-primary-module--works .tl-detail-primary-module__header {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-height: 0;
+    padding-bottom: 0.8rem;
+}
+
+.tl-detail-primary-module__controls {
+    order: 0;
+    width: 100%;
+    min-height: 3rem;
+}
+
+.tl-detail-primary-module__title {
+    order: 1;
+    align-self: flex-start;
+    max-width: 100%;
+}
+
+.tl-detail-primary-module__title h2,
+.tl-detail-primary-module--works .tl-detail-primary-module__title h2 {
+    overflow: visible;
+    text-overflow: clip;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+    width: clamp(10.5rem, 11vw, 12.5rem);
+    height: auto;
+    grid-template-rows: auto auto;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+    width: clamp(15.75rem, 16.5vw, 18.75rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--wide,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--wide {
+    width: clamp(20rem, 24vw, 27rem);
+}
+
+.tl-detail-primary-module__art {
+    position: relative;
+}
+
+.tl-detail-primary-module__media-type {
+    position: absolute;
+    top: 0.55rem;
+    left: 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    max-width: calc(100% - 1.1rem);
+    min-height: 1.55rem;
+    padding: 0.2rem 0.48rem;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    border-radius: 999px;
+    background: rgba(5, 9, 17, 0.82);
+    box-shadow: 0 0.25rem 0.8rem rgba(0, 0, 0, 0.28);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.07em;
+    line-height: 1;
+    text-overflow: ellipsis;
+    text-transform: uppercase;
+    white-space: nowrap;
+    backdrop-filter: blur(0.55rem);
+}
+
+.tl-detail-primary-module__media-type .mud-icon-root {
+    font-size: 0.9rem;
+}
+
+.tl-detail-primary-module__media-type--read {
+    color: #c8ffbb;
+}
+
+.tl-detail-primary-module__media-type--watch {
+    color: #d4c6ff;
+}
+
+.tl-detail-primary-module__media-type--listen {
+    color: #ffe3a1;
+}
+
+::deep .tl-detail-primary-module__filter--read {
+    color: #bff5b5;
+}
+
+::deep .tl-detail-primary-module__filter--watch {
+    color: #cdbfff;
+}
+
+::deep .tl-detail-primary-module__filter--listen {
+    color: #ffe2a3;
+}
+
+::deep .tl-detail-primary-module__filter--read.is-active {
+    background: linear-gradient(135deg, #255f42, #3e9a61);
+}
+
+::deep .tl-detail-primary-module__filter--watch.is-active {
+    background: linear-gradient(135deg, #47278c, #7447df);
+}
+
+::deep .tl-detail-primary-module__filter--listen.is-active {
+    background: linear-gradient(135deg, #72531e, #aa7830);
+}
+
+@media (min-width: 721px) and (max-height: 800px) {
+    .tl-detail-primary-module--works .tl-detail-primary-module__item,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+        width: clamp(10rem, 10.5vw, 11.75rem);
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+        width: clamp(15rem, 15.75vw, 17.625rem);
+    }
+}
+
+/* Keep these final declarations last: this file retains older responsive
+   experiments above, while the current detail contract is one-line identity
+   at left and segmented controls at right. */
+.tl-detail-primary-module__header,
+.tl-detail-primary-module--works .tl-detail-primary-module__header {
+    align-items: center;
+    flex-direction: row;
+    gap: 1.25rem;
+    min-height: 4rem;
+}
+
+.tl-detail-primary-module__title {
+    order: 0;
+    align-self: center;
+}
+
+.tl-detail-primary-module__controls {
+    order: 1;
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    width: auto;
+    margin-left: auto;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+    width: clamp(12.6rem, 13.2vw, 15rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+    width: clamp(18.9rem, 19.8vw, 22.5rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--wide,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--wide {
+    width: clamp(24rem, 28.8vw, 32.4rem);
+}
+
+@media (max-width: 1100px) {
+    .tl-detail-primary-module__header,
+    .tl-detail-primary-module--works .tl-detail-primary-module__header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .tl-detail-primary-module__controls {
+        justify-content: flex-start;
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 720px) {
+    .tl-detail-primary-module__controls {
+        flex-direction: column;
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__item,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+        width: 10.5rem;
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+        width: 15.75rem;
+    }
+}
+
+/* Segmented structural filters and final artwork sizing. Role and lane
+   controls share the same predictable top-right position and visual language. */
+.tl-detail-primary-module__header,
+.tl-detail-primary-module--works .tl-detail-primary-module__header {
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+    gap: 1.25rem;
+    min-height: 4rem;
+}
+
+.tl-detail-primary-module__title {
+    order: 0;
+    align-self: center;
+    flex: 0 1 auto;
+}
+
+.tl-detail-primary-module__controls {
+    order: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.85rem;
+    min-width: 0;
+    min-height: 3rem;
+    margin-left: auto;
+    overflow-x: auto;
+    scrollbar-width: thin;
+}
+
+.tl-detail-primary-module__role-filters,
+.tl-detail-primary-module__filters {
+    display: inline-flex;
+    flex: 0 0 auto;
+    gap: 0;
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 0.58rem;
+    background: rgba(4, 9, 18, 0.38);
+}
+
+::deep .tl-detail-primary-module__role-filter,
+::deep .tl-detail-primary-module__filter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.48rem;
+    width: auto;
+    min-width: 6.35rem;
+    height: 3rem;
+    min-height: 3rem;
+    padding: 0.45rem 0.9rem;
+    border: 0;
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0;
+    background: transparent;
+    color: rgba(244, 247, 252, 0.74);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+::deep .tl-detail-primary-module__role-filter:first-child,
+::deep .tl-detail-primary-module__filter:first-child {
+    border-left: 0;
+}
+
+::deep .tl-detail-primary-module__role-filter:hover,
+::deep .tl-detail-primary-module__role-filter:focus-visible,
+::deep .tl-detail-primary-module__filter:hover,
+::deep .tl-detail-primary-module__filter:focus-visible {
+    background: rgba(255, 255, 255, 0.065);
+    color: #fff;
+}
+
+::deep .tl-detail-primary-module__role-filter.is-active,
+::deep .tl-detail-primary-module__filter.is-active,
+::deep .tl-detail-primary-module__filter--read.is-active,
+::deep .tl-detail-primary-module__filter--watch.is-active,
+::deep .tl-detail-primary-module__filter--listen.is-active {
+    background: linear-gradient(135deg, #4f2fbd, #7447ef);
+    box-shadow: inset 0 0 0 1px rgba(189, 168, 255, 0.26);
+    color: #fff;
+}
+
+::deep .tl-detail-primary-module__role-filter:disabled,
+::deep .tl-detail-primary-module__filter:disabled {
+    background: transparent;
+    color: rgba(244, 247, 252, 0.28);
+    cursor: default;
+}
+
+::deep .tl-detail-primary-module__filter-label,
+::deep .tl-detail-primary-module__filter .tl-detail-primary-module__filter-label {
+    display: inline;
+    min-width: 0;
+    width: auto;
+    height: auto;
+    border: 0;
+    border-radius: 0;
+    color: inherit;
+    font-size: inherit;
+}
+
+.tl-detail-primary-module__filter-separator {
+    flex: 0 0 1px;
+    align-self: stretch;
+    width: 1px;
+    min-height: 2.4rem;
+    margin-block: 0.3rem;
+    background: rgba(255, 255, 255, 0.13);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+    width: clamp(12.6rem, 13.2vw, 15rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+    width: clamp(18.9rem, 19.8vw, 22.5rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--wide,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--wide {
+    width: clamp(24rem, 28.8vw, 32.4rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__copy,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__copy {
+    gap: 0.2rem;
+    padding-top: 0.55rem;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__copy strong,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__copy strong {
+    font-size: clamp(0.9rem, 0.92vw, 1rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__copy small,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__copy small {
+    font-size: clamp(0.76rem, 0.78vw, 0.84rem);
+}
+
+@media (max-width: 1100px) {
+    .tl-detail-primary-module__header,
+    .tl-detail-primary-module--works .tl-detail-primary-module__header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .tl-detail-primary-module__controls {
+        justify-content: flex-start;
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+@media (max-width: 720px) {
+    .tl-detail-primary-module__controls {
+        align-items: stretch;
+        flex-direction: column;
+        overflow: visible;
+    }
+
+    .tl-detail-primary-module__role-filters,
+    .tl-detail-primary-module__filters {
+        max-width: 100%;
+        overflow-x: auto;
+    }
+
+    .tl-detail-primary-module__filter-separator {
+        display: none;
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__item,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+        width: 10.5rem;
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+        width: 15.75rem;
+    }
+}
+
 @media (min-width: 721px) and (max-height: 800px) {
     .tl-detail-primary-module--works .tl-detail-primary-module__header {
         min-height: 3.1rem;
@@ -493,5 +879,134 @@
     .tl-detail-primary-module__filters {
         width: 100%;
         max-width: none;
+    }
+}
+
+/* Final structural-array geometry. Keep the title at the left and group all
+   filtering controls at the right on one predictable baseline. */
+.tl-detail-primary-module__header,
+.tl-detail-primary-module--works .tl-detail-primary-module__header {
+    align-items: center;
+    flex-direction: row;
+    gap: 1.25rem;
+    min-height: 4rem;
+}
+
+.tl-detail-primary-module__controls {
+    justify-content: flex-end;
+    order: 1;
+    width: auto;
+    min-height: 3rem;
+    flex: 1 1 auto;
+    margin-left: auto;
+}
+
+.tl-detail-primary-module__title {
+    order: 0;
+    align-self: center;
+    flex: 0 1 auto;
+    max-width: 100%;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+    width: clamp(13.5rem, 14.5vw, 15rem);
+    height: auto;
+    grid-template-rows: auto auto;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+    width: clamp(20.25rem, 21.75vw, 22.5rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__item--wide,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--wide {
+    width: clamp(27rem, 29vw, 30rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__copy strong,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__copy strong {
+    font-size: clamp(1rem, 1vw, 1.1rem);
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__copy small,
+.tl-detail-primary-module--collectionitems .tl-detail-primary-module__copy small {
+    font-size: clamp(0.82rem, 0.84vw, 0.9rem);
+}
+
+@media (min-width: 721px) and (max-height: 800px) {
+    .tl-detail-primary-module--works .tl-detail-primary-module__item,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item {
+        width: clamp(11rem, 11.8vw, 12.5rem);
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__item--square,
+    .tl-detail-primary-module--collectionitems .tl-detail-primary-module__item--square {
+        width: clamp(16.5rem, 17.7vw, 18.75rem);
+    }
+}
+
+@media (max-width: 1100px) {
+    .tl-detail-primary-module__header,
+    .tl-detail-primary-module--works .tl-detail-primary-module__header {
+        align-items: stretch;
+        flex-direction: column;
+        gap: 0.7rem;
+    }
+
+    .tl-detail-primary-module__controls {
+        justify-content: flex-start;
+        width: 100%;
+        margin-left: 0;
+    }
+}
+
+/* Person works header: keep the identity label intact and treat role plus
+   media-lane controls as one adjacent control cluster. */
+.tl-detail-primary-module--works .tl-detail-primary-module__header > div.tl-detail-primary-module__title {
+    display: inline-flex;
+    align-items: center;
+    align-content: normal;
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    min-width: max-content;
+    white-space: nowrap;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__title h2 {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__controls {
+    justify-content: flex-end;
+    width: auto;
+    flex: 0 1 auto;
+    gap: 0.55rem;
+    margin-left: auto;
+}
+
+.tl-detail-primary-module--works .tl-detail-primary-module__role-filters,
+.tl-detail-primary-module--works .tl-detail-primary-module__filters {
+    margin-left: 0;
+}
+
+@media (max-width: 1100px) {
+    .tl-detail-primary-module--works .tl-detail-primary-module__header {
+        align-items: flex-start;
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__header > div.tl-detail-primary-module__title {
+        align-self: flex-start;
+    }
+
+    .tl-detail-primary-module--works .tl-detail-primary-module__controls {
+        align-items: center;
+        justify-content: flex-start;
+        flex-direction: row;
+        width: 100%;
+        overflow-x: auto;
     }
 }
