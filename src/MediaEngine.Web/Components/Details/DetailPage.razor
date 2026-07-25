@@ -51,11 +51,14 @@
                                      OnContainerSelected="HandleContainerSelectedAsync" />
             }
 
-            <div class="tl-detail-stage__navigation">
-                <DetailTabs Tabs="VisibleTabs"
-                            ActiveTab="@CurrentActiveTab"
-                            ActiveTabChanged="SetActiveTabAsync" />
-            </div>
+            @if (ShowDetailNavigation)
+            {
+                <div class="tl-detail-stage__navigation">
+                    <DetailTabs Tabs="VisibleTabs"
+                                ActiveTab="@CurrentActiveTab"
+                                ActiveTabChanged="SetActiveTabAsync" />
+                </div>
+            }
         </section>
 
         @if (ShowPrimaryModuleAfterNavigation)
@@ -150,10 +153,6 @@
             {
                 <SyncTab Sync="Model.ReadingListeningSync" Capability="Model.SyncCapability" />
             }
-            else if (CurrentActiveTab is "editions")
-            {
-                <EditionsTab Formats="Model.OwnedFormats" />
-            }
             else if (CurrentActiveTab is "registry")
             {
                 <RegistryTab Model="Model" />
@@ -177,7 +176,6 @@
     private bool _startInlineEditorAnimation;
     private bool _closingInlineEditor;
     private bool _prefersReducedMotion;
-
     private IReadOnlyDictionary<string, object>? DetailFaceAttributes => _inlineEditorSession is null
         ? null
         : new Dictionary<string, object>
@@ -196,6 +194,7 @@
     private bool IncludeCharactersInPeopleTab => CurrentActiveTab is not "cast";
 
     private bool IsAudioDetail => Model?.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.Audiobook;
+    private bool ShowDetailNavigation => Model?.EntityType != DetailEntityType.Person;
 
     private bool HasPrimaryModuleBeforeNavigation => Model?.PrimaryModule.Kind is
         DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters;
@@ -214,7 +213,8 @@
     private string DetailStageClass =>
         $"tl-detail-stage{(HasPrimaryModuleBeforeNavigation || HasPrimaryModuleAfterNavigation ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}" +
         $"{(HasPrimaryModuleBeforeNavigation ? " tl-detail-stage--primary-before-navigation" : string.Empty)}" +
-        $"{(HasPrimaryModuleAfterNavigation ? " tl-detail-stage--primary-after-navigation" : string.Empty)}";
+        $"{(HasPrimaryModuleAfterNavigation ? " tl-detail-stage--primary-after-navigation" : string.Empty)}" +
+        $"{(Model?.EntityType == DetailEntityType.Person ? " tl-detail-stage--person" : string.Empty)}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 
@@ -604,8 +604,31 @@
 
         var profile = await Orchestrator.GetActiveProfileAsync();
         var current = await Reactions.GetReactionAsync(workId, profile?.Id);
-        await Reactions.SetReactionAsync(workId, current == reaction ? MediaReaction.Neutral : reaction, profile?.Id);
+        var next = current == reaction ? MediaReaction.Neutral : reaction;
+        await Reactions.SetReactionAsync(workId, next, profile?.Id);
+        if (Model is not null)
+        {
+            SetReactionSelection(Model.PrimaryActions, next);
+            SetReactionSelection(Model.SecondaryActions, next);
+            SetReactionSelection(Model.OverflowActions, next);
+        }
+        StateHasChanged();
         await OnActionSelected.InvokeAsync(action);
+    }
+
+    private static void SetReactionSelection(IEnumerable<DetailAction> actions, MediaReaction selected)
+    {
+        foreach (var item in actions)
+        {
+            item.IsSelected = item.Key switch
+            {
+                "reaction-dislike" => selected == MediaReaction.Dislike,
+                "reaction-like" => selected == MediaReaction.Like,
+                "reaction-love" => selected == MediaReaction.Love,
+                _ => item.IsSelected,
+            };
+            SetReactionSelection(item.Children, selected);
+        }
     }
 
     private async Task PlayAlbumAsync(bool shuffle)

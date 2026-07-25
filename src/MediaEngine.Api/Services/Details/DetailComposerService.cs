@@ -5209,13 +5209,14 @@ public sealed class DetailComposerService
             DetailEntityType.BookSeries => ["overview", "credits", "related", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "related", "details"],
             DetailEntityType.Work => ["overview", "credits", "formats", "related", "details"],
-            DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "editions", "related", "details"],
-            DetailEntityType.ComicIssue => ["overview", "credits", "editions", "related", "details"],
+            DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "related", "details"],
+            DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicAlbum => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicArtist or DetailEntityType.Person => ["overview", "related", "details"],
+            DetailEntityType.MusicArtist => ["overview", "related", "details"],
+            DetailEntityType.Person => ["overview"],
             DetailEntityType.Collection => ["overview", "details"],
             DetailEntityType.Character when hasUniverse => ["overview", "portrayals", "relationships", "universe", "details"],
             DetailEntityType.Character => ["overview", "portrayals", "relationships", "details"],
@@ -6729,7 +6730,62 @@ public sealed class DetailComposerService
                 .ToList();
         }
 
+        if (entityType == DetailEntityType.Collection)
+        {
+            return BuildStandardCollectionMetadata(works);
+        }
+
         return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = OwnedCollectionCountLabel(entityType, works), Kind = "count" }];
+    }
+
+    private static IReadOnlyList<MetadataPill> BuildStandardCollectionMetadata(
+        IReadOnlyList<CollectionWorkSummary> works)
+    {
+        var ownedWorks = works
+            .Where(work => work.IsOwned)
+            .DistinctBy(work => $"{InferMediaItemEntityType(work)}:{work.Id}", StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var years = ownedWorks
+            .Select(work => ReleaseYear(work.Year))
+            .Where(year => int.TryParse(year, NumberStyles.Integer, CultureInfo.InvariantCulture, out _))
+            .Select(year => int.Parse(year!, CultureInfo.InvariantCulture))
+            .Distinct()
+            .Order()
+            .ToList();
+        var metadata = new List<MetadataPill>();
+        var yearLabel = years.Count switch
+        {
+            0 => null,
+            1 => years[0].ToString(CultureInfo.InvariantCulture),
+            _ => $"{years[0].ToString(CultureInfo.InvariantCulture)}–{years[^1].ToString(CultureInfo.InvariantCulture)}",
+        };
+        AddPlain(metadata, yearLabel, "year");
+        AddPlain(
+            metadata,
+            $"{ownedWorks.Count.ToString(CultureInfo.InvariantCulture)} {(ownedWorks.Count == 1 ? "item" : "items")}",
+            "item_count");
+
+        var laneCounts = ownedWorks
+            .GroupBy(work => DetailLane(InferMediaItemEntityType(work)), StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Key is "read" or "watch" or "listen")
+            .ToDictionary(group => group.Key, group => group.Count(), StringComparer.OrdinalIgnoreCase);
+        AddLaneCount("read", "Read");
+        AddLaneCount("watch", "Watch");
+        AddLaneCount("listen", "Listen");
+        return metadata;
+
+        void AddLaneCount(string lane, string label)
+        {
+            if (!laneCounts.TryGetValue(lane, out var count) || count <= 0)
+                return;
+
+            metadata.Add(new MetadataPill
+            {
+                Label = count.ToString(CultureInfo.InvariantCulture),
+                Kind = $"{lane}_count",
+                Tooltip = $"{count.ToString(CultureInfo.InvariantCulture)} {label.ToLowerInvariant()} {(count == 1 ? "item" : "items")}",
+            });
+        }
     }
 
     private static IReadOnlyList<DetailAction> BuildCollectionActions(
@@ -6742,7 +6798,8 @@ public sealed class DetailComposerService
         {
             DetailEntityType.TvShow => BuildTvShowWatchActions(works, heroProgress),
             DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
-            _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
+            DetailEntityType.Collection => [],
+            _ => [],
         };
 
     private static IReadOnlyList<DetailAction> BuildTvShowWatchActions(

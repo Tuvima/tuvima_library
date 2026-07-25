@@ -62,7 +62,8 @@
     min-height: clamp(14rem, 24vw, 22rem);
     padding-block: 0.5rem 1rem;
     overflow-x: auto;
-    overscroll-behavior-inline: contain;
+    overscroll-behavior: auto;
+    touch-action: pan-x pan-y;
     scrollbar-color: rgba(139, 92, 246, 0.52) transparent;
 }
 
@@ -97,7 +98,8 @@
 
 .tl-detail-primary-module--works .tl-detail-primary-module__viewport {
     overflow-x: auto;
-    overscroll-behavior-inline: contain;
+    overscroll-behavior: auto;
+    touch-action: pan-x pan-y;
 }
 
 .tl-detail-primary-module--works .tl-detail-primary-module__rail {
@@ -622,6 +624,24 @@
     white-space: nowrap;
 }
 
+::deep .tl-detail-primary-module__filter:not(:disabled) {
+    color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 64%, #fff);
+}
+
+::deep .tl-detail-primary-module__filter-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.55rem;
+    min-height: 1.55rem;
+    padding-inline: 0.35rem;
+    border: 1px solid color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 36%, transparent);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 13%, transparent);
+    color: inherit;
+    font-size: 0.72rem;
+    font-variant-numeric: tabular-nums;
+}
+
 ::deep .tl-detail-primary-module__role-filter:first-child,
 ::deep .tl-detail-primary-module__filter:first-child {
     border-left: 0;
@@ -643,6 +663,11 @@
     background: linear-gradient(135deg, #4f2fbd, #7447ef);
     box-shadow: inset 0 0 0 1px rgba(189, 168, 255, 0.26);
     color: #fff;
+}
+
+::deep .tl-detail-primary-module__filter.is-active .tl-detail-primary-module__filter-count {
+    border-color: rgba(255, 255, 255, 0.28);
+    background: rgba(255, 255, 255, 0.14);
 }
 
 ::deep .tl-detail-primary-module__role-filter:disabled,
@@ -792,7 +817,7 @@
 .tl-detail-primary-module--works .tl-detail-primary-module__title {
     display: inline-flex;
     align-items: center;
-    gap: 0.65rem;
+    gap: 0.78rem;
     min-width: 0;
     color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 72%, #fff);
 }

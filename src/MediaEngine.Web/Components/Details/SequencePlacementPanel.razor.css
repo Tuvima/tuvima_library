@@ -19,6 +19,8 @@
         min-height: 2.35rem;
         margin-top: 0.65rem;
         overflow: visible;
+        justify-content: flex-start;
+        text-align: left;
     }
 
     .tl-series-detail.tl-series-panel--landscape .tl-series-item__meta {
@@ -30,40 +32,64 @@
     }
 
     .tl-series-detail.tl-series-panel--landscape .tl-series-item__description {
-        display: -webkit-box;
-        min-height: 3.1rem;
+        display: block;
+        min-height: 0;
         margin: 0;
-        overflow: hidden;
+        overflow: visible;
         color: rgba(225, 231, 242, 0.7);
         font-size: 0.88rem;
         line-height: 1.5;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
-    }
-
-    .tl-series-detail.tl-series-panel--landscape .tl-series-item__description.is-expanded {
-        display: block;
-        overflow: visible;
-        -webkit-line-clamp: unset;
     }
 
     .tl-series-detail.tl-series-panel--landscape .tl-series-item__description-wrap {
         margin-top: 0.48rem;
     }
 
-    .tl-series-detail.tl-series-panel--landscape ::deep .tl-series-item__description-toggle {
-        min-height: 1.8rem;
-        margin-top: 0.22rem;
-        padding: 0.1rem 0;
-        border: 0;
-        background: transparent;
-        color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 72%, #fff);
-        font-size: 0.8rem;
-    font-weight: 600;
-    }
-
     .tl-series-detail.tl-series-panel--landscape .tl-series-item__title {
-        font-size: 1rem;
+        font-size: 1.1rem;
         line-height: 1.3;
+        text-align: left;
     }
+}
+
+.tl-series-detail__ownership {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 2.5rem;
+    padding: 0.7rem 0.25rem 0;
+    color: rgba(226, 232, 240, 0.58);
+    font-size: 0.74rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.tl-series-detail__ownership strong {
+    color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 66%, #fff);
+    font-size: 0.82rem;
+    font-weight: 700;
+}
+
+.tl-series-detail__ownership-separator {
+    width: 1px;
+    height: 0.95rem;
+    background: rgba(255, 255, 255, 0.18);
+}
+
+.tl-series-detail__ownership-progress {
+    position: relative;
+    display: block;
+    width: min(28rem, 34vw);
+    height: 0.35rem;
+    margin-inline: 0.35rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
+.tl-series-detail__ownership-progress ::deep .tl-series-detail__ownership-progress-fill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--series-owned-ratio, 0%);
+    border-radius: inherit;
+    background: linear-gradient(90deg, #5f8fff, var(--tl-detail-primary, #8b5cf6));
 }

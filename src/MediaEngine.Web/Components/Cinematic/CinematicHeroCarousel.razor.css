@@ -1,12 +1,12 @@
 .cinematic-hero-carousel {
     position: relative;
-    min-height: 100svh;
+    min-height: 95svh;
     isolation: isolate;
     background: #05070c;
 }
 
 .cinematic-hero-carousel__slide {
-    min-height: 100svh;
+    min-height: 95svh;
 }
 
 /* DetailHeroContent normally inherits a surface's minimum height. Landing
@@ -32,8 +32,8 @@
 
 ::deep .cinematic-hero--landing {
     position: relative;
-    height: 100svh;
-    min-height: 100svh;
+    height: 95svh;
+    min-height: 95svh;
     max-height: none;
     color: rgb(var(--hero-text-rgb));
 }
@@ -68,8 +68,8 @@
 }
 
 .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero--landing {
-    height: 100svh;
-    min-height: 100svh;
+    height: 95svh;
+    min-height: 95svh;
     max-height: none;
 }
 
@@ -214,7 +214,7 @@
 
 @media (max-width: 960px) {
     ::deep .cinematic-hero--landing {
-        min-height: 100svh;
+        min-height: 95svh;
     }
 
     .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {

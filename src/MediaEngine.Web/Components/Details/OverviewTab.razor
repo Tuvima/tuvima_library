@@ -209,7 +209,7 @@
                 return [];
 
             var facts = new List<(string Label, string Value)>();
-            AddFact(facts, "Born", JoinLines(FormatDateLabel(person.DateOfBirth), person.PlaceOfBirth));
+            AddFact(facts, "Born", JoinLines(FormatBirthDateWithAge(person.DateOfBirth, person.DateOfDeath, PersonOverviewDescription), person.PlaceOfBirth));
             AddFact(facts, "Died", JoinLines(FormatDateLabel(person.DateOfDeath), person.PlaceOfDeath));
             AddFact(facts, "Occupation", person.Occupation);
             AddFact(facts, "Roles", person.Roles.Count == 0 ? null : string.Join(", ", person.Roles));
@@ -411,6 +411,83 @@
         return DateTimeOffset.TryParse(value, out var parsed)
             ? parsed.ToString("MMM d, yyyy", System.Globalization.CultureInfo.InvariantCulture)
             : value;
+    }
+
+    private static string? FormatBirthDateWithAge(string? born, string? died, string? biography)
+    {
+        var label = FormatDateLabel(born);
+        if (string.IsNullOrWhiteSpace(label))
+            return null;
+
+        var age = CalculateAge(born, died, biography);
+        return age.HasValue ? $"{label} (Age {age.Value})" : label;
+    }
+
+    private static int? CalculateAge(string? born, string? died, string? biography)
+    {
+        if (TryExtractBiographyLifeDates(biography, out var biographyBirth, out var biographyDeath))
+        {
+            return CalculateAge(biographyBirth, biographyDeath, null);
+        }
+
+        if (DateTimeOffset.TryParse(born, out var birthDate))
+        {
+            var endDate = DateTimeOffset.TryParse(died, out var deathDate)
+                ? deathDate
+                : DateTimeOffset.UtcNow;
+            if (endDate < birthDate)
+                return null;
+
+            var age = endDate.Year - birthDate.Year;
+            if (endDate.Month < birthDate.Month
+                || (endDate.Month == birthDate.Month && endDate.Day < birthDate.Day))
+            {
+                age--;
+            }
+
+            return age >= 0 ? age : null;
+        }
+
+        if (!TryExtractYear(born, out var birthYear))
+            return null;
+
+        var endYear = TryExtractYear(died, out var deathYear)
+            ? deathYear
+            : DateTimeOffset.UtcNow.Year;
+        var yearAge = endYear - birthYear;
+        return yearAge >= 0 ? yearAge : null;
+    }
+
+    private static bool TryExtractBiographyLifeDates(
+        string? biography,
+        out string born,
+        out string died)
+    {
+        born = string.Empty;
+        died = string.Empty;
+        if (string.IsNullOrWhiteSpace(biography))
+            return false;
+
+        var match = System.Text.RegularExpressions.Regex.Match(
+            biography,
+            @"\((?<born>[A-Z][a-z]+ \d{1,2}, \d{4})\s*[–—-]\s*(?<died>[A-Z][a-z]+ \d{1,2}, \d{4})\)");
+        if (!match.Success)
+            return false;
+
+        born = match.Groups["born"].Value;
+        died = match.Groups["died"].Value;
+        return true;
+    }
+
+    private static bool TryExtractYear(string? value, out int year)
+    {
+        year = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var match = System.Text.RegularExpressions.Regex.Match(value, @"\b(?<year>\d{4})\b");
+        return match.Success
+            && int.TryParse(match.Groups["year"].Value, out year);
     }
 
     private static IReadOnlyList<string> OverviewParagraphs(string? value)

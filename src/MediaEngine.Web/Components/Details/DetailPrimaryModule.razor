@@ -3,7 +3,7 @@
 
 @if (Model.PrimaryModule.Kind != DetailPrimaryModuleKind.None)
 {
-    <section class="@RootClass" aria-labelledby="detail-primary-module-title">
+    <section id="detail-primary-module" class="@RootClass" aria-labelledby="detail-primary-module-title">
         @if (ShowHeader)
         {
             <header class="tl-detail-primary-module__header">
@@ -54,6 +54,7 @@
                                             <MudIcon Icon="@icon" Size="Size.Small" />
                                         }
                                         <span class="tl-detail-primary-module__filter-label">@lane.Label</span>
+                                        <span class="tl-detail-primary-module__filter-count">@lane.Count</span>
                                     </AppNativeButton>
                                 }
                             </div>
@@ -134,15 +135,15 @@
 
     protected override void OnParametersSet()
     {
-        if (string.Equals(_modelId, Model.Id, StringComparison.Ordinal))
-            return;
-
-        _modelId = Model.Id;
-        var ownedLanes = LaneOptions
-            .Where(option => option.Key != "all" && option.Count > 0)
-            .ToList();
-        _selectedLane = ownedLanes.Count == 1 ? ownedLanes[0].Key : "all";
-        _selectedRole = "all";
+        if (!string.Equals(_modelId, Model.Id, StringComparison.Ordinal))
+        {
+            _modelId = Model.Id;
+            var ownedLanes = LaneOptions
+                .Where(option => option.Key != "all" && option.Count > 0)
+                .ToList();
+            _selectedLane = ownedLanes.Count == 1 ? ownedLanes[0].Key : "all";
+            _selectedRole = "all";
+        }
     }
 
     private IReadOnlyList<MediaGroupingViewModel> PrimaryGroups

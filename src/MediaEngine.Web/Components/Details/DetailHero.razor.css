@@ -1,10 +1,10 @@
 .tl-detail-collection-artwork {
     position: absolute;
     top: 50%;
-    right: clamp(2.5rem, 5.5vw, 7.5rem);
+    right: clamp(1rem, 2vw, 3rem);
     z-index: 4;
-    width: clamp(24rem, 36vw, 43rem);
-    height: clamp(22rem, 44svh, 34rem);
+    width: clamp(44rem, 56vw, 64rem);
+    height: clamp(30rem, 60svh, 42rem);
     transform: translateY(-50%);
     pointer-events: none;
     filter: drop-shadow(0 2.2rem 4rem rgba(0, 0, 0, 0.58));
@@ -22,7 +22,7 @@
 @media (max-width: 960px) {
     .tl-detail-collection-artwork {
         right: 1.5rem;
-        width: 40vw;
+        width: 58vw;
         opacity: 0.58;
     }
 }

@@ -13,8 +13,8 @@
     --hero-backdrop-bottom-rgb: var(--hero-bg-rgb);
     --hero-wash-accent: var(--cinematic-hero-accent, var(--tl-detail-accent, #8b5cf6));
     position: relative;
-    height: var(--cinematic-hero-height, 100svh) !important;
-    min-height: var(--cinematic-hero-min-height, 100svh) !important;
+    height: var(--cinematic-hero-height, 95svh) !important;
+    min-height: var(--cinematic-hero-min-height, 95svh) !important;
     max-height: var(--cinematic-hero-max-height, none) !important;
     overflow: hidden;
     isolation: isolate;

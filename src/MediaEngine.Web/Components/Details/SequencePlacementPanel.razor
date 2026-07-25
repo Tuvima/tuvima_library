@@ -170,6 +170,28 @@
             Load more missing @Placement.ItemPluralLabel.ToLowerInvariant()
         </AppNativeButton>
     }
+
+    <footer class="tl-series-detail__ownership"
+            aria-label="@OwnershipSummaryLabel">
+        <MudIcon Icon="@Icons.Material.Outlined.Layers" Size="Size.Small" />
+        <strong>@OwnedCount owned</strong>
+        @if (ShowCoverageBar)
+        {
+            <span class="tl-series-detail__ownership-separator" aria-hidden="true"></span>
+            <span>@MissingCount missing</span>
+            <span class="tl-series-detail__ownership-progress"
+                  role="progressbar"
+                  aria-label="@OwnershipSummaryLabel"
+                  aria-valuemin="0"
+                  aria-valuemax="@TotalItems"
+                  aria-valuenow="@OwnedCount">
+                <AppCssElement Tag="span"
+                               Class="tl-series-detail__ownership-progress-fill"
+                               Css="@OwnershipProgressStyle" />
+            </span>
+            <span>@TotalItems total</span>
+        }
+    </footer>
 </section>
 }
 else
@@ -463,7 +485,6 @@ else
     private int _visibleMissingLimit;
     private MissingItemDisplayPolicy? _missingItemPolicy;
     private ElementReference _seriesDescriptionElement;
-    private readonly HashSet<string> _expandedEpisodeDescriptions = new(StringComparer.OrdinalIgnoreCase);
 
     private string PanelClass => $"{MediaShapeClass}{(IsLongSequence ? " tl-series-placement--long" : string.Empty)}{(Compact ? " tl-series-placement--compact" : string.Empty)}";
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
@@ -578,6 +599,7 @@ else
     private int MissingCount => Math.Max(0, TotalItems - OwnedCount);
     private bool IsComicSequence => Placement.CurrentItem.EntityType is DetailEntityType.ComicIssue or DetailEntityType.ComicSeries;
     private bool ShowCoverageDonut => !IsComicSequence && Placement.HasAuthoritativeTotal && TotalItems > 0;
+    private bool ShowCoverageBar => Placement.HasAuthoritativeTotal && TotalItems > 0;
     private int TotalItems => ShowGroupSelector
         ? Math.Max(GroupItems.Count, ActiveGroup?.TotalKnownItems ?? GroupItems.Count)
         : Math.Max(GroupItems.Count, Placement.TotalKnownItems ?? GroupItems.Count);
@@ -647,6 +669,11 @@ else
             ? ItemNoun.ToLowerInvariant()
             : "owned";
     private string OwnedSummary => $"{OwnedCount} {(OwnedCount == 1 ? ItemNoun : Placement.ItemPluralLabel).ToLowerInvariant()} owned";
+    private string OwnershipSummaryLabel => ShowCoverageBar
+        ? $"{OwnedSummary}; {MissingCount} missing; {TotalItems} total"
+        : OwnedSummary;
+    private string OwnershipProgressStyle
+        => $"--series-owned-ratio:{Math.Clamp(OwnedCount * 100d / Math.Max(1, TotalItems), 0d, 100d).ToString("0.###", CultureInfo.InvariantCulture)}%;";
 
     private static string SelectWidthStyle(IReadOnlyList<AppSelectOption> options)
     {
@@ -1085,18 +1112,7 @@ else
         @if (IsSeasonContainer && !string.IsNullOrWhiteSpace(item.Description))
         {
             <div class="tl-series-item__description-wrap">
-                <p id="@EpisodeDescriptionId(item)"
-                   class="@EpisodeDescriptionClass(item)">@item.Description</p>
-                @if (HasExpandableEpisodeDescription(item))
-                {
-                    <AppNativeButton Type="button"
-                                     Class="tl-series-item__description-toggle"
-                                     OnClick="@(() => ToggleEpisodeDescription(item))"
-                                     aria-controls="@EpisodeDescriptionId(item)"
-                                     aria-expanded="@IsEpisodeDescriptionExpanded(item)">
-                        @(IsEpisodeDescriptionExpanded(item) ? "Less" : "More")
-                    </AppNativeButton>
-                }
+                <p class="tl-series-item__description">@item.Description</p>
             </div>
         }
         @if (!IsSeasonContainer && SequenceItemDate(item) is { } itemDate)
@@ -1129,24 +1145,6 @@ else
             && double.TryParse(match.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed)
                 ? parsed
                 : null;
-    }
-
-    private bool HasExpandableEpisodeDescription(SequenceItemViewModel item)
-        => item.Description?.Length > 165;
-
-    private bool IsEpisodeDescriptionExpanded(SequenceItemViewModel item)
-        => _expandedEpisodeDescriptions.Contains(item.Id);
-
-    private string EpisodeDescriptionClass(SequenceItemViewModel item)
-        => $"tl-series-item__description{(IsEpisodeDescriptionExpanded(item) ? " is-expanded" : string.Empty)}";
-
-    private static string EpisodeDescriptionId(SequenceItemViewModel item)
-        => $"episode-description-{item.Id}";
-
-    private void ToggleEpisodeDescription(SequenceItemViewModel item)
-    {
-        if (!_expandedEpisodeDescriptions.Add(item.Id))
-            _expandedEpisodeDescriptions.Remove(item.Id);
     }
 
     private string SequenceItemDisplayTitle(SequenceItemViewModel item)

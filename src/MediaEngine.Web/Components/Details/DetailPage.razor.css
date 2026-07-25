@@ -7245,7 +7245,7 @@
     position: relative;
     display: flex;
     flex-direction: column;
-    height: 100svh;
+    height: 95svh;
     overflow: hidden;
     isolation: isolate;
     background:
@@ -8158,9 +8158,9 @@
 @media (min-width: 721px) {
     .tl-detail-stage {
         --detail-navigation-height: 3.75rem;
-        height: 100svh;
-        min-height: 100svh;
-        max-height: 100svh;
+        height: 95svh;
+        min-height: 95svh;
+        max-height: 95svh;
         overflow: hidden;
     }
 
@@ -9120,9 +9120,9 @@
 @media (min-width: 721px) {
     .tl-detail-stage,
     .tl-detail-stage--with-primary {
-        height: 100svh;
-        min-height: 100svh;
-        max-height: 100svh;
+        height: 95svh;
+        min-height: 95svh;
+        max-height: 95svh;
     }
 
     .tl-detail-stage .tl-detail-edit-stage,
@@ -9356,6 +9356,7 @@
     .tl-detail-stage ::deep .tl-detail-titlebar {
         display: none;
     }
+
 }
 
 /* Comics share the full book-sized cover envelope without book-page decoration. */
@@ -10180,9 +10181,9 @@
    inside the hero and receives the remaining height after its identity block. */
 @media (min-width: 721px) {
     .tl-detail-stage {
-        height: 100svh;
-        min-height: 100svh;
-        max-height: 100svh;
+        height: 95svh;
+        min-height: 95svh;
+        max-height: 95svh;
         overflow: hidden;
     }
 
@@ -10596,9 +10597,9 @@
 @media (min-width: 721px) {
     .tl-detail-stage,
     .tl-detail-stage--with-primary {
-        height: 100svh;
-        min-height: 100svh;
-        max-height: 100svh;
+        height: 95svh;
+        min-height: 95svh;
+        max-height: 95svh;
     }
 
     .tl-detail-stage .tl-detail-edit-stage,
@@ -10827,5 +10828,135 @@
     .tl-detail-stage ::deep .tl-detail-hero--collection .tl-detail-media-stage__cover-wrap,
     .tl-detail-stage ::deep .tl-detail-titlebar {
         display: none;
+    }
+}
+
+/* FOLLOWUP_CONTRACT_EOF: final overrides for the 95svh composition. */
+@media (min-width: 721px) {
+    .tl-detail-stage
+        ::deep .tl-detail-media-stage--background .tl-detail-media-stage__background {
+        inset: 0 !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        object-fit: cover !important;
+        object-position: center top !important;
+        transform: none !important;
+        -webkit-mask-image: none !important;
+        mask-image: none !important;
+    }
+
+    .tl-detail-stage .tl-detail-edit-face--editor {
+        position: absolute;
+        inset:
+            var(--app-topbar-height, 65px)
+            0
+            var(--detail-navigation-height, 3.75rem);
+        width: 100%;
+        height: auto;
+        max-height: none;
+        overflow: hidden;
+    }
+
+    .tl-detail-stage--person .tl-detail-edit-face--editor {
+        bottom: 0;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action {
+        min-height: 3rem !important;
+        gap: 0.58rem;
+        padding: 0.48rem 0.82rem !important;
+        font-size: 1rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action .mud-icon-root {
+        font-size: 1.5rem !important;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action span,
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-label {
+        font-size: 0.96rem !important;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-hero--watch .tl-detail-hero-brand {
+        bottom: calc(var(--detail-navigation-height, 3.75rem) + 2rem);
+    }
+
+    .tl-detail-stage--person ::deep .tl-detail-hero--person .tl-detail-person-hero__inner {
+        grid-template-columns: minmax(0, 1fr) minmax(22rem, 34vw);
+        padding:
+            calc(var(--app-topbar-height, 65px) + 1rem)
+            clamp(2rem, 4.5vw, 5.5rem)
+            1.25rem;
+    }
+
+    .tl-detail-stage--person ::deep .tl-detail-hero--person .tl-detail-person-portrait {
+        width: auto;
+        max-width: min(34vw, 34rem);
+        height: clamp(26rem, 58svh, 40rem);
+        max-height: calc(100% - var(--app-topbar-height, 65px) - 2.25rem);
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-primary-module--embedded {
+        height: clamp(14rem, 28svh, 21rem);
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        padding-bottom: calc(3.75rem + clamp(15.5rem, 30svh, 22.5rem));
+    }
+
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--primary-before-navigation
+        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
+        top: 27%;
+        width: clamp(15rem, 17vw, 20rem);
+        max-width: clamp(15rem, 17vw, 20rem);
+        height: clamp(15rem, 17vw, 20rem);
+        max-height: clamp(15rem, 17vw, 20rem);
+        transform: translateY(-50%);
+    }
+
+    .tl-detail-stage__navigation
+        ::deep .detail-surface-navigation .surface-navigation-bar__tab {
+        font-size: 1rem;
+    }
+
+    .tl-detail-page__primary-content ::deep .tl-series-detail {
+        grid-template-rows: auto auto auto auto;
+    }
+
+    .tl-detail-page__primary-content ::deep .tl-series-detail__strip {
+        overscroll-behavior: auto;
+        touch-action: pan-x pan-y;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item,
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__title-row,
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__title {
+        text-align: left;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__title {
+        font-size: 1.25rem;
+        line-height: 1.3;
+    }
+
+    .tl-detail-page__primary-content
+        ::deep .tl-series-detail.tl-series-panel--landscape .tl-series-item__description {
+        display: block !important;
+        min-height: 0;
+        overflow: visible !important;
+        color: rgba(225, 231, 242, 0.7);
+        font-size: 0.9rem;
+        line-height: 1.48;
+        -webkit-line-clamp: unset !important;
     }
 }

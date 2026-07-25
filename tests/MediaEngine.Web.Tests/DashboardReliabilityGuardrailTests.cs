@@ -161,9 +161,9 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains("content: none", surfaceStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("tl-detail-media-stage__background", carouselStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("object-fit: cover", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("min-height: 100svh", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("height: 100svh", carouselStyles, StringComparison.Ordinal);
-        Assert.Contains("height: var(--cinematic-hero-height, 100svh) !important", surfaceStyles, StringComparison.Ordinal);
+        Assert.Contains("min-height: 95svh", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: 95svh", carouselStyles, StringComparison.Ordinal);
+        Assert.Contains("height: var(--cinematic-hero-height, 95svh) !important", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("@media (max-width: 720px), (max-height: 620px)", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("height: auto !important", surfaceStyles, StringComparison.Ordinal);
     }

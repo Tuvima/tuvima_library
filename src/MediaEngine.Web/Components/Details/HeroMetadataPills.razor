@@ -157,15 +157,18 @@
         => string.Equals(item.Kind, kind, StringComparison.OrdinalIgnoreCase);
 
     private bool ShouldSuppressTypeStat(MetadataPill item)
-        => IsWatchHero
-        && KindEquals(item, "type")
-        && (EntityType == DetailEntityType.TvShow || string.Equals(item.Label, "TV Show", StringComparison.OrdinalIgnoreCase));
+        => KindEquals(item, "type")
+        && (EntityType == DetailEntityType.Collection
+            || (IsWatchHero
+                && (EntityType == DetailEntityType.TvShow
+                    || string.Equals(item.Label, "TV Show", StringComparison.OrdinalIgnoreCase))));
 
     private static bool IsHeroStat(MetadataPill item)
     {
         var kind = item.Kind?.ToLowerInvariant();
         return kind is "certification" or "content_rating" or "rating" or "type" or "duration" or "year"
-            or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality";
+            or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality"
+            or "item_count" or "read_count" or "watch_count" or "listen_count";
     }
 
     private bool IsWatchHeroStat(MetadataPill item)
@@ -183,7 +186,8 @@
     {
         var kind = item.Kind?.ToLowerInvariant();
         return kind is "certification" or "content_rating" or "rating" or "duration" or "year"
-            or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality" or "subtitles";
+            or "page_count" or "track_count" or "season_count" or "episode_count" or "genre" or "quality" or "subtitles"
+            or "item_count" or "read_count" or "watch_count" or "listen_count";
     }
 
     private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
@@ -192,11 +196,14 @@
         "type" => 2,
         "year" => 3,
         "duration" => 4,
-        "page_count" or "track_count" or "season_count" or "episode_count" => 5,
-        "genre" => 6,
-        "quality" => 7,
-        "rating" => 8,
-        _ => 8,
+        "page_count" or "track_count" or "season_count" or "episode_count" or "item_count" => 5,
+        "read_count" => 6,
+        "watch_count" => 7,
+        "listen_count" => 8,
+        "genre" => 9,
+        "quality" => 10,
+        "rating" => 11,
+        _ => 12,
     };
 
     private static int WatchStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
@@ -217,12 +224,15 @@
         "certification" or "content_rating" => 0,
         "year" => 1,
         "duration" => 2,
-        "page_count" or "track_count" or "season_count" or "episode_count" => 3,
+        "page_count" or "track_count" or "season_count" or "episode_count" or "item_count" => 3,
+        "read_count" => 4,
+        "watch_count" => 5,
+        "listen_count" => 6,
         "genre" => 4,
-        "quality" => 5,
-        "subtitles" => 6,
-        "rating" => 7,
-        _ => 8,
+        "quality" => 7,
+        "subtitles" => 8,
+        "rating" => 9,
+        _ => 10,
     };
 
     private static string StatClass(MetadataPill item)
@@ -243,6 +253,10 @@
         "year" => Icons.Material.Outlined.CalendarMonth,
         "episode_count" => Icons.Material.Outlined.VideoLibrary,
         "duration" => Icons.Material.Outlined.Schedule,
+        "item_count" => Icons.Material.Outlined.CollectionsBookmark,
+        "read_count" => Icons.Material.Outlined.MenuBook,
+        "watch_count" => Icons.Material.Outlined.Tv,
+        "listen_count" => Icons.Material.Outlined.Headphones,
         "quality" => Icons.Material.Outlined.Tv,
         "subtitles" => Icons.Material.Outlined.ClosedCaption,
         _ => null,
@@ -295,6 +309,10 @@
         "track_count" => Icons.Material.Outlined.QueueMusic,
         "season_count" => Icons.Material.Outlined.LiveTv,
         "episode_count" => Icons.Material.Outlined.VideoLibrary,
+        "item_count" => Icons.Material.Outlined.CollectionsBookmark,
+        "read_count" => Icons.Material.Outlined.MenuBook,
+        "watch_count" => Icons.Material.Outlined.Tv,
+        "listen_count" => Icons.Material.Outlined.Headphones,
         "genre" => Icons.Material.Outlined.LocalOffer,
         "quality" => Icons.Material.Outlined.GraphicEq,
         _ => Icons.Material.Outlined.Info,
@@ -322,6 +340,10 @@
         "track_count" => "Tracks",
         "season_count" => "Seasons",
         "episode_count" => "Episodes",
+        "item_count" => "Items",
+        "read_count" => "Read",
+        "watch_count" => "Watch",
+        "listen_count" => "Listen",
         "genre" => "Genre",
         "quality" => "Quality",
         _ => item.Kind ?? "Detail",

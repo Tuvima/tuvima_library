@@ -21,7 +21,7 @@
 
 .tl-overview-credit-group h3 {
     margin: 0;
-    color: #aebcff;
+    color: #efc77a;
     font-size: 0.67rem;
     font-weight: 700;
     letter-spacing: 0.12em;
@@ -30,7 +30,7 @@
 }
 
 .tl-overview-section__heading > span {
-    color: rgba(244, 247, 252, 0.78);
+    color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 72%, #fff);
 }
 
 .tl-overview-credit-group--director h3 {
@@ -38,7 +38,7 @@
 }
 
 .tl-overview-credit-group--cast h3 {
-    color: #b298ff;
+    color: #efc77a;
 }
 
 .tl-overview-credit-rows {

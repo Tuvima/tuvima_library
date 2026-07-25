@@ -177,14 +177,11 @@
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
 
-    private string? _selectedReactionKey;
-
     private async Task SelectReaction(DetailAction action)
     {
         if (action.IsDisabled)
             return;
 
-        _selectedReactionKey = action.Key;
         await OnActionSelected.InvokeAsync(action);
     }
 
@@ -208,8 +205,8 @@
     private static string ActionStateClass(DetailAction action)
         => action.IsSelected ? "is-selected" : string.Empty;
 
-    private string ReactionStateClass(DetailAction action)
-        => string.Equals(_selectedReactionKey, action.Key, StringComparison.OrdinalIgnoreCase) ? "is-selected" : string.Empty;
+    private static string ReactionStateClass(DetailAction action)
+        => action.IsSelected ? "is-selected" : string.Empty;
 
     private static string ActionKeyClass(DetailAction action)
         => new string(action.Key.Select(character => char.IsLetterOrDigit(character) ? char.ToLowerInvariant(character) : '-').ToArray()).Trim('-');

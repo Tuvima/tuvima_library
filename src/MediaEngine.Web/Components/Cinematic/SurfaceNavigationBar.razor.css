@@ -24,6 +24,7 @@
     border-bottom: 2px solid transparent;
     background: transparent;
     color: rgba(203, 213, 225, 0.68);
+    font-size: clamp(0.94rem, 1vw, 1.05rem);
     font-weight: 600;
 }
 

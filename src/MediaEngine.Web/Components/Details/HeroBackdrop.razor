@@ -72,7 +72,12 @@
 
     private bool ShouldRenderHeroBrand => !string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl);
     private HeroArtworkViewModel HeroArtwork => Artwork.HeroArtwork;
-    private string? HeroImageUrl => HeroArtwork.HasImage && !string.IsNullOrWhiteSpace(HeroArtwork.Url) && !_imageFailed
+    // A collection has no single truthful backdrop. Its shared representative
+    // artwork cluster is rendered by DetailHero over the neutral cinematic wash.
+    private string? HeroImageUrl => EntityType != DetailEntityType.Collection
+        && HeroArtwork.HasImage
+        && !string.IsNullOrWhiteSpace(HeroArtwork.Url)
+        && !_imageFailed
         ? HeroArtwork.Url
         : null;
     private HeroArtworkMode EffectiveMode => string.IsNullOrWhiteSpace(HeroImageUrl)
@@ -127,9 +132,16 @@
             if (string.IsNullOrWhiteSpace(HeroImageUrl))
                 return string.Empty;
 
-            var defaultPosition = IsBackdropMode ? "center top" : "center";
-            var position = HeroArtwork.BackgroundPosition ?? defaultPosition;
-            var mobilePosition = HeroArtwork.MobilePosition ?? (IsBackdropMode ? "center top" : position);
+            // Landscape hero art is deliberately standardized instead of
+            // inheriting provider focal hints that can push the whole frame
+            // toward one side. The source fills the hero edge to edge from its
+            // top-center, with the expendable crop protected by the bottom fade.
+            var position = IsBackdropMode
+                ? "center top"
+                : HeroArtwork.BackgroundPosition ?? "center";
+            var mobilePosition = IsBackdropMode
+                ? "center top"
+                : HeroArtwork.MobilePosition ?? position;
             return $"--hero-image:url(\"{EscapeCssString(HeroImageUrl)}\");--hero-image-position:{position};--mobile-image-position:{mobilePosition};";
         }
     }

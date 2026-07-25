@@ -164,7 +164,14 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Audiobook when hasChapters", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
+        Assert.DoesNotContain("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\"", source);
+        Assert.Contains("DetailEntityType.Person => [\"overview\"]", source);
+        Assert.Contains("DetailEntityType.Collection => []", source);
+        Assert.Contains("BuildStandardCollectionMetadata(works)", source);
+        Assert.Contains("Kind = $\"{lane}_count\"", source);
+        Assert.DoesNotContain("BuildCollectionLaneActions", source);
+        Assert.DoesNotContain("Key = $\"collection-{lane}\"", source);
         Assert.Contains("DetailEntityType.MusicAlbum => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
