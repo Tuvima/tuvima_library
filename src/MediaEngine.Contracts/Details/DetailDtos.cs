@@ -40,10 +40,28 @@ public sealed class DetailPageViewModel
     public IReadOnlyList<DetailTab> Tabs { get; init; } = [];
     public IReadOnlyList<MediaGroupingViewModel> MediaGroups { get; init; } = [];
     public DetailPrimaryModuleViewModel PrimaryModule { get; init; } = new();
+    public MusicAlbumWorkspaceViewModel? MusicAlbumWorkspace { get; init; }
 
     public CanonicalIdentityStatus IdentityStatus { get; init; } = CanonicalIdentityStatus.Unknown;
     public LibraryStatus LibraryStatus { get; init; } = LibraryStatus.Unknown;
     public bool IsAdminView { get; init; }
+}
+
+public sealed class MusicAlbumWorkspaceViewModel
+{
+    public string? PrimaryArtistId { get; init; }
+    public string? PrimaryArtistName { get; init; }
+    public string? PrimaryArtistRoute { get; init; }
+    public IReadOnlyList<MusicAlbumPreviewViewModel> MoreByAlbums { get; init; } = [];
+}
+
+public sealed class MusicAlbumPreviewViewModel
+{
+    public string Id { get; init; } = string.Empty;
+    public string Title { get; init; } = string.Empty;
+    public string? Year { get; init; }
+    public string? ArtworkUrl { get; init; }
+    public string Route { get; init; } = string.Empty;
 }
 
 public sealed class DetailEditorTarget

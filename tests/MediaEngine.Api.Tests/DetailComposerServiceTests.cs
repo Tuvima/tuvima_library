@@ -172,7 +172,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Kind = $\"{lane}_count\"", source);
         Assert.DoesNotContain("BuildCollectionLaneActions", source);
         Assert.DoesNotContain("Key = $\"collection-{lane}\"", source);
-        Assert.Contains("DetailEntityType.MusicAlbum => [\"overview\", \"credits\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicAlbum => []", source);
         Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
@@ -189,6 +189,26 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetSystemViewDetailWorksAsync(", source);
         Assert.Contains("MergeMusicAlbumManifestTracks(ownedWorks, values, row.CoverUrl)", source);
         Assert.Contains("AssetId = work.AssetId", source);
+    }
+
+    [Fact]
+    public void DetailComposer_BuildsTheAlbumOnlyWorkspaceFromExactPrimaryArtistCredits()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+
+        Assert.Contains("BuildMusicAlbumWorkspaceAsync(", source);
+        Assert.Contains("group.GroupType == CreditGroupType.PrimaryArtists", source);
+        Assert.Contains("Guid.TryParse(primaryArtist.EntityId, out primaryArtistId)", source);
+        Assert.Contains("FROM primary_person_media_credits credit", source);
+        Assert.Contains("credit.person_id = @personId", source);
+        Assert.Contains("credit.credit_key = 'artist'", source);
+        Assert.Contains("SELECT DISTINCT COALESCE(p.id, w.id)", source);
+        Assert.DoesNotContain("SELECT DISTINCT COALESCE(gp.id, p.id, w.id)", source);
+        Assert.Contains(".Take(3)", source);
+        Assert.Contains("MusicAlbumWorkspace = musicAlbumWorkspace", source);
+        Assert.Contains("DetailEntityType.MusicAlbum => BuildMusicAlbumActions()", source);
+        Assert.Contains("Key = \"play-album\"", source);
+        Assert.Contains("Key = \"shuffle\"", source);
     }
 
     [Fact]
@@ -1217,10 +1237,7 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal(
-            ["overview", "credits", "related", "details"],
-            tabs.Select(tab => tab.Key));
-        Assert.DoesNotContain(tabs, tab => tab.Key is "tracks" or "editions");
+        Assert.Empty(tabs);
     }
 
     [Fact]

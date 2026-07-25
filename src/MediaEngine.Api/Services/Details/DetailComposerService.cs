@@ -645,6 +645,12 @@ public sealed class DetailComposerService
             fallbackCover);
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
+        var musicAlbumWorkspace = entityType == DetailEntityType.MusicAlbum
+            ? await BuildMusicAlbumWorkspaceAsync(
+                rootWorkId ?? collectionId,
+                contributorGroups,
+                ct)
+            : null;
         var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
@@ -712,6 +718,7 @@ public sealed class DetailComposerService
             Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
             MediaGroups = mediaGroups,
             PrimaryModule = BuildPrimaryModule(entityType, sequencePlacement, mediaGroups),
+            MusicAlbumWorkspace = musicAlbumWorkspace,
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -777,6 +784,110 @@ public sealed class DetailComposerService
                 row.Background,
                 assetId);
         }));
+    }
+
+    private async Task<MusicAlbumWorkspaceViewModel> BuildMusicAlbumWorkspaceAsync(
+        Guid currentAlbumRootWorkId,
+        IReadOnlyList<CreditGroupViewModel> contributorGroups,
+        CancellationToken ct)
+    {
+        var primaryArtist = contributorGroups
+            .Where(group => group.GroupType == CreditGroupType.PrimaryArtists)
+            .SelectMany(group => group.Credits)
+            .OrderByDescending(credit => credit.IsPrimary)
+            .ThenBy(credit => credit.SortOrder)
+            .FirstOrDefault();
+
+        var primaryArtistId = Guid.Empty;
+        var hasResolvedArtist = primaryArtist is not null
+            && Guid.TryParse(primaryArtist.EntityId, out primaryArtistId);
+        var workspace = new MusicAlbumWorkspaceViewModel
+        {
+            PrimaryArtistId = hasResolvedArtist ? primaryArtistId.ToString("D") : null,
+            PrimaryArtistName = primaryArtist?.DisplayName,
+            PrimaryArtistRoute = hasResolvedArtist
+                ? $"/details/musicartist/{primaryArtistId:D}?context=listen"
+                : null,
+        };
+
+        if (!hasResolvedArtist || _collectionBrowse is null)
+        {
+            return workspace;
+        }
+
+        var ownedAlbumRootIds = await LoadOwnedMusicAlbumRootIdsForArtistAsync(primaryArtistId, ct);
+        ownedAlbumRootIds.Remove(currentAlbumRootWorkId);
+        if (ownedAlbumRootIds.Count == 0)
+        {
+            return workspace;
+        }
+
+        var albumGroups = await _collectionBrowse
+            .GetSystemViewGroupsAsync("Music", "album", ct)
+            .ConfigureAwait(false);
+        var moreByAlbums = albumGroups
+            .Where(group => group.RootWorkId.HasValue
+                && ownedAlbumRootIds.Contains(group.RootWorkId.Value))
+            .GroupBy(group => group.RootWorkId!.Value)
+            .Select(group => group
+                .OrderByDescending(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+                .ThenByDescending(item => item.WorkCount)
+                .First())
+            .OrderByDescending(group => TryParseInt(FirstNonBlank(
+                group.Year,
+                group.LatestYear?.ToString(CultureInfo.InvariantCulture))))
+            .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .Select(group =>
+            {
+                var rootWorkId = group.RootWorkId!.Value;
+                var artworkUrl = FirstNonBlank(
+                    group.CoverUrl,
+                    group.PreviewItems.FirstOrDefault()?.ImageUrl);
+                var year = FirstNonBlank(
+                    group.Year,
+                    group.EarliestYear?.ToString(CultureInfo.InvariantCulture));
+                return new MusicAlbumPreviewViewModel
+                {
+                    Id = rootWorkId.ToString("D"),
+                    Title = group.DisplayName,
+                    Year = string.IsNullOrWhiteSpace(year) ? null : year,
+                    ArtworkUrl = string.IsNullOrWhiteSpace(artworkUrl) ? null : artworkUrl,
+                    Route = $"/details/musicalbum/{rootWorkId:D}?context=listen",
+                };
+            })
+            .ToList();
+
+        return new MusicAlbumWorkspaceViewModel
+        {
+            PrimaryArtistId = workspace.PrimaryArtistId,
+            PrimaryArtistName = workspace.PrimaryArtistName,
+            PrimaryArtistRoute = workspace.PrimaryArtistRoute,
+            MoreByAlbums = moreByAlbums,
+        };
+    }
+
+    private async Task<HashSet<Guid>> LoadOwnedMusicAlbumRootIdsForArtistAsync(
+        Guid personId,
+        CancellationToken ct)
+    {
+        using var conn = _db.CreateConnection();
+        var rows = await conn.QueryAsync<Guid>(new CommandDefinition(
+            """
+            SELECT DISTINCT COALESCE(p.id, w.id)
+            FROM primary_person_media_credits credit
+            INNER JOIN media_assets ma ON ma.id = credit.media_asset_id
+            INNER JOIN editions e ON e.id = ma.edition_id
+            INNER JOIN works w ON w.id = e.work_id
+            LEFT JOIN works p ON p.id = w.parent_work_id
+            WHERE credit.person_id = @personId
+              AND credit.credit_key = 'artist'
+              AND LOWER(w.media_type) = 'music';
+            """,
+            new { personId = GuidSql.ToBlob(personId) },
+            cancellationToken: ct));
+
+        return rows.ToHashSet();
     }
 
     private static int ResolveOwnedTrackOrdinal(string? trackNumber, int zeroBasedIndex)
@@ -4954,11 +5065,30 @@ public sealed class DetailComposerService
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", Route = $"/details/audiobook/{id}?context=listen", IsPrimary = true }],
-            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.MusicAlbum => BuildMusicAlbumActions(),
             DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Listen", Icon = "headphones", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
     }
+
+    private static IReadOnlyList<DetailAction> BuildMusicAlbumActions() =>
+    [
+        new DetailAction
+        {
+            Key = "play-album",
+            Label = "Play",
+            Icon = "play_arrow",
+            IsPrimary = true,
+        },
+        new DetailAction
+        {
+            Key = "shuffle",
+            Label = "Shuffle",
+            Icon = "shuffle",
+            Tooltip = "Shuffle album",
+            IsPrimary = true,
+        },
+    ];
 
     private async Task<IReadOnlySet<Guid>> LoadFavoriteWorkIdsAsync(Guid? profileId, CancellationToken ct)
     {
@@ -5005,18 +5135,6 @@ public sealed class DetailComposerService
                 Label = "Add to Collection",
                 Icon = "account_tree",
                 Tooltip = "Add to collection",
-                DisplayStyle = "icon",
-            });
-        }
-
-        if (entityType == DetailEntityType.MusicAlbum)
-        {
-            actions.Add(new DetailAction
-            {
-                Key = "shuffle",
-                Label = "Shuffle",
-                Icon = "shuffle",
-                Tooltip = "Shuffle album",
                 DisplayStyle = "icon",
             });
         }
@@ -5213,7 +5331,7 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicAlbum => ["overview", "credits", "related", "details"],
+            DetailEntityType.MusicAlbum => [],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist => ["overview", "related", "details"],
             DetailEntityType.Person => ["overview"],
@@ -6797,7 +6915,7 @@ public sealed class DetailComposerService
         => entityType switch
         {
             DetailEntityType.TvShow => BuildTvShowWatchActions(works, heroProgress),
-            DetailEntityType.MusicAlbum => [new DetailAction { Key = "play-album", Label = "Play", Icon = "play_arrow", IsPrimary = true }],
+            DetailEntityType.MusicAlbum => BuildMusicAlbumActions(),
             DetailEntityType.Collection => [],
             _ => [],
         };

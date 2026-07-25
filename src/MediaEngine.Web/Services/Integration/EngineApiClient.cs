@@ -5369,6 +5369,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             RelationshipStrip = detail.RelationshipStrip,
             Tabs = detail.Tabs,
             PrimaryModule = detail.PrimaryModule,
+            MusicAlbumWorkspace = NormalizeMusicAlbumWorkspace(detail.MusicAlbumWorkspace),
             MediaGroups = detail.MediaGroups.Select(group => new MediaGroupingViewModel
             {
                 Key = group.Key,
@@ -5412,6 +5413,24 @@ public sealed partial class EngineApiClient : IEngineApiClient
             IsAdminView = detail.IsAdminView,
         };
     }
+
+    private MusicAlbumWorkspaceViewModel? NormalizeMusicAlbumWorkspace(MusicAlbumWorkspaceViewModel? workspace)
+        => workspace is null
+            ? null
+            : new MusicAlbumWorkspaceViewModel
+            {
+                PrimaryArtistId = workspace.PrimaryArtistId,
+                PrimaryArtistName = workspace.PrimaryArtistName,
+                PrimaryArtistRoute = workspace.PrimaryArtistRoute,
+                MoreByAlbums = workspace.MoreByAlbums.Select(album => new MusicAlbumPreviewViewModel
+                {
+                    Id = album.Id,
+                    Title = album.Title,
+                    Year = album.Year,
+                    ArtworkUrl = NormalizeOptionalUrl(album.ArtworkUrl),
+                    Route = album.Route,
+                }).ToList(),
+            };
 
     private HeroArtworkViewModel NormalizeHeroArtwork(HeroArtworkViewModel? heroArtwork)
     {

@@ -74,16 +74,21 @@
     private HeroArtworkViewModel HeroArtwork => Artwork.HeroArtwork;
     // A collection has no single truthful backdrop. Its shared representative
     // artwork cluster is rendered by DetailHero over the neutral cinematic wash.
-    private string? HeroImageUrl => EntityType != DetailEntityType.Collection
-        && HeroArtwork.HasImage
-        && !string.IsNullOrWhiteSpace(HeroArtwork.Url)
-        && !_imageFailed
-        ? HeroArtwork.Url
+    private bool IsMusicAlbumBackdrop => EntityType == DetailEntityType.MusicAlbum
+        && !string.IsNullOrWhiteSpace(Artwork.CoverUrl ?? Artwork.PosterUrl);
+    private string? HeroImageCandidate => EntityType != DetailEntityType.Collection
+        ? IsMusicAlbumBackdrop
+            ? Artwork.CoverUrl ?? Artwork.PosterUrl
+            : HeroArtwork.HasImage && !string.IsNullOrWhiteSpace(HeroArtwork.Url)
+                ? HeroArtwork.Url
+                : null
         : null;
+    private string? HeroImageUrl => !_imageFailed ? HeroImageCandidate : null;
     private HeroArtworkMode EffectiveMode => string.IsNullOrWhiteSpace(HeroImageUrl)
         ? HeroArtworkMode.Placeholder
         : HeroArtwork.Mode;
-    private bool IsBackdropMode => EffectiveMode is HeroArtworkMode.BackdropWithLogo or HeroArtworkMode.BackdropWithRenderedTitle;
+    private bool IsBackdropMode => IsMusicAlbumBackdrop
+        || EffectiveMode is HeroArtworkMode.BackdropWithLogo or HeroArtworkMode.BackdropWithRenderedTitle;
     private bool IsArtworkFallbackMode => EffectiveMode == HeroArtworkMode.ArtworkFallback;
     private string? ForegroundArtworkUrl => !_foregroundImageFailed
         ? Artwork.CoverUrl ?? Artwork.PosterUrl
@@ -104,7 +109,9 @@
     {
         get
         {
-            var imageClass = EffectiveMode switch
+            var imageClass = IsMusicAlbumBackdrop
+                ? "tl-detail-media-stage--background tl-detail-media-stage--music-cover-background"
+                : EffectiveMode switch
             {
                 HeroArtworkMode.BackdropWithLogo => "tl-detail-media-stage--background tl-detail-media-stage--backdrop-with-logo",
                 HeroArtworkMode.BackdropWithRenderedTitle => "tl-detail-media-stage--background tl-detail-media-stage--backdrop-with-rendered-title",
@@ -136,10 +143,14 @@
             // inheriting provider focal hints that can push the whole frame
             // toward one side. The source fills the hero edge to edge from its
             // top-center, with the expendable crop protected by the bottom fade.
-            var position = IsBackdropMode
+            var position = IsMusicAlbumBackdrop
+                ? "center"
+                : IsBackdropMode
                 ? "center top"
                 : HeroArtwork.BackgroundPosition ?? "center";
-            var mobilePosition = IsBackdropMode
+            var mobilePosition = IsMusicAlbumBackdrop
+                ? "center"
+                : IsBackdropMode
                 ? "center top"
                 : HeroArtwork.MobilePosition ?? position;
             return $"--hero-image:url(\"{EscapeCssString(HeroImageUrl)}\");--hero-image-position:{position};--mobile-image-position:{mobilePosition};";
@@ -148,7 +159,7 @@
 
     protected override void OnParametersSet()
     {
-        var nextUrl = Artwork.HeroArtwork.Url;
+        var nextUrl = HeroImageCandidate;
         if (!string.Equals(nextUrl, _lastHeroImageUrl, StringComparison.Ordinal))
         {
             _imageFailed = false;
