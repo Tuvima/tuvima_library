@@ -810,52 +810,43 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void MusicAlbumDetailsUseTheAlbumOnlyHeroWorkspaceAndSharedTrackList()
+    public void MusicAlbumDetailsUseTheSharedHeroAndSingleTracksSurface()
     {
         var detailPage = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
         var detailPageStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
-        var workspace = ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumHeroWorkspace.razor");
-        var workspaceStyles = ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumHeroWorkspace.razor.css");
-        var workspaceNavigation = ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumWorkspaceNavigation.razor");
-        var workspaceNavigationStyles = ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumWorkspaceNavigation.razor.css");
+        var trackSurface = ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumTrackSurface.razor");
+        var trackSurfaceStyles = ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumTrackSurface.razor.css");
         var backdrop = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
         var trackList = ReadSource("src/MediaEngine.Web/Components/Details/MusicTrackList.razor");
         var audioTable = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor");
         var apiClient = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
         var albumRoute = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
 
-        Assert.Contains("<MusicAlbumHeroWorkspace Model=\"Model\"", detailPage);
-        Assert.Contains("!IsMusicAlbumWorkspace", detailPage);
-        Assert.Contains("<MusicTrackList", workspace);
-        Assert.Contains("Compact=\"true\"", workspace);
-        Assert.Contains("ToolbarLeadingContent", workspace);
-        Assert.Contains("More by @workspace.PrimaryArtistName", workspace);
-        Assert.Contains("workspace.MoreByAlbums", workspace);
-        Assert.Contains("(\"tracks\", \"Tracks\")", workspaceNavigation);
-        Assert.Contains("(\"credits\", \"Credits\")", workspaceNavigation);
-        Assert.Contains("(\"details\", \"Details\")", workspaceNavigation);
-        Assert.Contains("ActiveSection == item.Key ? \"true\" : \"false\"", workspaceNavigation);
-        Assert.Contains("font-size: clamp(1rem, 0.85vw, 1.2rem)", workspaceNavigationStyles);
-        Assert.Contains("bottom: 0", workspaceStyles);
-        Assert.Contains("width: 60vw", workspaceStyles);
-        Assert.Contains("height: 35svh", workspaceStyles);
-        Assert.Contains("font-size: clamp(1.08rem, 1vw, 1.35rem)", workspaceStyles);
-        Assert.Contains("background: transparent", workspaceStyles);
-        Assert.Contains("box-shadow: none", workspaceStyles);
-        Assert.Contains("grid-template-columns: 3rem minmax(0, 1fr) 3.75rem 2rem 2rem", workspaceStyles);
-        Assert.Contains("min-width: 0", workspaceStyles);
-        Assert.Contains("MUSIC_ALBUM_WORKSPACE_FINAL", detailPageStyles);
-        Assert.Contains("top: var(--app-topbar-height, 65px) !important", detailPageStyles);
-        Assert.Contains("right: 10vw !important", detailPageStyles);
-        Assert.Contains("width: min(38vw, calc(59svh - var(--app-topbar-height, 65px))) !important", detailPageStyles);
+        Assert.Contains("CurrentActiveTab is \"tracks\" && Model.EntityType == DetailEntityType.MusicAlbum", detailPage);
+        Assert.Contains("<MusicAlbumTrackSurface Model=\"Model\"", detailPage);
+        Assert.Contains("tl-detail-stage--music-album", detailPage);
+        Assert.Contains("ShowDetailNavigation => Model?.EntityType != DetailEntityType.Person", detailPage);
+        Assert.Contains("<MusicTrackList", trackSurface);
+        Assert.DoesNotContain("music-album-tracks-heading", trackSurface);
+        Assert.Contains("tl-music-album-track-surface__credits", trackSurface);
+        Assert.Contains("BuildAlbumCredits", trackSurface);
+        Assert.Contains("MoreByAlbums.Count: > 0", trackSurface);
+        Assert.Contains("loading=\"lazy\"", trackSurface);
+        Assert.Contains("<DetailsTab Model=\"Model\"", trackSurface);
+        Assert.Contains("grid-template-columns: minmax(0, 66fr) minmax(18rem, 34fr)", trackSurfaceStyles);
+        Assert.Contains("grid-auto-flow: column", trackSurfaceStyles);
+        Assert.Contains("border: 0", trackSurfaceStyles);
+        Assert.Contains("contain: inline-size", trackSurfaceStyles);
+        Assert.Contains("min-width: 61rem", trackSurfaceStyles);
+        Assert.Contains("width: min(34vw, 58svh) !important", detailPageStyles);
+        Assert.Contains("top: 50% !important", detailPageStyles);
         Assert.Contains("tl-detail-media-stage__foreground--album", detailPageStyles);
         Assert.Contains("width: 100% !important", detailPageStyles);
-        Assert.Contains("width: clamp(22rem, 29vw, 35rem) !important", detailPageStyles);
-        Assert.Contains("width: clamp(14rem, 36vw, 19rem) !important", detailPageStyles);
+        Assert.Contains("width: min(30vw, 50svh) !important", detailPageStyles);
         Assert.Contains("IsMusicAlbumBackdrop", backdrop);
         Assert.Contains("Artwork.CoverUrl ?? Artwork.PosterUrl", backdrop);
         Assert.Contains("tl-detail-media-stage--music-cover-background", backdrop);
-        Assert.Contains("MusicAlbumWorkspace = NormalizeMusicAlbumWorkspace(detail.MusicAlbumWorkspace)", apiClient);
+        Assert.Contains("MusicAlbumTrackSurface = NormalizeMusicAlbumTrackSurface(detail.MusicAlbumTrackSurface)", apiClient);
         Assert.Contains("ArtworkUrl = NormalizeOptionalUrl(album.ArtworkUrl)", apiClient);
         Assert.Contains("<AudioItemTable", trackList);
         Assert.Contains("ReplaceQueueItemsAsync", audioTable);
@@ -871,6 +862,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Search tracks", audioTable);
         Assert.DoesNotContain("Placeholder=\"@($\"Search {ItemNounPlural}\")\"", audioTable);
         Assert.DoesNotContain("@page \"/listen/album", albumRoute, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("MusicAlbumWorkspace", detailPage + detailPageStyles + trackSurface + trackSurfaceStyles + apiClient);
+        Assert.DoesNotContain("MusicAlbumOverview", detailPage + detailPageStyles + trackSurface + trackSurfaceStyles + apiClient);
+        Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/MusicAlbumHeroWorkspace.razor")));
+        Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/MusicAlbumWorkspaceNavigation.razor")));
+        Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/MusicAlbumOverview.razor")));
     }
 
     [Fact]
@@ -944,7 +940,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("ShowPrimaryModuleAfterNavigation", detailPage);
         Assert.Contains("CurrentActiveTab == \"overview\"", detailPage);
         Assert.Contains("IsEmbeddedPrimaryModuleTab", detailPage);
-        Assert.Contains("@if (!IsEmbeddedPrimaryModuleTab && !IsMusicAlbumWorkspace)", detailPage);
+        Assert.Contains("@if (!IsEmbeddedPrimaryModuleTab)", detailPage);
         Assert.Contains("tl-detail-page__primary-content", detailPage);
         Assert.Contains("Embedded=\"true\"", detailPage);
         Assert.Contains("Embedded=\"false\"", detailPage);

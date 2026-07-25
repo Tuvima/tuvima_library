@@ -162,7 +162,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   Tabs: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.DetailTab> | nullability=not-null | accessors=get,init
   MediaGroups: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.MediaGroupingViewModel> | nullability=not-null | accessors=get,init
   PrimaryModule: MediaEngine.Contracts.Details.DetailPrimaryModuleViewModel | nullability=not-null | accessors=get,init
-  MusicAlbumWorkspace: MediaEngine.Contracts.Details.MusicAlbumWorkspaceViewModel | nullability=nullable | accessors=get,init
+  MusicAlbumTrackSurface: MediaEngine.Contracts.Details.MusicAlbumTrackSurfaceViewModel | nullability=nullable | accessors=get,init
   IdentityStatus: MediaEngine.Contracts.Details.CanonicalIdentityStatus | nullability=not-null | accessors=get,init
   LibraryStatus: MediaEngine.Contracts.Details.LibraryStatus | nullability=not-null | accessors=get,init
   IsAdminView: System.Boolean | nullability=not-null | accessors=get,init
@@ -280,7 +280,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MusicAlbumPreviewVie
   ArtworkUrl: System.String | nullability=nullable | accessors=get,init
   Route: System.String | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MusicAlbumWorkspaceViewModel
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.MusicAlbumTrackSurfaceViewModel
   PrimaryArtistId: System.String | nullability=nullable | accessors=get,init
   PrimaryArtistName: System.String | nullability=nullable | accessors=get,init
   PrimaryArtistRoute: System.String | nullability=nullable | accessors=get,init

@@ -40,14 +40,14 @@ public sealed class DetailPageViewModel
     public IReadOnlyList<DetailTab> Tabs { get; init; } = [];
     public IReadOnlyList<MediaGroupingViewModel> MediaGroups { get; init; } = [];
     public DetailPrimaryModuleViewModel PrimaryModule { get; init; } = new();
-    public MusicAlbumWorkspaceViewModel? MusicAlbumWorkspace { get; init; }
+    public MusicAlbumTrackSurfaceViewModel? MusicAlbumTrackSurface { get; init; }
 
     public CanonicalIdentityStatus IdentityStatus { get; init; } = CanonicalIdentityStatus.Unknown;
     public LibraryStatus LibraryStatus { get; init; } = LibraryStatus.Unknown;
     public bool IsAdminView { get; init; }
 }
 
-public sealed class MusicAlbumWorkspaceViewModel
+public sealed class MusicAlbumTrackSurfaceViewModel
 {
     public string? PrimaryArtistId { get; init; }
     public string? PrimaryArtistName { get; init; }

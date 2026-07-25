@@ -58,279 +58,6 @@
             rgb(var(--hero-backdrop-bottom-rgb)) 100%);
 }
 
-/* MUSIC_ALBUM_WORKSPACE_BASE: the album-only hero owns the complete detail surface. */
-@media (min-width: 721px) {
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--music-cover-background .tl-detail-media-stage__background {
-        object-position: center !important;
-        filter: blur(clamp(2.2rem, 3.4vw, 4rem)) saturate(92%) brightness(72%);
-        opacity: 0.82;
-        transform: scale(1.12) !important;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--music-cover-background .tl-detail-media-stage__overlay {
-        background:
-            linear-gradient(90deg, rgba(5, 8, 17, 0.94) 0%, rgba(6, 9, 19, 0.75) 29%, rgba(8, 10, 23, 0.22) 61%, rgba(7, 9, 19, 0.38) 100%),
-            linear-gradient(180deg, rgba(5, 7, 15, 0.68) 0%, rgba(7, 8, 18, 0.04) 28%, rgba(6, 8, 17, 0.3) 66%, rgba(5, 7, 15, 0.96) 100%);
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__inner {
-        align-items: flex-start !important;
-        padding:
-            calc(var(--app-topbar-height, 65px) + clamp(3rem, 8svh, 6.5rem))
-            clamp(2rem, 4.5vw, 5.5rem)
-            1.5rem !important;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__copy {
-        width: min(28rem, 31vw);
-        max-width: min(28rem, 31vw);
-        align-content: start !important;
-        transform: none !important;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__identity h1 {
-        max-width: 100%;
-        font-size: clamp(2.8rem, 4.5vw, 5rem);
-        line-height: 0.96;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__subtitle {
-        color: #e7c36d;
-        font-size: clamp(1.15rem, 1.55vw, 1.55rem);
-        font-weight: 600;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__synopsis {
-        display: block !important;
-        width: min(25rem, 100%);
-        max-width: 100%;
-        margin-top: 0.65rem;
-        overflow: hidden;
-        color: rgba(240, 236, 247, 0.82);
-        font-size: clamp(0.82rem, 0.92vw, 0.96rem);
-        line-height: 1.45;
-        -webkit-box-orient: vertical;
-        -webkit-line-clamp: 3;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch {
-        width: min(28rem, 100%) !important;
-        gap: 0.45rem !important;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-primary-actions {
-        display: grid;
-        grid-template-columns: minmax(10rem, 1.35fr) minmax(8rem, 1fr);
-        width: min(23rem, 100%) !important;
-        gap: 0.55rem;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-action--primary {
-        min-height: 3.15rem;
-        padding-inline: 1.25rem;
-        font-size: 1rem;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-action--shuffle {
-        border: 1px solid rgba(226, 215, 244, 0.22);
-        background: rgba(13, 16, 31, 0.38);
-        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.045);
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-action--shuffle:hover,
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-action--shuffle:focus-visible {
-        border-color: color-mix(in srgb, var(--tl-accent-primary, #8b5cf6) 70%, #fff);
-        background: rgba(92, 63, 145, 0.32);
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
-        width: auto !important;
-        max-width: min(30rem, 100%);
-        flex-wrap: nowrap;
-        gap: 0.1rem;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-flat-action {
-        min-height: 2.55rem !important;
-        padding: 0.34rem 0.58rem !important;
-        font-size: 0.82rem;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-flat-action span,
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-secondary-label {
-        font-size: 0.8rem !important;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        top: var(--app-topbar-height, 65px);
-        right: 10vw;
-        width: min(38vw, calc(59svh - var(--app-topbar-height, 65px)));
-        max-width: none;
-        height: min(38vw, calc(59svh - var(--app-topbar-height, 65px)));
-        max-height: none;
-        transform: none;
-    }
-
-    .tl-detail-stage--primary-before-navigation
-        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
-        top: 29%;
-        width: clamp(19rem, 23vw, 27rem);
-        max-width: clamp(19rem, 23vw, 27rem);
-        height: clamp(19rem, 23vw, 27rem);
-        max-height: clamp(19rem, 23vw, 27rem);
-        transform: translateY(-50%);
-    }
-}
-
-@media (max-width: 720px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__inner {
-        padding:
-            calc(var(--app-topbar-height, 65px) + 1.25rem)
-            clamp(1.25rem, 5vw, 2.5rem)
-            1rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
-        width: min(25rem, 50vw) !important;
-        max-width: min(25rem, 50vw) !important;
-        transform: none !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        top: calc(var(--app-topbar-height, 65px) + 1rem) !important;
-        right: clamp(1rem, 4vw, 3rem) !important;
-        bottom: auto !important;
-        left: auto !important;
-        width: clamp(14rem, 36vw, 19rem) !important;
-        max-width: clamp(14rem, 36vw, 19rem) !important;
-        height: clamp(14rem, 36vw, 19rem) !important;
-        max-height: clamp(14rem, 36vw, 19rem) !important;
-        transform: none !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-primary-actions {
-        display: grid !important;
-        grid-template-columns: minmax(9rem, 1.35fr) minmax(7.5rem, 1fr) !important;
-        width: 100% !important;
-        gap: 0.55rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-action--primary {
-        width: 100% !important;
-        min-width: 0 !important;
-    }
-}
-
-@media (max-width: 560px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero {
-        height: 50rem;
-        min-height: 50rem;
-        max-height: none;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__inner {
-        padding:
-            calc(var(--app-topbar-height, 65px) + 16.5rem)
-            1.25rem
-            1.25rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
-        width: 100% !important;
-        max-width: none !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        top: calc(var(--app-topbar-height, 65px) + 0.75rem) !important;
-        right: auto !important;
-        left: 50% !important;
-        width: clamp(13rem, 55vw, 16rem) !important;
-        max-width: clamp(13rem, 55vw, 16rem) !important;
-        height: clamp(13rem, 55vw, 16rem) !important;
-        max-height: clamp(13rem, 55vw, 16rem) !important;
-        transform: translateX(-50%) !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
-        flex-wrap: wrap !important;
-    }
-}
-
-@media (min-width: 721px) and (max-width: 1100px),
-       (min-width: 721px) and (max-height: 760px) {
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__inner {
-        padding-top: calc(var(--app-topbar-height, 65px) + 1.5rem) !important;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__copy {
-        width: min(21.5rem, 33vw);
-        max-width: min(21.5rem, 33vw);
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__identity h1 {
-        font-size: clamp(2.3rem, 4vw, 3.5rem);
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__synopsis {
-        -webkit-line-clamp: 2;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        width: clamp(20rem, 28vw, 26rem);
-        max-width: clamp(20rem, 28vw, 26rem);
-        height: clamp(20rem, 28vw, 26rem);
-        max-height: clamp(20rem, 28vw, 26rem);
-    }
-}
-
-@media (max-width: 720px) {
-    .tl-detail-stage--music-album-workspace {
-        height: auto;
-        min-height: 100svh;
-        max-height: none;
-        overflow: visible;
-    }
-
-    .tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--music-cover-background .tl-detail-media-stage__background {
-        filter: blur(2rem) saturate(90%) brightness(65%);
-        transform: scale(1.16) !important;
-    }
-}
-
 .tl-detail-edit-stage {
     display: grid;
     position: relative;
@@ -11234,49 +10961,90 @@
     }
 }
 
-/* MUSIC_ALBUM_WORKSPACE_FINAL: the album-only composition wins after the
-   shared 95svh detail contract without changing that contract for audiobooks. */
+/* Music albums use the shared cinematic hero and a single Tracks surface.
+   The cover is centered in the right half while identity and actions grow
+   upward from the lower-left shared hero anchor. */
 @media (min-width: 721px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--background.tl-detail-media-stage--music-cover-background .tl-detail-media-stage__background {
+    .tl-detail-stage--music-album
+        ::deep .tl-detail-media-stage--music-cover-background .tl-detail-media-stage__background {
         object-position: center !important;
-        filter: blur(clamp(2.2rem, 3.4vw, 4rem)) saturate(92%) brightness(72%) !important;
+        filter: blur(clamp(2.2rem, 3.4vw, 4rem)) saturate(92%) brightness(70%) !important;
         transform: scale(1.12) !important;
     }
 
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
+    .tl-detail-stage--music-album
+        ::deep .tl-detail-media-stage--music-cover-background .tl-detail-media-stage__overlay {
+        background:
+            linear-gradient(90deg, rgba(5, 8, 17, 0.94) 0%, rgba(6, 9, 19, 0.72) 32%, rgba(8, 10, 23, 0.16) 62%, rgba(7, 9, 19, 0.34) 100%),
+            linear-gradient(180deg, rgba(5, 7, 15, 0.66) 0%, rgba(7, 8, 18, 0.03) 27%, rgba(6, 8, 17, 0.22) 64%, rgba(5, 7, 15, 0.97) 100%);
+    }
+
+    .tl-detail-stage--music-album
         ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
-        width: min(26rem, 30vw) !important;
-        max-width: min(26rem, 30vw) !important;
+        width: min(42rem, 44vw) !important;
+        max-width: min(42rem, 44vw) !important;
     }
 
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-primary-actions {
+    .tl-detail-stage--music-album
+        ::deep .tl-detail-hero__subtitle {
+        color: #e7c36d;
+    }
+
+    .tl-detail-stage--music-album
+        ::deep .tl-detail-actions--watch .tl-detail-primary-actions {
         display: grid !important;
-        grid-template-columns: minmax(9rem, 1.35fr) minmax(7.5rem, 1fr) !important;
-        width: min(23rem, 100%) !important;
-        gap: 0.55rem !important;
+        grid-template-columns: minmax(10rem, 1.35fr) minmax(8rem, 1fr) !important;
+        width: min(25rem, 100%) !important;
+        gap: 0.65rem !important;
     }
 
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-actions--watch .tl-detail-action--primary {
+    .tl-detail-stage--music-album
+        ::deep .tl-detail-actions--watch .tl-detail-action--primary {
         width: 100% !important;
         min-width: 0 !important;
-        flex: 1 1 auto !important;
     }
 
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
+    .tl-detail-stage--music-album
         ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        top: var(--app-topbar-height, 65px) !important;
-        right: 10vw !important;
-        width: min(38vw, calc(59svh - var(--app-topbar-height, 65px))) !important;
+        top: 50% !important;
+        right: 8vw !important;
+        width: min(34vw, 58svh) !important;
         max-width: none !important;
-        height: min(38vw, calc(59svh - var(--app-topbar-height, 65px))) !important;
+        height: min(34vw, 58svh) !important;
         max-height: none !important;
+        transform: translateY(-50%) !important;
     }
 
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
+    .tl-detail-stage--music-album
         ::deep .tl-detail-media-stage__foreground--album {
+        width: 100% !important;
+        height: 100% !important;
+        max-width: none !important;
+    }
+
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-primary-module--embedded {
+        height: clamp(18rem, 32svh, 24rem) !important;
+    }
+
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
+        padding-bottom: calc(3.75rem + clamp(20rem, 35svh, 26rem)) !important;
+    }
+
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
+        top: calc(var(--app-topbar-height, 65px) + 1svh) !important;
+        right: 8vw !important;
+        width: min(30vw, 50svh) !important;
+        max-width: none !important;
+        height: min(30vw, 50svh) !important;
+        max-height: none !important;
+        transform: none !important;
+    }
+
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-media-stage__foreground--cover {
         width: 100% !important;
         height: 100% !important;
         max-width: none !important;
@@ -11285,112 +11053,35 @@
 
 @media (min-width: 721px) and (max-width: 1100px),
        (min-width: 721px) and (max-height: 760px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
+    .tl-detail-stage--music-album
         ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        top: calc(var(--app-topbar-height, 65px) + 0.25rem) !important;
-        width: clamp(22rem, 29vw, 35rem) !important;
-        max-width: clamp(22rem, 29vw, 35rem) !important;
-        height: clamp(22rem, 29vw, 35rem) !important;
-        max-height: clamp(22rem, 29vw, 35rem) !important;
+        right: 6vw !important;
+        width: min(32vw, 52svh) !important;
+        height: min(32vw, 52svh) !important;
+    }
+
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
+        top: calc(var(--app-topbar-height, 65px) + 0.5svh) !important;
+        right: 6vw !important;
+        width: min(25vw, 33svh) !important;
+        height: min(25vw, 33svh) !important;
     }
 }
 
 @media (max-width: 720px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__inner {
-        padding:
-            calc(var(--app-topbar-height, 65px) + 1.25rem)
-            clamp(1.25rem, 5vw, 2.5rem)
-            1rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
-        width: min(25rem, 50vw) !important;
-        max-width: min(25rem, 50vw) !important;
-        transform: none !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
+    .tl-detail-stage--music-album
+        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap,
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
         top: calc(var(--app-topbar-height, 65px) + 1rem) !important;
-        right: clamp(1rem, 4vw, 3rem) !important;
+        right: 4vw !important;
         bottom: auto !important;
         left: auto !important;
-        width: clamp(14rem, 36vw, 19rem) !important;
-        max-width: clamp(14rem, 36vw, 19rem) !important;
-        height: clamp(14rem, 36vw, 19rem) !important;
-        max-height: clamp(14rem, 36vw, 19rem) !important;
-        transform: none !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-primary-actions {
-        display: grid !important;
-        grid-template-columns: minmax(9rem, 1.35fr) minmax(7.5rem, 1fr) !important;
-        width: 100% !important;
-        gap: 0.55rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-action--primary {
-        width: 100% !important;
-        min-width: 0 !important;
-    }
-}
-
-@media (min-width: 561px) and (max-width: 720px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        .tl-detail-edit-stage {
-        height: 30rem !important;
-        min-height: 30rem !important;
-        flex: 0 0 30rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero {
-        height: 30rem !important;
-        min-height: 30rem !important;
-        max-height: 30rem !important;
-    }
-}
-
-@media (max-width: 560px) {
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero {
-        height: 50rem;
-        min-height: 50rem;
-        max-height: none;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero__inner {
-        padding:
-            calc(var(--app-topbar-height, 65px) + 16.5rem)
-            1.25rem
-            1.25rem !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__copy {
-        width: 100% !important;
+        width: min(38vw, 38svh) !important;
         max-width: none !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-media-stage--square .tl-detail-media-stage__cover-wrap {
-        top: calc(var(--app-topbar-height, 65px) + 0.75rem) !important;
-        right: auto !important;
-        left: 50% !important;
-        width: clamp(13rem, 55vw, 16rem) !important;
-        max-width: clamp(13rem, 55vw, 16rem) !important;
-        height: clamp(13rem, 55vw, 16rem) !important;
-        max-height: clamp(13rem, 55vw, 16rem) !important;
-        transform: translateX(-50%) !important;
-    }
-
-    .tl-detail-stage.tl-detail-stage--music-album-workspace
-        ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
-        flex-wrap: wrap !important;
+        height: min(38vw, 38svh) !important;
+        max-height: none !important;
+        transform: none !important;
     }
 }

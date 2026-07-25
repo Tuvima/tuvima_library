@@ -5369,7 +5369,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             RelationshipStrip = detail.RelationshipStrip,
             Tabs = detail.Tabs,
             PrimaryModule = detail.PrimaryModule,
-            MusicAlbumWorkspace = NormalizeMusicAlbumWorkspace(detail.MusicAlbumWorkspace),
+            MusicAlbumTrackSurface = NormalizeMusicAlbumTrackSurface(detail.MusicAlbumTrackSurface),
             MediaGroups = detail.MediaGroups.Select(group => new MediaGroupingViewModel
             {
                 Key = group.Key,
@@ -5414,15 +5414,15 @@ public sealed partial class EngineApiClient : IEngineApiClient
         };
     }
 
-    private MusicAlbumWorkspaceViewModel? NormalizeMusicAlbumWorkspace(MusicAlbumWorkspaceViewModel? workspace)
-        => workspace is null
+    private MusicAlbumTrackSurfaceViewModel? NormalizeMusicAlbumTrackSurface(MusicAlbumTrackSurfaceViewModel? trackSurface)
+        => trackSurface is null
             ? null
-            : new MusicAlbumWorkspaceViewModel
+            : new MusicAlbumTrackSurfaceViewModel
             {
-                PrimaryArtistId = workspace.PrimaryArtistId,
-                PrimaryArtistName = workspace.PrimaryArtistName,
-                PrimaryArtistRoute = workspace.PrimaryArtistRoute,
-                MoreByAlbums = workspace.MoreByAlbums.Select(album => new MusicAlbumPreviewViewModel
+                PrimaryArtistId = trackSurface.PrimaryArtistId,
+                PrimaryArtistName = trackSurface.PrimaryArtistName,
+                PrimaryArtistRoute = trackSurface.PrimaryArtistRoute,
+                MoreByAlbums = trackSurface.MoreByAlbums.Select(album => new MusicAlbumPreviewViewModel
                 {
                     Id = album.Id,
                     Title = album.Title,

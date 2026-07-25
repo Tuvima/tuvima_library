@@ -645,8 +645,8 @@ public sealed class DetailComposerService
             fallbackCover);
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
-        var musicAlbumWorkspace = entityType == DetailEntityType.MusicAlbum
-            ? await BuildMusicAlbumWorkspaceAsync(
+        var musicAlbumTrackSurface = entityType == DetailEntityType.MusicAlbum
+            ? await BuildMusicAlbumTrackSurfaceAsync(
                 rootWorkId ?? collectionId,
                 contributorGroups,
                 ct)
@@ -718,7 +718,7 @@ public sealed class DetailComposerService
             Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
             MediaGroups = mediaGroups,
             PrimaryModule = BuildPrimaryModule(entityType, sequencePlacement, mediaGroups),
-            MusicAlbumWorkspace = musicAlbumWorkspace,
+            MusicAlbumTrackSurface = musicAlbumTrackSurface,
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -786,7 +786,7 @@ public sealed class DetailComposerService
         }));
     }
 
-    private async Task<MusicAlbumWorkspaceViewModel> BuildMusicAlbumWorkspaceAsync(
+    private async Task<MusicAlbumTrackSurfaceViewModel> BuildMusicAlbumTrackSurfaceAsync(
         Guid currentAlbumRootWorkId,
         IReadOnlyList<CreditGroupViewModel> contributorGroups,
         CancellationToken ct)
@@ -801,7 +801,7 @@ public sealed class DetailComposerService
         var primaryArtistId = Guid.Empty;
         var hasResolvedArtist = primaryArtist is not null
             && Guid.TryParse(primaryArtist.EntityId, out primaryArtistId);
-        var workspace = new MusicAlbumWorkspaceViewModel
+        var trackSurface = new MusicAlbumTrackSurfaceViewModel
         {
             PrimaryArtistId = hasResolvedArtist ? primaryArtistId.ToString("D") : null,
             PrimaryArtistName = primaryArtist?.DisplayName,
@@ -812,14 +812,14 @@ public sealed class DetailComposerService
 
         if (!hasResolvedArtist || _collectionBrowse is null)
         {
-            return workspace;
+            return trackSurface;
         }
 
         var ownedAlbumRootIds = await LoadOwnedMusicAlbumRootIdsForArtistAsync(primaryArtistId, ct);
         ownedAlbumRootIds.Remove(currentAlbumRootWorkId);
         if (ownedAlbumRootIds.Count == 0)
         {
-            return workspace;
+            return trackSurface;
         }
 
         var albumGroups = await _collectionBrowse
@@ -837,7 +837,6 @@ public sealed class DetailComposerService
                 group.Year,
                 group.LatestYear?.ToString(CultureInfo.InvariantCulture))))
             .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
-            .Take(3)
             .Select(group =>
             {
                 var rootWorkId = group.RootWorkId!.Value;
@@ -858,11 +857,11 @@ public sealed class DetailComposerService
             })
             .ToList();
 
-        return new MusicAlbumWorkspaceViewModel
+        return new MusicAlbumTrackSurfaceViewModel
         {
-            PrimaryArtistId = workspace.PrimaryArtistId,
-            PrimaryArtistName = workspace.PrimaryArtistName,
-            PrimaryArtistRoute = workspace.PrimaryArtistRoute,
+            PrimaryArtistId = trackSurface.PrimaryArtistId,
+            PrimaryArtistName = trackSurface.PrimaryArtistName,
+            PrimaryArtistRoute = trackSurface.PrimaryArtistRoute,
             MoreByAlbums = moreByAlbums,
         };
     }
@@ -5331,7 +5330,7 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicAlbum => [],
+            DetailEntityType.MusicAlbum => ["tracks"],
             DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
             DetailEntityType.MusicArtist => ["overview", "related", "details"],
             DetailEntityType.Person => ["overview"],
@@ -5359,7 +5358,6 @@ public sealed class DetailComposerService
     {
         var kind = entityType switch
         {
-            DetailEntityType.MusicAlbum => DetailPrimaryModuleKind.Tracks,
             DetailEntityType.MusicTrack when mediaGroups.Any(group =>
                 string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
                 => DetailPrimaryModuleKind.Tracks,

@@ -26,7 +26,7 @@ public sealed class Phase5InlineEditingTests
         var editorIndex = source.IndexOf("HeroConstrained=\"true\"", stageIndex, StringComparison.Ordinal);
         var primaryIndex = source.IndexOf("<DetailPrimaryModule Model=\"Model\"", editorIndex, StringComparison.Ordinal);
         var tabsIndex = source.IndexOf("<DetailTabs Tabs=\"VisibleTabs\"", primaryIndex, StringComparison.Ordinal);
-        var bodyIndex = source.IndexOf("<section id=\"overview\"", tabsIndex, StringComparison.Ordinal);
+        var bodyIndex = source.IndexOf("<section id=\"@CurrentActiveTab\"", tabsIndex, StringComparison.Ordinal);
 
         Assert.True(stageIndex >= 0);
         Assert.True(editorIndex > stageIndex);

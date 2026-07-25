@@ -1,0 +1,178 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-music-album-track-surface" aria-label="@($"{Model.Title} tracks")">
+    <div class="tl-music-album-track-surface__grid">
+        <section class="tl-music-album-track-surface__tracks" aria-label="Tracks">
+            <MusicTrackList Groups="Model.MediaGroups"
+                            AlbumTitle="@Model.Title"
+                            AlbumArtworkUrl="@(Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl)" />
+        </section>
+
+        <aside class="tl-music-album-track-surface__credits" aria-labelledby="music-album-credits-heading">
+            <h2 id="music-album-credits-heading">Credits</h2>
+            @if (_albumCredits.Count > 0)
+            {
+                <div class="tl-music-album-track-surface__credit-list">
+                    @foreach (var credit in _albumCredits)
+                    {
+                        <PersonCreditCard Credit="credit" Compact="true" />
+                    }
+                </div>
+            }
+            else
+            {
+                <p class="tl-music-album-track-surface__empty">No album credits are available yet.</p>
+            }
+        </aside>
+    </div>
+
+    @if (Model.MusicAlbumTrackSurface is { MoreByAlbums.Count: > 0 } trackSurface)
+    {
+        <section class="tl-music-album-track-surface__more-by" aria-labelledby="music-album-more-by-heading">
+            <header>
+                <h2 id="music-album-more-by-heading">@MoreByTitle(trackSurface)</h2>
+                @if (!string.IsNullOrWhiteSpace(trackSurface.PrimaryArtistRoute))
+                {
+                    <a href="@trackSurface.PrimaryArtistRoute">View artist</a>
+                }
+            </header>
+
+            <div class="tl-music-album-track-surface__album-rail">
+                @foreach (var album in trackSurface.MoreByAlbums)
+                {
+                    <a class="tl-music-album-track-surface__album" href="@album.Route">
+                        <span class="tl-music-album-track-surface__album-art">
+                            @if (!string.IsNullOrWhiteSpace(album.ArtworkUrl))
+                            {
+                                <img src="@album.ArtworkUrl"
+                                     alt=""
+                                     loading="lazy" />
+                            }
+                            else
+                            {
+                                <GeneratedIdentity Name="@album.Title" />
+                            }
+                        </span>
+                        <strong>@album.Title</strong>
+                        @if (!string.IsNullOrWhiteSpace(album.Year))
+                        {
+                            <small>@album.Year</small>
+                        }
+                    </a>
+                }
+            </div>
+        </section>
+    }
+
+    <div class="tl-music-album-track-surface__details">
+        <DetailsTab Model="Model" />
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private IReadOnlyList<EntityCreditViewModel> _albumCredits = [];
+
+    protected override void OnParametersSet()
+    {
+        _albumCredits = BuildAlbumCredits(Model.ContributorGroups);
+    }
+
+    private static IReadOnlyList<EntityCreditViewModel> BuildAlbumCredits(
+        IReadOnlyList<CreditGroupViewModel> groups)
+    {
+        var credits = new Dictionary<string, AlbumCreditAccumulator>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var group in groups)
+        {
+            var groupPriority = CreditGroupPriority(group.GroupType);
+            foreach (var credit in group.Credits)
+            {
+                if (credit.EntityType is not (RelatedEntityType.Person or RelatedEntityType.MusicArtist)
+                    || string.IsNullOrWhiteSpace(credit.DisplayName))
+                {
+                    continue;
+                }
+
+                var key = string.IsNullOrWhiteSpace(credit.EntityId)
+                    ? credit.DisplayName.Trim()
+                    : credit.EntityId.Trim();
+                if (!credits.TryGetValue(key, out var accumulator))
+                {
+                    accumulator = new AlbumCreditAccumulator(credit, groupPriority);
+                    credits[key] = accumulator;
+                }
+
+                accumulator.Priority = Math.Min(accumulator.Priority, groupPriority);
+                accumulator.SortOrder = Math.Min(accumulator.SortOrder, credit.SortOrder);
+                accumulator.AddRole(credit.PrimaryRole);
+                accumulator.AddRole(credit.SecondaryRole);
+                if (string.IsNullOrWhiteSpace(credit.PrimaryRole)
+                    && string.IsNullOrWhiteSpace(credit.SecondaryRole))
+                {
+                    accumulator.AddRole(group.Title);
+                }
+            }
+        }
+
+        return credits.Values
+            .OrderBy(credit => credit.Priority)
+            .ThenBy(credit => credit.SortOrder)
+            .ThenBy(credit => credit.Source.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .Select(credit => new EntityCreditViewModel
+            {
+                EntityId = credit.Source.EntityId,
+                EntityType = credit.Source.EntityType,
+                DisplayName = credit.Source.DisplayName,
+                ImageUrl = credit.Source.ImageUrl,
+                FallbackInitials = credit.Source.FallbackInitials,
+                PrimaryRole = credit.Roles.Count > 0
+                    ? string.Join(", ", credit.Roles)
+                    : "Contributor",
+                SortOrder = credit.SortOrder,
+                IsPrimary = credit.Source.IsPrimary,
+                IsCanonical = credit.Source.IsCanonical,
+                SourceName = credit.Source.SourceName,
+                SourceId = credit.Source.SourceId,
+            })
+            .ToList();
+    }
+
+    private static int CreditGroupPriority(CreditGroupType groupType) => groupType switch
+    {
+        CreditGroupType.PrimaryArtists => 0,
+        CreditGroupType.FeaturedArtists => 1,
+        CreditGroupType.Collaborators => 2,
+        CreditGroupType.BandMembers => 3,
+        CreditGroupType.MusicCredits => 4,
+        CreditGroupType.Producers => 5,
+        CreditGroupType.RelatedArtists => 6,
+        _ => 10,
+    };
+
+    private static string MoreByTitle(MusicAlbumTrackSurfaceViewModel trackSurface)
+        => string.IsNullOrWhiteSpace(trackSurface.PrimaryArtistName)
+            ? "More from this artist"
+            : $"More by {trackSurface.PrimaryArtistName}";
+
+    private sealed class AlbumCreditAccumulator(
+        EntityCreditViewModel source,
+        int priority)
+    {
+        public EntityCreditViewModel Source { get; } = source;
+        public int Priority { get; set; } = priority;
+        public int SortOrder { get; set; } = source.SortOrder;
+        public List<string> Roles { get; } = [];
+
+        public void AddRole(string? role)
+        {
+            if (!string.IsNullOrWhiteSpace(role)
+                && !Roles.Contains(role.Trim(), StringComparer.OrdinalIgnoreCase))
+            {
+                Roles.Add(role.Trim());
+            }
+        }
+    }
+}
