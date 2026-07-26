@@ -16,7 +16,7 @@ public sealed class ReaderHighlight
     public string SelectedText { get; set; } = string.Empty;
 
     /// <summary>Highlight colour as a CSS hex code (e.g. "#EAB308").</summary>
-    public string Color { get; set; } = MediaEngine.Domain.Enums.HighlightColor.Yellow;
+    public string Color { get; set; } = MediaEngine.Domain.Constants.HighlightColor.Yellow;
 
     /// <summary>Optional user note attached to this highlight.</summary>
     public string? NoteText { get; set; }

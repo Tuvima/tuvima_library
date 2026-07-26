@@ -410,6 +410,7 @@ else
     private int _activeMode = 0;  // 0=Web, 1=Paths, 2=Family, 3=Cast, 4=Adaptations, 5=Sources
     private int _previousMode = 0;
     private PathFinderPanel? _pathFinderRef;
+    private bool _cytoscapeReady;
     private bool _showCharacters = true;
     private bool _showLocations = true;
     private bool _showOrganizations = true;
@@ -435,6 +436,7 @@ else
     {
         if (firstRender && _graph is not null && _hasGraphData && !DeviceContext.IsMobile)
         {
+            await EnsureCytoscapeLoadedAsync();
             _dotNetRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("CytoscapeInterop.initGraph",
                 "cytoscape-container",
@@ -448,6 +450,7 @@ else
         if (!firstRender && needsGraph && !prevNeedsGraph && _graph is not null && _hasGraphData && !DeviceContext.IsMobile)
         {
             _previousMode = _activeMode;
+            await EnsureCytoscapeLoadedAsync();
             _dotNetRef ??= DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("CytoscapeInterop.initGraph",
                 "cytoscape-container",
@@ -460,6 +463,19 @@ else
         {
             _previousMode = _activeMode;
         }
+    }
+
+    /// <summary>
+    /// Cytoscape.js (368 KB) and its Blazor interop bridge are only needed on this route,
+    /// so they are lazy-loaded here instead of via a global &lt;script&gt; tag in App.razor.
+    /// Idempotent: subsequent calls after the first successful load are no-ops.
+    /// </summary>
+    private async Task EnsureCytoscapeLoadedAsync()
+    {
+        if (_cytoscapeReady) return;
+        await JS.InvokeVoidAsync("lazyLoad.loadScript", "lib/cytoscape/cytoscape.min.js");
+        await JS.InvokeVoidAsync("lazyLoad.loadScript", "js/cytoscape-interop.js");
+        _cytoscapeReady = true;
     }
 
     protected override async Task OnInitializedAsync()
@@ -515,6 +531,7 @@ else
     private async Task OnTimelineYearChanged(int year)
     {
         _timelineYear = year;
+        await EnsureCytoscapeLoadedAsync();
         await JS.InvokeVoidAsync("CytoscapeInterop.filterByTimelineYear", year);
     }
 
@@ -546,6 +563,7 @@ else
 
             if (_hasGraphData)
             {
+                await EnsureCytoscapeLoadedAsync();
                 await JS.InvokeVoidAsync("CytoscapeInterop.updateGraph",
                     System.Text.Json.JsonSerializer.Serialize(_graph.Nodes),
                     System.Text.Json.JsonSerializer.Serialize(_graph.Edges));
@@ -556,6 +574,7 @@ else
     private async Task OnLayoutChanged(string layout)
     {
         _layout = layout;
+        await EnsureCytoscapeLoadedAsync();
         await JS.InvokeVoidAsync("CytoscapeInterop.setLayout", layout);
     }
 
@@ -566,6 +585,7 @@ else
             .Where(e => e.Source == entity.Id || e.Target == entity.Id)
             .ToList() ?? [];
         _drawerOpen = true;
+        await EnsureCytoscapeLoadedAsync();
         await JS.InvokeVoidAsync("CytoscapeInterop.focusNode", entity.Id);
     }
     [JSInvokable]
@@ -760,12 +780,15 @@ else
 
     public async ValueTask DisposeAsync()
     {
-        try
+        if (_cytoscapeReady)
         {
-            await JS.InvokeVoidAsync("CytoscapeInterop.destroy");
-        }
-        catch (JSDisconnectedException)
-        {
+            try
+            {
+                await JS.InvokeVoidAsync("CytoscapeInterop.destroy");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
         }
         _dotNetRef?.Dispose();
     }

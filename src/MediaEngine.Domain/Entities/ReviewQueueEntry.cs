@@ -12,7 +12,7 @@ namespace MediaEngine.Domain.Entities;
 /// overrides, or dismissing the item as irrelevant.
 ///
 /// Stored in the <c>review_queue</c> table (migration M-013).
-/// See <see cref="Enums.ReviewTrigger"/> and <see cref="Enums.ReviewStatus"/>.
+/// See <see cref="Constants.ReviewTrigger"/> and <see cref="Constants.ReviewStatus"/>.
 /// </summary>
 public sealed class ReviewQueueEntry
 {
@@ -33,20 +33,20 @@ public sealed class ReviewQueueEntry
 
     /// <summary>
     /// Why this review item was created.
-    /// Use <see cref="Enums.ReviewTrigger"/> constants.
+    /// Use <see cref="Constants.ReviewTrigger"/> constants.
     /// </summary>
     public required string Trigger { get; init; }
 
     /// <summary>
     /// Current lifecycle status.
-    /// Use <see cref="Enums.ReviewStatus"/> constants.
-    /// Defaults to <see cref="Enums.ReviewStatus.Pending"/>.
+    /// Use <see cref="Constants.ReviewStatus"/> constants.
+    /// Defaults to <see cref="Constants.ReviewStatus.Pending"/>.
     /// </summary>
-    public string Status { get; set; } = Enums.ReviewStatus.Pending;
+    public string Status { get; set; } = Constants.ReviewStatus.Pending;
 
     /// <summary>
     /// The Wikidata QID that the pipeline proposed before halting (nullable).
-    /// Present when the trigger is <see cref="Enums.ReviewTrigger.MultipleQidMatches"/>
+    /// Present when the trigger is <see cref="Constants.ReviewTrigger.MultipleQidMatches"/>
     /// and the pipeline had a best-guess candidate.
     /// </summary>
     public string? ProposedCollectionId { get; set; }
@@ -60,7 +60,7 @@ public sealed class ReviewQueueEntry
     /// <summary>
     /// JSON array of QID disambiguation candidates (nullable).
     /// Each element has <c>qid</c>, <c>label</c>, and optional <c>description</c>.
-    /// Present when trigger is <see cref="Enums.ReviewTrigger.MultipleQidMatches"/>.
+    /// Present when trigger is <see cref="Constants.ReviewTrigger.MultipleQidMatches"/>.
     /// </summary>
     public string? CandidatesJson { get; set; }
 

@@ -71,19 +71,3 @@ public sealed class UniverseCharacterDto
     public int     ActorCount        { get; set; }
 }
 
-// ── Entity Assets ─────────────────────────────────────────────────────────────
-
-/// <summary>
-/// A typed image asset belonging to any entity in the library.
-/// Returned by GET /library/assets/{entityId}.
-/// </summary>
-public sealed class EntityAssetDto
-{
-    public Guid    Id             { get; set; }
-    public string  EntityId       { get; set; } = string.Empty;
-    public string  AssetType      { get; set; } = string.Empty;
-    public string? ImageUrl       { get; set; }
-    public bool    IsPreferred    { get; set; }
-    public string? SourceProvider { get; set; }
-}
-

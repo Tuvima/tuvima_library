@@ -20,7 +20,7 @@ public sealed class SystemActivityEntry
 
     /// <summary>
     /// Machine-readable action type.
-    /// Use <see cref="Enums.SystemActionType"/> constants.
+    /// Use <see cref="Constants.SystemActionType"/> constants.
     /// </summary>
     public required string ActionType { get; init; }
 

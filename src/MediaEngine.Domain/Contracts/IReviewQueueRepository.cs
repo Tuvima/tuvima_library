@@ -59,7 +59,7 @@ public interface IReviewQueueRepository
     /// and <see cref="ReviewQueueEntry.ResolvedBy"/> to the given profile identifier.
     /// </summary>
     /// <param name="id">The review item ID.</param>
-    /// <param name="status">The new status. Use <see cref="Enums.ReviewStatus"/> constants.</param>
+    /// <param name="status">The new status. Use <see cref="Constants.ReviewStatus"/> constants.</param>
     /// <param name="resolvedBy">The profile that resolved/dismissed this item (nullable).</param>
     /// <param name="ct">Cancellation token.</param>
     Task UpdateStatusAsync(

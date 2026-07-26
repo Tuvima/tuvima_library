@@ -496,39 +496,6 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void LibraryColumnPicker_RendersMudCheckboxesAndActions()
-    {
-        var columns = LibraryColumnDefinitions.GetColumnsByTab("books");
-        var visibleKeys = columns.Where(column => column.DefaultVisible).Select(column => column.Key).ToList();
-
-        var cut = RenderComponent<LibraryColumnPicker>(parameters => parameters
-            .Add(component => component.AllColumns, columns)
-            .Add(component => component.VisibleKeys, visibleKeys)
-            .Add(component => component.ViewKey, "books"));
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("Columns", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".mud-checkbox"));
-            Assert.Contains("Reset to Defaults", cut.Markup);
-        });
-    }
-
-    [Fact]
-    public void LibraryDeleteConfirm_RendersMudConfirmActions()
-    {
-        var cut = RenderComponent<LibraryDeleteConfirm>(parameters => parameters
-            .Add(component => component.Count, 2));
-
-        cut.WaitForAssertion(() =>
-        {
-            Assert.Contains("Move 2 Items to Quarantine?", cut.Markup);
-            Assert.Equal(2, cut.FindAll(".mud-button-root").Count);
-            Assert.Contains("Quarantine", cut.Markup);
-        });
-    }
-
-    [Fact]
     public void ListenBrowsePage_RendersSharedPersistentRailWithoutRightPlayer()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();

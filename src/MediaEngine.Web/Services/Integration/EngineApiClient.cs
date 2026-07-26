@@ -83,29 +83,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default)
-    {
-        const string endpoint = "GET /player/state";
-        try
-        {
-            var query = new List<string>();
-            if (profileId.HasValue) query.Add($"profileId={profileId.Value:D}");
-            if (!string.IsNullOrWhiteSpace(deviceId)) query.Add($"deviceId={Uri.EscapeDataString(deviceId)}");
-            if (!string.IsNullOrWhiteSpace(client)) query.Add($"client={Uri.EscapeDataString(client)}");
-            var suffix = query.Count == 0 ? string.Empty : "?" + string.Join("&", query);
-            var state = await _http.GetFromJsonAsync<PlayerStateDto>("/player/state" + suffix, ct);
-            ClearFailure(endpoint);
-            return state;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "GET /player/state failed");
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
-
     public Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
         PostPlayerMutationAsync("/player/queue/replace", request, "POST /player/queue/replace", ct);
 
@@ -157,31 +134,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "POST /player/heartbeat failed");
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
-
-    public async Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /player/session/takeover";
-        try
-        {
-            var response = await _http.PostAsJsonAsync("/player/session/takeover", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
-
-            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return state;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "POST /player/session/takeover failed");
             RecordExceptionFailure(endpoint, ex);
             return null;
         }
@@ -279,31 +231,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
             _logger.LogDebug(ex, "DELETE /player/audiobooks/bookmarks/{BookmarkId} failed", bookmarkId);
             RecordExceptionFailure(endpoint, ex);
             return false;
-        }
-    }
-
-    public async Task<AudiobookChapterNameSuggestionsDto?> SuggestAudiobookChapterNamesAsync(Guid workId, SuggestAudiobookChapterNamesRequestDto request, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /player/audiobooks/{workId}/chapters/suggest-names";
-        try
-        {
-            var response = await _http.PostAsJsonAsync($"/player/audiobooks/{workId:D}/chapters/suggest-names", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
-
-            var suggestions = await response.Content.ReadFromJsonAsync<AudiobookChapterNameSuggestionsDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return suggestions;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "POST /player/audiobooks/{WorkId}/chapters/suggest-names failed", workId);
-            RecordExceptionFailure(endpoint, ex);
-            return null;
         }
     }
 
@@ -423,21 +350,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default)
-    {
-        try
-        {
-            var encodedKind = Uri.EscapeDataString(string.IsNullOrWhiteSpace(kind) ? "lyrics" : kind);
-            using var response = await _http.PostAsync($"/stream/{assetId}/text-tracks/refresh?kind={encodedKind}", null, ct);
-            response.EnsureSuccessStatusCode();
-        }
-        catch (OperationCanceledException) { }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /stream/{AssetId}/text-tracks/refresh failed", assetId);
-        }
-    }
-
     public async Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default)
     {
         try
@@ -467,26 +379,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "GET /playback/encode/jobs failed");
             return [];
-        }
-    }
-
-    public async Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default)
-    {
-        try
-        {
-            var response = await _http.PostAsJsonAsync($"/playback/{assetId}/encode", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                return null;
-            }
-
-            return await response.Content.ReadFromJsonAsync<EncodeJobDto>(cancellationToken: ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /playback/{AssetId}/encode failed", assetId);
-            return null;
         }
     }
 
@@ -910,33 +802,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /ingestion/scan failed");
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
-
-    // -- POST /ingestion/library-scan -----------------------------------------
-
-    public async Task<LibraryScanResultViewModel?> TriggerLibraryScanAsync(
-        CancellationToken ct = default)
-    {
-        const string endpoint = "POST /ingestion/library-scan";
-        try
-        {
-            var resp = await _http.PostAsJsonAsync("/ingestion/library-scan", new { }, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, resp, ct);
-                return null;
-            }
-
-            ClearFailure(endpoint);
-            return await resp.Content.ReadFromJsonAsync<LibraryScanResultViewModel>(ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /ingestion/library-scan failed");
             RecordExceptionFailure(endpoint, ex);
             return null;
         }
@@ -1400,41 +1265,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<DisplayShelfPageDto?> GetDisplayShelfAsync(
-        string shelfKey,
-        string? lane = null,
-        string? mediaType = null,
-        string? grouping = null,
-        string? search = null,
-        string? cursor = null,
-        int? offset = null,
-        int? limit = null,
-        Guid? profileId = null,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var query = new List<string>();
-            AddQuery(query, "lane", lane);
-            AddQuery(query, "mediaType", mediaType);
-            AddQuery(query, "grouping", grouping);
-            AddQuery(query, "search", search);
-            AddQuery(query, "cursor", cursor);
-            AddQuery(query, "offset", offset?.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            AddQuery(query, "limit", limit?.ToString(System.Globalization.CultureInfo.InvariantCulture));
-            AddQuery(query, "profileId", profileId?.ToString("D"));
-            var url = $"/api/v1/display/shelves/{Uri.EscapeDataString(shelfKey)}" + (query.Count == 0 ? string.Empty : "?" + string.Join("&", query));
-            var page = await _http.GetFromJsonAsync<DisplayShelfPageDto>(url, ct);
-            return page is null ? null : page with { Shelf = NormalizeDisplayShelf(page.Shelf) };
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /api/v1/display/shelves/{ShelfKey} failed", shelfKey);
-            return null;
-        }
-    }
-
     public async Task<DetailPageViewModel?> GetDetailPageAsync(
         DetailEntityType entityType,
         Guid id,
@@ -1648,28 +1478,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "POST /metadata/hydrate/{EntityId} failed", entityId);
             return null;
-        }
-    }
-
-    // -- /metadata/labels ------------------------------------------------------
-
-    public async Task<Dictionary<string, LabelResolveViewModel>> ResolveLabelsAsync(
-        IEnumerable<string> qids, CancellationToken ct = default)
-    {
-        try
-        {
-            var request = new { qids = qids.ToList() };
-            var resp = await _http.PostAsJsonAsync("/metadata/labels/resolve", request, ct);
-            if (!resp.IsSuccessStatusCode)
-                return new Dictionary<string, LabelResolveViewModel>();
-            return await resp.Content.ReadFromJsonAsync<Dictionary<string, LabelResolveViewModel>>(ct)
-                   ?? new Dictionary<string, LabelResolveViewModel>();
-        }
-        catch (OperationCanceledException) { return new Dictionary<string, LabelResolveViewModel>(); }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /metadata/labels/resolve failed");
-            return new Dictionary<string, LabelResolveViewModel>();
         }
     }
 
@@ -2766,31 +2574,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    // -- Media File Upload -------------------------------------------------
-
-    public async Task<bool> UploadMediaAsync(MultipartFormDataContent content, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /ingestion/upload";
-        try
-        {
-            var response = await _http.PostAsync("/ingestion/upload", content, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return false;
-            }
-
-            ClearFailure(endpoint);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /ingestion/upload failed");
-            RecordExceptionFailure(endpoint, ex);
-            return false;
-        }
-    }
-
     // -- Cover Art Upload --------------------------------------------------
 
     public async Task<bool> UploadCoverAsync(
@@ -2918,35 +2701,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> UploadEntityArtworkAsync(
-        Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
-    {
-        try
-        {
-            using var content = new MultipartFormDataContent();
-            var streamContent = new StreamContent(fileStream);
-            content.Add(streamContent, "file", fileName);
-
-            var encodedType = Uri.EscapeDataString(assetType);
-            var resp = await _http.PostAsync($"/metadata/{entityId}/artwork/{encodedType}", content, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                var detail = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("POST /metadata/{EntityId}/artwork/{AssetType} returned {Status}: {Detail}",
-                    entityId, assetType, (int)resp.StatusCode, detail);
-                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
-            }
-
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /metadata/{EntityId}/artwork/{AssetType} failed", entityId, assetType);
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
     public async Task<bool> UploadScopeArtworkVariantAsync(
         Guid entityId,
         string scopeId,
@@ -2981,10 +2735,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
             return false;
         }
     }
-
-    public Task<bool> UploadArtworkVariantAsync(
-        Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default)
-        => UploadEntityArtworkAsync(entityId, assetType, fileStream, fileName, ct);
 
     public async Task<bool> UploadScopeArtworkFromUrlAsync(
         Guid entityId,
@@ -4449,23 +4199,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<Dictionary<string, int>> GetLibraryItemTypeCountsAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            var response = await _http.GetAsync("library/items/type-counts", ct);
-            if (!response.IsSuccessStatusCode) return new();
-            return await response.Content.ReadFromJsonAsync<Dictionary<string, int>>(cancellationToken: ct) ?? new();
-        }
-        catch (OperationCanceledException) { return new(); }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /library/items/type-counts failed");
-            return new();
-        }
-    }
-
-    /// <inheritdoc/>
     public async Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default)
     {
@@ -4980,21 +4713,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> RecoverLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.PostAsJsonAsync($"/library/items/{entityId}/recover", new { }, ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /library/items/{EntityId}/recover failed", entityId);
-            return false;
-        }
-    }
-
     /// <inheritdoc/>
     public async Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default)
     {
@@ -5007,23 +4725,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             _logger.LogWarning(ex, "MarkProvisionalAsync failed for entity {EntityId}", entityId);
             return false;
-        }
-    }
-
-    /// <inheritdoc/>
-    public async Task<BatchLibraryItemResponse?> AutoMatchLibraryItemAsync(Guid entityId, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.PostAsync($"/library/items/{entityId}/auto-register", null, ct);
-            if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /library/items/{EntityId}/auto-register failed", entityId);
-            return null;
         }
     }
 
@@ -5269,9 +4970,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     private DisplayCardPreviewItemDto NormalizeDisplayPreviewItem(DisplayCardPreviewItemDto item) =>
         item with { ImageUrl = AbsoluteUrl(item.ImageUrl) };
-
-    private DisplayShelfDto NormalizeDisplayShelf(DisplayShelfDto shelf) =>
-        shelf with { Items = shelf.Items.Select(NormalizeDisplayCard).ToList() };
 
     private DisplayArtworkDto NormalizeDisplayArtwork(DisplayArtworkDto artwork) =>
         artwork with
@@ -5920,40 +5618,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try { return await _http.GetFromJsonAsync<List<ReaderHighlightDto>>($"reader/{assetId}/highlights", ct) ?? []; }
         catch (Exception ex) { LastError = ex.Message; return []; }
-    }
-
-    public async Task<ReaderHighlightDto?> CreateHighlightAsync(Guid assetId, int chapterIndex, int startOffset, int endOffset, string selectedText, string? color, string? noteText, CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new { chapterIndex, startOffset, endOffset, selectedText, color, noteText };
-            var resp = await _http.PostAsJsonAsync($"reader/{assetId}/highlights", body, ct);
-            return resp.IsSuccessStatusCode
-                ? await resp.Content.ReadFromJsonAsync<ReaderHighlightDto>(cancellationToken: ct)
-                : null;
-        }
-        catch (Exception ex) { LastError = ex.Message; return null; }
-    }
-
-    public async Task<bool> UpdateHighlightAsync(Guid highlightId, string? color, string? noteText, CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new { color, noteText };
-            var resp = await _http.PutAsJsonAsync($"reader/highlights/{highlightId}", body, ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex) { LastError = ex.Message; return false; }
-    }
-
-    public async Task<bool> DeleteHighlightAsync(Guid highlightId, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.DeleteAsync($"reader/highlights/{highlightId}", ct);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex) { LastError = ex.Message; return false; }
     }
 
     public async Task<ReaderStatisticsDto?> GetReadingStatisticsAsync(Guid assetId, CancellationToken ct = default)
@@ -6875,70 +6539,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<bool> DeleteCollectionSquareArtworkAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default)
-    {
-        try
-        {
-            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/square-artwork", profileId);
-            var response = await _http.DeleteAsync(url, ct);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DELETE /collections/{CollectionId}/square-artwork failed", collectionId);
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
-    public async Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default)
-    {
-        try
-        {
-            var url = AppendCollectionProfileQuery($"/collections/{collectionId}", profileId);
-            var response = await _http.DeleteAsync(url, ct);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "DELETE /collections/{CollectionId} failed", collectionId);
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
-    public async Task<List<CollectionResolvedItemViewModel>> ResolveCollectionAsync(Guid collectionId, int? limit = null, CancellationToken ct = default)
-    {
-        try
-        {
-            var url = limit.HasValue ? $"/collections/resolve/{collectionId}?limit={limit}" : $"/collections/resolve/{collectionId}";
-            return await _http.GetFromJsonAsync<List<CollectionResolvedItemViewModel>>(url, ct) ?? [];
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /collections/resolve/{CollectionId} failed", collectionId);
-            LastError = ex.Message;
-            return [];
-        }
-    }
-
-    public async Task<List<CollectionResolvedItemViewModel>> ResolveCollectionByNameAsync(string name, int? limit = null, CancellationToken ct = default)
-    {
-        try
-        {
-            var url = $"/collections/resolve/by-name?name={Uri.EscapeDataString(name)}";
-            if (limit.HasValue) url += $"&limit={limit}";
-            return await _http.GetFromJsonAsync<List<CollectionResolvedItemViewModel>>(url, ct) ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /collections/resolve/by-name failed for collection '{Name}'", name);
-            LastError = ex.Message;
-            return [];
-        }
-    }
-
     // -- Universe health + character data -------------------------------------
 
     public async Task<UniverseHealthDto?> GetUniverseHealthAsync(string qid, CancellationToken ct = default)
@@ -7017,46 +6617,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "GET /library/persons/{PersonId}/character-roles failed", personId);
-            return [];
-        }
-    }
-
-    public async Task SetDefaultPortraitAsync(Guid fictionalEntityId, Guid portraitId, CancellationToken ct = default)
-    {
-        try
-        {
-            await _http.PutAsJsonAsync(
-                $"/library/characters/{fictionalEntityId}/portraits/{portraitId}/default",
-                new { }, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /library/characters/{EntityId}/portraits/{PortraitId}/default failed",
-                fictionalEntityId, portraitId);
-        }
-    }
-
-    public async Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default)
-    {
-        try
-        {
-            var raw = await _http.GetFromJsonAsync<List<EntityAssetRaw>>(
-                $"/library/assets/{Uri.EscapeDataString(entityId)}", ct);
-            if (raw is null) return [];
-            return raw.Select(r => new EntityAssetDto
-            {
-                Id             = r.Id,
-                EntityId       = r.EntityId ?? entityId,
-                AssetType      = r.AssetType ?? string.Empty,
-                ImageUrl       = r.ImageUrl is not null ? AbsoluteUrl(r.ImageUrl) : null,
-                IsPreferred    = r.IsPreferred,
-                SourceProvider = r.SourceProvider,
-            }).ToList();
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /library/assets/{EntityId} failed", entityId);
             return [];
         }
     }
@@ -7220,84 +6780,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    // -- Timeline (/timeline) -------------------------------------------------
-
-    public async Task<List<EntityTimelineEventDto>?> GetEntityTimelineAsync(Guid entityId, CancellationToken ct = default)
-    {
-        try
-        {
-            return await _http.GetFromJsonAsync<List<EntityTimelineEventDto>>(
-                $"/timeline/{entityId}", ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /timeline/{EntityId} failed", entityId);
-            return null;
-        }
-    }
-
-    public async Task<List<EntityTimelineEventDto>?> GetPipelineStateAsync(Guid entityId, CancellationToken ct = default)
-    {
-        try
-        {
-            return await _http.GetFromJsonAsync<List<EntityTimelineEventDto>>(
-                $"/timeline/{entityId}/pipeline", ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /timeline/{EntityId}/pipeline failed", entityId);
-            return null;
-        }
-    }
-
-    public async Task<List<EntityFieldChangeDto>?> GetEventFieldChangesAsync(Guid entityId, Guid eventId, CancellationToken ct = default)
-    {
-        try
-        {
-            return await _http.GetFromJsonAsync<List<EntityFieldChangeDto>>(
-                $"/timeline/{entityId}/event/{eventId}/changes", ct);
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /timeline/{EntityId}/event/{EventId}/changes failed", entityId, eventId);
-            return null;
-        }
-    }
-
-    public async Task<bool> RevertSyncWritebackAsync(Guid entityId, Guid eventId, CancellationToken ct = default)
-    {
-        try
-        {
-            var response = await _http.PostAsJsonAsync(
-                $"/timeline/{entityId}/revert/{eventId}", new { }, ct);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /timeline/{EntityId}/revert/{EventId} failed", entityId, eventId);
-            return false;
-        }
-    }
-
-    public async Task<bool> RematchEntityAsync(Guid entityId, CancellationToken ct = default)
-    {
-        try
-        {
-            var resp = await _http.PostAsync($"/timeline/{entityId}/rematch", null, ct).ConfigureAwait(false);
-            return resp.IsSuccessStatusCode;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /timeline/{EntityId}/rematch failed", entityId);
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
     // -- Raw deserialization models (character/universe health) ----------------
 
     private sealed class UniverseHealthRaw
@@ -7334,16 +6816,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         [JsonPropertyName("is_default")]          public bool    IsDefault         { get; set; }
         [JsonPropertyName("universe_qid")]        public string? UniverseQid       { get; set; }
         [JsonPropertyName("universe_label")]      public string? UniverseLabel     { get; set; }
-    }
-
-    private sealed class EntityAssetRaw
-    {
-        [JsonPropertyName("id")]              public Guid    Id             { get; set; }
-        [JsonPropertyName("entity_id")]       public string? EntityId       { get; set; }
-        [JsonPropertyName("asset_type")]      public string? AssetType      { get; set; }
-        [JsonPropertyName("image_url")]       public string? ImageUrl       { get; set; }
-        [JsonPropertyName("is_preferred")]    public bool    IsPreferred    { get; set; }
-        [JsonPropertyName("source_provider")] public string? SourceProvider { get; set; }
     }
 
     private sealed class ArtworkEditorRaw

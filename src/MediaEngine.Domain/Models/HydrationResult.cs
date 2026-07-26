@@ -31,7 +31,7 @@ public sealed class HydrationResult
 
     /// <summary>
     /// Human-readable reason for the review flag (nullable).
-    /// Corresponds to a <see cref="Enums.ReviewTrigger"/> constant.
+    /// Corresponds to a <see cref="Constants.ReviewTrigger"/> constant.
     /// </summary>
     public string? ReviewReason { get; set; }
 
@@ -43,7 +43,7 @@ public sealed class HydrationResult
     /// <summary>
     /// QID candidates returned by Wikidata when disambiguation is needed (nullable).
     /// Present when <see cref="ReviewReason"/> is
-    /// <see cref="Enums.ReviewTrigger.MultipleQidMatches"/>.
+    /// <see cref="Constants.ReviewTrigger.MultipleQidMatches"/>.
     /// </summary>
     public IReadOnlyList<QidCandidate>? DisambiguationCandidates { get; set; }
 }

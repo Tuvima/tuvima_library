@@ -25,6 +25,10 @@ Dashboard components that register JavaScript callbacks must also unregister the
 - Listen playback callbacks: `configure`, `registerStateHandler`, `registerCommandHandler`, `registerAudioStateObserver`, `registerPlayerShortcuts`, and popup unload registration have paired unregister methods where they register listeners or .NET references.
 - EPUB reader and Cytoscape registrations expose dispose/destroy methods and should keep using them from component disposal.
 
+## Route-Scoped Script Loading
+
+Large, single-route scripts are not loaded globally from `App.razor`. Cytoscape (`lib/cytoscape/cytoscape.min.js` + `js/cytoscape-interop.js`) is loaded on demand by the Chronicle Explorer page, and `js/epub-reader.js` by the EPUB reader page, through the shared `window.lazyLoad.loadScript(src)` helper in `js/lazy-load.js` (dedupes by src, preserves insertion order for UMD bundles). Pages that lazy-load a script must guard their disposal calls behind a loaded flag so navigating away before the script loads does not throw.
+
 Avoid adding fire-and-forget JavaScript cleanup from synchronous `Dispose`; use `IAsyncDisposable` when JS interop is involved.
 
 ## Listen Playback Storage

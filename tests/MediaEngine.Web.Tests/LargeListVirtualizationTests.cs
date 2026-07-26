@@ -11,14 +11,6 @@ public sealed class LargeListVirtualizationTests
         Assert.Contains("@key=\"track.Id\"", source, StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void ListenTrackDataGrid_EnablesMudBlazorVirtualization()
-    {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Listen\ListenTrackDataGrid.razor"));
-
-        Assert.Contains("Virtualize=\"true\"", source, StringComparison.Ordinal);
-    }
-
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

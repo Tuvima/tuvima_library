@@ -5,7 +5,7 @@ namespace MediaEngine.Domain.Entities;
 ///
 /// Subject and object are Wikidata QIDs referencing <see cref="FictionalEntity"/>
 /// or <see cref="Person"/> records. The relationship type corresponds to a
-/// Wikidata property (see <see cref="Enums.RelationshipType"/>).
+/// Wikidata property (see <see cref="Constants.RelationshipType"/>).
 ///
 /// UNIQUE constraint on (subject_qid, relationship_type, object_qid) prevents
 /// duplicate edges. Idempotent inserts via INSERT OR IGNORE.
@@ -24,7 +24,7 @@ public sealed class EntityRelationship
     public string SubjectQid { get; set; } = string.Empty;
 
     /// <summary>
-    /// The type of relationship. One of <see cref="Enums.RelationshipType"/> constants.
+    /// The type of relationship. One of <see cref="Constants.RelationshipType"/> constants.
     /// Example: <c>"father"</c>, <c>"member_of"</c>, <c>"performer"</c>.
     /// </summary>
     public string RelationshipTypeValue { get; set; } = string.Empty;

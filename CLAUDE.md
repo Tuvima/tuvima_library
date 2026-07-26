@@ -312,20 +312,16 @@ AI is a core function, not an add-on. Model roles are small-first: **text_fast**
 
 ### 3.11 — Settings
 
-Settings at `/settings/{Section}` is the Dashboard's operational hub. It is a two-row tab shell: a primary group-tabs row and a secondary section-tabs row. `SettingsNav` resolves routes and filters visibility by role. Current sections (resolved from `src/MediaEngine.Web/Components/Settings/*Tab.razor`):
+Settings at `/settings/{Section}` is the Dashboard's operational hub. `SettingsNav` (`src/MediaEngine.Web/Models/ViewDTOs/SettingsNav.cs`) is the canonical route map: two sidebar groups with role-filtered visibility. Sections (each rendered by a `src/MediaEngine.Web/Components/Settings/*Tab.razor`):
 
-| Group | Sections |
+| Group | Sections (slug → tab) |
 |---|---|
-| **Overview** | `OverviewTab`, `SettingsReviewQueueTab`, `IngestionTasksTab`, `DevHarnessTab`, `StatusDashboardTab` |
-| **Preferences** | `ProfileTab`, `PlaybackTab`, `PrivacyHistoryTab`, `OfflineDownloadsTab` |
-| **Library** | `LibrariesTab`, `EncodeSettingsTab`, `PlaybackDeliverySettingsTab` |
-| **Providers** | `ProviderPriorityTab`, `WikidataConfigTab`, `UniverseSettingsTab` |
-| **Intelligence** | `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `LocalAiSettingsTab` |
-| **Plugins** | `PluginSettingsTab` |
-| **Server** | `SystemTab`, `SecurityTab`, `UsersTab`, `UsersAccessSettingsTab`, `ApiKeysTab`, `ActivityTab`, `MaintenanceTab`, `ServerGeneralTab`, `ConnectivityTab`, `GeneralTab`, `UserOverviewTab` |
-| **Tools** | `ProviderTesterToolTab`, `EnrichmentTesterToolTab` |
+| **User Settings** | Overview → `UserOverviewTab`, `playback` → `PlaybackTab`, `privacy` → `PrivacyHistoryTab` |
+| **Admin Settings** | `admin` → `OverviewTab`, `libraries` → `LibrariesTab`, `ingestion` → `IngestionTasksTab`, `dev-harness` → `DevHarnessTab`, `providers` → `ProviderPriorityTab`, `activity` → `ActivityTab`, `ai` → `LocalAiSettingsTab`, `plugins` → `PluginSettingsTab`, `delivery` → `PlaybackDeliverySettingsTab`, `access` → `UsersAccessSettingsTab`, `review` → `SettingsReviewQueueTab`, `provider-tester` → `ProviderTesterToolTab`, `enrichment-tester` → `EnrichmentTesterToolTab` |
 
-Supporting components used inside tabs: `ProviderCard`, `WikidataConnectionPanel`, `CuratorsDrawer`, `MetadataEditDialog`, `MediaItemEditor`, `CollectionEditCoverCompare`, `FolderBrowserDialog`, `SettingsPlaceholder`, `SettingsSectionPanel`, `SettingsStatusBadge`, `MediaRail`, `MediaRailCard`, `DictionaryRows`, `IngestionLiveDashboard`, `IngestionStageRail`, `IngestionMetricStrip`, `IngestionActivityList`, `IngestionOverallProgressBand`, `IngestionDiagnosticsPanels`, `SearchResultCard`.
+Additional tab components composed inside those sections: `EncodeSettingsTab`, `OfflineDownloadsTab`, `ModelsTab`, `AiFeaturesTab`, `VibeVocabularyTab`, `AiScheduleTab`, `WikidataConfigTab`, `UniverseSettingsTab`, `SecurityTab`, `UsersTab`, `ApiKeysTab`.
+
+Supporting components used inside tabs: `CuratorsDrawer`, `FolderBrowserDialog`, `SettingsSectionPanel`, `SettingsStatusBadge`, `MediaRail`, `MediaRailCard`, `IngestionLiveDashboard`, `ProviderStageSelector`.
 
 Navigation is URL-driven: `/settings/review` deep-links straight into the review queue, `/settings/ingestion` opens the ingestion admin view, and `/settings/dev-harness` opens the temporary development wipe/reingest harness.
 
@@ -609,23 +605,22 @@ Reusable visual components, organised by feature slice.
 
 | Subfolder | What lives here |
 |---|---|
-| `Bento/` | `BentoGrid`, `BentoItem` — legacy glass-tile wrappers |
 | `Browse/` | `MediaBrowseShell`, `BrowseQueryBuilder`, `BrowseState`, `BrowseArtworkRules` — focused browse shell and extracted query/state/artwork helpers used by Read / Watch / Listen subroutes |
 | `Cinematic/` | `CinematicHeroCarousel`, `CinematicHeroSurface`, `SurfaceNavigationBar` — shared rotating hero shell and lane/detail navigation |
 | `Collections/` | `CollectionsPage`, `CollectionHubCard`, `CollectionHubSection`, `CollectionInlineInspector`, `CollectionArtworkStack`, `CollectionSectionLabel`, `CollectionEditorShell` |
-| `Details/` | Detail-page composition extracted from Pages. `DetailPage`, `DetailHero` (+ `DetailHeroPresentation`), shared `DetailHeroContent`, `DetailTabs`, `OverviewTab`, `DetailsTab`, `EditionsTab`, `EpisodesTab`, `FormatsTab`, `PeopleAndCharactersTab`, `ChildrenListTab`, `SyncTab`, `IdentityTab`, `UniverseTab`, `CharactersSection`, `ContributorsSection`, `CreditGroupSection`, `CastCharacterPairCard`, `CharacterCreditCard`, `MusicArtistCreditCard`, `MusicTrackList`, `OwnedFormatsPanel`, `OptionalSyncPanel`, `PeoplePreviewStrip`, `PersonAvatar`, `PersonCreditCard`, `RelatedEntityChip`, `SequencePlacementPanel`, `HeroBackdrop`, `HeroActionRow`, `HeroGenreChips`, `HeroMetadataPills`, `HeroProgressBlock`, `ManageActionsMenu`, `OverflowActionMenu`, `GeneratedIdentity`, `DescriptionAttribution` |
-| `Discovery/` | `DiscoveryHubStrip`, `AddToCollectionDialog` |
+| `Details/` | Detail-page composition extracted from Pages. `DetailPage`, `DetailHero` (+ `DetailHeroPresentation`), shared `DetailHeroContent`, `DetailTabs`, `DetailPrimaryModule`, `OverviewTab`, `DetailsTab`, `FormatsTab`, `PeopleAndCharactersTab`, `ChildrenListTab`, `SyncTab`, `RelatedTab`, `UniverseTab`, `AudioItemTable`, `AudiobookChapterList`, `MusicAlbumOverviewContent`, `MusicAlbumSeriesRail`, `MusicTrackList`, `CharactersSection`, `ContributorsSection`, `CreditGroupSection`, `CastCharacterPairCard`, `CharacterCreditCard`, `OwnedFormatsPanel`, `OptionalSyncPanel`, `PersonAvatar`, `PersonCreditCard`, `RelatedEntityChip`, `SequencePlacementPanel`, `HeroBackdrop`, `HeroActionRow`, `HeroMetadataPills`, `HeroProgressBlock`, `ManageActionsMenu`, `OverflowActionMenu`, `GeneratedIdentity`, `DescriptionAttribution` |
+| `Discovery/` | `AddToCollectionDialog` |
+| `MediaHub/` | `MediaHubPage`, `MediaLaneHeader`, `MediaSectionShell`, `MediaShelf`, `ShelfHeader`, `EmptyShelfState` — lane-page scaffolding used by Read / Watch / Listen |
 | `MediaTiles/` | `MediaTile`, `MediaGroupTile`, `MediaTileGrid`, `MediaTileShelf` |
 | `Layout/` | `MainLayout`, `NavMenu`, `ReconnectModal` — the routed app shell |
 | `Library/` | Reusable legacy-named library helpers still used by current browse/list surfaces, such as configurable tables, column definitions, batch bars, and status pills. Do not add all-in-one management workflow components here. |
-| `Listen/` | `ListenNowPlayingBar`, `ListenNowPlayingPanel`, `ListenTransportControls`, `ListenTrackDataGrid` |
+| `Listen/` | `ListenNowPlayingBar`, `ListenSongTable`, `ListenTransportControls`, `ListenNavigationItem`, `ListenNavigationSection` |
 | `MediaEditor/` | `SharedMediaEditorShell`, `SharedMediaBatchConfirmDialog` |
-| `Navigation/` | `TopBar`, `AppLogo`, `AppTabs`, `AppSelectorNav`, `CommandPalette` (Ctrl+K), `ProfileDropdown`, `MobileFilterBar` |
+| `Navigation/` | `SystemActivityIndicator`, `TopNavAccountMenu` |
 | `Pages/` | All routed pages — see §6.4 |
-| `Playback/` | Reader controls: `ReaderTopBar`, `ReaderBottomBar`, `ReaderTocDrawer`, `ReaderBookmarksPanel`, `ReaderHighlightsPanel`, `ReaderSettingsPanel`, `ReaderStatsOverlay`, `ReaderSearchPanel`, `ReaderContextMenu` |
 | `LibraryItems/` | Internal building blocks used by Library + Universe: `LibraryItemInspector`, `LibraryItemCard`, `LibraryItemGrid`, `Inspector*Section` panels, `LibraryItemActionsBar`, `LibraryItemBulkBar`, `LibraryItemBatchList`, `LibraryItemFilterBar`, `LibraryItemHelpers`, `ProvisionalFormPanel`, `ActivityItemCard`, `ReportProblemDialog` |
 | `Settings/` | Settings shell tabs — see §3.11 for the section list and component inventory. |
-| `Shared/` | `AppIcon`, `AppIconCatalog`, `AppPageHeader`, `AppSurfaceCard`, `FuzzySearchField` — cross-cutting primitives |
+| `Shared/` | The live `App*` design-system primitives (`AppPageState`, `AppErrorState`, `AppEmptyState`, `AppSkeleton`, `AppIcon`, `AppIconCatalog`, `AppMediaCard`, `AppTable`, `AppDialog`, form/field/button primitives, …) plus the `Playback*` control primitives (`PlaybackControlStrip`, `PlaybackPrimaryButton`, `PlaybackSpeedControl`, `PlaybackSleepTimerControl`, `PlaybackToolSheet`, …) and `TuvimaArtworkStack` |
 | `Universe/` | Hero, swimlane, and card components: `CollectionHero`, `CompactHero`, `HeroCarousel`, `PosterSwimlane`, `SwimlaneSection`, `LandscapeCard`, `SquareCard`, `WideCard`, `WorkCard`, `LibraryCard`, `PersonCard`, `PersonSwimlaneHeader`, `TrackRow`, `MetadataChips`, `ProgressIndicator`, `AmbientBackground`, `GlobalBackground`, `GreetingBar`, `AdaptationTree` + node, `FamilyTreeView`, `AlphabeticalGrid`, `CastComparison`, `BookDetailContent`, `CollectionShell`, `CollectionToolbar`, `LaneFilterBar`, `ManualEntryForm`, `MediaSearchPanel`, `MissingUniverseChip`, `PathFinderPanel`, `PendingFilesAlert`, `UniverseGuide` |
 | `Watch/` | `WatchPlaybackSpecs` |
 
@@ -635,7 +630,7 @@ Reusable visual components, organised by feature slice.
 |---|---|
 | `Models/ViewDTOs/` | Data shapes used ONLY by the Dashboard. For DTOs that cross the Engine↔Dashboard boundary, prefer `src/MediaEngine.Contracts/` instead. |
 | `Resources/` | `SharedStrings.resx` (+ `.fr` / `.de` / `.es`) plus generated `SharedStrings.cs` |
-| `Shared/` | Blazor app-host layout wrappers: `MainLayout`, `NavMenu`, `PopupLayout`, `ReaderLayout`, `DateFormatHelper`, `_Imports` |
+| `Shared/` | Blazor app-host layout wrappers: `MainLayout`, `NavMenu`, `PopupLayout`, `ReaderLayout`, `_Imports` |
 | `wwwroot/` | Static assets: images, CSS, JS (`cytoscape-interop.js`, `epub-reader.js`, `cover-popup.js`, `app.js`) |
 
 ### 6.4 — Routed Pages (`Components/Pages/`)
@@ -692,7 +687,7 @@ not repeat a Show details action.
 | Settings section | `Components/Settings/<Name>Tab.razor` + register in `SettingsNav` |
 | Review-queue surface component | `Components/Library/` |
 | Inspector / cards reused by Library or Universe | `Components/LibraryItems/` |
-| Reader-player component | `Components/Playback/` |
+| Reader-player component | inline in `Components/Pages/EpubReader.razor` (reader chrome) or `Components/Shared/Playback*` primitives |
 | Listen/player transport controls | `Components/Listen/ListenTransportControls.razor` |
 | Media-playback session controller or primitives | `Services/Playback/` |
 | Route-building helper | `Services/Navigation/` |

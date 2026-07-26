@@ -127,49 +127,26 @@ var apiBase = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
            ?? "http://localhost:61495";
 var apiKey  = builder.Configuration["Engine:ApiKey"]  ?? string.Empty;
 
+// Shared setup for every HttpClient that talks to the Engine — BaseAddress plus the
+// X-Api-Key header — so this configuration exists exactly once instead of once per client.
+void ConfigureEngineClient(HttpClient client)
+{
+    client.BaseAddress = new Uri(apiBase);
+    if (!string.IsNullOrWhiteSpace(apiKey))
+        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+}
+
 // AddHttpClient<IClient, TClient> wires the interface directly to the typed-client
 // factory so the HttpClient it receives has the correct BaseAddress and default headers.
 // A separate AddScoped<IClient, TClient> would resolve HttpClient via the default
 // (unconfigured, no BaseAddress) registration, causing every Engine call to fail silently.
-builder.Services.AddHttpClient<IEngineApiClient, EngineApiClient>(client =>
-{
-    client.BaseAddress = new Uri(apiBase);
-    if (!string.IsNullOrWhiteSpace(apiKey))
-        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
-});
+builder.Services.AddHttpClient<IEngineApiClient, EngineApiClient>(ConfigureEngineClient);
 builder.Services.AddScoped<EngineApiFailureState>();
-builder.Services.AddHttpClient<SystemClient>(client =>
-{
-    client.BaseAddress = new Uri(apiBase);
-    if (!string.IsNullOrWhiteSpace(apiKey))
-        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
-});
-builder.Services.AddHttpClient<ProviderClient>(client =>
-{
-    client.BaseAddress = new Uri(apiBase);
-    if (!string.IsNullOrWhiteSpace(apiKey))
-        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
-});
-builder.Services.AddScoped<DisplayClient>();
-builder.Services.AddScoped<IngestionClient>();
-builder.Services.AddScoped<MetadataClient>();
-builder.Services.AddScoped<IdentityClient>();
-builder.Services.AddScoped<UniverseClient>();
-builder.Services.AddScoped<SettingsClient>();
-builder.Services.AddScoped<PlaybackClient>();
-builder.Services.AddScoped<PluginClient>();
-builder.Services.AddScoped<ProfileClient>();
-builder.Services.AddScoped<ActivityClient>();
 
 // Named "EngineApi" client — same base address and API key as the typed client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
 // without routing through IEngineApiClient.
-builder.Services.AddHttpClient("EngineApi", client =>
-{
-    client.BaseAddress = new Uri(apiBase);
-    if (!string.IsNullOrWhiteSpace(apiKey))
-        client.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
-});
+builder.Services.AddHttpClient("EngineApi", ConfigureEngineClient);
 
 // ── State + Orchestration (scoped = one per SignalR circuit) ──────────────────
 builder.Services.AddScoped<UniverseStateContainer>();

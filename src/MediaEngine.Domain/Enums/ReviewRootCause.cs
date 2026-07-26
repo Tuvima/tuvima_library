@@ -3,7 +3,7 @@ namespace MediaEngine.Domain.Enums;
 /// <summary>
 /// Five internal root causes that compress 15+ review triggers.
 /// The engine reasons about these states; the UI shows the specific
-/// <see cref="ReviewTrigger"/> for user context.
+/// <see cref="Constants.ReviewTrigger"/> for user context.
 /// </summary>
 public enum ReviewRootCause
 {
@@ -37,7 +37,7 @@ public enum ReviewRootCause
 /// </summary>
 public static class ReviewRootCauseExtensions
 {
-    /// <summary>Maps a <see cref="ReviewTrigger"/> string value to its root cause category.</summary>
+    /// <summary>Maps a <see cref="Constants.ReviewTrigger"/> string value to its root cause category.</summary>
     public static ReviewRootCause? FromTrigger(string? trigger) => trigger switch
     {
         "RetailMatchFailed" or "StagedUnidentifiable" or "PlaceholderTitle" or "RootWatchFolder"

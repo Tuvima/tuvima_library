@@ -2,6 +2,7 @@ using Dapper;
 using Microsoft.Data.Sqlite;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;

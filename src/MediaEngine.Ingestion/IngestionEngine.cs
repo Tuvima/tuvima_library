@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -256,7 +257,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         _logger.LogInformation("IngestionEngine started");
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType = Domain.Enums.SystemActionType.ServerStarted,
+            ActionType = Domain.Constants.SystemActionType.ServerStarted,
             EntityType = "Server",
             Detail     = "Server started",
         }, stoppingToken).ConfigureAwait(false);
@@ -354,7 +355,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType = Domain.Enums.SystemActionType.ServerStopped,
+            ActionType = Domain.Constants.SystemActionType.ServerStopped,
             EntityType = "Server",
             Detail     = "Ingestion engine stopped.",
         }, cancellationToken).ConfigureAwait(false);
@@ -608,7 +609,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Enums.SystemActionType.FileHashed,
+            ActionType     = Domain.Constants.SystemActionType.FileHashed,
             EntityType     = "MediaAsset",
             Detail         = $"Fingerprinted {Path.GetFileName(candidate.Path)}: {hash.Hex[..12]}... ({hash.FileSize / 1024.0:F1} KB)",
             ChangesJson    = JsonSerializer.Serialize(new
@@ -670,7 +671,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                     {
-                        ActionType     = Domain.Enums.SystemActionType.DuplicateSkipped,
+                        ActionType     = Domain.Constants.SystemActionType.DuplicateSkipped,
                         EntityId       = existing.Id,
                         EntityType     = "MediaAsset",
                         Detail         = $"Duplicate skipped and deleted: {Path.GetFileName(candidate.Path)} (identical to {Path.GetFileName(existing.FilePathRoot)})",
@@ -831,7 +832,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Enums.SystemActionType.FileProcessed,
+            ActionType     = Domain.Constants.SystemActionType.FileProcessed,
             EntityType     = "MediaAsset",
             Detail         = $"Scanned {Path.GetFileName(candidate.Path)}: {result.DetectedType} - {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
             ChangesJson    = JsonSerializer.Serialize(new
@@ -975,7 +976,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             });
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType     = Domain.Enums.SystemActionType.MediaFailed,
+                ActionType     = Domain.Constants.SystemActionType.MediaFailed,
                 EntityType     = "MediaAsset",
                 ChangesJson    = failedJson,
                 Detail         = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
@@ -1084,7 +1085,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Enums.SystemActionType.FileScored,
+            ActionType     = Domain.Constants.SystemActionType.FileScored,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
             Detail         = $"Score: {scored.OverallConfidence:P0} across {scored.FieldScores.Count} fields",
@@ -1247,7 +1248,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Enums.SystemActionType.EntityChainCreated,
+            ActionType     = Domain.Constants.SystemActionType.EntityChainCreated,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
             Detail         = $"Catalogue entry created for \"{candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown") ?? "Unknown"}\"",
@@ -1468,7 +1469,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Enums.SystemActionType.HydrationEnqueued,
+            ActionType     = Domain.Constants.SystemActionType.HydrationEnqueued,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
             CollectionName        = resolvedTitle,
@@ -1569,7 +1570,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                     {
-                        ActionType     = Domain.Enums.SystemActionType.CoverArtSaved,
+                        ActionType     = Domain.Constants.SystemActionType.CoverArtSaved,
                         EntityId       = assetId,
                         EntityType     = "MediaAsset",
                         CollectionName        = resolvedTitle,
@@ -1618,7 +1619,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
                 await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                 {
-                    ActionType     = Domain.Enums.SystemActionType.MetadataTagsWritten,
+                    ActionType     = Domain.Constants.SystemActionType.MetadataTagsWritten,
                     EntityId       = assetId,
                     EntityType     = "MediaAsset",
                     CollectionName        = resolvedTitle,
@@ -1736,7 +1737,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Enums.SystemActionType.FileIngested,
+            ActionType     = Domain.Constants.SystemActionType.FileIngested,
             EntityId       = assetId,
             EntityType     = "MediaAsset",
             CollectionName        = resolvedTitle,
@@ -2573,7 +2574,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
         // 3. Log activity.
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType = Domain.Enums.SystemActionType.StagedFileCleaned,
+            ActionType = Domain.Constants.SystemActionType.StagedFileCleaned,
             EntityId   = staged.Id,
             EntityType = "MediaAsset",
             Detail     = $"Staged asset cleaned: {Path.GetFileName(staged.FilePathRoot)} (file missing)",
@@ -2734,7 +2735,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
                 .ConfigureAwait(false);
 
-            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending
+            if (existing.Any(r => r.Status == Domain.Constants.ReviewStatus.Pending
                                   && r.Trigger == trigger))
             {
                 _logger.LogDebug(
@@ -2798,7 +2799,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
                 .ConfigureAwait(false);
 
-            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending
+            if (existing.Any(r => r.Status == Domain.Constants.ReviewStatus.Pending
                                   && r.Trigger == ReviewTrigger.AmbiguousMediaType))
             {
                 _logger.LogDebug(
@@ -2862,7 +2863,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             var existing = await _reviewRepo.GetByEntityAsync(entityId, ct)
                 .ConfigureAwait(false);
 
-            if (existing.Any(r => r.Status == Domain.Enums.ReviewStatus.Pending
+            if (existing.Any(r => r.Status == Domain.Constants.ReviewStatus.Pending
                                   && r.Trigger == ReviewTrigger.MetadataConflict))
             {
                 _logger.LogDebug(
@@ -3643,7 +3644,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType = Domain.Enums.SystemActionType.MediaFailed,
+            ActionType = Domain.Constants.SystemActionType.MediaFailed,
             EntityType = "MediaAsset",
             Detail = reason,
             ChangesJson = JsonSerializer.Serialize(new

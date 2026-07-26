@@ -29,28 +29,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<CollectionGroupDetailViewModel?> GetArtistGroupDetailAsync(
-        IEnumerable<Guid> collectionIds,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var idsParam = string.Join(",", collectionIds);
-            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
-                $"/collections/artist-group-detail?collection_ids={idsParam}",
-                ct);
-            NormalizeCollectionGroupDetail(result);
-            return result;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /collections/artist-group-detail failed");
-            LastError = ex.Message;
-            return null;
-        }
-    }
-
     public async Task<CollectionGroupDetailViewModel?> GetArtistDetailByNameAsync(
         string artistName,
         CancellationToken ct = default)

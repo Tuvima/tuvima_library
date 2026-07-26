@@ -1,5 +1,5 @@
 using Dapper;
-using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;

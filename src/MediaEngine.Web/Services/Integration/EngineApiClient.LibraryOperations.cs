@@ -23,18 +23,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task SaveLibraryPreferencesAsync(LibraryPreferencesSettings settings)
-    {
-        try
-        {
-            await _http.PutAsJsonAsync("settings/ui/library-preferences", settings);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /settings/ui/library-preferences failed");
-        }
-    }
-
     public async Task<SeriesMissingItemPreferenceDto?> GetSeriesMissingItemPreferenceAsync(
         Guid profileId,
         string mediaType,

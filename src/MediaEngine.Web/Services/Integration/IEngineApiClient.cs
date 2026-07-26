@@ -28,8 +28,6 @@ public interface IEngineApiClient
 
     Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", Guid? profileId = null, CancellationToken ct = default);
 
-    Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default);
-
     Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default);
 
     Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default);
@@ -37,8 +35,6 @@ public interface IEngineApiClient
     Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default);
 
     Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default);
-
-    Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default);
 
     Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default);
 
@@ -48,8 +44,6 @@ public interface IEngineApiClient
 
     Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default);
 
-    Task<AudiobookChapterNameSuggestionsDto?> SuggestAudiobookChapterNamesAsync(Guid workId, SuggestAudiobookChapterNamesRequestDto request, CancellationToken ct = default);
-
     Task<IReadOnlyList<AudiobookChapterTitleOverrideDto>> GetAudiobookChapterTitleOverridesAsync(Guid workId, Guid? assetId = null, CancellationToken ct = default);
 
     Task<AudiobookChapterTitleOverrideDto?> UpsertAudiobookChapterTitleOverrideAsync(Guid workId, UpsertAudiobookChapterTitleOverrideRequestDto request, CancellationToken ct = default);
@@ -58,13 +52,9 @@ public interface IEngineApiClient
 
     Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
-    Task RefreshTextTracksAsync(Guid assetId, string kind, CancellationToken ct = default);
-
     Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default);
 
     Task<List<EncodeJobDto>> GetEncodeJobsAsync(CancellationToken ct = default);
-
-    Task<EncodeJobDto?> QueueEncodeAsync(Guid assetId, QueueEncodeRequestDto request, CancellationToken ct = default);
 
     Task<bool> CancelEncodeJobAsync(Guid jobId, CancellationToken ct = default);
 
@@ -152,19 +142,6 @@ public interface IEngineApiClient
         int? limit = null,
         CancellationToken ct = default);
 
-    /// <summary>GET /api/v1/display/shelves/{shelfKey} - paged display shelf for native and TV clients.</summary>
-    Task<DisplayShelfPageDto?> GetDisplayShelfAsync(
-        string shelfKey,
-        string? lane = null,
-        string? mediaType = null,
-        string? grouping = null,
-        string? search = null,
-        string? cursor = null,
-        int? offset = null,
-        int? limit = null,
-        Guid? profileId = null,
-        CancellationToken ct = default);
-
     /// <summary>GET /api/details/{entityType}/{id}?context=... - unified detail-page model.</summary>
     Task<DetailPageViewModel?> GetDetailPageAsync(
         DetailEntityType entityType,
@@ -183,13 +160,6 @@ public interface IEngineApiClient
 
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>
     Task<ScanResultViewModel?> TriggerScanAsync(string? rootPath = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// POST /ingestion/library-scan — Great Inhale: reads library.xml sidecars in the
-    /// Library Root and hydrates the database. XML always wins on conflict.
-    /// Returns null on failure.
-    /// </summary>
-    Task<LibraryScanResultViewModel?> TriggerLibraryScanAsync(CancellationToken ct = default);
 
     /// <summary>POST /ingestion/reconcile — scan all assets and clean orphans.</summary>
     Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default);
@@ -305,10 +275,6 @@ public interface IEngineApiClient
     Task<bool> RunInitialSweepAsync(CancellationToken ct = default);
 
     // ── QID Label Resolution (/metadata/labels) ────────────────────────────────
-
-    /// <summary>POST /metadata/labels/resolve — batch-resolve QIDs to display labels.</summary>
-    Task<Dictionary<string, LabelResolveViewModel>> ResolveLabelsAsync(
-        IEnumerable<string> qids, CancellationToken ct = default);
 
     // ── Conflicts (/metadata/conflicts) ──────────────────────────────────────
 
@@ -517,11 +483,6 @@ public interface IEngineApiClient
     /// <summary>PUT /settings/hydration — save hydration pipeline configuration.</summary>
     Task<bool> UpdateHydrationSettingsAsync(HydrationSettingsDto settings, CancellationToken ct = default);
 
-    // ── Media File Upload ──────────────────────────────────────────────────
-
-    /// <summary>POST /ingestion/upload — upload a media file and route it to the correct watch subfolder.</summary>
-    Task<bool> UploadMediaAsync(MultipartFormDataContent content, CancellationToken ct = default);
-
     // ── Cover Art Upload ───────────────────────────────────────────────────
 
     /// <summary>POST /metadata/{entityId}/cover — upload cover art for a media asset.</summary>
@@ -564,12 +525,6 @@ public interface IEngineApiClient
     Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
 
     Task<ProviderArtworkRefreshDto?> RefreshScopeProviderArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
-
-    /// <summary>POST /metadata/{entityId}/artwork/{assetType} — upload typed artwork for a media asset.</summary>
-    Task<bool> UploadEntityArtworkAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
-
-    /// <summary>POST /metadata/{entityId}/artwork/{assetType} — append a new artwork variant for a media asset.</summary>
-    Task<bool> UploadArtworkVariantAsync(Guid entityId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 
     /// <summary>POST /metadata/{entityId}/artwork/{scopeId}/{assetType} — append a new artwork variant for a scope owner.</summary>
     Task<bool> UploadScopeArtworkVariantAsync(Guid entityId, string scopeId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
@@ -680,31 +635,8 @@ public interface IEngineApiClient
     /// <summary>GET /works/{id}/cast — actor and character credits for a single work.</summary>
     Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(Guid workId, CancellationToken ct = default);
 
-    /// <summary>PUT /library/characters/{fictionalEntityId}/portraits/{portraitId}/default - set the default portrait for a character.</summary>
-    Task SetDefaultPortraitAsync(Guid fictionalEntityId, Guid portraitId, CancellationToken ct = default);
-
-    /// <summary>GET /library/assets/{entityId} - entity assets grouped by type.</summary>
-    Task<IReadOnlyList<EntityAssetDto>> GetEntityAssetsAsync(string entityId, CancellationToken ct = default);
-
     /// <summary>GET /metadata/{entityId}/artwork — grouped artwork variants for the editor.</summary>
     Task<ArtworkEditorDto?> GetArtworkAsync(Guid entityId, CancellationToken ct = default);
-
-    // ── Timeline (/timeline) ────────────────────────────────────────────────
-
-    /// <summary>GET /timeline/{entityId} — full event history for an entity, newest first.</summary>
-    Task<List<EntityTimelineEventDto>?> GetEntityTimelineAsync(Guid entityId, CancellationToken ct = default);
-
-    /// <summary>GET /timeline/{entityId}/pipeline — current pipeline state (latest per stage).</summary>
-    Task<List<EntityTimelineEventDto>?> GetPipelineStateAsync(Guid entityId, CancellationToken ct = default);
-
-    /// <summary>GET /timeline/{entityId}/event/{eventId}/changes — field-level changes for a specific event.</summary>
-    Task<List<EntityFieldChangeDto>?> GetEventFieldChangesAsync(Guid entityId, Guid eventId, CancellationToken ct = default);
-
-    /// <summary>POST /timeline/{entityId}/revert/{eventId} — revert a sync writeback event.</summary>
-    Task<bool> RevertSyncWritebackAsync(Guid entityId, Guid eventId, CancellationToken ct = default);
-
-    /// <summary>Re-matches an entity through the full pipeline.</summary>
-    Task<bool> RematchEntityAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>POST /library/enrichment/universe/trigger - manually trigger Stage 3 universe enrichment.</summary>
     Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default);
@@ -736,15 +668,6 @@ public interface IEngineApiClient
 
     /// <summary>GET /reader/{assetId}/highlights  -  list highlights.</summary>
     Task<List<ReaderHighlightDto>> GetHighlightsAsync(Guid assetId, CancellationToken ct = default);
-
-    /// <summary>POST /reader/{assetId}/highlights  -  create highlight.</summary>
-    Task<ReaderHighlightDto?> CreateHighlightAsync(Guid assetId, int chapterIndex, int startOffset, int endOffset, string selectedText, string? color, string? noteText, CancellationToken ct = default);
-
-    /// <summary>PUT /reader/highlights/{id}  -  update highlight colour/note.</summary>
-    Task<bool> UpdateHighlightAsync(Guid highlightId, string? color, string? noteText, CancellationToken ct = default);
-
-    /// <summary>DELETE /reader/highlights/{id}  -  delete highlight.</summary>
-    Task<bool> DeleteHighlightAsync(Guid highlightId, CancellationToken ct = default);
 
     /// <summary>GET /reader/{assetId}/statistics  -  reading statistics.</summary>
     Task<ReaderStatisticsDto?> GetReadingStatisticsAsync(Guid assetId, CancellationToken ct = default);
@@ -873,12 +796,6 @@ public interface IEngineApiClient
     /// <summary>GET /library/items/{entityId}/history - processing history timeline.</summary>
     Task<List<LibraryItemHistoryDto>> GetItemHistoryAsync(Guid entityId, CancellationToken ct = default);
 
-    /// <summary>POST /library/items/{entityId}/recover - recover a previously rejected item.</summary>
-    Task<bool> RecoverLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
-
-    /// <summary>POST /library/items/{entityId}/auto-register - auto-register an item using its top candidate.</summary>
-    Task<BatchLibraryItemResponse?> AutoMatchLibraryItemAsync(Guid entityId, CancellationToken ct = default);
-
     /// <summary>POST /library/items/{entityId}/provisional - mark an item as provisional with curator metadata.</summary>
     Task<bool> MarkProvisionalAsync(Guid entityId, ProvisionalMetadataRequestDto metadata, CancellationToken ct = default);
 
@@ -888,9 +805,6 @@ public interface IEngineApiClient
     /// <summary>GET /library/items/state-counts - four-state counts with trigger breakdown.</summary>
     Task<LibraryItemLifecycleCountsDto?> GetLibraryItemLifecycleCountsAsync(
         Guid? batchId = null, CancellationToken ct = default);
-
-    /// <summary>GET /library/items/type-counts - per-media-type item counts.</summary>
-    Task<Dictionary<string, int>> GetLibraryItemTypeCountsAsync(CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches — recent ingestion batches.</summary>
     Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
@@ -1050,9 +964,6 @@ public interface IEngineApiClient
     /// <summary>GET /collections/{collectionId}/group-detail — full drill-down view of a content group (album, TV show, book series, movie series).</summary>
     Task<CollectionGroupDetailViewModel?> GetCollectionGroupDetailAsync(Guid collectionId, CancellationToken ct = default);
 
-    /// <summary>GET /collections/artist-group-detail?collection_ids=... — combined multi-collection detail for artist drill-down.</summary>
-    Task<CollectionGroupDetailViewModel?> GetArtistGroupDetailAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default);
-
     /// <summary>GET /collections/artist-detail-by-name?artistName=X — artist drill-down by name (system-view mode).</summary>
     Task<CollectionGroupDetailViewModel?> GetArtistDetailByNameAsync(string artistName, CancellationToken ct = default);
 
@@ -1067,8 +978,6 @@ public interface IEngineApiClient
 
     /// <summary>GET /collections/managed/counts — collection count grouped by type for stats bar.</summary>
     Task<CollectionManagementCatalogViewModel?> GetCollectionSummaryAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
-
-    Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/content-groups — Universe-type collections (albums, TV series, book series, movie series) for the Content Groups section.</summary>
     Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default);
@@ -1111,29 +1020,10 @@ public interface IEngineApiClient
     /// <summary>POST /collections/{id}/square-artwork — upload custom square artwork for a collection.</summary>
     Task<bool> UploadCollectionSquareArtworkAsync(Guid collectionId, Stream fileStream, string fileName, Guid? profileId = null, CancellationToken ct = default);
 
-    /// <summary>DELETE /collections/{id}/square-artwork — clear custom square artwork for a collection.</summary>
-    Task<bool> DeleteCollectionSquareArtworkAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
-
-    /// <summary>DELETE /collections/{id} — soft delete.</summary>
-    Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
-
-    /// <summary>GET /collections/resolve/{id} — evaluate collection rules and return items.</summary>
-    Task<List<CollectionResolvedItemViewModel>> ResolveCollectionAsync(Guid collectionId, int? limit = null, CancellationToken ct = default);
-
-    /// <summary>
-    /// GET /collections/resolve/by-name?name=...&amp;limit=... — resolves a System collection by display name.
-    /// Bypasses the libraryItem visibility filter so in-flight items are included.
-    /// Reads both asset-level and root-parent-Work-level canonical values (lineage-aware).
-    /// </summary>
-    Task<List<CollectionResolvedItemViewModel>> ResolveCollectionByNameAsync(string name, int? limit = null, CancellationToken ct = default);
-
     // ── Library Preferences (/settings/ui/library-preferences) ──────────────────
 
     /// <summary>GET /settings/ui/library-preferences - library display preferences, including per-media missing-item policies.</summary>
     Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync();
-
-    /// <summary>PUT /settings/ui/library-preferences - save library display preferences.</summary>
-    Task SaveLibraryPreferencesAsync(LibraryPreferencesSettings settings);
 
     /// <summary>GET the active profile's explicit missing-item override for one series. Null ShowMissing means inherit the media default.</summary>
     Task<SeriesMissingItemPreferenceDto?> GetSeriesMissingItemPreferenceAsync(

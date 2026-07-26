@@ -199,7 +199,7 @@ public sealed class WriteBackService : IWriteBackService
             // Log to activity ledger.
             await _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType = Domain.Enums.SystemActionType.MetadataWrittenToFile,
+                ActionType = Domain.Constants.SystemActionType.MetadataWrittenToFile,
                 EntityId   = assetId,
                 Detail     = $"Write-back ({trigger}): {tags.Count} field(s) written to {Path.GetFileName(asset.FilePathRoot)}.",
                 IngestionRunId = ingestionRunId,

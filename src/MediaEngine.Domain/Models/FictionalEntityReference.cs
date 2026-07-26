@@ -8,7 +8,7 @@ namespace MediaEngine.Domain.Models;
 /// <param name="WikidataQid">The Wikidata Q-identifier (e.g. <c>"Q937618"</c>).</param>
 /// <param name="Label">Human-readable label (e.g. <c>"Paul Atreides"</c>).</param>
 /// <param name="EntitySubType">
-/// One of <see cref="Enums.FictionalEntityType"/> constants:
+/// One of <see cref="Constants.FictionalEntityType"/> constants:
 /// <c>"Character"</c>, <c>"Location"</c>, or <c>"Organization"</c>.
 /// </param>
 public sealed record FictionalEntityReference(

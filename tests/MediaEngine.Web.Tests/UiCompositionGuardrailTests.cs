@@ -10,7 +10,6 @@ public sealed class UiCompositionGuardrailTests
     private static readonly string[] MigratedFiles =
     [
         "src/MediaEngine.Web/Shared/MainLayout.razor",
-        "src/MediaEngine.Web/Components/Navigation/CommandPalette.razor",
         "src/MediaEngine.Web/Components/Pages/SearchPage.razor",
         "src/MediaEngine.Web/Components/Pages/LibraryBrowsePage.razor",
         "src/MediaEngine.Web/Components/Pages/ChronicleExplorer.razor",
@@ -20,10 +19,7 @@ public sealed class UiCompositionGuardrailTests
         "src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor",
         "src/MediaEngine.Web/Components/Pages/Collections.razor",
         "src/MediaEngine.Web/Components/Collections/CollectionEditorShell.razor",
-        "src/MediaEngine.Web/Components/Library/LibraryBatchBar.razor",
-        "src/MediaEngine.Web/Components/Library/LibraryColumnPicker.razor",
         "src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor",
-        "src/MediaEngine.Web/Components/Library/LibraryDeleteConfirm.razor",
         "src/MediaEngine.Web/Components/Library/StatusPill.razor",
         "src/MediaEngine.Web/Components/Details/DetailPage.razor",
         "src/MediaEngine.Web/Components/MediaEditor/SharedMediaBatchConfirmDialog.razor",

@@ -90,24 +90,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<Dictionary<string, int>> GetManagedCollectionCountsAsync(
-        Guid? profileId = null,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var url = AppendCollectionProfileQuery("/collections/managed/counts", profileId);
-            return await _http.GetFromJsonAsync<Dictionary<string, int>>(url, ct) ?? new();
-        }
-        catch (OperationCanceledException) { return new(); }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /collections/managed/counts failed");
-            LastError = ex.Message;
-            return new();
-        }
-    }
-
     private void NormalizeManagedCollectionArtwork(CollectionManagementCatalogViewModel collection)
     {
         if (collection.SquareArtworkUrl is not null)

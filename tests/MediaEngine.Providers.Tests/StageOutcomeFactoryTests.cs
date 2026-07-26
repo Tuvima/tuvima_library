@@ -1,7 +1,7 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
-using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Helpers;
 using Microsoft.Extensions.Logging.Abstractions;
 

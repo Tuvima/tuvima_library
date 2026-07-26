@@ -28,7 +28,7 @@ public sealed class NarrativeRoot
 
     /// <summary>
     /// Hierarchy level: <c>"Universe"</c>, <c>"Franchise"</c>, <c>"Series"</c>,
-    /// or <c>"Standalone"</c>. See <see cref="Enums.NarrativeLevel"/>.
+    /// or <c>"Standalone"</c>. See <see cref="Constants.NarrativeLevel"/>.
     /// </summary>
     public string Level { get; set; } = string.Empty;
 

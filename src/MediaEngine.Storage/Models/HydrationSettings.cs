@@ -265,14 +265,14 @@ public sealed class HydrationSettings
     /// <summary>
     /// Minimum composite confidence for a retail match to be auto-accepted
     /// during Stage 1 (Retail Identification). Below this threshold, the
-    /// match goes to review queue as <see cref="Domain.Enums.ReviewTrigger.RetailMatchAmbiguous"/>.
+    /// match goes to review queue as <see cref="Domain.Constants.ReviewTrigger.RetailMatchAmbiguous"/>.
     /// </summary>
     [JsonPropertyName("retail_auto_accept_threshold")]
     public double RetailAutoAcceptThreshold { get; set; } = 0.90;
 
     /// <summary>
     /// Below this threshold, a retail match is treated as too weak to accept
-    /// even provisionally. The item is flagged as <see cref="Domain.Enums.ReviewTrigger.RetailMatchFailed"/>.
+    /// even provisionally. The item is flagged as <see cref="Domain.Constants.ReviewTrigger.RetailMatchFailed"/>.
     /// Between this and <see cref="RetailAutoAcceptThreshold"/>, the match is
     /// provisionally accepted and sent to review.
     /// </summary>

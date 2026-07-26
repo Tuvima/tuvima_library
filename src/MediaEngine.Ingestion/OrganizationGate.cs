@@ -1,5 +1,5 @@
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Models;
 
 namespace MediaEngine.Ingestion;
