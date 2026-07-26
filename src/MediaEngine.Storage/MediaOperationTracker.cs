@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
+using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Storage;
 
@@ -128,7 +129,7 @@ public sealed class MediaOperationTracker : IMediaOperationTracker
         {
             await _publisher.PublishAsync(
                 SignalREvents.MediaOperationChanged,
-                new MediaOperationChangedPayload(
+                new MediaOperationChangedEvent(
                     operation.Id,
                     operation.OperationType,
                     operation.OperationKind,
@@ -146,14 +147,4 @@ public sealed class MediaOperationTracker : IMediaOperationTracker
         }
     }
 
-    private sealed record MediaOperationChangedPayload(
-        Guid Id,
-        string OperationType,
-        string OperationKind,
-        string Status,
-        string? Stage,
-        int ProgressPercent,
-        int ItemsTotal,
-        int ItemsCompleted,
-        DateTimeOffset UpdatedAt);
 }

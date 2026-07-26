@@ -8,6 +8,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -25,7 +26,36 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<WorkDetailViewModel>($"/works/{workId:D}", ct);
+            var detail = await _http.GetFromJsonAsync<MediaEngine.Contracts.Collections.WorkDetailDto>(
+                $"/works/{workId:D}", ct);
+            return detail is null ? null : new WorkDetailViewModel
+            {
+                Id = detail.Id,
+                CollectionId = detail.CollectionId,
+                ParentWorkId = detail.ParentWorkId,
+                MediaType = detail.MediaType,
+                WorkKind = detail.WorkKind,
+                Ordinal = detail.Ordinal,
+                IsCatalogOnly = detail.IsCatalogOnly,
+                WikidataQid = detail.WikidataQid,
+                CanonicalValues = detail.CanonicalValues.Select(MapCanonicalValue).ToList(),
+                Editions = detail.Editions.Select(edition => new EditionViewModel
+                {
+                    Id = edition.Id,
+                    WorkId = edition.WorkId,
+                    FormatLabel = edition.FormatLabel,
+                    WikidataQid = edition.WikidataQid,
+                    CanonicalValues = edition.CanonicalValues.Select(MapCanonicalValue).ToList(),
+                    Assets = edition.Assets.Select(asset => new EditionAssetViewModel
+                    {
+                        Id = asset.Id,
+                        EditionId = asset.EditionId,
+                        FilePathRoot = asset.FilePathRoot,
+                        Status = asset.Status,
+                        CanonicalValues = asset.CanonicalValues.Select(MapCanonicalValue).ToList(),
+                    }).ToList(),
+                }).ToList(),
+            };
         }
         catch (Exception ex)
         {
@@ -35,12 +65,22 @@ public sealed partial class EngineApiClient
         }
     }
 
+    private static CanonicalValueViewModel MapCanonicalValue(
+        MediaEngine.Contracts.Collections.CanonicalValueDto value) => new()
+    {
+        Key = value.Key,
+        Value = value.Value,
+        LastScoredAt = value.LastScoredAt,
+    };
+
     public async Task<List<EditionViewModel>> GetWorkEditionsAsync(Guid workId, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<EditionViewModel>>($"/works/{workId:D}/editions", ct)
-                   ?? [];
+            var response = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.Collections.EditionDto>>(
+                $"/works/{workId:D}/editions",
+                ct);
+            return response?.Select(MapEdition).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -49,35 +89,42 @@ public sealed partial class EngineApiClient
             return [];
         }
     }
-    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 2). Kept async because the
-    // ScanRaw -> ScanResultViewModel projection has to run after the helper's awaited result.
-    public async Task<ScanResultViewModel?> TriggerScanAsync(
-        string? rootPath = null,
-        CancellationToken ct = default)
+
+    private static EditionViewModel MapEdition(MediaEngine.Contracts.Collections.EditionDto edition) => new()
     {
-        var raw = await PostAsync<object, ScanRaw>("POST /ingestion/scan", "/ingestion/scan", new { root_path = rootPath }, ct: ct);
-        return raw is null ? null : new ScanResultViewModel
+        Id = edition.Id,
+        WorkId = edition.WorkId,
+        FormatLabel = edition.FormatLabel,
+        WikidataQid = edition.WikidataQid,
+        CanonicalValues = edition.CanonicalValues.Select(MapCanonicalValue).ToList(),
+        Assets = edition.Assets.Select(asset => new EditionAssetViewModel
         {
-            Operations = raw.Operations.Select(o => new PendingOperationViewModel
-            {
-                SourcePath      = o.SourcePath,
-                DestinationPath = o.DestinationPath,
-                OperationKind   = o.OperationKind,
-                Reason          = o.Reason,
-            }).ToList(),
-        };
-    }
+            Id = asset.Id,
+            EditionId = asset.EditionId,
+            FilePathRoot = asset.FilePathRoot,
+            Status = asset.Status,
+            CanonicalValues = asset.CanonicalValues.Select(MapCanonicalValue).ToList(),
+        }).ToList(),
+    };
+    public Task<ScanResponse?> TriggerScanAsync(
+        string? rootPath = null,
+        CancellationToken ct = default) =>
+        PostAsync<ScanRequest, ScanResponse>(
+            "POST /ingestion/scan",
+            "/ingestion/scan",
+            new ScanRequest { RootPath = rootPath },
+            ct: ct);
 
     // -- POST /ingestion/reconcile ---------------------------------------------
 
-    public async Task<ReconciliationResultDto?> TriggerReconciliationAsync(
+    public async Task<ReconciliationResultResponse?> TriggerReconciliationAsync(
         CancellationToken ct = default)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/ingestion/reconcile", new { }, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<ReconciliationResultDto>(ct);
+            return await resp.Content.ReadFromJsonAsync<ReconciliationResultResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -89,12 +136,12 @@ public sealed partial class EngineApiClient
 
     // -- GET /ingestion/watch-folder --------------------------------------------
 
-    public async Task<List<WatchFolderFileViewModel>> GetWatchFolderAsync(CancellationToken ct = default)
+    public async Task<List<WatchFolderFileDto>> GetWatchFolderAsync(CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<WatchFolderResponse>("/ingestion/watch-folder", ct);
-            return raw?.Files ?? [];
+            var page = await _http.GetFromJsonAsync<WatchFolderPageResponse>("/ingestion/watch-folder", ct);
+            return page?.Files.ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -111,10 +158,14 @@ public sealed partial class EngineApiClient
         string? rootPath = null,
         bool? includeSubdirectories = null,
         CancellationToken ct = default) =>
-        PostAsync<object>(
+        PostAsync<RescanRequest>(
             "POST /ingestion/rescan",
             "/ingestion/rescan",
-            new { root_path = rootPath, include_subdirectories = includeSubdirectories },
+            new RescanRequest
+            {
+                RootPath = rootPath,
+                IncludeSubdirectories = includeSubdirectories,
+            },
             ct: ct);
 
     // -- /metadata/hydrate ------------------------------------------------------
@@ -126,7 +177,14 @@ public sealed partial class EngineApiClient
         {
             var resp = await _http.PostAsJsonAsync($"/metadata/hydrate/{entityId}", new { }, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<HydrateResultViewModel>(ct);
+            var result = await resp.Content.ReadFromJsonAsync<MediaEngine.Contracts.Metadata.HydrateResponse>(ct);
+            return result is null ? null : new HydrateResultViewModel
+            {
+                WikidataQid = result.WikidataQid,
+                ClaimsAdded = result.ClaimsAdded,
+                Success = result.Success,
+                Message = result.Message,
+            };
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -142,9 +200,13 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ConflictViewModel>>(
+            var raw = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.Metadata.ConflictDto>>(
                 "/metadata/conflicts", ct);
-            return raw ?? [];
+            return raw?.Select(item => new ConflictViewModel(
+                item.EntityId,
+                item.Key,
+                item.Value,
+                item.LastScoredAt)).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -171,7 +233,7 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<ItemEditorPreferencesDto?> GetItemEditorPreferencesAsync(
+    public async Task<MediaEngine.Contracts.Items.ItemEditorPreferencesResponse?> GetItemEditorPreferencesAsync(
         Guid entityId, Guid profileId, CancellationToken ct = default)
     {
         try
@@ -186,7 +248,8 @@ public sealed partial class EngineApiClient
                 return null;
             }
 
-            return await response.Content.ReadFromJsonAsync<ItemEditorPreferencesDto>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.ItemEditorPreferencesResponse>(
+                cancellationToken: ct);
         }
         catch (Exception ex)
         {
@@ -199,14 +262,15 @@ public sealed partial class EngineApiClient
     public async Task<ItemEditorPreferencesSaveResultDto> SaveItemEditorPreferencesAsync(
         Guid entityId,
         Guid profileId,
-        ItemEditorPreferencesRequestDto request,
+        MediaEngine.Contracts.Items.ItemEditorPreferencesRequest request,
         CancellationToken ct = default)
     {
         try
         {
             var response = await _http.PutAsJsonAsync(
                 $"/library/items/{entityId}/editor-preferences/{profileId}", request, ct);
-            var result = await response.Content.ReadFromJsonAsync<ItemEditorPreferencesDto>(cancellationToken: ct);
+            var result = await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.ItemEditorPreferencesResponse>(
+                cancellationToken: ct);
             if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
                 return new ItemEditorPreferencesSaveResultDto(false, true, result, "Source metadata or profile preferences changed while you were editing.");
 
@@ -289,11 +353,11 @@ public sealed partial class EngineApiClient
 
     // -- Pass 2 (Universe Lookup) ----------------------------------------------
 
-    public async Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default)
+    public async Task<DeferredEnrichmentStatusResponse?> GetPass2StatusAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<Pass2StatusDto>("/metadata/pass2/status", ct);
+            return await _http.GetFromJsonAsync<DeferredEnrichmentStatusResponse>("/metadata/pass2/status", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -303,13 +367,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default)
+    public async Task<DeferredEnrichmentTriggerResponse?> TriggerPass2NowAsync(CancellationToken ct = default)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/metadata/pass2/trigger", new { }, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<Pass2TriggerResultDto>(ct);
+            return await resp.Content.ReadFromJsonAsync<DeferredEnrichmentTriggerResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -321,43 +385,16 @@ public sealed partial class EngineApiClient
 
     // -- Retag Sweep (Auto re-tag) ---------------------------------------------
 
-    public async Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default)
+    public async Task<RetagSweepStateResponse?> GetRetagSweepStateAsync(CancellationToken ct = default)
     {
         try
         {
-            var resp = await _http.GetAsync("/maintenance/retag-sweep/state", ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            using var response = await _http.GetAsync("/maintenance/retag-sweep/state", ct);
+            if (!response.IsSuccessStatusCode)
+                return null;
 
-            using var stream = await resp.Content.ReadAsStreamAsync(ct);
-            using var doc    = await System.Text.Json.JsonDocument.ParseAsync(stream, cancellationToken: ct);
-            var root = doc.RootElement;
-
-            var hasPending = root.TryGetProperty("has_pending_diff", out var hpd) && hpd.GetBoolean();
-
-            var diffList = new List<RetagFieldDiffDto>();
-            if (root.TryGetProperty("pending_diff", out var pd) && pd.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                foreach (var item in pd.EnumerateArray())
-                {
-                    var mt = item.GetProperty("media_type").GetString() ?? string.Empty;
-                    var added = item.TryGetProperty("added_fields", out var af) && af.ValueKind == System.Text.Json.JsonValueKind.Array
-                        ? af.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList()
-                        : new List<string>();
-                    var removed = item.TryGetProperty("removed_fields", out var rf) && rf.ValueKind == System.Text.Json.JsonValueKind.Array
-                        ? rf.EnumerateArray().Select(x => x.GetString() ?? string.Empty).ToList()
-                        : new List<string>();
-                    diffList.Add(new RetagFieldDiffDto(mt, added, removed));
-                }
-            }
-
-            var hashes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            if (root.TryGetProperty("current_hashes", out var ch) && ch.ValueKind == System.Text.Json.JsonValueKind.Object)
-            {
-                foreach (var prop in ch.EnumerateObject())
-                    hashes[prop.Name] = prop.Value.GetString() ?? string.Empty;
-            }
-
-            return new RetagSweepStateDto(hasPending, diffList, hashes);
+            return await response.Content.ReadFromJsonAsync<RetagSweepStateResponse>(
+                cancellationToken: ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -459,7 +496,8 @@ public sealed partial class EngineApiClient
             if (maxDays.HasValue)
                 url += $"&maxDays={maxDays.Value}";
 
-            var response = await _http.GetFromJsonAsync<LibraryCatalogPageResponse>(url, ct);
+            var transport = await _http.GetFromJsonAsync<MediaEngine.Contracts.Items.LibraryItemsPageDto>(url, ct);
+            var response = transport?.ToViewModel();
             if (response?.Items is not null)
             {
                 foreach (var item in response.Items)
@@ -489,10 +527,11 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var request = new { entity_ids = entityIds };
+            var request = new MediaEngine.Contracts.Items.BatchLibraryItemRequest { EntityIds = entityIds };
             var response = await _http.PostAsJsonAsync("/library/items/batch/approve", request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
+            return (await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.BatchLibraryItemResponse>(ct))
+                ?.ToViewModel();
         }
         catch (Exception ex)
         {
@@ -505,10 +544,11 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var request = new { entity_ids = entityIds };
+            var request = new MediaEngine.Contracts.Items.BatchLibraryItemRequest { EntityIds = entityIds };
             var response = await _http.PostAsJsonAsync("/library/items/batch/delete", request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
+            return (await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.BatchLibraryItemResponse>(ct))
+                ?.ToViewModel();
         }
         catch (Exception ex)
         {
@@ -523,7 +563,8 @@ public sealed partial class EngineApiClient
         {
             var response = await _http.PostAsJsonAsync($"/library/items/{entityId}/reject", new { }, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
+            return (await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.BatchLibraryItemResponse>(ct))
+                ?.ToViewModel();
         }
         catch (Exception ex)
         {
@@ -536,10 +577,11 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var request = new { entity_ids = entityIds };
+            var request = new MediaEngine.Contracts.Items.BatchLibraryItemRequest { EntityIds = entityIds };
             var response = await _http.PostAsJsonAsync("/library/items/batch/reject", request, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<BatchLibraryItemResponse>(ct);
+            return (await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.BatchLibraryItemResponse>(ct))
+                ?.ToViewModel();
         }
         catch (Exception ex)
         {
@@ -561,7 +603,9 @@ public sealed partial class EngineApiClient
                 return null;
             }
 
-            var detail = await response.Content.ReadFromJsonAsync<LibraryItemDetailViewModel>(cancellationToken: ct);
+            var transport = await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Items.LibraryItemDetailDto>(
+                cancellationToken: ct);
+            var detail = transport?.ToViewModel();
             if (detail?.CoverUrl is not null)
                 detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
             if (detail?.BackgroundUrl is not null)
@@ -586,7 +630,21 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<LibraryItemStatusCountsDto>("/library/items/counts", ct);
+            var counts = await _http.GetFromJsonAsync<MediaEngine.Contracts.Items.LibraryItemStatusCountsDto>(
+                "/library/items/counts", ct);
+            return counts is null ? null : new LibraryItemStatusCountsDto
+            {
+                Total = counts.Total,
+                NeedsReview = counts.NeedsReview,
+                AutoApproved = counts.AutoApproved,
+                Edited = counts.Edited,
+                Duplicate = counts.Duplicate,
+                Staging = counts.Staging,
+                MissingImages = counts.MissingImages,
+                RecentlyUpdated = counts.RecentlyUpdated,
+                LowConfidence = counts.LowConfidence,
+                Rejected = counts.Rejected,
+            };
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -606,7 +664,17 @@ public sealed partial class EngineApiClient
             var url = batchId.HasValue
                 ? $"/library/items/state-counts?batchId={batchId.Value}"
                 : "/library/items/state-counts";
-            return await _http.GetFromJsonAsync<LibraryItemLifecycleCountsDto>(url, ct);
+            var counts = await _http.GetFromJsonAsync<MediaEngine.Contracts.Items.LibraryItemLifecycleCountsDto>(url, ct);
+            return counts is null ? null : new LibraryItemLifecycleCountsDto
+            {
+                Identified = counts.Identified,
+                InReview = counts.InReview,
+                Provisional = counts.Provisional,
+                Rejected = counts.Rejected,
+                PersonCount = counts.PersonCount,
+                CollectionCount = counts.CollectionCount,
+                TriggerCounts = counts.TriggerCounts,
+            };
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -618,12 +686,12 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
+    public async Task<IReadOnlyList<IngestionBatchResponse>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default)
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<List<IngestionBatchViewModel>>(
+            var result = await _http.GetFromJsonAsync<List<IngestionBatchResponse>>(
                 $"ingestion/batches?limit={limit}", ct).ConfigureAwait(false);
             return result ?? [];
         }
@@ -636,11 +704,11 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<IngestionOperationsSnapshotViewModel?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default)
+    public async Task<IngestionOperationsSnapshotDto?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<IngestionOperationsSnapshotViewModel>(
+            return await _http.GetFromJsonAsync<IngestionOperationsSnapshotDto>(
                 "ingestion/operations", ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { return null; }
@@ -653,7 +721,7 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<MediaOperationViewModel>> GetMediaOperationsAsync(
+    public async Task<IReadOnlyList<OperationDto>> GetMediaOperationsAsync(
         string? queueName = null, int limit = 100, CancellationToken ct = default)
     {
         try
@@ -663,7 +731,7 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrWhiteSpace(queueName))
                 query += $"&queueName={Uri.EscapeDataString(queueName)}";
 
-            var result = await _http.GetFromJsonAsync<List<MediaOperationViewModel>>(
+            var result = await _http.GetFromJsonAsync<List<OperationDto>>(
                 query, ct).ConfigureAwait(false);
             return result ?? [];
         }
@@ -676,11 +744,11 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<MediaOperationDetailViewModel?> GetMediaOperationAsync(Guid id, CancellationToken ct = default)
+    public async Task<OperationDetailDto?> GetMediaOperationAsync(Guid id, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<MediaOperationDetailViewModel>(
+            return await _http.GetFromJsonAsync<OperationDetailDto>(
                 $"operations/{id:D}", ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { return null; }
@@ -742,12 +810,12 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
+    public async Task<IngestionBatchResponse?> GetIngestionBatchByIdAsync(
         Guid id, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<IngestionBatchViewModel>(
+            return await _http.GetFromJsonAsync<IngestionBatchResponse>(
                 $"ingestion/batches/{id}", ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { return null; }
@@ -759,14 +827,14 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<PagedResponse<IngestionBatchItemViewModel>?> GetIngestionBatchItemsAsync(
+    public async Task<PagedResponse<IngestionBatchItemResponse>?> GetIngestionBatchItemsAsync(
         Guid id, int offset = 0, int limit = 100, CancellationToken ct = default)
     {
         try
         {
             var safeOffset = Math.Max(0, offset);
             var safeLimit = Math.Clamp(limit <= 0 ? 100 : limit, 1, 500);
-            return await _http.GetFromJsonAsync<PagedResponse<IngestionBatchItemViewModel>>(
+            return await _http.GetFromJsonAsync<PagedResponse<IngestionBatchItemResponse>>(
                 $"ingestion/batches/{id:D}/items?offset={safeOffset}&limit={safeLimit}", ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) { return null; }
@@ -782,9 +850,9 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<AttentionCountResponse>(
+            var result = await _http.GetFromJsonAsync<BatchAttentionCountResponse>(
                 "ingestion/batches/attention-count", ct).ConfigureAwait(false);
-            return result?.Count ?? 0;
+            return result?.count ?? 0;
         }
         catch (OperationCanceledException) { return 0; }
         catch (Exception ex)
@@ -795,12 +863,12 @@ public sealed partial class EngineApiClient
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<EntityCapabilityStateViewModel>> GetAssetCapabilitiesAsync(
+    public async Task<IReadOnlyList<CapabilityStateDto>> GetAssetCapabilitiesAsync(
         Guid id, CancellationToken ct = default)
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<List<EntityCapabilityStateViewModel>>(
+            var result = await _http.GetFromJsonAsync<List<CapabilityStateDto>>(
                 $"assets/{id:D}/capabilities", ct).ConfigureAwait(false);
             return result ?? [];
         }
@@ -826,12 +894,6 @@ public sealed partial class EngineApiClient
             _logger.LogWarning(ex, "Failed to fetch capability summary");
             return new();
         }
-    }
-
-    private sealed class AttentionCountResponse
-    {
-        [System.Text.Json.Serialization.JsonPropertyName("count")]
-        public int Count { get; set; }
     }
 
 }

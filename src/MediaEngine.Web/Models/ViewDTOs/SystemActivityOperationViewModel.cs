@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.System;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -13,4 +14,17 @@ public sealed class SystemActivityOperationViewModel
     [JsonPropertyName("items_total")] public int ItemsTotal { get; set; }
     [JsonPropertyName("items_completed")] public int ItemsCompleted { get; set; }
     [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; set; }
+
+    public static SystemActivityOperationViewModel FromContract(SystemActivityOperationDto source) => new()
+    {
+        Id = source.Id,
+        OperationType = source.OperationType,
+        OperationKind = source.OperationKind,
+        Status = source.Status,
+        Stage = source.Stage,
+        ProgressPercent = source.ProgressPercent,
+        ItemsTotal = source.ItemsTotal,
+        ItemsCompleted = source.ItemsCompleted,
+        UpdatedAt = source.UpdatedAt,
+    };
 }

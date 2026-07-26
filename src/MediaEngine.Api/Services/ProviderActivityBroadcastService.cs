@@ -1,6 +1,6 @@
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Events;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Providers.Services;
 
 namespace MediaEngine.Api.Services;

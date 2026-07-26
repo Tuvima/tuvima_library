@@ -3,6 +3,12 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Domain.Contracts;
+using ApiKeyDto = MediaEngine.Contracts.Admin.ApiKeyDto;
+using CreateApiKeyRequest = MediaEngine.Contracts.Admin.CreateApiKeyRequest;
+using CreateApiKeyResponse = MediaEngine.Contracts.Admin.CreateApiKeyResponse;
+using ProviderConfigDto = MediaEngine.Contracts.Admin.ProviderConfigDto;
+using RevokeAllKeysResponse = MediaEngine.Contracts.Admin.RevokeAllKeysResponse;
+using UpsertProviderConfigRequest = MediaEngine.Contracts.Admin.UpsertProviderConfigRequest;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -36,7 +42,13 @@ public static class AdminEndpoints
             CancellationToken ct) =>
         {
             var keys = await repo.GetAllAsync(ct);
-            var dtos = keys.Select(ApiKeyDto.FromDomain).ToList();
+            var dtos = keys.Select(key => new ApiKeyDto
+            {
+                Id = key.Id,
+                Label = key.Label,
+                Role = key.Role,
+                CreatedAt = key.CreatedAt,
+            }).ToList();
             return Results.Ok(dtos);
         })
         .WithName("ListApiKeys")
@@ -129,7 +141,13 @@ public static class AdminEndpoints
             CancellationToken ct) =>
         {
             var configs = await configRepo.GetAllMaskedAsync(providerId, ct);
-            var dtos    = configs.Select(ProviderConfigDto.FromDomain).ToList();
+            var dtos = configs.Select(config => new ProviderConfigDto
+            {
+                ProviderId = config.ProviderId,
+                Key = config.Key,
+                Value = config.Value,
+                IsSecret = config.IsSecret,
+            }).ToList();
             return Results.Ok(dtos);
         })
         .WithName("ListProviderConfigs")

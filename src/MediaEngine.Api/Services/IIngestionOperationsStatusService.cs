@@ -1,4 +1,4 @@
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Ingestion;
 
 namespace MediaEngine.Api.Services;
 

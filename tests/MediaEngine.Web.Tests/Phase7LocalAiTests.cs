@@ -12,6 +12,9 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("GetResourceSnapshotAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetEnrichmentProgressAsync", source, StringComparison.Ordinal);
         Assert.Contains("Local AI runs on this server", source, StringComparison.Ordinal);
+        Assert.Contains("MaxConcurrentInferences", source, StringComparison.Ordinal);
+        Assert.Contains("MinimumFreeDiskMB", source, StringComparison.Ordinal);
+        Assert.Contains("CpuPressureLabel(double pressure)", source, StringComparison.Ordinal);
     }
 
     [Fact]

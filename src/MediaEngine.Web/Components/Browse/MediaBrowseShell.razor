@@ -3,6 +3,7 @@
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
+@using MediaEngine.Contracts.Realtime
 @using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
@@ -1912,7 +1913,7 @@
                 },
                 Position = item.Position,
                 Description = item.Description,
-                Facts = item.Facts,
+                Facts = item.Facts ?? [],
             })
             .Take(4)
             .ToList();

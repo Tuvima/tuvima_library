@@ -19,7 +19,7 @@ public sealed class Phase6SettingsConfigurationTests
     public void ProviderSecrets_AreNotReturnedAsPlaintextInStatusDto()
     {
         var endpoint = ReadRepoFile(@"src\MediaEngine.Api\Endpoints\SettingsEndpoints.cs");
-        var webDto = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\ProviderStatusDto.cs");
+        var webDto = ReadRepoFile(@"src\MediaEngine.Contracts\Settings\ProviderSettingsContracts.cs");
 
         Assert.Contains("HasApiKey", endpoint, StringComparison.Ordinal);
         Assert.Contains("HasApiKey", webDto, StringComparison.Ordinal);

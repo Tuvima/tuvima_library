@@ -3,6 +3,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Integration.Clients;

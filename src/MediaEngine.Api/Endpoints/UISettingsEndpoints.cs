@@ -11,6 +11,11 @@ using MediaEngine.Storage.Models;
 // a wildcard import would make every existing unqualified use of those names in this file
 // ambiguous (CS0104).
 using LibraryPreferencesDiagnosticsResponse = MediaEngine.Contracts.Settings.LibraryPreferencesDiagnosticsResponse;
+using ContractLibraryPreferences = MediaEngine.Contracts.Settings.LibraryPreferencesSettings;
+using ResolvedUISettingsDto = MediaEngine.Contracts.Settings.ResolvedUISettingsDto;
+using UIDeviceProfileDto = MediaEngine.Contracts.Settings.UIDeviceProfileDto;
+using UIGlobalSettingsDto = MediaEngine.Contracts.Settings.UIGlobalSettingsDto;
+using UIProfileSettingsDto = MediaEngine.Contracts.Settings.UIProfileSettingsDto;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -55,27 +60,28 @@ public static class UISettingsEndpoints
             var global = configLoader.LoadConfig<UIGlobalSettings>("ui", "global")
                          ?? new UIGlobalSettings();
 
-            return Results.Ok(global);
+            return Results.Ok(SettingsContractMapper.ToContract(global));
         })
         .WithName("GetUIGlobalSettings")
         .WithSummary("Returns the current global UI settings (theme, features, layout defaults).")
-        .Produces<UIGlobalSettings>(StatusCodes.Status200OK)
+        .Produces<UIGlobalSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── PUT /settings/ui/global ──────────────────────────────────────────
         grp.MapPut("/global", (
-            UIGlobalSettings         settings,
+            UIGlobalSettingsDto      settings,
             IConfigurationLoader     configLoader,
             UISettingsCacheRepository cache) =>
         {
-            configLoader.SaveConfig("ui", "global", settings);
-            cache.Upsert("global", JsonSerializer.Serialize(settings));
+            var storageSettings = SettingsContractMapper.ToStorage(settings);
+            configLoader.SaveConfig("ui", "global", storageSettings);
+            cache.Upsert("global", JsonSerializer.Serialize(storageSettings));
 
-            return Results.Ok(settings);
+            return Results.Ok(SettingsContractMapper.ToContract(storageSettings));
         })
         .WithName("UpdateUIGlobalSettings")
         .WithSummary("Saves global UI settings to the configuration file and updates the cache.")
-        .Produces<UIGlobalSettings>(StatusCodes.Status200OK)
+        .Produces<UIGlobalSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /settings/ui/device/{deviceClass} ────────────────────────────
@@ -91,11 +97,11 @@ public static class UISettingsEndpoints
             if (device is null)
                 return ApiErrors.NotFound($"No device profile found for '{deviceClass}'.");
 
-            return Results.Ok(device);
+            return Results.Ok(SettingsContractMapper.ToContract(device));
         })
         .WithName("GetUIDeviceProfile")
         .WithSummary("Returns the device profile and constraints for a specific device class.")
-        .Produces<UIDeviceProfile>(StatusCodes.Status200OK)
+        .Produces<UIDeviceProfileDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
@@ -103,7 +109,7 @@ public static class UISettingsEndpoints
         // ── PUT /settings/ui/device/{deviceClass} ────────────────────────────
         grp.MapPut("/device/{deviceClass}", (
             string                   deviceClass,
-            UIDeviceProfile          profile,
+            UIDeviceProfileDto       profile,
             IConfigurationLoader     configLoader,
             UISettingsCacheRepository cache) =>
         {
@@ -112,15 +118,16 @@ public static class UISettingsEndpoints
 
             // Ensure the device_class field matches the route parameter.
             profile.DeviceClass = deviceClass;
+            var storageProfile = SettingsContractMapper.ToStorage(profile);
 
-            configLoader.SaveConfig("ui/devices", deviceClass, profile);
-            cache.Upsert($"device:{deviceClass}", JsonSerializer.Serialize(profile));
+            configLoader.SaveConfig("ui/devices", deviceClass, storageProfile);
+            cache.Upsert($"device:{deviceClass}", JsonSerializer.Serialize(storageProfile));
 
-            return Results.Ok(profile);
+            return Results.Ok(SettingsContractMapper.ToContract(storageProfile));
         })
         .WithName("UpdateUIDeviceProfile")
         .WithSummary("Saves a device profile to the configuration file and updates the cache.")
-        .Produces<UIDeviceProfile>(StatusCodes.Status200OK)
+        .Produces<UIDeviceProfileDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -134,32 +141,33 @@ public static class UISettingsEndpoints
             if (profile is null)
                 return ApiErrors.NotFound($"No UI profile found for '{profileId}'.");
 
-            return Results.Ok(profile);
+            return Results.Ok(SettingsContractMapper.ToContract(profile));
         })
         .WithName("GetUIProfileSettings")
         .WithSummary("Returns the UI preferences for a specific user profile.")
-        .Produces<UIProfileSettings>(StatusCodes.Status200OK)
+        .Produces<UIProfileSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── PUT /settings/ui/profile/{profileId} ─────────────────────────────
         grp.MapPut("/profile/{profileId}", (
             string                   profileId,
-            UIProfileSettings        settings,
+            UIProfileSettingsDto     settings,
             IConfigurationLoader     configLoader,
             UISettingsCacheRepository cache) =>
         {
             // Ensure the profile_id matches the route parameter.
             settings.ProfileId = profileId;
+            var storageSettings = SettingsContractMapper.ToStorage(settings);
 
-            configLoader.SaveConfig("ui/profiles", profileId, settings);
-            cache.Upsert($"profile:{profileId}", JsonSerializer.Serialize(settings));
+            configLoader.SaveConfig("ui/profiles", profileId, storageSettings);
+            cache.Upsert($"profile:{profileId}", JsonSerializer.Serialize(storageSettings));
 
-            return Results.Ok(settings);
+            return Results.Ok(SettingsContractMapper.ToContract(storageSettings));
         })
         .WithName("UpdateUIProfileSettings")
         .WithSummary("Saves UI preferences for a user profile to the configuration file and updates the cache.")
-        .Produces<UIProfileSettings>(StatusCodes.Status200OK)
+        .Produces<UIProfileSettingsDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── GET /settings/ui/resolved ────────────────────────────────────────
@@ -176,11 +184,11 @@ public static class UISettingsEndpoints
 
             var resolved = resolver.Resolve(deviceClass, profileId);
 
-            return Results.Ok(resolved);
+            return Results.Ok(SettingsContractMapper.ToContract(resolved));
         })
         .WithName("GetResolvedUISettings")
         .WithSummary("Returns the fully cascaded UI settings for a device class and optional profile.")
-        .Produces<ResolvedUISettings>(StatusCodes.Status200OK)
+        .Produces<ResolvedUISettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
@@ -189,11 +197,11 @@ public static class UISettingsEndpoints
         {
             var prefs = configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences")
                         ?? throw new InvalidOperationException("config/ui/library-preferences.json is required.");
-            return Results.Ok(prefs);
+            return Results.Ok(SettingsContractMapper.ToContract(prefs));
         })
         .WithName("GetLibraryPreferences")
         .WithSummary("Returns the current per-media library display preferences.")
-        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK)
+        .Produces<ContractLibraryPreferences>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         grp.MapGet("/library-preferences/diagnostics", (IConfigurationLoader configLoader) =>
@@ -207,7 +215,9 @@ public static class UISettingsEndpoints
                 source_path: path,
                 sha256: Convert.ToHexStringLower(SHA256.HashData(bytes)),
                 last_modified_at: File.GetLastWriteTimeUtc(path),
-                settings: configLoader.LoadConfig<MediaEngine.Contracts.Settings.LibraryPreferencesSettings>("ui", "library-preferences")));
+                settings: SettingsContractMapper.ToContract(
+                    configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences")
+                    ?? throw new InvalidOperationException("config/ui/library-preferences.json is required."))));
         })
         .WithName("GetLibraryPreferencesDiagnostics")
         .WithSummary("Returns the tracked source file, content hash, timestamp, and effective per-media library preferences.")
@@ -215,17 +225,18 @@ public static class UISettingsEndpoints
         .RequireAdmin();
 
         grp.MapPut("/library-preferences", (
-            LibraryPreferencesSettings settings,
+            ContractLibraryPreferences settings,
             IConfigurationLoader configLoader,
             UISettingsCacheRepository cache) =>
         {
-            configLoader.SaveConfig("ui", "library-preferences", settings);
-            cache.Upsert("library-preferences", JsonSerializer.Serialize(settings));
-            return Results.Ok(settings);
+            var storageSettings = SettingsContractMapper.ToStorage(settings);
+            configLoader.SaveConfig("ui", "library-preferences", storageSettings);
+            cache.Upsert("library-preferences", JsonSerializer.Serialize(storageSettings));
+            return Results.Ok(SettingsContractMapper.ToContract(storageSettings));
         })
         .WithName("UpdateLibraryPreferences")
         .WithSummary("Validates and atomically saves per-media library display preferences and refreshes the runtime cache.")
-        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK)
+        .Produces<ContractLibraryPreferences>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return app;

@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Components.Library
@@ -326,10 +326,10 @@
     private string? _error;
     private DateTimeOffset? _lastUpdated;
 
-    private LibraryOverviewViewModel? _overview;
+    private LibraryOverviewDto? _overview;
     private List<ReviewItemViewModel> _reviewItems = [];
-    private IReadOnlyList<IngestionBatchViewModel> _recentRuns = [];
-    private List<ActivityEntryViewModel> _recentActivity = [];
+    private IReadOnlyList<IngestionBatchResponse> _recentRuns = [];
+    private List<ActivityEntryResponse> _recentActivity = [];
     private List<EncodeJobDto> _encodeJobs = [];
     private OverviewRun _currentRun = OverviewRun.Empty;
 
@@ -704,7 +704,7 @@
         || status.Contains("queued", StringComparison.OrdinalIgnoreCase)
         || status.Contains("active", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsRunEffectivelyComplete(IngestionBatchViewModel run) =>
+    private static bool IsRunEffectivelyComplete(IngestionBatchResponse run) =>
         run.FilesTotal > 0
         && run.FilesProcessed >= run.FilesTotal
         && !run.Status.Contains("fail", StringComparison.OrdinalIgnoreCase);
@@ -714,10 +714,10 @@
         || status.Equals(EncodeJobStatuses.Queued, StringComparison.OrdinalIgnoreCase)
         || status.Equals(EncodeJobStatuses.Scheduled, StringComparison.OrdinalIgnoreCase);
 
-    private static string RunLibrary(IngestionBatchViewModel run) =>
+    private static string RunLibrary(IngestionBatchResponse run) =>
         StringHelpers.FirstNonBlankOr("", run.Category, ShortPath(run.SourcePath), "Library");
 
-    private static string RunStage(IngestionBatchViewModel run)
+    private static string RunStage(IngestionBatchResponse run)
     {
         if (run.FilesFailed > 0)
         {

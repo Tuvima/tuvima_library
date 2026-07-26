@@ -2,6 +2,7 @@ using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Domain;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -101,11 +102,10 @@ public sealed class InitialSweepService : IInitialSweepService
             "InitialSweep: starting sweep across {Count} root(s) — {Roots}",
             roots.Count, string.Join(", ", roots));
 
-        await SafePublishAsync(SignalREvents.InitialSweepStarted, new
-        {
-            roots,
-            started_at = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
+        await SafePublishAsync(
+            SignalREvents.InitialSweepStarted,
+            new InitialSweepStartedEvent(roots, DateTimeOffset.UtcNow),
+            ct).ConfigureAwait(false);
 
         // Step 1: enumerate first so we can report a total to the UI.
         var files = new List<string>(capacity: 1024);
@@ -176,15 +176,16 @@ public sealed class InitialSweepService : IInitialSweepService
             if (sinceLastReport >= ProgressBatchSize)
             {
                 sinceLastReport = 0;
-                await SafePublishAsync(SignalREvents.InitialSweepProgress, new
-                {
-                    discovered,
-                    processed = hashed + cached + failed,
-                    hashed,
-                    cached,
-                    failed,
-                    bytes_hashed = bytes,
-                }, ct).ConfigureAwait(false);
+                await SafePublishAsync(
+                    SignalREvents.InitialSweepProgress,
+                    new InitialSweepProgressEvent(
+                        discovered,
+                        hashed + cached + failed,
+                        hashed,
+                        cached,
+                        failed,
+                        bytes),
+                    ct).ConfigureAwait(false);
             }
         }
 
@@ -202,16 +203,17 @@ public sealed class InitialSweepService : IInitialSweepService
             "InitialSweep: completed in {Elapsed} — {Discovered} discovered, {Hashed} hashed, {Cached} cached, {Failed} failed ({Bytes:N0} bytes hashed)",
             sw.Elapsed, discovered, hashed, cached, failed, bytes);
 
-        await SafePublishAsync(SignalREvents.InitialSweepCompleted, new
-        {
-            discovered,
-            hashed,
-            cached,
-            failed,
-            bytes_hashed = bytes,
-            elapsed_seconds = sw.Elapsed.TotalSeconds,
-            completed_at = DateTimeOffset.UtcNow,
-        }, ct).ConfigureAwait(false);
+        await SafePublishAsync(
+            SignalREvents.InitialSweepCompleted,
+            new InitialSweepCompletedEvent(
+                discovered,
+                hashed,
+                cached,
+                failed,
+                bytes,
+                sw.Elapsed.TotalSeconds,
+                DateTimeOffset.UtcNow),
+            ct).ConfigureAwait(false);
 
         return summary;
     }

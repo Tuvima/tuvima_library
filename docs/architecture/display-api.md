@@ -24,6 +24,13 @@ The stable consumer routes are versioned under `/api/v1/display`:
 
 Display responses use platform-neutral DTOs from `MediaEngine.Contracts.Display`. They intentionally avoid web-only concepts such as CSS classes. Clients render their own layout while using the same card facts, typed badges, artwork variants, progress state, and action targets.
 
+`MediaEngine.Contracts` is the only non-frozen wire owner. API projection rows,
+Domain models, and Dashboard presentation models must not become alternate
+serialized definitions of display cards, shelves, previews, groups, people, or
+collections. The API maps internal projection results explicitly into Contracts
+types. The Dashboard may map a Contracts DTO into a presentation wrapper for
+selection, formatting, or component state, but that wrapper is not a JSON DTO.
+
 ## Composition Boundaries
 
 `DisplayComposerService` is the page and shelf orchestration layer. It should decide which shelves exist and how they are ordered.
@@ -35,6 +42,12 @@ Lane grouping is item-count aware. TV show cards can represent a show with one o
 TV Continue cards are episode cards, not substituted show cards. They retain the episode work/asset and managed still, send `Watch Sx Ey` or `Resume Sx Ey` to the player resolver, and expose the show-scoped episode detail route as a separate Details action. Episode detail composition keeps the episode still, short synopsis, genre, and season-list artwork; root show composition reports owned episode count and targets the in-progress or earliest owned episode.
 
 Ordered series cards use `DisplayCardDto.PreviewItems` and `PreviewTotalCount` to expose a bounded representative set plus the full owned count. For sequences larger than four entries, the display projection selects the first, second, penultimate, and final available artworks while preserving their source positions. Each preview retains its media type, semantic web route, description, and media-specific facts for detail and hero contexts, but card hover does not navigate to individual children. Broader collections select up to four unique representatives with media-type breadth before filling from stable collection order. `DisplayGroupSummaryDto` carries container-level owned/known totals, media counts, progress counts, sequence range, and relationship rationale so the Dashboard can show useful context without inferring it from or repeating preview titles. TV show cards may still carry owned episode previews for show context, while Dashboard card hover preserves the show identity and uses show-level cinematic artwork. Group-card previews are static side-by-side strips: no artwork rotation, carousel controls, or child-level card actions are supported.
+
+Person-backed groups preserve the complete canonical role list through
+`person_roles`/`roles`; clients must not reconstruct roles from subtitles or a
+single primary role. Managed collection contracts likewise retain the complete
+management, placement, rule, permission, artwork, status, and person identity
+fields that were previously split across API and Dashboard mirrors.
 
 `DisplayProjectionRepository` owns database reads for display projections. It should keep SQL and visibility filtering out of page composition.
 
@@ -75,4 +88,9 @@ The shelf route should reuse `DisplayCardDto` and the same `DisplayCardBuilder` 
 The Universe card components, including `PosterSwimlane`, `PosterItemViewModel`, `LibraryCard`, `SquareCard`, and `LandscapeCard`, are still active in detail and related-content areas. They are not stale code.
 
 Future cleanup can migrate related-content shelves to `MediaTile` or a display-card adapter, but detail and operational APIs should stay separate from display shelf APIs.
+
+Universe and Chronicle HTTP responses use Contracts like every other API area.
+The only frozen boundary exception is the exact Dashboard-local SignalR pair
+`LoreDeltaDiscoveredEvent` and `UniverseEnrichmentProgressEvent`; it does not
+apply to display or detail HTTP DTOs and must not be expanded.
 

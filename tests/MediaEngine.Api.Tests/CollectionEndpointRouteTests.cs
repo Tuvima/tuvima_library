@@ -138,8 +138,9 @@ public sealed class CollectionEndpointRouteTests
     {
         var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
         var catalogReadServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs"));
-        var source = endpointSource + catalogReadServiceSource;
-        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ManagedCollectionDto.cs"));
+        var mapperSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ManagedCollectionMapper.cs"));
+        var source = endpointSource + catalogReadServiceSource + mapperSource;
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Collections\ManagedCollections.cs"));
 
         Assert.Contains("MapGet(\"/catalog\"", endpointSource, StringComparison.Ordinal);
         Assert.DoesNotContain("/management-catalog", endpointSource, StringComparison.Ordinal);
@@ -225,7 +226,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("GetCollectionWorkIdsAsync(collection, ct)", source, StringComparison.Ordinal);
         Assert.Contains("IsGeneratedTvShowContainer", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.WatchCount == mediaCounts.TvCount", source, StringComparison.Ordinal);
-        Assert.Contains("displayNameOverride", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("displayNameOverride", mapperSource, StringComparison.Ordinal);
         Assert.Contains("series_manifest_items series_item", source, StringComparison.Ordinal);
         Assert.Contains("return \"portrait\";", source, StringComparison.Ordinal);
         Assert.DoesNotContain("return \"landscape\";", source, StringComparison.Ordinal);

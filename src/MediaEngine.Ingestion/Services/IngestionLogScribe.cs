@@ -1,7 +1,7 @@
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
-using MediaEngine.Domain.Events;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using Microsoft.Extensions.Logging;

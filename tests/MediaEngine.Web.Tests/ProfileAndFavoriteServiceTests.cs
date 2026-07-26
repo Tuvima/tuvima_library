@@ -1,4 +1,5 @@
 using Bunit;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Playback;
@@ -116,7 +117,7 @@ public sealed class ProfileAndFavoriteServiceTests : TestContext
                 return Task.FromResult(true);
             });
             stub.SetHandler(nameof(IEngineApiClient.GetCollectionItemsAsync), _ =>
-                Task.FromResult(new List<CollectionItemViewModel>()));
+                Task.FromResult(new List<CollectionItemDto>()));
             stub.SetHandler(nameof(IEngineApiClient.AddCollectionItemAsync), _ =>
             {
                 Interlocked.Increment(ref addItemRequests);
@@ -156,7 +157,7 @@ public sealed class ProfileAndFavoriteServiceTests : TestContext
                     },
                 }));
             stub.SetHandler(nameof(IEngineApiClient.GetCollectionItemsAsync), _ =>
-                Task.FromResult(new List<CollectionItemViewModel>
+                Task.FromResult(new List<CollectionItemDto>
                 {
                     new()
                     {

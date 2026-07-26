@@ -1,3 +1,4 @@
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Web.Services.Integration;
 
 namespace MediaEngine.Web.Tests;

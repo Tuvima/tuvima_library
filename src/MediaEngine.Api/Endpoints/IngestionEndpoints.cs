@@ -1,6 +1,4 @@
-using System.Text.Json.Serialization;
 using MediaEngine.Api.Http;
-using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
@@ -55,7 +53,13 @@ public static class IngestionEndpoints
             var response = new ScanResponse
             {
                 Operations = operations
-                    .Select(PendingOperationDto.FromDomain)
+                    .Select(static operation => new PendingOperationDto
+                    {
+                        SourcePath = operation.SourcePath,
+                        DestinationPath = operation.DestinationPath,
+                        OperationKind = operation.OperationKind,
+                        Reason = operation.Reason,
+                    })
                     .ToList(),
             };
 
@@ -120,10 +124,19 @@ public static class IngestionEndpoints
             var watchDir = opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(watchDir))
-                return Results.Ok(new WatchFolderPageResponse(null, Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, false, null));
+                return Results.Ok(new WatchFolderPageResponse
+                {
+                    Offset = page.Offset,
+                    Limit = page.Limit,
+                });
 
             if (!Directory.Exists(watchDir))
-                return Results.Ok(new WatchFolderPageResponse(watchDir, Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, false, null));
+                return Results.Ok(new WatchFolderPageResponse
+                {
+                    WatchDirectory = watchDir,
+                    Offset = page.Offset,
+                    Limit = page.Limit,
+                });
 
             var searchOption = opts.Value.IncludeSubdirectories
                 ? SearchOption.AllDirectories
@@ -134,13 +147,15 @@ public static class IngestionEndpoints
                 files.Skip(page.Offset).ToList(),
                 page);
 
-            return Results.Ok(new WatchFolderPageResponse(
-                watchDir,
-                response.Items,
-                response.Offset,
-                response.Limit,
-                response.HasMore,
-                response.NextCursor));
+            return Results.Ok(new WatchFolderPageResponse
+            {
+                WatchDirectory = watchDir,
+                Files = response.Items,
+                Offset = response.Offset,
+                Limit = response.Limit,
+                HasMore = response.HasMore,
+                NextCursor = response.NextCursor,
+            });
         })
         .WithName("ListWatchFolder")
         .WithSummary("List files currently sitting in the Watch Folder.")
@@ -204,10 +219,12 @@ public static class IngestionEndpoints
             CancellationToken ct) =>
         {
             var result = await reconciler.ReconcileAsync(ct);
-            return Results.Ok(new ReconciliationResultResponse(
-                result.TotalScanned,
-                result.MissingCount,
-                result.ElapsedMs));
+            return Results.Ok(new ReconciliationResultResponse
+            {
+                TotalScanned = result.TotalScanned,
+                MissingCount = result.MissingCount,
+                ElapsedMs = result.ElapsedMs,
+            });
         })
         .WithName("TriggerReconciliation")
         .WithSummary(
@@ -559,69 +576,4 @@ public sealed record UploadPlan(
     string CanonicalMediaType)
 {
     public static UploadPlan Fail(IResult error) => new(false, error, string.Empty, string.Empty, string.Empty, string.Empty);
-}
-
-/// <summary>
-/// Api-internal wire shape for <c>GET /ingestion/watch-folder</c>. Kept endpoint-local (not moved
-/// to <c>MediaEngine.Contracts.Ingestion</c>) because it embeds <see cref="WatchFolderFileDto"/>,
-/// which lives in <c>MediaEngine.Api.Models</c> — a type the Contracts project cannot reference.
-///
-/// Property names are deliberately identical to the three anonymous objects this record replaces
-/// (no <see cref="JsonPropertyNameAttribute"/>), so the wire shape is unchanged. The two
-/// empty-result branches used the implicit-name projection <c>page.Offset, page.Limit</c>
-/// (PascalCase members); the populated branch explicitly named them <c>offset</c>/<c>limit</c>
-/// (lowercase). Both serialize identically today because the Engine's minimal-API JSON options
-/// are the untouched <see cref="System.Text.Json.JsonSerializerDefaults.Web"/> default
-/// (camelCase policy, case-insensitive), which folds "Offset"/"Limit" down to "offset"/"limit" —
-/// so a single lowercase shape reproduces both call sites byte for byte.
-/// </summary>
-public sealed record WatchFolderPageResponse(
-    string? watch_directory,
-    IReadOnlyList<WatchFolderFileDto> files,
-    int offset,
-    int limit,
-    bool has_more,
-    string? next_cursor);
-
-/// <summary>API response shape for an ingestion batch.</summary>
-public sealed class IngestionBatchResponse
-{
-    [JsonPropertyName("id")]
-    public Guid Id { get; init; }
-
-    [JsonPropertyName("status")]
-    public string Status { get; init; } = "";
-
-    [JsonPropertyName("source_path")]
-    public string? SourcePath { get; init; }
-
-    [JsonPropertyName("category")]
-    public string? Category { get; init; }
-
-    [JsonPropertyName("files_total")]
-    public int FilesTotal { get; init; }
-
-    [JsonPropertyName("files_processed")]
-    public int FilesProcessed { get; init; }
-
-    [JsonPropertyName("files_identified")]
-    public int FilesIdentified { get; init; }
-
-    [JsonPropertyName("files_review")]
-    public int FilesReview { get; init; }
-
-    [JsonPropertyName("files_no_match")]
-    public int FilesNoMatch { get; init; }
-
-    [JsonPropertyName("files_failed")]
-    public int FilesFailed { get; init; }
-
-    [JsonPropertyName("started_at")]
-    public DateTimeOffset StartedAt { get; init; }
-
-    [JsonPropertyName("completed_at")]
-    public DateTimeOffset? CompletedAt { get; init; }
-
-    [JsonPropertyName("created_at")]
-    public DateTimeOffset CreatedAt { get; init; }
 }

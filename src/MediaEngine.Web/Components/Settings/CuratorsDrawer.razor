@@ -184,11 +184,11 @@
 
     private string                     _query          = string.Empty;
     private bool                       _searching;
-    private List<SearchResultViewModel> _results        = [];
-    private SearchResultViewModel?     _selectedResult;
+    private List<SearchResultDto> _results        = [];
+    private SearchResultDto?     _selectedResult;
     private bool                       _applying;
     private bool                       _claimsLoading;
-    private List<ClaimHistoryDto>      _claims         = [];
+    private List<ClaimDto>             _claims         = [];
 
     protected override async Task OnParametersSetAsync()
     {
@@ -212,7 +212,7 @@
         _searching = false;
     }
 
-    private void SelectResult(SearchResultViewModel result)
+    private void SelectResult(SearchResultDto result)
     {
         _selectedResult = result;
     }

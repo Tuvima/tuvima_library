@@ -121,35 +121,35 @@
 </section>
 
 @code {
-    [Parameter, EditorRequired] public ActivityMediaTypeGroupViewModel Group { get; set; } = new();
+    [Parameter, EditorRequired] public ActivityMediaTypeGroupDto Group { get; set; } = new();
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public bool Loading { get; set; }
-    [Parameter] public IReadOnlyList<ActivityBatchItemViewModel> Items { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActivityBatchItemDto> Items { get; set; } = [];
     [Parameter] public int Offset { get; set; }
     [Parameter] public int Limit { get; set; } = 25;
     [Parameter] public bool HasMore { get; set; }
     [Parameter] public int? TotalCount { get; set; }
     [Parameter] public string ActiveSort { get; set; } = "title";
     [Parameter] public string SortDirection { get; set; } = "asc";
-    [Parameter] public Func<ActivityBatchItemViewModel, ActivityBatchItemDetailViewModel?>? DetailForItem { get; set; }
-    [Parameter] public Func<ActivityBatchItemViewModel, bool>? IsItemExpanded { get; set; }
-    [Parameter] public Func<ActivityBatchItemViewModel, bool>? IsItemLoading { get; set; }
-    [Parameter] public EventCallback<ActivityMediaTypeGroupViewModel> OnToggle { get; set; }
-    [Parameter] public EventCallback<ActivityBatchItemViewModel> OnToggleItem { get; set; }
+    [Parameter] public Func<ActivityBatchItemDto, ActivityBatchItemDetailDto?>? DetailForItem { get; set; }
+    [Parameter] public Func<ActivityBatchItemDto, bool>? IsItemExpanded { get; set; }
+    [Parameter] public Func<ActivityBatchItemDto, bool>? IsItemLoading { get; set; }
+    [Parameter] public EventCallback<ActivityMediaTypeGroupDto> OnToggle { get; set; }
+    [Parameter] public EventCallback<ActivityBatchItemDto> OnToggleItem { get; set; }
     [Parameter] public EventCallback<string> SortRequested { get; set; }
     [Parameter] public EventCallback<int> OffsetChanged { get; set; }
 
-    private static int IssueCount(ActivityMediaTypeGroupViewModel group) =>
+    private static int IssueCount(ActivityMediaTypeGroupDto group) =>
         Math.Max(group.ReviewCount, 0) + Math.Max(group.AlertCount - group.ReviewCount, 0);
 
-    private static bool CanShowCover(ActivityBatchItemViewModel item) =>
+    private static bool CanShowCover(ActivityBatchItemDto item) =>
         !string.IsNullOrWhiteSpace(item.CoverUrl)
         && string.Equals(ActivityDisplay.StatusText(item.Status, item.AuditStatus), "Complete", StringComparison.OrdinalIgnoreCase);
 
     private static string ThumbnailUrl(string? coverUrl) =>
         MediaTileArtworkUrl.Sized(coverUrl, "s") ?? coverUrl ?? "";
 
-    private Task HandleItemKeyDownAsync(KeyboardEventArgs args, ActivityBatchItemViewModel item) =>
+    private Task HandleItemKeyDownAsync(KeyboardEventArgs args, ActivityBatchItemDto item) =>
         args.Key is "Enter" or " "
             ? OnToggleItem.InvokeAsync(item)
             : Task.CompletedTask;

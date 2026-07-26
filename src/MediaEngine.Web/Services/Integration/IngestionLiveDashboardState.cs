@@ -41,21 +41,21 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
 
     public event Action? OnChanged;
 
-    public IngestionOperationsSnapshotViewModel? Snapshot { get; private set; }
-    public IReadOnlyList<ActivityEntryViewModel> RecentActivity { get; private set; } = [];
+    public IngestionOperationsSnapshotDto? Snapshot { get; private set; }
+    public IReadOnlyList<ActivityEntryResponse> RecentActivity { get; private set; } = [];
     public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; private set; } = [];
     public IReadOnlyDictionary<string, int> OperationsSummary { get; private set; } =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyDictionary<string, int> CapabilitySummary { get; private set; } =
         new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-    public IReadOnlyList<MediaOperationViewModel> Operations { get; private set; } = [];
+    public IReadOnlyList<OperationDto> Operations { get; private set; } = [];
     public IReadOnlyList<IngestionQueueHealthItem> QueueHealth => BuildQueueHealth(OperationsSummary, Operations);
-    public IReadOnlyList<MediaOperationViewModel> FilteredOperations => FilterOperations(Operations, QueueFilter, QueueSort);
-    public MediaOperationViewModel? PrimaryOperation => SelectPrimaryOperation(Operations);
-    public IReadOnlyList<MediaOperationViewModel> QueuePreview => BuildQueuePreview(Operations);
-    public MediaOperationDetailViewModel? ExpandedOperationDetail =>
+    public IReadOnlyList<OperationDto> FilteredOperations => FilterOperations(Operations, QueueFilter, QueueSort);
+    public OperationDto? PrimaryOperation => SelectPrimaryOperation(Operations);
+    public IReadOnlyList<OperationDto> QueuePreview => BuildQueuePreview(Operations);
+    public OperationDetailDto? ExpandedOperationDetail =>
         ExpandedOperationId is { } id && _operationDetails.TryGetValue(id, out var detail) ? detail : null;
-    public IReadOnlyList<EntityCapabilityStateViewModel> ExpandedOperationCapabilities =>
+    public IReadOnlyList<CapabilityStateDto> ExpandedOperationCapabilities =>
         ExpandedOperationDetail?.Operation.EntityId is { } entityId
         && _capabilitiesByEntity.TryGetValue(entityId, out var capabilities)
             ? capabilities
@@ -70,16 +70,16 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     public DateTimeOffset? LastUpdated { get; private set; }
 
     private bool _detailsPreferenceSet;
-    private readonly Dictionary<Guid, MediaOperationDetailViewModel> _operationDetails = new();
-    private readonly Dictionary<Guid, IReadOnlyList<EntityCapabilityStateViewModel>> _capabilitiesByEntity = new();
+    private readonly Dictionary<Guid, OperationDetailDto> _operationDetails = new();
+    private readonly Dictionary<Guid, IReadOnlyList<CapabilityStateDto>> _capabilitiesByEntity = new();
 
     public EngineConnectionState ConnectionState => _orchestrator.EngineConnectionState;
-    public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity =>
+    public IReadOnlyList<IngestionProviderActivityDto> ProviderActivity =>
         _stateContainer.ProviderActivity.Count > 0
             ? _stateContainer.ProviderActivity
             : Snapshot?.ProviderActivity ?? [];
-    public IReadOnlyList<IngestionOperationsJobViewModel> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
-    public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages, _stateContainer);
+    public IReadOnlyList<IngestionOperationsJobDto> ActiveJobs => BuildActiveJobs(Snapshot, _stateContainer);
+    public IReadOnlyList<IngestionCurrentActivityDto> CurrentActivities => BuildCurrentActivities(Snapshot, ActiveJobs, Stages, _stateContainer);
     public IngestionDashboardMetrics Metrics => BuildMetrics(Snapshot, ActiveJobs);
     public IReadOnlyList<IngestionDashboardStage> Stages => BuildStages(Snapshot, ActiveJobs, Metrics.TotalFiles);
     public IngestionOverallProgress OverallProgress => BuildOverallProgress(Metrics, Stages, _stateContainer.BatchProgress);
@@ -206,9 +206,9 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         }
     }
 
-    private static IngestionOperationsSnapshotViewModel? MergeSnapshot(
-        IngestionOperationsSnapshotViewModel? current,
-        IngestionOperationsSnapshotViewModel? next)
+    private static IngestionOperationsSnapshotDto? MergeSnapshot(
+        IngestionOperationsSnapshotDto? current,
+        IngestionOperationsSnapshotDto? next)
     {
         if (next is null)
             return current;
@@ -254,7 +254,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         return current;
     }
 
-    private static void NormalizeSnapshotLists(IngestionOperationsSnapshotViewModel snapshot)
+    private static void NormalizeSnapshotLists(IngestionOperationsSnapshotDto snapshot)
     {
         snapshot.ActiveJobs = OrderJobsStable(snapshot.ActiveJobs).ToList();
         snapshot.CurrentActivities = OrderActivitiesStable(snapshot.CurrentActivities).ToList();
@@ -295,14 +295,14 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         return order(merged).ToList();
     }
 
-    private static IEnumerable<IngestionOperationsJobViewModel> OrderJobsStable(IEnumerable<IngestionOperationsJobViewModel> jobs) =>
+    private static IEnumerable<IngestionOperationsJobDto> OrderJobsStable(IEnumerable<IngestionOperationsJobDto> jobs) =>
         jobs
             .OrderBy(JobSortKey)
             .ThenBy(job => job.JobType, StringComparer.OrdinalIgnoreCase)
             .ThenBy(job => job.MediaType, StringComparer.OrdinalIgnoreCase)
             .ThenBy(job => job.JobId);
 
-    private static int JobSortKey(IngestionOperationsJobViewModel job)
+    private static int JobSortKey(IngestionOperationsJobDto job)
     {
         if (job.JobId == Guid.Empty)
             return 0;
@@ -313,7 +313,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         return IsActiveBatchStatus(job.Status) ? 3 : 4;
     }
 
-    private static IEnumerable<IngestionCurrentActivityViewModel> OrderActivitiesStable(IEnumerable<IngestionCurrentActivityViewModel> activities) =>
+    private static IEnumerable<IngestionCurrentActivityDto> OrderActivitiesStable(IEnumerable<IngestionCurrentActivityDto> activities) =>
         activities
             .OrderBy(activity => ActivitySortKey(activity.StageKey))
             .ThenBy(activity => activity.StageKey, StringComparer.OrdinalIgnoreCase);
@@ -329,7 +329,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         _ => 99,
     };
 
-    private static IEnumerable<IngestionOperationsBatchViewModel> OrderBatchesStable(IEnumerable<IngestionOperationsBatchViewModel> batches) =>
+    private static IEnumerable<IngestionOperationsBatchDto> OrderBatchesStable(IEnumerable<IngestionOperationsBatchDto> batches) =>
         batches
             .OrderByDescending(batch => IsActiveBatchStatus(batch.Status))
             .ThenByDescending(batch => batch.StartedAt)
@@ -338,10 +338,10 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     private static string NormalizeActivityKey(string value) =>
         string.IsNullOrWhiteSpace(value) ? "(unknown)" : value.Trim().ToLowerInvariant();
 
-    private static string StageProgressKey(IngestionStageProgressViewModel stage) =>
+    private static string StageProgressKey(IngestionStageProgressDto stage) =>
         $"{stage.StageNumber}:{NormalizeActivityKey(stage.StageKey)}";
 
-    private static void CopyJob(IngestionOperationsJobViewModel target, IngestionOperationsJobViewModel source)
+    private static void CopyJob(IngestionOperationsJobDto target, IngestionOperationsJobDto source)
     {
         target.JobId = source.JobId;
         target.JobType = source.JobType;
@@ -351,6 +351,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         target.CurrentItem = source.CurrentItem;
         target.ProcessedCount = source.ProcessedCount;
         target.TotalCount = source.TotalCount;
+        target.CountUnit = source.CountUnit;
         target.PercentComplete = source.PercentComplete;
         target.Status = source.Status;
         target.Elapsed = source.Elapsed;
@@ -358,7 +359,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         target.WarningSummary = source.WarningSummary;
     }
 
-    private static void CopyActivity(IngestionCurrentActivityViewModel target, IngestionCurrentActivityViewModel source)
+    private static void CopyActivity(IngestionCurrentActivityDto target, IngestionCurrentActivityDto source)
     {
         target.StageKey = source.StageKey;
         target.Message = source.Message;
@@ -379,7 +380,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         target.CurrentBatch = source.CurrentBatch;
     }
 
-    private static void CopyStageProgress(IngestionStageProgressViewModel target, IngestionStageProgressViewModel source)
+    private static void CopyStageProgress(IngestionStageProgressDto target, IngestionStageProgressDto source)
     {
         target.StageNumber = source.StageNumber;
         target.StageKey = source.StageKey;
@@ -401,7 +402,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
         target.DetailItems = source.DetailItems;
     }
 
-    private static void CopyBatch(IngestionOperationsBatchViewModel target, IngestionOperationsBatchViewModel source)
+    private static void CopyBatch(IngestionOperationsBatchDto target, IngestionOperationsBatchDto source)
     {
         target.BatchId = source.BatchId;
         target.StartedAt = source.StartedAt;

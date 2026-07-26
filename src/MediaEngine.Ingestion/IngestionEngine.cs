@@ -9,9 +9,9 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Events;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
@@ -1794,12 +1794,10 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
             "Asset {AssetId} marked Orphaned (file no longer exists at {Path}).",
             asset.Id, candidate.Path);
 
-        await SafePublishAsync(SignalREvents.MediaRemoved, new
-        {
-            asset_id  = asset.Id,
-            file_path = candidate.Path,
-            status    = "Orphaned",
-        }, ct).ConfigureAwait(false);
+        await SafePublishAsync(
+            SignalREvents.MediaRemoved,
+            new MediaRemovedEvent(asset.Id, candidate.Path, "Orphaned"),
+            ct).ConfigureAwait(false);
     }
 
     private async Task<HashLookupResult> ComputeHashWithCacheAsync(string filePath, CancellationToken ct)

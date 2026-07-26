@@ -1,0 +1,6 @@
+# Stage 6 temporary wire debt, grouped by the Wave 2 packet that owns its removal.
+# Format:
+# Kind|packet|repo-relative source|generic method|normalized type expression|occurrence|resolved non-Contracts owners
+#
+# This fixture is deliberately exact. New entries fail, and fixed/stale entries also fail until
+# they are removed here. The Universe/Chronicle SignalR exception is separately frozen in code.

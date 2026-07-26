@@ -148,13 +148,13 @@
     private readonly HashSet<Guid> _loadingGroups = [];
     private readonly HashSet<string> _loadingItems = [];
     private readonly HashSet<Guid> _loadingDetails = [];
-    private readonly Dictionary<Guid, List<ActivityMediaTypeGroupViewModel>> _groups = [];
-    private readonly Dictionary<string, List<ActivityBatchItemViewModel>> _items = [];
-    private readonly Dictionary<string, PagedResponse<ActivityBatchItemViewModel>> _itemPages = [];
+    private readonly Dictionary<Guid, List<ActivityMediaTypeGroupDto>> _groups = [];
+    private readonly Dictionary<string, List<ActivityBatchItemDto>> _items = [];
+    private readonly Dictionary<string, PagedResponse<ActivityBatchItemDto>> _itemPages = [];
     private readonly Dictionary<string, GroupTableState> _groupStates = [];
-    private readonly Dictionary<Guid, ActivityBatchItemDetailViewModel> _details = [];
-    private PagedResponse<ActivityBatchSummaryViewModel>? _page;
-    private List<ActivityBatchSummaryViewModel> _batches = [];
+    private readonly Dictionary<Guid, ActivityBatchItemDetailDto> _details = [];
+    private PagedResponse<ActivityBatchSummaryDto>? _page;
+    private List<ActivityBatchSummaryDto> _batches = [];
     private Guid? _expandedBatch;
     private string? _expandedGroupKey;
     private Guid? _expandedItem;
@@ -204,7 +204,7 @@
         }
     }
 
-    private async Task ToggleBatchAsync(ActivityBatchSummaryViewModel batch)
+    private async Task ToggleBatchAsync(ActivityBatchSummaryDto batch)
     {
         if (_expandedBatch == batch.BatchId)
         {
@@ -225,7 +225,7 @@
         }
     }
 
-    private async Task ToggleGroupAsync(ActivityMediaTypeGroupViewModel group)
+    private async Task ToggleGroupAsync(ActivityMediaTypeGroupDto group)
     {
         var key = GroupKey(group);
         if (_expandedGroupKey == key)
@@ -240,7 +240,7 @@
         await LoadGroupItemsAsync(group);
     }
 
-    private async Task SortGroupAsync(ActivityMediaTypeGroupViewModel group, string sort)
+    private async Task SortGroupAsync(ActivityMediaTypeGroupDto group, string sort)
     {
         var state = StateFor(group);
         if (string.Equals(state.Sort, sort, StringComparison.OrdinalIgnoreCase))
@@ -256,14 +256,14 @@
         await LoadGroupItemsAsync(group, force: true);
     }
 
-    private async Task PageGroupAsync(ActivityMediaTypeGroupViewModel group, int offset)
+    private async Task PageGroupAsync(ActivityMediaTypeGroupDto group, int offset)
     {
         StateFor(group).Offset = offset;
         ClearExpandedItem();
         await LoadGroupItemsAsync(group, force: true);
     }
 
-    private async Task LoadGroupItemsAsync(ActivityMediaTypeGroupViewModel group, bool force = false)
+    private async Task LoadGroupItemsAsync(ActivityMediaTypeGroupDto group, bool force = false)
     {
         var key = GroupKey(group);
         var state = StateFor(group);
@@ -280,7 +280,7 @@
                 state.Limit,
                 state.Sort,
                 state.SortDirection);
-            _itemPages[key] = page ?? new PagedResponse<ActivityBatchItemViewModel>([], state.Offset, state.Limit, false, 0);
+            _itemPages[key] = page ?? new PagedResponse<ActivityBatchItemDto>([], state.Offset, state.Limit, false, 0);
             _items[key] = _itemPages[key].Items.ToList();
         }
         finally
@@ -289,7 +289,7 @@
         }
     }
 
-    private async Task ToggleItemAsync(ActivityBatchItemViewModel item)
+    private async Task ToggleItemAsync(ActivityBatchItemDto item)
     {
         if (item.AssetId is null)
             return;
@@ -318,19 +318,19 @@
         }
     }
 
-    private ActivityBatchItemDetailViewModel? DetailForItem(ActivityBatchItemViewModel item) =>
+    private ActivityBatchItemDetailDto? DetailForItem(ActivityBatchItemDto item) =>
         item.AssetId is { } assetId && _details.TryGetValue(assetId, out var detail) ? detail : null;
 
-    private bool IsItemExpanded(ActivityBatchItemViewModel item) =>
+    private bool IsItemExpanded(ActivityBatchItemDto item) =>
         item.AssetId is { } assetId && _expandedItem == assetId;
 
-    private bool IsItemLoading(ActivityBatchItemViewModel item) =>
+    private bool IsItemLoading(ActivityBatchItemDto item) =>
         item.AssetId is { } assetId && _loadingDetails.Contains(assetId);
 
-    private IReadOnlyList<ActivityMediaTypeGroupViewModel> GroupsFor(Guid batchId) =>
+    private IReadOnlyList<ActivityMediaTypeGroupDto> GroupsFor(Guid batchId) =>
         _groups.TryGetValue(batchId, out var groups) ? groups : [];
 
-    private IReadOnlyList<ActivityBatchItemViewModel> ItemsFor(ActivityMediaTypeGroupViewModel group) =>
+    private IReadOnlyList<ActivityBatchItemDto> ItemsFor(ActivityMediaTypeGroupDto group) =>
         _items.TryGetValue(GroupKey(group), out var items) ? items : [];
 
     private bool HasMoreFor(string groupKey) =>
@@ -339,7 +339,7 @@
     private int? TotalCountFor(string groupKey) =>
         _itemPages.TryGetValue(groupKey, out var page) ? page.TotalCount : null;
 
-    private GroupTableState StateFor(ActivityMediaTypeGroupViewModel group)
+    private GroupTableState StateFor(ActivityMediaTypeGroupDto group)
     {
         var key = GroupKey(group);
         if (_groupStates.TryGetValue(key, out var state))
@@ -419,7 +419,7 @@
         _loadingDetails.Clear();
     }
 
-    private static string GroupKey(ActivityMediaTypeGroupViewModel group) =>
+    private static string GroupKey(ActivityMediaTypeGroupDto group) =>
         $"{group.BatchId:N}|{group.MediaType}";
 
     private static string ShortId(Guid id) => id.ToString("N")[..6];

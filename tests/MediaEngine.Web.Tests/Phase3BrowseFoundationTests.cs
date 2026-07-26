@@ -1,5 +1,6 @@
 using Bunit;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Search;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.MediaTiles;
@@ -131,7 +132,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
     [InlineData("Audiobook", "/details/audiobook/32000000-0000-0000-0000-000000000001?context=listen")]
     public void SearchResults_RouteToMediaSpecificSurfaces(string mediaType, string expectedRoute)
     {
-        var result = new SearchResultViewModel
+        var result = new SearchResultDto
         {
             WorkId = Guid.Parse("32000000-0000-0000-0000-000000000001"),
             Title = "Known item",

@@ -66,7 +66,7 @@
                                         </code>
                                     </MudTooltip>
                                 </td>
-                                <td>@f.FormattedSize</td>
+                                <td>@FormatSize(f.FileSizeBytes)</td>
                                 <td>@f.LastModified.LocalDateTime.ToString("g")</td>
                             </tr>
                         }
@@ -81,7 +81,7 @@
     [Parameter] public string? Class { get; set; }
     [Parameter] public string DisplayMode { get; set; } = "expandable";
 
-    private List<MediaEngine.Web.Models.ViewDTOs.WatchFolderFileViewModel> _files = [];
+    private List<MediaEngine.Contracts.Ingestion.WatchFolderFileDto> _files = [];
     private bool _expanded;
 
     protected override async Task OnInitializedAsync()
@@ -111,4 +111,12 @@
     private string PanelClass =>
         string.Join(" ", new[] { "pending-files-alert-panel", Class }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private static string FormatSize(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:F1} KB",
+        < 1024L * 1024 * 1024 => $"{bytes / (1024.0 * 1024):F1} MB",
+        _ => $"{bytes / (1024.0 * 1024 * 1024):F2} GB",
+    };
 }

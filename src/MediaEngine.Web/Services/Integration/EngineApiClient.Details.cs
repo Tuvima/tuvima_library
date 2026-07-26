@@ -4,12 +4,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
-using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
@@ -21,11 +21,11 @@ public sealed partial class EngineApiClient
 {
     // -- GET /collections -------------------------------------------------------------
 
-    public async Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default)
+    public async Task<AuthSettingsDto?> GetAuthSettingsAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<AuthSettingsViewModel>("/settings/security/auth", ct);
+            return await _http.GetFromJsonAsync<AuthSettingsDto>("/settings/security/auth", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -39,7 +39,8 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<CollectionRaw>>("/collections", ct);
+            var raw = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.Collections.CollectionDto>>(
+                "/collections", ct);
             return raw?.Select(MapCollection).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
@@ -66,23 +67,11 @@ public sealed partial class EngineApiClient
                 return [];
             }
 
-            var payload = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct).ConfigureAwait(false);
+            var payload = await response.Content.ReadFromJsonAsync<
+                PagedResponse<MediaEngine.Contracts.Collections.LibraryWorkListItemDto>>(
+                cancellationToken: ct).ConfigureAwait(false);
             ClearFailure(endpoint);
-            List<LibraryWorkRaw>? raw;
-            if (payload.ValueKind == JsonValueKind.Array)
-            {
-                raw = payload.Deserialize<List<LibraryWorkRaw>>();
-            }
-            else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
-            {
-                raw = items.Deserialize<List<LibraryWorkRaw>>();
-            }
-            else
-            {
-                raw = [];
-            }
-
-            return raw?.Select(MapLibraryWork).ToList() ?? [];
+            return payload?.Items.Select(MapLibraryWork).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -458,7 +447,8 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ParentCollectionRaw>>("/collections/parents", ct);
+            var raw = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.Collections.ParentCollectionDto>>(
+                "/collections/parents", ct);
             return raw?.Select(MapParentCollection).ToList() ?? [];
         }
         catch (Exception ex)
@@ -476,9 +466,17 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<CollectionRaw>>(
+            var raw = await _http.GetFromJsonAsync<List<CollectionChildSummary>>(
                 $"/collections/{parentCollectionId}/children", ct);
-            return raw?.Select(MapCollection).ToList() ?? [];
+            return raw?.Select(child => CollectionViewModel.FromApiDto(
+                child.id,
+                null,
+                child.createdAt,
+                [],
+                child.displayName,
+                child.parentCollectionId,
+                null,
+                0)).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -498,8 +496,18 @@ public sealed partial class EngineApiClient
             var resp = await _http.GetAsync($"/collections/{collectionId}/parent", ct);
             if (resp.StatusCode == HttpStatusCode.NotFound) return null;
             resp.EnsureSuccessStatusCode();
-            var raw = await resp.Content.ReadFromJsonAsync<ParentCollectionResponseRaw>(cancellationToken: ct);
-            return raw?.ParentCollection is { } collection ? MapCollection(collection) : null;
+            var raw = await resp.Content.ReadFromJsonAsync<CollectionParentResponse>(cancellationToken: ct);
+            return raw?.parentCollection is { } parent
+                ? CollectionViewModel.FromApiDto(
+                    parent.id,
+                    null,
+                    parent.createdAt,
+                    [],
+                    parent.displayName,
+                    null,
+                    null,
+                    0)
+                : null;
         }
         catch (Exception ex)
         {

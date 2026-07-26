@@ -1,9 +1,8 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using MediaEngine.Api.Http;
-using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Activity;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -434,57 +433,4 @@ public static class ActivityEndpoints
             ? qid
             : null;
     }
-}
-
-// ── Response DTOs ────────────────────────────────────────────────────────────
-
-public sealed class ActivityEntryResponse
-{
-    [JsonPropertyName("id")]
-    public long Id { get; init; }
-
-    [JsonPropertyName("occurred_at")]
-    public string OccurredAt { get; init; } = string.Empty;
-
-    [JsonPropertyName("action_type")]
-    public string ActionType { get; init; } = string.Empty;
-
-    [JsonPropertyName("collection_name")]
-    public string? CollectionName { get; init; }
-
-    [JsonPropertyName("entity_id")]
-    public string? EntityId { get; init; }
-
-    [JsonPropertyName("entity_type")]
-    public string? EntityType { get; init; }
-
-    [JsonPropertyName("profile_id")]
-    public string? ProfileId { get; init; }
-
-    [JsonPropertyName("changes_json")]
-    public string? ChangesJson { get; init; }
-
-    [JsonPropertyName("detail")]
-    public string? Detail { get; init; }
-
-    [JsonPropertyName("ingestion_run_id")]
-    public string? IngestionRunId { get; init; }
-}
-
-public sealed class PruneResponse
-{
-    [JsonPropertyName("deleted")]
-    public int Deleted { get; init; }
-
-    [JsonPropertyName("retention_days")]
-    public int RetentionDays { get; init; }
-}
-
-public sealed class ActivityStatsResponse
-{
-    [JsonPropertyName("total_entries")]
-    public long TotalEntries { get; init; }
-
-    [JsonPropertyName("retention_days")]
-    public int RetentionDays { get; init; }
 }

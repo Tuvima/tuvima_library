@@ -3,6 +3,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -12,10 +13,10 @@ namespace MediaEngine.Web.Services.Integration;
 public partial interface IEngineApiClient
 {
     /// <summary>POST /ingestion/scan — dry-run scan of a directory path.</summary>
-    Task<ScanResultViewModel?> TriggerScanAsync(string? rootPath = null, CancellationToken ct = default);
+    Task<ScanResponse?> TriggerScanAsync(string? rootPath = null, CancellationToken ct = default);
 
     /// <summary>POST /ingestion/reconcile — scan all assets and clean orphans.</summary>
-    Task<ReconciliationResultDto?> TriggerReconciliationAsync(CancellationToken ct = default);
+    Task<ReconciliationResultResponse?> TriggerReconciliationAsync(CancellationToken ct = default);
 
     // ── Hydration (/metadata/hydrate) ──────────────────────────────────────────
 
@@ -24,15 +25,15 @@ public partial interface IEngineApiClient
         Guid entityId, CancellationToken ct = default);
 
     /// <summary>GET /metadata/pass2/status — pending count and enabled state for the Pass 2 deferred enrichment queue.</summary>
-    Task<Pass2StatusDto?> GetPass2StatusAsync(CancellationToken ct = default);
+    Task<DeferredEnrichmentStatusResponse?> GetPass2StatusAsync(CancellationToken ct = default);
 
     /// <summary>POST /metadata/pass2/trigger — trigger immediate Pass 2 (Universe Lookup) processing.</summary>
-    Task<Pass2TriggerResultDto?> TriggerPass2NowAsync(CancellationToken ct = default);
+    Task<DeferredEnrichmentTriggerResponse?> TriggerPass2NowAsync(CancellationToken ct = default);
 
     // ── Retag Sweep (auto re-tag) ─────────────────────────────────────────────
 
     /// <summary>GET /maintenance/retag-sweep/state — returns the pending diff + current hashes.</summary>
-    Task<RetagSweepStateDto?> GetRetagSweepStateAsync(CancellationToken ct = default);
+    Task<RetagSweepStateResponse?> GetRetagSweepStateAsync(CancellationToken ct = default);
 
     /// <summary>POST /maintenance/retag-sweep/apply — commits the staged pending diff.</summary>
     Task<bool> ApplyRetagSweepPendingAsync(CancellationToken ct = default);
@@ -58,7 +59,7 @@ public partial interface IEngineApiClient
     // ── Watch Folder (/ingestion/watch-folder) ─────────────────────────────────
 
     /// <summary>GET /ingestion/watch-folder — list files currently in the Watch Folder.</summary>
-    Task<List<WatchFolderFileViewModel>> GetWatchFolderAsync(CancellationToken ct = default);
+    Task<List<WatchFolderFileDto>> GetWatchFolderAsync(CancellationToken ct = default);
 
     /// <summary>POST /ingestion/rescan — trigger re-processing of Watch Folder files.</summary>
     Task<bool> TriggerRescanAsync(string? rootPath = null, bool? includeSubdirectories = null, CancellationToken ct = default);
@@ -114,18 +115,18 @@ public partial interface IEngineApiClient
         Guid? batchId = null, CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches — recent ingestion batches.</summary>
-    Task<IReadOnlyList<IngestionBatchViewModel>> GetIngestionBatchesAsync(
+    Task<IReadOnlyList<IngestionBatchResponse>> GetIngestionBatchesAsync(
         int limit = 20, CancellationToken ct = default);
 
     /// <summary>GET /ingestion/operations — Ingestion dashboard snapshot.</summary>
-    Task<IngestionOperationsSnapshotViewModel?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default);
+    Task<IngestionOperationsSnapshotDto?> GetIngestionOperationsSnapshotAsync(CancellationToken ct = default);
 
     /// <summary>GET /operations — durable media operations by queue order.</summary>
-    Task<IReadOnlyList<MediaOperationViewModel>> GetMediaOperationsAsync(
+    Task<IReadOnlyList<OperationDto>> GetMediaOperationsAsync(
         string? queueName = null, int limit = 100, CancellationToken ct = default);
 
     /// <summary>GET /operations/{id} — one durable operation and its timeline.</summary>
-    Task<MediaOperationDetailViewModel?> GetMediaOperationAsync(Guid id, CancellationToken ct = default);
+    Task<OperationDetailDto?> GetMediaOperationAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>GET /operations/summary — durable operation counts by status.</summary>
     Task<Dictionary<string, int>> GetMediaOperationsSummaryAsync(CancellationToken ct = default);
@@ -137,18 +138,18 @@ public partial interface IEngineApiClient
     Task<bool> CancelMediaOperationAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches/{id} — single batch detail.</summary>
-    Task<IngestionBatchViewModel?> GetIngestionBatchByIdAsync(
+    Task<IngestionBatchResponse?> GetIngestionBatchByIdAsync(
         Guid id, CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches/{id}/items — item-level batch progress.</summary>
-    Task<PagedResponse<IngestionBatchItemViewModel>?> GetIngestionBatchItemsAsync(
+    Task<PagedResponse<IngestionBatchItemResponse>?> GetIngestionBatchItemsAsync(
         Guid id, int offset = 0, int limit = 100, CancellationToken ct = default);
 
     /// <summary>GET /ingestion/batches/attention-count — items needing attention.</summary>
     Task<int> GetBatchAttentionCountAsync(CancellationToken ct = default);
 
     /// <summary>GET /assets/{id}/capabilities — explicit capability readiness for an asset.</summary>
-    Task<IReadOnlyList<EntityCapabilityStateViewModel>> GetAssetCapabilitiesAsync(
+    Task<IReadOnlyList<CapabilityStateDto>> GetAssetCapabilitiesAsync(
         Guid id, CancellationToken ct = default);
 
     /// <summary>GET /capabilities/summary — capability counts by capability/status.</summary>

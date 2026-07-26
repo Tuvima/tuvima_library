@@ -1,5 +1,5 @@
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Search;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 

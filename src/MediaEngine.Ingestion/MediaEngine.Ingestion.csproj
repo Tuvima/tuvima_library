@@ -12,6 +12,7 @@
       System.Threading.Channels is part of the net10.0 BCL; no NuGet needed.
     -->
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
     <ProjectReference Include="..\MediaEngine.Intelligence\MediaEngine.Intelligence.csproj" />
     <ProjectReference Include="..\MediaEngine.Processors\MediaEngine.Processors.csproj" />
     <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />

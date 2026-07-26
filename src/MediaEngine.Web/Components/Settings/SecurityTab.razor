@@ -169,7 +169,7 @@
     private bool _localhostBypass    = true;
     private bool _requireHttpsRemote = false;
     private bool _authLoading = true;
-    private AuthSettingsViewModel? _authSettings;
+    private AuthSettingsDto? _authSettings;
 
     private string _authMode => _authSettings?.Mode ?? "DisabledLocalOnly";
 

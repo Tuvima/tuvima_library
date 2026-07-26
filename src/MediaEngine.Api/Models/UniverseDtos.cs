@@ -13,15 +13,6 @@ public sealed class UniverseCandidateDto
     [JsonPropertyName("candidate_label")] public string CandidateLabel { get; init; } = "";
 }
 
-public sealed class UnlinkedWorkDto
-{
-    [JsonPropertyName("work_id")] public Guid WorkId { get; init; }
-    [JsonPropertyName("entity_id")] public Guid EntityId { get; init; }
-    [JsonPropertyName("title")] public string Title { get; init; } = "";
-    [JsonPropertyName("media_type")] public string MediaType { get; init; } = "";
-    [JsonPropertyName("wikidata_qid")] public string WikidataQid { get; init; } = "";
-}
-
 public sealed class UniverseAcceptRequest
 {
     [JsonPropertyName("target_collection_qid")] public required string TargetCollectionQid { get; init; }

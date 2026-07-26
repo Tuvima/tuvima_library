@@ -85,8 +85,8 @@ public partial class SharedMediaEditorShell
     [Parameter] public EventCallback<bool> Closed { get; set; }
 
     private LibraryItemDetailViewModel? _detail;
-    private List<CanonicalFieldViewModel> _canonicalValues = [];
-    private List<ClaimHistoryDto> _claims = [];
+    private List<CanonicalFieldDto> _canonicalValues = [];
+    private List<ClaimDto> _claims = [];
     private List<LibraryItemHistoryDto> _history = [];
     private ArtworkEditorDto? _artwork;
     private MediaEditorContextDto? _editorContext;
@@ -105,7 +105,7 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, string> _artworkUploadErrors = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ArtworkEditorDto> _artworkStates = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, ScopeEditorState> _scopeStates = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<Guid, ItemEditorPreferencesDto> _profilePreferencesByWork = [];
+    private readonly Dictionary<Guid, MediaEngine.Contracts.Items.ItemEditorPreferencesResponse> _profilePreferencesByWork = [];
     private readonly Dictionary<string, AudiobookChapterEdit> _audiobookChapterEdits = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _audiobookChapterResetKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _audiobookChapterOverrideKeys = new(StringComparer.OrdinalIgnoreCase);
@@ -308,8 +308,8 @@ public partial class SharedMediaEditorShell
     private sealed class ScopeEditorState
     {
         public LibraryItemDetailViewModel? Detail { get; init; }
-        public List<CanonicalFieldViewModel> CanonicalValues { get; init; } = [];
-        public List<ClaimHistoryDto> Claims { get; init; } = [];
+        public List<CanonicalFieldDto> CanonicalValues { get; init; } = [];
+        public List<ClaimDto> Claims { get; init; } = [];
         public List<LibraryItemHistoryDto> History { get; init; } = [];
         public ArtworkEditorDto Artwork { get; init; } = new();
     }
@@ -1266,7 +1266,7 @@ public partial class SharedMediaEditorShell
         var result = await ApiClient.SaveItemEditorPreferencesAsync(
             entityId,
             profileId,
-            new ItemEditorPreferencesRequestDto
+            new MediaEngine.Contracts.Items.ItemEditorPreferencesRequest
             {
                 ExpectedRevision = baseline.Revision,
                 DisplayOverrides = displayOverrides,
@@ -2119,7 +2119,7 @@ public partial class SharedMediaEditorShell
         QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
         ?? CultureInfo.CurrentCulture.TextInfo.ToTitleCase(targetGroup.Replace('_', ' '));
 
-    protected string BuildRetailCandidateSubtitle(RetailCandidateDto candidate)
+    protected string BuildRetailCandidateSubtitle(ItemCanonicalRetailCandidateDto candidate)
     {
         var parts = new List<string>();
 
@@ -2137,7 +2137,7 @@ public partial class SharedMediaEditorShell
         return parts.Count > 0 ? string.Join(" | ", parts) : "Provider candidate";
     }
 
-    protected string BuildWikidataCandidateSubtitle(UniverseCandidateDto candidate)
+    protected string BuildWikidataCandidateSubtitle(ItemCanonicalLinkedCandidateDto candidate)
     {
         var parts = new List<string>();
 
@@ -2337,7 +2337,7 @@ public partial class SharedMediaEditorShell
         return providerItemId;
     }
 
-    protected IReadOnlyList<string> BuildCandidateChips(RetailCandidateDto candidate)
+    protected IReadOnlyList<string> BuildCandidateChips(ItemCanonicalRetailCandidateDto candidate)
     {
         var chips = new List<string>();
         AddCandidateChips(chips, candidate.BridgeIds);
@@ -2345,7 +2345,7 @@ public partial class SharedMediaEditorShell
         return chips;
     }
 
-    protected IReadOnlyList<string> BuildCandidateChips(UniverseCandidateDto candidate)
+    protected IReadOnlyList<string> BuildCandidateChips(ItemCanonicalLinkedCandidateDto candidate)
     {
         var chips = new List<string>();
         AddCandidateChips(chips, candidate.BridgeIds);
@@ -2353,7 +2353,7 @@ public partial class SharedMediaEditorShell
         return chips;
     }
 
-    protected static double GetRetailCandidateScore(RetailCandidateDto candidate) =>
+    protected static double GetRetailCandidateScore(ItemCanonicalRetailCandidateDto candidate) =>
         candidate.CompositeScore > 0 ? candidate.CompositeScore : candidate.Confidence;
 
     protected static string FormatCandidateScore(double score) =>
@@ -2398,8 +2398,8 @@ public partial class SharedMediaEditorShell
             qidFields: []);
     }
 
-    protected void SelectCandidate(RetailCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
-    protected void SelectCandidate(UniverseCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
+    protected void SelectCandidate(ItemCanonicalRetailCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
+    protected void SelectCandidate(ItemCanonicalLinkedCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
 
     protected bool IsCandidateSelected(string candidateId) =>
         string.Equals(_selectedCandidateId, candidateId, StringComparison.Ordinal);
@@ -2423,7 +2423,7 @@ public partial class SharedMediaEditorShell
             selected.Remove(key);
     }
 
-    protected async Task ApplyRetailCandidateAsync(RetailCandidateDto candidate)
+    protected async Task ApplyRetailCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
         if (!candidate.IsApplicable || _matchActionPending)
             return;
@@ -2457,7 +2457,7 @@ public partial class SharedMediaEditorShell
         await FinishMatchActionAsync(response, "Retail match applied; Wikidata alignment queued.");
     }
 
-    protected async Task ApplyLinkedCandidateAsync(UniverseCandidateDto candidate)
+    protected async Task ApplyLinkedCandidateAsync(ItemCanonicalLinkedCandidateDto candidate)
     {
         if (!candidate.IsApplicable || _matchActionPending)
             return;
@@ -2631,10 +2631,10 @@ public partial class SharedMediaEditorShell
             ? selected.OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList()
             : [];
 
-    private string GetCandidateId(RetailCandidateDto candidate) =>
+    private string GetCandidateId(ItemCanonicalRetailCandidateDto candidate) =>
         $"retail:{candidate.CandidateId}:{candidate.ProviderName}:{candidate.ProviderItemId}";
 
-    private string GetCandidateId(UniverseCandidateDto candidate) =>
+    private string GetCandidateId(ItemCanonicalLinkedCandidateDto candidate) =>
         $"linked:{candidate.CandidateId}:{candidate.Qid}";
 
     private string BuildHeaderSubtitle()

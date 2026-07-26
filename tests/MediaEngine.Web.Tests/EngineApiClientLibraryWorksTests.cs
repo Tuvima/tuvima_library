@@ -204,29 +204,36 @@ public sealed class EngineApiClientLibraryWorksTests
     public async Task GetLibraryWorksAsync_MapsReturnedItemsForHomePage()
     {
         const string json = """
-            [
-              {
-                "id": "11111111-1111-1111-1111-111111111111",
-                "collectionId": "99999999-9999-9999-9999-999999999999",
-                "rootWorkId": "33333333-3333-3333-3333-333333333333",
-                "mediaType": "Books",
-                "workKind": "leaf",
-                "ordinal": 1,
-                "wikidataQid": "Q123",
-                "assetId": "22222222-2222-2222-2222-222222222222",
-                "createdAt": "2026-04-17T12:00:00Z",
-                "coverUrl": "/stream/22222222-2222-2222-2222-222222222222/cover",
-                "backgroundUrl": "/stream/22222222-2222-2222-2222-222222222222/background",
-                "bannerUrl": "/stream/22222222-2222-2222-2222-222222222222/banner",
-                "logoUrl": "/stream/22222222-2222-2222-2222-222222222222/logo",
-                "canonicalValues": {
-                  "title": "Dune",
-                  "author": "Frank Herbert",
-                  "square_url": "/stream/artwork/44444444-4444-4444-4444-444444444444",
-                  "cover_url_s": "/stream/artwork/22222222-2222-2222-2222-222222222222?size=s"
+            {
+              "items": [
+                {
+                  "id": "11111111-1111-1111-1111-111111111111",
+                  "collectionId": "99999999-9999-9999-9999-999999999999",
+                  "rootWorkId": "33333333-3333-3333-3333-333333333333",
+                  "mediaType": "Books",
+                  "workKind": "leaf",
+                  "ordinal": 1,
+                  "wikidataQid": "Q123",
+                  "assetId": "22222222-2222-2222-2222-222222222222",
+                  "createdAt": "2026-04-17T12:00:00Z",
+                  "coverUrl": "/stream/22222222-2222-2222-2222-222222222222/cover",
+                  "backgroundUrl": "/stream/22222222-2222-2222-2222-222222222222/background",
+                  "bannerUrl": "/stream/22222222-2222-2222-2222-222222222222/banner",
+                  "logoUrl": "/stream/22222222-2222-2222-2222-222222222222/logo",
+                  "canonicalValues": {
+                    "title": "Dune",
+                    "author": "Frank Herbert",
+                    "square_url": "/stream/artwork/44444444-4444-4444-4444-444444444444",
+                    "cover_url_s": "/stream/artwork/22222222-2222-2222-2222-222222222222?size=s"
+                  }
                 }
-              }
-            ]
+              ],
+              "offset": 0,
+              "limit": 500,
+              "has_more": false,
+              "total_count": 1,
+              "next_cursor": null
+            }
             """;
 
         using var httpClient = CreateHttpClient(_ =>
@@ -281,19 +288,26 @@ public sealed class EngineApiClientLibraryWorksTests
     public async Task GetLibraryWorksAsync_NormalizesRootRelativeAndRootlessArtworkUrls()
     {
         const string json = """
-            [
-              {
-                "id": "11111111-1111-1111-1111-111111111111",
-                "mediaType": "Books",
-                "assetId": "22222222-2222-2222-2222-222222222222",
-                "coverUrl": "stream/22222222-2222-2222-2222-222222222222/cover",
-                "canonicalValues": {
-                  "title": "Dune",
-                  "square_url": "stream/artwork/22222222-2222-2222-2222-222222222222",
-                  "background_url_m": "stream/artwork/33333333-3333-3333-3333-333333333333?size=m"
+            {
+              "items": [
+                {
+                  "id": "11111111-1111-1111-1111-111111111111",
+                  "mediaType": "Books",
+                  "assetId": "22222222-2222-2222-2222-222222222222",
+                  "coverUrl": "stream/22222222-2222-2222-2222-222222222222/cover",
+                  "canonicalValues": {
+                    "title": "Dune",
+                    "square_url": "stream/artwork/22222222-2222-2222-2222-222222222222",
+                    "background_url_m": "stream/artwork/33333333-3333-3333-3333-333333333333?size=m"
+                  }
                 }
-              }
-            ]
+              ],
+              "offset": 0,
+              "limit": 500,
+              "has_more": false,
+              "total_count": 1,
+              "next_cursor": null
+            }
             """;
 
         using var httpClient = CreateHttpClient(_ =>

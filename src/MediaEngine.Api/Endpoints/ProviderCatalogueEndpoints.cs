@@ -1,5 +1,5 @@
 using MediaEngine.Api.Security;
-using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -38,7 +38,7 @@ public static class ProviderCatalogueEndpoints
         })
         .WithName("GetProviderCatalogue")
         .WithSummary("Returns consolidated UI metadata for all configured providers.")
-        .Produces<IReadOnlyList<ProviderCatalogueEntry>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<ProviderCatalogueDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;
@@ -46,7 +46,7 @@ public static class ProviderCatalogueEndpoints
 
     // ── Private helpers ──────────────────────────────────────────────────────────
 
-    private static ProviderCatalogueEntry MapToEntry(MediaEngine.Storage.Models.ProviderConfiguration p)
+    private static ProviderCatalogueDto MapToEntry(MediaEngine.Storage.Models.ProviderConfiguration p)
     {
         var ui = p.UiMetadata;
 
@@ -57,7 +57,7 @@ public static class ProviderCatalogueEndpoints
         // Fall back to display_name → formatted name string
         var displayName = p.DisplayName ?? FormatProviderName(p.Name);
 
-        return new ProviderCatalogueEntry
+        return new ProviderCatalogueDto
         {
             ProviderId          = p.ProviderId!,
             Name                = p.Name,
@@ -79,15 +79,15 @@ public static class ProviderCatalogueEndpoints
         };
     }
 
-    private static IReadOnlyDictionary<string, IReadOnlyList<string>> BuildChips(
+    private static Dictionary<string, List<string>> BuildChips(
         Dictionary<string, List<string>>? source)
     {
         if (source is null or { Count: 0 })
-            return new Dictionary<string, IReadOnlyList<string>>();
+            return [];
 
         return source.ToDictionary(
             kv => kv.Key,
-            kv => (IReadOnlyList<string>)kv.Value.AsReadOnly());
+            kv => kv.Value);
     }
 
     private static string ResolveAuthType(MediaEngine.Storage.Models.ProviderConfiguration p)

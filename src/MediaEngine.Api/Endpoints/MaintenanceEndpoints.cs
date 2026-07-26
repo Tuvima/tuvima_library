@@ -24,14 +24,14 @@ public static class MaintenanceEndpoints
         app.MapGet("/maintenance/retag-sweep/state", (WritebackConfigState hashState) =>
         {
             return Results.Ok(new RetagSweepStateResponse(
-                has_pending_diff: hashState.HasPendingDiff,
-                pending_diff: hashState.PendingDiff
+                HasPendingDiff: hashState.HasPendingDiff,
+                PendingDiff: hashState.PendingDiff
                     .Select(d => new RetagSweepPendingDiffEntry(
-                        media_type: d.MediaType,
-                        added_fields: d.AddedFields,
-                        removed_fields: d.RemovedFields))
+                        MediaType: d.MediaType,
+                        AddedFields: d.AddedFields,
+                        RemovedFields: d.RemovedFields))
                     .ToArray(),
-                current_hashes: hashState.CurrentHashes));
+                CurrentHashes: hashState.CurrentHashes));
         })
         .WithTags("Maintenance")
         .WithName("GetRetagSweepState")
@@ -44,7 +44,7 @@ public static class MaintenanceEndpoints
         app.MapPost("/maintenance/retag-sweep/apply", (WritebackConfigState hashState) =>
         {
             hashState.ApplyPending();
-            return Results.Ok(new RetagSweepAppliedResponse(applied: true));
+            return Results.Ok(new RetagSweepAppliedResponse(Applied: true));
         })
         .WithTags("Maintenance")
         .WithName("ApplyRetagSweepPending")
@@ -59,7 +59,7 @@ public static class MaintenanceEndpoints
         app.MapPost("/maintenance/retag-sweep/run-now", (WritebackConfigState hashState) =>
         {
             hashState.SignalRunNow();
-            return Results.Ok(new RetagSweepTriggeredResponse(triggered: true));
+            return Results.Ok(new RetagSweepTriggeredResponse(Triggered: true));
         })
         .WithTags("Maintenance")
         .WithName("RunRetagSweepNow")
@@ -89,7 +89,7 @@ public static class MaintenanceEndpoints
                 await reviewRepo.UpdateStatusAsync(entry.Id, ReviewStatus.Resolved, "manual retry", ct);
             }
 
-            return Results.Ok(new RetagSweepRetryResponse(requeued: true));
+            return Results.Ok(new RetagSweepRetryResponse(Requeued: true));
         })
         .WithTags("Maintenance")
         .WithName("RetryRetagForAsset")
@@ -131,12 +131,21 @@ public static class MaintenanceEndpoints
                 ImageCacheRetentionDays: imageCacheRetentionDays,
                 ClaimCompactionBatchSize: claimCompactionBatchSize), ct);
 
-            return Results.Ok(result);
+            return Results.Ok(new StorageMaintenanceResultDto(
+                result.StartedAt,
+                result.CompletedAt,
+                result.DryRun,
+                result.Steps
+                    .Select(step => new StorageMaintenanceStepResultDto(
+                        step.Name,
+                        step.AffectedRows,
+                        step.Detail))
+                    .ToArray()));
         })
         .WithTags("Maintenance")
         .WithName("RunStorageMaintenance")
         .WithSummary("Runs storage/cache maintenance immediately. Supports ?dryRun=true for counts only.")
-        .Produces<StorageMaintenanceResult>(StatusCodes.Status200OK)
+        .Produces<StorageMaintenanceResultDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return app;

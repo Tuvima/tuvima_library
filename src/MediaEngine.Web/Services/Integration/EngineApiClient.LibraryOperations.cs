@@ -125,11 +125,11 @@ public sealed partial class EngineApiClient
         $"?mediaType={Uri.EscapeDataString(mediaType)}" +
         $"&containerKey={Uri.EscapeDataString(containerKey)}";
 
-    public async Task<LibraryOverviewViewModel?> GetLibraryOverviewAsync(CancellationToken ct = default)
+    public async Task<LibraryOverviewDto?> GetLibraryOverviewAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<LibraryOverviewViewModel>("library/overview", ct);
+            return await _http.GetFromJsonAsync<LibraryOverviewDto>("library/overview", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -140,7 +140,7 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<LibraryBatchEditResultViewModel?> BatchEditAsync(
+    public async Task<LibraryBatchEditResult?> BatchEditAsync(
         List<Guid> entityIds,
         Dictionary<string, string> fieldChanges,
         CancellationToken ct = default)
@@ -154,7 +154,7 @@ public sealed partial class EngineApiClient
             };
             var response = await _http.PostAsJsonAsync("library/batch-edit", body, ct);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<LibraryBatchEditResultViewModel>(ct);
+            return await response.Content.ReadFromJsonAsync<LibraryBatchEditResult>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -240,7 +240,8 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<UnlinkedWorkViewModel>>("library/universe-unlinked", ct) ?? [];
+            var response = await _http.GetFromJsonAsync<List<UnlinkedWorkDto>>("library/universe-unlinked", ct);
+            return response?.Select(UnlinkedWorkViewModel.FromContract).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)

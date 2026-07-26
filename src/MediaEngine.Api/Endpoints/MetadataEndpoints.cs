@@ -4,17 +4,22 @@ using System.Globalization;
 using System.Text.Json.Serialization;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Metadata;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Api.Services.ReadServices;
-using MediaEngine.Contracts.Metadata;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using ArtworkEditorEnvelope = MediaEngine.Contracts.Metadata.ArtworkEditorDto;
+using ArtworkSlotEnvelope = MediaEngine.Contracts.Metadata.ArtworkSlotDto;
+using ArtworkVariantEnvelope = MediaEngine.Contracts.Metadata.ArtworkVariantDto;
+using ProviderArtworkRefreshEnvelope = MediaEngine.Contracts.Metadata.ProviderArtworkRefreshDto;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
@@ -22,6 +27,17 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using ArtworkResolutionContext = MediaEngine.Api.Services.MetadataArtworkResolutionContext;
 using EditorLaunchContext = MediaEngine.Api.Services.MetadataEditorLaunchContext;
+using ClaimDto = MediaEngine.Contracts.Metadata.ClaimDto;
+using ConflictDto = MediaEngine.Contracts.Metadata.ConflictDto;
+using HydrateResponse = MediaEngine.Contracts.Metadata.HydrateResponse;
+using LabelResolveEntry = MediaEngine.Contracts.Metadata.LabelResolveEntry;
+using LabelResolveRequest = MediaEngine.Contracts.Metadata.LabelResolveRequest;
+using LockClaimRequest = MediaEngine.Contracts.Metadata.LockClaimRequest;
+using LockClaimResponse = MediaEngine.Contracts.Metadata.LockClaimResponse;
+using MetadataOverrideRequest = MediaEngine.Contracts.Metadata.MetadataOverrideRequest;
+using MetadataOverrideResponse = MediaEngine.Contracts.Metadata.MetadataOverrideResponse;
+using ReclassifyRequest = MediaEngine.Contracts.Metadata.ReclassifyRequest;
+using ReclassifyResponse = MediaEngine.Contracts.Metadata.ReclassifyResponse;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -67,7 +83,13 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             var conflicted = await canonicalRepo.GetConflictedAsync(ct);
-            var dtos = conflicted.Select(ConflictDto.FromDomain).ToList();
+            var dtos = conflicted.Select(value => new ConflictDto
+            {
+                EntityId = value.EntityId,
+                Key = value.Key,
+                Value = value.Value,
+                LastScoredAt = value.LastScoredAt,
+            }).ToList();
             return Results.Ok(dtos);
         })
         .WithName("GetConflicts")
@@ -128,12 +150,12 @@ public static partial class MetadataEndpoints
             journal.Log("CLAIM_USER_LOCKED", "MetadataClaim", request.EntityId);
 
             // 4. Broadcast so the Dashboard refreshes.
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id     = request.EntityId,
-                provider_name = "user_manual",
-                updated_fields = new[] { request.ClaimKey },
-            });
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new ManualMetadataHarvestedEvent(
+                    request.EntityId,
+                    "user_manual",
+                    [request.ClaimKey]));
 
             return Results.Ok(new LockClaimResponse
             {
@@ -264,7 +286,7 @@ public static partial class MetadataEndpoints
             {
                 ProviderName = request.ProviderName,
                 Query        = request.Query,
-                Results = results.Select(r => new SearchResultResponse
+                Results = results.Select(r => new MetadataSearchResultDto
                 {
                     Title          = r.Title,
                     Author         = r.Author,
@@ -362,12 +384,13 @@ public static partial class MetadataEndpoints
             }, ct);
 
             // 4. Broadcast so the Dashboard refreshes.
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id      = entityId,
-                provider_name  = "user_manual",
-                updated_fields = updatedKeys.ToArray(),
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new ManualMetadataHarvestedEvent(
+                    entityId,
+                    "user_manual",
+                    updatedKeys.ToArray()),
+                ct);
 
             // 5. Write-back: write manual overrides to the physical file.
             try
@@ -493,19 +516,19 @@ public static partial class MetadataEndpoints
             }, ct);
 
             // 6. Broadcast events.
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id  = requestedEntityId,
-                media_type = newMediaType.ToString(),
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new ReclassifiedMetadataHarvestedEvent(
+                    requestedEntityId,
+                    newMediaType.ToString()),
+                ct);
 
             if (reviewResolved)
             {
-                await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
-                {
-                    entity_id = requestedEntityId,
-                    status    = "Resolved",
-                }, ct);
+                await publisher.PublishAsync(
+                    SignalREvents.ReviewItemResolved,
+                    new EntityReviewResolvedEvent(requestedEntityId, "Resolved"),
+                    ct);
             }
 
             return Results.Ok(new ReclassifyResponse
@@ -534,45 +557,49 @@ public static partial class MetadataEndpoints
             if (context is null)
                 return ApiErrors.NotFound($"Editor context for {entityId} not found.");
 
-            return Results.Ok(new MediaEditorContextEnvelope(
-                context.LaunchEntityId,
-                context.LaunchEntityKind,
-                context.MediaType,
-                context.EditorMode,
-                context.AvailableTabs,
-                context.ContentTabLabel,
-                context.SupportsFileTab,
-                context.FileMetadataSyncStatus,
-                context.CurrentTargetSummary,
-                context.IdentitySummary,
-                context.FieldLockMap,
-                context.DisplayOverrideKeys,
-                context.DisplayOverrides,
-                context.InitialScope,
-                context.Scopes.Select(scope => new MediaEditorScopeEnvelope(
-                    scope.ScopeId,
-                    scope.Label,
-                    scope.Order,
-                    scope.FieldEntityId,
-                    scope.FieldEntityKind,
-                    scope.ArtworkOwnerEntityId,
-                    scope.ArtworkOwnerEntityKind,
-                    scope.DisplayTitle,
-                    scope.DisplaySubtitle,
-                    scope.BreadcrumbLabel,
-                    scope.CanonicalTargetGroup,
-                    context.ScopeIdentitySummaries.TryGetValue(scope.FieldEntityId, out var scopeIdentity)
-                        ? scopeIdentity
-                        : context.IdentitySummary,
-                    scope.ScopeSummary,
-                    scope.ReadOnlyHint,
-                    scope.CanEditFields,
-                    scope.CanEditArtwork))
-                    .ToList()));
+            return Results.Ok(new MediaEditorContextDto
+            {
+                LaunchEntityId = context.LaunchEntityId,
+                LaunchEntityKind = context.LaunchEntityKind,
+                MediaType = context.MediaType,
+                EditorMode = context.EditorMode,
+                AvailableTabs = context.AvailableTabs.ToList(),
+                ContentTabLabel = context.ContentTabLabel,
+                SupportsFileTab = context.SupportsFileTab,
+                FileMetadataSyncStatus = context.FileMetadataSyncStatus,
+                CurrentTargetSummary = ToContract(context.CurrentTargetSummary),
+                IdentitySummary = ToContract(context.IdentitySummary),
+                FieldLockMap = new Dictionary<string, bool>(context.FieldLockMap, StringComparer.OrdinalIgnoreCase),
+                DisplayOverrideKeys = context.DisplayOverrideKeys.ToList(),
+                DisplayOverrides = new Dictionary<string, string>(context.DisplayOverrides, StringComparer.OrdinalIgnoreCase),
+                InitialScope = context.InitialScope,
+                Scopes = context.Scopes.Select(scope => new MediaEditorScopeDto
+                {
+                    ScopeId = scope.ScopeId,
+                    Label = scope.Label,
+                    Order = scope.Order,
+                    FieldEntityId = scope.FieldEntityId,
+                    FieldEntityKind = scope.FieldEntityKind,
+                    ArtworkOwnerEntityId = scope.ArtworkOwnerEntityId,
+                    ArtworkOwnerEntityKind = scope.ArtworkOwnerEntityKind,
+                    DisplayTitle = scope.DisplayTitle,
+                    DisplaySubtitle = scope.DisplaySubtitle,
+                    BreadcrumbLabel = scope.BreadcrumbLabel,
+                    CanonicalTargetGroup = scope.CanonicalTargetGroup,
+                    IdentitySummary = ToContract(
+                        context.ScopeIdentitySummaries.TryGetValue(scope.FieldEntityId, out var scopeIdentity)
+                            ? scopeIdentity
+                            : context.IdentitySummary),
+                    ScopeSummary = scope.ScopeSummary,
+                    ReadOnlyHint = scope.ReadOnlyHint,
+                    CanEditFields = scope.CanEditFields,
+                    CanEditArtwork = scope.CanEditArtwork,
+                }).ToList(),
+            });
         })
         .WithName("GetMediaEditorContext")
         .WithSummary("Resolve scope-aware edit panel context for a launch entity.")
-        .Produces<MediaEditorContextEnvelope>(StatusCodes.Status200OK)
+        .Produces<MediaEditorContextDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -2261,25 +2288,27 @@ public static partial class MetadataEndpoints
     internal static string BuildArtworkVariantStreamUrl(Guid variantId) =>
         $"/stream/artwork/{variantId}";
 
-    internal sealed record ArtworkEditorEnvelope(
-        [property: JsonPropertyName("entity_id")] Guid EntityId,
-        [property: JsonPropertyName("slots")] IReadOnlyList<ArtworkSlotEnvelope> Slots);
-    private sealed record MediaEditorContextEnvelope(
-        [property: JsonPropertyName("launch_entity_id")] Guid LaunchEntityId,
-        [property: JsonPropertyName("launch_entity_kind")] string LaunchEntityKind,
-        [property: JsonPropertyName("media_type")] string MediaType,
-        [property: JsonPropertyName("editor_mode")] string EditorMode,
-        [property: JsonPropertyName("available_tabs")] IReadOnlyList<string> AvailableTabs,
-        [property: JsonPropertyName("content_tab_label")] string? ContentTabLabel,
-        [property: JsonPropertyName("supports_file_tab")] bool SupportsFileTab,
-        [property: JsonPropertyName("file_metadata_sync_status")] string FileMetadataSyncStatus,
-        [property: JsonPropertyName("current_target_summary")] MediaEditorTargetSummaryEnvelope CurrentTargetSummary,
-        [property: JsonPropertyName("identity_summary")] MediaEditorIdentitySummaryEnvelope IdentitySummary,
-        [property: JsonPropertyName("field_lock_map")] IReadOnlyDictionary<string, bool> FieldLockMap,
-        [property: JsonPropertyName("display_override_keys")] IReadOnlyList<string> DisplayOverrideKeys,
-        [property: JsonPropertyName("display_overrides")] IReadOnlyDictionary<string, string> DisplayOverrides,
-        [property: JsonPropertyName("initial_scope")] string InitialScope,
-        [property: JsonPropertyName("scopes")] IReadOnlyList<MediaEditorScopeEnvelope> Scopes);
+    private static MediaEditorTargetSummaryDto ToContract(MediaEditorTargetSummaryEnvelope source) => new()
+    {
+        Label = source.Label,
+        Title = source.Title,
+        Subtitle = source.Subtitle,
+    };
+
+    private static MediaEditorIdentitySummaryDto ToContract(MediaEditorIdentitySummaryEnvelope source) => new()
+    {
+        ProviderName = source.ProviderName,
+        ProviderItemId = source.ProviderItemId,
+        MatchSource = source.MatchSource,
+        MatchMethod = source.MatchMethod,
+        WikidataQid = source.WikidataQid,
+        WikidataStatus = source.WikidataStatus,
+        MatchLevel = source.MatchLevel,
+        UniverseName = source.UniverseName,
+        UniverseQid = source.UniverseQid,
+        Stage3Status = source.Stage3Status,
+    };
+
     private sealed record MediaEditorTargetSummaryEnvelope(
         [property: JsonPropertyName("label")] string Label,
         [property: JsonPropertyName("title")] string Title,
@@ -2295,53 +2324,6 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("universe_name")] string? UniverseName,
         [property: JsonPropertyName("universe_qid")] string? UniverseQid,
         [property: JsonPropertyName("stage3_status")] string? Stage3Status);
-    private sealed record MediaEditorScopeEnvelope(
-        [property: JsonPropertyName("scope_id")] string ScopeId,
-        [property: JsonPropertyName("label")] string Label,
-        [property: JsonPropertyName("order")] int Order,
-        [property: JsonPropertyName("field_entity_id")] Guid FieldEntityId,
-        [property: JsonPropertyName("field_entity_kind")] string FieldEntityKind,
-        [property: JsonPropertyName("artwork_owner_entity_id")] Guid? ArtworkOwnerEntityId,
-        [property: JsonPropertyName("artwork_owner_entity_kind")] string? ArtworkOwnerEntityKind,
-        [property: JsonPropertyName("display_title")] string DisplayTitle,
-        [property: JsonPropertyName("display_subtitle")] string? DisplaySubtitle,
-        [property: JsonPropertyName("breadcrumb_label")] string BreadcrumbLabel,
-        [property: JsonPropertyName("canonical_target_group")] string CanonicalTargetGroup,
-        [property: JsonPropertyName("identity_summary")] MediaEditorIdentitySummaryEnvelope IdentitySummary,
-        [property: JsonPropertyName("scope_summary")] string? ScopeSummary,
-        [property: JsonPropertyName("read_only_hint")] string? ReadOnlyHint,
-        [property: JsonPropertyName("can_edit_fields")] bool CanEditFields,
-        [property: JsonPropertyName("can_edit_artwork")] bool CanEditArtwork);
-    internal sealed record ArtworkSlotEnvelope(
-        [property: JsonPropertyName("asset_type")] string AssetType,
-        [property: JsonPropertyName("variants")] IReadOnlyList<ArtworkVariantEnvelope> Variants);
-    internal sealed record ArtworkVariantEnvelope(
-        [property: JsonPropertyName("id")] Guid Id,
-        [property: JsonPropertyName("asset_type")] string AssetType,
-        [property: JsonPropertyName("image_url")] string? ImageUrl,
-        [property: JsonPropertyName("is_preferred")] bool IsPreferred,
-        [property: JsonPropertyName("origin")] string Origin,
-        [property: JsonPropertyName("provider_name")] string? ProviderName,
-        [property: JsonPropertyName("can_delete")] bool CanDelete,
-        [property: JsonPropertyName("created_at")] DateTimeOffset? CreatedAt);
-    internal sealed record ProviderArtworkRefreshEnvelope(
-        [property: JsonPropertyName("provider")] string Provider,
-        [property: JsonPropertyName("provider_name")] string ProviderName,
-        [property: JsonPropertyName("status")] string Status,
-        [property: JsonPropertyName("success")] bool Success,
-        [property: JsonPropertyName("skipped")] bool Skipped,
-        [property: JsonPropertyName("skipped_reason")] string? SkippedReason,
-        [property: JsonPropertyName("message")] string? Message,
-        [property: JsonPropertyName("media_type")] string? MediaType,
-        [property: JsonPropertyName("bridge_key")] string? BridgeKey,
-        [property: JsonPropertyName("bridge_id")] string? BridgeId,
-        [property: JsonPropertyName("endpoint")] string? Endpoint,
-        [property: JsonPropertyName("http_status_code")] int? HttpStatusCode,
-        [property: JsonPropertyName("downloaded_count")] int DownloadedCount,
-        [property: JsonPropertyName("updated_preferred_count")] int UpdatedPreferredCount,
-        [property: JsonPropertyName("stored_variant_counts")] IReadOnlyDictionary<string, int> StoredVariantCounts,
-        [property: JsonPropertyName("diagnostics")] IReadOnlyList<string> Diagnostics,
-        [property: JsonPropertyName("last_checked_at")] DateTimeOffset LastCheckedAt);
     internal sealed record ProviderArtworkRefreshTarget(
         Guid? RepresentativeAssetId,
         string? WorkQid,

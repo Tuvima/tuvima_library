@@ -581,6 +581,28 @@ Rules:
 
 ## 6. Structure Reference — Feature-Sliced Dashboard Layout
 
+### 6.0 — Engine/Dashboard wire ownership
+
+`src/MediaEngine.Contracts/` is the sole owner of product-defined types
+serialized over non-frozen HTTP and SignalR boundaries. Engine endpoints use
+explicit mappers when Domain, Application, provider, or persistence models do
+not already match the contract. The Dashboard deserializes Contracts types
+directly and may map them into presentation wrappers for formatting, selection,
+or component state; it must not maintain a second JSON DTO definition.
+
+The only frozen exception is the exact Dashboard-local SignalR pair
+`LoreDeltaDiscoveredEvent` and `UniverseEnrichmentProgressEvent` in
+`Services/Integration/IntercomEvents.cs`. Universe HTTP payloads are normal
+Contracts types. Do not add types or fields to the exception.
+
+Preserve `[JsonPropertyName]`, casing, defaults, nullability, collection shape,
+and editor-required mutability. The canonical contracts intentionally retain
+the complete field union from the former API and Dashboard mirrors, including
+ingestion `count_unit`, person and collection roles, full AI settings and
+`cpu_pressure`, and complete collection, playback/text-track, and plugin
+fields. `BoundaryContractGuardrailTests`, `WireContractSnapshotTests`, and
+focused shape/round-trip tests enforce this boundary.
+
 All Dashboard code in `src/MediaEngine.Web/` follows the **Feature-Sliced** pattern. Every new piece of UI code must go into the correct slice.
 
 ### 6.1 — Services (`src/MediaEngine.Web/Services/`)
@@ -592,8 +614,8 @@ Non-UI logic the Dashboard needs, organised by concern.
 | `Branding/` | `StreamingServiceLogoResolver.cs` | Resolves streaming-service logos for display chips |
 | `Configuration/` | `DashboardConfigurationReader.cs`, `DashboardPaletteReloadService.cs` | Dashboard-side config read + palette hot-reload |
 | `MediaTiles/` | `MediaTileComposerService.cs`, `MediaTileArtworkResolver.cs` | Builds shared browse tile shelves and resolves sized artwork for Home, Read, Watch, Listen, and Collections |
-| `Editing/` | `MediaEditorLauncherService.cs`, `CollectionEditorLauncherService.cs`, `*Models.cs` | Editor open/close state and DTOs |
-| `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine |
+| `Editing/` | `MediaEditorLauncherService.cs`, `CollectionEditorLauncherService.cs`, `*Models.cs` | Editor open/close state and presentation models; wire DTOs remain in Contracts |
+| `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine and explicit mapping into Dashboard presentation state |
 | `Formatting/` | `DisplayFormat.cs` | Single home for UI duration/count/speed formatting and word-splitting helpers (each divergent output format is a distinct method) |
 | `Narration/` | `PhraseTemplateService.cs` + interface | Narrated-copy phrase templates |
 | `Navigation/` | `MediaNavigation.cs`, `ListenNavigation.cs` | Route-building helpers |
@@ -629,7 +651,7 @@ Reusable visual components, organised by feature slice.
 
 | Folder | Purpose |
 |---|---|
-| `Models/ViewDTOs/` | Data shapes used ONLY by the Dashboard. For DTOs that cross the Engine↔Dashboard boundary, prefer `src/MediaEngine.Contracts/` instead. |
+| `Models/ViewDTOs/` | Dashboard-only presentation shapes. They may wrap or compose Contracts types through explicit mappers, but they never own or mirror Engine↔Dashboard JSON. |
 | `Resources/` | `SharedStrings.resx` (+ `.fr` / `.de` / `.es`) plus generated `SharedStrings.cs` |
 | `Shared/` | Blazor app-host layout wrappers: `MainLayout`, `NavMenu`, `PopupLayout`, `ReaderLayout`, `_Imports` |
 | `wwwroot/` | Static assets: images, CSS, JS (`cytoscape-interop.js`, `epub-reader.js`, `cover-popup.js`, `app.js`) |
@@ -680,8 +702,9 @@ not repeat a Show details action.
 | New code type | Where it goes |
 |---|---|
 | Engine HTTP call | `Services/Integration/EngineApiClient.cs` + `IEngineApiClient` |
-| Engine↔Dashboard DTO (crosses the boundary) | `src/MediaEngine.Contracts/<Concern>/` |
-| Dashboard-only view model | `Models/ViewDTOs/` |
+| Engine↔Dashboard HTTP or SignalR type (crosses the boundary) | `src/MediaEngine.Contracts/<Concern>/`; preserve exact JSON names/defaults and add boundary/shape coverage |
+| Internal model exposed through an endpoint | Keep it internal and add an explicit API boundary mapper into Contracts |
+| Dashboard-only view model or presentation wrapper | `Models/ViewDTOs/`; map explicitly from Contracts and do not duplicate the wire shape |
 | Reusable visual component | `Components/<FeatureSlice>/` |
 | Detail-page tab or hero piece | `Components/Details/` |
 | Full routable page | `Components/Pages/` |

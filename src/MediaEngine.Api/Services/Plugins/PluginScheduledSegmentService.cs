@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Contracts.Plugins;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;

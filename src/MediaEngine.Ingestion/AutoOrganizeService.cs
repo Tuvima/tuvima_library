@@ -5,7 +5,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Domain.Events;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
@@ -287,12 +287,13 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         try
         {
-            await _publisher.PublishAsync(SignalREvents.IngestionCompleted, new
-            {
-                path       = destPath,
-                media_type = mediaType?.ToString() ?? "Unknown",
-                timestamp  = DateTimeOffset.UtcNow,
-            }, ct).ConfigureAwait(false);
+            await _publisher.PublishAsync(
+                SignalREvents.IngestionCompleted,
+                new AutoOrganizedIngestionCompletedEvent(
+                    destPath,
+                    mediaType?.ToString() ?? "Unknown",
+                    DateTimeOffset.UtcNow),
+                ct).ConfigureAwait(false);
         }
         catch (Exception ex)
         {

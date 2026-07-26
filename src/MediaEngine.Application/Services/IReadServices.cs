@@ -1,4 +1,6 @@
 using MediaEngine.Application.ReadModels;
+using MediaEngine.Contracts.Persons;
+using MediaEngine.Contracts.Ingestion;
 
 namespace MediaEngine.Application.Services;
 

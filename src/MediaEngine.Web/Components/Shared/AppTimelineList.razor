@@ -31,7 +31,7 @@ else
 }
 
 @code {
-    [Parameter] public IReadOnlyList<ActivityTimelineEventViewModel> Items { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActivityTimelineEventDto> Items { get; set; } = [];
     [Parameter] public string EmptyTitle { get; set; } = "No timeline events";
     [Parameter] public string EmptyMessage { get; set; } = "No detailed events are available for this item.";
     [Parameter] public string? Class { get; set; }
@@ -39,7 +39,7 @@ else
     private string RootClass =>
         string.Join(" ", new[] { "app-timeline-list", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private static string LabelFor(ActivityTimelineEventViewModel item) =>
+    private static string LabelFor(ActivityTimelineEventDto item) =>
         string.IsNullOrWhiteSpace(item.Label) ? item.EventType : SplitPascal(item.Label);
 
     private static string NormalizeTone(string? tone) => tone?.ToLowerInvariant() switch

@@ -169,7 +169,7 @@ public partial class ProviderPriorityTab
     private string _drawerSaveMessage  = "";
     private bool   _drawerSaveSuccess  = false;
 
-    private Dictionary<string, ProviderHealthDto> _healthData = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, ProviderHealthStatusResponse> _healthData = new(StringComparer.OrdinalIgnoreCase);
     private IReadOnlyList<ProviderCatalogueDto> _liveCatalogue = [];
     private Dictionary<string, ProviderStatusDto> _providerStatusByKey = new(StringComparer.OrdinalIgnoreCase);
     private HydrationSettingsDto? _hydrationSettings;
@@ -843,7 +843,7 @@ public partial class ProviderPriorityTab
                 }
             }
 
-            var config = new MediaEngine.Web.Models.ViewDTOs.ProviderConfigUpdateDto
+            var config = new ProviderConfigUpdateDto
             {
                 Enabled         = _drawerAssignment.Enabled,
                 TimeoutSeconds  = _drawerAssignment.TimeoutMs / 1000,
@@ -943,7 +943,7 @@ public partial class ProviderPriorityTab
                             : assignment.ApiKey;
                     }
 
-                    var config = new MediaEngine.Web.Models.ViewDTOs.ProviderConfigUpdateDto
+                    var config = new ProviderConfigUpdateDto
                     {
                         Enabled        = assignment.Enabled,
                         TimeoutSeconds = assignment.TimeoutMs / 1000,
@@ -1314,18 +1314,13 @@ public partial class ProviderPriorityTab
 
     private IReadOnlyList<ProviderMetric> GetEnrichmentMetrics()
     {
-        var imageMediaTypes = _hydrationSettings?.Stage3MediaTypesForImages is { Count: > 0 } mediaTypes
-            ? string.Join(", ", mediaTypes.Select(GetMediaTypeDisplay))
-            : "Movies, TV Shows, Music";
-
         return
         [
             new("Stage 3", (_hydrationSettings?.Stage3Enabled ?? true) ? "Enabled" : "Disabled"),
-            new("Artwork Media", imageMediaTypes),
             new("Fanart Jobs", $"{_hydrationSettings?.MaxConcurrentFanartJobs ?? 1}"),
-            new("Sweep Schedule", _hydrationSettings?.Stage3ScheduleCron ?? "0 3 * * *"),
             new("Sweep Size", $"{_hydrationSettings?.Stage3MaxItemsPerSweep ?? 50} items"),
-            new("Rate Limit", $"{_hydrationSettings?.Stage3RateLimitMs ?? 2000}ms"),
+            new("Rate Limit", $"{_hydrationSettings?.Stage3RateLimitMs ?? 3000}ms"),
+            new("Refresh Window", $"{_hydrationSettings?.Stage3RefreshDays ?? 30} days"),
         ];
     }
 

@@ -1,7 +1,10 @@
 using System.Globalization;
 using System.Text.Json;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Collections;
+using WorkDto = MediaEngine.Contracts.Collections.WorkDto;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
@@ -616,7 +619,7 @@ public static class CollectionResponseFormatting
         var titles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var work in works)
         {
-            var dto = WorkDto.FromDomain(work);
+            var dto = work.ToContract();
             var title = GetCanonical(dto, "title") ?? GetCanonical(dto, "original_title");
             titles.Add(NormalizeDistinctTitle(title) ?? work.Id.ToString("N"));
         }

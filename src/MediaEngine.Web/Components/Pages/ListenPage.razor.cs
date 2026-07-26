@@ -67,7 +67,7 @@ public partial class ListenPage
     private readonly List<ContentGroupViewModel> _audiobookAuthorPersonGroups = [];
     private readonly List<ContentGroupViewModel> _audiobookNarratorPersonGroups = [];
     private readonly List<ManagedCollectionViewModel> _managedCollections = [];
-    private readonly List<CollectionItemViewModel> _playlistItems = [];
+    private readonly List<CollectionItemDto> _playlistItems = [];
     private readonly Dictionary<Guid, WorkViewModel> _workLookup = [];
     private readonly Dictionary<string, CollectionGroupDetailViewModel?> _artistDetailCache = new(StringComparer.OrdinalIgnoreCase);
 
@@ -199,7 +199,7 @@ public partial class ListenPage
             .OrderBy(work => ParseTrackNumber(work.TrackNumber))
             .ThenBy(DisplayTrackTitle, StringComparer.OrdinalIgnoreCase)
             .ToList();
-    private IReadOnlyList<CollectionGroupSeasonViewModel> ArtistAlbums => _artistDetail?.Seasons ?? [];
+    private IReadOnlyList<CollectionGroupSeasonDto> ArtistAlbums => _artistDetail?.Seasons ?? [];
     private IReadOnlyList<WorkViewModel> ArtistTracks => ResolveArtistTracks();
     private IReadOnlyList<WorkViewModel> ActivePlaylistTracks => ResolveActivePlaylistTracks();
     private IReadOnlyList<ListenPlaylistTrackRow> ActivePlaylistTrackRows => ResolveActivePlaylistTrackRows();
@@ -2054,7 +2054,7 @@ public partial class ListenPage
         return Task.CompletedTask;
     }
 
-    private IReadOnlyList<WorkViewModel> ResolveGroupWorks(IEnumerable<CollectionGroupWorkViewModel> works)
+    private IReadOnlyList<WorkViewModel> ResolveGroupWorks(IEnumerable<CollectionGroupWorkDto> works)
         => works
             .Select(groupWork => _workLookup.GetValueOrDefault(groupWork.WorkId))
             .Where(work => work is not null)
@@ -2130,7 +2130,7 @@ public partial class ListenPage
             .ToList();
     }
 
-    private async Task SavePlaylistTrackOrderAsync(List<CollectionItemViewModel> orderedItems)
+    private async Task SavePlaylistTrackOrderAsync(List<CollectionItemDto> orderedItems)
     {
         if (ActivePlaylistCollection is null)
             return;
@@ -3110,7 +3110,7 @@ public partial class ListenPage
                 },
                 Position = item.Position,
                 Description = item.Description,
-                Facts = item.Facts,
+                Facts = item.Facts ?? [],
             })
             .Take(4)
             .ToList();
@@ -3177,7 +3177,7 @@ public partial class ListenPage
             primaryActionLabel: "Open",
             sortYear: int.TryParse(album.Year, out var albumYear) ? albumYear : 0);
 
-    private MediaTileViewModel ToArtistAlbumTile(CollectionGroupSeasonViewModel album)
+    private MediaTileViewModel ToArtistAlbumTile(CollectionGroupSeasonDto album)
     {
         var title = album.SeasonLabel ?? $"Album {album.SeasonNumber}";
         var route = album.AlbumCollectionId.HasValue
@@ -3263,7 +3263,7 @@ public partial class ListenPage
         return new Guid(bytes);
     }
 
-    private sealed record ListenPlaylistTrackRow(CollectionItemViewModel? Item, WorkViewModel Work, int Index);
+    private sealed record ListenPlaylistTrackRow(CollectionItemDto? Item, WorkViewModel Work, int Index);
     private sealed record PlaylistColumnDefinition(string Key, string Label);
     private sealed record AudiobookDisplayItem(DisplayCardDto? Card, WorkViewModel? Work);
     private sealed record AudiobookListenItem(AudiobookDisplayItem Item, JourneyItemViewModel? Journey);

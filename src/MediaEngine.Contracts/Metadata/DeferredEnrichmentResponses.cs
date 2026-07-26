@@ -1,9 +1,11 @@
+using System.Text.Json.Serialization;
+
 namespace MediaEngine.Contracts.Metadata;
 
-/// <summary>
-/// Named wire responses for deferred Pass 2 enrichment. Member names preserve the
-/// lower_snake_case JSON shape of the anonymous objects replaced.
-/// </summary>
-public sealed record DeferredEnrichmentTriggerResponse(int pending_count, string message);
+public sealed record DeferredEnrichmentTriggerResponse(
+    [property: JsonPropertyName("pending_count")] int PendingCount,
+    [property: JsonPropertyName("message")] string Message);
 
-public sealed record DeferredEnrichmentStatusResponse(int pending_count, bool two_pass_enabled);
+public sealed record DeferredEnrichmentStatusResponse(
+    [property: JsonPropertyName("pending_count")] int PendingCount,
+    [property: JsonPropertyName("two_pass_enabled")] bool TwoPassEnabled);

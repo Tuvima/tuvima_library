@@ -2,7 +2,6 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
-using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Persons;
@@ -40,35 +39,37 @@ public static class PersonEndpoints
             var preferredBackground = await assetRepo.GetPreferredAsync(id.ToString(), "Background", ct);
             var preferredLogo = await assetRepo.GetPreferredAsync(id.ToString(), "Logo", ct);
 
-            return Results.Ok(new PersonDetailResponse(
-                id: person.Id,
-                name: person.Name,
-                roles: person.Roles,
-                wikidata_qid: person.WikidataQid,
-                headshot_url: ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl),
-                biography: person.Biography,
-                occupation: person.Occupation,
-                date_of_birth: person.DateOfBirth,
-                date_of_death: person.DateOfDeath,
-                place_of_birth: person.PlaceOfBirth,
-                place_of_death: person.PlaceOfDeath,
-                nationality: person.Nationality,
-                instagram: person.Instagram,
-                twitter: person.Twitter,
-                tiktok: person.TikTok,
-                mastodon: person.Mastodon,
-                website: person.Website,
-                has_local_headshot: !string.IsNullOrEmpty(person.LocalHeadshotPath)
-                                    && File.Exists(person.LocalHeadshotPath),
-                is_pseudonym: person.IsPseudonym,
-                is_group: person.IsGroup,
-                group_members: person.IsGroup ? groupMembers : [],
-                member_of_groups: person.IsGroup ? [] : memberOfGroups,
-                banner_url: preferredBanner is null ? null : $"/stream/artwork/{preferredBanner.Id}",
-                background_url: preferredBackground is null ? null : $"/stream/artwork/{preferredBackground.Id}",
-                logo_url: preferredLogo is null ? null : $"/stream/artwork/{preferredLogo.Id}",
-                created_at: person.CreatedAt,
-                enriched_at: person.EnrichedAt));
+            return Results.Ok(new PersonDetailResponse
+            {
+                Id = person.Id,
+                Name = person.Name,
+                Roles = person.Roles,
+                WikidataQid = person.WikidataQid,
+                HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl),
+                Biography = person.Biography,
+                Occupation = person.Occupation,
+                DateOfBirth = person.DateOfBirth,
+                DateOfDeath = person.DateOfDeath,
+                PlaceOfBirth = person.PlaceOfBirth,
+                PlaceOfDeath = person.PlaceOfDeath,
+                Nationality = person.Nationality,
+                Instagram = person.Instagram,
+                Twitter = person.Twitter,
+                TikTok = person.TikTok,
+                Mastodon = person.Mastodon,
+                Website = person.Website,
+                HasLocalHeadshot = !string.IsNullOrEmpty(person.LocalHeadshotPath)
+                    && File.Exists(person.LocalHeadshotPath),
+                IsPseudonym = person.IsPseudonym,
+                IsGroup = person.IsGroup,
+                GroupMembers = person.IsGroup ? groupMembers : [],
+                MemberOfGroups = person.IsGroup ? [] : memberOfGroups,
+                BannerUrl = preferredBanner is null ? null : $"/stream/artwork/{preferredBanner.Id}",
+                BackgroundUrl = preferredBackground is null ? null : $"/stream/artwork/{preferredBackground.Id}",
+                LogoUrl = preferredLogo is null ? null : $"/stream/artwork/{preferredLogo.Id}",
+                CreatedAt = person.CreatedAt,
+                EnrichedAt = person.EnrichedAt,
+            });
         })
         .Produces<PersonDetailResponse>(StatusCodes.Status200OK);
 
@@ -231,20 +232,20 @@ public static class PersonEndpoints
             var collectionIds = await personWorksReadService.GetCollectionIdsForPersonAsync(id, ct);
             if (collectionIds.Count == 0)
             {
-                return Results.Ok(Array.Empty<MediaEngine.Api.Models.CollectionDto>());
+                return Results.Ok(Array.Empty<MediaEngine.Contracts.Collections.CollectionDto>());
             }
 
             var allCollections = await collectionRepo.GetAllAsync(ct);
             var dtos = allCollections
                 .Where(h => collectionIds.Contains(h.Id))
-                .Select(MediaEngine.Api.Models.CollectionDto.FromDomain)
+                .Select(collection => collection.ToContract())
                 .ToList();
 
             return Results.Ok(dtos);
         })
         .WithName("GetWorksByPerson")
         .WithSummary("All collections containing works linked to this person (author/narrator/director).")
-        .Produces<List<MediaEngine.Api.Models.CollectionDto>>(StatusCodes.Status200OK);
+        .Produces<List<MediaEngine.Contracts.Collections.CollectionDto>>(StatusCodes.Status200OK);
 
         // GET /persons/role-counts â€” count of persons per role.
         // Excludes Composer (absorbed into Artist/Performer in the UI).
@@ -429,40 +430,4 @@ public static class PersonEndpoints
             && bytes[11] == 0x50;
     }
 }
-
-/// <summary>
-/// Response body for <c>GET /persons/{id}</c>. Kept endpoint-local (rather than in
-/// <c>MediaEngine.Contracts</c>) because <see cref="group_members"/> and
-/// <see cref="member_of_groups"/> are typed with <see cref="PersonGroupMemberDto"/>,
-/// an API-internal read-model type that Contracts cannot reference.
-/// Property names are byte-identical to the anonymous type they replace.
-/// </summary>
-public sealed record PersonDetailResponse(
-    Guid id,
-    string name,
-    List<string> roles,
-    string? wikidata_qid,
-    string? headshot_url,
-    string? biography,
-    string? occupation,
-    string? date_of_birth,
-    string? date_of_death,
-    string? place_of_birth,
-    string? place_of_death,
-    string? nationality,
-    string? instagram,
-    string? twitter,
-    string? tiktok,
-    string? mastodon,
-    string? website,
-    bool has_local_headshot,
-    bool is_pseudonym,
-    bool is_group,
-    List<PersonGroupMemberDto> group_members,
-    List<PersonGroupMemberDto> member_of_groups,
-    string? banner_url,
-    string? background_url,
-    string? logo_url,
-    DateTimeOffset created_at,
-    DateTimeOffset? enriched_at);
 

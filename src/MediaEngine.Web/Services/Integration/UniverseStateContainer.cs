@@ -1,4 +1,5 @@
-﻿using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -27,7 +28,7 @@ public sealed class UniverseStateContainer
     private DateTimeOffset?            _universeEnrichmentProgressReceivedAt;
     private readonly Dictionary<string, LiveModelDownloadProgress> _modelDownloadActivity = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<Guid, MediaOperationChangedEvent> _mediaOperationActivity = [];
-    private List<IngestionProviderActivityViewModel> _providerActivity = [];
+    private List<IngestionProviderActivityDto> _providerActivity = [];
     private WatchFolderActiveEvent?    _latestWatchFolderActivation;
     private string[]?                  _activeLaneMediaTypes;
     private bool                       _lastStateChangeRequiresSnapshotRefresh = true;
@@ -79,7 +80,7 @@ public sealed class UniverseStateContainer
         _modelDownloadActivity.Values.OrderByDescending(item => item.ReceivedAt).ToList();
     public IReadOnlyList<MediaOperationChangedEvent> MediaOperationActivity =>
         _mediaOperationActivity.Values.OrderByDescending(item => item.UpdatedAt).ToList();
-    public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity => _providerActivity;
+    public IReadOnlyList<IngestionProviderActivityDto> ProviderActivity => _providerActivity;
     public bool                             LastStateChangeRequiresSnapshotRefresh => _lastStateChangeRequiresSnapshotRefresh;
 
     public IReadOnlyList<PersonEnrichedEvent> RecentPersonUpdates        => _personUpdates;
@@ -315,7 +316,7 @@ public sealed class UniverseStateContainer
     /// Logs the event and invalidates the collection cache so the next navigation
     /// triggers a fresh load with the newly ingested file included.
     /// </summary>
-    public void PushIngestionCompleted(IngestionCompletedClientEvent ev)
+    public void PushIngestionCompleted(IngestionCompletedEvent ev)
     {
         var fileName = Path.GetFileName(ev.FilePath);
         PushActivity(new ActivityEntry(
@@ -361,7 +362,7 @@ public sealed class UniverseStateContainer
 
     public void PushProviderActivity(ProviderActivityEvent ev)
     {
-        _providerActivity = ev.Providers.Select(provider => new IngestionProviderActivityViewModel
+        _providerActivity = ev.Providers.Select(provider => new IngestionProviderActivityDto
         {
             ProviderName = provider.ProviderName,
             ActiveRequests = provider.ActiveRequests,

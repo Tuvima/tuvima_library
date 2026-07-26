@@ -2,7 +2,6 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Reading;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -39,11 +38,17 @@ public static class ReadEndpoints
                     statusCode: StatusCodes.Status500InternalServerError);
 
             var metadata = await epubService.GetBookMetadataAsync(asset.FilePathRoot, ct);
-            return Results.Ok(metadata);
+            return Results.Ok(new EpubBookMetadataDto(
+                metadata.Title,
+                metadata.Author,
+                metadata.ChapterCount,
+                metadata.WordCount,
+                metadata.Language,
+                metadata.HasCoverImage));
         })
         .WithName("GetBookMetadata")
         .WithSummary("Returns EPUB book metadata (title, author, chapter count, word count).")
-        .Produces<EpubBookMetadata>(StatusCodes.Status200OK)
+        .Produces<EpubBookMetadataDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -65,11 +70,11 @@ public static class ReadEndpoints
                     statusCode: StatusCodes.Status500InternalServerError);
 
             var toc = await epubService.GetTableOfContentsAsync(asset.FilePathRoot, ct);
-            return Results.Ok(toc);
+            return Results.Ok(toc.Select(MapTocEntry).ToList());
         })
         .WithName("GetTableOfContents")
         .WithSummary("Returns the EPUB Table of Contents as a hierarchical tree.")
-        .Produces<List<EpubTocEntry>>(StatusCodes.Status200OK)
+        .Produces<List<EpubTocEntryDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -103,11 +108,15 @@ public static class ReadEndpoints
             if (chapter is null)
                 return ApiErrors.NotFound($"Chapter {index} not found.");
 
-            return Results.Ok(chapter);
+            return Results.Ok(new EpubChapterContentDto(
+                chapter.Index,
+                chapter.Title,
+                chapter.HtmlContent,
+                chapter.WordCount));
         })
         .WithName("GetChapterContent")
         .WithSummary("Returns chapter HTML with resource URLs rewritten for the reader.")
-        .Produces<EpubChapterContent>(StatusCodes.Status200OK)
+        .Produces<EpubChapterContentDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -168,11 +177,15 @@ public static class ReadEndpoints
                     statusCode: StatusCodes.Status500InternalServerError);
 
             var hits = await epubService.SearchAsync(asset.FilePathRoot, q, ct);
-            return Results.Ok(hits);
+            return Results.Ok(hits.Select(hit => new EpubSearchHitDto(
+                hit.ChapterIndex,
+                hit.ChapterTitle,
+                hit.ContextSnippet,
+                hit.MatchOffset)).ToList());
         })
         .WithName("SearchEpub")
         .WithSummary("Full-text search across all chapters (case-insensitive, min 2 chars).")
-        .Produces<List<EpubSearchHit>>(StatusCodes.Status200OK)
+        .Produces<List<EpubSearchHitDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
@@ -198,4 +211,12 @@ public static class ReadEndpoints
 
         return app;
     }
+
+    private static EpubTocEntryDto MapTocEntry(MediaEngine.Domain.Models.EpubTocEntry entry) => new()
+    {
+        Title = entry.Title,
+        ChapterIndex = entry.ChapterIndex,
+        FragmentId = entry.FragmentId,
+        Children = entry.Children.Select(MapTocEntry).ToList(),
+    };
 }

@@ -14,6 +14,9 @@ public sealed class PipelineProviderEntry
     [JsonPropertyName("purpose")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public string? Purpose { get; set; }
+
+    [JsonPropertyName("requires_identity")]
+    public bool RequiresIdentity { get; set; }
 }
 
 public sealed class MediaTypePipeline

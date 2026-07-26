@@ -1,5 +1,6 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Services.Collections;
+using MediaEngine.Contracts.Collections;
 
 namespace MediaEngine.Api.Tests;
 

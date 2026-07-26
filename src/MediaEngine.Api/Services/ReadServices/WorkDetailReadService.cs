@@ -1,6 +1,6 @@
 using System.Data;
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 

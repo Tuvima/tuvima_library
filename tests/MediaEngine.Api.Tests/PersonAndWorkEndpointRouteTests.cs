@@ -7,7 +7,9 @@ public sealed class PersonAndWorkEndpointRouteTests
     [Fact]
     public void PersonEndpoints_ExposeRichPersonShellAndLibraryCredits()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonEndpoints.cs"));
+        var source =
+            File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\PersonEndpoints.cs"))
+            + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Persons\PersonResponses.cs"));
 
         Assert.Contains("group.MapGet(\"/{id:guid}/library-credits\"", source, StringComparison.Ordinal);
         Assert.Contains("IPersonCreditReadService personCreditReadService", source, StringComparison.Ordinal);
@@ -46,13 +48,13 @@ public sealed class PersonAndWorkEndpointRouteTests
     {
         var workEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\WorkEndpoints.cs"));
         var collectionEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
-        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionGroupDetailDto.cs"));
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Collections\CollectionGroups.cs"));
         var programSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DependencyInjection\ApiEndpointRouteBuilderExtensions.cs"));
 
         Assert.Contains("group.MapGet(\"/{workId:guid}/cast\"", workEndpointSource, StringComparison.Ordinal);
         Assert.Contains("personCreditReadService.BuildForWorkAsync(workId, ct)", workEndpointSource, StringComparison.Ordinal);
         Assert.Contains("personCreditReadService.BuildForCollectionRootAsync", collectionEndpointSource, StringComparison.Ordinal);
-        Assert.Contains("public List<CastCreditDto> TopCast { get; init; } = [];", dtoSource, StringComparison.Ordinal);
+        Assert.Contains("public List<CastCreditDto> TopCast { get; set; } = [];", dtoSource, StringComparison.Ordinal);
         Assert.Contains("app.MapWorkEndpoints();", programSource, StringComparison.Ordinal);
     }
 
@@ -74,7 +76,7 @@ public sealed class PersonAndWorkEndpointRouteTests
         var endpointSource =
             File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"))
             + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Collections\AlbumTrackManifestService.cs"));
-        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionGroupDetailDto.cs"));
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Collections\CollectionGroups.cs"));
 
         Assert.Contains("PrimaryColor", dtoSource, StringComparison.Ordinal);
         Assert.Contains("SecondaryColor", dtoSource, StringComparison.Ordinal);
@@ -91,7 +93,7 @@ public sealed class PersonAndWorkEndpointRouteTests
     public void WorkEndpoints_ExposeReadOnlyWorkAndEditionIdentitySurfaces()
     {
         var workEndpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\WorkEndpoints.cs"));
-        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\Dtos.cs"));
+        var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Collections\LegacyCollectionContracts.cs"));
 
         Assert.Contains("group.MapGet(\"/{workId:guid}\", async (", workEndpointSource, StringComparison.Ordinal);
         Assert.Contains(".WithName(\"GetWorkDetail\")", workEndpointSource, StringComparison.Ordinal);

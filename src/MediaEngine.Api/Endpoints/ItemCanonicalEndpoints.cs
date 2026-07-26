@@ -1,8 +1,11 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Items;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Canonical;
+using MediaEngine.Contracts.Matching;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -105,12 +108,13 @@ public static class ItemCanonicalEndpoints
                 Detail = $"Saved item preferences for {updatedKeys.Count} field(s): {string.Join(", ", updatedKeys)}.",
             }, ct);
 
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id = entityId,
-                provider_name = "user_manual",
-                updated_fields = updatedKeys.ToArray(),
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new ManualMetadataHarvestedEvent(
+                    entityId,
+                    "user_manual",
+                    updatedKeys.ToArray()),
+                ct);
 
             try
             {
@@ -213,7 +217,7 @@ public static class ItemCanonicalEndpoints
 
         group.MapPost("/{entityId:guid}/canonical-search", async (
             Guid entityId,
-            ItemCanonicalSearchRequest request,
+            ItemCanonicalSearchRequestDto request,
             ISearchService searchService,
             IItemCanonicalDataService itemCanonicalData,
             CancellationToken ct) =>
@@ -239,8 +243,8 @@ public static class ItemCanonicalEndpoints
                 .Where(key => !draftFields.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
                 .ToList();
 
-            var retailCandidates = new List<ItemCanonicalRetailCandidate>();
-            var linkedCandidates = new List<ItemCanonicalLinkedCandidate>();
+            var retailCandidates = new List<ItemCanonicalRetailCandidateDto>();
+            var linkedCandidates = new List<ItemCanonicalLinkedCandidateDto>();
 
             var searchMode = NormalizeSearchMode(request.SearchMode);
             var shouldSearchRetail = (searchMode is "retail_only" or "combined") && policy.SearchRetail;
@@ -288,7 +292,7 @@ public static class ItemCanonicalEndpoints
                 .Where(draftFields.ContainsKey)
                 .ToDictionary(key => key, key => draftFields[key], StringComparer.OrdinalIgnoreCase);
 
-            return Results.Ok(new ItemCanonicalSearchResponse
+            return Results.Ok(new ItemCanonicalSearchResponseDto
             {
                 EntityId = entityId,
                 MediaType = mediaType,
@@ -316,14 +320,14 @@ public static class ItemCanonicalEndpoints
         })
         .WithName("SearchItemCanonicalCandidates")
         .WithSummary("Run a targeted canonical search for a specific item field group.")
-        .Produces<ItemCanonicalSearchResponse>(StatusCodes.Status200OK)
+        .Produces<ItemCanonicalSearchResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/canonical-apply", async (
             Guid entityId,
-            ItemCanonicalApplyRequest request,
+            ItemCanonicalApplyRequestDto request,
             IMetadataClaimRepository claimRepo,
             ICanonicalValueRepository canonicalRepo,
             IBridgeIdRepository bridgeIdRepo,
@@ -498,16 +502,17 @@ public static class ItemCanonicalEndpoints
                 Detail = $"Applied canonical {policy.TargetFieldGroup} selection ({NormalizeLinkState(request.LinkState)}) with {selectedFields.Count} field(s).",
             }, ct);
 
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id = entityId,
-                provider_name = "user_manual",
-                updated_fields = selectedFields.Keys
-                    .Concat(request.QidFields.Keys)
-                    .Concat(request.BridgeIds.Keys)
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray(),
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new ManualMetadataHarvestedEvent(
+                    entityId,
+                    "user_manual",
+                    selectedFields.Keys
+                        .Concat(request.QidFields.Keys)
+                        .Concat(request.BridgeIds.Keys)
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray()),
+                ct);
 
             try
             {
@@ -520,19 +525,19 @@ public static class ItemCanonicalEndpoints
                     .LogWarning(ex, "Write-back failed after applying canonical candidate for {EntityId}.", entityId);
             }
 
-            return Results.Ok(new ItemCanonicalApplyResponse
+            return Results.Ok(new ItemCanonicalApplyResponseDto
             {
                 EntityId = entityId,
                 LinkState = NormalizeLinkState(request.LinkState),
                 LinkStatusLabel = GetLinkStatusLabel(request.LinkState),
                 FieldsApplied = selectedFields.Count,
-                IdsCleared = clearedIds,
+                IdsCleared = clearedIds.ToList(),
                 Message = $"Applied canonical {policy.TargetFieldGroup} fields.",
             });
         })
         .WithName("ApplyItemCanonicalCandidate")
         .WithSummary("Apply a targeted canonical candidate and clear stale IDs for the same field group.")
-        .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
+        .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
@@ -622,7 +627,7 @@ public static class ItemCanonicalEndpoints
 
         group.MapPost("/{entityId:guid}/retail-match", async (
             Guid entityId,
-            ReplaceRetailMatchRequest request,
+            ReplaceRetailMatchRequestDto request,
             IMetadataClaimRepository claimRepo,
             ICanonicalValueRepository canonicalRepo,
             IBridgeIdRepository bridgeIdRepo,
@@ -925,23 +930,24 @@ public static class ItemCanonicalEndpoints
                     artworkResult?.ArtworkChanged ?? false,
                     identityJobId);
 
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id = entityId,
-                target_scope_id = request.TargetScopeId,
-                target_field_group = policy.TargetFieldGroup,
-                provider_name = request.ProviderName,
-                provider_item_id = request.ProviderItemId,
-                updated_fields = selectedFields.Keys
-                    .Concat(request.BridgeIds.Keys)
-                    .Concat(artworkResult?.ArtworkChanged == true
-                        ? [MetadataFieldConstants.Cover, MetadataFieldConstants.CoverUrl, MetadataFieldConstants.CoverState]
-                        : [])
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray(),
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new RetailMetadataHarvestedEvent(
+                    entityId,
+                    request.TargetScopeId,
+                    policy.TargetFieldGroup,
+                    request.ProviderName,
+                    request.ProviderItemId,
+                    selectedFields.Keys
+                        .Concat(request.BridgeIds.Keys)
+                        .Concat(artworkResult?.ArtworkChanged == true
+                            ? [MetadataFieldConstants.Cover, MetadataFieldConstants.CoverUrl, MetadataFieldConstants.CoverState]
+                            : [])
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray()),
+                ct);
 
-            return Results.Ok(new ItemCanonicalApplyResponse
+            return Results.Ok(new ItemCanonicalApplyResponseDto
             {
                 EntityId = entityId,
                 LinkState = "provider_only",
@@ -962,14 +968,14 @@ public static class ItemCanonicalEndpoints
         })
         .WithName("ReplaceItemRetailMatch")
         .WithSummary("Replace or confirm the item retail/provider match.")
-        .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
+        .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/wikidata-match", async (
             Guid entityId,
-            ReplaceWikidataMatchRequest request,
+            ReplaceWikidataMatchRequestDto request,
             IMetadataClaimRepository claimRepo,
             ICanonicalValueRepository canonicalRepo,
             IHydrationPipelineService pipeline,
@@ -1084,16 +1090,17 @@ public static class ItemCanonicalEndpoints
                 Detail = $"Wikidata match action '{action}' applied. QID: {request.Qid ?? request.RejectedQid ?? "none"}.",
             }, ct);
 
-            await publisher.PublishAsync(SignalREvents.MetadataHarvested, new
-            {
-                entity_id = entityId,
-                target_scope_id = request.TargetScopeId,
-                target_field_group = policy.TargetFieldGroup,
-                provider_name = "user_manual",
-                updated_fields = new[] { BridgeIdKeys.WikidataQid, "wikidata_status" },
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.MetadataHarvested,
+                new WikidataMetadataHarvestedEvent(
+                    entityId,
+                    request.TargetScopeId,
+                    policy.TargetFieldGroup,
+                    "user_manual",
+                    [BridgeIdKeys.WikidataQid, "wikidata_status"]),
+                ct);
 
-            return Results.Ok(new ItemCanonicalApplyResponse
+            return Results.Ok(new ItemCanonicalApplyResponseDto
             {
                 EntityId = entityId,
                 LinkState = action == "replace" ? "linked" : "provider_only",
@@ -1106,7 +1113,7 @@ public static class ItemCanonicalEndpoints
         })
         .WithName("ReplaceItemWikidataMatch")
         .WithSummary("Replace, clear, reject, or mark missing the item Wikidata identity.")
-        .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
+        .Produces<ItemCanonicalApplyResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();

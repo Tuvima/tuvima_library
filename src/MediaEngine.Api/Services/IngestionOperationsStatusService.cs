@@ -1,5 +1,5 @@
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;

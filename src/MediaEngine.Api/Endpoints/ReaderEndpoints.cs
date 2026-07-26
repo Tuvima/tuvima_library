@@ -1,5 +1,6 @@
 ﻿using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Reading;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -27,16 +28,16 @@ public static class ReaderEndpoints
             CancellationToken ct) =>
         {
             var bookmarks = await repo.ListByAssetAsync(DefaultUserId, assetId, ct);
-            return Results.Ok(bookmarks);
+            return Results.Ok(bookmarks.Select(MapBookmark).ToList());
         })
         .WithName("ListBookmarks")
         .WithSummary("Lists all bookmarks for the given asset.")
-        .Produces<IReadOnlyList<ReaderBookmark>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<ReaderBookmarkDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPost("/{assetId:guid}/bookmarks", async (
             Guid assetId,
-            CreateBookmarkRequest request,
+            CreateReaderBookmarkRequestDto request,
             IReaderBookmarkRepository repo,
             CancellationToken ct) =>
         {
@@ -52,11 +53,11 @@ public static class ReaderEndpoints
             };
 
             await repo.InsertAsync(bookmark, ct);
-            return Results.Created($"/reader/bookmarks/{bookmark.Id}", bookmark);
+            return Results.Created($"/reader/bookmarks/{bookmark.Id}", MapBookmark(bookmark));
         })
         .WithName("CreateBookmark")
         .WithSummary("Creates a bookmark at the specified chapter position.")
-        .Produces<ReaderBookmark>(StatusCodes.Status201Created)
+        .Produces<ReaderBookmarkDto>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         group.MapDelete("/bookmarks/{id:guid}", async (
@@ -85,16 +86,16 @@ public static class ReaderEndpoints
             CancellationToken ct) =>
         {
             var highlights = await repo.ListByAssetAsync(DefaultUserId, assetId, ct);
-            return Results.Ok(highlights);
+            return Results.Ok(highlights.Select(MapHighlight).ToList());
         })
         .WithName("ListHighlights")
         .WithSummary("Lists all highlights for the given asset.")
-        .Produces<IReadOnlyList<ReaderHighlight>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<ReaderHighlightDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPost("/{assetId:guid}/highlights", async (
             Guid assetId,
-            CreateHighlightRequest request,
+            CreateReaderHighlightRequestDto request,
             IReaderHighlightRepository repo,
             CancellationToken ct) =>
         {
@@ -113,16 +114,16 @@ public static class ReaderEndpoints
             };
 
             await repo.InsertAsync(highlight, ct);
-            return Results.Created($"/reader/highlights/{highlight.Id}", highlight);
+            return Results.Created($"/reader/highlights/{highlight.Id}", MapHighlight(highlight));
         })
         .WithName("CreateHighlight")
         .WithSummary("Creates a text highlight with optional note and colour.")
-        .Produces<ReaderHighlight>(StatusCodes.Status201Created)
+        .Produces<ReaderHighlightDto>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         group.MapPut("/highlights/{id:guid}", async (
             Guid id,
-            UpdateHighlightRequest request,
+            UpdateReaderHighlightRequestDto request,
             IReaderHighlightRepository repo,
             CancellationToken ct) =>
         {
@@ -166,23 +167,23 @@ public static class ReaderEndpoints
         {
             var stats = await repo.GetAsync(DefaultUserId, assetId, ct);
             if (stats is null)
-                return Results.Ok(new ReaderStatistics
+                return Results.Ok(new ReaderStatisticsDto
                 {
                     Id      = Guid.NewGuid(),
                     UserId  = DefaultUserId,
                     AssetId = assetId
                 });
 
-            return Results.Ok(stats);
+            return Results.Ok(MapStatistics(stats));
         })
         .WithName("GetReadingStatistics")
         .WithSummary("Returns reading statistics for the given asset (or defaults if none exist).")
-        .Produces<ReaderStatistics>(StatusCodes.Status200OK)
+        .Produces<ReaderStatisticsDto>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPut("/{assetId:guid}/statistics", async (
             Guid assetId,
-            UpdateStatisticsRequest request,
+            UpdateReaderStatisticsRequestDto request,
             IReaderStatisticsRepository repo,
             CancellationToken ct) =>
         {
@@ -212,16 +213,16 @@ public static class ReaderEndpoints
 
         group.MapPost("/{assetId:guid}/whispersync", async (
             Guid assetId,
-            CreateAlignmentRequest request,
+            CreateAlignmentRequestDto request,
             IWhisperSyncService whisperSync,
             CancellationToken ct) =>
         {
             var job = await whisperSync.CreateAlignmentJobAsync(assetId, request.AudiobookAssetId, ct);
-            return Results.Created($"/reader/whispersync/{job.Id}", job);
+            return Results.Created($"/reader/whispersync/{job.Id}", MapAlignmentJob(job));
         })
         .WithName("CreateWhisperSyncJob")
         .WithSummary("Creates an ebook-to-audiobook alignment job.")
-        .Produces<AlignmentJob>(StatusCodes.Status201Created)
+        .Produces<AlignmentJobDto>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/whispersync", async (
@@ -230,11 +231,11 @@ public static class ReaderEndpoints
             CancellationToken ct) =>
         {
             var jobs = await whisperSync.GetJobsForAssetAsync(assetId, ct);
-            return Results.Ok(jobs);
+            return Results.Ok(jobs.Select(MapAlignmentJob).ToList());
         })
         .WithName("GetWhisperSyncJobs")
         .WithSummary("Gets alignment job status for an ebook asset.")
-        .Produces<IReadOnlyList<AlignmentJob>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<AlignmentJobDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapDelete("/whispersync/{jobId:guid}", async (
@@ -254,38 +255,54 @@ public static class ReaderEndpoints
         return app;
     }
 
-    // ── Request DTOs ────────────────────────────────────────────────────────
+    private static ReaderBookmarkDto MapBookmark(ReaderBookmark bookmark) => new()
+    {
+        Id = bookmark.Id,
+        UserId = bookmark.UserId,
+        AssetId = bookmark.AssetId,
+        ChapterIndex = bookmark.ChapterIndex,
+        CfiPosition = bookmark.CfiPosition,
+        Label = bookmark.Label,
+        CreatedAt = bookmark.CreatedAt,
+    };
 
-    /// <summary>Request body for creating a bookmark.</summary>
-    public sealed record CreateBookmarkRequest(
-        int ChapterIndex,
-        string? CfiPosition,
-        string? Label);
+    private static ReaderHighlightDto MapHighlight(ReaderHighlight highlight) => new()
+    {
+        Id = highlight.Id,
+        UserId = highlight.UserId,
+        AssetId = highlight.AssetId,
+        ChapterIndex = highlight.ChapterIndex,
+        StartOffset = highlight.StartOffset,
+        EndOffset = highlight.EndOffset,
+        SelectedText = highlight.SelectedText,
+        Color = highlight.Color,
+        NoteText = highlight.NoteText,
+        CreatedAt = highlight.CreatedAt,
+    };
 
-    /// <summary>Request body for creating a highlight.</summary>
-    public sealed record CreateHighlightRequest(
-        int ChapterIndex,
-        int StartOffset,
-        int EndOffset,
-        string SelectedText,
-        string? Color,
-        string? NoteText);
+    private static ReaderStatisticsDto MapStatistics(ReaderStatistics statistics) => new()
+    {
+        Id = statistics.Id,
+        UserId = statistics.UserId,
+        AssetId = statistics.AssetId,
+        ChaptersRead = statistics.ChaptersRead,
+        TotalReadingTimeSecs = statistics.TotalReadingTimeSecs,
+        WordsRead = statistics.WordsRead,
+        SessionsCount = statistics.SessionsCount,
+        AvgWordsPerMinute = statistics.AvgWordsPerMinute,
+        LastSessionAt = statistics.LastSessionAt,
+    };
 
-    /// <summary>Request body for updating a highlight's colour or note.</summary>
-    public sealed record UpdateHighlightRequest(
-        string? Color,
-        string? NoteText);
-
-    /// <summary>Request body for updating reading statistics.</summary>
-    /// <summary>Request body for creating a WhisperSync alignment job.</summary>
-    public sealed record CreateAlignmentRequest(Guid AudiobookAssetId);
-
-    /// <summary>Request body for updating reading statistics.</summary>
-    public sealed record UpdateStatisticsRequest(
-        int ChaptersRead,
-        long TotalReadingTimeSecs,
-        long WordsRead,
-        int SessionsCount,
-        double AvgWordsPerMinute);
+    private static AlignmentJobDto MapAlignmentJob(AlignmentJob job) => new()
+    {
+        Id = job.Id,
+        EbookAssetId = job.EbookAssetId,
+        AudiobookAssetId = job.AudiobookAssetId,
+        Status = job.Status,
+        AlignmentData = job.AlignmentData,
+        ErrorMessage = job.ErrorMessage,
+        CreatedAt = job.CreatedAt,
+        CompletedAt = job.CompletedAt,
+    };
 }
 

@@ -79,8 +79,8 @@ public partial interface IEngineApiClient
 
     /// <summary>PUT /library/items/{entityId}/display-overrides — save presentation-only display overrides.</summary>
     Task<bool> SaveItemDisplayOverridesAsync(Guid entityId, Dictionary<string, string> fields, CancellationToken ct = default);
-    Task<ItemEditorPreferencesDto?> GetItemEditorPreferencesAsync(Guid entityId, Guid profileId, CancellationToken ct = default);
-    Task<ItemEditorPreferencesSaveResultDto> SaveItemEditorPreferencesAsync(Guid entityId, Guid profileId, ItemEditorPreferencesRequestDto request, CancellationToken ct = default);
+    Task<MediaEngine.Contracts.Items.ItemEditorPreferencesResponse?> GetItemEditorPreferencesAsync(Guid entityId, Guid profileId, CancellationToken ct = default);
+    Task<ItemEditorPreferencesSaveResultDto> SaveItemEditorPreferencesAsync(Guid entityId, Guid profileId, MediaEngine.Contracts.Items.ItemEditorPreferencesRequest request, CancellationToken ct = default);
 
     /// <summary>GET /metadata/{entityId}/artwork/{scopeId} — load exact artwork for one editor scope.</summary>
     Task<ArtworkEditorDto?> GetScopeArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default);
@@ -113,10 +113,10 @@ public partial interface IEngineApiClient
     // ── Library Overview ──
 
     /// <summary>GET /library/overview - aggregated operational health summary.</summary>
-    Task<LibraryOverviewViewModel?> GetLibraryOverviewAsync(CancellationToken ct = default);
+    Task<LibraryOverviewDto?> GetLibraryOverviewAsync(CancellationToken ct = default);
 
     /// <summary>POST /library/batch-edit - apply batch field edits to multiple items.</summary>
-    Task<LibraryBatchEditResultViewModel?> BatchEditAsync(
+    Task<LibraryBatchEditResult?> BatchEditAsync(
         List<Guid> entityIds, Dictionary<string, string> fieldChanges, CancellationToken ct = default);
 
 }

@@ -1,261 +1,54 @@
 using System.Text.Json.Serialization;
+using System.Text.Json;
+using MediaEngine.Contracts.Collections;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
 /// <summary>
-/// Dashboard view model for a content group drill-down page.
-/// Deserializes directly from GET /collections/{collectionId}/group-detail (snake_case JSON).
+/// Dashboard route model layered over the shared collection-group response contract.
 /// </summary>
-public sealed class CollectionGroupDetailViewModel
+public sealed class CollectionGroupDetailViewModel : CollectionGroupDetailDto
 {
-    [JsonPropertyName("collection_id")]
-    public Guid CollectionId { get; set; }
-
-    [JsonPropertyName("display_name")]
-    public string DisplayName { get; set; } = "";
-
-    [JsonPropertyName("root_work_id")]
-    public Guid? RootWorkId { get; set; }
-
-    [JsonPropertyName("wikidata_qid")]
-    public string? WikidataQid { get; set; }
-
-    [JsonPropertyName("primary_media_type")]
-    public string? PrimaryMediaType { get; set; }
-
-    [JsonPropertyName("cover_url")]
-    public string? CoverUrl { get; set; }
-
-    [JsonPropertyName("background_url")]
-    public string? BackgroundUrl { get; set; }
-
-    [JsonPropertyName("banner_url")]
-    public string? BannerUrl { get; set; }
-
-    [JsonPropertyName("hero_url")]
-    public string? HeroUrl { get; set; }
-
-    [JsonPropertyName("logo_url")]
-    public string? LogoUrl { get; set; }
-
-    [JsonPropertyName("dominant_colors")]
-    public List<string> DominantColors { get; set; } = [];
-
-    [JsonPropertyName("primary_color")]
-    public string? PrimaryColor { get; set; }
-
-    [JsonPropertyName("secondary_color")]
-    public string? SecondaryColor { get; set; }
-
-    [JsonPropertyName("accent_color")]
-    public string? AccentColor { get; set; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("tagline")]
-    public string? Tagline { get; set; }
-
-    [JsonPropertyName("creator")]
-    public string? Creator { get; set; }
-
-    [JsonPropertyName("director")]
-    public string? Director { get; set; }
-
-    [JsonPropertyName("writer")]
-    public string? Writer { get; set; }
-
-    [JsonPropertyName("release_date")]
-    public string? ReleaseDate { get; set; }
-
-    [JsonPropertyName("year_range")]
-    public string? YearRange { get; set; }
-
-    [JsonPropertyName("genre")]
-    public string? Genre { get; set; }
-
-    [JsonPropertyName("total_items")]
-    public int TotalItems { get; set; }
-
-    [JsonPropertyName("total_duration")]
-    public string? TotalDuration { get; set; }
-
-    /// <summary>Network or streaming service (e.g. "HBO", "Netflix"). Populated for TV shows only.</summary>
-    [JsonPropertyName("network")]
-    public string? Network { get; set; }
-
-    /// <summary>Number of distinct seasons. Populated for TV shows only.</summary>
-    [JsonPropertyName("season_count")]
-    public int? SeasonCount { get; set; }
-
-    /// <summary>Artist photo URL (headshot). Populated for artist drill-down only.</summary>
-    [JsonPropertyName("artist_photo_url")]
-    public string? ArtistPhotoUrl { get; set; }
-
-    /// <summary>Artist's person record ID. Populated for artist drill-down only — used to open the person detail drawer.</summary>
-    [JsonPropertyName("artist_person_id")]
-    public Guid? ArtistPersonId { get; set; }
-
-    /// <summary>Top billed cast (actors) for TV shows / movies. Capped at 10 entries.</summary>
-    [JsonPropertyName("top_cast")]
-    public List<CollectionGroupPersonViewModel> TopCast { get; set; } = [];
-
-    /// <summary>TV only — works grouped by season.</summary>
-    [JsonPropertyName("seasons")]
-    public List<CollectionGroupSeasonViewModel> Seasons { get; set; } = [];
-
-    /// <summary>Flat list for music/books/movies.</summary>
-    [JsonPropertyName("works")]
-    public List<CollectionGroupWorkViewModel> Works { get; set; } = [];
+    public static CollectionGroupDetailViewModel FromContract(CollectionGroupDetailDto source) =>
+        JsonSerializer.Deserialize<CollectionGroupDetailViewModel>(
+            JsonSerializer.Serialize(source, MediaEngineJson.Web),
+            MediaEngineJson.Web)
+        ?? throw new InvalidOperationException("Could not map collection group detail for presentation.");
 }
 
-/// <summary>Lightweight person reference used by cast chips on grouped detail surfaces.</summary>
-public sealed class CharacterPortrayalViewModel
+/// <summary>
+/// Dashboard display behavior layered over the shared content-group response contract.
+/// </summary>
+public sealed class ContentGroupViewModel : ContentGroupDto
 {
-    [JsonPropertyName("fictional_entity_id")]
-    public Guid FictionalEntityId { get; set; }
+    public static ContentGroupViewModel FromContract(ContentGroupDto source) =>
+        JsonSerializer.Deserialize<ContentGroupViewModel>(
+            JsonSerializer.Serialize(source, MediaEngineJson.Web),
+            MediaEngineJson.Web)
+        ?? throw new InvalidOperationException("Could not map content group for presentation.");
 
-    [JsonPropertyName("character_name")]
-    public string? CharacterName { get; set; }
+    [JsonIgnore]
+    public string MediaTypeIcon => PrimaryMediaType switch
+    {
+        "TV" => "LiveTv",
+        "Music" => "MusicNote",
+        "Books" => "MenuBook",
+        "Audiobooks" => "Headphones",
+        "Movies" => "VideoLibrary",
+        "Comics" => "AutoStories",
+        _ => "Folder",
+    };
 
-    [JsonPropertyName("character_qid")]
-    public string? CharacterQid { get; set; }
-
-    [JsonPropertyName("portrait_url")]
-    public string? PortraitUrl { get; set; }
-}
-
-/// <summary>Lightweight cast credit used by group detail and work-detail pages.</summary>
-public sealed class CollectionGroupPersonViewModel
-{
-    [JsonPropertyName("person_id")]
-    public Guid? PersonId { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-
-    [JsonPropertyName("actor_person_id")]
-    public Guid? ActorPersonId { get; set; }
-
-    [JsonPropertyName("actor_name")]
-    public string? ActorName { get; set; }
-
-    [JsonPropertyName("wikidata_qid")]
-    public string? WikidataQid { get; set; }
-
-    [JsonPropertyName("headshot_url")]
-    public string? HeadshotUrl { get; set; }
-
-    [JsonPropertyName("characters")]
-    public List<CharacterPortrayalViewModel> Characters { get; set; } = [];
-
-    // Compatibility fields still returned by the API for existing clients.
-    [JsonPropertyName("actor_headshot_url")]
-    public string? ActorHeadshotUrl { get; set; }
-
-    [JsonPropertyName("character_name")]
-    public string? CharacterName { get; set; }
-
-    [JsonPropertyName("character_qid")]
-    public string? CharacterQid { get; set; }
-
-    [JsonPropertyName("character_image_url")]
-    public string? CharacterImageUrl { get; set; }
-}
-
-/// <summary>A single TV season (or album within an artist view) within a group detail view.</summary>
-public sealed class CollectionGroupSeasonViewModel
-{
-    [JsonPropertyName("season_number")]
-    public int SeasonNumber { get; set; }
-
-    /// <summary>Optional display label for the section (e.g. album title when GroupType is "artist").</summary>
-    [JsonPropertyName("season_label")]
-    public string? SeasonLabel { get; set; }
-
-    /// <summary>Section cover URL (e.g. album art when GroupType is "artist").</summary>
-    [JsonPropertyName("cover_url")]
-    public string? CoverUrl { get; set; }
-
-    /// <summary>Collection ID for this section if it maps to a real collection (e.g. an album collection). Used for tile click navigation.</summary>
-    [JsonPropertyName("album_collection_id")]
-    public Guid? AlbumCollectionId { get; set; }
-
-    /// <summary>Section year (e.g. album release year).</summary>
-    [JsonPropertyName("year")]
-    public string? Year { get; set; }
-
-    [JsonPropertyName("episodes")]
-    public List<CollectionGroupWorkViewModel> Episodes { get; set; } = [];
-}
-
-/// <summary>A single track / episode / book / film in a group detail view.</summary>
-public sealed class CollectionGroupWorkViewModel
-{
-    [JsonPropertyName("work_id")]
-    public Guid WorkId { get; set; }
-
-    [JsonPropertyName("asset_id")]
-    public Guid? AssetId { get; set; }
-
-    [JsonPropertyName("title")]
-    public string Title { get; set; } = "";
-
-    [JsonPropertyName("ordinal")]
-    public int? Ordinal { get; set; }
-
-    [JsonPropertyName("year")]
-    public string? Year { get; set; }
-
-    [JsonPropertyName("duration")]
-    public string? Duration { get; set; }
-
-    [JsonPropertyName("duration_seconds")]
-    public double? DurationSeconds { get; set; }
-
-    [JsonPropertyName("cover_url")]
-    public string? CoverUrl { get; set; }
-
-    [JsonPropertyName("background_url")]
-    public string? BackgroundUrl { get; set; }
-
-    [JsonPropertyName("banner_url")]
-    public string? BannerUrl { get; set; }
-
-    [JsonPropertyName("hero_url")]
-    public string? HeroUrl { get; set; }
-
-    [JsonPropertyName("wikidata_qid")]
-    public string? WikidataQid { get; set; }
-
-    [JsonPropertyName("season")]
-    public string? Season { get; set; }
-
-    [JsonPropertyName("episode")]
-    public string? Episode { get; set; }
-
-    [JsonPropertyName("track_number")]
-    public string? TrackNumber { get; set; }
-
-    [JsonPropertyName("status")]
-    public string? Status { get; set; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; set; }
-
-    [JsonPropertyName("director")]
-    public string? Director { get; set; }
-
-    [JsonPropertyName("writer")]
-    public string? Writer { get; set; }
-
-    [JsonPropertyName("release_date")]
-    public string? ReleaseDate { get; set; }
-
-    [JsonPropertyName("playback_summary")]
-    public PlaybackTechnicalSummaryViewModel? PlaybackSummary { get; set; }
-
-    /// <summary>Whether this work corresponds to an actual file in the library (true) or an unowned track from Wikidata (false).</summary>
-    [JsonPropertyName("is_owned")]
-    public bool IsOwned { get; set; } = true;
+    [JsonIgnore]
+    public string MediaTypeColor => PrimaryMediaType switch
+    {
+        "TV" => "var(--tl-media-video)",
+        "Music" => "#1ED760",
+        "Books" => "var(--tl-status-success)",
+        "Audiobooks" => "#84CC16",
+        "Movies" => "var(--tl-status-info)",
+        "Comics" => "var(--tl-media-comic)",
+        _ => "var(--tl-status-info)",
+    };
 }

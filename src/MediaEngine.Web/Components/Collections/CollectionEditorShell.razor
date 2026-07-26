@@ -141,7 +141,7 @@
     private string _itemSearchText = string.Empty;
     private bool _loadingLibraryItems;
     private bool _loadingManualItems;
-    private List<CollectionMediaLookupItemViewModel> _lookupItems = [];
+    private List<CollectionMediaLookupDto> _lookupItems = [];
     private List<ManualCollectionItem> _manualItems = [];
 
     private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
@@ -192,7 +192,7 @@
                 ? "Create Playlist"
                 : "Create Collection";
 
-    private List<CollectionMediaLookupItemViewModel> FilteredLibraryItems =>
+    private List<CollectionMediaLookupDto> FilteredLibraryItems =>
         _lookupItems
             .Where(work => !SelectedWorkIds.Contains(work.WorkId))
             .Take(12)
@@ -233,13 +233,19 @@
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<List<CollectionRulePredicateViewModel>>(
+            var parsed = JsonSerializer.Deserialize<List<CollectionRulePredicateDto>>(
                 EditingCollection.RuleJson,
                 MediaEngineJson.CaseInsensitive);
 
             if (parsed is { Count: > 0 })
             {
-                _rules = parsed;
+                _rules = parsed.Select(rule => new CollectionRulePredicateViewModel
+                {
+                    Field = rule.Field,
+                    Op = rule.Op,
+                    Value = rule.Value,
+                    Values = rule.Values,
+                }).ToList();
                 if (!string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
                     _rulesEnabled = true;
             }
@@ -502,7 +508,7 @@
         return RunPreview();
     }
 
-    private async Task AddManualItemAsync(CollectionMediaLookupItemViewModel work)
+    private async Task AddManualItemAsync(CollectionMediaLookupDto work)
     {
         if (SelectedWorkIds.Contains(work.WorkId))
             return;
@@ -761,7 +767,7 @@
             Snackbar.Add($"{failures} item(s) could not be added automatically. Reopen the collection to finish curation.", Severity.Warning);
     }
 
-    private static string FormatWorkMeta(CollectionMediaLookupItemViewModel work)
+    private static string FormatWorkMeta(CollectionMediaLookupDto work)
     {
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(work.ParentContext))

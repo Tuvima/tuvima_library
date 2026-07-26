@@ -1,4 +1,3 @@
-using System.Text.Json.Serialization;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Application.ReadModels;
@@ -83,9 +82,9 @@ public static class ProgressEndpoints
             var page = PagedRequest.From(null, limit, defaultLimit: 5);
             IReadOnlyList<JourneyItemResponse> results =
                 await journeyReadService.GetJourneyAsync(uid, parsedCollectionId, page.Limit, ct);
-            return Results.Ok(results);
+            return Results.Ok(results.Select(MapJourneyItem).ToList());
         })
-        .Produces<IReadOnlyList<JourneyItemResponse>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<JourneyItemDto>>(StatusCodes.Status200OK);
 
         return app;
     }
@@ -96,15 +95,37 @@ public static class ProgressEndpoints
             : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
     private static UserStateResponse MapStateResponse(UserState s) => new(
-        user_id: s.UserId,
-        asset_id: s.AssetId,
-        content_hash: s.ContentHash,
-        progress_pct: s.ProgressPct,
-        last_accessed: s.LastAccessed,
-        extended_properties: s.ExtendedProperties);
-}
+        UserId: s.UserId,
+        AssetId: s.AssetId,
+        ContentHash: s.ContentHash,
+        ProgressPct: s.ProgressPct,
+        LastAccessed: s.LastAccessed.UtcDateTime,
+        ExtendedProperties: s.ExtendedProperties);
 
-public sealed record ProgressUpdateRequest(
-    [property: JsonPropertyName("user_id")] string? UserId,
-    [property: JsonPropertyName("progress_pct")] double ProgressPct,
-    [property: JsonPropertyName("extended_properties")] Dictionary<string, string>? ExtendedProperties);
+    private static JourneyItemDto MapJourneyItem(JourneyItemResponse source) => new(
+        source.AssetId,
+        source.WorkId,
+        source.CollectionId,
+        source.Title,
+        source.Author,
+        source.CoverUrl,
+        source.BackgroundUrl,
+        source.BannerUrl,
+        source.LogoUrl,
+        source.CoverWidthPx,
+        source.CoverHeightPx,
+        source.BackgroundWidthPx,
+        source.BackgroundHeightPx,
+        source.BannerWidthPx,
+        source.BannerHeightPx,
+        source.Narrator,
+        source.Series,
+        source.SeriesPosition,
+        source.Description,
+        source.MediaType,
+        source.ProgressPct,
+        source.LastAccessed,
+        source.CollectionDisplayName,
+        source.ExtendedProperties,
+        source.HeroUrl);
+}

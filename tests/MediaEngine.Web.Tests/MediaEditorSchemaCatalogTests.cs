@@ -1,5 +1,6 @@
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Contracts.Metadata;
 
 namespace MediaEngine.Web.Tests;
 
@@ -22,9 +23,15 @@ public sealed class MediaEditorSchemaCatalogTests
                 },
             ],
         };
-        CanonicalFieldViewModel[] canonicals =
+        CanonicalFieldDto[] canonicals =
         [
-            new("description", "This is the description of the entire series.", 0.9, "Wikipedia", false, false),
+            new()
+            {
+                Key = "description",
+                Value = "This is the description of the entire series.",
+                Confidence = 0.9,
+                ProviderName = "Wikipedia",
+            },
         ];
 
         var values = MediaEditorSchemaCatalog.BuildValueMap(detail, canonicals);
@@ -41,9 +48,15 @@ public sealed class MediaEditorSchemaCatalogTests
             Title = "Pilot",
             Description = "This is the description of the entire series.",
         };
-        CanonicalFieldViewModel[] canonicals =
+        CanonicalFieldDto[] canonicals =
         [
-            new("description", "This is the description of the entire series.", 0.9, "Wikipedia", false, false),
+            new()
+            {
+                Key = "description",
+                Value = "This is the description of the entire series.",
+                Confidence = 0.9,
+                ProviderName = "Wikipedia",
+            },
         ];
 
         var values = MediaEditorSchemaCatalog.BuildValueMap(detail, canonicals);

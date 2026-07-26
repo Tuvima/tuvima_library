@@ -280,22 +280,24 @@ public static class StreamEndpoints
                 return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var tracks = await textTrackRepo.GetByAssetAsync(assetId, null, ct);
-            return Results.Ok(tracks.Select(t => new TextTrackDto(
-                t.Id,
-                t.Kind.ToString(),
-                t.Language,
-                t.Provider,
-                t.Confidence,
-                t.SourceFormat,
-                t.NormalizedFormat,
-                t.TimingMode,
-                t.IsHearingImpaired,
-                t.IsPreferred,
-                t.IsUserOwned,
-                t.SidecarPath is not null,
-                t.Kind == TextTrackKind.Lyrics
+            return Results.Ok(tracks.Select(t => new TextTrackDto
+            {
+                Id = t.Id,
+                Kind = t.Kind.ToString(),
+                Language = t.Language,
+                Provider = t.Provider,
+                Confidence = t.Confidence,
+                SourceFormat = t.SourceFormat,
+                NormalizedFormat = t.NormalizedFormat,
+                TimingMode = t.TimingMode,
+                IsHearingImpaired = t.IsHearingImpaired,
+                IsPreferred = t.IsPreferred,
+                IsUserOwned = t.IsUserOwned,
+                IsLocallyExported = t.SidecarPath is not null,
+                Url = t.Kind == TextTrackKind.Lyrics
                     ? $"/stream/{assetId}/lyrics"
-                    : $"/stream/{assetId}/subtitles?language={Uri.EscapeDataString(t.Language)}")));
+                    : $"/stream/{assetId}/subtitles?language={Uri.EscapeDataString(t.Language)}",
+            }));
         })
         .WithName("GetAssetTextTracks")
         .WithSummary("List lyrics and subtitle tracks available for a media asset.")
@@ -631,21 +633,6 @@ public static class StreamEndpoints
         Results.Text(ArtworkPlaceholderSvg, "image/svg+xml");
 
     private readonly record struct ArtworkFile(byte[] Bytes, string ContentType);
-
-    private sealed record TextTrackDto(
-        Guid Id,
-        string Kind,
-        string Language,
-        string Provider,
-        double Confidence,
-        string SourceFormat,
-        string NormalizedFormat,
-        string TimingMode,
-        bool IsHearingImpaired,
-        bool IsPreferred,
-        bool IsUserOwned,
-        bool IsLocallyExported,
-        string Url);
 
     /// <summary>
     /// Parses the RFC 7233 Range header value "bytes=start-end".

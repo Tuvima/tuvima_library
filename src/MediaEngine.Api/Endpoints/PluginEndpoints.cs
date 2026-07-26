@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Operations;
 using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Contracts.Plugins;
 using MediaEngine.Domain.Contracts;
@@ -138,15 +139,20 @@ internal static class PluginEndpoints
             foreach (var check in plugin.Capabilities.OfType<IPluginHealthCheck>())
                 checks.Add(await check.GetHealthAsync(context, ct).ConfigureAwait(false));
 
-            return Results.Ok(new PluginHealthCheckResponse
+            return Results.Ok(new PluginHealthResponse
             {
-                plugin_id = plugin.Manifest.Id,
-                status = checks.Any(c => c.Status == "degraded") ? "degraded" : checks.Count == 0 ? "unknown" : "healthy",
-                checks = checks,
+                PluginId = plugin.Manifest.Id,
+                Status = checks.Any(c => c.Status == "degraded") ? "degraded" : checks.Count == 0 ? "unknown" : "healthy",
+                Checks = checks.Select(check => new PluginHealthCheckDto
+                {
+                    Status = check.Status,
+                    Message = check.Message,
+                    Warnings = check.Warnings.ToList(),
+                }).ToList(),
             });
         })
         .WithName("CheckPluginHealth")
-        .Produces<PluginHealthCheckResponse>(StatusCodes.Status200OK)
+        .Produces<PluginHealthResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapGet("/{pluginId}/jobs", async (
@@ -155,7 +161,7 @@ internal static class PluginEndpoints
             CancellationToken ct) =>
         {
             var jobs = await operations.GetByPluginAsync(pluginId, 200, ct).ConfigureAwait(false);
-            return Results.Ok(jobs.Select((op, index) => OperationDto.From(op, index + 1)).ToList());
+            return Results.Ok(jobs.Select((op, index) => OperationsEndpoints.MapOperation(op, index + 1)).ToList());
         })
             .WithName("GetPluginJobs")
             .Produces<IReadOnlyList<OperationDto>>(StatusCodes.Status200OK)
@@ -175,33 +181,49 @@ internal static class PluginEndpoints
         return group;
     }
 
-    private static PluginSummaryResponse ToDto(PluginRegistration registration) => new(
-        registration.Manifest.Id,
-        registration.Manifest.Name,
-        registration.Manifest.Version,
-        registration.Manifest.Description,
-        registration.Enabled,
-        registration.IsBuiltIn,
-        registration.LoadError,
-        registration.Manifest.Capabilities,
-        registration.Manifest.Permissions,
-        registration.Manifest.ToolRequirements,
-        registration.Manifest.AiPermissions,
-        registration.Settings,
-        registration.SettingsSchema,
-        registration.ManifestPath);
-}
-
-internal sealed record PluginJsonUpdateRequest(string Json);
-
-/// <summary>
-/// Response for <c>POST /plugins/{pluginId}/health</c>. Declared here rather than in
-/// <c>MediaEngine.Contracts</c> because <see cref="PluginHealthResult"/> lives in
-/// <c>MediaEngine.Plugins</c>, and Contracts may only reference Domain.
-/// </summary>
-internal sealed record PluginHealthCheckResponse
-{
-    public string plugin_id { get; init; } = string.Empty;
-    public string status { get; init; } = string.Empty;
-    public List<PluginHealthResult> checks { get; init; } = [];
+    private static PluginSummaryResponse ToDto(PluginRegistration registration) => new()
+    {
+        Id = registration.Manifest.Id,
+        Name = registration.Manifest.Name,
+        Version = registration.Manifest.Version,
+        Description = registration.Manifest.Description,
+        Enabled = registration.Enabled,
+        IsBuiltIn = registration.IsBuiltIn,
+        LoadError = registration.LoadError,
+        Capabilities = registration.Manifest.Capabilities.Select(capability => new PluginCapabilityDto
+        {
+            Kind = capability.Kind,
+            Name = capability.Name,
+            Description = capability.Description,
+        }).ToList(),
+        Permissions = registration.Manifest.Permissions.ToList(),
+        ToolRequirements = registration.Manifest.ToolRequirements.Select(requirement => new PluginToolRequirementDto
+        {
+            Id = requirement.Id,
+            Version = requirement.Version,
+            ExecutableName = requirement.ExecutableName,
+            License = requirement.License,
+            SourceUrl = requirement.SourceUrl,
+            Platforms = requirement.Platforms.Select(platform => new PluginToolPlatformDto
+            {
+                Rid = platform.Rid,
+                DownloadUrl = platform.DownloadUrl,
+                Sha256 = platform.Sha256,
+                RelativeExecutablePath = platform.RelativeExecutablePath,
+            }).ToList(),
+        }).ToList(),
+        AiPermissions = registration.Manifest.AiPermissions.Select(permission => new PluginAiPermissionDto
+        {
+            Role = permission.Role,
+            MaxTokens = permission.MaxTokens,
+            Schedule = permission.Schedule,
+            ResourceClass = permission.ResourceClass,
+        }).ToList(),
+        Settings = registration.Settings.ToDictionary(
+            setting => setting.Key,
+            setting => setting.Value,
+            StringComparer.OrdinalIgnoreCase),
+        SettingsSchema = registration.SettingsSchema,
+        ManifestPath = registration.ManifestPath,
+    };
 }

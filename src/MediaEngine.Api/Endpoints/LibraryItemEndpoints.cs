@@ -3,7 +3,9 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Contracts.Items;
+using MediaEngine.Contracts.Matching;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -54,11 +56,11 @@ public static class LibraryItemEndpoints
                 Sort: sort,
                 MaxDays: maxDays);
 
-            return Results.Ok(await repo.GetPageAsync(query, ct));
+            return Results.Ok((await repo.GetPageAsync(query, ct)).ToContract());
         })
         .WithName("GetLibraryCatalogItems")
         .WithSummary("Paginated list of all ingested items with filtering.")
-        .Produces<LibraryItemsPage>(StatusCodes.Status200OK)
+        .Produces<LibraryItemsPageDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapGet("/{entityId}/detail", async (
@@ -67,29 +69,31 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             var detail = await repo.GetDetailAsync(entityId, ct);
-            return detail is null ? ApiErrors.NotFound($"Library item '{entityId}' not found.") : Results.Ok(detail);
+            return detail is null
+                ? ApiErrors.NotFound($"Library item '{entityId}' not found.")
+                : Results.Ok(detail.ToContract());
         })
         .WithName("GetLibraryItemDetail")
         .WithSummary("Full detail for a single library item.")
-        .Produces<LibraryItemDetail>(StatusCodes.Status200OK)
+        .Produces<LibraryItemDetailDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapGet("/counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
-            Results.Ok(await repo.GetStatusCountsAsync(ct)))
+            Results.Ok((await repo.GetStatusCountsAsync(ct)).ToContract()))
         .WithName("GetLibraryItemStatusCounts")
         .WithSummary("Status counts for tab badges (All, Staging, Review, Auto, Edited, Duplicate).")
-        .Produces<LibraryItemStatusCounts>(StatusCodes.Status200OK)
+        .Produces<LibraryItemStatusCountsDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapGet("/state-counts", async (
             Guid? batchId,
             ILibraryItemRepository repo,
             CancellationToken ct) =>
-            Results.Ok(await repo.GetFourStateCountsAsync(batchId, ct)))
+            Results.Ok((await repo.GetFourStateCountsAsync(batchId, ct)).ToContract()))
         .WithName("GetLibraryItemLifecycleCounts")
         .WithSummary("Four-state counts (Registered, NeedsReview, NoMatch, Failed) with trigger breakdown.")
-        .Produces<LibraryItemLifecycleCounts>(StatusCodes.Status200OK)
+        .Produces<LibraryItemLifecycleCountsDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapGet("/type-counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
@@ -101,7 +105,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/{entityId}/apply-match", async (
             Guid entityId,
-            ApplyMatchRequest request,
+            ApplyMatchRequestDto request,
             IMetadataClaimRepository claimRepo,
             IHydrationPipelineService pipeline,
             ICollectionRepository collectionRepo,
@@ -199,7 +203,7 @@ public static class LibraryItemEndpoints
                     : $"Match applied for '{displayTitle}' - retail metadata only (no Wikidata QID).",
             }, ct);
 
-            return Results.Ok(new ApplyMatchResponse
+            return Results.Ok(new ApplyMatchResponseDto
             {
                 EntityId = entityId,
                 WikidataStatus = wikidataStatus,
@@ -212,13 +216,13 @@ public static class LibraryItemEndpoints
         })
         .WithName("ApplyLibraryItemMatch")
         .WithSummary("Apply a selected match to a library item. Provide a QID to register the item.")
-        .Produces<ApplyMatchResponse>(StatusCodes.Status200OK)
+        .Produces<ApplyMatchResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId}/create-manual", async (
             Guid entityId,
-            CreateManualRequest request,
+            CreateManualRequestDto request,
             IMetadataClaimRepository claimRepo,
             ICollectionRepository collectionRepo,
             ILibraryItemCurationStore store,
@@ -236,7 +240,7 @@ public static class LibraryItemEndpoints
             await store.UpsertCanonicalValuesAsync(target.AssetId, claims, ct);
             await collectionRepo.UpdateWorkWikidataStatusAsync(target.WorkId, WorkWikidataStatus.Manual, ct);
 
-            return Results.Ok(new CreateManualResponse
+            return Results.Ok(new CreateManualResponseDto
             {
                 EntityId = entityId,
                 WikidataStatus = WorkWikidataStatus.Manual,
@@ -246,7 +250,7 @@ public static class LibraryItemEndpoints
         })
         .WithName("CreateManualLibraryItemEntry")
         .WithSummary("Create a manual metadata entry for a library item with no provider match.")
-        .Produces<CreateManualResponse>(StatusCodes.Status200OK)
+        .Produces<CreateManualResponseDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
@@ -464,12 +468,15 @@ public static class LibraryItemEndpoints
                 Detail = "Un-rejected - returned to review queue for re-evaluation.",
             }, logger, ct);
 
-            await PublishSupplementaryAsync(publisher, SignalREvents.ReviewItemCreated, new
-            {
-                review_item_id = recovered.ReviewId ?? Guid.Empty,
-                entity_id = entityId,
-                trigger = "UserFixMatch",
-            }, logger, ct);
+            await PublishSupplementaryAsync(
+                publisher,
+                SignalREvents.ReviewItemCreated,
+                new ReviewItemCreatedSupplementaryEvent(
+                    recovered.ReviewId ?? Guid.Empty,
+                    entityId,
+                    "UserFixMatch"),
+                logger,
+                ct);
 
             return Results.Ok(new RecoverLibraryItemResponse
             {
@@ -484,7 +491,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/{entityId:guid}/provisional", async (
             Guid entityId,
-            ProvisionalMetadataRequest body,
+            ProvisionalMetadataRequestDto body,
             ILibraryItemCurationStore store,
             ISystemActivityRepository activityRepo,
             IEventPublisher publisher,
@@ -494,7 +501,24 @@ public static class LibraryItemEndpoints
             if (string.IsNullOrWhiteSpace(body.Title))
                 return ApiErrors.BadRequest("Title is required for provisional metadata.");
 
-            var provisional = await store.MarkProvisionalAsync(entityId, body, DateTimeOffset.UtcNow, ct);
+            var provisional = await store.MarkProvisionalAsync(entityId, new ProvisionalMetadataRequest
+            {
+                MediaType = body.MediaType,
+                Title = body.Title,
+                Creator = body.Creator,
+                Year = body.Year,
+                Description = body.Description,
+                Narrator = body.Narrator,
+                Isbn = body.Isbn,
+                Director = body.Director,
+                Runtime = body.Runtime,
+                Seasons = body.Seasons,
+                TrackCount = body.TrackCount,
+                Host = body.Host,
+                Writer = body.Writer,
+                Artist = body.Artist,
+                PageCount = body.PageCount,
+            }, DateTimeOffset.UtcNow, ct);
             if (provisional is null)
                 return ApiErrors.NotFound($"Work {entityId} not found.");
 
@@ -507,11 +531,12 @@ public static class LibraryItemEndpoints
                 Detail = $"Marked '{body.Title}' as provisional with curator-entered metadata.",
             }, logger, ct);
 
-            await PublishSupplementaryAsync(publisher, SignalREvents.ReviewItemResolved, new
-            {
-                entity_id = entityId,
-                action = "provisional",
-            }, logger, ct);
+            await PublishSupplementaryAsync(
+                publisher,
+                SignalREvents.ReviewItemResolved,
+                new LibraryItemReviewActionEvent(entityId, "provisional"),
+                logger,
+                ct);
 
             return Results.Ok(new MarkProvisionalResponse
             {
@@ -532,10 +557,10 @@ public static class LibraryItemEndpoints
             Guid entityId,
             ILibraryItemCurationStore store,
             CancellationToken ct) =>
-            Results.Ok(await store.GetHistoryAsync(entityId, ct)))
+            Results.Ok((await store.GetHistoryAsync(entityId, ct)).Select(item => item.ToContract()).ToList()))
         .WithName("GetLibraryCatalogItemHistory")
         .WithSummary("Get processing history timeline for a library item.")
-        .Produces<IReadOnlyList<LibraryItemHistoryEntry>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<LibraryItemHistoryDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;
@@ -543,7 +568,7 @@ public static class LibraryItemEndpoints
 
     private static List<MetadataClaim> BuildApplyMatchClaims(
         Guid assetId,
-        ApplyMatchRequest request,
+        ApplyMatchRequestDto request,
         DateTimeOffset now)
     {
         var claims = new List<MetadataClaim>();
@@ -559,7 +584,7 @@ public static class LibraryItemEndpoints
 
     private static List<MetadataClaim> BuildManualClaims(
         Guid assetId,
-        CreateManualRequest request,
+        CreateManualRequestDto request,
         DateTimeOffset now)
     {
         var claims = new List<MetadataClaim>();
@@ -593,7 +618,7 @@ public static class LibraryItemEndpoints
         });
     }
 
-    private static Dictionary<string, string> BuildHydrationHints(ApplyMatchRequest request)
+    private static Dictionary<string, string> BuildHydrationHints(ApplyMatchRequestDto request)
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         AddHint(hints, BridgeIdKeys.WikidataQid, request.Qid);
@@ -730,11 +755,12 @@ public static class LibraryItemEndpoints
             Detail = $"Rejected '{target.Title ?? "unknown"}' - file moved to .data/staging/rejected/.",
         }, logger, ct);
 
-        await PublishSupplementaryAsync(publisher, SignalREvents.ReviewItemResolved, new
-        {
-            entity_id = target.WorkId,
-            action = "rejected",
-        }, logger, ct);
+        await PublishSupplementaryAsync(
+            publisher,
+            SignalREvents.ReviewItemResolved,
+            new LibraryItemReviewActionEvent(target.WorkId, "rejected"),
+            logger,
+            ct);
 
         return newPath;
     }

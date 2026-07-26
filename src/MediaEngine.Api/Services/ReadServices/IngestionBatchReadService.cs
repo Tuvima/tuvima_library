@@ -1,5 +1,5 @@
-using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;

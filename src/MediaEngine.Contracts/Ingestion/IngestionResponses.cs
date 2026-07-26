@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MediaEngine.Contracts.Ingestion;
 
 /// <summary>
@@ -7,7 +9,17 @@ namespace MediaEngine.Contracts.Ingestion;
 /// <see cref="System.Text.Json.Serialization.JsonPropertyNameAttribute"/> — they reproduce, byte
 /// for byte, the anonymous object this record replaces.
 /// </summary>
-public sealed record ReconciliationResultResponse(int total_scanned, int missing_count, long elapsed_ms);
+public sealed class ReconciliationResultResponse
+{
+    [JsonPropertyName("total_scanned")]
+    public int TotalScanned { get; set; }
+
+    [JsonPropertyName("missing_count")]
+    public int MissingCount { get; set; }
+
+    [JsonPropertyName("elapsed_ms")]
+    public long ElapsedMs { get; set; }
+}
 
 /// <summary>
 /// Wire shape for <c>GET /ingestion/batches/attention-count</c>.

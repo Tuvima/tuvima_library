@@ -9,9 +9,9 @@ public sealed class IngestionProgressContractTests
         var source = File.ReadAllText(Path.Combine(
             repoRoot,
             "src",
-            "MediaEngine.Application",
-            "ReadModels",
-            "IngestionBatchItemResponse.cs"));
+            "MediaEngine.Contracts",
+            "Ingestion",
+            "IngestionBatchDtos.cs"));
 
         Assert.Contains("work_units_total", source);
         Assert.Contains("work_units_completed", source);
@@ -36,8 +36,8 @@ public sealed class IngestionProgressContractTests
         var source = File.ReadAllText(Path.Combine(
             repoRoot,
             "src",
-            "MediaEngine.Domain",
-            "Events",
+            "MediaEngine.Contracts",
+            "Realtime",
             "IngestionEvents.cs"));
 
         Assert.Contains("WorkUnitsTotal", source);

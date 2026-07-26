@@ -9,7 +9,7 @@ public sealed class IngestionDashboardSelectionStateTests
     [Fact]
     public void Synchronize_SelectsLatestBatchAndDefaultStage()
     {
-        var batch = new IngestionOperationsBatchViewModel { BatchId = Guid.NewGuid() };
+        var batch = new IngestionOperationsBatchDto { BatchId = Guid.NewGuid() };
         var stage = Stage("scan", 1);
         var state = new IngestionDashboardSelectionState();
 

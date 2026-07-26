@@ -4,6 +4,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
@@ -373,13 +374,14 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
         {
             try
             {
-                await _eventPublisher.PublishAsync(SignalREvents.ModelDownloadProgress, new
-                {
-                    Role = role.ToString(),
-                    Percent = (int)Math.Clamp(downloaded * 100 / total, 0, 100),
-                    BytesDownloaded = downloaded,
-                    TotalBytes = total,
-                }, ct).ConfigureAwait(false);
+                await _eventPublisher.PublishAsync(
+                    SignalREvents.ModelDownloadProgress,
+                    new ModelDownloadProgressEvent(
+                        role.ToString(),
+                        (int)Math.Clamp(downloaded * 100 / total, 0, 100),
+                        downloaded,
+                        total),
+                    ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -394,12 +396,13 @@ public sealed class ModelDownloadManager : IModelDownloadManager, IAsyncDisposab
         {
             try
             {
-                await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
-                {
-                    Role = role.ToString(),
-                    OldState = AiModelState.Downloading.ToString(),
-                    NewState = AiModelState.Ready.ToString(),
-                }, CancellationToken.None).ConfigureAwait(false);
+                await _eventPublisher.PublishAsync(
+                    SignalREvents.ModelStateChanged,
+                    new ModelStateChangedEvent(
+                        role.ToString(),
+                        AiModelState.Downloading.ToString(),
+                        AiModelState.Ready.ToString()),
+                    CancellationToken.None).ConfigureAwait(false);
             }
             catch (Exception ex)
             {

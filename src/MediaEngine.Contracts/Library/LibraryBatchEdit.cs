@@ -1,0 +1,54 @@
+using System.Text.Json.Serialization;
+
+namespace MediaEngine.Contracts.Library;
+
+public sealed class LibraryBatchEditRequest
+{
+    [JsonPropertyName("entity_ids")]
+    public List<Guid> EntityIds { get; init; } = [];
+
+    [JsonPropertyName("field_changes")]
+    public List<LibraryFieldChange> FieldChanges { get; init; } = [];
+}
+
+public sealed class LibraryFieldChange
+{
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    [JsonPropertyName("value")]
+    public required string Value { get; init; }
+}
+
+public sealed class LibraryBatchEditResult
+{
+    [JsonPropertyName("updated_count")]
+    public int UpdatedCount { get; init; }
+
+    [JsonPropertyName("failed_ids")]
+    public List<Guid> FailedIds { get; init; } = [];
+
+    [JsonPropertyName("errors")]
+    public List<string> Errors { get; init; } = [];
+}
+
+public sealed class LibraryBatchEditPreview
+{
+    [JsonPropertyName("affected_count")]
+    public int AffectedCount { get; init; }
+
+    [JsonPropertyName("changes")]
+    public List<LibraryFieldChangePreview> Changes { get; init; } = [];
+}
+
+public sealed class LibraryFieldChangePreview
+{
+    [JsonPropertyName("key")]
+    public required string Key { get; init; }
+
+    [JsonPropertyName("new_value")]
+    public required string NewValue { get; init; }
+
+    [JsonPropertyName("old_value_counts")]
+    public Dictionary<string, int> OldValueCounts { get; init; } = new();
+}

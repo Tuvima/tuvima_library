@@ -24,7 +24,7 @@ else
 }
 
 @code {
-    [Parameter] public IReadOnlyList<ActivityEvidenceViewModel> Items { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActivityEvidenceDto> Items { get; set; } = [];
     [Parameter] public string EmptyTitle { get; set; } = "No source evidence";
     [Parameter] public string EmptyMessage { get; set; } = "No provider or artifact evidence is available for this item.";
     [Parameter] public string? Class { get; set; }
@@ -32,7 +32,7 @@ else
     private string RootClass =>
         string.Join(" ", new[] { "app-evidence-list", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private static string FriendlyValue(ActivityEvidenceViewModel item)
+    private static string FriendlyValue(ActivityEvidenceDto item)
     {
         var value = StringHelpers.FirstNonBlankOr("", item.Value, item.Label, item.Kind).Trim();
         var normalized = value.Replace('_', ' ').Replace('-', ' ').ToLowerInvariant();

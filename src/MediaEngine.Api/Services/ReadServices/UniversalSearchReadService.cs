@@ -1,6 +1,6 @@
 using Dapper;
-using MediaEngine.Api.Models;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Search;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;

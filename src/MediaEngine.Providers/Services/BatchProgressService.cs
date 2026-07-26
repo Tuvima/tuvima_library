@@ -2,7 +2,7 @@ using Dapper;
 using System.Collections.Concurrent;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
-using MediaEngine.Domain.Events;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 

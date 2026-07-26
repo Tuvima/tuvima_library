@@ -32,6 +32,7 @@
   <ItemGroup>
     <!-- Domain provides all AI contract interfaces and model types. -->
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
     <!-- Storage provides IConfigurationLoader for reading config/ai.json. -->
     <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
   </ItemGroup>

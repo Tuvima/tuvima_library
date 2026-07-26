@@ -1,4 +1,5 @@
 @page "/"
+@using MediaEngine.Contracts.Realtime
 @inject MediaTileComposerService MediaTiles
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
@@ -301,7 +302,7 @@ else
             }
 
             var folders = await Orchestrator.GetFolderSettingsAsync();
-            var importFolders = folders?.EffectiveWatchDirectories ?? [];
+            var importFolders = folders?.GetEffectiveWatchDirectories() ?? [];
             if (importFolders.Count == 0)
                 return false;
 

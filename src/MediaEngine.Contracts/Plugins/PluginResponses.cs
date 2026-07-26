@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MediaEngine.Contracts.Plugins;
 
@@ -44,18 +45,231 @@ public sealed record PluginDeletedResponse
 /// Public plugin summary returned by plugin catalogue routes. The lower_snake_case member names
 /// preserve the anonymous response object's existing JSON contract.
 /// </summary>
-public sealed record PluginSummaryResponse(
-    string id,
-    string name,
-    string version,
-    string description,
-    bool enabled,
-    bool is_built_in,
-    string? load_error,
-    IReadOnlyList<object> capabilities,
-    IReadOnlyList<string> permissions,
-    IReadOnlyList<object> tool_requirements,
-    IReadOnlyList<object> ai_permissions,
-    IReadOnlyDictionary<string, JsonElement> settings,
-    JsonElement? settings_schema,
-    string? manifest_path);
+public sealed record PluginSummaryResponse
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("version")]
+    public string Version { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("enabled")]
+    public bool Enabled { get; set; }
+
+    [JsonPropertyName("is_built_in")]
+    public bool IsBuiltIn { get; init; }
+
+    [JsonPropertyName("load_error")]
+    public string? LoadError { get; set; }
+
+    [JsonPropertyName("capabilities")]
+    public List<PluginCapabilityDto> Capabilities { get; set; } = [];
+
+    [JsonPropertyName("permissions")]
+    public List<string> Permissions { get; set; } = [];
+
+    [JsonPropertyName("tool_requirements")]
+    public List<PluginToolRequirementDto> ToolRequirements { get; set; } = [];
+
+    [JsonPropertyName("ai_permissions")]
+    public List<PluginAiPermissionDto> AiPermissions { get; set; } = [];
+
+    [JsonPropertyName("settings")]
+    public Dictionary<string, JsonElement> Settings { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("settings_schema")]
+    public JsonElement? SettingsSchema { get; set; }
+
+    [JsonPropertyName("manifest_path")]
+    public string? ManifestPath { get; set; }
+}
+
+public sealed record PluginCapabilityDto
+{
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+}
+
+public sealed record PluginToolRequirementDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("version")]
+    public string Version { get; set; } = "";
+
+    [JsonPropertyName("executable_name")]
+    public string ExecutableName { get; set; } = "";
+
+    [JsonPropertyName("license")]
+    public string? License { get; set; }
+
+    [JsonPropertyName("source_url")]
+    public string? SourceUrl { get; set; }
+
+    [JsonPropertyName("platforms")]
+    public List<PluginToolPlatformDto> Platforms { get; set; } = [];
+}
+
+public sealed record PluginToolPlatformDto
+{
+    [JsonPropertyName("rid")]
+    public string Rid { get; set; } = "";
+
+    [JsonPropertyName("download_url")]
+    public string? DownloadUrl { get; set; }
+
+    [JsonPropertyName("sha256")]
+    public string? Sha256 { get; set; }
+
+    [JsonPropertyName("relative_executable_path")]
+    public string? RelativeExecutablePath { get; set; }
+}
+
+public sealed record PluginAiPermissionDto
+{
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "";
+
+    [JsonPropertyName("max_tokens")]
+    public int MaxTokens { get; set; }
+
+    [JsonPropertyName("schedule")]
+    public string Schedule { get; set; } = "";
+
+    [JsonPropertyName("resource_class")]
+    public string ResourceClass { get; set; } = "";
+}
+
+public sealed record PluginHealthResponse
+{
+    [JsonPropertyName("plugin_id")]
+    public string PluginId { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "unknown";
+
+    [JsonPropertyName("checks")]
+    public List<PluginHealthCheckDto> Checks { get; set; } = [];
+}
+
+public sealed record PluginHealthCheckDto
+{
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "unknown";
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("warnings")]
+    public List<string> Warnings { get; set; } = [];
+}
+
+public sealed record PluginJobSnapshot
+{
+    [JsonPropertyName("id")]
+    public Guid Id { get; init; }
+
+    [JsonPropertyName("pluginId")]
+    public string PluginId { get; init; } = "";
+
+    [JsonPropertyName("jobType")]
+    public string JobType { get; init; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "queued";
+
+    [JsonPropertyName("startedAt")]
+    public DateTimeOffset StartedAt { get; init; }
+
+    [JsonPropertyName("completedAt")]
+    public DateTimeOffset? CompletedAt { get; set; }
+
+    [JsonPropertyName("assetsScanned")]
+    public int AssetsScanned { get; set; }
+
+    [JsonPropertyName("segmentsWritten")]
+    public int SegmentsWritten { get; set; }
+
+    [JsonPropertyName("error")]
+    public string? Error { get; set; }
+}
+
+public sealed record PluginJsonUpdateRequest(
+    [property: JsonPropertyName("json")] string Json);
+
+public sealed class ApprovedPluginCatalogDto
+{
+    [JsonPropertyName("schema_version")]
+    public string SchemaVersion { get; set; } = "1.0";
+
+    [JsonPropertyName("source_url")]
+    public string SourceUrl { get; set; } = "";
+
+    [JsonPropertyName("last_updated")]
+    public DateTimeOffset? LastUpdated { get; set; }
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "ok";
+
+    [JsonPropertyName("message")]
+    public string? Message { get; set; }
+
+    [JsonPropertyName("plugins")]
+    public List<ApprovedPluginDto> Plugins { get; set; } = [];
+}
+
+public sealed class ApprovedPluginDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = "";
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
+
+    [JsonPropertyName("version")]
+    public string Version { get; set; } = "";
+
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = "";
+
+    [JsonPropertyName("author")]
+    public string Author { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "approved";
+
+    [JsonPropertyName("repository_url")]
+    public string? RepositoryUrl { get; set; }
+
+    [JsonPropertyName("release_url")]
+    public string? ReleaseUrl { get; set; }
+
+    [JsonPropertyName("package_url")]
+    public string? PackageUrl { get; set; }
+
+    [JsonPropertyName("sha256")]
+    public string? Sha256 { get; set; }
+
+    [JsonPropertyName("minimum_tuvima_api_version")]
+    public string MinimumTuvimaApiVersion { get; set; } = "1.0.0";
+
+    [JsonPropertyName("capabilities")]
+    public List<string> Capabilities { get; set; } = [];
+
+    [JsonPropertyName("install_notes")]
+    public string? InstallNotes { get; set; }
+}

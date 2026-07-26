@@ -3,6 +3,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Realtime;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
@@ -282,12 +283,13 @@ public sealed class ModelLifecycleManager :
     {
         try
         {
-            await _eventPublisher.PublishAsync(SignalREvents.ModelStateChanged, new
-            {
-                Role = role.ToString(),
-                OldState = oldState.ToString(),
-                NewState = newState.ToString(),
-            }, ct).ConfigureAwait(false);
+            await _eventPublisher.PublishAsync(
+                SignalREvents.ModelStateChanged,
+                new ModelStateChangedEvent(
+                    role.ToString(),
+                    oldState.ToString(),
+                    newState.ToString()),
+                ct).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {

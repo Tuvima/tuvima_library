@@ -425,8 +425,8 @@ public sealed class IngestionOperationsContractTests
         var dtoSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src",
-            "MediaEngine.Api",
-            "Models",
+            "MediaEngine.Contracts",
+            "Ingestion",
             "IngestionOperationsDtos.cs"));
         var serviceSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
@@ -456,8 +456,8 @@ public sealed class IngestionOperationsContractTests
         var dtoSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src",
-            "MediaEngine.Api",
-            "Models",
+            "MediaEngine.Contracts",
+            "Ingestion",
             "IngestionOperationsDtos.cs"));
         var serviceSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
@@ -500,8 +500,8 @@ public sealed class IngestionOperationsContractTests
         var dtoSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src",
-            "MediaEngine.Api",
-            "Models",
+            "MediaEngine.Contracts",
+            "Ingestion",
             "IngestionOperationsDtos.cs"));
         var serviceSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),

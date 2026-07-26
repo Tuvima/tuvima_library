@@ -26,17 +26,19 @@ internal static class AiEndpoints
             IModelLifecycleManager lifecycle) =>
         {
             var status = lifecycle.GetHealthStatus();
-            return Results.Ok(new AiHealthStatusResponse(
-                status.Models.Select(ToModelStatusResponse).ToList(),
-                status.MemoryUsedMB,
-                status.MemoryLimitMB,
-                status.GpuAvailable,
-                status.MemoryProfile,
-                status.IsReady));
+            return Results.Ok(new AiHealthStatusDto
+            {
+                Models = status.Models.Select(ToModelStatusResponse).ToList(),
+                MemoryUsedMB = status.MemoryUsedMB,
+                MemoryLimitMB = status.MemoryLimitMB,
+                GpuAvailable = status.GpuAvailable,
+                MemoryProfile = status.MemoryProfile,
+                IsReady = status.IsReady,
+            });
         })
         .WithName("GetAiStatus")
         .WithSummary("Returns overall AI subsystem health status.")
-        .Produces<AiHealthStatusResponse>(StatusCodes.Status200OK)
+        .Produces<AiHealthStatusDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ai/models ───────────────────────────────────────────────────
@@ -61,7 +63,7 @@ internal static class AiEndpoints
         })
         .WithName("GetAiModelStatuses")
         .WithSummary("Returns download and lifecycle status for all AI model roles.")
-        .Produces<IReadOnlyList<AiModelStatusResponse>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<AiModelStatusDto>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /ai/models/{role}/download ──────────────────────────────────
@@ -179,18 +181,19 @@ internal static class AiEndpoints
         group.MapGet("/config", (
             AiSettings settings) =>
         {
-            return Results.Ok(settings);
+            return Results.Ok(AiContractMapper.ToContract(settings));
         })
         .WithName("GetAiConfig")
         .WithSummary("Returns the current AI configuration (config/ai.json).")
-        .Produces<AiSettings>(StatusCodes.Status200OK)
+        .Produces<AiConfigDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── PUT /ai/config ───────────────────────────────────────────────────
         group.MapPut("/config", (
-            AiSettings settings,
+            AiConfigDto request,
             IConfigurationLoader configLoader) =>
         {
+            var settings = AiContractMapper.ToSettings(request);
             var errors = ValidateAiSettings(settings);
             if (errors.Count > 0)
                 return Results.ValidationProblem(errors.ToDictionary(e => e.Key, e => e.Value));
@@ -207,17 +210,11 @@ internal static class AiEndpoints
         group.MapGet("/profile", (AiSettings settings) =>
         {
             var p = settings.HardwareProfile;
-            return Results.Ok(new AiHardwareProfileResponse(
-                p.Tier,
-                p.Backend,
-                p.GpuName,
-                p.TokensPerSecond,
-                p.AvailableRamMb,
-                p.BenchmarkedAt));
+            return Results.Ok(AiContractMapper.ToContract(p));
         })
         .WithName("GetAiHardwareProfile")
         .WithSummary("Returns the cached hardware profile and performance tier.")
-        .Produces<AiHardwareProfileResponse>(StatusCodes.Status200OK)
+        .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /ai/benchmark ───────────────────────────────────────────────
@@ -226,33 +223,23 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             var profile = await benchmark.BenchmarkAsync(ct);
-            return Results.Ok(new AiHardwareProfileResponse(
-                profile.Tier,
-                profile.Backend,
-                profile.GpuName,
-                profile.TokensPerSecond,
-                profile.AvailableRamMb,
-                profile.BenchmarkedAt));
+            return Results.Ok(AiContractMapper.ToContract(profile));
         })
         .WithName("RunAiHardwareBenchmark")
         .WithSummary("Re-runs the hardware benchmark and returns the updated profile.")
-        .Produces<AiHardwareProfileResponse>(StatusCodes.Status200OK)
+        .Produces<HardwareProfileDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapGet("/benchmark/suites", (
             AiBenchmarkHarness harness) =>
         {
             return Results.Ok(harness.GetBuiltInSuites()
-                .Select(suite => new AiBenchmarkSuiteResponse<AiBenchmarkGates, AiBenchmarkCase>(
-                    suite.Key,
-                    suite.OperationalRole ?? ToRoleKey(suite.Role),
-                    suite.Gates,
-                    suite.Cases))
+                .Select(AiContractMapper.ToContract)
                 .ToList());
         })
         .WithName("GetAiBenchmarkSuites")
         .WithSummary("Returns built-in model validation suites and promotion gates.")
-        .Produces<IReadOnlyList<AiBenchmarkSuiteResponse<AiBenchmarkGates, AiBenchmarkCase>>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<AiBenchmarkSuiteDto>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/benchmark/suites/{suiteKey}/run", async (
@@ -267,7 +254,7 @@ internal static class AiEndpoints
             {
                 var report = await harness.RunAsync(suiteKey, request.CatalogKey, runner,
                     new(request.AllowHardwareBenchmark, request.AllowModelExecution), ct);
-                return Results.Ok(report);
+                return Results.Ok(AiContractMapper.ToContract(report));
             }
             catch (AiBenchmarkExecutionBlockedException ex)
             {
@@ -299,7 +286,7 @@ internal static class AiEndpoints
         })
         .WithName("RunAiBenchmarkSuite")
         .WithSummary("Runs a versioned local text evaluation suite after explicit hardware and model-execution opt-in.")
-        .Produces<AiBenchmarkReport>(StatusCodes.Status200OK)
+        .Produces<AiBenchmarkReportDto>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status409Conflict)
         .Produces(StatusCodes.Status422UnprocessableEntity)
         .RequireAdmin();
@@ -308,16 +295,18 @@ internal static class AiEndpoints
         group.MapGet("/resources", (ResourceMonitorService monitor) =>
         {
             var snapshot = monitor.GetSnapshot();
-            return Results.Ok(new AiResourceSnapshotResponse(
-                snapshot.TotalRamMb,
-                snapshot.FreeRamMb,
-                snapshot.EngineRamMb,
-                snapshot.CpuPressure,
-                snapshot.TranscodingActive));
+            return Results.Ok(new ResourceSnapshotDto
+            {
+                TotalRamMb = snapshot.TotalRamMb,
+                FreeRamMb = snapshot.FreeRamMb,
+                EngineRamMb = snapshot.EngineRamMb,
+                CpuPressure = snapshot.CpuPressure,
+                TranscodingActive = snapshot.TranscodingActive,
+            });
         })
         .WithName("GetAiResourceSnapshot")
         .WithSummary("Returns current system resource usage (RAM, CPU pressure, transcoding status).")
-        .Produces<AiResourceSnapshotResponse>(StatusCodes.Status200OK)
+        .Produces<ResourceSnapshotDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ai/enrichment/progress ──────────────────────────────────────
@@ -331,14 +320,16 @@ internal static class AiEndpoints
             var completed = await canonicals.GetEntitiesNeedingEnrichmentAsync("themes", "__nonexistent__", 10000, ct);
             int pendingCount   = pending.Count;
             int completedCount = completed.Count;
-            return Results.Ok(new AiEnrichmentProgressResponse(
-                pendingCount,
-                completedCount,
-                pendingCount + completedCount));
+            return Results.Ok(new EnrichmentProgressDto
+            {
+                PendingCount = pendingCount,
+                CompletedCount = completedCount,
+                Total = pendingCount + completedCount,
+            });
         })
         .WithName("GetAiEnrichmentProgress")
         .WithSummary("Returns pending and completed AI enrichment counts.")
-        .Produces<AiEnrichmentProgressResponse>(StatusCodes.Status200OK)
+        .Produces<EnrichmentProgressDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return group;
@@ -382,104 +373,83 @@ internal static class AiEndpoints
         return Uri.TryCreate(url, UriKind.Absolute, out var uri) ? uri.Host : null;
     }
 
-    private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status) =>
-        new(
-            Role: ToRoleKey(status.Role),
-            RoleName: status.Role.ToString(),
-            Supported: true,
-            ModelType: status.ModelType.ToString(),
-            State: status.State.ToString(),
-            Description: "",
-            ModelFile: status.ModelFile,
-            SizeMB: status.SizeMB,
-            DownloadUrlHost: null,
-            DownloadProgressPercent: status.DownloadProgressPercent,
-            BytesDownloaded: status.BytesDownloaded,
-            TotalBytes: status.TotalBytes,
-            Loaded: status.State == AiModelState.Loaded,
-            Active: status.State == AiModelState.Loaded,
-            MemoryFootprintMB: status.State == AiModelState.Loaded ? status.SizeMB : 0,
-            RequiredHardwareTier: GetRequiredHardwareTier(status.Role),
-            ErrorMessage: status.ErrorMessage,
-            CatalogKey: null,
-            DisplayName: "",
-            Family: "",
-            Provider: "",
-            License: "",
-            Runtime: "",
-            SelectionTier: "",
-            SelectionStatus: "",
-            SelectionRationale: "",
-            RoleRequirement: "",
-            BenchmarkSuite: "",
-            ValidationWarnings: [],
-            Capabilities: [],
-            DiskStatus: "unknown",
-            DiskSizeMB: 0,
-            MemoryEnvelopeMB: 0,
-            Quantization: "",
-            SourceUrl: "",
-            ChecksumStatus: "unknown",
-            ConfigurationReady: false,
-            RuntimeReady: false,
-            Validated: false,
-            CanOperate: false,
-            Experimental: false,
-            BlockingReasons: []);
+    private static AiModelStatusDto ToModelStatusResponse(AiModelStatus status) => new()
+    {
+        Role = ToRoleKey(status.Role),
+        RoleName = status.Role.ToString(),
+        Supported = true,
+        ModelType = status.ModelType.ToString(),
+        State = status.State.ToString(),
+        ModelFile = status.ModelFile,
+        SizeMB = status.SizeMB,
+        DownloadProgressPercent = status.DownloadProgressPercent,
+        BytesDownloaded = status.BytesDownloaded,
+        TotalBytes = status.TotalBytes,
+        Loaded = status.State == AiModelState.Loaded,
+        Active = status.State == AiModelState.Loaded,
+        MemoryFootprintMB = status.State == AiModelState.Loaded ? status.SizeMB : 0,
+        RequiredHardwareTier = GetRequiredHardwareTier(status.Role),
+        ErrorMessage = status.ErrorMessage,
+        DiskStatus = "unknown",
+        ChecksumStatus = "unknown",
+        CanOperate = false,
+    };
 
-    private static AiModelStatusResponse ToModelStatusResponse(AiModelStatus status, AiSettings settings, AiModelRole? currentRole, ModelInventory inventory)
+    private static AiModelStatusDto ToModelStatusResponse(AiModelStatus status, AiSettings settings, AiModelRole? currentRole, ModelInventory inventory)
     {
         var definition = settings.Models.GetByRole(status.Role);
         var advisor = new AiModelSelectionAdvisor(settings);
         var decision = advisor.GetDecision(status.Role);
         var catalog = settings.GetCatalogEntryForRole(status.Role);
         var isLoaded = currentRole == status.Role || status.State == AiModelState.Loaded;
-        return new AiModelStatusResponse(
-            Role: ToRoleKey(status.Role),
-            RoleName: status.Role.ToString(),
-            Supported: true,
-            ModelType: status.ModelType.ToString(),
-            State: status.State.ToString(),
-            Description: definition.Description,
-            ModelFile: status.ModelFile,
-            SizeMB: status.SizeMB,
-            DownloadUrlHost: TryGetUriHost(definition.DownloadUrl),
-            DownloadProgressPercent: status.DownloadProgressPercent,
-            BytesDownloaded: status.BytesDownloaded,
-            TotalBytes: status.TotalBytes,
-            Loaded: isLoaded,
-            Active: currentRole == status.Role,
-            MemoryFootprintMB: isLoaded ? definition.SizeMB : 0,
-            RequiredHardwareTier: GetRequiredHardwareTier(status.Role),
-            ErrorMessage: status.ErrorMessage,
-            CatalogKey: definition.CatalogKey,
-            DisplayName: decision.DisplayName,
-            Family: decision.Family,
-            Provider: decision.Provider,
-            License: decision.License,
-            Runtime: decision.Runtime,
-            SelectionTier: decision.SelectionTier,
-            SelectionStatus: decision.Status,
-            SelectionRationale: decision.Rationale,
-            RoleRequirement: decision.Requirement,
-            BenchmarkSuite: decision.BenchmarkSuite,
-            ValidationWarnings: decision.Warnings,
-            Capabilities: FormatCapabilities(catalog?.Capabilities),
-            DiskStatus: GetDiskStatus(inventory.GetModelPath(status.Role)),
-            DiskSizeMB: GetDiskSizeMB(inventory.GetModelPath(status.Role)),
-            MemoryEnvelopeMB: decision.MemoryEnvelopeMB,
-            Quantization: decision.Quantization,
-            SourceUrl: decision.SourceUrl,
-            ChecksumStatus: decision.ChecksumConfigured ? "configured" : "missing",
-            ConfigurationReady: decision.ConfigurationReady,
-            RuntimeReady: decision.RuntimeReady,
-            Validated: decision.Validated,
-            CanOperate: decision.CanEnable,
-            Experimental: decision.Experimental,
-            BlockingReasons: decision.BlockingReasons);
+        return new AiModelStatusDto
+        {
+            Role = ToRoleKey(status.Role),
+            RoleName = status.Role.ToString(),
+            Supported = true,
+            ModelType = status.ModelType.ToString(),
+            State = status.State.ToString(),
+            Description = definition.Description,
+            ModelFile = status.ModelFile,
+            SizeMB = status.SizeMB,
+            DownloadUrlHost = TryGetUriHost(definition.DownloadUrl),
+            DownloadProgressPercent = status.DownloadProgressPercent,
+            BytesDownloaded = status.BytesDownloaded,
+            TotalBytes = status.TotalBytes,
+            Loaded = isLoaded,
+            Active = currentRole == status.Role,
+            MemoryFootprintMB = isLoaded ? definition.SizeMB : 0,
+            RequiredHardwareTier = GetRequiredHardwareTier(status.Role),
+            ErrorMessage = status.ErrorMessage,
+            CatalogKey = definition.CatalogKey,
+            DisplayName = decision.DisplayName,
+            Family = decision.Family,
+            Provider = decision.Provider,
+            License = decision.License,
+            Runtime = decision.Runtime,
+            SelectionTier = decision.SelectionTier,
+            SelectionStatus = decision.Status,
+            SelectionRationale = decision.Rationale,
+            RoleRequirement = decision.Requirement,
+            BenchmarkSuite = decision.BenchmarkSuite,
+            ValidationWarnings = decision.Warnings.ToList(),
+            Capabilities = FormatCapabilities(catalog?.Capabilities).ToList(),
+            DiskStatus = GetDiskStatus(inventory.GetModelPath(status.Role)),
+            DiskSizeMB = GetDiskSizeMB(inventory.GetModelPath(status.Role)),
+            MemoryEnvelopeMB = decision.MemoryEnvelopeMB,
+            Quantization = decision.Quantization,
+            SourceUrl = decision.SourceUrl,
+            ChecksumStatus = decision.ChecksumConfigured ? "configured" : "missing",
+            ConfigurationReady = decision.ConfigurationReady,
+            RuntimeReady = decision.RuntimeReady,
+            Validated = decision.Validated,
+            CanOperate = decision.CanEnable,
+            Experimental = decision.Experimental,
+            BlockingReasons = decision.BlockingReasons.ToList(),
+        };
     }
 
-    private static AiModelStatusResponse ToOperationalStatusResponse(string role, AiSettings settings)
+    private static AiModelStatusDto ToOperationalStatusResponse(string role, AiSettings settings)
     {
         var advisor = new AiModelSelectionAdvisor(settings);
         var decision = advisor.GetDecision(role);
@@ -488,17 +458,44 @@ internal static class AiEndpoints
         var file = catalog?.File ?? "";
         var path = GetCatalogModelPath(settings, file, definition?.RuntimeKind);
         var state = path is null ? "Unavailable" : GetDiskStatus(path) == "present" ? "Ready" : "NotDownloaded";
-        return new(
-            role, role.Replace('_', ' '), false, definition?.RuntimeKind ?? "unknown", state,
-            decision.Requirement, file, decision.SizeMB, TryGetUriHost(catalog?.DownloadUrl), 0, 0, 0,
-            false, false, 0, "not integrated", null, decision.CatalogKey, decision.DisplayName,
-            decision.Family, decision.Provider, decision.License, decision.Runtime, decision.SelectionTier,
-            decision.Status, decision.Rationale, decision.Requirement, decision.BenchmarkSuite, decision.Warnings,
-            FormatCapabilities(catalog?.Capabilities), path is null ? "not_configured" : GetDiskStatus(path),
-            path is null ? 0 : GetDiskSizeMB(path), decision.MemoryEnvelopeMB, decision.Quantization,
-            decision.SourceUrl, decision.ChecksumConfigured ? "configured" : "missing",
-            decision.ConfigurationReady, decision.RuntimeReady, decision.Validated, decision.CanEnable,
-            decision.Experimental, decision.BlockingReasons);
+        return new AiModelStatusDto
+        {
+            Role = role,
+            RoleName = role.Replace('_', ' '),
+            Supported = false,
+            ModelType = definition?.RuntimeKind ?? "unknown",
+            State = state,
+            Description = decision.Requirement,
+            ModelFile = file,
+            SizeMB = decision.SizeMB,
+            DownloadUrlHost = TryGetUriHost(catalog?.DownloadUrl),
+            RequiredHardwareTier = "not integrated",
+            CatalogKey = decision.CatalogKey,
+            DisplayName = decision.DisplayName,
+            Family = decision.Family,
+            Provider = decision.Provider,
+            License = decision.License,
+            Runtime = decision.Runtime,
+            SelectionTier = decision.SelectionTier,
+            SelectionStatus = decision.Status,
+            SelectionRationale = decision.Rationale,
+            RoleRequirement = decision.Requirement,
+            BenchmarkSuite = decision.BenchmarkSuite,
+            ValidationWarnings = decision.Warnings.ToList(),
+            Capabilities = FormatCapabilities(catalog?.Capabilities).ToList(),
+            DiskStatus = path is null ? "not_configured" : GetDiskStatus(path),
+            DiskSizeMB = path is null ? 0 : GetDiskSizeMB(path),
+            MemoryEnvelopeMB = decision.MemoryEnvelopeMB,
+            Quantization = decision.Quantization,
+            SourceUrl = decision.SourceUrl,
+            ChecksumStatus = decision.ChecksumConfigured ? "configured" : "missing",
+            ConfigurationReady = decision.ConfigurationReady,
+            RuntimeReady = decision.RuntimeReady,
+            Validated = decision.Validated,
+            CanOperate = decision.CanEnable,
+            Experimental = decision.Experimental,
+            BlockingReasons = decision.BlockingReasons.ToList(),
+        };
     }
 
     private static string? GetCatalogModelPath(AiSettings settings, string file, string? runtimeKind)
@@ -645,8 +642,4 @@ internal static class AiEndpoints
         return errors;
     }
 
-    private sealed record AiBenchmarkRunRequest(
-        string CatalogKey,
-        bool AllowHardwareBenchmark,
-        bool AllowModelExecution);
 }

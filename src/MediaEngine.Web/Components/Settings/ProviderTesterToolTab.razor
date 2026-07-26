@@ -576,7 +576,7 @@
     private readonly HashSet<string> _activeFields = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _fieldValues = new(StringComparer.OrdinalIgnoreCase);
 
-    private List<RetailCandidateDto> _results = [];
+    private List<RetailSearchCandidateViewModel> _results = [];
     private List<UniverseCandidateDto> _universeResults = [];
     private IReadOnlyList<ProviderCatalogueDto> _filteredProviders = [];
 
@@ -683,7 +683,7 @@
 
         try
         {
-            var nextResults = new List<RetailCandidateDto>();
+            var nextResults = new List<RetailSearchCandidateViewModel>();
             var nextUniverseResults = new List<UniverseCandidateDto>();
             var searchFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             foreach (var key in _activeFields)
@@ -704,7 +704,9 @@
 
                 if (response?.Candidates is not null)
                 {
-                    nextResults = response.Candidates;
+                    nextResults = response.Candidates
+                        .Select(RetailSearchCandidateViewModel.FromContract)
+                        .ToList();
                     if (_selectedProvider != "all" && _selectedProvider != "wikidata")
                     {
                         nextResults = nextResults
@@ -746,19 +748,19 @@
         }
     }
 
-    private string? GetSubline(RetailCandidateDto result)
+    private string? GetSubline(RetailSearchCandidateViewModel result)
     {
         var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         return GetFieldValue(result, display.Subline);
     }
 
-    private string? GetTertiary(RetailCandidateDto result)
+    private string? GetTertiary(RetailSearchCandidateViewModel result)
     {
         var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         return GetFieldValue(result, display.Tertiary);
     }
 
-    private List<(string Label, string Value)> GetDetailFields(RetailCandidateDto result)
+    private List<(string Label, string Value)> GetDetailFields(RetailSearchCandidateViewModel result)
     {
         var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         var allFields = BuildFieldLookup(result);
@@ -773,7 +775,7 @@
         return details;
     }
 
-    private List<(string Label, string Value)> GetBridgeFields(RetailCandidateDto result)
+    private List<(string Label, string Value)> GetBridgeFields(RetailSearchCandidateViewModel result)
     {
         var display = MediaTypeFieldCatalog.GetSearchDisplay(ParseMediaType(_selectedMediaType));
         var allFields = BuildFieldLookup(result);
@@ -787,13 +789,13 @@
         return bridges;
     }
 
-    private string? GetFieldValue(RetailCandidateDto result, string key)
+    private string? GetFieldValue(RetailSearchCandidateViewModel result, string key)
     {
         var lookup = BuildFieldLookup(result);
         return lookup.TryGetValue(key, out var val) && !string.IsNullOrWhiteSpace(val) ? val : null;
     }
 
-    private static Dictionary<string, string> BuildFieldLookup(RetailCandidateDto result)
+    private static Dictionary<string, string> BuildFieldLookup(RetailSearchCandidateViewModel result)
     {
         var lookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrEmpty(result.Title)) lookup["title"] = result.Title;

@@ -6,6 +6,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Api.Services;
 
@@ -343,22 +344,3 @@ public sealed class RetagSweepWorker : BackgroundService
         base.Dispose();
     }
 }
-
-/// <summary>
-/// SignalR payload emitted every few files while the sweep is running.
-/// </summary>
-public sealed record RetagSweepProgressEvent(
-    int Processed,
-    int Succeeded,
-    int Transient,
-    int Terminal,
-    bool IsFinal);
-
-/// <summary>
-/// SignalR payload emitted once after each sweep pass concludes.
-/// </summary>
-public sealed record RetagSweepCompletedEvent(
-    int Processed,
-    int Succeeded,
-    int Transient,
-    int Terminal);

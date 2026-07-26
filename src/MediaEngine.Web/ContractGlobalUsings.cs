@@ -1,0 +1,10 @@
+global using MediaEngine.Contracts.Activity;
+global using MediaEngine.Contracts.Collections;
+global using MediaEngine.Contracts.Ingestion;
+global using MediaEngine.Contracts.Library;
+global using MediaEngine.Contracts.Metadata;
+global using MediaEngine.Contracts.Matching;
+global using MediaEngine.Contracts.Operations;
+global using MediaEngine.Contracts.Persons;
+global using MediaEngine.Contracts.Plugins;
+global using MediaEngine.Contracts.Search;

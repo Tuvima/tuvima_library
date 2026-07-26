@@ -1,4 +1,5 @@
 using Bunit;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -53,9 +54,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_KeepsCompleteVisibleForSixtySecondsThenShowsIdle()
     {
         var completedAt = DateTimeOffset.UtcNow.AddSeconds(-30);
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 LastSuccessfulScanTime = completedAt,
                 TotalItems = 20,
@@ -112,9 +113,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_IgnoresStaleActiveJobCounterWhenDetailedWorkIsComplete()
     {
         var completedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 117,
                 RegisteredItems = 117,
@@ -168,9 +169,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_TreatsQueuedIncompleteStageWorkAsRunning()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 131,
                 RegisteredItems = 121,
@@ -227,9 +228,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_TreatsAbandonedBatchAsInterruptedNotFailed()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 40,
                 RegisteredItems = 20,
@@ -274,9 +275,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_SeparatesFileProcessingFromWikidataProgress()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 131,
                 RegisteredItems = 121,
@@ -344,7 +345,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_MapsNoPriorRunToReadyState()
     {
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
-            new IngestionOperationsSnapshotViewModel(),
+            new IngestionOperationsSnapshotDto(),
             [],
             [],
             [],
@@ -363,9 +364,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_UsesActiveStageActivityForLibraryUpdate()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 117,
                 RegisteredItems = 52,
@@ -391,7 +392,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
         var jobs = new[]
         {
-            new IngestionOperationsJobViewModel
+            new IngestionOperationsJobDto
             {
                 CurrentStage = "Wikidata matching",
                 ProcessedCount = 60,
@@ -402,7 +403,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
         var activities = new[]
         {
-            new IngestionCurrentActivityViewModel
+            new IngestionCurrentActivityDto
             {
                 StageKey = "artwork",
                 Message = "Fetching artwork",
@@ -411,7 +412,7 @@ public sealed class IngestionOperationsPageGuardrailTests
                 TotalCount = 117,
                 PercentComplete = 100,
             },
-            new IngestionCurrentActivityViewModel
+            new IngestionCurrentActivityDto
             {
                 StageKey = "wikidata",
                 Message = "Linking Wikidata QIDs",
@@ -449,11 +450,11 @@ public sealed class IngestionOperationsPageGuardrailTests
     {
         var activities = new[]
         {
-            new IngestionCurrentActivityViewModel
+            new IngestionCurrentActivityDto
             {
                 StageKey = "wikidata",
                 Message = "Linking Wikidata QIDs",
-                CurrentBatch = new IngestionActivityBatchViewModel
+                CurrentBatch = new IngestionActivityBatchDto
                 {
                     CompletedPreview = ["Dune Messiah", "Project Hail Mary"],
                 },
@@ -461,9 +462,9 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
 
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
-            new IngestionOperationsSnapshotViewModel
+            new IngestionOperationsSnapshotDto
             {
-                Summary = new IngestionOperationsSummaryViewModel { TotalItems = 2, ActiveJobs = 1 },
+                Summary = new IngestionOperationsSummaryDto { TotalItems = 2, ActiveJobs = 1 },
             },
             [],
             activities,
@@ -501,7 +502,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
         var operations = new[]
         {
-            new MediaOperationViewModel
+            new OperationDto
             {
                 Status = "queued",
                 Stage = "waiting_for_lock",
@@ -564,7 +565,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             FilesActive: 2,
             CurrentFileTitle: "Dune Part One"));
 
-        var jobs = IngestionLiveDashboardState.BuildActiveJobs(new IngestionOperationsSnapshotViewModel(), state);
+        var jobs = IngestionLiveDashboardState.BuildActiveJobs(new IngestionOperationsSnapshotDto(), state);
 
         var job = Assert.Single(jobs);
         Assert.Equal(batchId, job.JobId);
@@ -594,11 +595,11 @@ public sealed class IngestionOperationsPageGuardrailTests
             FilesActive: 1,
             CurrentFileTitle: "Moonage Daydream",
             LifecycleStage: "Hydrating"));
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
             CurrentActivities =
             [
-                new IngestionCurrentActivityViewModel
+                new IngestionCurrentActivityDto
                 {
                     StageKey = "relationships",
                     Message = "Relationships",
@@ -653,7 +654,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             Title: "Dune",
             MediaType: "Book"));
 
-        var jobs = IngestionLiveDashboardState.BuildActiveJobs(new IngestionOperationsSnapshotViewModel(), state);
+        var jobs = IngestionLiveDashboardState.BuildActiveJobs(new IngestionOperationsSnapshotDto(), state);
 
         var job = Assert.Single(jobs, job => job.JobId == batchId);
         Assert.Equal("Reading files", job.JobType);
@@ -693,7 +694,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             IsTerminal: false,
             Title: "Foundation",
             MediaType: "Book"));
-        var snapshot = new IngestionOperationsSnapshotViewModel();
+        var snapshot = new IngestionOperationsSnapshotDto();
         var jobs = IngestionLiveDashboardState.BuildActiveJobs(snapshot, state);
         var stages = IngestionLiveDashboardState.BuildStages(snapshot, jobs, 8);
 
@@ -753,7 +754,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             CurrentStep: "Enhancers"));
 
         var activities = IngestionLiveDashboardState.BuildCurrentActivities(
-            new IngestionOperationsSnapshotViewModel(),
+            new IngestionOperationsSnapshotDto(),
             [],
             [],
             state);
@@ -772,7 +773,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_TreatsRelationshipActivityAsEnrichmentWork()
     {
-        var activity = new IngestionCurrentActivityViewModel
+        var activity = new IngestionCurrentActivityDto
         {
             StageKey = "relationships",
             Message = "Relationships",
@@ -785,9 +786,9 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
 
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
-            new IngestionOperationsSnapshotViewModel
+            new IngestionOperationsSnapshotDto
             {
-                Summary = new IngestionOperationsSummaryViewModel
+                Summary = new IngestionOperationsSummaryDto
                 {
                     TotalItems = 77,
                     RegisteredItems = 70,
@@ -812,7 +813,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_DoesNotTreatPartialIdleWorkerAsRunning()
     {
-        var activity = new IngestionCurrentActivityViewModel
+        var activity = new IngestionCurrentActivityDto
         {
             StageKey = "relationships",
             Message = "Relationships",
@@ -826,9 +827,9 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
 
         var status = IngestionLiveDashboardState.BuildLibraryUpdateStatus(
-            new IngestionOperationsSnapshotViewModel
+            new IngestionOperationsSnapshotDto
             {
-                Summary = new IngestionOperationsSummaryViewModel
+                Summary = new IngestionOperationsSummaryDto
                 {
                     TotalItems = 3,
                     RegisteredItems = 2,
@@ -873,9 +874,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_MapsStagesAndMetrics()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 100,
                 RegisteredItems = 40,
@@ -887,7 +888,7 @@ public sealed class IngestionOperationsPageGuardrailTests
                 new() { Key = "registered", Count = 40 },
             ],
         };
-        var jobs = new List<IngestionOperationsJobViewModel>
+        var jobs = new List<IngestionOperationsJobDto>
         {
             new()
             {
@@ -917,9 +918,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_UsesNumberedStageProgressAsSourceOfTruth()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 97,
                 RegisteredItems = 35,
@@ -979,8 +980,8 @@ public sealed class IngestionOperationsPageGuardrailTests
         Assert.Equal("Retail Match", retail.LabelKey);
         Assert.Equal("matches", retail.ArtifactLabel);
         Assert.Equal(224, retail.ArtifactCount);
-        Assert.Contains(retail.DetailItems ?? Array.Empty<IngestionStageDetailItemViewModel>(), item => item.Label == "Provider matches" && item.Value == "97");
-        Assert.Contains(retail.DetailItems ?? Array.Empty<IngestionStageDetailItemViewModel>(), item => item.Label == "Primary covers stored" && item.Value == "87");
+        Assert.Contains(retail.DetailItems ?? Array.Empty<IngestionStageDetailItemDto>(), item => item.Label == "Provider matches" && item.Value == "97");
+        Assert.Contains(retail.DetailItems ?? Array.Empty<IngestionStageDetailItemDto>(), item => item.Label == "Primary covers stored" && item.Value == "87");
 
         var wikidata = Assert.Single(stages, stage => stage.Key == "wikidata");
         Assert.Equal("Ingestion_StatusActive", wikidata.StatusKey);
@@ -1089,9 +1090,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_EnrichmentCompletionUsesTerminalPipelineOutcomes()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 97,
                 RegisteredItems = 20,
@@ -1112,7 +1113,7 @@ public sealed class IngestionOperationsPageGuardrailTests
         };
         var activities = new[]
         {
-            new IngestionCurrentActivityViewModel
+            new IngestionCurrentActivityDto
             {
                 StageKey = "artwork",
                 Message = "Fetching artwork",
@@ -1155,9 +1156,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_SeparatesUnmatchedFromMissingIdentityReasons()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 131,
                 RegisteredItems = 52,
@@ -1193,9 +1194,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_ClampsOverlappingWorkerQueuesToRunSize()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 97,
                 ActiveJobs = 1,
@@ -1218,7 +1219,7 @@ public sealed class IngestionOperationsPageGuardrailTests
                 },
             ],
         };
-        var activities = new List<IngestionCurrentActivityViewModel>
+        var activities = new List<IngestionCurrentActivityDto>
         {
             new()
             {
@@ -1261,9 +1262,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_OverallProgressUsesPipelineStagesNotScannedFiles()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 43,
                 RegisteredItems = 28,
@@ -1280,7 +1281,7 @@ public sealed class IngestionOperationsPageGuardrailTests
                 new() { Key = "duplicate", Count = 1, TotalCount = 43 },
             ],
         };
-        var jobs = new List<IngestionOperationsJobViewModel>
+        var jobs = new List<IngestionOperationsJobDto>
         {
             new()
             {
@@ -1330,9 +1331,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_OverallProgressReachesCompleteWhenAllFilesAreTerminal()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 117,
                 RegisteredItems = 90,
@@ -1374,9 +1375,9 @@ public sealed class IngestionOperationsPageGuardrailTests
     public void LiveDashboardState_OverallProgressCountsTerminalRetailNoMatchForCompletedBatch()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 26,
                 RegisteredItems = 10,
@@ -1422,7 +1423,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_HidesScanningCountWhenIdle()
     {
-        var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 0);
+        var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotDto(), [], 0);
 
         var scanning = Assert.Single(stages, stage => stage.Key == "scanning");
         Assert.True(scanning.HideCount);
@@ -1432,7 +1433,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_ShowsCompletedScanningCountFromSnapshot()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
             PipelineStages =
             [
@@ -1452,7 +1453,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     [Fact]
     public void LiveDashboardState_ShowsScanningQueueWhenActive()
     {
-        var jobs = new List<IngestionOperationsJobViewModel>
+        var jobs = new List<IngestionOperationsJobDto>
         {
             new()
             {
@@ -1463,7 +1464,7 @@ public sealed class IngestionOperationsPageGuardrailTests
             },
         };
 
-        var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), jobs, 10);
+        var stages = IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotDto(), jobs, 10);
 
         var scanning = Assert.Single(stages, stage => stage.Key == "scanning");
         Assert.False(scanning.HideCount);
@@ -1513,14 +1514,14 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_ShowsExpectedAndUnexpectedReviewCountsFromHarnessManifest()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 10,
                 RegisteredItems = 6,
                 ItemsNeedingReview = 4,
-                ExpectedOutcomes = new IngestionExpectedOutcomesViewModel
+                ExpectedOutcomes = new IngestionExpectedOutcomesDto
                 {
                     TotalFiles = 10,
                     ExpectedResolved = 8,
@@ -1548,7 +1549,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 10, 0, 4))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.DoesNotContain("3 unexpected", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("3 unexpected items need review", cut.Markup, StringComparison.Ordinal);
@@ -1558,14 +1559,14 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_ShowsUnexpectedReviewWhenManifestExpectedNone()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 10,
                 RegisteredItems = 8,
                 ItemsNeedingReview = 2,
-                ExpectedOutcomes = new IngestionExpectedOutcomesViewModel
+                ExpectedOutcomes = new IngestionExpectedOutcomesDto
                 {
                     TotalFiles = 10,
                     ExpectedResolved = 9,
@@ -1593,7 +1594,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.DoesNotContain("2 unexpected", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("2 unexpected items need review", cut.Markup, StringComparison.Ordinal);
@@ -1603,9 +1604,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_DoesNotShowUnexpectedReviewWithoutExpectationContract()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 10,
                 RegisteredItems = 8,
@@ -1632,7 +1633,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.DoesNotContain("unexpected", cut.Markup, StringComparison.OrdinalIgnoreCase);
     }
@@ -1641,9 +1642,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     public void LiveDashboard_ReviewOnlySnapshotDoesNotUseNoPriorRunState()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 ItemsNeedingReview = 27,
             },
@@ -1671,9 +1672,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_DoesNotRenderDuplicateNeedsAttentionPanel()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 10,
                 RegisteredItems = 8,
@@ -1696,7 +1697,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 10))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.DoesNotContain("Need Review", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Needs attention", cut.Markup, StringComparison.Ordinal);
@@ -1707,9 +1708,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_RendersLibraryUpdateDefaultView()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 10,
                 RegisteredItems = 4,
@@ -1720,10 +1721,10 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 4, 1, 0))
             .Add(component => component.OverallProgress, new IngestionOverallProgress(4, 10, 40, "Ingestion_StageRetailIdentification", "Ingestion_StageRetailIdentificationDetail", 4, 10, 40, null))
-            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotDto(), [], 10))
             .Add(component => component.Jobs, new[]
             {
-                new IngestionOperationsJobViewModel
+                new IngestionOperationsJobDto
                 {
                     CurrentStage = "Matching metadata",
                     ProcessedCount = 4,
@@ -1732,7 +1733,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                     Status = "running",
                 },
             })
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("Scanned", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Retail Match", cut.Markup, StringComparison.Ordinal);
@@ -1757,9 +1758,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_RendersNumberedStageArtifactBars()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 97,
                 RegisteredItems = 35,
@@ -1810,7 +1811,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(97, 35, 1, 27))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("Retail Match", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Artwork", cut.Markup, StringComparison.Ordinal);
@@ -1826,9 +1827,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_RendersSimplifiedStageMetricTiles()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 97,
                 RegisteredItems = 35,
@@ -1880,7 +1881,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(97, 35, 0, 0))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("Media QIDs", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Relevant QIDs", cut.Markup, StringComparison.Ordinal);
@@ -1899,9 +1900,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
     [Fact]
     public void LiveDashboard_HidesStaleActiveLabelsForCompletedNumberedStages()
     {
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 27,
                 RegisteredItems = 12,
@@ -1947,7 +1948,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(27, 27, 0, 15))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 27))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("354 matches", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("10 QIDs", cut.Markup, StringComparison.Ordinal);
@@ -1961,7 +1962,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     {
         var batchId = Guid.Parse("85000000-0000-0000-0000-000000000001");
         var completedAt = new DateTimeOffset(2026, 6, 8, 18, 30, 0, TimeSpan.Zero);
-        var terminalStages = new List<IngestionStageProgressViewModel>
+        var terminalStages = new List<IngestionStageProgressDto>
         {
             new()
             {
@@ -2012,9 +2013,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 ArtifactCount = 294,
             },
         };
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 131,
                 RegisteredItems = 124,
@@ -2042,7 +2043,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(131, 131, 0, 5))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 131))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         foreach (var label in new[] { "Wikidata", "People", "Universes", "Artwork" })
         {
@@ -2057,7 +2058,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
     public void LiveDashboard_RendersProviderActivityAsWaitingRecentOrHealthy()
     {
         var now = DateTimeOffset.UtcNow;
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
             ProviderActivity =
             [
@@ -2100,7 +2101,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(0, 0, 0, 0))
             .Add(component => component.Stages, Array.Empty<IngestionDashboardStage>())
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("Provider activity", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("waiting", cut.Markup, StringComparison.OrdinalIgnoreCase);
@@ -2119,9 +2120,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
         var completedBatchId = Guid.Parse("84000000-0000-0000-0000-000000000001");
         var startedAt = new DateTimeOffset(2026, 6, 3, 20, 15, 0, TimeSpan.Zero);
         var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
-            .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
+            .Add(component => component.Snapshot, new IngestionOperationsSnapshotDto
             {
-                Summary = new IngestionOperationsSummaryViewModel
+                Summary = new IngestionOperationsSummaryDto
                 {
                     TotalItems = 10,
                     RegisteredItems = 4,
@@ -2130,7 +2131,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 },
                 RecentBatches =
                 [
-                    new IngestionOperationsBatchViewModel
+                    new IngestionOperationsBatchDto
                     {
                         BatchId = batchId,
                         StartedAt = startedAt,
@@ -2149,7 +2150,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                         MetadataUpdatedCount = 4,
                         Status = "running",
                     },
-                    new IngestionOperationsBatchViewModel
+                    new IngestionOperationsBatchDto
                     {
                         BatchId = completedBatchId,
                         StartedAt = startedAt.AddMinutes(10),
@@ -2188,8 +2189,8 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 ],
             })
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 4, 1, 0))
-            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 10))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotDto(), [], 10))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("Overall progress", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Recent batches", cut.Markup, StringComparison.Ordinal);
@@ -2233,9 +2234,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
         {
             Activity("artwork", "Fetching artwork"),
         };
-        var snapshot = new IngestionOperationsSnapshotViewModel
+        var snapshot = new IngestionOperationsSnapshotDto
         {
-            Summary = new IngestionOperationsSummaryViewModel
+            Summary = new IngestionOperationsSummaryDto
             {
                 TotalItems = 50,
                 RegisteredItems = 31,
@@ -2277,7 +2278,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             .Add(component => component.Metrics, new IngestionDashboardMetrics(50, 31, 1, 0))
             .Add(component => component.CurrentActivities, activities)
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 50))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.DoesNotContain("31/50", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("31 assets", cut.Markup, StringComparison.Ordinal);
@@ -2302,7 +2303,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         var completedAt = DateTimeOffset.UtcNow.AddMinutes(-5);
         var activities = new[]
         {
-            new IngestionCurrentActivityViewModel
+            new IngestionCurrentActivityDto
             {
                 StageKey = "artwork",
                 Message = "Fetching artwork",
@@ -2315,9 +2316,9 @@ public sealed class IngestionDashboardRenderTests : TestContext
         };
 
         var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
-            .Add(component => component.Snapshot, new IngestionOperationsSnapshotViewModel
+            .Add(component => component.Snapshot, new IngestionOperationsSnapshotDto
             {
-                Summary = new IngestionOperationsSummaryViewModel
+                Summary = new IngestionOperationsSummaryDto
                 {
                     TotalItems = 117,
                     RegisteredItems = 117,
@@ -2327,7 +2328,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 CurrentActivities = activities.ToList(),
                 RecentBatches =
                 [
-                    new IngestionOperationsBatchViewModel
+                    new IngestionOperationsBatchDto
                     {
                         StartedAt = completedAt.AddMinutes(-10),
                         CompletedAt = completedAt,
@@ -2340,15 +2341,15 @@ public sealed class IngestionDashboardRenderTests : TestContext
             })
             .Add(component => component.Metrics, new IngestionDashboardMetrics(117, 117, 1, 0))
             .Add(component => component.CurrentActivities, activities)
-            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotViewModel(), [], 117))
-            .Add(component => component.Activities, Array.Empty<ActivityEntryViewModel>()));
+            .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(new IngestionOperationsSnapshotDto(), [], 117))
+            .Add(component => component.Activities, Array.Empty<ActivityEntryResponse>()));
 
         Assert.Contains("Overall progress", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("finishing final checks", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("0 still in pipeline", cut.Markup, StringComparison.Ordinal);
     }
 
-    private static IngestionCurrentActivityViewModel Activity(string key, string message) => new()
+    private static IngestionCurrentActivityDto Activity(string key, string message) => new()
     {
         StageKey = key,
         Message = message,
@@ -2370,7 +2371,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         MetricLabel = "Files checked",
         MetricValue = "31",
         MetricTone = "info",
-        CurrentBatch = new IngestionActivityBatchViewModel
+        CurrentBatch = new IngestionActivityBatchDto
         {
             BatchNumber = 1,
             BatchSize = 50,

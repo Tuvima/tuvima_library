@@ -8,6 +8,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;

@@ -468,7 +468,7 @@
     private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
         StringHelpers.FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
 
-    private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemViewModel item) => new()
+    private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemDto item) => new()
     {
         Id = item.WorkId.ToString("D"),
         WorkId = item.WorkId,
@@ -481,7 +481,7 @@
         Facts = item.Facts,
     };
 
-    private static string CollectionItemRoute(CollectionArtworkItemViewModel item)
+    private static string CollectionItemRoute(CollectionArtworkItemDto item)
     {
         var mediaType = item.MediaType.Trim().ToLowerInvariant();
         return mediaType.Contains("tv")
@@ -507,7 +507,7 @@
             : ArtworkShape.Portrait;
     }
 
-    private static CollectionArtworkItemViewModel? PaletteArtwork(CollectionManagementCatalogViewModel collection)
+    private static CollectionArtworkItemDto? PaletteArtwork(CollectionManagementCatalogViewModel collection)
     {
         var candidates = collection.ArtworkItems
             .Where(item => !string.IsNullOrWhiteSpace(item.PrimaryColor)

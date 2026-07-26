@@ -104,6 +104,8 @@
                         <MudItem xs="12" md="6"><AppTextField @bind-Value="_config.ModelsDirectory" Label="Models directory" Variant="Variant.Outlined" FullWidth="true" /></MudItem>
                         <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.IdleUnloadSeconds" Label="Idle unload seconds" Min="1" Variant="Variant.Outlined" /></MudItem>
                         <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.InferenceTimeoutSeconds" Label="Inference timeout seconds" Min="1" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.MaxConcurrentInferences" Label="Max concurrent inferences" Min="1" Max="1" Variant="Variant.Outlined" /></MudItem>
+                        <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.MinimumFreeDiskMB" Label="Minimum free disk (MB)" Min="256" Variant="Variant.Outlined" /></MudItem>
                         <MudItem xs="12" md="2"><AppNumericField T="int" @bind-Value="_config.EnrichmentBatchSize" Label="Enrichment batch size" Min="1" Variant="Variant.Outlined" /></MudItem>
                     </MudGrid>
                     <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true" Class="mt-3">Saved values persist to AI config. Model directory and runtime tuning can require Engine restart or model reload to fully apply.</AppAlert>
@@ -184,15 +186,22 @@
     }
 
     private bool ValidateRuntime() =>
-        _config is { IdleUnloadSeconds: > 0, InferenceTimeoutSeconds: > 0, EnrichmentBatchSize: > 0 }
+        _config is
+        {
+            IdleUnloadSeconds: > 0,
+            InferenceTimeoutSeconds: > 0,
+            MaxConcurrentInferences: 1,
+            MinimumFreeDiskMB: >= 256,
+            EnrichmentBatchSize: > 0,
+        }
         && !string.IsNullOrWhiteSpace(_config.ModelsDirectory);
 
     private static string FormatMb(long mb) => mb >= 1024 ? $"{mb / 1024.0:F1} GB" : $"{mb} MB";
 
-    private static string CpuPressureLabel(int pressure) => pressure switch
+    private static string CpuPressureLabel(double pressure) => pressure switch
     {
-        >= 3 => "high",
-        >= 2 => "moderate",
+        >= 0.85 => "high",
+        >= 0.5 => "moderate",
         _ => "low",
     };
 }

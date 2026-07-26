@@ -5,7 +5,6 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
-using MediaEngine.Domain.Events;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
@@ -24,6 +23,33 @@ using ProviderPriorityOrderResponse = MediaEngine.Contracts.Settings.ProviderPri
 using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
 using ProviderIconPathResponse = MediaEngine.Contracts.Settings.ProviderIconPathResponse;
 using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCatalogEntryResponse;
+using AuthSettingsDto = MediaEngine.Contracts.Settings.AuthSettingsDto;
+using BrowseDirectoryRequest = MediaEngine.Contracts.Settings.BrowseDirectoryRequest;
+using BrowseDirectoryResponse = MediaEngine.Contracts.Settings.BrowseDirectoryResultDto;
+using FolderSettingsResponse = MediaEngine.Contracts.Settings.FolderSettingsDto;
+using LibraryFolderSettingsDto = MediaEngine.Contracts.Settings.LibraryFolderDto;
+using OrganizationTemplateResponse = MediaEngine.Contracts.Settings.OrganizationTemplateDto;
+using ServerGeneralRequest = MediaEngine.Contracts.Settings.ServerGeneralSettingsDto;
+using ServerGeneralResponse = MediaEngine.Contracts.Settings.ServerGeneralSettingsDto;
+using TestPathRequest = MediaEngine.Contracts.Settings.TestPathRequest;
+using TestPathResponse = MediaEngine.Contracts.Settings.PathTestResultDto;
+using UpdateFoldersRequest = MediaEngine.Contracts.Settings.FolderSettingsDto;
+using UpdateLibrariesRequest = MediaEngine.Contracts.Settings.UpdateLibrariesRequest;
+using UpdateOrganizationTemplateRequest = MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest;
+using FieldMappingResponse = MediaEngine.Contracts.Settings.FieldMappingDto;
+using ProviderConfigUpdateRequest = MediaEngine.Contracts.Settings.ProviderConfigUpdateDto;
+using ProviderPriorityRequest = MediaEngine.Contracts.Settings.ProviderPriorityRequest;
+using ProviderSampleClaim = MediaEngine.Contracts.Settings.ProviderSampleClaimDto;
+using ProviderSampleRequest = MediaEngine.Contracts.Settings.ProviderSampleRequest;
+using ProviderSampleResponse = MediaEngine.Contracts.Settings.ProviderSampleResultDto;
+using ProviderStatusResponse = MediaEngine.Contracts.Settings.ProviderStatusDto;
+using ProviderTestResponse = MediaEngine.Contracts.Settings.ProviderTestResultDto;
+using UpdateProviderRequest = MediaEngine.Contracts.Settings.UpdateProviderRequest;
+using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
+using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
+using HydrationSettingsDto = MediaEngine.Contracts.Settings.HydrationSettingsDto;
+using MediaTypeConfigurationDto = MediaEngine.Contracts.Settings.MediaTypeConfigurationDto;
+using MediaTypeDefinitionDto = MediaEngine.Contracts.Settings.MediaTypeDefinitionDto;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -100,39 +126,40 @@ public static class SettingsEndpoints
 
         grp.MapGet("/transcoding", (IConfigurationLoader configLoader) =>
         {
-            return Results.Ok(configLoader.LoadTranscoding());
+            return Results.Ok(SettingsContractMapper.ToContract(configLoader.LoadTranscoding()));
         })
         .WithName("GetTranscodingSettings")
         .WithSummary("Returns playback encode, FFmpeg, and offline variant policy.")
-        .Produces<TranscodingSettings>(StatusCodes.Status200OK)
+        .Produces<ContractTranscodingSettings>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         grp.MapPut("/transcoding", (
-            TranscodingSettings request,
+            ContractTranscodingSettings request,
             IConfigurationLoader configLoader) =>
         {
-            request.MaxConcurrentTranscodes = Math.Clamp(request.MaxConcurrentTranscodes, 1, 8);
-            request.ShadowStorageLimitGb = Math.Clamp(request.ShadowStorageLimitGb, 1, 10_000);
-            request.VariantRetentionDays = Math.Clamp(request.VariantRetentionDays, 1, 3650);
-            request.HardwareAcceleration = string.IsNullOrWhiteSpace(request.HardwareAcceleration)
+            var settings = SettingsContractMapper.ToStorage(request);
+            settings.MaxConcurrentTranscodes = Math.Clamp(settings.MaxConcurrentTranscodes, 1, 8);
+            settings.ShadowStorageLimitGb = Math.Clamp(settings.ShadowStorageLimitGb, 1, 10_000);
+            settings.VariantRetentionDays = Math.Clamp(settings.VariantRetentionDays, 1, 3650);
+            settings.HardwareAcceleration = string.IsNullOrWhiteSpace(settings.HardwareAcceleration)
                 ? "auto"
-                : request.HardwareAcceleration.Trim().ToLowerInvariant();
-            request.MaintenanceWindow = string.IsNullOrWhiteSpace(request.MaintenanceWindow)
+                : settings.HardwareAcceleration.Trim().ToLowerInvariant();
+            settings.MaintenanceWindow = string.IsNullOrWhiteSpace(settings.MaintenanceWindow)
                 ? "01:00-05:00"
-                : request.MaintenanceWindow.Trim();
-            request.VariantCachePath = string.IsNullOrWhiteSpace(request.VariantCachePath)
+                : settings.MaintenanceWindow.Trim();
+            settings.VariantCachePath = string.IsNullOrWhiteSpace(settings.VariantCachePath)
                 ? ".data/variants"
-                : request.VariantCachePath.Trim();
-            request.DefaultMobileProfile = string.IsNullOrWhiteSpace(request.DefaultMobileProfile)
-                ? request.QualityProfiles.FirstOrDefault()?.Name ?? "mobile-small"
-                : request.DefaultMobileProfile.Trim();
+                : settings.VariantCachePath.Trim();
+            settings.DefaultMobileProfile = string.IsNullOrWhiteSpace(settings.DefaultMobileProfile)
+                ? settings.QualityProfiles.FirstOrDefault()?.Name ?? "mobile-small"
+                : settings.DefaultMobileProfile.Trim();
 
-            configLoader.SaveTranscoding(request);
-            return Results.Ok(request);
+            configLoader.SaveTranscoding(settings);
+            return Results.Ok(SettingsContractMapper.ToContract(settings));
         })
         .WithName("UpdateTranscodingSettings")
         .WithSummary("Saves playback encode, FFmpeg, and offline variant policy.")
-        .Produces<TranscodingSettings>(StatusCodes.Status200OK)
+        .Produces<ContractTranscodingSettings>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /settings/folders ──────────────────────────────────────────────
@@ -938,19 +965,19 @@ public static class SettingsEndpoints
         grp.MapGet("/hydration", (IConfigurationLoader configLoader) =>
         {
             var settings = configLoader.LoadHydration();
-            return Results.Ok(settings);
+            return Results.Ok(SettingsContractMapper.ToContract(settings));
         })
         .WithName("GetHydrationSettings")
         .WithSummary("Load hydration pipeline configuration.")
-        .Produces<HydrationSettings>(StatusCodes.Status200OK)
+        .Produces<HydrationSettingsDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── PUT /settings/hydration ──────────────────────────────────────────
         grp.MapPut("/hydration", (
-            HydrationSettings settings,
+            HydrationSettingsDto settings,
             IConfigurationLoader configLoader) =>
         {
-            configLoader.SaveHydration(settings);
+            configLoader.SaveHydration(SettingsContractMapper.ToStorage(settings));
             return Results.Ok(new SettingsSavedResponse(true));
         })
         .WithName("SaveHydrationSettings")
@@ -962,19 +989,19 @@ public static class SettingsEndpoints
         grp.MapGet("/pipelines", (IConfigurationLoader configLoader) =>
         {
             var pipelines = configLoader.LoadPipelines();
-            return Results.Ok(pipelines);
+            return Results.Ok(SettingsContractMapper.ToContract(pipelines));
         })
         .WithName("GetPipelines")
         .WithDescription("Current pipeline configuration per media type")
-        .Produces<PipelineConfiguration>(StatusCodes.Status200OK)
+        .Produces<ContractPipelineConfiguration>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── PUT /settings/pipelines ──────────────────────────────────────
         grp.MapPut("/pipelines", (
-            PipelineConfiguration pipelines,
+            ContractPipelineConfiguration pipelines,
             IConfigurationLoader configLoader) =>
         {
-            configLoader.SavePipelines(pipelines);
+            configLoader.SavePipelines(SettingsContractMapper.ToStorage(pipelines));
             return Results.Ok(new SettingsSavedResponse(true));
         })
         .WithName("SavePipelines")
@@ -986,16 +1013,16 @@ public static class SettingsEndpoints
         grp.MapGet("/media-types", (IConfigurationLoader configLoader) =>
         {
             var config = configLoader.LoadMediaTypes();
-            return Results.Ok(config);
+            return Results.Ok(SettingsContractMapper.ToContract(config));
         })
         .WithName("GetMediaTypes")
         .WithSummary("Load media type definitions including icons, extensions, and category folders.")
-        .Produces<MediaTypeConfiguration>(StatusCodes.Status200OK)
+        .Produces<MediaTypeConfigurationDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── PUT /settings/media-types ──────────────────────────────────────────
         grp.MapPut("/media-types", (
-            MediaTypeConfiguration config,
+            MediaTypeConfigurationDto config,
             IConfigurationLoader configLoader) =>
         {
             if (config?.Types is null || config.Types.Count == 0)
@@ -1013,7 +1040,7 @@ public static class SettingsEndpoints
             if (dupNames is not null)
                 return ApiErrors.BadRequest($"Duplicate media type display name: '{dupNames}'.");
 
-            configLoader.SaveMediaTypes(config);
+            configLoader.SaveMediaTypes(SettingsContractMapper.ToStorage(config));
             return Results.Ok(new SettingsSavedResponse(true));
         })
         .WithName("SaveMediaTypes")
@@ -1024,7 +1051,7 @@ public static class SettingsEndpoints
 
         // ── POST /settings/media-types/add ────────────────────────────────────
         grp.MapPost("/media-types/add", (
-            MediaTypeDefinition newType,
+            MediaTypeDefinitionDto newType,
             IConfigurationLoader configLoader) =>
         {
             if (string.IsNullOrWhiteSpace(newType.Key) || string.IsNullOrWhiteSpace(newType.DisplayName))
@@ -1039,14 +1066,14 @@ public static class SettingsEndpoints
                 return ApiErrors.BadRequest($"Media type '{newType.DisplayName}' already exists.");
 
             newType.BuiltIn = false;
-            config.Types.Add(newType);
+            config.Types.Add(SettingsContractMapper.ToStorage(newType));
             configLoader.SaveMediaTypes(config);
 
-            return Results.Ok(config);
+            return Results.Ok(SettingsContractMapper.ToContract(config));
         })
         .WithName("AddMediaType")
         .WithSummary("Add a custom media type definition.")
-        .Produces<MediaTypeConfiguration>(StatusCodes.Status200OK)
+        .Produces<MediaTypeConfigurationDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -1191,7 +1218,7 @@ public static class SettingsEndpoints
             {
                 Display    = !string.IsNullOrWhiteSpace(request.DisplayLanguage)  ? request.DisplayLanguage  : request.Language,
                 Metadata   = !string.IsNullOrWhiteSpace(request.MetadataLanguage) ? request.MetadataLanguage : request.Language,
-                Additional = request.AdditionalLanguages,
+                Additional = request.AdditionalLanguages ?? [],
                 AcceptAny  = request.AcceptAnyLanguage,
             };
             core.Country    = request.Country;
@@ -1347,6 +1374,7 @@ public static class SettingsEndpoints
                 JsonPath   = fm.JsonPath,
                 Confidence = fm.Confidence,
                 Transform  = fm.Transform,
+                TransformArgs = fm.TransformArgs,
             }).ToList(),
             HealthStatus         = healthRecord?.Status.ToString(),
             ConsecutiveFailures  = healthRecord?.ConsecutiveFailures ?? 0,

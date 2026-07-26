@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace MediaEngine.Contracts.Metadata;
 
 /// <summary>One title-search row embedded in the Wikidata diagnostic response.</summary>
@@ -90,6 +92,6 @@ public sealed record CoverFromUrlResponse(
 /// <see cref="ArtworkUploadResponse"/> for the wire-compatibility note this follows.
 /// </summary>
 public sealed record WikidataAliasesResponse(
-    string qid,
-    string? label,
-    IReadOnlyList<string> aliases);
+    [property: JsonPropertyName("qid")] string Qid,
+    [property: JsonPropertyName("label")] string? Label,
+    [property: JsonPropertyName("aliases")] IReadOnlyList<string> Aliases);

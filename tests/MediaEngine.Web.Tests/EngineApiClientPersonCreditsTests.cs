@@ -1,13 +1,62 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Web.Services.Integration;
 
 namespace MediaEngine.Web.Tests;
 
 public sealed class EngineApiClientPersonCreditsTests
 {
+    [Fact]
+    public void PersonAliasContract_UsesRolesArrayInsteadOfSingularRole()
+    {
+        var json = JsonSerializer.Serialize(new PersonAliasItemResponse
+        {
+            Id = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"),
+            Name = "Alias Name",
+            Roles = ["Author", "Illustrator"],
+        });
+
+        Assert.Contains("\"roles\":[\"Author\",\"Illustrator\"]", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"role\":", json, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task GetProfilesAsync_MapsSharedContractAndPreservesRole()
+    {
+        const string json = """
+            [
+              {
+                "id": "00000000-0000-0000-0000-000000000001",
+                "display_name": "Owner",
+                "avatar_color": "#7C4DFF",
+                "role": "Administrator",
+                "created_at": "2026-07-26T12:00:00Z",
+                "navigation_config": null,
+                "avatar_image_url": "/profiles/00000000-0000-0000-0000-000000000001/avatar"
+              }
+            ]
+            """;
+
+        using var httpClient = CreateHttpClient(_ =>
+            new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json"),
+            });
+
+        var client = new EngineApiClient(httpClient, NullLogger<EngineApiClient>.Instance);
+
+        var profile = Assert.Single(await client.GetProfilesAsync());
+
+        Assert.Equal("Administrator", profile.Role);
+        Assert.Equal(
+            "http://localhost:61495/profiles/00000000-0000-0000-0000-000000000001/avatar",
+            profile.AvatarImageUrl);
+    }
+
     [Fact]
     public async Task GetPersonLibraryCreditsAsync_NormalizesCreditAndCharacterArtwork()
     {
@@ -21,6 +70,7 @@ public sealed class EngineApiClientPersonCreditsTests
                 "cover_url": "/stream/work-cover",
                 "year": "2021",
                 "role": "Actor",
+                "track_count": 12,
                 "characters": [
                   {
                     "fictional_entity_id": "33333333-3333-3333-3333-333333333333",
@@ -44,6 +94,7 @@ public sealed class EngineApiClientPersonCreditsTests
 
         var credit = Assert.Single(credits);
         Assert.Equal("http://localhost:61495/stream/work-cover", credit.CoverUrl);
+        Assert.Equal(12, credit.TrackCount);
         Assert.Equal("Paul Atreides", Assert.Single(credit.Characters).CharacterName);
         Assert.Equal("http://localhost:61495/stream/paul-portrait", credit.Characters[0].PortraitUrl);
     }
@@ -98,9 +149,7 @@ public sealed class EngineApiClientPersonCreditsTests
                 "actor_person_id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                 "actor_name": "Timothee Chalamet",
                 "headshot_url": "/stream/person-headshot",
-                "actor_headshot_url": "stream/actor-headshot",
                 "character_name": "Paul Atreides",
-                "character_image_url": "/stream/character-fallback",
                 "characters": [
                   {
                     "fictional_entity_id": "33333333-3333-3333-3333-333333333333",
@@ -124,8 +173,8 @@ public sealed class EngineApiClientPersonCreditsTests
 
         var castCredit = Assert.Single(cast);
         Assert.Equal("http://localhost:61495/stream/person-headshot", castCredit.HeadshotUrl);
-        Assert.Equal("http://localhost:61495/stream/actor-headshot", castCredit.ActorHeadshotUrl);
-        Assert.Equal("http://localhost:61495/stream/character-fallback", castCredit.CharacterImageUrl);
+        Assert.Equal("http://localhost:61495/stream/person-headshot", castCredit.ActorHeadshotUrl);
+        Assert.Equal("http://localhost:61495/stream/paul-portrait", castCredit.CharacterImageUrl);
         Assert.Equal("http://localhost:61495/stream/paul-portrait", Assert.Single(castCredit.Characters).PortraitUrl);
     }
 
@@ -141,6 +190,7 @@ public sealed class EngineApiClientPersonCreditsTests
                 {
                   "id": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
                   "name": "Alias Name",
+                  "roles": ["Author", "Illustrator"],
                   "headshot_url": "/persons/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/headshot",
                   "is_pseudonym": true,
                   "wikidata_qid": "Q123",
@@ -161,9 +211,11 @@ public sealed class EngineApiClientPersonCreditsTests
         var aliases = await client.GetPersonAliasesAsync(Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"));
 
         Assert.NotNull(aliases);
+        var alias = Assert.Single(aliases!.Aliases);
+        Assert.Equal(["Author", "Illustrator"], alias.Roles);
         Assert.Equal(
             "http://localhost:61495/persons/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb/headshot",
-            Assert.Single(aliases!.Aliases).HeadshotUrl);
+            alias.HeadshotUrl);
     }
 
     private static HttpClient CreateHttpClient(Func<HttpRequestMessage, HttpResponseMessage> responder) =>

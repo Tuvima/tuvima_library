@@ -1,19 +1,21 @@
 using System.Text.Json;
+using MediaEngine.Contracts.Admin;
+using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Settings;
-using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
 
 public partial interface IEngineApiClient
 {
-    Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PluginSummaryResponse>> GetPluginsAsync(CancellationToken ct = default);
 
-    Task<ApprovedPluginCatalogViewModel?> GetApprovedPluginCatalogAsync(CancellationToken ct = default);
+    Task<ApprovedPluginCatalogDto?> GetApprovedPluginCatalogAsync(CancellationToken ct = default);
 
     Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default);
 
@@ -25,11 +27,11 @@ public partial interface IEngineApiClient
 
     Task<bool> DeletePluginAsync(string pluginId, CancellationToken ct = default);
 
-    Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default);
+    Task<PluginHealthResponse?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default);
+    Task<IReadOnlyList<OperationDto>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PluginJobSnapshot>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default);
 
     /// <summary>GET /system/status — lightweight connectivity probe.</summary>
     Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
@@ -38,15 +40,15 @@ public partial interface IEngineApiClient
     Task<IReadOnlyList<SystemActivityOperationViewModel>> GetSystemActivityOperationsAsync(CancellationToken ct = default);
 
     /// <summary>GET /settings/security/auth - sign-in and SSO configuration.</summary>
-    Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default);
+    Task<AuthSettingsDto?> GetAuthSettingsAsync(CancellationToken ct = default);
 
     // ── API key management (/admin/api-keys) ──────────────────────────────────
 
     /// <summary>GET /admin/api-keys — list all issued keys (id, label, created_at).</summary>
-    Task<List<ApiKeyViewModel>> GetApiKeysAsync(CancellationToken ct = default);
+    Task<List<ApiKeyDto>> GetApiKeysAsync(CancellationToken ct = default);
 
     /// <summary>POST /admin/api-keys — generate a new key. Returns key + one-time plaintext.</summary>
-    Task<NewApiKeyViewModel?> CreateApiKeyAsync(string label, CancellationToken ct = default);
+    Task<CreateApiKeyResponse?> CreateApiKeyAsync(string label, CancellationToken ct = default);
 
     /// <summary>DELETE /admin/api-keys/{id} — revoke a key immediately.</summary>
     Task<bool> RevokeApiKeyAsync(Guid id, CancellationToken ct = default);
@@ -101,7 +103,7 @@ public partial interface IEngineApiClient
     Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default);
 
     /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
-    Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);
+    Task<TasteProfileBuildResponse?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);
 
     /// <summary>GET /profiles/{id}/overview - read user-facing profile details, history, and stats.</summary>
     Task<ProfileOverviewViewModel?> GetProfileOverviewAsync(Guid id, CancellationToken ct = default);
@@ -109,7 +111,7 @@ public partial interface IEngineApiClient
     // ── Metadata claims (/metadata) ─────────────────────────────────────────────
 
     /// <summary>GET /metadata/claims/{entityId} — claim history for a work/edition.</summary>
-    Task<List<ClaimHistoryDto>> GetClaimHistoryAsync(Guid entityId, CancellationToken ct = default);
+    Task<List<ClaimDto>> GetClaimHistoryAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>PATCH /metadata/lock-claim — create a user-locked claim.</summary>
     Task<bool> LockClaimAsync(Guid entityId, string key, string value, CancellationToken ct = default);
@@ -150,7 +152,7 @@ public partial interface IEngineApiClient
     Task<bool> UpdateProviderAsync(string name, bool enabled, CancellationToken ct = default);
 
     /// <summary>GET /settings/providers/health — health status for all tracked providers.</summary>
-    Task<List<ProviderHealthDto>> GetProviderHealthAsync(CancellationToken ct = default);
+    Task<List<ProviderHealthStatusResponse>> GetProviderHealthAsync(CancellationToken ct = default);
 
     /// <summary>POST /settings/providers/{name}/test — test a provider's connectivity.</summary>
     Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default);
@@ -188,33 +190,33 @@ public partial interface IEngineApiClient
     // ── Activity log (/activity) ────────────────────────────────────────────────
 
     /// <summary>GET /activity/recent?limit= — most recent system activity entries.</summary>
-    Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(int limit = 50, CancellationToken ct = default);
+    Task<List<ActivityEntryResponse>> GetRecentActivityAsync(int limit = 50, CancellationToken ct = default);
 
     /// <summary>GET /activity/stats — total entries and retention setting.</summary>
-    Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default);
+    Task<ActivityStatsResponse?> GetActivityStatsAsync(CancellationToken ct = default);
 
     /// <summary>POST /activity/prune — manually prune old activity entries.</summary>
-    Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default);
+    Task<PruneResponse?> TriggerPruneAsync(CancellationToken ct = default);
 
     /// <summary>PUT /activity/retention?days= — update retention period.</summary>
     Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default);
 
     /// <summary>GET /activity/run/{runId} — all entries for a specific ingestion run.</summary>
-    Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(Guid runId, CancellationToken ct = default);
+    Task<List<ActivityEntryResponse>> GetActivityByRunIdAsync(Guid runId, CancellationToken ct = default);
 
     /// <summary>GET /activity/by-types?types=...&amp;limit= — entries filtered by action type for Timeline view.</summary>
-    Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
+    Task<List<ActivityEntryResponse>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default);
 
-    Task<PagedResponse<ActivityBatchSummaryViewModel>?> GetActivityBatchesAsync(
+    Task<PagedResponse<ActivityBatchSummaryDto>?> GetActivityBatchesAsync(
         ActivityAuditQuery query,
         CancellationToken ct = default);
 
-    Task<List<ActivityMediaTypeGroupViewModel>> GetActivityBatchGroupsAsync(
+    Task<List<ActivityMediaTypeGroupDto>> GetActivityBatchGroupsAsync(
         Guid batchId,
         CancellationToken ct = default);
 
-    Task<PagedResponse<ActivityBatchItemViewModel>?> GetActivityBatchItemsAsync(
+    Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,
         string? mediaType = null,
         int offset = 0,
@@ -223,12 +225,12 @@ public partial interface IEngineApiClient
         string? sortDirection = null,
         CancellationToken ct = default);
 
-    Task<ActivityBatchItemDetailViewModel?> GetActivityBatchItemDetailAsync(
+    Task<ActivityBatchItemDetailDto?> GetActivityBatchItemDetailAsync(
         Guid batchId,
         Guid assetId,
         CancellationToken ct = default);
 
-    Task<PagedResponse<ActivityPersonAuditViewModel>?> GetActivityPeopleAsync(
+    Task<PagedResponse<ActivityPersonAuditDto>?> GetActivityPeopleAsync(
         ActivityAuditQuery query,
         CancellationToken ct = default);
 

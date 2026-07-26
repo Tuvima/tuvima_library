@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediaEngine.Domain;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;

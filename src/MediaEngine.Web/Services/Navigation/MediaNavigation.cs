@@ -10,7 +10,7 @@ public static class MediaNavigation
     public static string ForJourney(JourneyItemViewModel item, string? tab = null)
         => ForMedia(item.MediaType, item.WorkId, item.CollectionId, tab);
 
-    public static string ForSearchResult(SearchResultViewModel result, string? tab = null)
+    public static string ForSearchResult(SearchResultDto result, string? tab = null)
         => ForMedia(result.MediaType, result.WorkId, result.CollectionId, tab);
 
     public static string ForLibraryItem(LibraryItemViewModel item, string? tab = null)

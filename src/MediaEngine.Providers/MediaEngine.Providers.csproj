@@ -27,6 +27,7 @@
       Domain has no back-reference to Providers.
     -->
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
     <!--
       Storage repositories (IMetadataClaimRepository, ICanonicalValueRepository,
       IPersonRepository implementations) needed by MetadataHarvestingService.

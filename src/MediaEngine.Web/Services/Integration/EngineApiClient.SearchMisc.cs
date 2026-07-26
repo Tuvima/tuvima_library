@@ -21,7 +21,7 @@ public sealed partial class EngineApiClient
 {
     // -- GET /collections/search -----------------------------------------------------
 
-    public async Task<List<SearchResultViewModel>> SearchWorksAsync(
+    public async Task<List<SearchResultDto>> SearchWorksAsync(
         string query,
         CancellationToken ct = default)
     {
@@ -36,12 +36,12 @@ public sealed partial class EngineApiClient
                 return [];
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<List<SearchRawResult>>(cancellationToken: ct);
+            var raw = await response.Content.ReadFromJsonAsync<List<SearchResultDto>>(cancellationToken: ct);
             ClearFailure(endpoint);
-            return raw?.Select(r => new SearchResultViewModel
+            return raw?.Select(r => new SearchResultDto
             {
                 WorkId         = r.WorkId,
-                CollectionId          = r.CollectionId,
+                CollectionId   = r.CollectionId,
                 Title          = r.Title,
                 Author         = r.Author,
                 MediaType      = r.MediaType,
@@ -51,6 +51,10 @@ public sealed partial class EngineApiClient
                 ShowName = r.ShowName,
                 SeasonNumber = r.SeasonNumber,
                 EpisodeNumber = r.EpisodeNumber,
+                CoverUrl = r.CoverUrl is null ? null : AbsoluteUrl(r.CoverUrl),
+                Year = r.Year,
+                Description = r.Description,
+                Rating = r.Rating,
             }).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
@@ -64,18 +68,18 @@ public sealed partial class EngineApiClient
 
     // -- Metadata search (/metadata/search) --------------------------------
 
-    public async Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
+    public async Task<MetadataSearchResponse?> SearchMetadataAsync(
         string providerName, string query, string? mediaType = null,
         int limit = 25, CancellationToken ct = default)
     {
         try
         {
-            var body = new
+            var body = new MetadataSearchRequest
             {
-                provider_name = providerName,
-                query,
-                media_type = mediaType,
-                limit,
+                ProviderName = providerName,
+                Query = query,
+                MediaType = mediaType,
+                Limit = limit,
             };
             var resp = await _http.PostAsJsonAsync("/metadata/search", body, ct);
             if (!resp.IsSuccessStatusCode)
@@ -84,31 +88,21 @@ public sealed partial class EngineApiClient
                 _logger.LogWarning("POST /metadata/search returned {Status}: {Detail}",
                     (int)resp.StatusCode, detail);
                 LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
-                return [];
+                return null;
             }
-            var raw = await resp.Content.ReadFromJsonAsync<MetadataSearchRaw>(ct);
-            return raw?.Results?.Select(r => new MetadataSearchResultDto
-            {
-                Title          = r.Title,
-                Author         = r.Author,
-                Description    = r.Description,
-                Year           = r.Year,
-                ThumbnailUrl   = r.ThumbnailUrl,
-                ProviderItemId = r.ProviderItemId,
-                Confidence     = r.Confidence,
-            }).ToList() ?? [];
+            return await resp.Content.ReadFromJsonAsync<MetadataSearchResponse>(ct);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "POST /metadata/search failed");
             LastError = ex.Message;
-            return [];
+            return null;
         }
     }
 
     // -- Fan-out metadata search -----------------------------------------
 
-    public async Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
+    public async Task<FanOutSearchResponse?> SearchMetadataFanOutAsync(
         string query, string? mediaType = null, string? providerId = null,
         int maxResultsPerProvider = 5, CancellationToken ct = default)
     {
@@ -127,7 +121,7 @@ public sealed partial class EngineApiClient
                 LastError = $"search-all failed: {response.StatusCode}";
                 return null;
             }
-            return await response.Content.ReadFromJsonAsync<FanOutSearchResponseViewModel>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<FanOutSearchResponse>(cancellationToken: ct);
         }
         catch (Exception ex)
         {
@@ -171,7 +165,7 @@ public sealed partial class EngineApiClient
 
     // -- Canonical values ------------------------------------------------
 
-    public async Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
+    public async Task<List<CanonicalFieldDto>> GetCanonicalValuesAsync(
         Guid entityId, CancellationToken ct = default)
     {
         try
@@ -182,7 +176,7 @@ public sealed partial class EngineApiClient
                 LastError = $"canonical values failed: {response.StatusCode}";
                 return [];
             }
-            return await response.Content.ReadFromJsonAsync<List<CanonicalFieldViewModel>>(cancellationToken: ct) ?? [];
+            return await response.Content.ReadFromJsonAsync<List<CanonicalFieldDto>>(cancellationToken: ct) ?? [];
         }
         catch (Exception ex)
         {
@@ -218,11 +212,11 @@ public sealed partial class EngineApiClient
 
     // -- Wikidata Aliases (/metadata/{qid}/aliases) ----------------------------
 
-    public async Task<AliasesResponseDto?> GetAliasesAsync(string qid, CancellationToken ct = default)
+    public async Task<WikidataAliasesResponse?> GetAliasesAsync(string qid, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<AliasesResponseDto>($"metadata/{qid}/aliases", ct);
+            return await _http.GetFromJsonAsync<WikidataAliasesResponse>($"metadata/{qid}/aliases", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -239,7 +233,8 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var groups = await _http.GetFromJsonAsync<List<ContentGroupViewModel>>("/collections/content-groups", ct) ?? [];
+            var contracts = await _http.GetFromJsonAsync<List<ContentGroupDto>>("/collections/content-groups", ct) ?? [];
+            var groups = contracts.Select(ContentGroupViewModel.FromContract).ToList();
             foreach (var group in groups)
             {
                 if (group.CoverUrl is not null)
@@ -257,8 +252,9 @@ public sealed partial class EngineApiClient
                     group.ArtistPhotoUrl = AbsoluteUrl(group.ArtistPhotoUrl);
                 if (group.PersonPhotoUrl is not null)
                     group.PersonPhotoUrl = AbsoluteUrl(group.PersonPhotoUrl);
-                foreach (var preview in group.PreviewItems)
-                    preview.ImageUrl = AbsoluteUrl(preview.ImageUrl);
+                group.PreviewItems = group.PreviewItems
+                    .Select(preview => preview with { ImageUrl = AbsoluteUrl(preview.ImageUrl) })
+                    .ToList();
             }
 
             return groups;
@@ -282,7 +278,8 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrWhiteSpace(groupField))
                 queryParts.Add($"groupField={Uri.EscapeDataString(groupField)}");
             var url = "/collections/system-views" + (queryParts.Count > 0 ? "?" + string.Join("&", queryParts) : "");
-            var groups = await _http.GetFromJsonAsync<List<ContentGroupViewModel>>(url, ct) ?? [];
+            var contracts = await _http.GetFromJsonAsync<List<ContentGroupDto>>(url, ct) ?? [];
+            var groups = contracts.Select(ContentGroupViewModel.FromContract).ToList();
             foreach (var g in groups)
             {
                 if (g.CoverUrl is not null)
@@ -299,8 +296,9 @@ public sealed partial class EngineApiClient
                     g.ArtistPhotoUrl = AbsoluteUrl(g.ArtistPhotoUrl);
                 if (g.PersonPhotoUrl is not null)
                     g.PersonPhotoUrl = AbsoluteUrl(g.PersonPhotoUrl);
-                foreach (var preview in g.PreviewItems)
-                    preview.ImageUrl = AbsoluteUrl(preview.ImageUrl);
+                g.PreviewItems = g.PreviewItems
+                    .Select(preview => preview with { ImageUrl = AbsoluteUrl(preview.ImageUrl) })
+                    .ToList();
             }
             return groups;
         }
@@ -313,12 +311,12 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default)
+    public async Task<List<CollectionItemDto>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default)
     {
         try
         {
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items?limit={limit}", profileId);
-            var items = await _http.GetFromJsonAsync<List<CollectionItemViewModel>>(url, ct) ?? [];
+            var items = await _http.GetFromJsonAsync<List<CollectionItemDto>>(url, ct) ?? [];
             foreach (var item in items)
             {
                 if (item.CoverUrl is not null)
@@ -336,7 +334,7 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<CollectionMediaLookupItemViewModel>> LookupCollectionMediaAsync(
+    public async Task<List<CollectionMediaLookupDto>> LookupCollectionMediaAsync(
         string? query,
         Guid? collectionId = null,
         string? mediaTypes = null,
@@ -362,7 +360,7 @@ public sealed partial class EngineApiClient
 
             var url = $"/collections/media-lookup?{string.Join("&", parameters)}";
             url = AppendCollectionProfileQuery(url, profileId);
-            var items = await _http.GetFromJsonAsync<List<CollectionMediaLookupItemViewModel>>(url, ct) ?? [];
+            var items = await _http.GetFromJsonAsync<List<CollectionMediaLookupDto>>(url, ct) ?? [];
             foreach (var item in items)
             {
                 if (item.ArtworkUrl is not null)
@@ -385,7 +383,10 @@ public sealed partial class EngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items", profileId);
-            var resp = await _http.PostAsJsonAsync(url, new { work_id = workId }, ct);
+            var resp = await _http.PostAsJsonAsync(
+                url,
+                new CollectionItemAddRequest { WorkId = workId },
+                ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -417,7 +418,10 @@ public sealed partial class EngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}/items/reorder", profileId);
-            var resp = await _http.PutAsJsonAsync(url, new { item_ids = itemIds }, ct);
+            var resp = await _http.PutAsJsonAsync(
+                url,
+                new CollectionItemReorderRequest { ItemIds = itemIds.ToList() },
+                ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -432,7 +436,10 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var resp = await _http.PutAsJsonAsync($"/collections/{collectionId}/enabled", new { enabled }, ct);
+            var resp = await _http.PutAsJsonAsync(
+                $"/collections/{collectionId}/enabled",
+                new CollectionEnabledRequest(enabled),
+                ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -447,7 +454,10 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var resp = await _http.PutAsJsonAsync($"/collections/{collectionId}/featured", new { featured }, ct);
+            var resp = await _http.PutAsJsonAsync(
+                $"/collections/{collectionId}/featured",
+                new CollectionFeaturedRequest(featured),
+                ct);
             return resp.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -463,10 +473,28 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new { rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(), match_mode = matchMode, limit };
+            var body = new CollectionPreviewRequest
+            {
+                Rules = rules.Select(ToContract).ToList(),
+                MatchMode = matchMode,
+                Limit = limit,
+            };
             var response = await _http.PostAsJsonAsync("/collections/preview", body, ct);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<CollectionPreviewResult>(cancellationToken: ct);
+            var result = await response.Content.ReadFromJsonAsync<CollectionPreviewResponse>(cancellationToken: ct);
+            return result is null ? null : new CollectionPreviewResult
+            {
+                Count = result.Count,
+                Items = result.Items.Select(item => new CollectionResolvedItemViewModel
+                {
+                    EntityId = item.EntityId,
+                    Title = item.Title,
+                    Creator = item.Creator,
+                    MediaType = item.MediaType,
+                    CoverUrl = item.CoverUrl is null ? null : AbsoluteUrl(item.CoverUrl),
+                    Year = item.Year,
+                }).ToList(),
+            };
         }
         catch (Exception ex)
         {
@@ -507,28 +535,26 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new
+            var body = new CollectionCreateRequest
             {
-                name,
-                description,
-                icon_name = iconName,
-                visibility,
-                collection_type = collectionType,
-                rules = rules.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(),
-                match_mode = matchMode,
-                sort_field = sortField,
-                sort_direction = sortDirection,
-                live_updating = liveUpdating,
+                Name = name,
+                Description = description,
+                IconName = iconName,
+                Visibility = visibility,
+                CollectionType = collectionType,
+                Rules = rules.Select(ToContract).ToList(),
+                MatchMode = matchMode,
+                SortField = sortField,
+                SortDirection = sortDirection,
+                LiveUpdating = liveUpdating,
             };
             var url = AppendCollectionProfileQuery("/collections", profileId);
             var response = await _http.PostAsJsonAsync(url, body, ct);
             if (!response.IsSuccessStatusCode)
                 return null;
 
-            var result = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken: ct);
-            return result.TryGetProperty("id", out var idProperty) && Guid.TryParse(idProperty.GetString(), out var id)
-                ? id
-                : null;
+            var result = await response.Content.ReadFromJsonAsync<CollectionCreatedResponse>(cancellationToken: ct);
+            return result?.id;
         }
         catch (Exception ex)
         {
@@ -556,19 +582,19 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new
+            var body = new CollectionUpdateRequest
             {
-                name,
-                description,
-                icon_name = iconName,
-                visibility,
-                rules = rules?.Select(r => new { field = r.Field, op = r.Op, value = r.Value, values = r.Values }).ToList(),
-                match_mode = matchMode,
-                sort_field = sortField,
-                sort_direction = sortDirection,
-                live_updating = liveUpdating,
-                is_enabled = isEnabled,
-                is_featured = isFeatured,
+                Name = name,
+                Description = description,
+                IconName = iconName,
+                Visibility = visibility,
+                Rules = rules?.Select(ToContract).ToList(),
+                MatchMode = matchMode,
+                SortField = sortField,
+                SortDirection = sortDirection,
+                LiveUpdating = liveUpdating,
+                IsEnabled = isEnabled,
+                IsFeatured = isFeatured,
             };
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}", profileId);
             var response = await _http.PutAsJsonAsync(url, body, ct);
@@ -581,6 +607,14 @@ public sealed partial class EngineApiClient
             return false;
         }
     }
+
+    private static CollectionRulePredicateDto ToContract(CollectionRulePredicateViewModel source) => new()
+    {
+        Field = source.Field,
+        Op = source.Op,
+        Value = source.Value,
+        Values = source.Values,
+    };
 
     public async Task<bool> UploadCollectionSquareArtworkAsync(
         Guid collectionId,

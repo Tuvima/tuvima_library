@@ -5,6 +5,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Review;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -41,7 +42,7 @@ public static class ReviewEndpoints
         })
         .WithName("GetPendingReviews")
         .WithSummary("List pending review queue items.")
-        .Produces<List<ReviewItemDto>>(StatusCodes.Status200OK)
+        .Produces<List<MediaEngine.Contracts.Review.ReviewItemDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── GET /review/count ────────────────────────────────────────────────
@@ -50,11 +51,11 @@ public static class ReviewEndpoints
             CancellationToken ct) =>
         {
             var count = await reviewReadService.GetPendingCountAsync(ct);
-            return Results.Ok(new ReviewCountResponse { PendingCount = count });
+            return Results.Ok(new MediaEngine.Contracts.Review.ReviewCountResponse { PendingCount = count });
         })
         .WithName("GetReviewCount")
         .WithSummary("Get the number of pending review queue items (for sidebar badge).")
-        .Produces<ReviewCountResponse>(StatusCodes.Status200OK)
+        .Produces<MediaEngine.Contracts.Review.ReviewCountResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── GET /review/{id} ─────────────────────────────────────────────────
@@ -68,14 +69,14 @@ public static class ReviewEndpoints
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")
-        .Produces<ReviewItemDto>(StatusCodes.Status200OK)
+        .Produces<MediaEngine.Contracts.Review.ReviewItemDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── POST /review/{id}/resolve ────────────────────────────────────────
         group.MapPost("/{id:guid}/resolve", async (
             Guid id,
-            ReviewResolveRequest request,
+            ReviewResolveRequestDto request,
             IReviewQueueRepository reviewRepo,
             IMetadataClaimRepository claimRepo,
             IHydrationPipelineService pipeline,
@@ -196,12 +197,13 @@ public static class ReviewEndpoints
             }, ct);
 
             // 5. Broadcast event.
-            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
-            {
-                review_item_id = id,
-                entity_id      = item.EntityId,
-                status         = "Resolved",
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.ReviewItemResolved,
+                new ReviewItemResolvedSupplementaryEvent(
+                    id,
+                    item.EntityId,
+                    "Resolved"),
+                ct);
 
             return Results.Ok(new ReviewResolveResponse(resolved: true, review_item_id: id));
         })
@@ -260,12 +262,13 @@ public static class ReviewEndpoints
                 Detail      = "Review item dismissed by user.",
             }, ct);
 
-            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
-            {
-                review_item_id = id,
-                entity_id      = item.EntityId,
-                status         = "Dismissed",
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.ReviewItemResolved,
+                new ReviewItemResolvedSupplementaryEvent(
+                    id,
+                    item.EntityId,
+                    "Dismissed"),
+                ct);
 
             return Results.Ok(new ReviewDismissResponse(dismissed: true, review_item_id: id));
         })
@@ -331,12 +334,13 @@ public static class ReviewEndpoints
             }, ct);
 
             // 4. Broadcast event.
-            await publisher.PublishAsync(SignalREvents.ReviewItemResolved, new
-            {
-                review_item_id = id,
-                entity_id      = item.EntityId,
-                status         = "Dismissed",
-            }, ct);
+            await publisher.PublishAsync(
+                SignalREvents.ReviewItemResolved,
+                new ReviewItemResolvedSupplementaryEvent(
+                    id,
+                    item.EntityId,
+                    "Dismissed"),
+                ct);
 
             return Results.Ok(new ReviewSkipUniverseResponse(skipped: true, review_item_id: id));
         })

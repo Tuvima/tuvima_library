@@ -4,6 +4,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Providers.Helpers;
 using Microsoft.Extensions.Logging;
 

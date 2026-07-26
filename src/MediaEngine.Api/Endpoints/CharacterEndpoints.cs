@@ -3,6 +3,7 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Characters;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 

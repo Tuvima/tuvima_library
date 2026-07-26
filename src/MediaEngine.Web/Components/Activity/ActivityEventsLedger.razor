@@ -51,14 +51,14 @@
         new("BatchCompleted", "Batch Completed"),
     ];
 
-    private List<ActivityEntryViewModel> _entries = [];
-    private List<ActivityTimelineEventViewModel> _events = [];
+    private List<ActivityEntryResponse> _entries = [];
+    private List<ActivityTimelineEventDto> _events = [];
     private bool _loading = true;
     private string? _eventType;
     private string? _search;
     private Guid? _runId;
 
-    private IReadOnlyList<ActivityTimelineEventViewModel> VisibleEvents =>
+    private IReadOnlyList<ActivityTimelineEventDto> VisibleEvents =>
         string.IsNullOrWhiteSpace(_search)
             ? _events
             : _events
@@ -137,7 +137,7 @@
         return Guid.TryParse(raw, out var parsed) ? parsed : null;
     }
 
-    private static ActivityTimelineEventViewModel ToTimelineEvent(ActivityEntryViewModel entry) =>
+    private static ActivityTimelineEventDto ToTimelineEvent(ActivityEntryResponse entry) =>
         new()
         {
             OccurredAt = DateTimeOffset.TryParse(entry.OccurredAt, out var occurredAt)

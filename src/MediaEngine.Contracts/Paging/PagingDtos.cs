@@ -39,6 +39,6 @@ public sealed record PagedResponse<T>(
             request.Limit,
             hasMore,
             totalCount,
-            hasMore ? nextOffset.ToString(System.Globalization.CultureInfo.InvariantCulture) : null);
+            hasMore ? nextOffset.ToString(global::System.Globalization.CultureInfo.InvariantCulture) : null);
     }
 }

@@ -1,7 +1,12 @@
 using System.Reflection;
+using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Library;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Profiles;
+using MediaEngine.Contracts.Search;
+using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
@@ -75,7 +80,7 @@ internal class EngineApiClientStub : DispatchProxy
             });
 
         _handlers[nameof(IEngineApiClient.GetTasteProfileAsync)] =
-            _ => Task.FromResult<TasteProfile?>(new TasteProfile
+            _ => Task.FromResult<TasteProfileDto?>(new TasteProfileDto
             {
                 UserId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                 Summary = "Test profile built from a mixed library.",
@@ -209,7 +214,7 @@ internal class EngineApiClientStub : DispatchProxy
                         OccurredAt = DateTimeOffset.UtcNow.AddHours(-2),
                     },
                 ],
-                Taste = new TasteProfile
+                Taste = new TasteProfileDto
                 {
                     UserId = Guid.Parse("00000000-0000-0000-0000-000000000001"),
                     Summary = "Test profile built from a mixed library.",
@@ -410,9 +415,9 @@ internal class EngineApiClientStub : DispatchProxy
             });
 
         _handlers[nameof(IEngineApiClient.GetIngestionOperationsSnapshotAsync)] =
-            _ => Task.FromResult<IngestionOperationsSnapshotViewModel?>(new IngestionOperationsSnapshotViewModel
+            _ => Task.FromResult<IngestionOperationsSnapshotDto?>(new IngestionOperationsSnapshotDto
             {
-                Summary = new IngestionOperationsSummaryViewModel
+                Summary = new IngestionOperationsSummaryDto
                 {
                     EngineStatus = "Online",
                     HealthLabel = "Ready",
@@ -422,9 +427,9 @@ internal class EngineApiClientStub : DispatchProxy
             });
 
         _handlers[nameof(IEngineApiClient.GetMediaOperationsAsync)] =
-            _ => Task.FromResult<IReadOnlyList<MediaOperationViewModel>>([]);
+            _ => Task.FromResult<IReadOnlyList<OperationDto>>([]);
         _handlers[nameof(IEngineApiClient.GetMediaOperationAsync)] =
-            _ => Task.FromResult<MediaOperationDetailViewModel?>(null);
+            _ => Task.FromResult<OperationDetailDto?>(null);
         _handlers[nameof(IEngineApiClient.GetMediaOperationsSummaryAsync)] =
             _ => Task.FromResult(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
         _handlers[nameof(IEngineApiClient.RetryMediaOperationAsync)] =
@@ -432,35 +437,35 @@ internal class EngineApiClientStub : DispatchProxy
         _handlers[nameof(IEngineApiClient.CancelMediaOperationAsync)] =
             _ => Task.FromResult(true);
         _handlers[nameof(IEngineApiClient.GetIngestionBatchItemsAsync)] =
-            _ => Task.FromResult<PagedResponse<IngestionBatchItemViewModel>?>(new PagedResponse<IngestionBatchItemViewModel>(
+            _ => Task.FromResult<PagedResponse<IngestionBatchItemResponse>?>(new PagedResponse<IngestionBatchItemResponse>(
                 [],
                 Offset: 0,
                 Limit: 100,
                 HasMore: false));
         _handlers[nameof(IEngineApiClient.GetActivityBatchesAsync)] =
-            _ => Task.FromResult<PagedResponse<ActivityBatchSummaryViewModel>?>(new PagedResponse<ActivityBatchSummaryViewModel>(
+            _ => Task.FromResult<PagedResponse<ActivityBatchSummaryDto>?>(new PagedResponse<ActivityBatchSummaryDto>(
                 [],
                 Offset: 0,
                 Limit: 25,
                 HasMore: false));
         _handlers[nameof(IEngineApiClient.GetActivityBatchGroupsAsync)] =
-            _ => Task.FromResult(new List<ActivityMediaTypeGroupViewModel>());
+            _ => Task.FromResult(new List<ActivityMediaTypeGroupDto>());
         _handlers[nameof(IEngineApiClient.GetActivityBatchItemsAsync)] =
-            _ => Task.FromResult<PagedResponse<ActivityBatchItemViewModel>?>(new PagedResponse<ActivityBatchItemViewModel>(
+            _ => Task.FromResult<PagedResponse<ActivityBatchItemDto>?>(new PagedResponse<ActivityBatchItemDto>(
                 [],
                 Offset: 0,
                 Limit: 25,
                 HasMore: false));
         _handlers[nameof(IEngineApiClient.GetActivityBatchItemDetailAsync)] =
-            _ => Task.FromResult<ActivityBatchItemDetailViewModel?>(null);
+            _ => Task.FromResult<ActivityBatchItemDetailDto?>(null);
         _handlers[nameof(IEngineApiClient.GetActivityPeopleAsync)] =
-            _ => Task.FromResult<PagedResponse<ActivityPersonAuditViewModel>?>(new PagedResponse<ActivityPersonAuditViewModel>(
+            _ => Task.FromResult<PagedResponse<ActivityPersonAuditDto>?>(new PagedResponse<ActivityPersonAuditDto>(
                 [],
                 Offset: 0,
                 Limit: 25,
                 HasMore: false));
         _handlers[nameof(IEngineApiClient.GetAssetCapabilitiesAsync)] =
-            _ => Task.FromResult<IReadOnlyList<EntityCapabilityStateViewModel>>([]);
+            _ => Task.FromResult<IReadOnlyList<CapabilityStateDto>>([]);
         _handlers[nameof(IEngineApiClient.GetCapabilitySummaryAsync)] =
             _ => Task.FromResult(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase));
 
@@ -480,7 +485,7 @@ internal class EngineApiClientStub : DispatchProxy
                 TimeFormat: "system"));
 
         _handlers[nameof(IEngineApiClient.GetLibraryOverviewAsync)] =
-            _ => Task.FromResult<LibraryOverviewViewModel?>(new LibraryOverviewViewModel
+            _ => Task.FromResult<LibraryOverviewDto?>(new LibraryOverviewDto
             {
                 EnrichedStage3 = 12,
                 UniverseAssigned = 10,
@@ -671,7 +676,7 @@ internal class EngineApiClientStub : DispatchProxy
             };
 
         _handlers[nameof(IEngineApiClient.SearchWorksAsync)] =
-            _ => Task.FromResult(new List<SearchResultViewModel>());
+            _ => Task.FromResult(new List<SearchResultDto>());
     }
 
     private static DisplayPageDto CreateDisplayPage(string key, string title)

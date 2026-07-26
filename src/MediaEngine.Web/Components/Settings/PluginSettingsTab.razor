@@ -228,8 +228,8 @@ else
                                                 <tr>
                                                     <th>Status</th>
                                                     <th>Type</th>
-                                                    <th>Assets</th>
-                                                    <th>Segments</th>
+                                                    <th>Progress</th>
+                                                    <th>Result</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -237,9 +237,9 @@ else
                                                 {
                                                     <tr>
                                                         <td>@job.Status</td>
-                                                        <td>@job.JobType</td>
-                                                        <td>@job.AssetsScanned</td>
-                                                        <td>@job.SegmentsWritten</td>
+                                                        <td>@job.OperationType</td>
+                                                        <td>@job.ItemsCompleted / @job.ItemsTotal</td>
+                                                        <td>@(job.ResultSummary ?? "-")</td>
                                                     </tr>
                                                 }
                                             </tbody>
@@ -398,10 +398,10 @@ else
 
 @code {
     private readonly JsonSerializerOptions _json = MediaEngineJson.Web;
-    private readonly Dictionary<string, PluginHealthViewModel> _health = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, IReadOnlyList<PluginJobViewModel>> _jobs = new(StringComparer.OrdinalIgnoreCase);
-    private List<PluginViewModel> _plugins = [];
-    private ApprovedPluginCatalogViewModel? _approvedCatalog;
+    private readonly Dictionary<string, PluginHealthResponse> _health = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IReadOnlyList<OperationDto>> _jobs = new(StringComparer.OrdinalIgnoreCase);
+    private List<PluginSummaryResponse> _plugins = [];
+    private ApprovedPluginCatalogDto? _approvedCatalog;
     private bool _approvedCatalogLoading;
     private bool _loading = true;
     private string? _error;
@@ -410,9 +410,9 @@ else
     private string _filter = "all";
     private string? _deletePluginId;
 
-    private IEnumerable<PluginViewModel> FilteredPlugins => _plugins.Where(MatchesFilter);
+    private IEnumerable<PluginSummaryResponse> FilteredPlugins => _plugins.Where(MatchesFilter);
 
-    private PluginViewModel? SelectedPlugin => _plugins.FirstOrDefault(p => string.Equals(p.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase));
+    private PluginSummaryResponse? SelectedPlugin => _plugins.FirstOrDefault(p => string.Equals(p.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase));
 
     protected override async Task OnInitializedAsync()
     {
@@ -458,7 +458,7 @@ else
             SelectPlugin(pluginId);
     }
 
-    private async Task SetEnabledAsync(PluginViewModel plugin, bool enabled)
+    private async Task SetEnabledAsync(PluginSummaryResponse plugin, bool enabled)
     {
         if (!await Orchestrator.SetPluginEnabledAsync(plugin.Id, enabled))
         {
@@ -470,7 +470,7 @@ else
         Snackbar.Add($"{plugin.Name} {(enabled ? "enabled" : "disabled")}.", Severity.Success);
     }
 
-    private async Task SaveSettingAsync(PluginViewModel plugin, string key, JsonElement value)
+    private async Task SaveSettingAsync(PluginSummaryResponse plugin, string key, JsonElement value)
     {
         plugin.Settings[key] = value;
         if (!await Orchestrator.SavePluginSettingsAsync(plugin.Id, plugin.Settings))
@@ -480,7 +480,7 @@ else
         }
     }
 
-    private async Task SaveRawSettingAsync(PluginViewModel plugin, string key, string rawJson)
+    private async Task SaveRawSettingAsync(PluginSummaryResponse plugin, string key, string rawJson)
     {
         try
         {
@@ -493,7 +493,7 @@ else
         }
     }
 
-    private async Task SaveNumberSettingAsync(PluginViewModel plugin, string key, string? raw)
+    private async Task SaveNumberSettingAsync(PluginSummaryResponse plugin, string key, string? raw)
     {
         if (!double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
         {
@@ -504,7 +504,7 @@ else
         await SaveSettingAsync(plugin, key, JsonSerializer.SerializeToElement(parsed, _json));
     }
 
-    private async Task DeletePluginAsync(PluginViewModel plugin)
+    private async Task DeletePluginAsync(PluginSummaryResponse plugin)
     {
         if (!await Orchestrator.DeletePluginAsync(plugin.Id))
         {
@@ -518,14 +518,14 @@ else
         await ReloadAsync();
     }
 
-    private async Task CheckHealthAsync(PluginViewModel plugin)
+    private async Task CheckHealthAsync(PluginSummaryResponse plugin)
     {
         var result = await Orchestrator.CheckPluginHealthAsync(plugin.Id);
         if (result is not null)
             _health[plugin.Id] = result;
     }
 
-    private async Task LoadJobsAsync(PluginViewModel plugin)
+    private async Task LoadJobsAsync(PluginSummaryResponse plugin)
     {
         _jobs[plugin.Id] = await Orchestrator.GetPluginJobsAsync(plugin.Id);
     }
@@ -545,7 +545,7 @@ else
         }
     }
 
-    private bool MatchesFilter(PluginViewModel plugin)
+    private bool MatchesFilter(PluginSummaryResponse plugin)
     {
         if (!string.IsNullOrWhiteSpace(_search))
         {
@@ -569,7 +569,7 @@ else
                                                                                    Size="AppControlSize.Compact"
                                                                                    OnClick="@(() => _filter = value)" />;
 
-    private RenderFragment SettingEditor(PluginViewModel plugin, PluginSettingDefinition setting)
+    private RenderFragment SettingEditor(PluginSummaryResponse plugin, PluginSettingDefinition setting)
     {
         var options = GetSelectOptions(setting);
         if (options.Count > 0)
@@ -616,7 +616,7 @@ else
                              Lines="4" />;
     }
 
-    private IEnumerable<PluginSettingDefinition> GetSettingEntries(PluginViewModel plugin)
+    private IEnumerable<PluginSettingDefinition> GetSettingEntries(PluginSummaryResponse plugin)
     {
         var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var order = 0;
@@ -640,13 +640,13 @@ else
         }
     }
 
-    private async Task SaveStringSettingAsync(PluginViewModel plugin, PluginSettingDefinition setting, string? raw)
+    private async Task SaveStringSettingAsync(PluginSummaryResponse plugin, PluginSettingDefinition setting, string? raw)
     {
         var value = CoerceStringValue(setting, raw ?? string.Empty);
         await SaveSettingAsync(plugin, setting.Key, value);
     }
 
-    private async Task SaveNumberSettingAsync(PluginViewModel plugin, PluginSettingDefinition setting, string? raw)
+    private async Task SaveNumberSettingAsync(PluginSummaryResponse plugin, PluginSettingDefinition setting, string? raw)
     {
         if (IsIntegerSetting(setting))
         {
@@ -795,7 +795,7 @@ else
 
     private static AppUiTone CatalogTone(string status) => string.Equals(status, "ok", StringComparison.OrdinalIgnoreCase) ? AppUiTone.Success : AppUiTone.Warning;
 
-    private static string PluginIcon(PluginViewModel plugin) => plugin.Id switch
+    private static string PluginIcon(PluginSummaryResponse plugin) => plugin.Id switch
     {
         var id when id.Contains("commercial", StringComparison.OrdinalIgnoreCase) => Icons.Material.Outlined.LiveTv,
         var id when id.Contains("intro", StringComparison.OrdinalIgnoreCase) => Icons.Material.Outlined.FastForward,

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.Library;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -22,4 +23,13 @@ public sealed class UnlinkedWorkViewModel
     [JsonPropertyName("title")] public string Title { get; init; } = "";
     [JsonPropertyName("media_type")] public string MediaType { get; init; } = "";
     [JsonPropertyName("wikidata_qid")] public string WikidataQid { get; init; } = "";
+
+    public static UnlinkedWorkViewModel FromContract(UnlinkedWorkDto source) => new()
+    {
+        WorkId = source.WorkId,
+        EntityId = source.EntityId,
+        Title = source.Title,
+        MediaType = source.MediaType,
+        WikidataQid = source.WikidataQid,
+    };
 }

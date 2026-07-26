@@ -84,12 +84,3 @@ internal static class PlaybackSegmentEndpoints
         return group;
     }
 }
-
-public sealed record UpdatePlaybackSegmentRequest(
-    string? Kind,
-    double? StartSeconds,
-    double? EndSeconds,
-    double? Confidence,
-    string? Source,
-    bool? IsSkippable,
-    string? ReviewStatus);

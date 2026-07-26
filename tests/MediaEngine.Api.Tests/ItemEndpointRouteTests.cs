@@ -156,7 +156,7 @@ public sealed class ItemEndpointRouteTests
     public void ItemCanonicalEndpoints_SupportRetailAndWikidataSearchModes()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
-        var models = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\ItemCanonicalModels.cs"));
+        var models = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Matching\MatchingDtos.cs"));
 
         Assert.Contains("SearchMode", models, StringComparison.Ordinal);
         Assert.Contains("\"retail_only\"", source, StringComparison.Ordinal);

@@ -3,6 +3,7 @@
 
 @namespace MediaEngine.Web.Components.Pages
 
+@using MediaEngine.Contracts.Reading
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 
@@ -742,7 +743,7 @@
             };
 
             await Api.SaveProgressAsync(AssetId, progressPct: overallPercent, extendedProperties: extProps);
-            await Api.UpdateReadingStatisticsAsync(AssetId, new ReaderStatisticsUpdateDto(
+            await Api.UpdateReadingStatisticsAsync(AssetId, new UpdateReaderStatisticsRequestDto(
                 ChaptersRead: _chaptersRead,
                 TotalReadingTimeSecs: _totalReadingTimeSecs,
                 WordsRead: _sessionWordsRead,

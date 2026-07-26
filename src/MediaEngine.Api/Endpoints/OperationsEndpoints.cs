@@ -1,6 +1,6 @@
-using System.Text.Json.Serialization;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -22,7 +22,7 @@ public static class OperationsEndpoints
         {
             var paged = PagedRequest.From(null, limit, defaultLimit: 200);
             var operations = await repository.GetQueueAsync(queueName, paged.Limit, ct);
-            return Results.Ok(operations.Select((op, index) => OperationDto.From(op, index + 1)).ToList());
+            return Results.Ok(operations.Select((op, index) => MapOperation(op, index + 1)).ToList());
         })
         .WithName("ListMediaOperations")
         .WithSummary("List durable media operations by queue order.")
@@ -40,9 +40,11 @@ public static class OperationsEndpoints
                 return ApiErrors.NotFound($"Media operation '{id}' not found.");
 
             var timeline = await events.GetByOperationAsync(id, ct);
-            return Results.Ok(new OperationDetailDto(
-                OperationDto.From(operation, null),
-                timeline.Select(OperationEventDto.From).ToList()));
+            return Results.Ok(new OperationDetailDto
+            {
+                Operation = MapOperation(operation, null),
+                Events = timeline.Select(MapOperationEvent).ToList(),
+            });
         })
         .WithName("GetMediaOperation")
         .WithSummary("Get one durable media operation and its event timeline.")
@@ -95,50 +97,8 @@ public static class OperationsEndpoints
 
         return app;
     }
-}
 
-public sealed record OperationDetailDto(
-    [property: JsonPropertyName("operation")] OperationDto Operation,
-    [property: JsonPropertyName("events")] IReadOnlyList<OperationEventDto> Events);
-
-public sealed record OperationDto
-{
-    [JsonPropertyName("id")] public Guid Id { get; init; }
-    [JsonPropertyName("operation_type")] public string OperationType { get; init; } = "";
-    [JsonPropertyName("operation_kind")] public string OperationKind { get; init; } = "";
-    [JsonPropertyName("entity_id")] public Guid? EntityId { get; init; }
-    [JsonPropertyName("entity_kind")] public string? EntityKind { get; init; }
-    [JsonPropertyName("batch_id")] public Guid? BatchId { get; init; }
-    [JsonPropertyName("source_path")] public string? SourcePath { get; init; }
-    [JsonPropertyName("capability_id")] public string? CapabilityId { get; init; }
-    [JsonPropertyName("capability_version")] public string? CapabilityVersion { get; init; }
-    [JsonPropertyName("sub_key")] public string? SubKey { get; init; }
-    [JsonPropertyName("plugin_id")] public string? PluginId { get; init; }
-    [JsonPropertyName("plugin_version")] public string? PluginVersion { get; init; }
-    [JsonPropertyName("provider_id")] public string? ProviderId { get; init; }
-    [JsonPropertyName("model_id")] public string? ModelId { get; init; }
-    [JsonPropertyName("status")] public string Status { get; init; } = "";
-    [JsonPropertyName("stage")] public string? Stage { get; init; }
-    [JsonPropertyName("priority")] public int Priority { get; init; }
-    [JsonPropertyName("queue_name")] public string QueueName { get; init; } = "";
-    [JsonPropertyName("queue_position")] public int? QueuePosition { get; init; }
-    [JsonPropertyName("attempt_count")] public int AttemptCount { get; init; }
-    [JsonPropertyName("lease_owner")] public string? LeaseOwner { get; init; }
-    [JsonPropertyName("lease_expires_at")] public DateTimeOffset? LeaseExpiresAt { get; init; }
-    [JsonPropertyName("heartbeat_at")] public DateTimeOffset? HeartbeatAt { get; init; }
-    [JsonPropertyName("next_retry_at")] public DateTimeOffset? NextRetryAt { get; init; }
-    [JsonPropertyName("progress_percent")] public int ProgressPercent { get; init; }
-    [JsonPropertyName("items_total")] public int ItemsTotal { get; init; }
-    [JsonPropertyName("items_completed")] public int ItemsCompleted { get; init; }
-    [JsonPropertyName("items_failed")] public int ItemsFailed { get; init; }
-    [JsonPropertyName("result_summary")] public string? ResultSummary { get; init; }
-    [JsonPropertyName("last_error")] public string? LastError { get; init; }
-    [JsonPropertyName("missing_reason")] public string? MissingReason { get; init; }
-    [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
-    [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
-    [JsonPropertyName("completed_at")] public DateTimeOffset? CompletedAt { get; init; }
-
-    public static OperationDto From(MediaOperation operation, int? queuePosition) => new()
+    internal static OperationDto MapOperation(MediaOperation operation, int? queuePosition) => new()
     {
         Id = operation.Id,
         OperationType = operation.OperationType,
@@ -175,24 +135,7 @@ public sealed record OperationDto
         UpdatedAt = operation.UpdatedAt,
         CompletedAt = operation.CompletedAt
     };
-}
-
-public sealed record OperationEventDto
-{
-    [JsonPropertyName("id")] public Guid Id { get; init; }
-    [JsonPropertyName("operation_id")] public Guid OperationId { get; init; }
-    [JsonPropertyName("entity_id")] public Guid? EntityId { get; init; }
-    [JsonPropertyName("batch_id")] public Guid? BatchId { get; init; }
-    [JsonPropertyName("event_type")] public string EventType { get; init; } = "";
-    [JsonPropertyName("old_status")] public string? OldStatus { get; init; }
-    [JsonPropertyName("new_status")] public string? NewStatus { get; init; }
-    [JsonPropertyName("old_stage")] public string? OldStage { get; init; }
-    [JsonPropertyName("new_stage")] public string? NewStage { get; init; }
-    [JsonPropertyName("message")] public string? Message { get; init; }
-    [JsonPropertyName("detail_json")] public string? DetailJson { get; init; }
-    [JsonPropertyName("occurred_at")] public DateTimeOffset OccurredAt { get; init; }
-
-    public static OperationEventDto From(MediaOperationEvent evt) => new()
+    internal static OperationEventDto MapOperationEvent(MediaOperationEvent evt) => new()
     {
         Id = evt.Id,
         OperationId = evt.OperationId,

@@ -1,29 +1,25 @@
+using System.Text.Json.Serialization;
+
 namespace MediaEngine.Contracts.Maintenance;
 
-/// <summary>
-/// Response body for <c>GET /maintenance/retag-sweep/state</c>. Property names are
-/// byte-identical to the anonymous type this record replaces — no
-/// <c>[JsonPropertyName]</c> needed.
-/// </summary>
 public sealed record RetagSweepStateResponse(
-    bool has_pending_diff,
-    IReadOnlyList<RetagSweepPendingDiffEntry> pending_diff,
-    IReadOnlyDictionary<string, string> current_hashes);
+    [property: JsonPropertyName("has_pending_diff")] bool HasPendingDiff,
+    [property: JsonPropertyName("pending_diff")] IReadOnlyList<RetagSweepPendingDiffEntry> PendingDiff,
+    [property: JsonPropertyName("current_hashes")] IReadOnlyDictionary<string, string> CurrentHashes);
 
-/// <summary>One media type's worth of pending writeback field-list delta.</summary>
 public sealed record RetagSweepPendingDiffEntry(
-    string media_type,
-    IReadOnlyList<string> added_fields,
-    IReadOnlyList<string> removed_fields);
+    [property: JsonPropertyName("media_type")] string MediaType,
+    [property: JsonPropertyName("added_fields")] IReadOnlyList<string> AddedFields,
+    [property: JsonPropertyName("removed_fields")] IReadOnlyList<string> RemovedFields);
 
-/// <summary>Response body for <c>POST /maintenance/retag-sweep/apply</c>.</summary>
-public sealed record RetagSweepAppliedResponse(bool applied);
+public sealed record RetagSweepAppliedResponse(
+    [property: JsonPropertyName("applied")] bool Applied);
 
-/// <summary>Response body for <c>POST /maintenance/retag-sweep/run-now</c>.</summary>
-public sealed record RetagSweepTriggeredResponse(bool triggered);
+public sealed record RetagSweepTriggeredResponse(
+    [property: JsonPropertyName("triggered")] bool Triggered);
 
-/// <summary>Response body for <c>POST /maintenance/retag-sweep/retry/{assetId}</c>.</summary>
-public sealed record RetagSweepRetryResponse(bool requeued);
+public sealed record RetagSweepRetryResponse(
+    [property: JsonPropertyName("requeued")] bool Requeued);
 
-/// <summary>Response body for <c>POST /maintenance/initial-sweep/run</c>.</summary>
-public sealed record InitialSweepStartedResponse(bool started);
+public sealed record InitialSweepStartedResponse(
+    [property: JsonPropertyName("started")] bool Started);

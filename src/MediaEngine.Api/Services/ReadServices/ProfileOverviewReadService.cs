@@ -1,5 +1,5 @@
 using System.Text.Json;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Identity.Contracts;
 using MediaEngine.Storage;
@@ -61,7 +61,7 @@ public sealed class ProfileOverviewReadService(
 
         return new ProfileOverviewResponseDto
         {
-            Profile = ProfileResponseDto.FromDomain(profile),
+            Profile = ProfileContractMapper.ToResponse(profile),
             Stats = stats,
             RecentItems = items.Take(12).ToList(),
             ContinueItems = items.Where(item => item.ProgressPct > 0 && item.ProgressPct < completedThreshold).Take(12).ToList(),
@@ -76,7 +76,7 @@ public sealed class ProfileOverviewReadService(
                 EntityId = entry.EntityId,
             }).ToList(),
             Taste = tasteResult.Status == Domain.Models.TasteProfileBuildStatus.Generated
-                ? tasteResult.Profile
+                ? ProfileContractMapper.ToResponse(tasteResult.Profile!)
                 : null,
         };
     }

@@ -250,13 +250,13 @@ public static class MediaEditorSchemaCatalog
 
     public static IReadOnlyDictionary<string, string> BuildValueMap(
         LibraryItemDetailViewModel? detail,
-        IEnumerable<CanonicalFieldViewModel> canonicals)
+        IEnumerable<CanonicalFieldDto> canonicals)
     {
         var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var isComicItem = detail?.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase) == true
                           || string.Equals(detail?.MediaType, "Cbz", StringComparison.OrdinalIgnoreCase);
 
-        static string? FindCanonicalValue(IEnumerable<CanonicalFieldViewModel> source, string key) =>
+        static string? FindCanonicalValue(IEnumerable<CanonicalFieldDto> source, string key) =>
             source.FirstOrDefault(field => string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
 
         static string? FindDetailCanonicalValue(LibraryItemDetailViewModel source, string key) =>

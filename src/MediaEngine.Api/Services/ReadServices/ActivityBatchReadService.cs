@@ -1,6 +1,6 @@
 using System.Text;
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Activity;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage;

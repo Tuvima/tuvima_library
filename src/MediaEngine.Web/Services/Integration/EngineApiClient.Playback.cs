@@ -8,6 +8,9 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Progress;
+using MediaEngine.Contracts.Reading;
+using MediaEngine.Contracts.Reports;
 using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -132,11 +135,11 @@ public sealed partial class EngineApiClient
             $"/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}",
             ct: ct);
 
-    public async Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<TextTrackDto>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
     {
         try
         {
-            var tracks = await _http.GetFromJsonAsync<List<TextTrackViewModel>>($"/stream/{assetId}/text-tracks", ct);
+            var tracks = await _http.GetFromJsonAsync<List<TextTrackDto>>($"/stream/{assetId}/text-tracks", ct);
             if (tracks is null)
                 return [];
 
@@ -305,13 +308,13 @@ public sealed partial class EngineApiClient
             if (collectionId.HasValue)
                 url += $"&collectionId={collectionId.Value}";
 
-            var raw = await _http.GetFromJsonAsync<List<JourneyItemRaw>>(url, ct);
+            var raw = await _http.GetFromJsonAsync<List<JourneyItemDto>>(url, ct);
             return raw?.Select(j => new JourneyItemViewModel
             {
                 AssetId        = j.AssetId,
                 WorkId         = j.WorkId,
                 CollectionId          = j.CollectionId,
-                Title          = j.Title ?? string.Empty,
+                Title          = j.Title,
                 Author         = j.Author,
                 CoverUrl       = j.CoverUrl is not null ? AbsoluteUrl(j.CoverUrl) : null,
                 BackgroundUrl  = j.BackgroundUrl is not null ? AbsoluteUrl(j.BackgroundUrl) : null,
@@ -328,11 +331,11 @@ public sealed partial class EngineApiClient
                 Series         = j.Series,
                 SeriesPosition = j.SeriesPosition,
                 Description    = j.Description,
-                MediaType      = j.MediaType ?? string.Empty,
+                MediaType      = j.MediaType,
                 ProgressPct    = j.ProgressPct,
                 LastAccessed   = j.LastAccessed,
                 CollectionDisplayName = j.CollectionDisplayName,
-                ExtendedProperties = j.ExtendedProperties ?? [],
+                ExtendedProperties = j.ExtendedProperties,
             }).ToList() ?? [];
         }
         catch (Exception ex)
@@ -369,7 +372,7 @@ public sealed partial class EngineApiClient
 
     // -- EPUB Reader (/read, /reader) ----------------------------------
 
-    public async Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default)
+    public async Task<UserStateResponse?> GetProgressAsync(Guid assetId, CancellationToken ct = default)
     {
         try
         {
@@ -380,7 +383,7 @@ public sealed partial class EngineApiClient
                 return null;
 
             resp.EnsureSuccessStatusCode();
-            return await resp.Content.ReadFromJsonAsync<ProgressStateDto>(ct);
+            return await resp.Content.ReadFromJsonAsync<UserStateResponse>(ct);
         }
         catch (Exception ex)
         {
@@ -479,7 +482,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new { chapterIndex, cfiPosition, label };
+            var body = new CreateReaderBookmarkRequestDto(chapterIndex, cfiPosition, label);
             var resp = await _http.PostAsJsonAsync($"reader/{assetId}/bookmarks", body, ct);
             return resp.IsSuccessStatusCode
                 ? await resp.Content.ReadFromJsonAsync<ReaderBookmarkDto>(cancellationToken: ct)
@@ -510,7 +513,7 @@ public sealed partial class EngineApiClient
         catch (Exception ex) { LastError = ex.Message; return null; }
     }
 
-    public async Task<bool> UpdateReadingStatisticsAsync(Guid assetId, ReaderStatisticsUpdateDto stats, CancellationToken ct = default)
+    public async Task<bool> UpdateReadingStatisticsAsync(Guid assetId, UpdateReaderStatisticsRequestDto stats, CancellationToken ct = default)
     {
         try
         {
@@ -520,13 +523,13 @@ public sealed partial class EngineApiClient
         catch (Exception ex) { LastError = ex.Message; return false; }
     }
 
-    public async Task<SubmitReportResponseDto?> SubmitReportAsync(SubmitReportRequestDto request, CancellationToken ct = default)
+    public async Task<SubmitReportResponse?> SubmitReportAsync(SubmitReportRequest request, CancellationToken ct = default)
     {
         try
         {
             var response = await _http.PostAsJsonAsync("/reports", request, ct);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<SubmitReportResponseDto>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<SubmitReportResponse>(cancellationToken: ct);
         }
         catch (Exception ex)
         {
@@ -535,11 +538,11 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<ReportEntryDto>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default)
+    public async Task<List<ReportEntryResponse>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<ReportEntryDto>>($"/reports/entity/{entityId}", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<ReportEntryResponse>>($"/reports/entity/{entityId}", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)

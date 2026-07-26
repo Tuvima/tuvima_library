@@ -50,7 +50,7 @@ else
                         <div class="activity-title-detail__avatars">
                             @foreach (var person in visible)
                             {
-                                <a class="activity-title-detail__person" href="@person.PersonUrl" @key="@person.PersonId">
+                                <a class="activity-title-detail__person" href="@person.GetPersonUrl()" @key="@person.PersonId">
                                     <span class="activity-title-detail__avatar">
                                         @if (!string.IsNullOrWhiteSpace(person.HeadshotUrl))
                                         {
@@ -89,12 +89,12 @@ else
 }
 
 @code {
-    [Parameter] public ActivityBatchItemDetailViewModel? Detail { get; set; }
+    [Parameter] public ActivityBatchItemDetailDto? Detail { get; set; }
     [Parameter] public bool Loading { get; set; }
 
     private readonly HashSet<string> _expandedRoles = [];
 
-    private IReadOnlyList<ActivityTimelineEventViewModel> MajorTimeline =>
+    private IReadOnlyList<ActivityTimelineEventDto> MajorTimeline =>
         Detail is null ? [] : BuildMajorTimeline(Detail.Timeline);
 
     private string? LibraryUrl =>
@@ -108,7 +108,7 @@ else
     private bool IsAuditReview =>
         string.Equals(ActivityDisplay.StatusText(Detail?.Status, Detail?.AuditStatus), "Needs review", StringComparison.OrdinalIgnoreCase);
 
-    private IReadOnlyList<ActivityEvidenceViewModel> VisibleEvidence =>
+    private IReadOnlyList<ActivityEvidenceDto> VisibleEvidence =>
         Detail is null
             ? []
             : Detail.Evidence.Where(evidence => IsAuditReview || !IsReviewEvidence(evidence)).ToList();
@@ -128,13 +128,13 @@ else
             .ToList()
         ?? [];
 
-    private IReadOnlyList<ActivityTimelineEventViewModel> BuildMajorTimeline(
-        IReadOnlyList<ActivityTimelineEventViewModel> events)
+    private IReadOnlyList<ActivityTimelineEventDto> BuildMajorTimeline(
+        IReadOnlyList<ActivityTimelineEventDto> events)
     {
         var milestones = events
             .Select(ToMilestone)
             .Where(milestone => milestone is not null)
-            .Cast<ActivityTimelineEventViewModel>()
+            .Cast<ActivityTimelineEventDto>()
             .GroupBy(item => item.EventType, StringComparer.OrdinalIgnoreCase)
             .Select(group => group.OrderBy(item => item.OccurredAt).First())
             .OrderBy(item => MilestoneOrder(item.EventType))
@@ -146,7 +146,7 @@ else
             : milestones;
     }
 
-    private ActivityTimelineEventViewModel? ToMilestone(ActivityTimelineEventViewModel item)
+    private ActivityTimelineEventDto? ToMilestone(ActivityTimelineEventDto item)
     {
         var key = $"{item.EventType} {item.Label} {item.Detail} {item.Source}".ToLowerInvariant();
         if (ContainsAny(key, "detected", "discovered", "watch folder"))
@@ -186,11 +186,11 @@ else
         return null;
     }
 
-    private static ActivityTimelineEventViewModel ToReadableEvent(ActivityTimelineEventViewModel item) =>
+    private static ActivityTimelineEventDto ToReadableEvent(ActivityTimelineEventDto item) =>
         ReadableCopy(item, item.EventType, DisplayFormat.SplitWords(StringHelpers.FirstNonBlankOr("", item.Label, item.EventType, "Activity")), FriendlyDetail(item), item.Tone);
 
-    private static ActivityTimelineEventViewModel ReadableCopy(
-        ActivityTimelineEventViewModel item,
+    private static ActivityTimelineEventDto ReadableCopy(
+        ActivityTimelineEventDto item,
         string eventType,
         string label,
         string detail,
@@ -223,10 +223,10 @@ else
     private static bool ContainsAny(string value, params string[] needles) =>
         needles.Any(needle => value.Contains(needle, StringComparison.OrdinalIgnoreCase));
 
-    private static bool ShouldShowFileField(ActivityDetailFieldViewModel field) =>
+    private static bool ShouldShowFileField(ActivityDetailFieldDto field) =>
         !string.IsNullOrWhiteSpace(field.Value);
 
-    private static bool IsReviewEvidence(ActivityEvidenceViewModel evidence) =>
+    private static bool IsReviewEvidence(ActivityEvidenceDto evidence) =>
         ContainsAny(
             $"{evidence.Kind} {evidence.Label} {evidence.Value} {evidence.Source}",
             "review",
@@ -249,7 +249,7 @@ else
             _ => FriendlyDetail(value ?? ""),
         };
 
-    private static string FriendlyDetail(ActivityTimelineEventViewModel item) =>
+    private static string FriendlyDetail(ActivityTimelineEventDto item) =>
         FriendlyDetail(StringHelpers.FirstNonBlankOr("", item.Detail, item.Label, item.EventType));
 
     private static string FriendlyDetail(string value) =>
@@ -317,5 +317,5 @@ else
         return Task.CompletedTask;
     }
 
-    private sealed record RolePeopleGroup(string Label, string Key, List<ActivityPersonAuditViewModel> People);
+    private sealed record RolePeopleGroup(string Label, string Key, List<ActivityPersonAuditDto> People);
 }

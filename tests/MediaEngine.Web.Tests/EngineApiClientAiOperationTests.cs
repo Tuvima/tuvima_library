@@ -8,6 +8,75 @@ namespace MediaEngine.Web.Tests;
 public sealed class EngineApiClientAiOperationTests
 {
     [Fact]
+    public async Task AiConfig_ExposesEngineResourceLimitsAndCompleteNestedSettings()
+    {
+        using var http = CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {
+                  "max_concurrent_inferences": 3,
+                  "minimum_free_disk_mb": 4096,
+                  "models": {},
+                  "model_catalog": {
+                    "sample": {
+                      "display_name": "Sample",
+                      "parameters_b": 1.7,
+                      "compatibility": { "supported_backends": ["cpu", "cuda"] },
+                      "capabilities": { "structured_json": true },
+                      "readiness": {},
+                      "validation": { "min_task_pass_rate": 0.95 }
+                    }
+                  },
+                  "operational_roles": {
+                    "test": { "max_output_tokens": 512, "max_concurrency": 2 }
+                  },
+                  "role_requirements": {},
+                  "features": {},
+                  "vibe_vocabulary": {},
+                  "scheduling": {},
+                  "hardware_profile": {}
+                }
+                """, Encoding.UTF8, "application/json"),
+        });
+        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
+
+        var config = await client.GetAiConfigAsync();
+
+        Assert.NotNull(config);
+        Assert.Equal(3, config.MaxConcurrentInferences);
+        Assert.Equal(4096, config.MinimumFreeDiskMB);
+        Assert.Equal(1.7, config.ModelCatalog["sample"].ParametersB);
+        Assert.Equal(["cpu", "cuda"], config.ModelCatalog["sample"].Compatibility.SupportedBackends);
+        Assert.True(config.ModelCatalog["sample"].Capabilities.StructuredJson);
+        Assert.Equal(0.95, config.ModelCatalog["sample"].Validation.MinTaskPassRate);
+        Assert.Equal(512, config.OperationalRoles["test"].MaxOutputTokens);
+        Assert.Equal(2, config.OperationalRoles["test"].MaxConcurrency);
+    }
+
+    [Fact]
+    public async Task ResourceSnapshot_PreservesFractionalCpuPressure()
+    {
+        using var http = CreateHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent("""
+                {
+                  "total_ram_mb": 32000,
+                  "free_ram_mb": 16000,
+                  "engine_ram_mb": 2048,
+                  "cpu_pressure": 0.73,
+                  "transcoding_active": false
+                }
+                """, Encoding.UTF8, "application/json"),
+        });
+        var client = new EngineApiClient(http, NullLogger<EngineApiClient>.Instance);
+
+        var snapshot = await client.GetResourceSnapshotAsync();
+
+        Assert.NotNull(snapshot);
+        Assert.Equal(0.73, snapshot.CpuPressure);
+    }
+
+    [Fact]
     public async Task ModelCommand_ParsesSafeProblemDetailsAndBlockingReasons()
     {
         using var http = CreateHttpClient(_ => Problem(HttpStatusCode.UnprocessableEntity, """

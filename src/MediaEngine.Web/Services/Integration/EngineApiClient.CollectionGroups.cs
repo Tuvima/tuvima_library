@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -14,9 +15,10 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
+            var contract = await _http.GetFromJsonAsync<CollectionGroupDetailDto>(
                 $"/collections/{collectionId}/group-detail",
                 ct);
+            var result = contract is null ? null : CollectionGroupDetailViewModel.FromContract(contract);
             NormalizeCollectionGroupDetail(result);
             return result;
         }
@@ -35,9 +37,10 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(
+            var contract = await _http.GetFromJsonAsync<CollectionGroupDetailDto>(
                 $"/collections/artist-detail-by-name?artistName={Uri.EscapeDataString(artistName)}",
                 ct);
+            var result = contract is null ? null : CollectionGroupDetailViewModel.FromContract(contract);
             NormalizeCollectionGroupDetail(result);
             return result;
         }
@@ -65,7 +68,8 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrWhiteSpace(artistName))
                 url += $"&artistName={Uri.EscapeDataString(artistName)}";
 
-            var result = await _http.GetFromJsonAsync<CollectionGroupDetailViewModel>(url, ct);
+            var contract = await _http.GetFromJsonAsync<CollectionGroupDetailDto>(url, ct);
+            var result = contract is null ? null : CollectionGroupDetailViewModel.FromContract(contract);
             NormalizeCollectionGroupDetail(result);
             return result;
         }

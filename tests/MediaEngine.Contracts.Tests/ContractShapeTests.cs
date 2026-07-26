@@ -11,7 +11,20 @@ public sealed class ContractShapeTests
     public void PublicContractShape_MatchesApprovedFixture()
     {
         var actual = BuildContractShape();
-        var expected = File.ReadAllText(GetFixturePath()).ReplaceLineEndings("\n");
+        var fixturePath = GetFixturePath();
+
+        if (string.Equals(
+                Environment.GetEnvironmentVariable("TUVIMA_UPDATE_CONTRACT_SHAPE"),
+                "1",
+                StringComparison.Ordinal))
+        {
+            File.WriteAllText(
+                fixturePath,
+                actual,
+                new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        }
+
+        var expected = File.ReadAllText(fixturePath).ReplaceLineEndings("\n");
 
         Assert.Equal(expected, actual);
     }

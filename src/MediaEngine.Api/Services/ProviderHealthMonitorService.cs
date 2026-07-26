@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Realtime;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -55,12 +56,13 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
             _recoveryQueue.Enqueue(providerId);
 
             // Notify Dashboard.
-            await _hubContext.Clients.All.SendAsync(SignalREvents.ProviderStatusChanged, new
-            {
-                ProviderId = providerId,
-                Status = "Healthy",
-                Message = $"{providerId} is back online",
-            }, ct);
+            await _hubContext.Clients.All.SendAsync(
+                SignalREvents.ProviderStatusChanged,
+                new ProviderStatusChangedEvent(
+                    providerId,
+                    "Healthy",
+                    $"{providerId} is back online"),
+                ct);
         }
     }
 
@@ -73,12 +75,13 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
         // Notify Dashboard on transition to Down.
         if (newStatus == ProviderHealthStatus.Down && previousStatus != ProviderHealthStatus.Down)
         {
-            await _hubContext.Clients.All.SendAsync(SignalREvents.ProviderStatusChanged, new
-            {
-                ProviderId = providerId,
-                Status = "Down",
-                Message = $"{providerId} is unreachable",
-            }, ct);
+            await _hubContext.Clients.All.SendAsync(
+                SignalREvents.ProviderStatusChanged,
+                new ProviderStatusChangedEvent(
+                    providerId,
+                    "Down",
+                    $"{providerId} is unreachable"),
+                ct);
         }
     }
 
@@ -200,12 +203,13 @@ public sealed class ProviderHealthMonitorService : BackgroundService, IProviderH
                     waitingItems.Count, providerId);
 
                 // Notify Dashboard.
-                await _hubContext.Clients.All.SendAsync(SignalREvents.ProviderRecoveryFlush, new
-                {
-                    ProviderId = providerId,
-                    ItemCount = waitingItems.Count,
-                    Message = $"{providerId} is back online — {waitingItems.Count} items queued for enrichment",
-                }, ct);
+                await _hubContext.Clients.All.SendAsync(
+                    SignalREvents.ProviderRecoveryFlush,
+                    new ProviderRecoveryFlushEvent(
+                        providerId,
+                        waitingItems.Count,
+                        $"{providerId} is back online — {waitingItems.Count} items queued for enrichment"),
+                    ct);
 
                 int processed = 0;
                 foreach (var item in waitingItems)

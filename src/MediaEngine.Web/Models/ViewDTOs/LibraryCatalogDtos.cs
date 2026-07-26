@@ -546,49 +546,6 @@ public sealed class LibraryItemLifecycleCountsDto
     public int All => Identified + InReview + Provisional + Rejected;
 }
 
-/// <summary>Dashboard view model for an ingestion batch.</summary>
-public sealed class IngestionBatchViewModel
-{
-    [JsonPropertyName("id")]
-    public Guid Id { get; set; }
-
-    [JsonPropertyName("status")]
-    public string Status { get; set; } = "";
-
-    [JsonPropertyName("source_path")]
-    public string? SourcePath { get; set; }
-
-    [JsonPropertyName("category")]
-    public string? Category { get; set; }
-
-    [JsonPropertyName("files_total")]
-    public int FilesTotal { get; set; }
-
-    [JsonPropertyName("files_processed")]
-    public int FilesProcessed { get; set; }
-
-    [JsonPropertyName("files_identified")]
-    public int FilesIdentified { get; set; }
-
-    [JsonPropertyName("files_review")]
-    public int FilesReview { get; set; }
-
-    [JsonPropertyName("files_no_match")]
-    public int FilesNoMatch { get; set; }
-
-    [JsonPropertyName("files_failed")]
-    public int FilesFailed { get; set; }
-
-    [JsonPropertyName("started_at")]
-    public DateTimeOffset StartedAt { get; set; }
-
-    [JsonPropertyName("completed_at")]
-    public DateTimeOffset? CompletedAt { get; set; }
-
-    [JsonPropertyName("created_at")]
-    public DateTimeOffset CreatedAt { get; set; }
-}
-
 /// <summary>Request body for marking an item as provisional with curator-entered metadata.</summary>
 public sealed class ProvisionalMetadataRequestDto
 {
@@ -638,40 +595,6 @@ public sealed class ProvisionalMetadataRequestDto
     public string? PageCount { get; set; }
 }
 
-/// <summary>Person list item from GET /persons endpoint.</summary>
-public sealed class PersonListItemDto
-{
-    [JsonPropertyName("id")]
-    public Guid Id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-
-    [JsonPropertyName("roles")]
-    public List<string> Roles { get; set; } = [];
-
-    [JsonPropertyName("wikidata_qid")]
-    public string? WikidataQid { get; set; }
-
-    [JsonPropertyName("headshot_url")]
-    public string? HeadshotUrl { get; set; }
-
-    [JsonPropertyName("has_local_headshot")]
-    public bool HasLocalHeadshot { get; set; }
-
-    [JsonPropertyName("biography")]
-    public string? Biography { get; set; }
-
-    [JsonPropertyName("occupation")]
-    public string? Occupation { get; set; }
-
-    [JsonPropertyName("is_pseudonym")]
-    public bool IsPseudonym { get; set; }
-
-    [JsonPropertyName("is_group")]
-    public bool IsGroup { get; set; }
-}
-
 /// <summary>A group member or parent group for person-detail projections.</summary>
 public sealed class GroupMemberView
 {
@@ -685,47 +608,6 @@ public sealed class GroupMemberView
         Name = name;
         DateRange = dateRange;
     }
-}
-
-/// <summary>A single alias entry from GET /persons/{id}/aliases.</summary>
-public sealed class PersonAliasDto
-{
-    [JsonPropertyName("id")]
-    public Guid Id { get; set; }
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-
-    [JsonPropertyName("role")]
-    public string? Role { get; set; }
-
-    [JsonPropertyName("headshot_url")]
-    public string? HeadshotUrl { get; set; }
-
-    [JsonPropertyName("is_pseudonym")]
-    public bool IsPseudonym { get; set; }
-
-    [JsonPropertyName("wikidata_qid")]
-    public string? WikidataQid { get; set; }
-
-    [JsonPropertyName("relationship")]
-    public string Relationship { get; set; } = "";
-}
-
-/// <summary>Response from GET /persons/{id}/aliases.</summary>
-public sealed class PersonAliasesResponseDto
-{
-    [JsonPropertyName("person_id")]
-    public Guid PersonId { get; set; }
-
-    [JsonPropertyName("person_name")]
-    public string PersonName { get; set; } = "";
-
-    [JsonPropertyName("is_pseudonym")]
-    public bool IsPseudonym { get; set; }
-
-    [JsonPropertyName("aliases")]
-    public List<PersonAliasDto> Aliases { get; set; } = [];
 }
 
 /// <summary>Media type presence counts for a single person.</summary>

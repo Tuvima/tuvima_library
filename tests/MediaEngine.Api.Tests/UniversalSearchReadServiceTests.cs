@@ -1,5 +1,5 @@
-using MediaEngine.Api.Models;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Search;
 using MediaEngine.Storage;
 using Microsoft.Data.Sqlite;
 

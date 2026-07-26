@@ -4,6 +4,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -40,7 +41,7 @@ public static class ProfileEndpoints
             CancellationToken ct) =>
         {
             var profiles = await svc.GetAllProfilesAsync(ct);
-            var dtos = profiles.Select(ProfileResponseDto.FromDomain).ToList();
+            var dtos = profiles.Select(ProfileContractMapper.ToResponse).ToList();
             return Results.Ok(dtos);
         })
         .WithName("ListProfiles")
@@ -56,7 +57,7 @@ public static class ProfileEndpoints
             var profile = await svc.GetProfileAsync(id, ct);
             return profile is null
                 ? ApiErrors.NotFound($"Profile '{id}' not found.")
-                : Results.Ok(ProfileResponseDto.FromDomain(profile));
+                : Results.Ok(ProfileContractMapper.ToResponse(profile));
         })
         .WithName("GetProfile")
         .WithSummary("Get a single profile by ID.")
@@ -77,11 +78,11 @@ public static class ProfileEndpoints
             }
 
             var taste = await tasteProfiler.GetProfileAsync(id, ct);
-            return Results.Ok(taste);
+            return Results.Ok(ProfileContractMapper.ToResponse(taste));
         })
         .WithName("GetProfileTaste")
         .WithSummary("Get the computed taste profile for a user profile.")
-        .Produces<TasteProfileBuildResult>(StatusCodes.Status200OK)
+        .Produces<TasteProfileBuildResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -309,7 +310,7 @@ public static class ProfileEndpoints
                 File.Delete(existingPath);
             }
 
-            return Results.Ok(ProfileResponseDto.FromDomain(profile));
+            return Results.Ok(ProfileContractMapper.ToResponse(profile));
         })
         .WithName("RemoveProfileAvatar")
         .WithSummary("Removes the uploaded avatar image for a profile.")
@@ -330,7 +331,7 @@ public static class ProfileEndpoints
             }
 
             var logins = await loginService.GetByProfileAsync(id, ct);
-            return Results.Ok(logins.Select(ProfileExternalLoginDto.FromDomain).ToList());
+            return Results.Ok(logins.Select(ProfileContractMapper.ToResponse).ToList());
         })
         .WithName("ListProfileExternalLogins")
         .WithSummary("List SSO/OAuth sign-in accounts linked to a profile.")
@@ -357,7 +358,7 @@ public static class ProfileEndpoints
             var profile = await svc.CreateProfileAsync(
                 request.DisplayName, role, request.AvatarColor, ct);
 
-            return Results.Ok(ProfileResponseDto.FromDomain(profile));
+            return Results.Ok(ProfileContractMapper.ToResponse(profile));
         })
         .WithName("CreateProfile")
         .WithSummary("Create a new user profile.")
@@ -381,7 +382,7 @@ public static class ProfileEndpoints
                     request.DisplayName,
                     ct);
 
-                return Results.Ok(ProfileExternalLoginDto.FromDomain(login));
+                return Results.Ok(ProfileContractMapper.ToResponse(login));
             }
             catch (ArgumentException ex)
             {
@@ -434,7 +435,7 @@ public static class ProfileEndpoints
 
             var updated = await svc.UpdateProfileAsync(existing, ct);
             return updated
-                ? Results.Ok(ProfileResponseDto.FromDomain(existing))
+                ? Results.Ok(ProfileContractMapper.ToResponse(existing))
                 : ApiErrors.BadRequest(
                     "Cannot demote the seed Owner or the last Administrator profile.");
         })
@@ -576,7 +577,7 @@ public static class ProfileEndpoints
             File.Delete(existingPath);
         }
 
-        return Results.Ok(ProfileResponseDto.FromDomain(profile));
+        return Results.Ok(ProfileContractMapper.ToResponse(profile));
     }
 
     private static string? NormalizeAvatarMimeType(string? contentType, string extension)

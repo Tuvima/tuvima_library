@@ -1,5 +1,5 @@
 using System.Text.Json.Serialization;
-using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Profiles;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -32,7 +32,7 @@ public sealed class ProfileOverviewViewModel
     public List<ProfileOverviewActivityViewModel> Activity { get; set; } = [];
 
     [JsonPropertyName("taste")]
-    public TasteProfile? Taste { get; set; }
+    public TasteProfileDto? Taste { get; set; }
 }
 
 public sealed class ProfileOverviewStatsViewModel

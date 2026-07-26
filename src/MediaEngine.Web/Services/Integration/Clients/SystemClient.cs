@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using MediaEngine.Contracts.System;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.Extensions.Logging;
 
@@ -29,7 +30,7 @@ public sealed class SystemClient
                 return null;
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<StatusRaw>(cancellationToken: ct);
+            var raw = await response.Content.ReadFromJsonAsync<SystemStatusResponse>(cancellationToken: ct);
             _failureState.Clear(endpoint);
             return raw is null ? null : new SystemStatusViewModel
             {
@@ -45,6 +46,4 @@ public sealed class SystemClient
             return null;
         }
     }
-
-    private sealed record StatusRaw(string Status, string Version, string? Language);
 }

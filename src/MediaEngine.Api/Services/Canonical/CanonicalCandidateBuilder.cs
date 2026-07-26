@@ -1,6 +1,7 @@
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Services;
+using MediaEngine.Contracts.Matching;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -37,7 +38,7 @@ internal sealed class CanonicalCandidateBuilder(
         Guid assetId,
         WorkLineage? lineage,
         CanonicalTargetPolicy policy,
-        ItemCanonicalApplyRequest request,
+        ItemCanonicalApplyRequestDto request,
         CancellationToken ct)
     {
         var retainedIdKeys = request.BridgeIds.Keys
@@ -127,7 +128,7 @@ internal sealed class CanonicalCandidateBuilder(
             .Distinct(StringComparer.OrdinalIgnoreCase));
     }
 
-    public static ItemCanonicalRetailCandidate BuildRetailCandidate(
+    public static ItemCanonicalRetailCandidateDto BuildRetailCandidate(
         Domain.Models.RetailCandidate candidate,
         string mediaType,
         CanonicalTargetPolicy policy)
@@ -139,7 +140,7 @@ internal sealed class CanonicalCandidateBuilder(
         var bridgeIds = ExtractFields(allFields, policy.BridgeIdKeys);
         var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
 
-        return new ItemCanonicalRetailCandidate
+        return new ItemCanonicalRetailCandidateDto
         {
             CandidateId = $"{candidate.ProviderName}:{candidate.ProviderItemId ?? candidate.Title}",
             ProviderId = candidate.ProviderId,
@@ -166,7 +167,7 @@ internal sealed class CanonicalCandidateBuilder(
         };
     }
 
-    public static ItemCanonicalLinkedCandidate BuildLinkedCandidate(
+    public static ItemCanonicalLinkedCandidateDto BuildLinkedCandidate(
         Domain.Models.UniverseCandidate candidate,
         string mediaType,
         CanonicalTargetPolicy policy)
@@ -177,7 +178,7 @@ internal sealed class CanonicalCandidateBuilder(
         var qidFields = policy.QidFieldKeys.ToDictionary(key => key, _ => candidate.Qid, StringComparer.OrdinalIgnoreCase);
         var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
 
-        return new ItemCanonicalLinkedCandidate
+        return new ItemCanonicalLinkedCandidateDto
         {
             CandidateId = $"wikidata:{candidate.Qid}",
             Qid = candidate.Qid,

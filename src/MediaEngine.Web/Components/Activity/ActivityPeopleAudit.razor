@@ -90,8 +90,8 @@
 
 @code {
     private readonly ActivityAuditQuery _query = new();
-    private PagedResponse<ActivityPersonAuditViewModel>? _page;
-    private List<ActivityPersonAuditViewModel> _people = [];
+    private PagedResponse<ActivityPersonAuditDto>? _page;
+    private List<ActivityPersonAuditDto> _people = [];
     private bool _loading = true;
     private string? _error;
 

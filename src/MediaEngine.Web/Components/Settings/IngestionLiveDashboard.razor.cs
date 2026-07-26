@@ -10,16 +10,16 @@ namespace MediaEngine.Web.Components.Settings;
 public partial class IngestionLiveDashboard
 {
     [Parameter] public LibraryUpdateStatusViewModel? Status { get; set; }
-    [Parameter] public IngestionOperationsSnapshotViewModel? Snapshot { get; set; }
+    [Parameter] public IngestionOperationsSnapshotDto? Snapshot { get; set; }
     [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
     [Parameter] public IngestionOverallProgress OverallProgress { get; set; } = new(0, 0, 0, "Ingestion_StageScanning", "Ingestion_StageScanningDetail", 0, 0, 0, null);
     [Parameter] public IReadOnlyList<IngestionDashboardStage> Stages { get; set; } = [];
-    [Parameter] public IReadOnlyList<IngestionOperationsJobViewModel> Jobs { get; set; } = [];
-    [Parameter] public IReadOnlyList<IngestionCurrentActivityViewModel> CurrentActivities { get; set; } = [];
-    [Parameter] public IReadOnlyList<ActivityEntryViewModel> Activities { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionOperationsJobDto> Jobs { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionCurrentActivityDto> CurrentActivities { get; set; } = [];
+    [Parameter] public IReadOnlyList<ActivityEntryResponse> Activities { get; set; } = [];
     [Parameter] public IReadOnlyList<ReviewItemViewModel> PendingReviews { get; set; } = [];
-    [Parameter] public IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons { get; set; } = [];
-    [Parameter] public IReadOnlyList<IngestionProviderActivityViewModel> ProviderActivity { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionReviewReasonDto> ReviewReasons { get; set; } = [];
+    [Parameter] public IReadOnlyList<IngestionProviderActivityDto> ProviderActivity { get; set; } = [];
     [Parameter] public IngestionLiveMode LiveMode { get; set; }
     [Parameter] public EngineConnectionState ConnectionState { get; set; }
     [Parameter] public DateTimeOffset? LastUpdated { get; set; }
@@ -52,12 +52,12 @@ public partial class IngestionLiveDashboard
         UseSelectedBatchSnapshot && SelectedBatch is { } batch
             ? BuildBatchStages(batch)
             : StageRows;
-    private IReadOnlyList<IngestionOperationsBatchViewModel> OrderedRecentBatches => RecentBatches
+    private IReadOnlyList<IngestionOperationsBatchDto> OrderedRecentBatches => RecentBatches
         .OrderByDescending(batch => IsActiveBatchStatus(batch.Status))
         .ThenByDescending(batch => batch.StartedAt)
         .Take(5)
         .ToList();
-    private IngestionOperationsBatchViewModel? SelectedBatch => ResolveSelectedBatch();
+    private IngestionOperationsBatchDto? SelectedBatch => ResolveSelectedBatch();
     private bool UseSelectedBatchSnapshot => SelectedBatch is { StageProgress.Count: > 0 };
     private IngestionDashboardStage? SelectedStage =>
         DisplayStageRows.FirstOrDefault(stage => StageSelectionKey(stage).Equals(_selection.StageKey, StringComparison.OrdinalIgnoreCase))
@@ -87,19 +87,19 @@ public partial class IngestionLiveDashboard
     }
 
     private string MainStatusClass => $"library-update-status is-{Model.PageState.ToString().ToLowerInvariant()}";
-    private IReadOnlyList<IngestionOperationsBatchViewModel> RecentBatches => Snapshot?.RecentBatches ?? [];
-    private IReadOnlyList<IngestionCurrentActivityViewModel> EffectiveCurrentActivities =>
+    private IReadOnlyList<IngestionOperationsBatchDto> RecentBatches => Snapshot?.RecentBatches ?? [];
+    private IReadOnlyList<IngestionCurrentActivityDto> EffectiveCurrentActivities =>
         CurrentActivities.Count > 0 ? CurrentActivities : Snapshot?.CurrentActivities ?? [];
-    private IReadOnlyList<IngestionProviderActivityViewModel> EffectiveProviderActivity =>
+    private IReadOnlyList<IngestionProviderActivityDto> EffectiveProviderActivity =>
         ProviderActivity.Count > 0 ? ProviderActivity : Snapshot?.ProviderActivity ?? [];
     private static string BuildRenderSignature(
         LibraryUpdateStatusViewModel model,
         bool loading,
         bool scanStarting,
         string? error,
-        IReadOnlyList<IngestionOperationsBatchViewModel> recentBatches,
+        IReadOnlyList<IngestionOperationsBatchDto> recentBatches,
         IReadOnlyList<IngestionDashboardStage> stages,
-        IReadOnlyList<IngestionProviderActivityViewModel> providerActivity,
+        IReadOnlyList<IngestionProviderActivityDto> providerActivity,
         string expandedStageSignature)
     {
         var steps = string.Join(';', model.Steps.Select(step => $"{step.Label}:{step.Status}"));
@@ -322,16 +322,16 @@ public partial class IngestionLiveDashboard
         _selection.SelectStage(StageSelectionKey(stage));
     }
 
-    private void SelectBatch(IngestionOperationsBatchViewModel batch)
+    private void SelectBatch(IngestionOperationsBatchDto batch)
     {
         _selection.SelectBatch(batch.BatchId);
         OnParametersSet();
     }
 
-    private bool IsSelectedBatch(IngestionOperationsBatchViewModel batch) =>
+    private bool IsSelectedBatch(IngestionOperationsBatchDto batch) =>
         SelectedBatch is { } selected && selected.BatchId == batch.BatchId;
 
-    private IngestionOperationsBatchViewModel? ResolveSelectedBatch()
+    private IngestionOperationsBatchDto? ResolveSelectedBatch()
         => _selection.ResolveBatch(OrderedRecentBatches);
 
     private static IngestionDashboardStage? DefaultSelectedStage(IReadOnlyList<IngestionDashboardStage> stages) =>
@@ -339,17 +339,17 @@ public partial class IngestionLiveDashboard
         ?? stages.FirstOrDefault(stage => !IsStageComplete(stage))
         ?? stages.FirstOrDefault();
 
-    private static string BatchRenderKey(IngestionOperationsBatchViewModel batch) =>
+    private static string BatchRenderKey(IngestionOperationsBatchDto batch) =>
         batch.BatchId == Guid.Empty
             ? batch.StartedAt.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture)
             : batch.BatchId.ToString("N");
 
-    private static IReadOnlyList<IngestionDashboardStage> BuildBatchStages(IngestionOperationsBatchViewModel batch)
+    private static IReadOnlyList<IngestionDashboardStage> BuildBatchStages(IngestionOperationsBatchDto batch)
     {
         if (batch.StageProgress.Count > 0)
         {
             return IngestionLiveDashboardState.BuildStages(
-                new IngestionOperationsSnapshotViewModel { StageProgress = batch.StageProgress },
+                new IngestionOperationsSnapshotDto { StageProgress = batch.StageProgress },
                 [],
                 Math.Max(0, batch.TotalFiles));
         }
@@ -473,7 +473,7 @@ public partial class IngestionLiveDashboard
         int total,
         string artifactLabel,
         int artifactCount,
-        params IngestionStageDetailItemViewModel[] details)
+        params IngestionStageDetailItemDto[] details)
     {
         count = Math.Max(0, count);
         total = Math.Max(0, total);
@@ -506,7 +506,7 @@ public partial class IngestionLiveDashboard
             DetailItems: details);
     }
 
-    private static IngestionStageDetailItemViewModel Detail(string label, int value, string tone = "neutral") =>
+    private static IngestionStageDetailItemDto Detail(string label, int value, string tone = "neutral") =>
         new()
         {
             Label = label,
@@ -694,7 +694,7 @@ public partial class IngestionLiveDashboard
     private static StageDetailLine Metric(string label, int value, string tone, string icon) =>
         new(label, DisplayFormat.FormatCount(value), tone, icon);
 
-    private static int DetailCount(IReadOnlyList<IngestionStageDetailItemViewModel> details, string label)
+    private static int DetailCount(IReadOnlyList<IngestionStageDetailItemDto> details, string label)
     {
         var value = details.FirstOrDefault(detail => detail.Label.Equals(label, StringComparison.OrdinalIgnoreCase))?.Value;
         if (string.IsNullOrWhiteSpace(value))
@@ -704,10 +704,10 @@ public partial class IngestionLiveDashboard
             : 0;
     }
 
-    private static int DetailCountAny(IReadOnlyList<IngestionStageDetailItemViewModel> details, params string[] labels) =>
+    private static int DetailCountAny(IReadOnlyList<IngestionStageDetailItemDto> details, params string[] labels) =>
         labels.Sum(label => DetailCount(details, label));
 
-    private static int DetailCountFirst(IReadOnlyList<IngestionStageDetailItemViewModel> details, params string[] labels)
+    private static int DetailCountFirst(IReadOnlyList<IngestionStageDetailItemDto> details, params string[] labels)
     {
         foreach (var label in labels)
         {
@@ -728,7 +728,7 @@ public partial class IngestionLiveDashboard
         return 0;
     }
 
-    private static string ResolveDetailIcon(IngestionStageDetailItemViewModel detail) =>
+    private static string ResolveDetailIcon(IngestionStageDetailItemDto detail) =>
         (detail.Icon ?? detail.Label).ToLowerInvariant() switch
         {
             var value when value.Contains("book") => Icons.Material.Outlined.MenuBook,
@@ -745,25 +745,25 @@ public partial class IngestionLiveDashboard
             _ => Icons.Material.Outlined.FactCheck,
         };
 
-    private static string BatchTitle(IngestionOperationsBatchViewModel batch)
+    private static string BatchTitle(IngestionOperationsBatchDto batch)
     {
         if (batch.BatchId != Guid.Empty)
             return $"Update {batch.BatchId.ToString("N")[..6]}";
         return "Update";
     }
 
-    private static string BatchActivityHref(IngestionOperationsBatchViewModel batch) =>
+    private static string BatchActivityHref(IngestionOperationsBatchDto batch) =>
         batch.BatchId == Guid.Empty
             ? "/settings/activity"
             : $"/settings/activity?runId={batch.BatchId:D}";
 
-    private string BatchCardClass(IngestionOperationsBatchViewModel batch)
+    private string BatchCardClass(IngestionOperationsBatchDto batch)
     {
         var selected = IsSelectedBatch(batch) ? " is-selected" : string.Empty;
         return $"library-update-batch is-{BatchStatusTone(batch)}{selected}";
     }
 
-    private static string BatchStatusTone(IngestionOperationsBatchViewModel batch) =>
+    private static string BatchStatusTone(IngestionOperationsBatchDto batch) =>
         IsActiveBatchStatus(batch.Status)
             ? "info"
             : IsFailedBatchStatus(batch.Status)
@@ -774,7 +774,7 @@ public partial class IngestionLiveDashboard
                         ? "warning"
                         : "success";
 
-    private static string BatchStatusLabel(IngestionOperationsBatchViewModel batch) =>
+    private static string BatchStatusLabel(IngestionOperationsBatchDto batch) =>
         IsActiveBatchStatus(batch.Status)
             ? "Active"
             : IsFailedBatchStatus(batch.Status)
@@ -799,7 +799,7 @@ public partial class IngestionLiveDashboard
         && (status.Equals("abandoned", StringComparison.OrdinalIgnoreCase)
             || status.Equals("interrupted", StringComparison.OrdinalIgnoreCase));
 
-    private static string BatchTiming(IngestionOperationsBatchViewModel batch)
+    private static string BatchTiming(IngestionOperationsBatchDto batch)
     {
         var started = batch.StartedAt.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
         if (IsActiveBatchStatus(batch.Status))
@@ -826,7 +826,7 @@ public partial class IngestionLiveDashboard
         return $"Complete - started {started}";
     }
 
-    private static IReadOnlyList<BatchChip> BatchMediaChips(IngestionOperationsBatchViewModel batch)
+    private static IReadOnlyList<BatchChip> BatchMediaChips(IngestionOperationsBatchDto batch)
     {
         var chips = new List<BatchChip>
         {
@@ -841,13 +841,13 @@ public partial class IngestionLiveDashboard
         return chips.Where(chip => chip.Count > 0).ToList();
     }
 
-    private static IReadOnlyList<BatchChip> BatchArtifactChips(IngestionOperationsBatchViewModel batch) =>
+    private static IReadOnlyList<BatchChip> BatchArtifactChips(IngestionOperationsBatchDto batch) =>
     [
         new("matched", batch.RegisteredCount, Icons.Material.Outlined.Link, "green"),
         new("review", batch.ReviewCount, Icons.Material.Outlined.WarningAmber, "amber"),
     ];
 
-    private string BatchSelectionTooltip(IngestionOperationsBatchViewModel batch) =>
+    private string BatchSelectionTooltip(IngestionOperationsBatchDto batch) =>
         IsSelectedBatch(batch)
             ? "This batch is selected. Its stage details are shown above."
             : "Select this batch to show its stage details above.";
@@ -863,7 +863,7 @@ public partial class IngestionLiveDashboard
             _ => $"{chip.Label}: {DisplayFormat.FormatCount(chip.Count)} items in this batch.",
         };
 
-    private static string BatchActivityTooltip(IngestionOperationsBatchViewModel batch) =>
+    private static string BatchActivityTooltip(IngestionOperationsBatchDto batch) =>
         $"Open the full activity log for {BatchTitle(batch)}.";
 
     private static string BatchChipClass(BatchChip chip) =>
@@ -922,7 +922,7 @@ public partial class IngestionLiveDashboard
             ? "Provider"
             : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(providerName.Replace("_", " ").Replace("-", " "));
 
-    private static string ProviderActivitySummary(IngestionProviderActivityViewModel provider)
+    private static string ProviderActivitySummary(IngestionProviderActivityDto provider)
     {
         var recentWait = FormatMilliseconds(provider.WaitMsLastMinute);
         var averageWait = provider.AverageWaitMs > 0 ? $"{provider.AverageWaitMs:N0}ms avg wait" : "no avg wait";
@@ -935,12 +935,12 @@ public partial class IngestionLiveDashboard
         return $"{DisplayFormat.FormatCount(provider.RequestsLastMinute)} requests/min, {DisplayFormat.FormatCount(provider.RequestsTotal)} total, {recentWait} recent wait, {averageWait}, {latency}, {last}";
     }
 
-    private static string ProviderActivityTooltip(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderActivityTooltip(IngestionProviderActivityDto provider) =>
         string.IsNullOrWhiteSpace(provider.LastError)
             ? ProviderActivitySummary(provider)
             : $"{ProviderActivitySummary(provider)}. Last error: {provider.LastError}";
 
-    private static string ProviderActivityIcon(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderActivityIcon(IngestionProviderActivityDto provider) =>
         ProviderHasVisibleError(provider)
             ? Icons.Material.Outlined.WarningAmber
             : provider.WaitingRequests > 0
@@ -951,7 +951,7 @@ public partial class IngestionLiveDashboard
                         ? Icons.Material.Outlined.Bolt
                         : Icons.Material.Outlined.CheckCircle;
 
-    private static string ProviderStatusIcon(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderStatusIcon(IngestionProviderActivityDto provider) =>
         provider.WaitingRequests > 0
             ? Icons.Material.Outlined.HourglassTop
             : provider.ActiveRequests > 0
@@ -960,7 +960,7 @@ public partial class IngestionLiveDashboard
                     ? Icons.Material.Outlined.Bolt
                     : Icons.Material.Outlined.CheckCircle;
 
-    private static string ProviderStatusValue(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderStatusValue(IngestionProviderActivityDto provider) =>
         provider.WaitingRequests > 0
             ? DisplayFormat.FormatCount(provider.WaitingRequests)
             : provider.ActiveRequests > 0
@@ -971,7 +971,7 @@ public partial class IngestionLiveDashboard
                         ? DisplayFormat.FormatCount(provider.MaxActiveLastMinute)
                         : "Healthy";
 
-    private static string ProviderStatusLabel(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderStatusLabel(IngestionProviderActivityDto provider) =>
         provider.WaitingRequests > 0
             ? "waiting"
             : provider.ActiveRequests > 0
@@ -982,26 +982,26 @@ public partial class IngestionLiveDashboard
                         ? "recent peak"
                         : "idle";
 
-    private static string ProviderStatusChipClass(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderStatusChipClass(IngestionProviderActivityDto provider) =>
         $"library-update-batch-count is-{ProviderActivityTone(provider)}";
 
-    private static string ProviderErrorChipClass(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderErrorChipClass(IngestionProviderActivityDto provider) =>
         $"library-update-batch-count is-{(provider.ErrorsLastMinute > 0 ? "warning" : "success")}";
 
-    private static string ProviderWaitChipClass(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderWaitChipClass(IngestionProviderActivityDto provider) =>
         $"library-update-batch-count is-{(provider.WaitingRequests > 0 || provider.WaitMsLastMinute > 0 ? "warning" : "neutral")}";
 
-    private static string ProviderWaitValue(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderWaitValue(IngestionProviderActivityDto provider) =>
         provider.WaitMsLastMinute > 0
             ? FormatMillisecondsCompact(provider.WaitMsLastMinute)
             : provider.AverageWaitMs > 0
                 ? $"{provider.AverageWaitMs:N0}ms"
                 : "0ms";
 
-    private static string ProviderWaitLabel(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderWaitLabel(IngestionProviderActivityDto provider) =>
         provider.WaitMsLastMinute > 0 ? "recent wait" : "avg wait";
 
-    private static string ProviderActivityTone(IngestionProviderActivityViewModel provider)
+    private static string ProviderActivityTone(IngestionProviderActivityDto provider)
     {
         if (ProviderHasVisibleError(provider))
             return "warning";
@@ -1012,19 +1012,19 @@ public partial class IngestionLiveDashboard
         return "success";
     }
 
-    private static bool ProviderHasVisibleError(IngestionProviderActivityViewModel provider) =>
+    private static bool ProviderHasVisibleError(IngestionProviderActivityDto provider) =>
         ProviderHasRecentErrors(provider) || ProviderHasUnrecoveredError(provider);
 
-    private static bool ProviderHasRecentErrors(IngestionProviderActivityViewModel provider) =>
+    private static bool ProviderHasRecentErrors(IngestionProviderActivityDto provider) =>
         provider.ErrorsLastMinute > 0;
 
-    private static bool ProviderHasUnrecoveredError(IngestionProviderActivityViewModel provider) =>
+    private static bool ProviderHasUnrecoveredError(IngestionProviderActivityDto provider) =>
         !string.IsNullOrWhiteSpace(provider.LastError) && provider.LastSuccessAt is null;
 
-    private static string ProviderErrorValue(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderErrorValue(IngestionProviderActivityDto provider) =>
         ProviderHasRecentErrors(provider) ? DisplayFormat.FormatCount(provider.ErrorsLastMinute) : "Last";
 
-    private static string ProviderErrorLabel(IngestionProviderActivityViewModel provider) =>
+    private static string ProviderErrorLabel(IngestionProviderActivityDto provider) =>
         ProviderHasRecentErrors(provider) ? "errors/min" : "error";
 
     private static string FormatMilliseconds(long value)

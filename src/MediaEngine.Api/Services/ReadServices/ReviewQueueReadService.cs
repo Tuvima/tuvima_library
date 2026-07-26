@@ -1,5 +1,5 @@
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Review;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -144,7 +144,7 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         {
             var entry = ToEntry(row);
             var bridgeIds = await ReadBridgeIdentifiersAsync(conn, row, ct).ConfigureAwait(false);
-            result.Add(ReviewItemDto.FromDomain(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds));
+            result.Add(ToContract(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds));
         }
 
         return result;
@@ -243,7 +243,7 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
 
         var entry = ToEntry(row);
         var bridgeIds = await ReadBridgeIdentifiersAsync(conn, row, ct).ConfigureAwait(false);
-        return ReviewItemDto.FromDomain(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds);
+        return ToContract(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds);
     }
 
     public async Task<int> GetPendingCountAsync(CancellationToken ct = default)
@@ -311,6 +311,31 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         ResolvedBy = row.ResolvedBy,
         ReviewReadyAt = ParseDate(row.ReviewReadyAt),
         AutomationCompletedAt = ParseDate(row.AutomationCompletedAt),
+    };
+
+    private static ReviewItemDto ToContract(
+        ReviewQueueEntry entry,
+        string? mediaType,
+        string? entityTitle,
+        string? coverUrl,
+        Dictionary<string, string> bridgeIdentifiers) => new()
+    {
+        Id = entry.Id,
+        EntityId = entry.EntityId,
+        EntityType = entry.EntityType,
+        Trigger = entry.Trigger,
+        Status = entry.Status,
+        ProposedCollectionId = entry.ProposedCollectionId,
+        ConfidenceScore = entry.ConfidenceScore,
+        CandidatesJson = entry.CandidatesJson,
+        Detail = entry.Detail,
+        CreatedAt = entry.CreatedAt,
+        ResolvedAt = entry.ResolvedAt,
+        ResolvedBy = entry.ResolvedBy,
+        MediaType = mediaType,
+        EntityTitle = entityTitle,
+        CoverUrl = coverUrl,
+        BridgeIdentifiers = bridgeIdentifiers,
     };
 
     private static async Task<Dictionary<string, string>> ReadBridgeIdentifiersAsync(

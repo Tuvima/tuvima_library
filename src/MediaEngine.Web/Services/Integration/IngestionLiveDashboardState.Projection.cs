@@ -1,5 +1,6 @@
 using System.Globalization;
 using MediaEngine.Domain.Services;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Formatting;
 using MudBlazor;
@@ -11,8 +12,8 @@ namespace MediaEngine.Web.Services.Integration;
 /// </summary>
 public sealed partial class IngestionLiveDashboardState
 {
-    public static IReadOnlyList<IngestionOperationsJobViewModel> BuildActiveJobs(
-        IngestionOperationsSnapshotViewModel? snapshot,
+    public static IReadOnlyList<IngestionOperationsJobDto> BuildActiveJobs(
+        IngestionOperationsSnapshotDto? snapshot,
         UniverseStateContainer stateContainer)
     {
         var jobs = snapshot?.ActiveJobs.ToList() ?? [];
@@ -20,7 +21,7 @@ public sealed partial class IngestionLiveDashboardState
         if (batch is { IsComplete: false })
         {
             var existing = jobs.FirstOrDefault(job => job.JobId == batch.BatchId);
-            var liveJob = new IngestionOperationsJobViewModel
+            var liveJob = new IngestionOperationsJobDto
             {
                 JobId = batch.BatchId,
                 JobType = "Ingestion batch",
@@ -51,7 +52,7 @@ public sealed partial class IngestionLiveDashboardState
         var progress = stateContainer.IngestionProgress;
         if (progress is not null && !progress.Stage.Equals("Complete", StringComparison.OrdinalIgnoreCase))
         {
-            jobs.Insert(0, new IngestionOperationsJobViewModel
+            jobs.Insert(0, new IngestionOperationsJobDto
             {
                 JobId = Guid.Empty,
                 JobType = "Folder scan",
@@ -78,8 +79,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static void UpsertLiveJob(
-        List<IngestionOperationsJobViewModel> jobs,
-        IngestionOperationsJobViewModel liveJob)
+        List<IngestionOperationsJobDto> jobs,
+        IngestionOperationsJobDto liveJob)
     {
         var index = jobs.FindIndex(job => job.JobId == liveJob.JobId);
         if (index >= 0)
@@ -88,8 +89,8 @@ public sealed partial class IngestionLiveDashboardState
             jobs.Insert(0, liveJob);
     }
 
-    private static IngestionOperationsJobViewModel? BuildLiveItemJob(
-        IngestionOperationsSnapshotViewModel? snapshot,
+    private static IngestionOperationsJobDto? BuildLiveItemJob(
+        IngestionOperationsSnapshotDto? snapshot,
         UniverseStateContainer stateContainer)
     {
         var items = FreshIngestionItemProgress(stateContainer).ToList();
@@ -118,7 +119,7 @@ public sealed partial class IngestionLiveDashboardState
         var percent = ResolveLiveItemPercent(batchItems, total);
         var stage = FriendlyStageName(latest.Event.Stage);
 
-        return new IngestionOperationsJobViewModel
+        return new IngestionOperationsJobDto
         {
             JobId = batchId,
             JobType = "Reading files",
@@ -135,8 +136,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     public static IngestionDashboardMetrics BuildMetrics(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs)
+        IngestionOperationsSnapshotDto? snapshot,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs)
     {
         var activeTotal = activeJobs.Sum(job => Math.Max(0, job.TotalCount));
         var totalFiles = Total(snapshot, "detected", snapshot?.Summary.TotalItems ?? activeTotal);
@@ -149,9 +150,9 @@ public sealed partial class IngestionLiveDashboardState
             snapshot?.Summary.ItemsNeedingReview ?? 0);
     }
 
-    public static IReadOnlyList<IngestionCurrentActivityViewModel> BuildCurrentActivities(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+    public static IReadOnlyList<IngestionCurrentActivityDto> BuildCurrentActivities(
+        IngestionOperationsSnapshotDto? snapshot,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
         IReadOnlyList<IngestionDashboardStage> stages,
         UniverseStateContainer? stateContainer = null)
     {
@@ -191,7 +192,7 @@ public sealed partial class IngestionLiveDashboardState
             .ToList();
     }
 
-    private static IngestionCurrentActivityViewModel? BuildLiveItemActivity(UniverseStateContainer? stateContainer)
+    private static IngestionCurrentActivityDto? BuildLiveItemActivity(UniverseStateContainer? stateContainer)
     {
         if (stateContainer is null)
             return null;
@@ -241,7 +242,7 @@ public sealed partial class IngestionLiveDashboardState
             .Take(10)
             .ToList();
 
-        return new IngestionCurrentActivityViewModel
+        return new IngestionCurrentActivityDto
         {
             StageKey = stageKey,
             Message = ResolveItemActivityMessage(stageKey),
@@ -259,7 +260,7 @@ public sealed partial class IngestionLiveDashboardState
             MetricLabel = "Current stage",
             MetricValue = stageLabel,
             MetricTone = "info",
-            CurrentBatch = new IngestionActivityBatchViewModel
+            CurrentBatch = new IngestionActivityBatchDto
             {
                 BatchNumber = 1,
                 BatchSize = total,
@@ -282,9 +283,9 @@ public sealed partial class IngestionLiveDashboardState
         };
     }
 
-    private static IngestionCurrentActivityViewModel? BuildLiveBatchActivity(
+    private static IngestionCurrentActivityDto? BuildLiveBatchActivity(
         UniverseStateContainer? stateContainer,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
         IReadOnlyList<IngestionDashboardStage> stages)
     {
         var batch = stateContainer?.BatchProgress;
@@ -294,7 +295,7 @@ public sealed partial class IngestionLiveDashboardState
         }
 
         var job = activeJobs.FirstOrDefault(candidate => candidate.JobId == batch.BatchId)
-            ?? new IngestionOperationsJobViewModel
+            ?? new IngestionOperationsJobDto
             {
                 JobId = batch.BatchId,
                 JobType = "Ingestion batch",
@@ -345,7 +346,7 @@ public sealed partial class IngestionLiveDashboardState
         return activity;
     }
 
-    private static IngestionCurrentActivityViewModel? BuildLiveUniverseActivity(UniverseStateContainer? stateContainer)
+    private static IngestionCurrentActivityDto? BuildLiveUniverseActivity(UniverseStateContainer? stateContainer)
     {
         var progress = stateContainer?.UniverseEnrichmentProgress;
         var receivedAt = stateContainer?.UniverseEnrichmentProgressReceivedAt;
@@ -372,7 +373,7 @@ public sealed partial class IngestionLiveDashboardState
         var percent = total > 0 ? Math.Clamp(completed * 100d / total, 0, 99) : 0;
 
         var stepLabel = ToFriendlyStepLabel(progress.CurrentStep);
-        return new IngestionCurrentActivityViewModel
+        return new IngestionCurrentActivityDto
         {
             StageKey = "relationships",
             Message = progress.CurrentStep.Contains("enhancer", StringComparison.OrdinalIgnoreCase)
@@ -393,7 +394,7 @@ public sealed partial class IngestionLiveDashboardState
             MetricValue = StringHelpers.FirstNonBlankOr("", stepLabel, "Stage 3"),
             MetricTone = "success",
             CurrentBatch = total > 0
-                ? new IngestionActivityBatchViewModel
+                ? new IngestionActivityBatchDto
                 {
                     BatchNumber = Math.Max(1, (int)Math.Ceiling(currentOrdinal / 50d)),
                     BatchSize = Math.Min(50, Math.Max(1, total)),
@@ -412,8 +413,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static void UpsertCurrentActivity(
-        List<IngestionCurrentActivityViewModel> activities,
-        IngestionCurrentActivityViewModel activity)
+        List<IngestionCurrentActivityDto> activities,
+        IngestionCurrentActivityDto activity)
     {
         var existingIndex = activities.FindIndex(existing =>
             existing.StageKey.Equals(activity.StageKey, StringComparison.OrdinalIgnoreCase));
@@ -429,7 +430,7 @@ public sealed partial class IngestionLiveDashboardState
 
     public static IReadOnlyList<IngestionQueueHealthItem> BuildQueueHealth(
         IReadOnlyDictionary<string, int> summary,
-        IReadOnlyList<MediaOperationViewModel> operations)
+        IReadOnlyList<OperationDto> operations)
     {
         var waitingForLock = operations.Count(operation =>
             operation.Stage?.Equals("waiting_for_lock", StringComparison.OrdinalIgnoreCase) == true);
@@ -463,8 +464,8 @@ public sealed partial class IngestionLiveDashboardState
             "dead_lettered",
             "interrupted") > 0;
 
-    public static IReadOnlyList<MediaOperationViewModel> FilterOperations(
-        IReadOnlyList<MediaOperationViewModel> operations,
+    public static IReadOnlyList<OperationDto> FilterOperations(
+        IReadOnlyList<OperationDto> operations,
         string filter,
         string sort)
     {
@@ -490,7 +491,7 @@ public sealed partial class IngestionLiveDashboardState
         };
     }
 
-    public static MediaOperationViewModel? SelectPrimaryOperation(IReadOnlyList<MediaOperationViewModel> operations) =>
+    public static OperationDto? SelectPrimaryOperation(IReadOnlyList<OperationDto> operations) =>
         operations
             .Where(operation => IsStatus(operation, "running", "leased"))
             .OrderByDescending(operation => operation.UpdatedAt)
@@ -505,7 +506,7 @@ public sealed partial class IngestionLiveDashboardState
             .ThenBy(operation => operation.Priority)
             .FirstOrDefault();
 
-    public static IReadOnlyList<MediaOperationViewModel> BuildQueuePreview(IReadOnlyList<MediaOperationViewModel> operations) =>
+    public static IReadOnlyList<OperationDto> BuildQueuePreview(IReadOnlyList<OperationDto> operations) =>
         operations
             .Where(operation => IsStatus(operation, "pending", "queued", "retry_waiting", "blocked", "failed_retryable", "interrupted"))
             .OrderBy(operation => operation.QueuePosition ?? int.MaxValue)
@@ -514,13 +515,13 @@ public sealed partial class IngestionLiveDashboardState
             .Take(3)
             .ToList();
 
-    public static bool CanRetry(MediaOperationViewModel operation) =>
+    public static bool CanRetry(OperationDto operation) =>
         IsStatus(operation, "blocked", "interrupted", "failed_retryable", "failed_terminal", "dead_lettered");
 
-    public static bool CanCancel(MediaOperationViewModel operation) =>
+    public static bool CanCancel(OperationDto operation) =>
         IsStatus(operation, "pending", "queued", "retry_waiting", "leased", "running");
 
-    public static string FriendlyOperationName(MediaOperationViewModel operation) =>
+    public static string FriendlyOperationName(OperationDto operation) =>
         FriendlyOperationName(operation.OperationType);
 
     public static string FriendlyOperationName(string? operationType)
@@ -623,8 +624,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     public static IReadOnlyList<IngestionDashboardStage> BuildStages(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IngestionOperationsSnapshotDto? snapshot,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
         int totalFiles)
     {
         if (snapshot?.StageProgress.Count > 0)
@@ -803,7 +804,7 @@ public sealed partial class IngestionLiveDashboardState
         };
     }
 
-    private static string ResolveNumberedStageStatusKey(IngestionStageProgressViewModel stage)
+    private static string ResolveNumberedStageStatusKey(IngestionStageProgressDto stage)
     {
         if (IsCompleteStageLabel(stage.StatusLabel))
             return "Ingestion_StatusComplete";
@@ -857,10 +858,10 @@ public sealed partial class IngestionLiveDashboardState
         stage.StageNumber == 9 || stage.Key.Equals("review", StringComparison.OrdinalIgnoreCase);
 
     public static LibraryUpdateStatusViewModel BuildLibraryUpdateStatus(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
-        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
-        IReadOnlyList<ActivityEntryViewModel> recentActivity,
+        IngestionOperationsSnapshotDto? snapshot,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities,
+        IReadOnlyList<ActivityEntryResponse> recentActivity,
         IReadOnlyList<ReviewItemViewModel> pendingReviews,
         IngestionDashboardMetrics metrics,
         string? error,
@@ -987,7 +988,7 @@ public sealed partial class IngestionLiveDashboardState
             hasPriorRun);
     }
 
-    public static string ResolveActiveStage(IReadOnlyList<IngestionOperationsJobViewModel> activeJobs)
+    public static string ResolveActiveStage(IReadOnlyList<IngestionOperationsJobDto> activeJobs)
     {
         if (activeJobs.Count == 0)
             return string.Empty;
@@ -1010,8 +1011,8 @@ public sealed partial class IngestionLiveDashboardState
         return "retail";
     }
 
-    private static IngestionCurrentActivityViewModel ToCurrentActivity(
-        IngestionOperationsJobViewModel job,
+    private static IngestionCurrentActivityDto ToCurrentActivity(
+        IngestionOperationsJobDto job,
         IReadOnlyList<IngestionDashboardStage> stages)
     {
         var stageKey = ResolveActiveStage([job]);
@@ -1027,7 +1028,7 @@ public sealed partial class IngestionLiveDashboardState
         };
         var item = StringHelpers.FirstNonBlankOr("", job.CurrentItem, job.CurrentStage, "Ingestion is running");
 
-        return new IngestionCurrentActivityViewModel
+        return new IngestionCurrentActivityDto
         {
             StageKey = stageKey,
             Message = message,
@@ -1062,7 +1063,7 @@ public sealed partial class IngestionLiveDashboardState
     };
 
     private static int ResolveEnrichmentCompletedCount(
-        IngestionOperationsSnapshotViewModel? snapshot,
+        IngestionOperationsSnapshotDto? snapshot,
         int totalFiles)
     {
         var terminal = ResolveTerminalPipelineCount(snapshot, totalFiles);
@@ -1095,7 +1096,7 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static int ResolveLiveItemTotal(
-        IngestionOperationsSnapshotViewModel? snapshot,
+        IngestionOperationsSnapshotDto? snapshot,
         BatchProgressEvent? batch,
         IReadOnlyList<LiveIngestionItemProgress> items)
     {
@@ -1182,7 +1183,7 @@ public sealed partial class IngestionLiveDashboardState
     private static int CountStatuses(IReadOnlyDictionary<string, int> summary, params string[] statuses) =>
         statuses.Sum(status => summary.TryGetValue(status, out var count) ? Math.Max(0, count) : 0);
 
-    private static bool OperationMatchesFilter(MediaOperationViewModel operation, string filter) =>
+    private static bool OperationMatchesFilter(OperationDto operation, string filter) =>
         filter switch
         {
             "queued" => IsStatus(operation, "pending", "queued"),
@@ -1214,19 +1215,19 @@ public sealed partial class IngestionLiveDashboardState
             _ => "priority",
         };
 
-    private static bool IsStatus(MediaOperationViewModel operation, params string[] statuses) =>
+    private static bool IsStatus(OperationDto operation, params string[] statuses) =>
         IsStatus(operation.Status, statuses);
 
     private static bool IsStatus(string value, params string[] statuses) =>
         statuses.Any(status => value.Equals(status, StringComparison.OrdinalIgnoreCase));
 
-    private static int Count(IngestionOperationsSnapshotViewModel? snapshot, string key) =>
+    private static int Count(IngestionOperationsSnapshotDto? snapshot, string key) =>
         snapshot?.PipelineStages.FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Count ?? 0;
 
-    private static int Count(IngestionOperationsSnapshotViewModel? snapshot, string key, int fallback) =>
+    private static int Count(IngestionOperationsSnapshotDto? snapshot, string key, int fallback) =>
         snapshot?.PipelineStages.FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Count ?? fallback;
 
-    private static int Total(IngestionOperationsSnapshotViewModel? snapshot, string key, int fallback)
+    private static int Total(IngestionOperationsSnapshotDto? snapshot, string key, int fallback)
     {
         var total = snapshot?.PipelineStages
             .FirstOrDefault(stage => stage.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
@@ -1234,7 +1235,7 @@ public sealed partial class IngestionLiveDashboardState
         return total > 0 ? total : fallback;
     }
 
-    private static int ResolveTerminalPipelineCount(IngestionOperationsSnapshotViewModel? snapshot, int totalFiles)
+    private static int ResolveTerminalPipelineCount(IngestionOperationsSnapshotDto? snapshot, int totalFiles)
     {
         if (snapshot is null)
             return 0;
@@ -1265,7 +1266,7 @@ public sealed partial class IngestionLiveDashboardState
             : Math.Max(0, terminalCount);
     }
 
-    private static bool HasTerminalRecentBatch(IngestionOperationsSnapshotViewModel snapshot)
+    private static bool HasTerminalRecentBatch(IngestionOperationsSnapshotDto snapshot)
     {
         var latestBatch = snapshot.RecentBatches
             .OrderByDescending(batch => batch.StartedAt)
@@ -1278,9 +1279,9 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static int ResolveFileProcessingCount(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
-        IngestionOperationsBatchViewModel? latestBatch,
+        IngestionOperationsSnapshotDto? snapshot,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
+        IngestionOperationsBatchDto? latestBatch,
         IngestionDashboardMetrics metrics,
         int totalFiles)
     {
@@ -1312,8 +1313,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static int ResolveQueuedPipelineCount(
-        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
         IngestionDashboardMetrics metrics,
         int totalFiles,
         int activeItems)
@@ -1356,7 +1357,7 @@ public sealed partial class IngestionLiveDashboardState
         return Math.Min(normalized, remainingCapacity);
     }
 
-    private static bool IsUsefulActivity(ActivityEntryViewModel activity) =>
+    private static bool IsUsefulActivity(ActivityEntryResponse activity) =>
         activity.ActionType.Contains("Ingest", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Contains("MediaAdded", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Contains("Batch", StringComparison.OrdinalIgnoreCase)
@@ -1373,8 +1374,8 @@ public sealed partial class IngestionLiveDashboardState
         || activity.ActionType.Contains("Universe", StringComparison.OrdinalIgnoreCase);
 
     private static LibraryUpdatePageState ResolveLibraryUpdatePageState(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IngestionOperationsBatchViewModel? latestBatch,
+        IngestionOperationsSnapshotDto? snapshot,
+        IngestionOperationsBatchDto? latestBatch,
         bool hasPriorRun,
         bool isRunning,
         DateTimeOffset? lastCompletedAt,
@@ -1401,7 +1402,7 @@ public sealed partial class IngestionLiveDashboardState
             : LibraryUpdatePageState.Idle;
     }
 
-    private static DateTimeOffset? ResolveLastCompletedAt(IngestionOperationsSnapshotViewModel? snapshot)
+    private static DateTimeOffset? ResolveLastCompletedAt(IngestionOperationsSnapshotDto? snapshot)
     {
         var lastBatchCompletion = snapshot?.RecentBatches
             .Where(batch => batch.CompletedAt.HasValue
@@ -1416,7 +1417,7 @@ public sealed partial class IngestionLiveDashboardState
 
     private static double ResolveLibraryUpdateProgress(
         LibraryUpdatePageState pageState,
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
         int processedFiles,
         int totalFiles)
     {
@@ -1442,11 +1443,11 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static string BuildSnapshotSignature(
-        IngestionOperationsSnapshotViewModel? snapshot,
-        IReadOnlyList<ActivityEntryViewModel> recentActivity,
+        IngestionOperationsSnapshotDto? snapshot,
+        IReadOnlyList<ActivityEntryResponse> recentActivity,
         IReadOnlyList<ReviewItemViewModel> pendingReviews,
         IReadOnlyDictionary<string, int> operationsSummary,
-        IReadOnlyList<MediaOperationViewModel> operations,
+        IReadOnlyList<OperationDto> operations,
         bool showDetails,
         string queueFilter,
         string queueSort,
@@ -1528,8 +1529,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static int ResolveActiveLibraryUpdateStep(
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
-        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities)
     {
         var value = StringHelpers.FirstNonBlankOr("",
             activeJobs.Select(job => StringHelpers.FirstNonBlankOr("", job.CurrentStage, job.JobType)).FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)),
@@ -1566,9 +1567,9 @@ public sealed partial class IngestionLiveDashboardState
             : 1;
     }
 
-    private static IngestionCurrentActivityViewModel? SelectPrimaryActivity(
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
-        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
+    private static IngestionCurrentActivityDto? SelectPrimaryActivity(
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities,
         int activeStep)
     {
         if (currentActivities.Count == 0)
@@ -1594,13 +1595,13 @@ public sealed partial class IngestionLiveDashboardState
             ?? currentActivities.FirstOrDefault();
     }
 
-    private static bool IsCompletedActivity(IngestionCurrentActivityViewModel activity) =>
+    private static bool IsCompletedActivity(IngestionCurrentActivityDto activity) =>
         activity.TotalCount > 0
         && activity.ProcessedCount >= activity.TotalCount
         && activity.ActiveCount <= 0
         && activity.QueuedCount <= 0;
 
-    private static bool IsActiveActivity(IngestionCurrentActivityViewModel activity) =>
+    private static bool IsActiveActivity(IngestionCurrentActivityDto activity) =>
         activity.ActiveCount > 0
         || (activity.QueuedCount > 0
             && activity.TotalCount > 0
@@ -1616,8 +1617,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static string ResolveCurrentStepLabel(
-        IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
-        IngestionCurrentActivityViewModel? primaryActivity,
+        IReadOnlyList<IngestionOperationsJobDto> activeJobs,
+        IngestionCurrentActivityDto? primaryActivity,
         int activeStep)
     {
         var explicitStep = StringHelpers.FirstNonBlankOr("",
@@ -1637,7 +1638,7 @@ public sealed partial class IngestionLiveDashboardState
         };
     }
 
-    private static string ResolveSpecificActivityStep(IngestionCurrentActivityViewModel? activity)
+    private static string ResolveSpecificActivityStep(IngestionCurrentActivityDto? activity)
     {
         if (activity is null)
             return string.Empty;
@@ -1655,7 +1656,7 @@ public sealed partial class IngestionLiveDashboardState
         return StringHelpers.FirstNonBlankOr("", activity.Message, detail);
     }
 
-    private static string ResolveCurrentSource(IngestionCurrentActivityViewModel? primaryActivity)
+    private static string ResolveCurrentSource(IngestionCurrentActivityDto? primaryActivity)
     {
         return LooksLikeProvider(primaryActivity?.Source)
             ? primaryActivity!.Source!
@@ -1887,7 +1888,7 @@ public sealed partial class IngestionLiveDashboardState
         };
 
     private static IReadOnlyList<LibraryUpdateAttentionReasonViewModel> BuildAttentionReasons(
-        IReadOnlyList<IngestionReviewReasonViewModel> reasons,
+        IReadOnlyList<IngestionReviewReasonDto> reasons,
         int reviewItems)
     {
         if (reviewItems <= 0)
@@ -1914,7 +1915,7 @@ public sealed partial class IngestionLiveDashboardState
         return rows;
     }
 
-    private static int SumReasonCounts(IReadOnlyList<IngestionReviewReasonViewModel> reasons, params string[] keys) =>
+    private static int SumReasonCounts(IReadOnlyList<IngestionReviewReasonDto> reasons, params string[] keys) =>
         reasons
             .Where(reason => keys.Any(key => reason.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
             .Sum(reason => Math.Max(0, reason.Count));
@@ -1926,8 +1927,8 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static IReadOnlyList<LibraryUpdateEnrichmentStatViewModel> BuildEnrichmentStats(
-        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities,
-        IngestionOperationsSnapshotViewModel? snapshot)
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities,
+        IngestionOperationsSnapshotDto? snapshot)
     {
         var rows = currentActivities
             .Where(IsEnrichmentActivity)
@@ -1982,7 +1983,7 @@ public sealed partial class IngestionLiveDashboardState
             : [];
     }
 
-    private static bool IsEnrichmentActivity(IngestionCurrentActivityViewModel activity)
+    private static bool IsEnrichmentActivity(IngestionCurrentActivityDto activity)
     {
         var value = StringHelpers.FirstNonBlankOr("", activity.StageKey, activity.Message);
         return value.Contains("art", StringComparison.OrdinalIgnoreCase)
@@ -1996,7 +1997,7 @@ public sealed partial class IngestionLiveDashboardState
             || value.Contains("enrich", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string NormalizeEnrichmentKey(IngestionCurrentActivityViewModel activity)
+    private static string NormalizeEnrichmentKey(IngestionCurrentActivityDto activity)
     {
         var value = StringHelpers.FirstNonBlankOr("", activity.StageKey, activity.Message).ToLowerInvariant();
         if (value.Contains("art") || value.Contains("cover"))
@@ -2047,8 +2048,8 @@ public sealed partial class IngestionLiveDashboardState
     };
 
     private static IReadOnlyList<LibraryUpdateRecentItemViewModel> BuildRecentItems(
-        IReadOnlyList<ActivityEntryViewModel> recentActivity,
-        IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
+        IReadOnlyList<ActivityEntryResponse> recentActivity,
+        IReadOnlyList<IngestionCurrentActivityDto> currentActivities)
     {
         var activityItems = recentActivity
             .Where(IsRecentLibraryUpdateActivity)
@@ -2079,7 +2080,7 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static IReadOnlyList<LibraryUpdateRunSummaryViewModel> BuildRecentRuns(
-        IReadOnlyList<IngestionOperationsBatchViewModel> batches,
+        IReadOnlyList<IngestionOperationsBatchDto> batches,
         DateTimeOffset now)
     {
         return batches
@@ -2138,15 +2139,15 @@ public sealed partial class IngestionLiveDashboardState
         || string.Equals(status, "active", StringComparison.OrdinalIgnoreCase)
         || string.Equals(status, "queued", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsRecentLibraryUpdateActivity(ActivityEntryViewModel activity) =>
+    private static bool IsRecentLibraryUpdateActivity(ActivityEntryResponse activity) =>
         activity.ActionType.Equals("MediaAdded", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Equals("FileIngested", StringComparison.OrdinalIgnoreCase)
         || activity.ActionType.Equals("ReviewItemResolved", StringComparison.OrdinalIgnoreCase);
 
-    private static LibraryUpdateRecentItemViewModel ToRecentItem(ActivityEntryViewModel activity)
+    private static LibraryUpdateRecentItemViewModel ToRecentItem(ActivityEntryResponse activity)
     {
-        var rich = activity.RichData;
-        var review = activity.ReviewData;
+        var rich = activity.GetRichData();
+        var review = activity.GetReviewData();
         var title = CleanDisplayTitle(StringHelpers.FirstNonBlankOr("",
             rich?.Title,
             review?.Title,
@@ -2169,7 +2170,7 @@ public sealed partial class IngestionLiveDashboardState
             statusText,
             statusLabel,
             statusTone,
-            activity.RelativeTime,
+            activity.GetRelativeTime(),
             rich?.ResolvedCoverUrl ?? review?.CoverUrl,
             ResolveDetailHref(activity));
     }
@@ -2189,9 +2190,13 @@ public sealed partial class IngestionLiveDashboardState
             : trimmed;
     }
 
-    private static string? ResolveDetailHref(ActivityEntryViewModel activity)
+    private static string? ResolveDetailHref(ActivityEntryResponse activity)
     {
-        var id = StringHelpers.FirstNonBlankOr("", activity.EntityId, activity.RichData?.EntityId, activity.ReviewData?.EntityId);
+        var id = StringHelpers.FirstNonBlankOr(
+            "",
+            activity.EntityId,
+            activity.GetRichData()?.EntityId,
+            activity.GetReviewData()?.EntityId);
         if (!Guid.TryParse(id, out var entityId))
             return null;
 
@@ -2205,7 +2210,7 @@ public sealed partial class IngestionLiveDashboardState
         return $"/details/{entityType}/{entityId:D}";
     }
 
-    private static bool IsActiveJob(IngestionOperationsJobViewModel job) =>
+    private static bool IsActiveJob(IngestionOperationsJobDto job) =>
         job.Status.Equals("running", StringComparison.OrdinalIgnoreCase)
         || job.Status.Equals("processing", StringComparison.OrdinalIgnoreCase)
         || job.Status.Equals("active", StringComparison.OrdinalIgnoreCase)
@@ -2417,7 +2422,7 @@ public sealed record IngestionDashboardStage(
     string? StatusLabel = null,
     int ActiveCount = 0,
     int QueuedCount = 0,
-    IReadOnlyList<IngestionStageDetailItemViewModel>? DetailItems = null);
+    IReadOnlyList<IngestionStageDetailItemDto>? DetailItems = null);
 
 public sealed record IngestionQueueHealthItem(
     string Key,

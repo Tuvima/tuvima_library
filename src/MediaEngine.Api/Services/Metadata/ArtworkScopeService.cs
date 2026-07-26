@@ -7,11 +7,11 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using ArtworkEditorEnvelope = MediaEngine.Api.Endpoints.MetadataEndpoints.ArtworkEditorEnvelope;
-using ArtworkSlotEnvelope = MediaEngine.Api.Endpoints.MetadataEndpoints.ArtworkSlotEnvelope;
-using ArtworkVariantEnvelope = MediaEngine.Api.Endpoints.MetadataEndpoints.ArtworkVariantEnvelope;
+using ArtworkEditorEnvelope = MediaEngine.Contracts.Metadata.ArtworkEditorDto;
+using ArtworkSlotEnvelope = MediaEngine.Contracts.Metadata.ArtworkSlotDto;
+using ArtworkVariantEnvelope = MediaEngine.Contracts.Metadata.ArtworkVariantDto;
 using EditorScopeResolution = MediaEngine.Api.Endpoints.MetadataEndpoints.EditorScopeResolution;
-using ProviderArtworkRefreshEnvelope = MediaEngine.Api.Endpoints.MetadataEndpoints.ProviderArtworkRefreshEnvelope;
+using ProviderArtworkRefreshEnvelope = MediaEngine.Contracts.Metadata.ProviderArtworkRefreshDto;
 using ProviderArtworkRefreshTarget = MediaEngine.Api.Endpoints.MetadataEndpoints.ProviderArtworkRefreshTarget;
 
 namespace MediaEngine.Api.Services.Metadata;

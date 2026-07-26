@@ -4,12 +4,15 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Contracts.Admin;
+using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
@@ -21,17 +24,11 @@ public sealed partial class EngineApiClient
 {
     // -- /admin/api-keys -------------------------------------------------------
 
-    public async Task<List<ApiKeyViewModel>> GetApiKeysAsync(CancellationToken ct = default)
+    public async Task<List<ApiKeyDto>> GetApiKeysAsync(CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ApiKeyRaw>>("/admin/api-keys", ct);
-            return raw?.Select(r => new ApiKeyViewModel
-            {
-                Id        = r.Id,
-                Label     = r.Label,
-                CreatedAt = r.CreatedAt,
-            }).ToList() ?? [];
+            return await _http.GetFromJsonAsync<List<ApiKeyDto>>("/admin/api-keys", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -41,23 +38,16 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<NewApiKeyViewModel?> CreateApiKeyAsync(
+    public async Task<CreateApiKeyResponse?> CreateApiKeyAsync(
         string label,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { label };
+            var body = new CreateApiKeyRequest { Label = label };
             var resp = await _http.PostAsJsonAsync("/admin/api-keys", body, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            var raw  = await resp.Content.ReadFromJsonAsync<NewApiKeyRaw>(ct);
-            return raw is null ? null : new NewApiKeyViewModel
-            {
-                Id        = raw.Id,
-                Label     = raw.Label,
-                Key       = raw.Key,
-                CreatedAt = raw.CreatedAt,
-            };
+            return await resp.Content.ReadFromJsonAsync<CreateApiKeyResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -90,7 +80,7 @@ public sealed partial class EngineApiClient
         {
             var resp = await _http.DeleteAsync("/admin/api-keys", ct);
             if (!resp.IsSuccessStatusCode) return 0;
-            var raw = await resp.Content.ReadFromJsonAsync<RevokeAllRaw>(ct);
+            var raw = await resp.Content.ReadFromJsonAsync<RevokeAllKeysResponse>(ct);
             return raw?.RevokedCount ?? 0;
         }
         catch (OperationCanceledException) { return 0; }
@@ -115,9 +105,9 @@ public sealed partial class EngineApiClient
                 return [];
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<List<ProfileViewModel>>(cancellationToken: ct);
+            var raw = await response.Content.ReadFromJsonAsync<List<ProfileResponseDto>>(cancellationToken: ct);
             ClearFailure(endpoint);
-            return raw?.Select(NormalizeProfile).ToList() ?? [];
+            return raw?.Select(MapProfile).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -135,11 +125,17 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new { display_name = displayName, avatar_color = avatarColor, role, navigation_config = navigationConfig };
+            var body = new CreateProfileRequest
+            {
+                DisplayName = displayName,
+                AvatarColor = avatarColor,
+                Role = role,
+                NavigationConfig = navigationConfig,
+            };
             var resp = await _http.PostAsJsonAsync("/profiles", body, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            var profile = await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
-            return profile is null ? null : NormalizeProfile(profile);
+            var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
+            return profile is null ? null : MapProfile(profile);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -156,7 +152,13 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new { display_name = displayName, avatar_color = avatarColor, role, navigation_config = navigationConfig };
+            var body = new UpdateProfileRequest
+            {
+                DisplayName = displayName,
+                AvatarColor = avatarColor,
+                Role = role,
+                NavigationConfig = navigationConfig,
+            };
             var resp = await _http.PutAsJsonAsync($"/profiles/{id}", body, ct);
             return resp.IsSuccessStatusCode;
         }
@@ -200,8 +202,8 @@ public sealed partial class EngineApiClient
 
             var resp = await _http.PostAsync($"/profiles/{id}/avatar", content, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            var profile = await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
-            return profile is null ? null : NormalizeProfile(profile);
+            var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
+            return profile is null ? null : MapProfile(profile);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -217,8 +219,8 @@ public sealed partial class EngineApiClient
         {
             var resp = await _http.DeleteAsync($"/profiles/{id}/avatar", ct);
             if (!resp.IsSuccessStatusCode) return null;
-            var profile = await resp.Content.ReadFromJsonAsync<ProfileViewModel>(ct);
-            return profile is null ? null : NormalizeProfile(profile);
+            var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
+            return profile is null ? null : MapProfile(profile);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -234,9 +236,9 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ProfileExternalLoginViewModel>>(
+            var raw = await _http.GetFromJsonAsync<List<ProfileExternalLoginDto>>(
                 $"/profiles/{profileId}/external-logins", ct);
-            return raw ?? [];
+            return raw?.Select(MapProfileExternalLogin).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -256,10 +258,17 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var body = new { provider, subject, email, display_name = displayName };
+            var body = new LinkProfileExternalLoginRequest
+            {
+                Provider = provider,
+                Subject = subject,
+                Email = email,
+                DisplayName = displayName,
+            };
             var resp = await _http.PostAsJsonAsync($"/profiles/{profileId}/external-logins", body, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<ProfileExternalLoginViewModel>(ct);
+            var login = await resp.Content.ReadFromJsonAsync<ProfileExternalLoginDto>(ct);
+            return login is null ? null : MapProfileExternalLogin(login);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -284,16 +293,82 @@ public sealed partial class EngineApiClient
         }
     }
 
+    private ProfileViewModel MapProfile(ProfileResponseDto profile) => new(
+        profile.Id,
+        profile.DisplayName,
+        profile.AvatarColor,
+        profile.Role,
+        profile.CreatedAt,
+        profile.NavigationConfig,
+        NormalizeOptionalUrl(profile.AvatarImageUrl));
+
+    private static ProfileExternalLoginViewModel MapProfileExternalLogin(ProfileExternalLoginDto login) => new(
+        login.Id,
+        login.ProfileId,
+        login.Provider,
+        login.Subject,
+        login.Email,
+        login.DisplayName,
+        login.LinkedAt,
+        login.LastLoginAt);
+
+    private ProfileOverviewViewModel MapProfileOverview(ProfileOverviewResponseDto overview) => new()
+    {
+        Profile = MapProfile(overview.Profile),
+        Stats = new ProfileOverviewStatsViewModel
+        {
+            TotalItems = overview.Stats.TotalItems,
+            InProgress = overview.Stats.InProgress,
+            Completed = overview.Stats.Completed,
+            RecentActivity = overview.Stats.RecentActivity,
+            MediaTypeMix = overview.Stats.MediaTypeMix,
+            LibraryCounts = overview.Stats.LibraryCounts,
+            ActivityBuckets = overview.Stats.ActivityBuckets,
+            TopGenres = overview.Stats.TopGenres,
+            ConsumedSeconds = overview.Stats.ConsumedSeconds,
+            ConsumedSecondsByMediaType = overview.Stats.ConsumedSecondsByMediaType,
+        },
+        RecentItems = overview.RecentItems.Select(MapProfileOverviewItem).ToList(),
+        ContinueItems = overview.ContinueItems.Select(MapProfileOverviewItem).ToList(),
+        CompletedItems = overview.CompletedItems.Select(MapProfileOverviewItem).ToList(),
+        RecentlyAddedItems = overview.RecentlyAddedItems.Select(MapProfileOverviewItem).ToList(),
+        Activity = overview.Activity.Select(activity => new ProfileOverviewActivityViewModel
+        {
+            Id = activity.Id,
+            OccurredAt = activity.OccurredAt,
+            ActionType = activity.ActionType,
+            Detail = activity.Detail,
+            EntityId = activity.EntityId,
+        }).ToList(),
+        Taste = overview.Taste,
+    };
+
+    private ProfileOverviewItemViewModel MapProfileOverviewItem(ProfileOverviewItemDto item) => new()
+    {
+        AssetId = item.AssetId,
+        WorkId = item.WorkId,
+        Title = item.Title,
+        Subtitle = item.Subtitle,
+        MediaType = item.MediaType,
+        CoverUrl = NormalizeOptionalUrl(item.CoverUrl),
+        CollectionName = item.CollectionName,
+        Genre = item.Genre,
+        Route = item.Route,
+        PositionSeconds = item.PositionSeconds,
+        DurationSeconds = item.DurationSeconds,
+        ProgressPct = item.ProgressPct,
+        LastAccessed = item.LastAccessed,
+        AddedAt = item.AddedAt,
+    };
+
     // -- /metadata/claims + lock-claim -------------------------------------------
 
     public async Task<ProfileOverviewViewModel?> GetProfileOverviewAsync(Guid id, CancellationToken ct = default)
     {
         try
         {
-            var overview = await _http.GetFromJsonAsync<ProfileOverviewViewModel>($"/profiles/{id}/overview", ct);
-            if (overview is not null)
-                overview.Profile = NormalizeProfile(overview.Profile);
-            return overview;
+            var overview = await _http.GetFromJsonAsync<ProfileOverviewResponseDto>($"/profiles/{id}/overview", ct);
+            return overview is null ? null : MapProfileOverview(overview);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -303,12 +378,12 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<ClaimHistoryDto>> GetClaimHistoryAsync(
+    public async Task<List<ClaimDto>> GetClaimHistoryAsync(
         Guid entityId, CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ClaimHistoryDto>>(
+            var raw = await _http.GetFromJsonAsync<List<ClaimDto>>(
                 $"/metadata/claims/{entityId}", ct);
             return raw ?? [];
         }
@@ -443,7 +518,7 @@ public sealed partial class EngineApiClient
         {
             var body = new
             {
-                watch_directories = settings.EffectiveWatchDirectories,
+                watch_directories = settings.GetEffectiveWatchDirectories(),
             };
             var resp = await _http.PutAsJsonAsync("/settings/folders", body, ct);
 
@@ -540,12 +615,12 @@ public sealed partial class EngineApiClient
         CancellationToken ct = default)
         => await _providerClient.UpdateProviderAsync(name, enabled, ct);
 
-    public async Task<List<ProviderHealthDto>> GetProviderHealthAsync(
+    public async Task<List<ProviderHealthStatusResponse>> GetProviderHealthAsync(
         CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<ProviderHealthDto>>(
+            return await _http.GetFromJsonAsync<List<ProviderHealthStatusResponse>>(
                 "/settings/providers/health", ct) ?? [];
         }
         catch (Exception ex)
@@ -684,12 +759,12 @@ public sealed partial class EngineApiClient
 
     // -- Activity log (/activity) -------------------------------------------
 
-    public async Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(
+    public async Task<List<ActivityEntryResponse>> GetRecentActivityAsync(
         int limit = 50, CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ActivityEntryViewModel>>(
+            var raw = await _http.GetFromJsonAsync<List<ActivityEntryResponse>>(
                 $"/activity/recent?limit={limit}", ct);
             return raw ?? [];
         }
@@ -701,11 +776,11 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default)
+    public async Task<ActivityStatsResponse?> GetActivityStatsAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<ActivityStatsViewModel>("/activity/stats", ct);
+            return await _http.GetFromJsonAsync<ActivityStatsResponse>("/activity/stats", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -715,13 +790,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default)
+    public async Task<PruneResponse?> TriggerPruneAsync(CancellationToken ct = default)
     {
         try
         {
             var resp = await _http.PostAsJsonAsync("/activity/prune", new { }, ct);
             if (!resp.IsSuccessStatusCode) return null;
-            return await resp.Content.ReadFromJsonAsync<PruneResultViewModel>(ct);
+            return await resp.Content.ReadFromJsonAsync<PruneResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -746,12 +821,12 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(
+    public async Task<List<ActivityEntryResponse>> GetActivityByRunIdAsync(
         Guid runId, CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ActivityEntryViewModel>>(
+            var raw = await _http.GetFromJsonAsync<List<ActivityEntryResponse>>(
                 $"/activity/run/{runId}", ct);
             return raw ?? [];
         }
@@ -763,13 +838,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
+    public async Task<List<ActivityEntryResponse>> GetActivityByTypesAsync(
         string[] actionTypes, int limit = 50, CancellationToken ct = default)
     {
         try
         {
             var typesParam = string.Join(",", actionTypes);
-            var raw = await _http.GetFromJsonAsync<List<ActivityEntryViewModel>>(
+            var raw = await _http.GetFromJsonAsync<List<ActivityEntryResponse>>(
                 $"/activity/by-types?types={Uri.EscapeDataString(typesParam)}&limit={limit}", ct);
             return raw ?? [];
         }
@@ -781,13 +856,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<PagedResponse<ActivityBatchSummaryViewModel>?> GetActivityBatchesAsync(
+    public async Task<PagedResponse<ActivityBatchSummaryDto>?> GetActivityBatchesAsync(
         ActivityAuditQuery query,
         CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<PagedResponse<ActivityBatchSummaryViewModel>>(
+            return await _http.GetFromJsonAsync<PagedResponse<ActivityBatchSummaryDto>>(
                 BuildActivityQueryPath("/activity/batches", query), ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -798,13 +873,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<ActivityMediaTypeGroupViewModel>> GetActivityBatchGroupsAsync(
+    public async Task<List<ActivityMediaTypeGroupDto>> GetActivityBatchGroupsAsync(
         Guid batchId,
         CancellationToken ct = default)
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<ActivityMediaTypeGroupViewModel>>(
+            var raw = await _http.GetFromJsonAsync<List<ActivityMediaTypeGroupDto>>(
                 $"/activity/batches/{batchId:D}/groups", ct);
             return raw ?? [];
         }
@@ -816,7 +891,7 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<PagedResponse<ActivityBatchItemViewModel>?> GetActivityBatchItemsAsync(
+    public async Task<PagedResponse<ActivityBatchItemDto>?> GetActivityBatchItemsAsync(
         Guid batchId,
         string? mediaType = null,
         int offset = 0,
@@ -835,7 +910,7 @@ public sealed partial class EngineApiClient
                 Sort = sort,
                 SortDirection = string.IsNullOrWhiteSpace(sortDirection) ? "asc" : sortDirection,
             };
-            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityBatchItemViewModel>>(
+            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityBatchItemDto>>(
                 BuildActivityQueryPath($"/activity/batches/{batchId:D}/items", query), ct);
             if (page is not null)
             {
@@ -856,14 +931,14 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<ActivityBatchItemDetailViewModel?> GetActivityBatchItemDetailAsync(
+    public async Task<ActivityBatchItemDetailDto?> GetActivityBatchItemDetailAsync(
         Guid batchId,
         Guid assetId,
         CancellationToken ct = default)
     {
         try
         {
-            var detail = await _http.GetFromJsonAsync<ActivityBatchItemDetailViewModel>(
+            var detail = await _http.GetFromJsonAsync<ActivityBatchItemDetailDto>(
                 $"/activity/batches/{batchId:D}/items/{assetId:D}", ct);
             NormalizeActivityDetail(detail);
             return detail;
@@ -876,13 +951,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<PagedResponse<ActivityPersonAuditViewModel>?> GetActivityPeopleAsync(
+    public async Task<PagedResponse<ActivityPersonAuditDto>?> GetActivityPeopleAsync(
         ActivityAuditQuery query,
         CancellationToken ct = default)
     {
         try
         {
-            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityPersonAuditViewModel>>(
+            var page = await _http.GetFromJsonAsync<PagedResponse<ActivityPersonAuditDto>>(
                 BuildActivityQueryPath("/activity/people", query), ct);
             if (page is not null)
             {
@@ -924,7 +999,7 @@ public sealed partial class EngineApiClient
         }
     }
 
-    private void NormalizeActivityDetail(ActivityBatchItemDetailViewModel? detail)
+    private void NormalizeActivityDetail(ActivityBatchItemDetailDto? detail)
     {
         if (detail is null)
             return;
@@ -933,7 +1008,7 @@ public sealed partial class EngineApiClient
             NormalizeActivityPerson(person);
     }
 
-    private void NormalizeActivityPerson(ActivityPersonAuditViewModel person)
+    private void NormalizeActivityPerson(ActivityPersonAuditDto person)
     {
         if (!string.IsNullOrWhiteSpace(person.HeadshotUrl))
             person.HeadshotUrl = AbsoluteUrl(person.HeadshotUrl);
@@ -1222,7 +1297,8 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrWhiteSpace(profileId))
                 url += $"&profile={WebUtility.UrlEncode(profileId)}";
 
-            return await _http.GetFromJsonAsync<ResolvedUISettingsViewModel>(url, ct);
+            var settings = await _http.GetFromJsonAsync<ResolvedUISettingsDto>(url, ct);
+            return settings is null ? null : ResolvedUISettingsViewModel.FromContract(settings);
         }
         catch (Exception ex)
         {
@@ -1314,7 +1390,13 @@ public sealed partial class EngineApiClient
         {
             using var response = await _http.PostAsJsonAsync(
                 $"/ai/benchmark/suites/{Uri.EscapeDataString(suiteKey)}/run",
-                new { catalogKey, allowHardwareBenchmark, allowModelExecution }, ct);
+                new AiBenchmarkRunRequest
+                {
+                    CatalogKey = catalogKey,
+                    AllowHardwareBenchmark = allowHardwareBenchmark,
+                    AllowModelExecution = allowModelExecution,
+                },
+                ct);
             if (!response.IsSuccessStatusCode)
                 return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
                     await ReadAiProblemAsync(response, "AI validation failed", ct));

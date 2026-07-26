@@ -1,6 +1,6 @@
 using Dapper;
 using MediaEngine.Api.Endpoints;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;

@@ -1,14 +1,15 @@
 using System.Reflection;
-using System.Text.Json.Serialization;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Operations;
+using MediaEngine.Contracts.System;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
+using SystemStatusResponse = MediaEngine.Contracts.System.SystemStatusResponse;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -53,7 +54,7 @@ public static class SystemEndpoints
                 .OrderBy(operation => operation.Priority)
                 .ThenByDescending(operation => operation.UpdatedAt)
                 .Take(50)
-                .Select(SystemActivityOperationDto.From)
+                .Select(ToSystemActivityOperation)
                 .ToList();
 
             return Results.Ok(active);
@@ -96,21 +97,8 @@ public static class SystemEndpoints
 
         return app;
     }
-}
 
-public sealed record SystemActivityOperationDto
-{
-    [JsonPropertyName("id")] public Guid Id { get; init; }
-    [JsonPropertyName("operation_type")] public string OperationType { get; init; } = string.Empty;
-    [JsonPropertyName("operation_kind")] public string OperationKind { get; init; } = string.Empty;
-    [JsonPropertyName("status")] public string Status { get; init; } = string.Empty;
-    [JsonPropertyName("stage")] public string? Stage { get; init; }
-    [JsonPropertyName("progress_percent")] public int ProgressPercent { get; init; }
-    [JsonPropertyName("items_total")] public int ItemsTotal { get; init; }
-    [JsonPropertyName("items_completed")] public int ItemsCompleted { get; init; }
-    [JsonPropertyName("updated_at")] public DateTimeOffset UpdatedAt { get; init; }
-
-    public static SystemActivityOperationDto From(MediaOperation operation) => new()
+    private static SystemActivityOperationDto ToSystemActivityOperation(MediaOperation operation) => new()
     {
         Id = operation.Id,
         OperationType = operation.OperationType,

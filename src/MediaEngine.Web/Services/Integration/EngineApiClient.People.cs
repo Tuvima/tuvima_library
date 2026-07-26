@@ -8,6 +8,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain.Models;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -21,7 +22,7 @@ public sealed partial class EngineApiClient
 {
     // -- GET /persons (libraryItem list) ------------------------------------
 
-    public async Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(
+    public async Task<IReadOnlyList<PersonListItemResponse>?> GetPersonsAsync(
         string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default)
     {
         try
@@ -32,29 +33,27 @@ public sealed partial class EngineApiClient
             if (!string.IsNullOrEmpty(role))
                 url += $"&role={Uri.EscapeDataString(role)}";
             var payload = await _http.GetFromJsonAsync<JsonElement>(url, ct);
-            List<PersonListItemDto>? results;
+            List<PersonListItemResponse>? results;
             if (payload.ValueKind == JsonValueKind.Array)
             {
-                results = payload.Deserialize<List<PersonListItemDto>>();
+                results = payload.Deserialize<List<PersonListItemResponse>>();
             }
             else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
             {
-                results = items.Deserialize<List<PersonListItemDto>>();
+                results = items.Deserialize<List<PersonListItemResponse>>();
             }
             else
             {
                 results = [];
             }
-            if (results is not null)
-            {
-                foreach (var p in results)
+            return results?
+                .Select(p => p with
                 {
-                    // Build absolute headshot URL from the Engine base address
-                    if (p.HasLocalHeadshot || !string.IsNullOrEmpty(p.HeadshotUrl))
-                        p.HeadshotUrl = AbsoluteUrl($"/persons/{p.Id}/headshot");
-                }
-            }
-            return results;
+                    headshot_url = p.has_local_headshot || !string.IsNullOrEmpty(p.headshot_url)
+                        ? AbsoluteUrl($"/persons/{p.id}/headshot")
+                        : null,
+                })
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -73,14 +72,14 @@ public sealed partial class EngineApiClient
             var safeLimit = Math.Clamp(limit <= 0 ? 50 : limit, 1, 500);
             var payload = await _http.GetFromJsonAsync<JsonElement>(
                 $"/persons?role={Uri.EscapeDataString(role)}&limit={safeLimit}", ct);
-            List<PersonRaw>? raw;
+            List<PersonListItemResponse>? raw;
             if (payload.ValueKind == JsonValueKind.Array)
             {
-                raw = payload.Deserialize<List<PersonRaw>>();
+                raw = payload.Deserialize<List<PersonListItemResponse>>();
             }
             else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
             {
-                raw = items.Deserialize<List<PersonRaw>>();
+                raw = items.Deserialize<List<PersonListItemResponse>>();
             }
             else
             {
@@ -88,18 +87,21 @@ public sealed partial class EngineApiClient
             }
             return raw?.Select(p =>
             {
-                var headshotUrl = ResolvePersonHeadshotUrl(p);
+                var headshotUrl = ResolvePersonHeadshotUrl(
+                    p.id,
+                    p.has_local_headshot,
+                    p.headshot_url);
                 return new PersonViewModel
             {
-                Id               = p.Id,
-                Name             = p.Name ?? string.Empty,
-                Roles            = p.Roles ?? [],
-                WikidataQid      = p.WikidataQid,
+                Id               = p.id,
+                Name             = p.name,
+                Roles            = p.roles,
+                WikidataQid      = p.wikidata_qid,
                 HeadshotUrl      = headshotUrl,
-                HasLocalHeadshot = p.HasLocalHeadshot,
+                HasLocalHeadshot = p.has_local_headshot,
                 LocalHeadshotUrl = headshotUrl,
-                Biography        = p.Biography,
-                Occupation       = p.Occupation,
+                Biography        = p.biography,
+                Occupation       = p.occupation,
             };
             }).ToList() ?? [];
         }
@@ -116,24 +118,9 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
+            var raw = await _http.GetFromJsonAsync<List<PersonSummaryResponse>>(
                 $"/persons/by-collection/{collectionId}", ct);
-            return raw?.Select(p =>
-            {
-                var headshotUrl = ResolvePersonHeadshotUrl(p);
-                return new PersonViewModel
-            {
-                Id               = p.Id,
-                Name             = p.Name ?? string.Empty,
-                Roles            = p.Roles ?? [],
-                WikidataQid      = p.WikidataQid,
-                HeadshotUrl      = headshotUrl,
-                HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = headshotUrl,
-                Biography        = p.Biography,
-                Occupation       = p.Occupation,
-            };
-            }).ToList() ?? [];
+            return raw?.Select(MapPersonSummary).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -148,24 +135,9 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<PersonRaw>>(
+            var raw = await _http.GetFromJsonAsync<List<PersonSummaryResponse>>(
                 $"/persons/by-work/{workId}", ct);
-            return raw?.Select(p =>
-            {
-                var headshotUrl = ResolvePersonHeadshotUrl(p);
-                return new PersonViewModel
-            {
-                Id               = p.Id,
-                Name             = p.Name ?? string.Empty,
-                Roles            = p.Roles ?? [],
-                WikidataQid      = p.WikidataQid,
-                HeadshotUrl      = headshotUrl,
-                HasLocalHeadshot = p.HasLocalHeadshot,
-                LocalHeadshotUrl = headshotUrl,
-                Biography        = p.Biography,
-                Occupation       = p.Occupation,
-            };
-            }).ToList() ?? [];
+            return raw?.Select(MapPersonSummary).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -217,7 +189,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<RelatedCollectionsRaw>(
+            var raw = await _http.GetFromJsonAsync<MediaEngine.Contracts.Collections.RelatedCollectionsResponse>(
                 $"/collections/{collectionId}/related?limit={limit}", ct);
             if (raw is null) return null;
             return new RelatedCollectionsViewModel
@@ -242,14 +214,14 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<PersonDetailRaw>(
+            var raw = await _http.GetFromJsonAsync<PersonDetailResponse>(
                 $"/persons/{personId}", ct);
             if (raw is null) return null;
             return new PersonDetailViewModel
             {
                 Id               = raw.Id,
                 Name             = raw.Name ?? string.Empty,
-                Roles            = raw.Roles ?? [],
+                Roles            = raw.Roles.ToList(),
                 HeadshotUrl      = raw.HeadshotUrl,
                 HasLocalHeadshot = raw.HasLocalHeadshot,
                 LocalHeadshotUrl = (raw.HasLocalHeadshot || !string.IsNullOrEmpty(raw.HeadshotUrl)) ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
@@ -267,8 +239,8 @@ public sealed partial class EngineApiClient
                 Mastodon         = raw.Mastodon,
                 Website          = raw.Website,
                 IsGroup          = raw.IsGroup,
-                GroupMembers     = raw.GroupMembers?.Select(MapGroupMember).ToList() ?? [],
-                MemberOfGroups   = raw.MemberOfGroups?.Select(MapGroupMember).ToList() ?? [],
+                GroupMembers     = raw.GroupMembers.Select(MapGroupMember).ToList(),
+                MemberOfGroups   = raw.MemberOfGroups.Select(MapGroupMember).ToList(),
                 BannerUrl        = raw.BannerUrl is not null ? AbsoluteUrl(raw.BannerUrl) : null,
                 BackgroundUrl    = raw.BackgroundUrl is not null ? AbsoluteUrl(raw.BackgroundUrl) : null,
                 LogoUrl          = raw.LogoUrl is not null ? AbsoluteUrl(raw.LogoUrl) : null,
@@ -287,11 +259,9 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var credits = await _http.GetFromJsonAsync<List<PersonLibraryCreditViewModel>>(
+            var credits = await _http.GetFromJsonAsync<List<PersonLibraryCreditDto>>(
                 $"/persons/{personId}/library-credits", ct);
-
-            NormalizePersonLibraryCredits(credits);
-            return credits ?? [];
+            return credits?.Select(MapPersonLibraryCredit).ToList() ?? [];
         }
         catch (Exception ex)
         {
@@ -308,7 +278,7 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<CollectionRaw>>(
+            var raw = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.Collections.CollectionDto>>(
                 $"/persons/{personId}/works", ct);
             return raw?.Select(MapCollection).ToList() ?? [];
         }
@@ -323,23 +293,33 @@ public sealed partial class EngineApiClient
     // -- GET /persons/{id}/aliases --------------------------------------------
 
     /// <inheritdoc/>
-    public async Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default)
+    public async Task<PersonAliasResponse?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default)
     {
         try
         {
             var response = await _http.GetAsync($"persons/{personId}/aliases", ct);
             if (!response.IsSuccessStatusCode) return null;
-            var result = await response.Content.ReadFromJsonAsync<PersonAliasesResponseDto>(cancellationToken: ct);
-            if (result is not null)
-            {
-                foreach (var alias in result.Aliases)
+            var result = await response.Content.ReadFromJsonAsync<PersonAliasResponse>(cancellationToken: ct);
+            return result is null
+                ? null
+                : new PersonAliasResponse
                 {
-                    if (!string.IsNullOrWhiteSpace(alias.HeadshotUrl))
-                        alias.HeadshotUrl = AbsoluteUrl(alias.HeadshotUrl);
-                }
-            }
-
-            return result;
+                    PersonId = result.PersonId,
+                    PersonName = result.PersonName,
+                    IsPseudonym = result.IsPseudonym,
+                    Aliases = result.Aliases.Select(alias => new PersonAliasItemResponse
+                    {
+                        Id = alias.Id,
+                        Name = alias.Name,
+                        Roles = alias.Roles,
+                        HeadshotUrl = string.IsNullOrWhiteSpace(alias.HeadshotUrl)
+                            ? null
+                            : AbsoluteUrl(alias.HeadshotUrl),
+                        IsPseudonym = alias.IsPseudonym,
+                        WikidataQid = alias.WikidataQid,
+                        Relationship = alias.Relationship,
+                    }).ToList(),
+                };
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -348,5 +328,49 @@ public sealed partial class EngineApiClient
             return null;
         }
     }
+
+    private PersonViewModel MapPersonSummary(PersonSummaryResponse person)
+    {
+        var headshotUrl = ResolvePersonHeadshotUrl(
+            person.Id,
+            person.HasLocalHeadshot,
+            person.HeadshotUrl);
+        return new PersonViewModel
+        {
+            Id = person.Id,
+            Name = person.Name,
+            Roles = person.Roles.ToList(),
+            WikidataQid = person.WikidataQid,
+            HeadshotUrl = headshotUrl,
+            HasLocalHeadshot = person.HasLocalHeadshot,
+            LocalHeadshotUrl = headshotUrl,
+            Biography = person.Biography,
+            Occupation = person.Occupation,
+        };
+    }
+
+    private PersonLibraryCreditViewModel MapPersonLibraryCredit(PersonLibraryCreditDto credit) => new()
+    {
+        WorkId = credit.WorkId,
+        CollectionId = credit.CollectionId,
+        MediaType = credit.MediaType,
+        Title = credit.Title,
+        CoverUrl = string.IsNullOrWhiteSpace(credit.CoverUrl) ? credit.CoverUrl : AbsoluteUrl(credit.CoverUrl),
+        Year = credit.Year,
+        Role = credit.Role,
+        TrackCount = credit.TrackCount,
+        Characters = credit.Characters.Select(character => new CharacterPortrayalDto
+        {
+            FictionalEntityId = character.FictionalEntityId,
+            CharacterName = character.CharacterName,
+            CharacterQid = character.CharacterQid,
+            PortraitUrl = string.IsNullOrWhiteSpace(character.PortraitUrl)
+                ? character.PortraitUrl
+                : AbsoluteUrl(character.PortraitUrl),
+        }).ToList(),
+    };
+
+    private static GroupMemberView MapGroupMember(PersonGroupMemberDto groupMember) =>
+        new(groupMember.Id, groupMember.Name, groupMember.DateRange);
 
 }

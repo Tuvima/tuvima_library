@@ -1,7 +1,7 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 @using System.Net.Http.Json
 @using System.Text.Json
-@using System.Text.Json.Serialization
+@using MediaEngine.Contracts.Development
 @using MudBlazor
 @inject IHttpClientFactory HttpFactory
 
@@ -672,12 +672,10 @@
         {
             var client = HttpFactory.CreateClient("EngineApi");
 
-            var request = new
-            {
-                title     = _title.Trim(),
-                mediaType = _mediaType,
-                author    = string.IsNullOrWhiteSpace(_author) ? (string?)null : _author.Trim(),
-            };
+            var request = new DebugLookupRequest(
+                _title.Trim(),
+                _mediaType,
+                string.IsNullOrWhiteSpace(_author) ? null : _author.Trim());
 
             var options = MediaEngineJson.CaseInsensitive;
 
@@ -873,77 +871,4 @@
             .OrderBy(g => g.FieldKey)
             .ToList();
 
-    private sealed record DebugSearchCandidate(
-        [property: JsonPropertyName("qid")]          string  Qid,
-        [property: JsonPropertyName("label")]         string  Label,
-        [property: JsonPropertyName("description")]   string? Description,
-        [property: JsonPropertyName("score")]         double  Score,
-        [property: JsonPropertyName("match")]         bool    Match,
-        [property: JsonPropertyName("wikidataUrl")]   string? WikidataUrl
-    );
-
-    private sealed record DebugSearchResponse(
-        [property: JsonPropertyName("candidates")] List<DebugSearchCandidate> Candidates
-    );
-
-    private sealed record DebugEnrichRequest(
-        [property: JsonPropertyName("qid")]       string  Qid,
-        [property: JsonPropertyName("mediaType")] string  MediaType,
-        [property: JsonPropertyName("author")]    string? Author
-    );
-
-    private sealed record DebugLookupResponse(
-        [property: JsonPropertyName("resolvedQid")]        string?                       ResolvedQid,
-        [property: JsonPropertyName("claimGroups")]        List<DebugClaimGroup>         ClaimGroups,
-        [property: JsonPropertyName("persons")]            List<DebugPersonResult>       Persons,
-        [property: JsonPropertyName("fictionalEntities")]  List<DebugEntityResult>       FictionalEntities,
-        [property: JsonPropertyName("relationships")]      List<DebugRelationshipResult> Relationships,
-        [property: JsonPropertyName("bridgeHintPreview")]  List<DebugBridgeHint>?        BridgeHintPreview
-    );
-
-    private sealed record DebugClaimGroup(
-        [property: JsonPropertyName("fieldKey")] string             FieldKey,
-        [property: JsonPropertyName("claims")]   List<DebugClaimEntry> Claims
-    );
-
-    private sealed record DebugClaimEntry(
-        [property: JsonPropertyName("value")]      string Value,
-        [property: JsonPropertyName("confidence")] double Confidence,
-        [property: JsonPropertyName("providerId")] string ProviderId
-    );
-
-    private sealed record DebugPersonResult(
-        [property: JsonPropertyName("name")]        string  Name,
-        [property: JsonPropertyName("role")]        string  Role,
-        [property: JsonPropertyName("qid")]         string? Qid,
-        [property: JsonPropertyName("headshotUrl")] string? HeadshotUrl,
-        [property: JsonPropertyName("biography")]   string? Biography,
-        [property: JsonPropertyName("occupation")]  string? Occupation
-    );
-
-    private sealed record DebugEntityResult(
-        [property: JsonPropertyName("label")]        string  Label,
-        [property: JsonPropertyName("qid")]          string? Qid,
-        [property: JsonPropertyName("entityType")]   string  EntityType,
-        [property: JsonPropertyName("description")]  string? Description,
-        [property: JsonPropertyName("imageUrl")]     string? ImageUrl
-    );
-
-    private sealed record DebugRelationshipResult(
-        [property: JsonPropertyName("subjectQid")]        string  SubjectQid,
-        [property: JsonPropertyName("subjectLabel")]      string  SubjectLabel,
-        [property: JsonPropertyName("relationshipType")]  string  RelationshipType,
-        [property: JsonPropertyName("objectQid")]         string  ObjectQid,
-        [property: JsonPropertyName("objectLabel")]       string  ObjectLabel,
-        [property: JsonPropertyName("startTime")]         string? StartTime,
-        [property: JsonPropertyName("endTime")]           string? EndTime
-    );
-
-    private sealed record DebugBridgeHint(
-        [property: JsonPropertyName("key")]             string       Key,
-        [property: JsonPropertyName("rawValue")]        string       RawValue,
-        [property: JsonPropertyName("normalizedValue")] string       NormalizedValue,
-        [property: JsonPropertyName("sourceClaimKey")]  string       SourceClaimKey,
-        [property: JsonPropertyName("targetProviders")] List<string> TargetProviders
-    );
 }

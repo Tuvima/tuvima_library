@@ -151,51 +151,6 @@ public sealed record SearchRetailResult(
 // ── Apply Match ───────────────────────────────────────────────────────────────
 
 /// <summary>Request to apply a manually selected match to a libraryItem item.</summary>
-public sealed class ApplyMatchRequest
-{
-    /// <summary>Wikidata QID for the media item. When provided, the item is registered with this identity.</summary>
-    [JsonPropertyName("qid")]
-    public string? Qid { get; init; }
-
-    // Metadata to apply as user-locked claims:
-    [JsonPropertyName("title")]
-    public string? Title { get; init; }
-
-    [JsonPropertyName("year")]
-    public string? Year { get; init; }
-
-    [JsonPropertyName("author")]
-    public string? Author { get; init; }
-
-    [JsonPropertyName("director")]
-    public string? Director { get; init; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-
-    [JsonPropertyName("cover_url")]
-    public string? CoverUrl { get; init; }
-}
-
-/// <summary>Response after applying a match.</summary>
-public sealed class ApplyMatchResponse
-{
-    [JsonPropertyName("entity_id")]
-    public required Guid EntityId { get; init; }
-
-    [JsonPropertyName("wikidata_status")]
-    public required string WikidataStatus { get; init; }
-
-    [JsonPropertyName("claims_written")]
-    public int ClaimsWritten { get; init; }
-
-    [JsonPropertyName("hydration_triggered")]
-    public bool HydrationTriggered { get; init; }
-
-    [JsonPropertyName("message")]
-    public string? Message { get; init; }
-}
-
 // ── Resolve Search ────────────────────────────────────────────────────────────
 
 /// <summary>
@@ -203,38 +158,8 @@ public sealed class ApplyMatchResponse
 /// bridge resolution for each candidate. Used by the resolve tab to show fully
 /// enriched results ranked by composite score.
 /// </summary>
-public sealed record ResolveSearchRequest
-{
-    /// <summary>Search query (title, ISBN, or other identifier).</summary>
-    [JsonPropertyName("query")]
-    public string Query { get; init; } = "";
-
-    /// <summary>Media type for scoping results.</summary>
-    [JsonPropertyName("media_type")]
-    public string MediaType { get; init; } = "";
-
-    /// <summary>Maximum candidates to return.</summary>
-    [JsonPropertyName("max_candidates")]
-    public int MaxCandidates { get; init; } = 5;
-
-    /// <summary>
-    /// File's embedded metadata for scoring and comparison.
-    /// Keys: title, author, narrator, year, series, publisher, isbn, asin, etc.
-    /// </summary>
-    [JsonPropertyName("file_hints")]
-    public Dictionary<string, string> FileHints { get; init; } = new(StringComparer.OrdinalIgnoreCase);
-}
-
-/// <summary>Result from the resolve search endpoint.</summary>
-public sealed class ResolveSearchResponse
-{
-    /// <summary>Ranked candidates with retail + Wikidata data.</summary>
-    [JsonPropertyName("candidates")]
-    public List<ResolveCandidate> Candidates { get; set; } = [];
-}
-
 /// <summary>A single resolve candidate with retail match + Wikidata bridge result.</summary>
-public sealed class ResolveCandidate
+internal sealed class ResolveCandidate
 {
     /// <summary>Retail provider name (e.g. "apple_books", "tmdb").</summary>
     [JsonPropertyName("provider_name")]
@@ -316,7 +241,7 @@ public sealed class ResolveCandidate
 }
 
 /// <summary>A single field's match result for display in the resolve tab.</summary>
-public sealed class FieldMatchDetail
+internal sealed class FieldMatchDetail
 {
     [JsonPropertyName("field_key")]
     public string FieldKey { get; set; } = "";
@@ -337,36 +262,3 @@ public sealed class FieldMatchDetail
 // ── Create Manual Entry ───────────────────────────────────────────────────────
 
 /// <summary>Request to manually create metadata for a libraryItem item with no provider match.</summary>
-public sealed class CreateManualRequest
-{
-    [JsonPropertyName("title")]
-    public required string Title { get; init; }
-
-    [JsonPropertyName("media_type")]
-    public string? MediaType { get; init; }
-
-    [JsonPropertyName("author")]
-    public string? Author { get; init; }
-
-    [JsonPropertyName("year")]
-    public string? Year { get; init; }
-
-    [JsonPropertyName("description")]
-    public string? Description { get; init; }
-}
-
-/// <summary>Response after creating a manual entry.</summary>
-public sealed class CreateManualResponse
-{
-    [JsonPropertyName("entity_id")]
-    public required Guid EntityId { get; init; }
-
-    [JsonPropertyName("wikidata_status")]
-    public string WikidataStatus { get; init; } = "manual";
-
-    [JsonPropertyName("claims_written")]
-    public int ClaimsWritten { get; init; }
-
-    [JsonPropertyName("message")]
-    public string? Message { get; init; }
-}

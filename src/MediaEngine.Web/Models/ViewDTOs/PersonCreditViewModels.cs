@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.Persons;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -25,6 +26,9 @@ public sealed class PersonLibraryCreditViewModel
     [JsonPropertyName("role")]
     public string Role { get; set; } = string.Empty;
 
+    [JsonPropertyName("track_count")]
+    public int? TrackCount { get; set; }
+
     [JsonPropertyName("characters")]
-    public List<CharacterPortrayalViewModel> Characters { get; set; } = [];
+    public List<CharacterPortrayalDto> Characters { get; set; } = [];
 }

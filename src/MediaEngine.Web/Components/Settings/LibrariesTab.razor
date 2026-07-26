@@ -395,7 +395,7 @@ else
         var settings = await Orchestrator.GetFolderSettingsAsync();
         if (settings is not null)
         {
-            _watchFolders = settings.EffectiveWatchDirectories.ToList();
+            _watchFolders = settings.GetEffectiveWatchDirectories().ToList();
         }
         else
         {
@@ -1037,7 +1037,7 @@ else
                 ConfigCategory = tab.ConfigCategory,
                 Icon = tab.Icon,
                 MediaTypes = source?.MediaTypes.Count > 0 ? [.. source.MediaTypes] : [.. tab.MediaTypes],
-                SourcePaths = [.. (source?.EffectiveSourcePaths ?? [])],
+                SourcePaths = [.. (source?.GetEffectiveSourcePaths() ?? [])],
                 IncludeSubdirectories = source?.IncludeSubdirectories ?? true,
                 ReadOnly = source?.ReadOnly ?? false,
                 WritebackOverride = source?.WritebackOverride,
@@ -1061,7 +1061,7 @@ else
                 ConfigCategory = label,
                 Icon = Icons.Material.Outlined.Folder,
                 MediaTypes = [.. source.MediaTypes],
-                SourcePaths = [.. source.EffectiveSourcePaths],
+                SourcePaths = [.. source.GetEffectiveSourcePaths()],
                 IncludeSubdirectories = source.IncludeSubdirectories,
                 ReadOnly = source.ReadOnly,
                 WritebackOverride = source.WritebackOverride,

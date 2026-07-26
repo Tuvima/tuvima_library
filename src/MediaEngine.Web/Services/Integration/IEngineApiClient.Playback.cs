@@ -3,6 +3,8 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Progress;
+using MediaEngine.Contracts.Reading;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -35,7 +37,7 @@ public partial interface IEngineApiClient
 
     Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default);
 
-    Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
+    Task<IReadOnlyList<TextTrackDto>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
     Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default);
 
@@ -60,7 +62,7 @@ public partial interface IEngineApiClient
     Task<List<JourneyItemViewModel>> GetJourneyAsync(Guid? userId = null, int limit = 5, Guid? collectionId = null, CancellationToken ct = default);
 
     /// <summary>GET /progress/{assetId} - current progress for an asset.</summary>
-    Task<ProgressStateDto?> GetProgressAsync(Guid assetId, CancellationToken ct = default);
+    Task<UserStateResponse?> GetProgressAsync(Guid assetId, CancellationToken ct = default);
     /// <summary>PUT /progress/{assetId} — upsert progress for a media asset.</summary>
     Task<bool> SaveProgressAsync(Guid assetId, Guid? userId = null, double progressPct = 0,
         Dictionary<string, string>? extendedProperties = null, CancellationToken ct = default);
@@ -98,7 +100,7 @@ public partial interface IEngineApiClient
     Task<ReaderStatisticsDto?> GetReadingStatisticsAsync(Guid assetId, CancellationToken ct = default);
 
     /// <summary>PUT /reader/{assetId}/statistics  -  update reading statistics.</summary>
-    Task<bool> UpdateReadingStatisticsAsync(Guid assetId, ReaderStatisticsUpdateDto stats, CancellationToken ct = default);
+    Task<bool> UpdateReadingStatisticsAsync(Guid assetId, UpdateReaderStatisticsRequestDto stats, CancellationToken ct = default);
 
     /// <summary>
 

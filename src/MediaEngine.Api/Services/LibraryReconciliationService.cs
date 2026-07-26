@@ -6,6 +6,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
 
@@ -329,13 +330,14 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                     ? SignalREvents.MediaRemoved
                     : SignalREvents.MediaAdded;
 
-                await _publisher.PublishAsync(eventName, new
-                {
-                    source        = "reconciliation",
-                    removed_count = missingCount,
-                    merged_count = duplicateReadWorksMerged,
-                    collection_assignments_repaired = collectionBackfill.AssignedCount,
-                }, ct);
+                await _publisher.PublishAsync(
+                    eventName,
+                    new ReconciliationLibraryChangedEvent(
+                        "reconciliation",
+                        missingCount,
+                        duplicateReadWorksMerged,
+                        collectionBackfill.AssignedCount),
+                    ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

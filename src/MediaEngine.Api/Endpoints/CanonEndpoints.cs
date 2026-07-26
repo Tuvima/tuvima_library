@@ -1,4 +1,5 @@
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 
@@ -22,11 +23,17 @@ public static class CanonEndpoints
             CancellationToken ct) =>
         {
             var discrepancies = await canonService.DetectAsync(entityId, ct);
-            return Results.Ok(discrepancies);
+            return Results.Ok(discrepancies.Select(MapDiscrepancy).ToList());
         })
-        .Produces<IReadOnlyList<CanonDiscrepancy>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<CanonDiscrepancyDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;
     }
+
+    private static CanonDiscrepancyDto MapDiscrepancy(CanonDiscrepancy discrepancy) => new(
+        discrepancy.FieldKey,
+        discrepancy.MasterWorkValue,
+        discrepancy.EditionValue,
+        discrepancy.MasterWorkQid);
 }

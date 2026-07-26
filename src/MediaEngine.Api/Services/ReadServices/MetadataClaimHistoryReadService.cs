@@ -1,5 +1,5 @@
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
@@ -46,6 +46,16 @@ public sealed class MetadataClaimHistoryReadService(
             }
         }
 
-        return claims.Select(ClaimDto.FromDomain).ToList();
+        return claims.Select(claim => new ClaimDto
+        {
+            Id = claim.Id,
+            ClaimKey = claim.ClaimKey,
+            ClaimValue = claim.ClaimValue,
+            ProviderId = claim.ProviderId,
+            DecisionSourceProviderId = claim.DecisionSourceProviderId,
+            Confidence = claim.Confidence,
+            IsUserLocked = claim.IsUserLocked,
+            ClaimedAt = claim.ClaimedAt,
+        }).ToList();
     }
 }

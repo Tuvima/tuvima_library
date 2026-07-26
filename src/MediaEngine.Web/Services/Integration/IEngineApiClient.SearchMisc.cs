@@ -18,21 +18,21 @@ public partial interface IEngineApiClient
         CancellationToken ct = default);
 
     /// <summary>GET /collections/search?q= — full-text search across all works (min 2 chars).</summary>
-    Task<List<SearchResultViewModel>> SearchWorksAsync(
+    Task<List<SearchResultDto>> SearchWorksAsync(
         string query,
         CancellationToken ct = default);
 
     // ── Metadata search (/metadata/search) ───────────────────────────────
 
     /// <summary>POST /metadata/search — multi-result metadata search against a specific provider.</summary>
-    Task<List<MetadataSearchResultDto>> SearchMetadataAsync(
+    Task<MetadataSearchResponse?> SearchMetadataAsync(
         string providerName, string query, string? mediaType = null,
         int limit = 25, CancellationToken ct = default);
 
     // -- Fan-out metadata search (/metadata/search-all) ------------------
 
     /// <summary>POST /metadata/search-all  -  fan-out search across all eligible providers.</summary>
-    Task<FanOutSearchResponseViewModel?> SearchMetadataFanOutAsync(
+    Task<FanOutSearchResponse?> SearchMetadataFanOutAsync(
         string query, string? mediaType = null, string? providerId = null,
         int maxResultsPerProvider = 5, CancellationToken ct = default);
 
@@ -47,7 +47,7 @@ public partial interface IEngineApiClient
     // -- Canonical values (/metadata/canonical/{entityId}) ---------------
 
     /// <summary>GET /metadata/canonical/{entityId}  -  get all canonical values with provenance.</summary>
-    Task<List<CanonicalFieldViewModel>> GetCanonicalValuesAsync(
+    Task<List<CanonicalFieldDto>> GetCanonicalValuesAsync(
         Guid entityId, CancellationToken ct = default);
 
     // -- Cover from URL (/metadata/{entityId}/cover-from-url) ------------
@@ -83,10 +83,10 @@ public partial interface IEngineApiClient
     Task<List<ContentGroupViewModel>> GetSystemViewGroupsAsync(string? mediaType = null, string? groupField = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/{id}/items?limit= — curated items for a collection.</summary>
-    Task<List<CollectionItemViewModel>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default);
+    Task<List<CollectionItemDto>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>GET /collections/media-lookup - search local visible media for collection membership.</summary>
-    Task<List<CollectionMediaLookupItemViewModel>> LookupCollectionMediaAsync(string? query, Guid? collectionId = null, string? mediaTypes = null, int offset = 0, int limit = 24, Guid? profileId = null, CancellationToken ct = default);
+    Task<List<CollectionMediaLookupDto>> LookupCollectionMediaAsync(string? query, Guid? collectionId = null, string? mediaTypes = null, int offset = 0, int limit = 24, Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>POST /collections/{id}/items — add a work to a playlist.</summary>
     Task<bool> AddCollectionItemAsync(Guid collectionId, Guid workId, Guid? profileId = null, CancellationToken ct = default);

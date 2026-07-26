@@ -14,7 +14,7 @@ public sealed class IngestionDashboardSelectionState
     public string Signature => $"{BatchId:N}:{StageKey}";
 
     public void Synchronize(
-        IReadOnlyList<IngestionOperationsBatchViewModel> batches,
+        IReadOnlyList<IngestionOperationsBatchDto> batches,
         IReadOnlyList<IngestionDashboardStage> stages,
         Func<IngestionDashboardStage, string> stageKey,
         Func<IReadOnlyList<IngestionDashboardStage>, IngestionDashboardStage?> defaultStage)
@@ -43,8 +43,8 @@ public sealed class IngestionDashboardSelectionState
         StageKey = null;
     }
 
-    public IngestionOperationsBatchViewModel? ResolveBatch(
-        IReadOnlyList<IngestionOperationsBatchViewModel> batches)
+    public IngestionOperationsBatchDto? ResolveBatch(
+        IReadOnlyList<IngestionOperationsBatchDto> batches)
     {
         if (BatchId is { } selectedId)
         {

@@ -10,6 +10,7 @@ using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using MediaEngine.Api.Models;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.System;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
 
@@ -101,7 +102,7 @@ public sealed class WireContractSnapshotTests
             shapes.GetShapeId(typeof(MediaEngine.Api.Models.UniverseCandidateDto), ShapeDirection.Read),
             shapes.GetShapeId(typeof(UniverseCandidateViewModel), ShapeDirection.Read));
         Assert.Equal(
-            shapes.GetShapeId(typeof(MediaEngine.Api.Models.UnlinkedWorkDto), ShapeDirection.Read),
+            shapes.GetShapeId(typeof(MediaEngine.Contracts.Library.UnlinkedWorkDto), ShapeDirection.Read),
             shapes.GetShapeId(typeof(UnlinkedWorkViewModel), ShapeDirection.Read));
         Assert.Equal(
             shapes.GetShapeId(typeof(SystemStatusResponse), ShapeDirection.Read),

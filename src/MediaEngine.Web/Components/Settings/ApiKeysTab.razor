@@ -177,11 +177,11 @@
 @code {
 
     private bool                  _loading      = true;
-    private List<ApiKeyViewModel> _keys         = [];
+    private List<ApiKeyDto> _keys         = [];
     private bool                  _generateOpen;
     private bool                  _generating;
     private string                _newLabel     = string.Empty;
-    private NewApiKeyViewModel?   _newKey;
+    private CreateApiKeyResponse? _newKey;
     private bool                  _copyAnimating;
     private bool                  _revokeAllOpen;
     private bool                  _revokingAll;
@@ -279,7 +279,7 @@
         await RefreshKeysAsync();
     }
 
-    private async Task RevokeKeyAsync(ApiKeyViewModel key)
+    private async Task RevokeKeyAsync(ApiKeyDto key)
     {
         var ok = await Orchestrator.RevokeApiKeyAsync(key.Id);
         if (ok)

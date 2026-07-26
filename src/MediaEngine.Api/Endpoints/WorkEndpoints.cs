@@ -1,7 +1,8 @@
 using MediaEngine.Api.Http;
-using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Collections;
+using MediaEngine.Contracts.Persons;
 
 namespace MediaEngine.Api.Endpoints;
 

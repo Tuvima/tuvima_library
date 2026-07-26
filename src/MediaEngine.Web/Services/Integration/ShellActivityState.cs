@@ -1,4 +1,5 @@
 using MediaEngine.Web.Services.Playback;
+using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -67,7 +68,17 @@ public sealed class ShellActivityState : IDisposable
         try
         {
             var activeOperations = await _api.GetSystemActivityOperationsAsync(ct);
-            _universeState.SetMediaOperationActivity(activeOperations.Select(MediaOperationChangedEvent.From));
+            _universeState.SetMediaOperationActivity(activeOperations.Select(operation =>
+                new MediaOperationChangedEvent(
+                    operation.Id,
+                    operation.OperationType,
+                    operation.OperationKind,
+                    operation.Status,
+                    operation.Stage,
+                    operation.ProgressPercent,
+                    operation.ItemsTotal,
+                    operation.ItemsCompleted,
+                    operation.UpdatedAt)));
         }
         catch (Exception ex)
         {

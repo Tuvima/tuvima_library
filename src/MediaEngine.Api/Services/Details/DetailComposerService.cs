@@ -8,7 +8,11 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Collections;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
@@ -1250,7 +1254,7 @@ public sealed class DetailComposerService
         Guid workId,
         LibraryItemDetail detail,
         DetailEntityType entityType,
-        IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> cast,
+        IReadOnlyList<CastCreditDto> cast,
         IReadOnlyDictionary<string, string> canonicalValues,
         CancellationToken ct)
     {
@@ -1694,7 +1698,7 @@ public sealed class DetailComposerService
         return DeduplicateContributorEntries(entries);
     }
 
-    private static IReadOnlyList<CharacterGroupViewModel> BuildCharacterGroupsFromCast(IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> cast)
+    private static IReadOnlyList<CharacterGroupViewModel> BuildCharacterGroupsFromCast(IReadOnlyList<CastCreditDto> cast)
     {
         var characters = cast
             .SelectMany(c => c.Characters.Select(character => new EntityCreditViewModel
@@ -7584,7 +7588,7 @@ public sealed class DetailComposerService
             _ => count == 1 ? "item" : "items",
         };
 
-    private static IReadOnlyList<CreditGroupViewModel> BuildPersonCreditGroups(IReadOnlyList<MediaEngine.Api.Models.PersonLibraryCreditDto> credits, DetailPresentationContext context)
+    private static IReadOnlyList<CreditGroupViewModel> BuildPersonCreditGroups(IReadOnlyList<PersonLibraryCreditDto> credits, DetailPresentationContext context)
         => credits
             .GroupBy(c => string.IsNullOrWhiteSpace(c.Role) ? "Credits" : c.Role)
             .OrderBy(g => PersonRolePriority(g.Key, context))
@@ -7606,7 +7610,7 @@ public sealed class DetailComposerService
                 }).ToList(),
             }).ToList();
 
-    private static IReadOnlyList<CharacterGroupViewModel> BuildPersonCharacterGroups(IReadOnlyList<MediaEngine.Api.Models.PersonCharacterRoleDto> roles)
+    private static IReadOnlyList<CharacterGroupViewModel> BuildPersonCharacterGroups(IReadOnlyList<PersonCharacterRoleDto> roles)
     {
         var characters = roles.Select(role => new EntityCreditViewModel
         {
@@ -7624,7 +7628,7 @@ public sealed class DetailComposerService
             : [new CharacterGroupViewModel { Title = "Characters", GroupType = CharacterGroupType.MainCharacters, Characters = characters }];
     }
 
-    private static IReadOnlyList<MediaGroupingViewModel> BuildPersonMediaGroups(IReadOnlyList<MediaEngine.Api.Models.PersonLibraryCreditDto> credits, DetailPresentationContext context)
+    private static IReadOnlyList<MediaGroupingViewModel> BuildPersonMediaGroups(IReadOnlyList<PersonLibraryCreditDto> credits, DetailPresentationContext context)
         => credits
             .GroupBy(c => PersonMediaGroupKey(c.MediaType, context))
             .OrderBy(g => PersonMediaGroupPriority(g.Key, context))
@@ -7640,7 +7644,7 @@ public sealed class DetailComposerService
             }).ToList();
 
     private static MediaGroupingItemViewModel BuildPersonMediaItem(
-        IReadOnlyList<MediaEngine.Api.Models.PersonLibraryCreditDto> credits,
+        IReadOnlyList<PersonLibraryCreditDto> credits,
         DetailPresentationContext context)
     {
         var representative = credits[0];
@@ -7698,7 +7702,7 @@ public sealed class DetailComposerService
             .ToList();
 
     private static IReadOnlyList<string> BuildPersonDisplayRoles(
-        IReadOnlyList<MediaEngine.Api.Models.PersonLibraryCreditDto> credits,
+        IReadOnlyList<PersonLibraryCreditDto> credits,
         IReadOnlyList<string> fallbackRoles,
         DetailPresentationContext context)
     {
@@ -8123,8 +8127,8 @@ public sealed class DetailComposerService
         IReadOnlyList<string> displayRoles,
         string? wikipediaUrl,
         IReadOnlyList<MediaEngine.Domain.Entities.Person> aliases,
-        IReadOnlyList<MediaEngine.Api.Models.PersonGroupMemberDto> groupMembers,
-        IReadOnlyList<MediaEngine.Api.Models.PersonGroupMemberDto> memberOfGroups)
+        IReadOnlyList<PersonGroupMemberDto> groupMembers,
+        IReadOnlyList<PersonGroupMemberDto> memberOfGroups)
         => new()
         {
             WikidataQid = person.WikidataQid,
@@ -8485,17 +8489,17 @@ public sealed class DetailComposerService
         return DetailEntityType.Book;
     }
 
-    private static DetailEntityType MapCreditToEntityType(MediaEngine.Api.Models.PersonLibraryCreditDto credit)
+    private static DetailEntityType MapCreditToEntityType(PersonLibraryCreditDto credit)
         => credit.CollectionId.HasValue && credit.MediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true
             ? DetailEntityType.TvShow
             : MapMediaTypeToEntityType(credit.MediaType);
 
-    private static string CreditDisplayId(MediaEngine.Api.Models.PersonLibraryCreditDto credit)
+    private static string CreditDisplayId(PersonLibraryCreditDto credit)
         => MapCreditToEntityType(credit) == DetailEntityType.TvShow && credit.CollectionId.HasValue
             ? credit.CollectionId.Value.ToString("D")
             : credit.WorkId.ToString("D");
 
-    private static string BuildCreditRoute(MediaEngine.Api.Models.PersonLibraryCreditDto credit)
+    private static string BuildCreditRoute(PersonLibraryCreditDto credit)
     {
         var entityType = MapCreditToEntityType(credit);
         var id = entityType == DetailEntityType.TvShow && credit.CollectionId.HasValue
@@ -9015,7 +9019,7 @@ public sealed class DetailComposerService
         };
     }
 
-    private sealed record WorkContributorResult(IReadOnlyList<MediaEngine.Api.Models.CastCreditDto> CastCredits);
+    private sealed record WorkContributorResult(IReadOnlyList<CastCreditDto> CastCredits);
     private sealed record CanonicalPair(string Key, string Value);
     private sealed record WorkArtworkFallback
     {

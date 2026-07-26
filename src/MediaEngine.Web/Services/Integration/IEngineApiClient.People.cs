@@ -3,6 +3,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -13,8 +14,8 @@ public partial interface IEngineApiClient
 {
     // ── Persons by Collection (/persons/by-collection) ────────────────────────────────
 
-    /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons as PersonListItemDto (for libraryItem view).</summary>
-    Task<IReadOnlyList<PersonListItemDto>?> GetPersonsAsync(string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default);
+    /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons from the shared wire contract.</summary>
+    Task<IReadOnlyList<PersonListItemResponse>?> GetPersonsAsync(string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default);
 
     /// <summary>GET /persons?role={role}&amp;limit={limit}  -  list persons filtered by role.</summary>
     Task<List<PersonViewModel>> GetPersonsByRoleAsync(
@@ -50,6 +51,6 @@ public partial interface IEngineApiClient
     Task<List<CollectionViewModel>> GetWorksByPersonAsync(Guid personId, CancellationToken ct = default);
 
     /// <summary>GET /persons/{id}/aliases — aliases and pseudonyms for a person.</summary>
-    Task<PersonAliasesResponseDto?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default);
+    Task<PersonAliasResponse?> GetPersonAliasesAsync(Guid personId, CancellationToken ct = default);
 
 }

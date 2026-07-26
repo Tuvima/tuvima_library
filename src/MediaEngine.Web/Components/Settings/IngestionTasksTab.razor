@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IngestionLiveDashboardState Dashboard
@@ -37,7 +37,7 @@
 
     private Task ScanNowAsync() => Dashboard.ScanNowAsync();
 
-    private IReadOnlyList<IngestionReviewReasonViewModel> ReviewReasons =>
+    private IReadOnlyList<IngestionReviewReasonDto> ReviewReasons =>
         Dashboard.Snapshot?.ReviewReasons ?? [];
 
     private void OnDashboardChanged()

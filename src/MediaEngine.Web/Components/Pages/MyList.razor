@@ -111,7 +111,7 @@
             _ = InvokeAsync(LoadAsync);
     }
 
-    private static MediaTileViewModel ToCard(CollectionItemViewModel item)
+    private static MediaTileViewModel ToCard(CollectionItemDto item)
     {
         var mediaType = NormalizeMediaType(item.MediaType);
         var isSquare = mediaType is "Music" or "Audiobook";

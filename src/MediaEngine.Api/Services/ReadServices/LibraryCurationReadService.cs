@@ -1,5 +1,6 @@
 using Dapper;
 using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Library;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Enums;

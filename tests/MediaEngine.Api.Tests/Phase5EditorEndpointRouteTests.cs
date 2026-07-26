@@ -75,7 +75,7 @@ public sealed class Phase5EditorEndpointRouteTests
     public void RetailReplacement_UsesExplicitScopeProviderProvenanceAndPipelineJob()
     {
         var canonical = ReadSource("src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs");
-        var models = ReadSource("src/MediaEngine.Api/Models/ItemCanonicalModels.cs");
+        var models = ReadSource("src/MediaEngine.Contracts/Matching/MatchingDtos.cs");
 
         Assert.Contains("ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup)", canonical, StringComparison.Ordinal);
         Assert.Contains("DecisionSourceProviderId = WellKnownProviders.UserManual", canonical, StringComparison.Ordinal);

@@ -3,6 +3,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Reports;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -61,7 +62,7 @@ public partial interface IEngineApiClient
     Task<IReadOnlyList<CharacterRoleDto>> GetPersonCharacterRolesAsync(Guid personId, CancellationToken ct = default);
 
     /// <summary>GET /works/{id}/cast — actor and character credits for a single work.</summary>
-    Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(Guid workId, CancellationToken ct = default);
+    Task<List<CastCreditDto>> GetWorkCastAsync(Guid workId, CancellationToken ct = default);
 
     /// <summary>GET /metadata/{entityId}/artwork — grouped artwork variants for the editor.</summary>
     Task<ArtworkEditorDto?> GetArtworkAsync(Guid entityId, CancellationToken ct = default);
@@ -135,7 +136,7 @@ public partial interface IEngineApiClient
     // ── Search (/search) ──────────────────────────────────────────────────
 
     /// <summary>GET /metadata/{qid}/aliases — fetch Wikidata aliases (alternative titles) for a QID.</summary>
-    Task<AliasesResponseDto?> GetAliasesAsync(string qid, CancellationToken ct = default);
+    Task<WikidataAliasesResponse?> GetAliasesAsync(string qid, CancellationToken ct = default);
 
     /// <summary>POST /search/universe — search Wikidata for identity candidates, enriched with cover art.</summary>
     Task<SearchUniverseResponseDto?> SearchUniverseAsync(
@@ -185,10 +186,10 @@ public partial interface IEngineApiClient
     Task<bool> DeleteLibraryCatalogItemAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>Submit a problem report on a media item.</summary>
-    Task<SubmitReportResponseDto?> SubmitReportAsync(SubmitReportRequestDto request, CancellationToken ct = default);
+    Task<SubmitReportResponse?> SubmitReportAsync(SubmitReportRequest request, CancellationToken ct = default);
 
     /// <summary>Get all problem reports for a specific entity.</summary>
-    Task<List<ReportEntryDto>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default);
+    Task<List<ReportEntryResponse>> GetReportsForEntityAsync(Guid entityId, CancellationToken ct = default);
 
     /// <summary>Resolve a problem report.</summary>
     Task<bool> ResolveReportAsync(long activityId, CancellationToken ct = default);
@@ -216,6 +217,3 @@ public partial interface IEngineApiClient
     /// <summary>POST /library/universe-assign - manually assign a work to a collection.</summary>
     Task<bool> ManualUniverseAssignAsync(Guid workId, Guid collectionId, CancellationToken ct = default);
 }
-
-
-

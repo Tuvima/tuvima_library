@@ -19,6 +19,7 @@
       Domain aggregates (MediaAsset, AssetStatus).  Domain has no back-reference.
     -->
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
+    <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

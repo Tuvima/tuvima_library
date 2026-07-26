@@ -32,11 +32,11 @@ public static class TimelineEndpoints
             CancellationToken ct) =>
         {
             var events = await repo.GetEventsByEntityAsync(entityId, ct);
-            return Results.Ok(events);
+            return Results.Ok(events.Select(MapEvent).ToList());
         })
         .WithName("GetEntityTimeline")
         .WithSummary("Returns the full event history for an entity, newest first.")
-        .Produces<IReadOnlyList<EntityEvent>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<EntityTimelineEventDto>>(StatusCodes.Status200OK);
 
         // ── GET /timeline/{entityId}/pipeline ─────────────────────────────────
         grp.MapGet("/{entityId:guid}/pipeline", async (
@@ -45,11 +45,11 @@ public static class TimelineEndpoints
             CancellationToken ct) =>
         {
             var state = await repo.GetCurrentPipelineStateAsync(entityId, ct);
-            return Results.Ok(state);
+            return Results.Ok(state.Select(MapEvent).ToList());
         })
         .WithName("GetPipelineState")
         .WithSummary("Returns the most recent event per pipeline stage for an entity.")
-        .Produces<IReadOnlyList<EntityEvent>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<EntityTimelineEventDto>>(StatusCodes.Status200OK);
 
         // ── GET /timeline/{entityId}/event/{eventId}/changes ──────────────────
         grp.MapGet("/{entityId:guid}/event/{eventId:guid}/changes", async (
@@ -59,11 +59,11 @@ public static class TimelineEndpoints
             CancellationToken ct) =>
         {
             var changes = await repo.GetFieldChangesByEventAsync(eventId, ct);
-            return Results.Ok(changes);
+            return Results.Ok(changes.Select(MapFieldChange).ToList());
         })
         .WithName("GetEventFieldChanges")
         .WithSummary("Returns field-level changes for a specific event.")
-        .Produces<IReadOnlyList<EntityFieldChange>>(StatusCodes.Status200OK);
+        .Produces<IReadOnlyList<EntityTimelineFieldChangeDto>>(StatusCodes.Status200OK);
 
         // ── POST /timeline/{entityId}/revert/{eventId} ────────────────────────
         grp.MapPost("/{entityId:guid}/revert/{eventId:guid}", async (
@@ -154,4 +154,44 @@ public static class TimelineEndpoints
 
         return app;
     }
+
+    private static EntityTimelineEventDto MapEvent(EntityEvent source) => new()
+    {
+        Id = source.Id,
+        EntityId = source.EntityId,
+        EntityType = source.EntityType,
+        EventType = source.EventType,
+        Stage = source.Stage,
+        Trigger = source.Trigger,
+        ProviderId = source.ProviderId,
+        ProviderName = source.ProviderName,
+        BridgeIdType = source.BridgeIdType,
+        BridgeIdValue = source.BridgeIdValue,
+        ResolvedQid = source.ResolvedQid,
+        Confidence = source.Confidence,
+        ScoreTitle = source.ScoreTitle,
+        ScoreAuthor = source.ScoreAuthor,
+        ScoreYear = source.ScoreYear,
+        ScoreFormat = source.ScoreFormat,
+        ScoreCrossField = source.ScoreCrossField,
+        ScoreCoverArt = source.ScoreCoverArt,
+        ScoreComposite = source.ScoreComposite,
+        OccurredAt = source.OccurredAt,
+        IngestionRunId = source.IngestionRunId,
+        Detail = source.Detail,
+    };
+
+    private static EntityTimelineFieldChangeDto MapFieldChange(EntityFieldChange source) => new()
+    {
+        Id = source.Id,
+        EventId = source.EventId,
+        EntityId = source.EntityId,
+        Field = source.Field,
+        OldValue = source.OldValue,
+        NewValue = source.NewValue,
+        OldProviderId = source.OldProviderId,
+        NewProviderId = source.NewProviderId,
+        Confidence = source.Confidence,
+        IsFileOriginal = source.IsFileOriginal,
+    };
 }

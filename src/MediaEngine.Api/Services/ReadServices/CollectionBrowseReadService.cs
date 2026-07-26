@@ -1,5 +1,7 @@
 using Dapper;
-using MediaEngine.Api.Models;
+using MediaEngine.Api.Endpoints;
+using BuiltInBrowseCollectionCatalog = MediaEngine.Api.Models.BuiltInBrowseCollectionCatalog;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
@@ -191,7 +193,7 @@ public sealed class CollectionBrowseReadService(
                 filteredCollection.AddRelationship(relationship);
             }
 
-            filtered.Add(CollectionDto.FromDomain(filteredCollection));
+            filtered.Add(filteredCollection.ToContract());
         }
 
         return filtered;

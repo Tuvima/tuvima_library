@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
-using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Contracts.Settings;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Web.Services.Integration.Clients;

@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Options;
 using MediaEngine.Ingestion.Models;
@@ -86,14 +87,15 @@ public sealed class FolderHealthService : BackgroundService
             "FolderHealthChanged: {Path} → Accessible={Accessible} Read={Read} Write={Write}",
             path, current.IsAccessible, current.HasRead, current.HasWrite);
 
-        await _publisher.PublishAsync(SignalREvents.FolderHealthChanged, new
-        {
-            path,
-            is_accessible = current.IsAccessible,
-            has_read      = current.HasRead,
-            has_write     = current.HasWrite,
-            checked_at    = DateTimeOffset.UtcNow,
-        }, ct);
+        await _publisher.PublishAsync(
+            SignalREvents.FolderHealthChanged,
+            new FolderHealthChangedEvent(
+                path,
+                current.IsAccessible,
+                current.HasRead,
+                current.HasWrite,
+                DateTimeOffset.UtcNow),
+            ct);
     }
 
     /// <summary>

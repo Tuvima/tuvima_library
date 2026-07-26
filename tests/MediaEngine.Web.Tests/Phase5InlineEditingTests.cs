@@ -346,7 +346,7 @@ public sealed class Phase5InlineEditingTests
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
-        var dto = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/MediaEditorContextDtos.cs");
+        var dto = ReadSource("src/MediaEngine.Contracts/Metadata/MediaEditorContracts.cs");
         var libraryDto = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/LibraryCatalogDtos.cs");
         var schema = ReadSource("src/MediaEngine.Web/Services/Editing/MediaEditorModels.cs");
 
@@ -429,7 +429,7 @@ public sealed class Phase5InlineEditingTests
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
-        var context = ReadSource("src/MediaEngine.Web/Models/ViewDTOs/MediaEditorContextDtos.cs");
+        var context = ReadSource("src/MediaEngine.Contracts/Metadata/MediaEditorContracts.cs");
 
         Assert.Contains("aria-label=\"Edit level\"", shell, StringComparison.Ordinal);
         Assert.Contains("SelectScopeAsync(scope.ScopeId)", shell, StringComparison.Ordinal);

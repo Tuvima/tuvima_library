@@ -8,7 +8,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Domain.Models;
+using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
@@ -49,11 +49,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
 
-    public async Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<PluginSummaryResponse>> GetPluginsAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<PluginViewModel>>("/plugins", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<PluginSummaryResponse>>("/plugins", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -63,11 +63,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<ApprovedPluginCatalogViewModel?> GetApprovedPluginCatalogAsync(CancellationToken ct = default)
+    public async Task<ApprovedPluginCatalogDto?> GetApprovedPluginCatalogAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<ApprovedPluginCatalogViewModel>("/plugins/approved", ct);
+            return await _http.GetFromJsonAsync<ApprovedPluginCatalogDto>("/plugins/approved", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -114,8 +114,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
         try
         {
             var encoded = Uri.EscapeDataString(pluginId);
-            var result = await _http.GetFromJsonAsync<PluginJsonViewModel>($"/plugins/{encoded}/manifest", ct);
-            return result?.Json;
+            var result = await _http.GetFromJsonAsync<PluginManifestJsonResponse>($"/plugins/{encoded}/manifest", ct);
+            return result?.json;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -157,14 +157,14 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default)
+    public async Task<PluginHealthResponse?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default)
     {
         try
         {
             var encoded = Uri.EscapeDataString(pluginId);
             using var response = await _http.PostAsJsonAsync($"/plugins/{encoded}/health", new { }, ct);
             if (!response.IsSuccessStatusCode) return null;
-            return await response.Content.ReadFromJsonAsync<PluginHealthViewModel>(cancellationToken: ct);
+            return await response.Content.ReadFromJsonAsync<PluginHealthResponse>(cancellationToken: ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -174,12 +174,12 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default)
+    public async Task<IReadOnlyList<OperationDto>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default)
     {
         try
         {
             var encoded = Uri.EscapeDataString(pluginId);
-            return await _http.GetFromJsonAsync<List<PluginJobViewModel>>($"/plugins/{encoded}/jobs", ct) ?? [];
+            return await _http.GetFromJsonAsync<List<OperationDto>>($"/plugins/{encoded}/jobs", ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -189,13 +189,13 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<PluginJobSnapshot>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default)
     {
         try
         {
             using var response = await _http.PostAsJsonAsync("/plugins/jobs/segment-detection/run", new { }, ct);
             if (!response.IsSuccessStatusCode) return [];
-            return await response.Content.ReadFromJsonAsync<List<PluginJobViewModel>>(cancellationToken: ct) ?? [];
+            return await response.Content.ReadFromJsonAsync<List<PluginJobSnapshot>>(cancellationToken: ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -212,7 +212,10 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<List<SystemActivityOperationViewModel>>("/system/activity-status", ct) ?? [];
+            var response = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.System.SystemActivityOperationDto>>(
+                "/system/activity-status",
+                ct);
+            return response?.Select(SystemActivityOperationViewModel.FromContract).ToList() ?? [];
         }
         catch (OperationCanceledException)
         {
@@ -263,11 +266,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default)
+    public async Task<TasteProfileBuildResponse?> GetTasteProfileAsync(Guid id, CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<TasteProfile>($"/profiles/{id}/taste", ct);
+            return await _http.GetFromJsonAsync<TasteProfileBuildResponse>($"/profiles/{id}/taste", ct);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -292,9 +295,10 @@ public sealed partial class EngineApiClient : IEngineApiClient
                 return [];
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<List<ReviewItemViewModel>>(cancellationToken: ct);
+            var raw = await response.Content.ReadFromJsonAsync<List<MediaEngine.Contracts.Review.ReviewItemDto>>(
+                cancellationToken: ct);
             ClearFailure(endpoint);
-            return raw ?? [];
+            return raw?.Select(item => item.ToViewModel()).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -310,8 +314,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try
         {
-            return await _http.GetFromJsonAsync<ReviewItemViewModel>(
+            var item = await _http.GetFromJsonAsync<MediaEngine.Contracts.Review.ReviewItemDto>(
                 $"/review/{id}", ct);
+            return item?.ToViewModel();
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -333,7 +338,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
                 return 0;
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<ReviewCountDto>(cancellationToken: ct);
+            var raw = await response.Content.ReadFromJsonAsync<MediaEngine.Contracts.Review.ReviewCountResponse>(
+                cancellationToken: ct);
             ClearFailure(endpoint);
             return raw?.PendingCount ?? 0;
         }
@@ -962,9 +968,17 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<List<LibraryItemHistoryDto>>(
+            var result = await _http.GetFromJsonAsync<List<MediaEngine.Contracts.Items.LibraryItemHistoryDto>>(
                 $"/library/items/{entityId}/history", ct);
-            return result ?? [];
+            return result?.Select(item => new LibraryItemHistoryDto
+            {
+                Id = item.Id,
+                EntityId = item.EntityId,
+                OccurredAt = item.OccurredAt,
+                EventType = item.EventType,
+                Label = item.Label,
+                Detail = item.Detail,
+            }).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }
         catch (Exception ex)
@@ -979,7 +993,25 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var response = await _http.PostAsJsonAsync($"/library/items/{entityId}/provisional", metadata, ct);
+            var request = new MediaEngine.Contracts.Items.ProvisionalMetadataRequestDto
+            {
+                MediaType = metadata.MediaType,
+                Title = metadata.Title,
+                Creator = metadata.Creator,
+                Year = metadata.Year,
+                Description = metadata.Description,
+                Narrator = metadata.Narrator,
+                Isbn = metadata.Isbn,
+                Director = metadata.Director,
+                Runtime = metadata.Runtime,
+                Seasons = metadata.Seasons,
+                TrackCount = metadata.TrackCount,
+                Host = metadata.Host,
+                Writer = metadata.Writer,
+                Artist = metadata.Artist,
+                PageCount = metadata.PageCount,
+            };
+            var response = await _http.PostAsJsonAsync($"/library/items/{entityId}/provisional", request, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
@@ -1385,20 +1417,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
         if (detail.ArtistPhotoUrl is not null)
             detail.ArtistPhotoUrl = AbsoluteUrl(detail.ArtistPhotoUrl);
 
-        foreach (var cast in detail.TopCast)
-        {
-            if (cast.HeadshotUrl is not null)
-                cast.HeadshotUrl = AbsoluteUrl(cast.HeadshotUrl);
-            if (cast.ActorHeadshotUrl is not null)
-                cast.ActorHeadshotUrl = AbsoluteUrl(cast.ActorHeadshotUrl);
-            if (cast.CharacterImageUrl is not null)
-                cast.CharacterImageUrl = AbsoluteUrl(cast.CharacterImageUrl);
-            foreach (var character in cast.Characters)
-            {
-                if (character.PortraitUrl is not null)
-                    character.PortraitUrl = AbsoluteUrl(character.PortraitUrl);
-            }
-        }
+        detail.TopCast = NormalizeCastCredits(detail.TopCast);
 
         foreach (var season in detail.Seasons)
         {
@@ -1417,7 +1436,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    private void NormalizeCollectionGroupWork(CollectionGroupWorkViewModel work)
+    private void NormalizeCollectionGroupWork(CollectionGroupWorkDto work)
     {
         if (work.CoverUrl is not null)
             work.CoverUrl = AbsoluteUrl(work.CoverUrl);
@@ -1429,44 +1448,29 @@ public sealed partial class EngineApiClient : IEngineApiClient
             work.HeroUrl = AbsoluteUrl(work.HeroUrl);
     }
 
-    private void NormalizeCastCredits(List<CollectionGroupPersonViewModel>? castCredits)
+    private List<CastCreditDto> NormalizeCastCredits(IEnumerable<CastCreditDto>? castCredits)
     {
         if (castCredits is null)
-            return;
+            return [];
 
-        foreach (var cast in castCredits)
+        return castCredits.Select(cast => new CastCreditDto
         {
-            if (cast.HeadshotUrl is not null)
-                cast.HeadshotUrl = AbsoluteUrl(cast.HeadshotUrl);
-            if (cast.ActorHeadshotUrl is not null)
-                cast.ActorHeadshotUrl = AbsoluteUrl(cast.ActorHeadshotUrl);
-            if (cast.CharacterImageUrl is not null)
-                cast.CharacterImageUrl = AbsoluteUrl(cast.CharacterImageUrl);
-
-            foreach (var character in cast.Characters)
+            PersonId = cast.PersonId,
+            Name = cast.Name,
+            WikidataQid = cast.WikidataQid,
+            HeadshotUrl = string.IsNullOrWhiteSpace(cast.HeadshotUrl)
+                ? cast.HeadshotUrl
+                : AbsoluteUrl(cast.HeadshotUrl),
+            Characters = cast.Characters.Select(character => new CharacterPortrayalDto
             {
-                if (character.PortraitUrl is not null)
-                    character.PortraitUrl = AbsoluteUrl(character.PortraitUrl);
-            }
-        }
-    }
-
-    private void NormalizePersonLibraryCredits(List<PersonLibraryCreditViewModel>? credits)
-    {
-        if (credits is null)
-            return;
-
-        foreach (var credit in credits)
-        {
-            if (credit.CoverUrl is not null)
-                credit.CoverUrl = AbsoluteUrl(credit.CoverUrl);
-
-            foreach (var character in credit.Characters)
-            {
-                if (character.PortraitUrl is not null)
-                    character.PortraitUrl = AbsoluteUrl(character.PortraitUrl);
-            }
-        }
+                FictionalEntityId = character.FictionalEntityId,
+                CharacterName = character.CharacterName,
+                CharacterQid = character.CharacterQid,
+                PortraitUrl = string.IsNullOrWhiteSpace(character.PortraitUrl)
+                    ? character.PortraitUrl
+                    : AbsoluteUrl(character.PortraitUrl),
+            }).ToList(),
+        }).ToList();
     }
 
     private DisplayPageDto? NormalizeDisplayPage(DisplayPageDto? page)
@@ -1835,12 +1839,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private string? NormalizeOptionalUrl(string? value)
         => string.IsNullOrWhiteSpace(value) ? value : AbsoluteUrl(value);
 
-    private ProfileViewModel NormalizeProfile(ProfileViewModel profile) =>
-        profile with
-        {
-            AvatarImageUrl = NormalizeOptionalUrl(profile.AvatarImageUrl),
-        };
-
     /// <summary>
     /// Converts relative /stream/... paths stored in canonical values to absolute
     /// Engine URLs so Dashboard components can use them directly as &lt;img src&gt;.
@@ -1867,9 +1865,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
             _ => "image/jpeg",
         };
 
-    private string? ResolvePersonHeadshotUrl(PersonRaw person) =>
-        person.HasLocalHeadshot || !string.IsNullOrWhiteSpace(person.HeadshotUrl)
-            ? AbsoluteUrl($"/persons/{person.Id}/headshot")
+    private string? ResolvePersonHeadshotUrl(Guid personId, bool hasLocalHeadshot, string? headshotUrl) =>
+        hasLocalHeadshot || !string.IsNullOrWhiteSpace(headshotUrl)
+            ? AbsoluteUrl($"/persons/{personId}/headshot")
             : null;
 
     private static void AddQuery(ICollection<string> query, string name, string? value)
@@ -1912,7 +1910,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
         };
     }
 
-    private WorkViewModel MapLibraryWork(LibraryWorkRaw work)
+    private WorkViewModel MapLibraryWork(MediaEngine.Contracts.Collections.LibraryWorkListItemDto work)
     {
         var canonicalValues = (work.CanonicalValues ?? new())
             .Select(kv => new CanonicalValueViewModel
@@ -1941,7 +1939,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
         };
     }
 
-    private WorkViewModel MapWork(WorkRaw work)
+    private WorkViewModel MapWork(MediaEngine.Contracts.Collections.WorkDto work)
     {
         var canonicalValues = work.CanonicalValues.Select(cv => new CanonicalValueViewModel
         {
@@ -1982,20 +1980,17 @@ public sealed partial class EngineApiClient : IEngineApiClient
         return null;
     }
 
-    private CollectionViewModel MapCollection(CollectionRaw h) => CollectionViewModel.FromApiDto(
+    private CollectionViewModel MapCollection(MediaEngine.Contracts.Collections.CollectionDto h) => CollectionViewModel.FromApiDto(
         h.Id,
         h.UniverseId,
         h.CreatedAt,
         h.Works.Select(MapWork),
         displayName:   h.DisplayName,
         parentCollectionId:   h.ParentCollectionId,
-        parentCollectionName: h.ParentCollectionName,
-        childCollectionCount: h.ChildCollectionCount);
+        parentCollectionName: null,
+        childCollectionCount: 0);
 
-    private static GroupMemberView MapGroupMember(GroupMemberRaw groupMember) =>
-        new(groupMember.Id, groupMember.Name ?? string.Empty, groupMember.DateRange);
-
-    private CollectionViewModel MapParentCollection(ParentCollectionRaw h) => CollectionViewModel.FromParentCollection(
+    private CollectionViewModel MapParentCollection(MediaEngine.Contracts.Collections.ParentCollectionDto h) => CollectionViewModel.FromParentCollection(
         h.Id,
         h.UniverseId,
         h.CreatedAt,
@@ -2013,186 +2008,6 @@ public sealed partial class EngineApiClient : IEngineApiClient
         [property: JsonPropertyName("version")]  string  Version,
         [property: JsonPropertyName("language")] string? Language);
 
-    private sealed record CollectionRaw(
-        [property: JsonPropertyName("id")]              Guid           Id,
-        [property: JsonPropertyName("universe_id")]     Guid?          UniverseId,
-        [property: JsonPropertyName("display_name")]    string?        DisplayName,
-        [property: JsonPropertyName("created_at")]      DateTimeOffset CreatedAt,
-        [property: JsonPropertyName("works")]           List<WorkRaw>  Works,
-        [property: JsonPropertyName("parent_collection_id")]   Guid?          ParentCollectionId   = null,
-        [property: JsonPropertyName("parent_collection_name")] string?        ParentCollectionName = null,
-        [property: JsonPropertyName("child_collection_count")] int            ChildCollectionCount = 0);
-
-    private sealed record ParentCollectionRaw(
-        [property: JsonPropertyName("id")]               Guid           Id,
-        [property: JsonPropertyName("universe_id")]      Guid?          UniverseId,
-        [property: JsonPropertyName("display_name")]     string?        DisplayName,
-        [property: JsonPropertyName("description")]      string?        Description,
-        [property: JsonPropertyName("wikidata_qid")]     string?        WikidataQid,
-        [property: JsonPropertyName("universe_status")]  string?        UniverseStatus,
-        [property: JsonPropertyName("created_at")]       DateTimeOffset CreatedAt,
-        [property: JsonPropertyName("child_collection_count")]  int            ChildCollectionCount  = 0,
-        [property: JsonPropertyName("media_types")]      string?        MediaTypes     = null,
-        [property: JsonPropertyName("total_works")]      int            TotalWorks     = 0);
-
-    private sealed record WorkRaw(
-        [property: JsonPropertyName("id")]               Guid                      Id,
-        [property: JsonPropertyName("collection_id")]           Guid?                     CollectionId,
-        [property: JsonPropertyName("media_type")]       string                    MediaType,
-        [property: JsonPropertyName("ordinal")]          int?                      Ordinal,
-        [property: JsonPropertyName("canonical_values")] List<CanonicalValueRaw>   CanonicalValues);
-
-    private sealed record CanonicalValueRaw(
-        [property: JsonPropertyName("key")]            string        Key,
-        [property: JsonPropertyName("value")]          string        Value,
-        [property: JsonPropertyName("last_scored_at")] DateTimeOffset LastScoredAt);
-
-    private sealed class LibraryWorkRaw
-    {
-        [JsonPropertyName("id")]              public Guid Id { get; set; }
-        [JsonPropertyName("collectionId")]    public Guid? CollectionId { get; set; }
-        [JsonPropertyName("rootWorkId")]      public Guid? RootWorkId { get; set; }
-        [JsonPropertyName("mediaType")]       public string? MediaType { get; set; }
-        [JsonPropertyName("workKind")]        public string? WorkKind { get; set; }
-        [JsonPropertyName("ordinal")]         public int? Ordinal { get; set; }
-        [JsonPropertyName("wikidataQid")]     public string? WikidataQid { get; set; }
-        [JsonPropertyName("assetId")]         public Guid? AssetId { get; set; }
-        [JsonPropertyName("createdAt")]       public string? CreatedAt { get; set; }
-        [JsonPropertyName("coverUrl")]        public string? CoverUrl { get; set; }
-        [JsonPropertyName("backgroundUrl")]   public string? BackgroundUrl { get; set; }
-        [JsonPropertyName("bannerUrl")]       public string? BannerUrl { get; set; }
-        [JsonPropertyName("heroUrl")]         public string? HeroUrl { get; set; }
-        [JsonPropertyName("logoUrl")]         public string? LogoUrl { get; set; }
-        [JsonPropertyName("canonicalValues")] public Dictionary<string, string>? CanonicalValues { get; set; }
-    }
-
-    private sealed record ScanRaw(
-        [property: JsonPropertyName("operations")] List<OperationRaw> Operations);
-
-    private sealed record OperationRaw(
-        [property: JsonPropertyName("source_path")]      string  SourcePath,
-        [property: JsonPropertyName("destination_path")] string  DestinationPath,
-        [property: JsonPropertyName("operation_kind")]   string  OperationKind,
-        [property: JsonPropertyName("reason")]           string? Reason);
-
-    private sealed record SearchRawResult(
-        [property: JsonPropertyName("work_id")]          Guid    WorkId,
-        [property: JsonPropertyName("collection_id")]           Guid?   CollectionId,
-        [property: JsonPropertyName("title")]            string  Title,
-        [property: JsonPropertyName("author")]           string? Author,
-        [property: JsonPropertyName("media_type")]       string  MediaType,
-        [property: JsonPropertyName("collection_display_name")] string  CollectionDisplayName,
-        [property: JsonPropertyName("series")]           string? Series,
-        [property: JsonPropertyName("series_position")]  string? SeriesPosition,
-        [property: JsonPropertyName("show_name")]        string? ShowName,
-        [property: JsonPropertyName("season_number")]    string? SeasonNumber,
-        [property: JsonPropertyName("episode_number")]   string? EpisodeNumber);
-
-    private sealed record ApiKeyRaw(
-        [property: JsonPropertyName("id")]         Guid           Id,
-        [property: JsonPropertyName("label")]      string         Label,
-        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt);
-
-    private sealed record NewApiKeyRaw(
-        [property: JsonPropertyName("id")]         Guid           Id,
-        [property: JsonPropertyName("label")]      string         Label,
-        [property: JsonPropertyName("key")]        string         Key,
-        [property: JsonPropertyName("created_at")] DateTimeOffset CreatedAt);
-
-    private sealed record RevokeAllRaw(
-        [property: JsonPropertyName("revoked_count")] int RevokedCount);
-
-    private sealed record MetadataSearchRaw(
-        [property: JsonPropertyName("provider_name")] string                    ProviderName,
-        [property: JsonPropertyName("query")]         string                    Query,
-        [property: JsonPropertyName("results")]       List<MetadataSearchResultRaw> Results);
-
-    private sealed record MetadataSearchResultRaw(
-        [property: JsonPropertyName("title")]            string  Title,
-        [property: JsonPropertyName("author")]           string? Author,
-        [property: JsonPropertyName("description")]      string? Description,
-        [property: JsonPropertyName("year")]             string? Year,
-        [property: JsonPropertyName("thumbnail_url")]    string? ThumbnailUrl,
-        [property: JsonPropertyName("provider_item_id")] string? ProviderItemId,
-        [property: JsonPropertyName("confidence")]       double  Confidence);
-
-    private sealed record JourneyItemRaw(
-        [property: JsonPropertyName("assetId")]            Guid                          AssetId,
-        [property: JsonPropertyName("workId")]             Guid                          WorkId,
-        [property: JsonPropertyName("collectionId")]              Guid?                         CollectionId,
-        [property: JsonPropertyName("title")]              string?                       Title,
-        [property: JsonPropertyName("author")]             string?                       Author,
-        [property: JsonPropertyName("coverUrl")]           string?                       CoverUrl,
-        [property: JsonPropertyName("backgroundUrl")]      string?                       BackgroundUrl,
-        [property: JsonPropertyName("bannerUrl")]          string?                       BannerUrl,
-        [property: JsonPropertyName("logoUrl")]            string?                       LogoUrl,
-        [property: JsonPropertyName("coverWidthPx")]       int?                          CoverWidthPx,
-        [property: JsonPropertyName("coverHeightPx")]      int?                          CoverHeightPx,
-        [property: JsonPropertyName("backgroundWidthPx")]  int?                          BackgroundWidthPx,
-        [property: JsonPropertyName("backgroundHeightPx")] int?                          BackgroundHeightPx,
-        [property: JsonPropertyName("bannerWidthPx")]      int?                          BannerWidthPx,
-        [property: JsonPropertyName("bannerHeightPx")]     int?                          BannerHeightPx,
-        [property: JsonPropertyName("narrator")]           string?                       Narrator,
-        [property: JsonPropertyName("series")]             string?                       Series,
-        [property: JsonPropertyName("seriesPosition")]     string?                       SeriesPosition,
-        [property: JsonPropertyName("description")]        string?                       Description,
-        [property: JsonPropertyName("mediaType")]          string?                       MediaType,
-        [property: JsonPropertyName("progressPct")]        double                        ProgressPct,
-        [property: JsonPropertyName("lastAccessed")]       DateTimeOffset                LastAccessed,
-        [property: JsonPropertyName("collectionDisplayName")]     string?                       CollectionDisplayName,
-        [property: JsonPropertyName("extendedProperties")] Dictionary<string, string>?   ExtendedProperties,
-        [property: JsonPropertyName("heroUrl")]            string?                       HeroUrl);
-
-    private sealed record PersonRaw(
-        [property: JsonPropertyName("id")]                 Guid          Id,
-        [property: JsonPropertyName("name")]               string?       Name,
-        [property: JsonPropertyName("roles")]              List<string>? Roles,
-        [property: JsonPropertyName("wikidata_qid")]       string?       WikidataQid,
-        [property: JsonPropertyName("headshot_url")]       string?       HeadshotUrl,
-        [property: JsonPropertyName("has_local_headshot")] bool          HasLocalHeadshot,
-        [property: JsonPropertyName("biography")]          string?       Biography,
-        [property: JsonPropertyName("occupation")]         string?       Occupation);
-
-    private sealed record RelatedCollectionsRaw(
-        [property: JsonPropertyName("section_title")] string       SectionTitle,
-        [property: JsonPropertyName("reason")]        string       Reason,
-        [property: JsonPropertyName("collections")]          List<CollectionRaw> Collections);
-
-    private sealed record ParentCollectionResponseRaw(
-        [property: JsonPropertyName("parentCollection")] CollectionRaw? ParentCollection);
-
-    private sealed record PersonDetailRaw(
-        [property: JsonPropertyName("id")]                 Guid            Id,
-        [property: JsonPropertyName("name")]               string?         Name,
-        [property: JsonPropertyName("roles")]              List<string>?   Roles,
-        [property: JsonPropertyName("wikidata_qid")]       string?         WikidataQid,
-        [property: JsonPropertyName("headshot_url")]       string?         HeadshotUrl,
-        [property: JsonPropertyName("has_local_headshot")] bool            HasLocalHeadshot,
-        [property: JsonPropertyName("biography")]          string?         Biography,
-        [property: JsonPropertyName("occupation")]         string?         Occupation,
-        [property: JsonPropertyName("date_of_birth")]      string?         DateOfBirth,
-        [property: JsonPropertyName("date_of_death")]      string?         DateOfDeath,
-        [property: JsonPropertyName("place_of_birth")]     string?         PlaceOfBirth,
-        [property: JsonPropertyName("place_of_death")]     string?         PlaceOfDeath,
-        [property: JsonPropertyName("nationality")]        string?         Nationality,
-        [property: JsonPropertyName("instagram")]          string?         Instagram,
-        [property: JsonPropertyName("twitter")]            string?         Twitter,
-        [property: JsonPropertyName("tiktok")]             string?         TikTok,
-        [property: JsonPropertyName("mastodon")]           string?         Mastodon,
-        [property: JsonPropertyName("website")]            string?         Website,
-        [property: JsonPropertyName("is_group")]           bool            IsGroup,
-        [property: JsonPropertyName("group_members")]      List<GroupMemberRaw>? GroupMembers,
-        [property: JsonPropertyName("member_of_groups")]   List<GroupMemberRaw>? MemberOfGroups,
-        [property: JsonPropertyName("banner_url")]         string?         BannerUrl,
-        [property: JsonPropertyName("background_url")]     string?         BackgroundUrl,
-        [property: JsonPropertyName("logo_url")]           string?         LogoUrl,
-        [property: JsonPropertyName("created_at")]         DateTimeOffset  CreatedAt,
-        [property: JsonPropertyName("enriched_at")]        DateTimeOffset? EnrichedAt);
-
-    private sealed record GroupMemberRaw(
-        [property: JsonPropertyName("id")]         Guid    Id,
-        [property: JsonPropertyName("name")]       string? Name,
-        [property: JsonPropertyName("date_range")] string? DateRange);
 
     // -- Universe health + character data -------------------------------------
 
@@ -2250,7 +2065,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<List<CharacterRoleRaw>>(
+            var raw = await _http.GetFromJsonAsync<List<PersonCharacterRoleDto>>(
                 $"/library/persons/{personId}/character-roles", ct);
             if (raw is null) return [];
             return raw.Select(r => new CharacterRoleDto
@@ -2276,15 +2091,14 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    public async Task<List<CollectionGroupPersonViewModel>> GetWorkCastAsync(Guid workId, CancellationToken ct = default)
+    public async Task<List<CastCreditDto>> GetWorkCastAsync(Guid workId, CancellationToken ct = default)
     {
         try
         {
-            var cast = await _http.GetFromJsonAsync<List<CollectionGroupPersonViewModel>>(
+            var cast = await _http.GetFromJsonAsync<List<CastCreditDto>>(
                 $"/works/{workId}/cast", ct);
 
-            NormalizeCastCredits(cast);
-            return cast ?? [];
+            return NormalizeCastCredits(cast);
         }
         catch (Exception ex)
         {
@@ -2298,29 +2112,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         try
         {
-            var raw = await _http.GetFromJsonAsync<ArtworkEditorRaw>($"/metadata/{entityId}/artwork", ct);
+            var raw = await _http.GetFromJsonAsync<ArtworkEditorDto>($"/metadata/{entityId}/artwork", ct);
             if (raw is null)
                 return null;
 
-            return new ArtworkEditorDto
-            {
-                EntityId = raw.EntityId,
-                Slots = raw.Slots.Select(slot => new ArtworkSlotDto
-                {
-                    AssetType = slot.AssetType ?? string.Empty,
-                    Variants = slot.Variants.Select(variant => new ArtworkVariantDto
-                    {
-                        Id = variant.Id,
-                        AssetType = variant.AssetType ?? slot.AssetType ?? string.Empty,
-                        ImageUrl = variant.ImageUrl is not null ? AbsoluteUrl(variant.ImageUrl) : null,
-                        IsPreferred = variant.IsPreferred,
-                        Origin = string.IsNullOrWhiteSpace(variant.Origin) ? "Stored" : variant.Origin,
-                        ProviderName = variant.ProviderName,
-                        CanDelete = variant.CanDelete,
-                        CreatedAt = variant.CreatedAt,
-                    }).ToList(),
-                }).ToList(),
-            };
+            return NormalizeArtworkEditor(raw);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -2335,29 +2131,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
         try
         {
             var encodedScope = Uri.EscapeDataString(scopeId);
-            var raw = await _http.GetFromJsonAsync<ArtworkEditorRaw>($"/metadata/{entityId}/artwork/{encodedScope}", ct);
+            var raw = await _http.GetFromJsonAsync<ArtworkEditorDto>($"/metadata/{entityId}/artwork/{encodedScope}", ct);
             if (raw is null)
                 return null;
 
-            return new ArtworkEditorDto
-            {
-                EntityId = raw.EntityId,
-                Slots = raw.Slots.Select(slot => new ArtworkSlotDto
-                {
-                    AssetType = slot.AssetType ?? string.Empty,
-                    Variants = slot.Variants.Select(variant => new ArtworkVariantDto
-                    {
-                        Id = variant.Id,
-                        AssetType = variant.AssetType ?? slot.AssetType ?? string.Empty,
-                        ImageUrl = variant.ImageUrl is not null ? AbsoluteUrl(variant.ImageUrl) : null,
-                        IsPreferred = variant.IsPreferred,
-                        Origin = string.IsNullOrWhiteSpace(variant.Origin) ? "Stored" : variant.Origin,
-                        ProviderName = variant.ProviderName,
-                        CanDelete = variant.CanDelete,
-                        CreatedAt = variant.CreatedAt,
-                    }).ToList(),
-                }).ToList(),
-            };
+            return NormalizeArtworkEditor(raw);
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -2365,6 +2143,24 @@ public sealed partial class EngineApiClient : IEngineApiClient
             _logger.LogWarning(ex, "GET /metadata/{EntityId}/artwork/{ScopeId} failed", entityId, scopeId);
             return null;
         }
+    }
+
+    private ArtworkEditorDto NormalizeArtworkEditor(ArtworkEditorDto raw)
+    {
+        foreach (var slot in raw.Slots)
+        {
+            slot.AssetType ??= string.Empty;
+            foreach (var variant in slot.Variants)
+            {
+                variant.AssetType = string.IsNullOrWhiteSpace(variant.AssetType)
+                    ? slot.AssetType
+                    : variant.AssetType;
+                variant.ImageUrl = variant.ImageUrl is null ? null : AbsoluteUrl(variant.ImageUrl);
+                variant.Origin = string.IsNullOrWhiteSpace(variant.Origin) ? "Stored" : variant.Origin;
+            }
+        }
+
+        return raw;
     }
 
     public async Task<ProviderArtworkRefreshDto?> RefreshScopeProviderArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default)
@@ -2390,29 +2186,15 @@ public sealed partial class EngineApiClient : IEngineApiClient
                 return null;
             }
 
-            var raw = await response.Content.ReadFromJsonAsync<ProviderArtworkRefreshRaw>(ct);
-            return raw is null
-                ? null
-                : new ProviderArtworkRefreshDto
-                {
-                    Provider = raw.Provider ?? "fanart_tv",
-                    ProviderName = raw.ProviderName ?? "Fanart.tv",
-                    Status = raw.Status ?? string.Empty,
-                    Success = raw.Success,
-                    Skipped = raw.Skipped,
-                    SkippedReason = raw.SkippedReason,
-                    Message = raw.Message,
-                    MediaType = raw.MediaType,
-                    BridgeKey = raw.BridgeKey,
-                    BridgeId = raw.BridgeId,
-                    Endpoint = raw.Endpoint,
-                    HttpStatusCode = raw.HttpStatusCode,
-                    DownloadedCount = raw.DownloadedCount,
-                    UpdatedPreferredCount = raw.UpdatedPreferredCount,
-                    StoredVariantCounts = new Dictionary<string, int>(raw.StoredVariantCounts, StringComparer.OrdinalIgnoreCase),
-                    Diagnostics = raw.Diagnostics,
-                    LastCheckedAt = raw.LastCheckedAt,
-                };
+            var result = await response.Content.ReadFromJsonAsync<ProviderArtworkRefreshDto>(ct);
+            if (result is not null)
+            {
+                result.StoredVariantCounts = new Dictionary<string, int>(
+                    result.StoredVariantCounts,
+                    StringComparer.OrdinalIgnoreCase);
+            }
+
+            return result;
         }
         catch (OperationCanceledException) { return null; }
         catch (Exception ex)
@@ -2458,67 +2240,4 @@ public sealed partial class EngineApiClient : IEngineApiClient
         [JsonPropertyName("actor_count")]         public int     ActorCount        { get; set; }
     }
 
-    private sealed class CharacterRoleRaw
-    {
-        [JsonPropertyName("fictional_entity_id")] public Guid    FictionalEntityId { get; set; }
-        [JsonPropertyName("character_name")]      public string? CharacterName     { get; set; }
-        [JsonPropertyName("portrait_url")]        public string? PortraitUrl       { get; set; }
-        [JsonPropertyName("work_id")]             public Guid?   WorkId            { get; set; }
-        [JsonPropertyName("work_qid")]            public string? WorkQid           { get; set; }
-        [JsonPropertyName("work_title")]          public string? WorkTitle         { get; set; }
-        [JsonPropertyName("collection_id")]       public Guid?   CollectionId      { get; set; }
-        [JsonPropertyName("media_type")]          public string? MediaType         { get; set; }
-        [JsonPropertyName("is_default")]          public bool    IsDefault         { get; set; }
-        [JsonPropertyName("universe_qid")]        public string? UniverseQid       { get; set; }
-        [JsonPropertyName("universe_label")]      public string? UniverseLabel     { get; set; }
-    }
-
-    private sealed class ArtworkEditorRaw
-    {
-        [JsonPropertyName("entity_id")] public Guid EntityId { get; set; }
-        [JsonPropertyName("slots")] public List<ArtworkSlotRaw> Slots { get; set; } = [];
-    }
-
-    private sealed class ArtworkSlotRaw
-    {
-        [JsonPropertyName("asset_type")] public string? AssetType { get; set; }
-        [JsonPropertyName("variants")] public List<ArtworkVariantRaw> Variants { get; set; } = [];
-    }
-
-    private sealed class ArtworkVariantRaw
-    {
-        [JsonPropertyName("id")] public Guid Id { get; set; }
-        [JsonPropertyName("asset_type")] public string? AssetType { get; set; }
-        [JsonPropertyName("image_url")] public string? ImageUrl { get; set; }
-        [JsonPropertyName("is_preferred")] public bool IsPreferred { get; set; }
-        [JsonPropertyName("origin")] public string? Origin { get; set; }
-        [JsonPropertyName("provider_name")] public string? ProviderName { get; set; }
-        [JsonPropertyName("can_delete")] public bool CanDelete { get; set; }
-        [JsonPropertyName("created_at")] public DateTimeOffset? CreatedAt { get; set; }
-    }
-
-    private sealed class ProviderArtworkRefreshRaw
-    {
-        [JsonPropertyName("provider")] public string? Provider { get; set; }
-        [JsonPropertyName("provider_name")] public string? ProviderName { get; set; }
-        [JsonPropertyName("status")] public string? Status { get; set; }
-        [JsonPropertyName("success")] public bool Success { get; set; }
-        [JsonPropertyName("skipped")] public bool Skipped { get; set; }
-        [JsonPropertyName("skipped_reason")] public string? SkippedReason { get; set; }
-        [JsonPropertyName("message")] public string? Message { get; set; }
-        [JsonPropertyName("media_type")] public string? MediaType { get; set; }
-        [JsonPropertyName("bridge_key")] public string? BridgeKey { get; set; }
-        [JsonPropertyName("bridge_id")] public string? BridgeId { get; set; }
-        [JsonPropertyName("endpoint")] public string? Endpoint { get; set; }
-        [JsonPropertyName("http_status_code")] public int? HttpStatusCode { get; set; }
-        [JsonPropertyName("downloaded_count")] public int DownloadedCount { get; set; }
-        [JsonPropertyName("updated_preferred_count")] public int UpdatedPreferredCount { get; set; }
-        [JsonPropertyName("stored_variant_counts")] public Dictionary<string, int> StoredVariantCounts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-        [JsonPropertyName("diagnostics")] public List<string> Diagnostics { get; set; } = [];
-        [JsonPropertyName("last_checked_at")] public DateTimeOffset LastCheckedAt { get; set; }
-    }
-
 }
-
-
-

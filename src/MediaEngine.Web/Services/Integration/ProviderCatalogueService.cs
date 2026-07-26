@@ -1,6 +1,7 @@
 using MediaEngine.Domain;
 using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.Extensions.Caching.Memory;
+using MediaEngine.Contracts.Settings;
 using MudBlazor;
 
 namespace MediaEngine.Web.Services.Integration;

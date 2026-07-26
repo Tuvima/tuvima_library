@@ -1,6 +1,7 @@
 ﻿@using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @using MudBlazor
+@using MediaEngine.Contracts.Reports
 
 @inject UIOrchestratorService Orchestrator
 
@@ -72,7 +73,7 @@
         _submitting = true;
         StateHasChanged();
 
-        var request = new SubmitReportRequestDto
+        var request = new SubmitReportRequest
         {
             EntityId = EntityId,
             ItemTitle = ItemTitle,

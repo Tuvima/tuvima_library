@@ -26,6 +26,23 @@ every production route declares its 2xx response metadata for Swagger. Untyped
 success metadata is reserved for reviewed bodyless, redirect, file, stream, and
 direct-response routes.
 
+`MediaEngine.Contracts` is the sole owner of non-frozen HTTP and SignalR wire
+types. Engine endpoints map internal projections explicitly into those
+contracts, and the Dashboard may add presentation wrappers without redefining
+the JSON payload. The only frozen exception is the exact Universe/Chronicle
+SignalR pair `LoreDeltaDiscoveredEvent` and
+`UniverseEnrichmentProgressEvent`; Universe HTTP responses are not exempt.
+
+The canonical contracts intentionally include fields that existed on only one
+side of the former API/Dashboard mirror boundary. Notable examples are
+ingestion `count_unit`; person and person-backed collection `roles`; complete AI
+settings plus resource `cpu_pressure`; complete managed-collection, placement,
+rule, permission, and artwork fields; playback manifest, player, settings,
+chapter, bookmark, text-track, and offline-delivery fields; and plugin
+manifest, capability, permission, tool, AI-permission, health, job, and approved
+catalog fields. These are contract completeness corrections, not separate
+compatibility versions.
+
 ---
 
 ## System
@@ -130,7 +147,7 @@ direct-response routes.
 | GET | `/ingestion/batches/{batchId}/items` | Durable per-file item ledger for a batch, sourced from `media_operations`. | Curator |
 | GET | `/ingestion/watch-folder` | Returns the derived current watch folder view from configured library source folders. | Required |
 
-`/ingestion/operations.stage_progress` contains numbered ingestion stage rows with `stage_number`, `stage_key`, `label`, `completed_files`, `total_files`, `percent_complete`, `active_count`, `queued_count`, `status_label`, `active_item_label`, `active_group_label`, `active_group_count`, `label_accuracy`, `artifact_label`, `artifact_count`, `detail_items`, `last_updated_time`, and `is_stale`. `detail_items` is an optional list of `{ label, value, tone?, icon? }` rows populated by the Engine so clients do not hardcode provider math. Grouped provider work, such as batched Wikidata resolution, uses group labels instead of fake exact file labels unless per-file correlation is available.
+`/ingestion/operations.stage_progress` contains numbered ingestion stage rows with `stage_number`, `stage_key`, `label`, `completed_files`, `total_files`, `count_unit`, `percent_complete`, `active_count`, `queued_count`, `status_label`, `active_item_label`, `active_group_label`, `active_group_count`, `label_accuracy`, `artifact_label`, `artifact_count`, `detail_items`, `last_updated_time`, and `is_stale`. `count_unit` identifies what the counts measure, such as files, albums, people, artwork assets, or links, so clients do not relabel grouped work as files. `detail_items` is an optional list of `{ label, value, tone?, icon? }` rows populated by the Engine so clients do not hardcode provider math. Grouped provider work, such as batched Wikidata resolution, uses group labels instead of fake exact file labels unless per-file correlation is available.
 
 The Dashboard renders Stages 1-8 as compact progress rows. Review/attention state remains in the snapshot for API consumers, but the Dashboard surfaces it through the top **Need Review** metric and the `recent_batches` review count rather than as another progress bar. `recent_batches` rows include batch id, status, timing, file totals, media-type counts, registered/review/failed counts, and artifact totals such as people, artwork, metadata, matched, and review.
 
@@ -220,6 +237,11 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | POST | `/ai/enrich/search/intent` | Parse a natural-language search query into structured field filters | Required |
 | POST | `/ai/enrich/extract-url` | Extract metadata from a URL (book page, IMDB entry, etc.) | Curator |
 
+`/ai/config` preserves the complete settings graph, including `models`,
+`model_catalog`, `operational_roles`, `role_requirements`, feature flags, and
+scheduling/resource policy. `/ai/resources` includes numeric `cpu_pressure`;
+clients should use that contract value rather than derive pressure from labels.
+
 ---
 
 ## Enrichment
@@ -260,6 +282,11 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | POST | `/plugins/{pluginId}/health` | Run plugin health checks | Administrator |
 | GET | `/plugins/{pluginId}/jobs` | List recent durable plugin operation rows for one plugin. | Administrator |
 | POST | `/plugins/jobs/segment-detection/run` | Run scheduled playback segment detector plugins immediately | Administrator |
+
+Plugin responses preserve manifest capabilities, permissions, tool
+requirements and per-platform artifacts, AI permissions, settings schema,
+health checks, durable job counters, and approved-catalog provenance. Dashboard
+presentation types must not narrow that payload.
 
 ---
 
@@ -359,6 +386,12 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | POST | `/player/audiobooks/{workId}/chapter-overrides` | Save one display-only audiobook chapter title override | Required |
 | DELETE | `/player/audiobooks/{workId}/chapter-overrides/{assetId}/{chapterIndex}` | Delete one display-only audiobook chapter title override | Required |
 
+Player and playback contracts carry the complete queue/session state, delivery
+manifest, resume data, tracks/subtitles/chapters, audiobook history and
+bookmarks, chapter-title provenance, offline variants, diagnostics, and user
+playback settings. Text-track contracts retain source and normalized formats,
+timing mode, ownership/preference/export flags, confidence, and URL.
+
 ---
 
 ## Progress
@@ -401,6 +434,11 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | Collection | Path | Direction | Description |
 |---|---|---|---|
 | Intercom | `/intercom` | Server -> Client | Real-time push events: ingestion progress, enrichment completion, `MediaOperationChanged`, `CapabilityStateChanged`, pipeline state changes, and review queue updates. Authentication required. Server-push only - clients do not send messages to the collection. |
+
+SignalR payloads use `MediaEngine.Contracts.Realtime` except for the exact
+frozen `LoreDeltaDiscoveredEvent` and `UniverseEnrichmentProgressEvent`
+Universe/Chronicle pair. New events and new payload fields are not covered by
+that exception.
 
 ---
 

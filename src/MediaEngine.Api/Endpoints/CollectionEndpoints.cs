@@ -1,13 +1,15 @@
 using System.Globalization;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
-using MediaEngine.Contracts.Collections;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Search;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -20,6 +22,20 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 using static MediaEngine.Api.Services.Collections.CollectionResponseFormatting;
+using CollectionDto = MediaEngine.Contracts.Collections.CollectionDto;
+using WorkDto = MediaEngine.Contracts.Collections.WorkDto;
+using ParentCollectionDto = MediaEngine.Contracts.Collections.ParentCollectionDto;
+using RelatedCollectionsResponse = MediaEngine.Contracts.Collections.RelatedCollectionsResponse;
+using SeriesManifestViewDto = MediaEngine.Contracts.Collections.SeriesManifestViewDto;
+using CollectionCreateRequest = MediaEngine.Contracts.Collections.CollectionCreateRequest;
+using CollectionUpdateRequest = MediaEngine.Contracts.Collections.CollectionUpdateRequest;
+using CollectionPreviewRequest = MediaEngine.Contracts.Collections.CollectionPreviewRequest;
+using CollectionPreviewResponse = MediaEngine.Contracts.Collections.CollectionPreviewResponse;
+using CollectionItemAddRequest = MediaEngine.Contracts.Collections.CollectionItemAddRequest;
+using CollectionItemReorderRequest = MediaEngine.Contracts.Collections.CollectionItemReorderRequest;
+using EnabledRequest = MediaEngine.Contracts.Collections.CollectionEnabledRequest;
+using FeaturedRequest = MediaEngine.Contracts.Collections.CollectionFeaturedRequest;
+using PlacementRequest = MediaEngine.Contracts.Collections.CollectionPlacementRequest;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -38,7 +54,7 @@ public static class CollectionEndpoints
             var manifest = await manifestRepo.GetViewByCollectionIdAsync(collectionId, ct);
             return manifest is null
                 ? ApiErrors.NotFound($"No series manifest found for collection '{collectionId}'.")
-                : Results.Ok(manifest);
+                : Results.Ok(manifest.ToContract());
         })
         .WithName("GetCollectionSeriesManifest")
         .WithSummary("Returns a Wikidata-backed ordered series manifest with owned and missing item states.")
@@ -177,7 +193,7 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var allCollections = await collectionRepo.GetAllAsync(ct);
-            var dtos = allCollections.Select(CollectionDto.FromDomain).ToList();
+            var dtos = allCollections.Select(collection => collection.ToContract()).ToList();
 
             var target = dtos.FirstOrDefault(h => h.Id == id);
             if (target is null)
@@ -325,7 +341,7 @@ public static class CollectionEndpoints
                 .ThenBy(w => w.Id)
                 .Select(w =>
                 {
-                    var workDto = WorkDto.FromDomain(w);
+                    var workDto = w.ToContract();
                     string? title = (isTv ? GetCanonical(workDto, "episode_title") : null)
                                          ?? GetCanonical(workDto, "title")
                                          ?? $"Work {w.Id.ToString("N")[..8]}";
@@ -601,7 +617,7 @@ public static class CollectionEndpoints
                     .ThenBy(w => w.Id)
                     .Select(w =>
                     {
-                        var wDto = WorkDto.FromDomain(w);
+                        var wDto = w.ToContract();
                         var duration = GetCanonical(wDto, "duration_seconds")
                             ?? GetCanonical(wDto, "duration_sec")
                             ?? GetCanonical(wDto, "duration")
@@ -638,7 +654,7 @@ public static class CollectionEndpoints
                 string? childJson = null;
                 if (collection.Works.Count > 0)
                 {
-                    var firstWorkDto = WorkDto.FromDomain(collection.Works[0]);
+                    var firstWorkDto = collection.Works[0].ToContract();
                     combinedCreator ??= GetCanonical(firstWorkDto, "artist")
                                        ?? GetCanonical(firstWorkDto, "author");
                     combinedGenre ??= GetCanonical(firstWorkDto, "genre");
@@ -651,7 +667,7 @@ public static class CollectionEndpoints
                     // to whichever track was being processed when Stage 2 ran). Try each in order.
                     foreach (var w in collection.Works)
                     {
-                        var dto = WorkDto.FromDomain(w);
+                        var dto = w.ToContract();
                         childJson = GetCanonical(dto, MetadataFieldConstants.ChildEntitiesJson);
                         if (!string.IsNullOrWhiteSpace(childJson))
                         {
@@ -1227,7 +1243,7 @@ public static class CollectionEndpoints
                 }
 
                 // Creator from first work.
-                var firstDto = h.Works.Count > 0 ? WorkDto.FromDomain(h.Works[0]) : null;
+                var firstDto = h.Works.Count > 0 ? h.Works[0].ToContract() : null;
                 string? creator = GetCanonical(firstDto, "author")
                                   ?? GetCanonical(firstDto, "artist");
                 string? releaseDate = NormalizeReleaseDate(
@@ -1237,7 +1253,7 @@ public static class CollectionEndpoints
                 var previewItems = h.Works
                     .Select(work =>
                     {
-                        var dto = WorkDto.FromDomain(work);
+                        var dto = work.ToContract();
                         var primaryAssetId = primaryAssetIds.GetValueOrDefault(work.Id);
                         var coverUrl = BuildCoverStreamUrl(work, primaryAssetId);
                         var backgroundUrl = BuildBackgroundStreamUrl(work, primaryAssetId);
@@ -1295,8 +1311,8 @@ public static class CollectionEndpoints
                     .ToList();
                 var contentYears = h.Works
                     .Select(work => ParseDisplayYear(
-                        GetCanonical(WorkDto.FromDomain(work), "release_year")
-                        ?? GetCanonical(WorkDto.FromDomain(work), "year")))
+                        GetCanonical(work.ToContract(), "release_year")
+                        ?? GetCanonical(work.ToContract(), "year")))
                     .Where(year => year.HasValue)
                     .Select(year => year!.Value)
                     .ToList();
@@ -1343,7 +1359,7 @@ public static class CollectionEndpoints
                     LatestYear = contentYears.Count > 0 ? contentYears.Max() : null,
                     SeasonCount = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                         ? h.Works
-                            .Select(work => GetCanonical(WorkDto.FromDomain(work), "season_number"))
+                            .Select(work => GetCanonical(work.ToContract(), "season_number"))
                             .Where(value => !string.IsNullOrWhiteSpace(value))
                             .Distinct(StringComparer.OrdinalIgnoreCase)
                             .Count()
@@ -1415,16 +1431,27 @@ public static class CollectionEndpoints
 
         // GET /collections/managed/counts — type → count for stats bar.
         group.MapPost("/reconcile", async (
-            CollectionBackfillRequest? body,
+            MediaEngine.Contracts.Collections.CollectionBackfillRequest? body,
             CollectionBackfillService backfillService,
             CancellationToken ct) =>
         {
-            var result = await backfillService.RunAsync(body ?? new CollectionBackfillRequest(), ct);
-            return Results.Ok(result);
+            body ??= new MediaEngine.Contracts.Collections.CollectionBackfillRequest();
+            var result = await backfillService.RunAsync(
+                new MediaEngine.Api.Services.CollectionBackfillRequest(body.DryRun, body.BatchSize, body.MaxItems),
+                ct);
+            return Results.Ok(new CollectionBackfillResponse(
+                result.CandidateCount,
+                result.ProcessedCount,
+                result.AssignedCount,
+                result.CreatedCollectionCount,
+                result.AlreadyAssignedCount,
+                result.SkippedCount,
+                result.FailedCount,
+                result.ElapsedMs));
         })
         .WithName("ReconcileCollections")
         .WithSummary("Repairs missing collection shelf assignments for already-ingested media.")
-        .Produces<CollectionBackfillResult>(StatusCodes.Status200OK)
+        .Produces<CollectionBackfillResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapGet("/managed/counts", async (
@@ -1922,7 +1949,7 @@ public static class CollectionEndpoints
                 var primaryAssetIds = await browseReadService.GetPrimaryAssetIdsAsync(works.Select(w => w.Id), ct);
                 var items = works.Select(w =>
                 {
-                    var dto = WorkDto.FromDomain(w);
+                    var dto = w.ToContract();
                     return new CollectionResolvedItemDto
                     {
                         EntityId = w.Id,
@@ -2051,8 +2078,9 @@ public static class CollectionEndpoints
                 return Results.Ok(new CollectionPreviewResponse(0, []));
             }
 
+            var rules = body.Rules.Select(rule => rule.ToDomain()).ToList();
             var entityIds = browseReadService.EvaluateRules(
-                body.Rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
+                rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(new CollectionPreviewResponse(entityIds.Count, resolved));
@@ -2094,12 +2122,13 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            var ruleJson = body.Rules.Count > 0
+            var rules = body.Rules.Select(rule => rule.ToDomain()).ToList();
+            var ruleJson = rules.Count > 0
                 ? System.Text.Json.JsonSerializer.Serialize(body.Rules)
                 : null;
 
-            var ruleHash = body.Rules.Count > 0
-                ? CollectionRuleEvaluator.ComputeRuleHash(body.Rules)
+            var ruleHash = rules.Count > 0
+                ? CollectionRuleEvaluator.ComputeRuleHash(rules)
                 : null;
 
             var resolution = body.CollectionType is "Playlist" || body.Rules.Count == 0
@@ -2242,7 +2271,8 @@ public static class CollectionEndpoints
                 if (body.Rules.Count > 0)
                 {
                     collection.RuleJson = System.Text.Json.JsonSerializer.Serialize(body.Rules);
-                    collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(body.Rules);
+                    collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(
+                        body.Rules.Select(rule => rule.ToDomain()).ToList());
                     collection.Resolution = "query";
                 }
                 else
@@ -2382,7 +2412,6 @@ public static class CollectionEndpoints
     // CollectionResolvedItemDto is an Api-internal model (MediaEngine.Api.Models), so this
     // response record stays here rather than in MediaEngine.Contracts.Collections, which may
     // only reference Domain. See PreviewCollection ("/collections/preview").
-    public sealed record CollectionPreviewResponse(int count, List<CollectionResolvedItemDto> items);
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

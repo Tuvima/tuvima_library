@@ -129,6 +129,22 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 - UI display artwork should use managed Engine URLs or settled placeholders. Do not expose stale direct provider image URLs on lane cards, shelves, albums, detail pages, search results, or review cards.
 - Avoid silent `catch { }` blocks. Best-effort failures need a justification comment or an explicit guardrail allowlist entry; user-visible failures need logging and degraded/error UI.
 - Domain must stay independent of Web, API, Storage, Providers, Ingestion, Processors, AI, and UI packages. UI should consume view models/contracts/typed clients, not storage implementation models.
+- `MediaEngine.Contracts` is the sole owner of product-defined types serialized
+  over non-frozen HTTP or SignalR boundaries. API/Application/Domain models must
+  cross through explicit boundary mappers; Dashboard-only wrappers may add
+  presentation state but must not mirror or redefine the JSON contract.
+- The only frozen wire exception is the exact Dashboard-local
+  `LoreDeltaDiscoveredEvent` and `UniverseEnrichmentProgressEvent` SignalR pair.
+  Universe HTTP DTOs are not exempt, and the exception must not gain types or
+  fields.
+- Preserve contract `[JsonPropertyName]` values, casing, defaults, nullability,
+  collection shapes, and editor-required mutability. Contract completeness
+  includes ingestion `count_unit`, person/collection roles, complete AI
+  settings and `cpu_pressure`, and complete collection, playback/text-track,
+  and plugin fields; do not reintroduce narrower API or Web mirrors.
+- Keep `BoundaryContractGuardrailTests`, `WireContractSnapshotTests`, and
+  focused contract shape/round-trip tests as ratchets. New boundary debt and a
+  growing frozen exception are build failures.
 - Domain aggregates expose child collections and property bags as read-only views. Mutate them through explicit aggregate methods, and keep repository hydration explicit instead of making aggregate internals public again.
 - Razor components must not contain direct SQL. API endpoints should move SQL-heavy behavior into repositories/read services when touched.
 - When product concepts, navigation, editing flows, database lifecycle, Docker startup, or CI checks change, update README/docs/AGENTS/CLAUDE and relevant `.agent` guidance in the same change.
@@ -155,6 +171,13 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
   - Holds core aggregates, entities, enums, constants, and interfaces.
   - This project defines things like assets, editions, works, collections, universes, profiles, and the contracts other layers implement.
   - `Services/` also hosts the cross-cutting shared primitives every layer uses instead of re-implementing: `StringHelpers` (FirstNonBlank/FirstNonBlankOr), `MediaTypeParser` (canonical media-type alias table), `Hashing` (Sha256Hex, DeterministicGuid), `MediaMimeTypes`, `MediaEngineJson` (cached JsonSerializerOptions), and `EpisodePatterns` (shared SxxExx regex). Guardrail tests ban private re-declarations.
+
+- `src/MediaEngine.Contracts`
+  - The canonical HTTP and SignalR wire assembly shared by Engine and Dashboard.
+  - Owns request, response, nested payload, and real-time event shapes; it does
+    not own Dashboard presentation state or persistence projection rows.
+  - Boundary mappers adapt internal models into these contracts when the shapes
+    are not already identical.
 
 - `src/MediaEngine.Storage`
   - SQLite repositories, embedded schema bootstrap, startup migrations, and config loading.

@@ -1,7 +1,7 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Endpoints;
-using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;

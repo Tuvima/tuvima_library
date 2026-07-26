@@ -5,7 +5,7 @@ using MudBlazor;
 namespace MediaEngine.Web.Services.Playback;
 
 public sealed record FavoriteMembership(Guid CollectionId, Guid? ItemId, bool IsFavorite);
-public sealed record FavoriteListSnapshot(Guid? CollectionId, IReadOnlyList<CollectionItemViewModel> Items);
+public sealed record FavoriteListSnapshot(Guid? CollectionId, IReadOnlyList<CollectionItemDto> Items);
 
 public sealed class FavoriteService : IDisposable
 {
@@ -167,7 +167,7 @@ public sealed class FavoriteService : IDisposable
     private sealed class FavoriteState
     {
         public Guid? CollectionId { get; init; }
-        public IReadOnlyList<CollectionItemViewModel> Items { get; init; } = [];
+        public IReadOnlyList<CollectionItemDto> Items { get; init; } = [];
         public HashSet<Guid> WorkIds { get; init; } = [];
         public Dictionary<Guid, Guid> ItemIdsByWorkId { get; init; } = [];
     }

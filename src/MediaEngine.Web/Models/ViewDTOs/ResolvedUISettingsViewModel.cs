@@ -1,4 +1,6 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.Settings;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -15,6 +17,8 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 /// </summary>
 public sealed class ResolvedUISettingsViewModel
 {
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
     [JsonPropertyName("device_class")]
     public string DeviceClass { get; set; } = "web";
 
@@ -66,6 +70,12 @@ public sealed class ResolvedUISettingsViewModel
     /// <summary>Returns <c>true</c> if the named page is disabled by device constraints.</summary>
     public bool IsPageDisabled(string page) =>
         Constraints.PagesDisabled.Contains(page, StringComparer.OrdinalIgnoreCase);
+
+    public static ResolvedUISettingsViewModel FromContract(ResolvedUISettingsDto settings) =>
+        JsonSerializer.Deserialize<ResolvedUISettingsViewModel>(
+            JsonSerializer.Serialize(settings, JsonOptions),
+            JsonOptions)
+        ?? throw new InvalidOperationException("Could not map resolved UI settings for presentation.");
 }
 
 /// <summary>Device-level hard constraints that profile preferences cannot override.</summary>

@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -25,7 +26,8 @@ public sealed partial class EngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery("/collections/managed", profileId);
-            var collections = await _http.GetFromJsonAsync<List<ManagedCollectionViewModel>>(url, ct) ?? [];
+            var contracts = await _http.GetFromJsonAsync<List<ManagedCollectionDto>>(url, ct) ?? [];
+            var collections = contracts.Select(ManagedCollectionViewModel.FromContract).ToList();
             foreach (var collection in collections)
             {
                 if (collection.SquareArtworkUrl is not null)
@@ -50,7 +52,8 @@ public sealed partial class EngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery("/collections/catalog", profileId);
-            var collections = await _http.GetFromJsonAsync<List<CollectionManagementCatalogViewModel>>(url, ct) ?? [];
+            var contracts = await _http.GetFromJsonAsync<List<CollectionManagementCatalogDto>>(url, ct) ?? [];
+            var collections = contracts.Select(CollectionManagementCatalogViewModel.FromContract).ToList();
             foreach (var collection in collections)
             {
                 NormalizeManagedCollectionArtwork(collection);
@@ -75,7 +78,8 @@ public sealed partial class EngineApiClient
         try
         {
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}/summary", profileId);
-            var collection = await _http.GetFromJsonAsync<CollectionManagementCatalogViewModel>(url, ct);
+            var contract = await _http.GetFromJsonAsync<CollectionManagementCatalogDto>(url, ct);
+            var collection = contract is null ? null : CollectionManagementCatalogViewModel.FromContract(contract);
             if (collection is not null)
                 NormalizeManagedCollectionArtwork(collection);
 

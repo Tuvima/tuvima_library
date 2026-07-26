@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MediaEngine.Contracts.Plugins;
 
 namespace MediaEngine.Api.Services.Plugins;
 
@@ -61,17 +62,4 @@ public sealed class PluginJobStateService
         update(job);
         _jobs[key] = job;
     }
-}
-
-public sealed class PluginJobSnapshot
-{
-    public Guid Id { get; init; }
-    public string PluginId { get; init; } = "";
-    public string JobType { get; init; } = "";
-    public string Status { get; set; } = "queued";
-    public DateTimeOffset StartedAt { get; init; }
-    public DateTimeOffset? CompletedAt { get; set; }
-    public int AssetsScanned { get; set; }
-    public int SegmentsWritten { get; set; }
-    public string? Error { get; set; }
 }

@@ -97,11 +97,11 @@ internal static class AiEnrichmentEndpoints
             CancellationToken ct) =>
         {
             var result = await parser.ParseAsync(request.Query, ct);
-            return Results.Ok(result);
+            return Results.Ok(AiContractMapper.ToContract(result));
         })
         .WithName("IntentSearch")
         .WithSummary("Parse a natural language search query into structured filters.")
-        .Produces<IntentSearchResult>(StatusCodes.Status200OK)
+        .Produces<IntentSearchResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // ── POST /ai/enrich/extract-url ───────────────────────────────────────
@@ -112,21 +112,15 @@ internal static class AiEnrichmentEndpoints
         {
             var result = await extractor.ExtractAsync(request.Url, ct);
             return result.Success
-                ? Results.Ok(result)
+                ? Results.Ok(AiContractMapper.ToContract(result))
                 : ApiErrors.BadRequest(result.ErrorMessage ?? "Failed to extract metadata from the URL.");
         })
         .WithName("ExtractUrlMetadata")
         .WithSummary("Extract structured metadata from a URL using AI. Requires Curator or Administrator role.")
-        .Produces<UrlExtractionResult>(StatusCodes.Status200OK)
+        .Produces<UrlExtractionResponse>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         return group;
     }
 }
-
-/// <summary>Request body for the intent search endpoint.</summary>
-internal sealed record IntentSearchRequest(string Query);
-
-/// <summary>Request body for the URL metadata extraction endpoint.</summary>
-internal sealed record UrlExtractRequest(string Url);

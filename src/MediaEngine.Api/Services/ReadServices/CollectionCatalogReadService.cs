@@ -2,6 +2,7 @@ using System.Globalization;
 using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -45,7 +46,7 @@ public sealed class CollectionCatalogReadService(
             var count = string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase)
                 ? (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false)).Count
                 : GetManagedCollectionItemCount(collection, materializedCounts, []);
-            results.Add(ManagedCollectionDto.FromDomain(collection, count, activeProfile));
+            results.Add(ManagedCollectionMapper.FromDomain(collection, count, activeProfile));
         }
 
         return results;
@@ -132,7 +133,7 @@ public sealed class CollectionCatalogReadService(
                 },
                 ct).ConfigureAwait(false);
 
-            dtos.Add(CollectionManagementCatalogDto.FromDomain(
+            dtos.Add(ManagedCollectionMapper.ToCatalog(
                 representative.Collection,
                 workIds.Count,
                 activeProfile,

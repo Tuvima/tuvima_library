@@ -1,4 +1,8 @@
 ﻿using System.Text;
+using DevHarnessResetResponse = MediaEngine.Contracts.Development.DevHarnessResetResponse;
+using DevHarnessReingestResponse = MediaEngine.Contracts.Development.DevHarnessReingestResponse;
+using DevHarnessWipeResponse = MediaEngine.Contracts.Development.DevHarnessWipeResponse;
+using ContractWipeScope = MediaEngine.Contracts.Development.DevHarnessWipeScope;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -1237,14 +1241,12 @@ public static class DevSeedEndpoints
             ? DevHarnessResetService.FullScopeName
             : DevHarnessResetService.GeneratedStateScopeName;
 
-        return Results.Ok(new
-        {
-            message = startEngineAfterWipe
+        return Results.Ok(new DevHarnessWipeResponse(
+            startEngineAfterWipe
                 ? $"Wipe complete ({scopeName}). Database reinitialized. Ready for seeding."
                 : $"Wipe complete ({scopeName}). Database reinitialized. Watcher resume deferred.",
-            wipe_scope = scopeName,
-            details = result.Details,
-        });
+            scopeName,
+            result.Details));
     }
 
     private static async Task<IResult> ReingestLibraryAsync(
@@ -1281,14 +1283,12 @@ public static class DevSeedEndpoints
             "[ReingestLibrary] Reingest scan queued for {Count} configured source folder(s); FSW remains paused",
             scanTargets.Count);
 
-        return Results.Ok(new
-        {
-            message = "Reingest initiated: database/generated state reset, configured source folders enqueued, FSW remains paused.",
-            reset = resetResult,
-            scanned_directories = scanTargets.Select(target => target.Path).ToArray(),
-            source_count = scanTargets.Count,
-            fsw_paused = true,
-        });
+        return Results.Ok(new DevHarnessReingestResponse(
+            "Reingest initiated: database/generated state reset, configured source folders enqueued, FSW remains paused.",
+            MapResetResult(resetResult),
+            scanTargets.Select(target => target.Path).ToArray(),
+            scanTargets.Count,
+            true));
     }
 
     // â”€â”€ POST /dev/full-test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1396,7 +1396,7 @@ public static class DevSeedEndpoints
                 ? "Full test initiated: database wiped, library cleared, seed files enqueued directly into the pipeline (race-free), FSW paused."
                 : "Full test initiated (no wipe): seed files enqueued directly into the pipeline (race-free), FSW paused.",
             wipe_performed = wipe,
-            wipe = wipeResult,
+            wipe = wipeResult is null ? null : MapResetResult(wipeResult),
             seed = seedResult,
             scanned_directories = scannedPaths,
             total_test_files = SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length,
@@ -1841,4 +1841,10 @@ public static class DevSeedEndpoints
             non_terminal_details = nonTerminalDetails
         });
     }
+
+    private static DevHarnessResetResponse MapResetResult(DevHarnessResetResult source) => new(
+        source.Scope == DevHarnessWipeScope.Full
+            ? ContractWipeScope.Full
+            : ContractWipeScope.GeneratedState,
+        source.Details);
 }
