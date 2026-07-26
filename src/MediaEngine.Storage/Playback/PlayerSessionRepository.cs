@@ -104,7 +104,7 @@ public sealed class PlayerSessionRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
             var now = DateTimeOffset.UtcNow;
@@ -150,8 +150,6 @@ public sealed class PlayerSessionRepository
                     sourceLabel,
                     now,
                 }, tx);
-
-            return Task.CompletedTask;
         }, ct);
     }
 
@@ -172,7 +170,7 @@ public sealed class PlayerSessionRepository
             return Task.CompletedTask;
         }
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
@@ -239,7 +237,6 @@ public sealed class PlayerSessionRepository
                     now,
                 }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 
@@ -251,7 +248,7 @@ public sealed class PlayerSessionRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
@@ -272,14 +269,13 @@ public sealed class PlayerSessionRepository
                 WHERE profile_id = @profileId;
                 """, new { profileId, now = DateTimeOffset.UtcNow }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 
     public Task RemoveQueueItemAsync(Guid profileId, Guid queueItemId, long? expectedStateVersion, bool force, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
@@ -348,14 +344,13 @@ public sealed class PlayerSessionRepository
                     now = DateTimeOffset.UtcNow,
                 }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 
     public Task ClearQueueAsync(Guid profileId, long? expectedStateVersion, bool force, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
@@ -373,7 +368,6 @@ public sealed class PlayerSessionRepository
                 WHERE profile_id = @profileId;
                 """, new { profileId, now = DateTimeOffset.UtcNow }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 
@@ -435,7 +429,7 @@ public sealed class PlayerSessionRepository
     public Task TakeoverAsync(Guid profileId, Guid sessionId, string deviceId, string client, bool force, TimeSpan staleAfter, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var state = conn.QueryFirstOrDefault<PlayerSessionRow>("""
                 SELECT profile_id AS ProfileId,
@@ -483,7 +477,6 @@ public sealed class PlayerSessionRepository
                     last_heartbeat_at = excluded.last_heartbeat_at;
                 """, new { profileId, sessionId, deviceId, client, now }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 

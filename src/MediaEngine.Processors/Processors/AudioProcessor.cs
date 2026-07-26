@@ -91,12 +91,12 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
             return Task.FromResult(new ProcessorResult
             {
-                FilePath             = filePath,
-                DetectedType         = topType,
-                Claims               = claims,
-                MediaTypeCandidates  = candidates,
-                CoverImage           = coverImage,
-                CoverImageMimeType   = coverMimeType,
+                FilePath = filePath,
+                DetectedType = topType,
+                Claims = claims,
+                MediaTypeCandidates = candidates,
+                CoverImage = coverImage,
+                CoverImageMimeType = coverMimeType,
             });
         }
         finally
@@ -109,67 +109,58 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
     private static AudioContainer DetectContainer(string filePath)
     {
-        try
-        {
-            Span<byte> header = stackalloc byte[16];
-            using var fs = new FileStream(
-                filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                bufferSize: 16, FileOptions.None);
-
-            int read = fs.Read(header);
-            if (read < 4) return AudioContainer.Unknown;
-
-            // FLAC: 66 4C 61 43 ("fLaC")
-            if (header[0] == 0x66 && header[1] == 0x4C &&
-                header[2] == 0x61 && header[3] == 0x43)
-                return AudioContainer.Flac;
-
-            // OGG: 4F 67 67 53 ("OggS")
-            if (header[0] == 0x4F && header[1] == 0x67 &&
-                header[2] == 0x67 && header[3] == 0x53)
-                return AudioContainer.Ogg;
-
-            // MP3: ID3v2 header (49 44 33 = "ID3")
-            if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33)
-                return AudioContainer.Mp3;
-
-            // AAC ADTS: sync word FF F1/F9.
-            if (string.Equals(Path.GetExtension(filePath), ".aac", StringComparison.OrdinalIgnoreCase)
-                && header[0] == 0xFF
-                && (header[1] & 0xF6) == 0xF0)
-                return AudioContainer.Aac;
-
-            // MP3: MPEG sync word (FF Fx where x >= B0)
-            if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)
-                return AudioContainer.Mp3;
-
-            // ISO BMFF ftyp box at offset 4 (shared with video — distinguish by extension)
-            if (read >= 8 &&
-                header[4] == 0x66 && header[5] == 0x74 &&
-                header[6] == 0x79 && header[7] == 0x70)
-            {
-                var ext = Path.GetExtension(filePath).ToLowerInvariant();
-                return ext switch
-                {
-                    ".m4b" => AudioContainer.M4b,
-                    ".m4a" => AudioContainer.M4a,
-                    // Other ftyp files (.mp4, .m4v) are video — not our concern.
-                    _ => AudioContainer.Unknown,
-                };
-            }
-
-            // WAV: RIFF....WAVE
-            if (read >= 12 &&
-                header[0] == 0x52 && header[1] == 0x49 &&
-                header[2] == 0x46 && header[3] == 0x46 &&
-                header[8] == 0x57 && header[9] == 0x41 &&
-                header[10] == 0x56 && header[11] == 0x45)
-                return AudioContainer.Wav;
-
+        Span<byte> header = stackalloc byte[16];
+        if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < 4)
             return AudioContainer.Unknown;
+
+        // FLAC: 66 4C 61 43 ("fLaC")
+        if (header[0] == 0x66 && header[1] == 0x4C &&
+            header[2] == 0x61 && header[3] == 0x43)
+            return AudioContainer.Flac;
+
+        // OGG: 4F 67 67 53 ("OggS")
+        if (header[0] == 0x4F && header[1] == 0x67 &&
+            header[2] == 0x67 && header[3] == 0x53)
+            return AudioContainer.Ogg;
+
+        // MP3: ID3v2 header (49 44 33 = "ID3")
+        if (header[0] == 0x49 && header[1] == 0x44 && header[2] == 0x33)
+            return AudioContainer.Mp3;
+
+        // AAC ADTS: sync word FF F1/F9.
+        if (string.Equals(Path.GetExtension(filePath), ".aac", StringComparison.OrdinalIgnoreCase)
+            && header[0] == 0xFF
+            && (header[1] & 0xF6) == 0xF0)
+            return AudioContainer.Aac;
+
+        // MP3: MPEG sync word (FF Fx where x >= B0)
+        if (header[0] == 0xFF && (header[1] & 0xE0) == 0xE0)
+            return AudioContainer.Mp3;
+
+        // ISO BMFF ftyp box at offset 4 (shared with video — distinguish by extension)
+        if (read >= 8 &&
+            header[4] == 0x66 && header[5] == 0x74 &&
+            header[6] == 0x79 && header[7] == 0x70)
+        {
+            var ext = Path.GetExtension(filePath).ToLowerInvariant();
+            return ext switch
+            {
+                ".m4b" => AudioContainer.M4b,
+                ".m4a" => AudioContainer.M4a,
+                // Other ftyp files (.mp4, .m4v) are video — not our concern.
+                _ => AudioContainer.Unknown,
+            };
         }
-        catch (IOException)               { return AudioContainer.Unknown; }
-        catch (UnauthorizedAccessException) { return AudioContainer.Unknown; }
+
+        // WAV: RIFF....WAVE
+        if (read >= 12 &&
+            header[0] == 0x52 && header[1] == 0x49 &&
+            header[2] == 0x46 && header[3] == 0x46 &&
+            header[8] == 0x57 && header[9] == 0x41 &&
+            header[10] == 0x56 && header[11] == 0x45)
+            return AudioContainer.Wav;
+
+        return AudioContainer.Unknown;
     }
 
     // ── Claim construction ───────────────────────────────────────────────
@@ -278,13 +269,13 @@ public sealed partial class AudioProcessor : IMediaProcessor
         // Container format
         var containerLabel = container switch
         {
-            AudioContainer.Mp3  => "MP3",
-            AudioContainer.M4a  => "M4A",
-            AudioContainer.M4b  => "M4B",
+            AudioContainer.Mp3 => "MP3",
+            AudioContainer.M4a => "M4A",
+            AudioContainer.M4b => "M4B",
             AudioContainer.Flac => "FLAC",
-            AudioContainer.Ogg  => "OGG",
-            AudioContainer.Wav  => "WAV",
-            _                   => "Unknown",
+            AudioContainer.Ogg => "OGG",
+            AudioContainer.Wav => "WAV",
+            _ => "Unknown",
         };
         claims.Add(Claim("container", containerLabel, 1.0));
 
@@ -313,11 +304,11 @@ public sealed partial class AudioProcessor : IMediaProcessor
     {
         return container switch
         {
-            AudioContainer.M4b  => [new() { Type = MediaType.Audiobooks, Confidence = 0.98, Reason = "M4B container (chapter markers)" }],
-            AudioContainer.Flac => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "FLAC format (lossless music)" }],
-            AudioContainer.Ogg  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "OGG format (music)" }],
-            AudioContainer.Wav  => [new() { Type = MediaType.Music,      Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
-            AudioContainer.Aac  => [new() { Type = MediaType.Music,      Confidence = 0.90, Reason = "AAC audio stream" }],
+            AudioContainer.M4b => [new() { Type = MediaType.Audiobooks, Confidence = 0.98, Reason = "M4B container (chapter markers)" }],
+            AudioContainer.Flac => [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "FLAC format (lossless music)" }],
+            AudioContainer.Ogg => [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "OGG format (music)" }],
+            AudioContainer.Wav => [new() { Type = MediaType.Music, Confidence = 0.95, Reason = "WAV format (uncompressed audio)" }],
+            AudioContainer.Aac => [new() { Type = MediaType.Music, Confidence = 0.90, Reason = "AAC audio stream" }],
 
             // MP3 and M4A are ambiguous (could be audiobook or music).
             // Use tag-based heuristics to produce candidates when signals are present.
@@ -626,18 +617,9 @@ public sealed partial class AudioProcessor : IMediaProcessor
 
     // ── Helpers ──────────────────────────────────────────────────────────
 
-    private static ExtractedClaim Claim(string key, string value, double confidence) => new()
-    {
-        Key        = key,
-        Value      = value,
-        Confidence = confidence,
-    };
+    private static ExtractedClaim Claim(string key, string value, double confidence) =>
+        ProcessorClaimFactory.Create(key, value, confidence);
 
-    private static ProcessorResult Corrupt(string filePath, string reason) => new()
-    {
-        FilePath      = filePath,
-        DetectedType  = MediaType.Unknown,
-        IsCorrupt     = true,
-        CorruptReason = reason,
-    };
+    private static ProcessorResult Corrupt(string filePath, string reason) =>
+        ProcessorResultFactory.Corrupt(filePath, MediaType.Unknown, reason);
 }

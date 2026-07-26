@@ -69,7 +69,7 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
             var target = ChooseCanonical(siblings);
             foreach (var source in siblings.Where(row => row.WorkId != target.WorkId))
             {
-                // Each merge runs through its own ExecuteInTransactionAsync call so the
+                // Each merge runs through its own ExecuteWriteAsync call so the
                 // (non-reentrant) global write lock is acquired and released once per
                 // merge, sequentially. This method's own connection (`conn`, above) is
                 // read-only and holds no lock, so there is no nesting/deadlock risk here.
@@ -103,7 +103,7 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
             .First();
 
     private Task<int> MergeWorkIntoAsync(Guid sourceWorkId, Guid targetWorkId, string qid, CancellationToken ct) =>
-        _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var now = DateTimeOffset.UtcNow.ToString("O");
             var args = new
@@ -190,7 +190,7 @@ public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliat
                   );
                 """, args, tx);
 
-            return Task.FromResult(1);
+            return 1;
         }, ct);
 
     private sealed class ReadWorkIdentityRow

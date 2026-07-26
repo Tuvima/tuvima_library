@@ -127,7 +127,7 @@ public sealed class DatabaseConnectionGuardrailTests
     /// Reads the seeded list of files still calling <c>SqliteConnection.BeginTransaction()</c>
     /// directly. See <c>BeginTransactionGuardrailAllowlist.txt</c> for the migration note —
     /// entries are removed as wave 2 of stage 2 converts each call site to
-    /// <c>IDatabaseConnection.ExecuteInTransactionAsync</c>; new entries are forbidden.
+    /// <c>IDatabaseConnection.ExecuteWriteAsync</c>; new entries are forbidden.
     /// </summary>
     private static HashSet<string> ReadBeginTransactionAllowlist(string repoRoot)
     {

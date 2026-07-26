@@ -401,12 +401,13 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public async Task InsertRelationshipsAsync(IReadOnlyList<CollectionRelationship> relationships, CancellationToken ct = default)
+    public Task InsertRelationshipsAsync(IReadOnlyList<CollectionRelationship> relationships, CancellationToken ct = default)
     {
-        if (relationships.Count == 0) return;
         ct.ThrowIfCancellationRequested();
+        if (relationships.Count == 0)
+            return Task.CompletedTask;
 
-        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             const string sql = """
                 INSERT OR IGNORE INTO collection_relationships (id, collection_id, rel_type, rel_qid, rel_label, confidence, discovered_at)
@@ -415,13 +416,13 @@ public sealed class CollectionRepository : ICollectionRepository
 
             foreach (var relationship in relationships)
             {
+                innerCt.ThrowIfCancellationRequested();
                 // Use the entity's CLR property names directly so SQLite receives
                 // the exact parameter names Dapper binds for Guid/DateTimeOffset handlers.
-                await conn.ExecuteAsync(new CommandDefinition(
+                conn.Execute(new CommandDefinition(
                     sql,
                     relationship,
-                    transaction: tx,
-                    cancellationToken: innerCt));
+                    transaction: tx));
             }
         }, ct);
     }
@@ -493,34 +494,31 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public async Task AssignWorkToCollectionAsync(Guid workId, Guid collectionId, CancellationToken ct = default)
+    public Task AssignWorkToCollectionAsync(Guid workId, Guid collectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
+            innerCt.ThrowIfCancellationRequested();
             conn.Execute(
                 "UPDATE works SET collection_id = @collectionId WHERE id = @workId;",
-                new { collectionId, workId });
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+                new { collectionId, workId },
+                transaction: tx);
+        }, ct);
     }
 
     /// <inheritdoc/>
-    public async Task MergeCollectionsAsync(Guid keepCollectionId, Guid mergeCollectionId, CancellationToken ct = default)
+    public Task MergeCollectionsAsync(Guid keepCollectionId, Guid mergeCollectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         var keep  = keepCollectionId;
         var merge = mergeCollectionId;
 
-        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
+            innerCt.ThrowIfCancellationRequested();
             // Re-assign all Works from mergeCollection to keepCollection.
             conn.Execute(
                 "UPDATE works SET collection_id = @keep WHERE collection_id = @merge;",
@@ -541,7 +539,6 @@ public sealed class CollectionRepository : ICollectionRepository
                 "DELETE FROM collections WHERE id = @merge;",
                 new { merge }, transaction: tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 
@@ -807,29 +804,25 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public async Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default)
+    public Task SetParentCollectionAsync(Guid collectionId, Guid? parentCollectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         if (parentCollectionId == collectionId)
-            return;
+            return Task.CompletedTask;
 
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
+            innerCt.ThrowIfCancellationRequested();
             conn.Execute(
                 "UPDATE collections SET parent_collection_id = @parentCollectionId WHERE id = @id;",
                 new
                 {
                     parentCollectionId,
                     id = collectionId,
-                });
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+                },
+                transaction: tx);
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -923,6 +916,40 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<Collection>> GetByIdsAsync(
+        IEnumerable<Guid> collectionIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(collectionIds);
+
+        var orderedIds = collectionIds.Distinct().ToList();
+        if (orderedIds.Count == 0)
+            return Task.FromResult<IReadOnlyList<Collection>>([]);
+
+        using var conn = _db.CreateConnection();
+        var collectionsById = new Dictionary<Guid, Collection>();
+        foreach (var batch in orderedIds.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var rows = conn.Query<Collection>($"""
+                SELECT {CollectionSelectColumns}
+                FROM collections
+                WHERE id IN @Ids;
+                """, new { Ids = batch.Select(GuidSql.ToBlob).ToArray() });
+
+            foreach (var collection in rows)
+                collectionsById[collection.Id] = NormalizeCollection(collection);
+        }
+
+        IReadOnlyList<Collection> result = orderedIds
+            .Where(collectionsById.ContainsKey)
+            .Select(id => collectionsById[id])
+            .ToList();
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public Task<Collection?> FindByQidAsync(string qid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -969,7 +996,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Edition> CreateEditionAsync(Guid workId, string? formatLabel, string? wikidataQid, CancellationToken ct = default)
+    public Task<Edition> CreateEditionAsync(Guid workId, string? formatLabel, string? wikidataQid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -981,10 +1008,9 @@ public sealed class CollectionRepository : ICollectionRepository
             WikidataQid = wikidataQid,
         };
 
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
+            innerCt.ThrowIfCancellationRequested();
             conn.Execute("""
                 INSERT INTO editions (id, work_id, format_label, wikidata_qid)
                 VALUES (@id, @workId, @formatLabel, @wikidataQid);
@@ -995,76 +1021,68 @@ public sealed class CollectionRepository : ICollectionRepository
                     workId      = edition.WorkId,
                     formatLabel = edition.FormatLabel,
                     wikidataQid = edition.WikidataQid,
-                });
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
-
-        return edition;
+                },
+                transaction: tx);
+            return edition;
+        }, ct);
     }
 
     /// <inheritdoc/>
-    public async Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default)
+    public Task UpdateMatchLevelAsync(Guid workId, string matchLevel, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
+            innerCt.ThrowIfCancellationRequested();
             conn.Execute(
                 "UPDATE works SET match_level = @matchLevel WHERE id = @workId;",
-                new { matchLevel, workId });
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+                new { matchLevel, workId },
+                transaction: tx);
+        }, ct);
     }
 
     // ── Managed Collection methods ─────────────────────────────────────────────
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<Collection>> GetByTypeAsync(string collectionType, CancellationToken ct = default)
+    public Task<IReadOnlyList<Collection>> GetByTypeAsync(string collectionType, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var collections = (await conn.QueryAsync<Collection>(
+        var collections = conn.Query<Collection>(
             $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type = @CollectionType ORDER BY display_name",
-            new { CollectionType = collectionType })).ToList();
+            new { CollectionType = collectionType }).ToList();
         collections.ForEach(h => NormalizeCollection(h));
-        return collections;
+        return Task.FromResult<IReadOnlyList<Collection>>(collections);
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<Collection>> GetManagedCollectionsAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<Collection>> GetManagedCollectionsAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var collections = (await conn.QueryAsync<Collection>(
-            $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type IN ('Custom', 'Playlist') ORDER BY collection_type, display_name")).ToList();
+        var collections = conn.Query<Collection>(
+            $"SELECT {CollectionSelectColumns} FROM collections WHERE collection_type IN ('Custom', 'Playlist') ORDER BY collection_type, display_name").ToList();
         collections.ForEach(h => NormalizeCollection(h));
-        return collections;
+        return Task.FromResult<IReadOnlyList<Collection>>(collections);
     }
 
     /// <inheritdoc/>
-    public async Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default)
+    public Task<Dictionary<string, int>> GetCountsByTypeAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<(string CollectionType, int Count)>(
+        var rows = conn.Query<(string CollectionType, int Count)>(
             "SELECT collection_type AS CollectionType, COUNT(*) AS Count FROM collections WHERE collection_type IN ('Custom', 'Playlist') GROUP BY collection_type");
-        return rows.ToDictionary(r => r.CollectionType, r => r.Count);
+        return Task.FromResult(rows.ToDictionary(r => r.CollectionType, r => r.Count));
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default)
+    public Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var items = await conn.QueryAsync<CollectionItem>(
+        var items = conn.Query<CollectionItem>(
             """
             SELECT id AS Id, collection_id AS CollectionId, work_id AS WorkId,
                    sort_order AS SortOrder, progress_state AS ProgressState,
@@ -1073,126 +1091,155 @@ public sealed class CollectionRepository : ICollectionRepository
             ORDER BY sort_order LIMIT @Limit
             """,
             new { CollectionId = collectionId, Limit = limit });
-        return items.ToList();
+        return Task.FromResult<IReadOnlyList<CollectionItem>>(items.ToList());
     }
 
     /// <inheritdoc/>
-    public async Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default)
+    public Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        return await conn.ExecuteScalarAsync<int>(
+        var count = conn.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM collection_items WHERE collection_id = @CollectionId",
             new { CollectionId = collectionId });
+        return Task.FromResult(count);
     }
 
     /// <inheritdoc/>
-    public async Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default)
+    public Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var ids = collectionIds.Distinct().ToList();
         if (ids.Count == 0)
-            return [];
+            return Task.FromResult<Dictionary<Guid, int>>([]);
 
         using var conn = _db.CreateConnection();
         var counts = ids.ToDictionary(id => id, _ => 0);
-        var parameters = ids.Select((_, index) => $"@p{index}").ToArray();
-        using var cmd = conn.CreateCommand();
-        cmd.CommandText = $"""
-            SELECT collection_id AS CollectionId, COUNT(*) AS Count
-            FROM collection_items
-            WHERE collection_id IN ({string.Join(", ", parameters)})
-            GROUP BY collection_id;
-            """;
+        foreach (var batch in ids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var parameters = batch.Select((_, index) => $"@p{index}").ToArray();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"""
+                SELECT collection_id AS CollectionId, COUNT(*) AS Count
+                FROM collection_items
+                WHERE collection_id IN ({string.Join(", ", parameters)})
+                GROUP BY collection_id;
+                """;
 
-        for (var i = 0; i < ids.Count; i++)
-            cmd.Parameters.AddWithValue(parameters[i], GuidSql.ToBlob(ids[i]));
+            for (var i = 0; i < batch.Length; i++)
+                cmd.Parameters.AddWithValue(parameters[i], GuidSql.ToBlob(batch[i]));
 
-        using var reader = await cmd.ExecuteReaderAsync(ct);
-        while (await reader.ReadAsync(ct))
-            counts[GuidSql.FromDb(reader.GetValue(0))] = reader.GetInt32(1);
-
-        return counts;
-    }
-
-    /// <inheritdoc/>
-    public async Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
-            "UPDATE collections SET is_enabled = @Enabled, modified_at = datetime('now') WHERE id = @Id",
-            new { Id = collectionId, Enabled = enabled ? 1 : 0 });
-    }
-
-    /// <inheritdoc/>
-    public async Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
-            "UPDATE collections SET is_featured = @Featured, modified_at = datetime('now') WHERE id = @Id",
-            new { Id = collectionId, Featured = featured ? 1 : 0 });
-    }
-
-    /// <inheritdoc/>
-    public async Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
-            """
-            UPDATE collections
-            SET square_artwork_path = @LocalPath,
-                square_artwork_mime_type = @MimeType,
-                modified_at = datetime('now')
-            WHERE id = @Id
-            """,
-            new { Id = collectionId, LocalPath = localPath, MimeType = mimeType });
-    }
-
-    /// <inheritdoc/>
-    public async Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default)
-    {
-        ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
-            """
-            INSERT INTO collection_items (id, collection_id, work_id, sort_order, progress_state, progress_position, added_at)
-            VALUES (@Id, @CollectionId, @WorkId, @SortOrder, @ProgressState, @ProgressPosition, @AddedAt)
-            """,
-            new
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
             {
-                Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
-                item.CollectionId,
-                item.WorkId,
-                item.SortOrder,
-                item.ProgressState,
-                item.ProgressPosition,
-                AddedAt = item.AddedAt == default ? DateTimeOffset.UtcNow.ToString("o") : item.AddedAt.ToString("o")
-            });
+                ct.ThrowIfCancellationRequested();
+                counts[GuidSql.FromDb(reader.GetValue(0))] = reader.GetInt32(1);
+            }
+        }
+
+        return Task.FromResult(counts);
     }
 
     /// <inheritdoc/>
-    public async Task RemoveCollectionItemAsync(Guid itemId, CancellationToken ct = default)
+    public Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
-            "DELETE FROM collection_items WHERE id = @Id",
-            new { Id = itemId });
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(
+                "UPDATE collections SET is_enabled = @Enabled, modified_at = datetime('now') WHERE id = @Id",
+                new { Id = collectionId, Enabled = enabled ? 1 : 0 },
+                transaction: tx);
+        }, ct);
     }
 
     /// <inheritdoc/>
-    public async Task ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default)
+    public Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(
+                "UPDATE collections SET is_featured = @Featured, modified_at = datetime('now') WHERE id = @Id",
+                new { Id = collectionId, Featured = featured ? 1 : 0 },
+                transaction: tx);
+        }, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(
+                """
+                UPDATE collections
+                SET square_artwork_path = @LocalPath,
+                    square_artwork_mime_type = @MimeType,
+                    modified_at = datetime('now')
+                WHERE id = @Id
+                """,
+                new { Id = collectionId, LocalPath = localPath, MimeType = mimeType },
+                transaction: tx);
+        }, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(
+                """
+                INSERT INTO collection_items (id, collection_id, work_id, sort_order, progress_state, progress_position, added_at)
+                VALUES (@Id, @CollectionId, @WorkId, @SortOrder, @ProgressState, @ProgressPosition, @AddedAt)
+                """,
+                new
+                {
+                    Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                    item.CollectionId,
+                    item.WorkId,
+                    item.SortOrder,
+                    item.ProgressState,
+                    item.ProgressPosition,
+                    AddedAt = item.AddedAt == default ? DateTimeOffset.UtcNow.ToString("o") : item.AddedAt.ToString("o")
+                },
+                transaction: tx);
+        }, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task RemoveCollectionItemAsync(Guid itemId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(
+                "DELETE FROM collection_items WHERE id = @Id",
+                new { Id = itemId },
+                transaction: tx);
+        }, ct);
+    }
+
+    /// <inheritdoc/>
+    public Task ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
-        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             for (var index = 0; index < itemIds.Count; index++)
             {
-                await conn.ExecuteAsync(
+                innerCt.ThrowIfCancellationRequested();
+                conn.Execute(
                     """
                     UPDATE collection_items
                     SET sort_order = @SortOrder
@@ -1269,12 +1316,41 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        Collection? collection      = null;
-        var  works     = new Dictionary<Guid, Work>();
+        var collections = LoadCollectionsWithWorks(conn, [collectionId], ct);
+        return Task.FromResult<Collection?>(collections.Count == 0 ? null : collections[0]);
+    }
 
-        using (var cmd = conn.CreateCommand())
+    /// <inheritdoc/>
+    public Task<IReadOnlyList<Collection>> GetCollectionsWithWorksAsync(
+        IEnumerable<Guid> collectionIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(collectionIds);
+
+        var orderedIds = collectionIds.Distinct().ToList();
+        if (orderedIds.Count == 0)
+            return Task.FromResult<IReadOnlyList<Collection>>([]);
+
+        using var conn = _db.CreateConnection();
+        var collections = LoadCollectionsWithWorks(conn, orderedIds, ct);
+        return Task.FromResult<IReadOnlyList<Collection>>(collections);
+    }
+
+    private static List<Collection> LoadCollectionsWithWorks(
+        SqliteConnection conn,
+        IReadOnlyList<Guid> orderedIds,
+        CancellationToken ct)
+    {
+        var collectionsById = new Dictionary<Guid, Collection>();
+        var works = new Dictionary<Guid, Work>();
+
+        foreach (var batch in orderedIds.Chunk(SqliteBatching.MaxParametersPerQuery))
         {
-            cmd.CommandText = """
+            ct.ThrowIfCancellationRequested();
+            var parameterNames = batch.Select((_, index) => $"@p{index}").ToArray();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"""
                 SELECT h.id, h.universe_id, h.display_name, h.created_at,
                        h.universe_status, h.parent_collection_id, h.wikidata_qid,
                        h.collection_type, h.description, h.icon_name, h.scope,
@@ -1285,32 +1361,35 @@ public sealed class CollectionRepository : ICollectionRepository
                        w.wikidata_status, w.wikidata_checked_at, w.wikidata_qid
                 FROM   collections h
                 LEFT JOIN works w ON w.collection_id = h.id
-                WHERE  h.id = @CollectionId
-                ORDER  BY w.ordinal, w.id;
+                WHERE  h.id IN ({string.Join(", ", parameterNames)})
+                ORDER  BY h.id, w.ordinal, w.id;
                 """;
-            var p = cmd.CreateParameter();
-            p.ParameterName = "@CollectionId";
-            p.SqliteType = SqliteType.Blob;
-            p.Value = GuidSql.ToBlob(collectionId);
-            cmd.Parameters.Add(p);
+
+            for (var index = 0; index < batch.Length; index++)
+                cmd.Parameters.Add(parameterNames[index], SqliteType.Blob).Value = GuidSql.ToBlob(batch[index]);
 
             using var reader = cmd.ExecuteReader();
             while (reader.Read())
             {
-                if (collection is null)
+                ct.ThrowIfCancellationRequested();
+                var collectionId = ReadGuid(reader, 0);
+                if (!collectionsById.TryGetValue(collectionId, out var collection))
+                {
                     collection = ReadJoinedCollection(reader);
+                    collectionsById[collectionId] = collection;
+                }
 
                 AddJoinedWork(reader, collection, works);
             }
         }
 
-        if (collection is null)
-            return Task.FromResult<Collection?>(null);
-
         // Canonical values for file, leaf, parent, and root work rows.
         LoadCanonicalValuesForLoadedWorks(conn, works, visibleAssetsOnly: false);
 
-        return Task.FromResult<Collection?>(collection);
+        return orderedIds
+            .Where(collectionsById.ContainsKey)
+            .Select(id => collectionsById[id])
+            .ToList();
     }
 
     /// <inheritdoc/>
@@ -1327,24 +1406,24 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default)
+    public Task<Collection?> FindByRuleHashAsync(string ruleHash, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var collection = await conn.QueryFirstOrDefaultAsync<Collection>(
+        var collection = conn.QueryFirstOrDefault<Collection>(
             $"SELECT {CollectionSelectColumns} FROM collections WHERE rule_hash = @Hash LIMIT 1",
             new { Hash = ruleHash });
-        return collection is null ? null : NormalizeCollection(collection);
+        return Task.FromResult(collection is null ? null : NormalizeCollection(collection));
     }
 
     /// <inheritdoc/>
-    public async Task<int> CountCollectionBackfillCandidatesAsync(CancellationToken ct = default)
+    public Task<int> CountCollectionBackfillCandidatesAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
-        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+        var count = conn.ExecuteScalar<int>(
             $"""
             SELECT COUNT(DISTINCT w.id)
             FROM works w
@@ -1356,12 +1435,12 @@ public sealed class CollectionRepository : ICollectionRepository
               AND ma.status = 'Normal'
               AND COALESCE(ma.is_orphaned, 0) = 0
               AND {visibleAssetPredicate};
-            """,
-            cancellationToken: ct));
+            """);
+        return Task.FromResult(count);
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<CollectionBackfillCandidate>> GetCollectionBackfillCandidatesAsync(
+    public Task<IReadOnlyList<CollectionBackfillCandidate>> GetCollectionBackfillCandidatesAsync(
         int limit,
         Guid? afterWorkId = null,
         CancellationToken ct = default)
@@ -1369,13 +1448,13 @@ public sealed class CollectionRepository : ICollectionRepository
         ct.ThrowIfCancellationRequested();
         if (limit <= 0)
         {
-            return [];
+            return Task.FromResult<IReadOnlyList<CollectionBackfillCandidate>>([]);
         }
 
         using var conn = _db.CreateConnection();
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var cursorPredicate = afterWorkId.HasValue ? "AND hex(w.id) > @AfterWorkIdHex" : string.Empty;
-        var rows = await conn.QueryAsync<CollectionBackfillCandidate>(new CommandDefinition(
+        var rows = conn.Query<CollectionBackfillCandidate>(
             $"""
             SELECT w.id AS WorkId,
                    MIN(ma.id) AS MediaAssetId
@@ -1393,19 +1472,18 @@ public sealed class CollectionRepository : ICollectionRepository
             ORDER BY hex(w.id)
             LIMIT @Limit;
             """,
-            new { Limit = limit, AfterWorkIdHex = afterWorkId?.ToString("N").ToUpperInvariant() },
-            cancellationToken: ct));
+            new { Limit = limit, AfterWorkIdHex = afterWorkId?.ToString("N").ToUpperInvariant() });
 
-        return rows.AsList();
+        return Task.FromResult<IReadOnlyList<CollectionBackfillCandidate>>(rows.AsList());
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<Collection>> GetAllCollectionsForLocationAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var collections = await conn.QueryAsync<Collection>(
+        var collections = conn.Query<Collection>(
             $"SELECT {CollectionSelectColumns} FROM collections WHERE is_enabled = 1 ORDER BY display_name");
-        return collections.Select(NormalizeCollection).ToList();
+        return Task.FromResult<IReadOnlyList<Collection>>(collections.Select(NormalizeCollection).ToList());
     }
 }

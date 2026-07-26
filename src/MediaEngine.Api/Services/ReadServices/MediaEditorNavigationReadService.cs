@@ -383,10 +383,10 @@ public sealed class MediaEditorNavigationReadService(
         // released — IHydrationPipelineService may persist through its own
         // repository path, which could try to acquire the same non-reentrant write
         // lock. The media type is captured from inside the transaction body and the
-        // enqueue call is hoisted outside ExecuteInTransactionAsync to avoid that
+        // enqueue call is hoisted outside ExecuteWriteAsync to avoid that
         // deadlock risk.
         string? finalizedMediaType = null;
-        var finalized = await db.ExecuteInTransactionAsync<MembershipPreviewEnvelope?>(async (conn, tx, innerCt) =>
+        var finalized = await db.ExecuteWriteAsync<MembershipPreviewEnvelope?>((conn, tx, innerCt) =>
         {
             var entityRow = conn.QueryFirstOrDefault<MembershipEntityRow>("""
                 SELECT w.id             AS WorkId,
@@ -410,7 +410,7 @@ public sealed class MediaEditorNavigationReadService(
 
             var plan = ResolveMembershipPlan(entityRow, request);
             finalizedMediaType = plan.MediaType;
-            return await FinalizeMembershipPlanAsync(conn, tx, plan, request, applyChanges: true, innerCt);
+            return FinalizeMembershipPlan(conn, tx, plan, request, applyChanges: true, innerCt);
         }, ct);
 
         if (finalized is null)
@@ -1441,14 +1441,14 @@ public sealed class MediaEditorNavigationReadService(
             SelectedSecondaryTargetId: null);
     }
 
-    private static async Task<MembershipPreviewEnvelope> FinalizeMembershipPreviewAsync(
+    private static Task<MembershipPreviewEnvelope> FinalizeMembershipPreviewAsync(
         SqliteConnection conn,
         MembershipPlan plan,
         MembershipPreviewRequest request,
         CancellationToken ct) =>
-        await FinalizeMembershipPlanAsync(conn, null, plan, request, applyChanges: false, ct);
+        Task.FromResult(FinalizeMembershipPlan(conn, null, plan, request, applyChanges: false, ct));
 
-    private static async Task<MembershipPreviewEnvelope> FinalizeMembershipPlanAsync(
+    private static MembershipPreviewEnvelope FinalizeMembershipPlan(
         SqliteConnection conn,
         SqliteTransaction? tx,
         MembershipPlan plan,
@@ -1456,7 +1456,7 @@ public sealed class MediaEditorNavigationReadService(
         bool applyChanges,
         CancellationToken ct)
     {
-        var currentPath = await BuildMembershipPathAsync(conn, plan.CurrentEntityId, tx, ct);
+        var currentPath = BuildMembershipPath(conn, plan.CurrentEntityId, tx, ct);
 
         if (string.Equals(plan.Action, "none", StringComparison.OrdinalIgnoreCase))
         {
@@ -1474,7 +1474,7 @@ public sealed class MediaEditorNavigationReadService(
             if (applyChanges)
             {
                 conn.Execute("UPDATE works SET parent_key = @parentKey WHERE id = @workId;", new { parentKey = plan.RequestedParentKey, workId = plan.CurrentEntityId }, tx);
-                await UpsertContainerIdentityAsync(conn, tx!, plan);
+                UpsertContainerIdentity(conn, tx!, plan);
             }
 
             return new MembershipPreviewEnvelope("rename_container", currentPath, BuildRenamedContainerPath(plan), false, true, applyChanges, plan.CurrentEntityId, plan.CurrentRootEntityId, plan.CurrentParentEntityId, "The container identity will be updated.", null);
@@ -1509,7 +1509,7 @@ public sealed class MediaEditorNavigationReadService(
             return new MembershipPreviewEnvelope("move_season", currentPath, $"Season {plan.RequestedOrdinal.Value}", false, true, applyChanges, plan.CurrentEntityId, plan.CurrentRootEntityId, plan.CurrentParentEntityId, "The season will move to the requested position.", null);
         }
 
-        var resolvedTarget = await ResolveMembershipMoveTargetAsync(conn, tx, plan, request, applyChanges, ct);
+        var resolvedTarget = ResolveMembershipMoveTarget(conn, tx, plan, request, applyChanges, ct);
         if (!resolvedTarget.CanApply)
         {
             return new MembershipPreviewEnvelope(resolvedTarget.Action, currentPath, resolvedTarget.TargetPath, resolvedTarget.RequiresNewTarget, false, false, plan.CurrentEntityId, plan.CurrentRootEntityId, resolvedTarget.TargetParentEntityId, resolvedTarget.Message, resolvedTarget.ConflictMessage);
@@ -1523,11 +1523,11 @@ public sealed class MediaEditorNavigationReadService(
                 tx);
         }
 
-        var targetRootEntityId = await ResolveRootWorkIdAsync(conn, resolvedTarget.TargetParentEntityId ?? plan.CurrentEntityId, tx, ct);
+        var targetRootEntityId = ResolveRootWorkId(conn, resolvedTarget.TargetParentEntityId ?? plan.CurrentEntityId, tx, ct);
         return new MembershipPreviewEnvelope(resolvedTarget.Action, currentPath, resolvedTarget.TargetPath, resolvedTarget.RequiresNewTarget, true, applyChanges, plan.CurrentEntityId, targetRootEntityId, resolvedTarget.TargetParentEntityId, resolvedTarget.Message, null, resolvedTarget.Stage2TargetEntityId);
     }
 
-    private static async Task<ResolvedMoveTarget> ResolveMembershipMoveTargetAsync(
+    private static ResolvedMoveTarget ResolveMembershipMoveTarget(
         SqliteConnection conn,
         SqliteTransaction? tx,
         MembershipPlan plan,
@@ -1559,7 +1559,7 @@ public sealed class MediaEditorNavigationReadService(
                 }
 
                 showId = InsertParentWork(conn, tx!, plan.MediaType, plan.RequestedParentKey!, null, null);
-                await UpsertCanonicalValuesAsync(conn, tx!, showId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["show_name"] = plan.RequestedParentLabel });
+                UpsertCanonicalValues(conn, tx!, showId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["show_name"] = plan.RequestedParentLabel });
                 UpsertRetailIdentity(conn, tx!, showId.Value, retailShowSuggestion);
                 stage2TargetId = showId.Value;
             }
@@ -1583,7 +1583,7 @@ public sealed class MediaEditorNavigationReadService(
                     }
 
                     targetParentId = InsertParentWork(conn, tx!, plan.MediaType, BuildHierarchyParentKey(plan.RequestedParentLabel, $"S{seasonNumber.Value:D2}"), showId.Value, seasonNumber);
-                    await UpsertCanonicalValuesAsync(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["season_number"] = seasonNumber.Value.ToString(CultureInfo.InvariantCulture) });
+                    UpsertCanonicalValues(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["season_number"] = seasonNumber.Value.ToString(CultureInfo.InvariantCulture) });
                 }
             }
 
@@ -1608,7 +1608,7 @@ public sealed class MediaEditorNavigationReadService(
                 }
 
                 targetParentId = InsertParentWork(conn, tx!, plan.MediaType, plan.RequestedParentKey!, null, null);
-                await UpsertCanonicalValuesAsync(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["album"] = plan.RequestedParentLabel, ["artist"] = plan.RequestedSecondaryLabel });
+                UpsertCanonicalValues(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["album"] = plan.RequestedParentLabel, ["artist"] = plan.RequestedSecondaryLabel });
                 UpsertRetailIdentity(conn, tx!, targetParentId.Value, retailAlbumSuggestion);
                 stage2TargetId = targetParentId.Value;
             }
@@ -1627,7 +1627,7 @@ public sealed class MediaEditorNavigationReadService(
                 }
 
                 targetParentId = InsertParentWork(conn, tx!, plan.MediaType, plan.RequestedParentKey!, null, null);
-                await UpsertCanonicalValuesAsync(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["series"] = plan.RequestedParentLabel, ["author"] = plan.RequestedSecondaryLabel });
+                UpsertCanonicalValues(conn, tx!, targetParentId.Value, new Dictionary<string, string?> { ["title"] = plan.RequestedParentLabel, ["series"] = plan.RequestedParentLabel, ["author"] = plan.RequestedSecondaryLabel });
             }
 
             targetPath = BuildSeriesTargetPath(plan);
@@ -1650,7 +1650,7 @@ public sealed class MediaEditorNavigationReadService(
         return new ResolvedMoveTarget("move_child", targetParentId, targetPath, requiresNewTarget, true, "The item will move to the selected membership target.", null, stage2TargetId);
     }
 
-    private static async Task<string> BuildMembershipPathAsync(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
+    private static string BuildMembershipPath(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var launch = conn.QueryFirstOrDefault<MembershipEntityRow>("""
@@ -1722,7 +1722,7 @@ public sealed class MediaEditorNavigationReadService(
         return string.Join(" / ", parts.Where(part => !string.IsNullOrWhiteSpace(part)));
     }
 
-    private static async Task<Guid> ResolveRootWorkIdAsync(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
+    private static Guid ResolveRootWorkId(SqliteConnection conn, Guid entityId, SqliteTransaction? tx, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         var rootId = conn.QueryFirstOrDefault<Guid?>("""
@@ -1767,8 +1767,8 @@ public sealed class MediaEditorNavigationReadService(
         return workId;
     }
 
-    private static Task UpsertContainerIdentityAsync(SqliteConnection conn, SqliteTransaction tx, MembershipPlan plan) =>
-        UpsertCanonicalValuesAsync(
+    private static void UpsertContainerIdentity(SqliteConnection conn, SqliteTransaction tx, MembershipPlan plan) =>
+        UpsertCanonicalValues(
             conn,
             tx,
             plan.CurrentEntityId,
@@ -1780,7 +1780,7 @@ public sealed class MediaEditorNavigationReadService(
                 _ => new Dictionary<string, string?>(),
             });
 
-    private static Task UpsertCanonicalValuesAsync(SqliteConnection conn, SqliteTransaction tx, Guid entityId, IReadOnlyDictionary<string, string?> values)
+    private static void UpsertCanonicalValues(SqliteConnection conn, SqliteTransaction tx, Guid entityId, IReadOnlyDictionary<string, string?> values)
     {
         var now = DateTimeOffset.UtcNow.ToString("O");
         foreach (var (key, value) in values)
@@ -1803,7 +1803,6 @@ public sealed class MediaEditorNavigationReadService(
                 tx);
         }
 
-        return Task.CompletedTask;
     }
 
     private static string BuildTelevisionTargetPath(MembershipPlan plan)

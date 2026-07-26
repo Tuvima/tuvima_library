@@ -507,6 +507,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     private sealed class StubFictionalEntityRepository : IFictionalEntityRepository
     {
         public Task<FictionalEntity?> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<FictionalEntity?>(null);
+        public Task<IReadOnlyList<FictionalEntity>> FindByQidsAsync(IEnumerable<string> qids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
         public Task<FictionalEntity?> FindByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<FictionalEntity?>(null);
         public Task<IReadOnlyList<FictionalEntity>> GetByUniverseAsync(string universeQid, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
         public Task<IReadOnlyList<FictionalEntity>> GetByUniverseAndTypeAsync(string universeQid, string entitySubType, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
@@ -524,6 +525,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     private sealed class StubPersonRepository : IPersonRepository
     {
         public Task<Person?> FindByNameAsync(string name, CancellationToken ct = default) => Task.FromResult<Person?>(null);
+        public Task<IReadOnlyList<Person>> FindByNamesAsync(IEnumerable<string> names, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task AddRoleAsync(Guid personId, string role, CancellationToken ct = default) => Task.CompletedTask;
         public Task<IReadOnlyList<string>> GetRolesAsync(Guid personId, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<string>>([]);
         public Task<Dictionary<string, int>> GetRoleCountsAsync(CancellationToken ct = default) => Task.FromResult(new Dictionary<string, int>());

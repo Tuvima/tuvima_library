@@ -31,7 +31,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
 
     public MediaOperationRepository(IDatabaseConnection db) => _db = db;
 
-    public async Task<MediaOperation> EnsureAsync(MediaOperation operation, CancellationToken ct = default)
+    public Task<MediaOperation> EnsureAsync(MediaOperation operation, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(operation.IdempotencyKey))
@@ -44,7 +44,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         var positionKey = operation.PositionKey == 0 ? now.ToUnixTimeMilliseconds() : operation.PositionKey;
 
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT OR IGNORE INTO media_operations
                 (id, operation_type, operation_kind, entity_id, entity_kind, batch_id,
                  source_path, content_hash, capability_id, capability_version, sub_key,
@@ -64,7 +64,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             """,
             ToParams(operation, id, createdAt, updatedAt, positionKey));
 
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE media_operations
             SET batch_id = COALESCE(batch_id, @BatchId),
                 updated_at = CASE WHEN @BatchId IS NULL OR batch_id IS NOT NULL THEN updated_at ELSE @UpdatedAt END
@@ -77,43 +77,43 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 operation.IdempotencyKey
             });
 
-        var row = await conn.QueryFirstAsync<MediaOperationRow>(
+        var row = conn.QueryFirst<MediaOperationRow>(
             SelectSql + " WHERE idempotency_key = @idempotencyKey LIMIT 1;",
             new { idempotencyKey = operation.IdempotencyKey });
-        return Map(row);
+        return Task.FromResult(Map(row));
     }
 
-    public async Task<MediaOperation?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public Task<MediaOperation?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+        var row = conn.QueryFirstOrDefault<MediaOperationRow>(
             SelectSql + " WHERE id = @id LIMIT 1;",
             new { id });
-        return row is null ? null : Map(row);
+        return Task.FromResult(row is null ? null : Map(row));
     }
 
-    public async Task<MediaOperation?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
+    public Task<MediaOperation?> GetByIdempotencyKeyAsync(string idempotencyKey, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(idempotencyKey))
-            return null;
+            return Task.FromResult<MediaOperation?>(null);
 
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+        var row = conn.QueryFirstOrDefault<MediaOperationRow>(
             SelectSql + " WHERE idempotency_key = @idempotencyKey LIMIT 1;",
             new { idempotencyKey });
-        return row is null ? null : Map(row);
+        return Task.FromResult(row is null ? null : Map(row));
     }
 
-    public async Task<MediaOperation?> GetActiveBySourcePathAsync(string sourcePath, CancellationToken ct = default)
+    public Task<MediaOperation?> GetActiveBySourcePathAsync(string sourcePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(sourcePath))
-            return null;
+            return Task.FromResult<MediaOperation?>(null);
 
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+        var row = conn.QueryFirstOrDefault<MediaOperationRow>(
             SelectSql + """
              WHERE operation_type = @operationType
                AND source_path = @sourcePath
@@ -127,17 +127,17 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 sourcePath,
                 terminalStatuses = TerminalStatuses
             });
-        return row is null ? null : Map(row);
+        return Task.FromResult(row is null ? null : Map(row));
     }
 
-    public async Task<MediaOperation?> GetLatestBySourcePathAsync(string sourcePath, CancellationToken ct = default)
+    public Task<MediaOperation?> GetLatestBySourcePathAsync(string sourcePath, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(sourcePath))
-            return null;
+            return Task.FromResult<MediaOperation?>(null);
 
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<MediaOperationRow>(
+        var row = conn.QueryFirstOrDefault<MediaOperationRow>(
             SelectSql + """
              WHERE operation_type = @operationType
                AND source_path = @sourcePath
@@ -149,48 +149,48 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
                 operationType = MediaOperationType.IngestionFile,
                 sourcePath
             });
-        return row is null ? null : Map(row);
+        return Task.FromResult(row is null ? null : Map(row));
     }
 
-    public async Task<IReadOnlyList<MediaOperation>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public Task<IReadOnlyList<MediaOperation>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<MediaOperationRow>(
+        var rows = conn.Query<MediaOperationRow>(
             SelectSql + " WHERE entity_id = @entityId ORDER BY created_at DESC;",
             new { entityId });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperation>>(rows.Select(Map).ToList());
     }
 
-    public async Task<IReadOnlyList<MediaOperation>> GetByBatchAsync(Guid batchId, CancellationToken ct = default)
+    public Task<IReadOnlyList<MediaOperation>> GetByBatchAsync(Guid batchId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<MediaOperationRow>(
+        var rows = conn.Query<MediaOperationRow>(
             SelectSql + " WHERE batch_id = @batchId ORDER BY priority ASC, position_key ASC;",
             new { batchId });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperation>>(rows.Select(Map).ToList());
     }
 
-    public async Task<IReadOnlyList<MediaOperation>> GetByPluginAsync(string pluginId, int limit, CancellationToken ct = default)
+    public Task<IReadOnlyList<MediaOperation>> GetByPluginAsync(string pluginId, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<MediaOperationRow>(
+        var rows = conn.Query<MediaOperationRow>(
             SelectSql + """
              WHERE plugin_id = @pluginId
              ORDER BY created_at DESC
              LIMIT @limit;
             """,
             new { pluginId, limit = Math.Clamp(limit, 1, 1000) });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperation>>(rows.Select(Map).ToList());
     }
 
-    public async Task<IReadOnlyList<MediaOperation>> GetQueueAsync(string? queueName, int limit, CancellationToken ct = default)
+    public Task<IReadOnlyList<MediaOperation>> GetQueueAsync(string? queueName, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<MediaOperationRow>(
+        var rows = conn.Query<MediaOperationRow>(
             SelectSql + """
              WHERE (@queueName IS NULL OR queue_name = @queueName)
              ORDER BY CASE
@@ -202,10 +202,10 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
              LIMIT @limit;
             """,
             new { queueName, limit = Math.Clamp(limit, 1, 1000) });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperation>>(rows.Select(Map).ToList());
     }
 
-    public async Task<IReadOnlyList<MediaOperation>> LeaseNextAsync(
+    public Task<IReadOnlyList<MediaOperation>> LeaseNextAsync(
         string workerName,
         IReadOnlyList<string> operationTypes,
         int batchSize,
@@ -239,7 +239,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             """;
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<MediaOperationRow>(sql, new
+        var rows = conn.Query<MediaOperationRow>(sql, new
         {
             workerName,
             leaseExpiresAt = leaseExpiresAt.ToString("O"),
@@ -248,11 +248,11 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             OperationTypes = operationTypes,
             batchSize = Math.Clamp(batchSize, 1, 100)
         });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperation>>(rows.Select(Map).ToList());
     }
 
     public Task UpdateStageAsync(Guid id, string stage, int? progressPercent = null, CancellationToken ct = default)
-        => ExecuteAsync("""
+        => Execute("""
             UPDATE media_operations
             SET stage = @stage,
                 status = CASE WHEN status IN ('pending','queued','retry_waiting','interrupted','leased') THEN 'running' ELSE status END,
@@ -264,7 +264,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             """, id, ct, new { stage, progressPercent = ClampPercent(progressPercent) });
 
     public Task HeartbeatAsync(Guid id, int? progressPercent = null, CancellationToken ct = default)
-        => ExecuteAsync("""
+        => Execute("""
             UPDATE media_operations
             SET heartbeat_at = @now,
                 progress_percent = COALESCE(@progressPercent, progress_percent),
@@ -284,11 +284,11 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
     public Task MarkBlockedAsync(Guid id, string reason, CancellationToken ct = default)
         => MarkTerminalAsync(id, MediaOperationStatus.Blocked, MediaOperationStage.Blocked, null, reason, reason, ct);
 
-    public async Task MarkFailedRetryableAsync(Guid id, string error, DateTimeOffset nextRetryAt, CancellationToken ct = default)
+    public Task MarkFailedRetryableAsync(Guid id, string error, DateTimeOffset nextRetryAt, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE media_operations
             SET status = 'retry_waiting',
                 stage = 'failed',
@@ -301,6 +301,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             WHERE id = @id;
             """,
             new { id, error, nextRetryAt = nextRetryAt.ToString("O"), now = DateTimeOffset.UtcNow.ToString("O") });
+        return Task.CompletedTask;
     }
 
     public Task MarkFailedTerminalAsync(Guid id, string error, CancellationToken ct = default)
@@ -316,7 +317,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         => MarkTerminalAsync(id, MediaOperationStatus.Interrupted, null, reason, reason, null, ct);
 
     public Task RequeueAsync(Guid id, CancellationToken ct = default)
-        => ExecuteAsync("""
+        => Execute("""
             UPDATE media_operations
             SET status = 'queued',
                 lease_owner = NULL,
@@ -329,13 +330,13 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             WHERE id = @id;
             """, id, ct);
 
-    public async Task<int> ReclaimStuckAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
+    public Task<int> ReclaimStuckAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow;
         var cutoff = now.Subtract(stuckThreshold);
         using var conn = _db.CreateConnection();
-        return await conn.ExecuteAsync("""
+        var reclaimed = conn.Execute("""
             UPDATE media_operations
             SET status = 'interrupted',
                 lease_owner = NULL,
@@ -351,21 +352,26 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
               );
             """,
             new { now = now.ToString("O"), cutoff = cutoff.ToString("O") });
+        return Task.FromResult(reclaimed);
     }
 
-    public async Task<IReadOnlyDictionary<string, int>> GetSummaryAsync(CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<string, int>> GetSummaryAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync("""
+        var rows = conn.Query("""
             SELECT status AS Status, COUNT(*) AS Count
             FROM media_operations
             GROUP BY status;
             """);
-        return rows.ToDictionary(r => (string)r.Status, r => (int)r.Count, StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, int> summary = rows.ToDictionary(
+            r => (string)r.Status,
+            r => (int)r.Count,
+            StringComparer.OrdinalIgnoreCase);
+        return Task.FromResult(summary);
     }
 
-    private async Task MarkTerminalAsync(
+    private Task MarkTerminalAsync(
         Guid id,
         string status,
         string? stage,
@@ -376,7 +382,7 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE media_operations
             SET status = @status,
                 stage = COALESCE(@stage, stage),
@@ -392,9 +398,10 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
             WHERE id = @id;
             """,
             new { id, status, stage, resultSummary, lastError, missingReason, now = DateTimeOffset.UtcNow.ToString("O") });
+        return Task.CompletedTask;
     }
 
-    private async Task ExecuteAsync(string sql, Guid id, CancellationToken ct, object? extra = null)
+    private Task Execute(string sql, Guid id, CancellationToken ct, object? extra = null)
     {
         ct.ThrowIfCancellationRequested();
         var args = extra is null
@@ -404,7 +411,8 @@ public sealed class MediaOperationRepository : IMediaOperationRepository
         args.Add("now", DateTimeOffset.UtcNow.ToString("O"));
 
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(sql, args);
+        conn.Execute(sql, args);
+        return Task.CompletedTask;
     }
 
     private static object ToParams(MediaOperation operation, Guid id, DateTimeOffset createdAt, DateTimeOffset updatedAt, long positionKey) => new

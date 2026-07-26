@@ -17,7 +17,7 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
         _db = db;
     }
 
-    public async Task RecordAsync(
+    public Task RecordAsync(
         Guid? batchId,
         string artifactType,
         Guid? artifactId,
@@ -32,15 +32,15 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
     {
         ct.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(artifactType) || string.IsNullOrWhiteSpace(action))
-            return;
+            return Task.CompletedTask;
 
         using var conn = _db.CreateConnection();
         var resolvedBatchId = batchId
-            ?? await ResolveLatestBatchIdAsync(conn, parentEntityId, ct).ConfigureAwait(false);
+            ?? ResolveLatestBatchId(conn, parentEntityId, ct);
         if (!resolvedBatchId.HasValue)
-            return;
+            return Task.CompletedTask;
 
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT INTO ingestion_batch_artifacts
                 (id, batch_id, artifact_type, artifact_id, parent_entity_id, parent_entity_type,
                  action, display_name, provider_id, source, detail_json, occurred_at)
@@ -61,10 +61,11 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
                 source = NullIfBlank(source),
                 detailJson = NullIfBlank(detailJson),
                 occurredAt = DateTimeOffset.UtcNow.ToString("O"),
-            }).ConfigureAwait(false);
+            });
+        return Task.CompletedTask;
     }
 
-    private static async Task<Guid?> ResolveLatestBatchIdAsync(
+    private static Guid? ResolveLatestBatchId(
         Microsoft.Data.Sqlite.SqliteConnection conn,
         Guid? parentEntityId,
         CancellationToken ct)
@@ -73,14 +74,14 @@ public sealed class IngestionBatchArtifactRepository : IIngestionBatchArtifactRe
             return null;
 
         ct.ThrowIfCancellationRequested();
-        return await conn.ExecuteScalarAsync<Guid?>("""
+        return conn.ExecuteScalar<Guid?>("""
             SELECT ingestion_run_id
             FROM identity_jobs
             WHERE entity_id = @entityId
               AND ingestion_run_id IS NOT NULL
             ORDER BY updated_at DESC, created_at DESC
             LIMIT 1;
-            """, new { entityId = parentEntityId.Value }).ConfigureAwait(false);
+            """, new { entityId = parentEntityId.Value });
     }
 
     private static string? NullIfBlank(string? value) =>

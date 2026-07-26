@@ -69,7 +69,7 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("\"Collection\",", navigatorService, StringComparison.Ordinal);
         Assert.Contains("new { entityId }", metadataData, StringComparison.Ordinal);
         Assert.Contains("new { entityId }", navigatorService, StringComparison.Ordinal);
-        Assert.Contains("GetRepresentativeAssetForWorkTreeAsync(connection, collectionRow.WorkId, ct)", metadataData, StringComparison.Ordinal);
+        Assert.Contains("GetRepresentativeAssetForWorkTree(connection, collectionRow.WorkId, ct)", metadataData, StringComparison.Ordinal);
         Assert.Contains("GetRepresentativeAssetForWorkTree(conn, collectionWorkId)", navigatorService, StringComparison.Ordinal);
     }
 

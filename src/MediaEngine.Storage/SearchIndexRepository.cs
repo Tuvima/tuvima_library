@@ -21,8 +21,9 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
     }
 
     /// <inheritdoc/>
-    public async Task UpsertByEntityIdAsync(Guid entityId, CancellationToken ct = default)
+    public Task UpsertByEntityIdAsync(Guid entityId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
 
         // Phase 4 — lineage-aware refresh. The entityId may be either a
@@ -46,16 +47,16 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         lookup.Parameters.Add("@entityId", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
 
         Guid? workId = null, assetId = null, rootParentId = null;
-        using (var rdr = await lookup.ExecuteReaderAsync(ct).ConfigureAwait(false))
+        using (var rdr = lookup.ExecuteReader())
         {
-            if (await rdr.ReadAsync(ct).ConfigureAwait(false))
+            if (rdr.Read())
             {
                 workId       = rdr.IsDBNull(0) ? null : GuidSql.FromDb(rdr.GetValue(0));
                 assetId      = rdr.IsDBNull(1) ? null : GuidSql.FromDb(rdr.GetValue(1));
                 rootParentId = rdr.IsDBNull(2) ? null : GuidSql.FromDb(rdr.GetValue(2));
             }
         }
-        if (workId is null) return;
+        if (workId is null) return Task.CompletedTask;
 
         // Self-scope reads (asset row).
         string? title = null, originalTitle = null;
@@ -68,8 +69,8 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                   AND key IN ('title', 'original_title')
                 """;
             selfCmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
-            using var sr = await selfCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-            while (await sr.ReadAsync(ct).ConfigureAwait(false))
+            using var sr = selfCmd.ExecuteReader();
+            while (sr.Read())
             {
                 var k = sr.GetString(0);
                 var v = sr.IsDBNull(1) ? null : sr.GetString(1);
@@ -89,8 +90,8 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                   AND key IN ('author', 'description')
                 """;
             parentCmd.Parameters.Add("@parentId", SqliteType.Blob).Value = GuidSql.ToBlob(rootParentId.Value);
-            using var pr = await parentCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-            while (await pr.ReadAsync(ct).ConfigureAwait(false))
+            using var pr = parentCmd.ExecuteReader();
+            while (pr.Read())
             {
                 var k = pr.GetString(0);
                 var v = pr.IsDBNull(1) ? null : pr.GetString(1);
@@ -111,7 +112,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 WHERE entity_id = @assetId AND key = 'alternate_title'
                 """;
             altCmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId.Value);
-            var altObj = await altCmd.ExecuteScalarAsync(ct).ConfigureAwait(false);
+            var altObj = altCmd.ExecuteScalar();
             alternateTitles = altObj as string;
         }
 
@@ -119,13 +120,13 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         if (string.IsNullOrWhiteSpace(title)
             && string.IsNullOrWhiteSpace(originalTitle)
             && string.IsNullOrWhiteSpace(author))
-            return;
+            return Task.CompletedTask;
 
         // FTS5 does not support UPSERT — delete then insert.
         using var del = conn.CreateCommand();
         del.CommandText = "DELETE FROM search_index WHERE entity_id = @workId;";
         del.Parameters.Add("@workId", SqliteType.Blob).Value = GuidSql.ToBlob(workId.Value);
-        await del.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        del.ExecuteNonQuery();
 
         using var ins = conn.CreateCommand();
         ins.CommandText = """
@@ -138,14 +139,17 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         ins.Parameters.AddWithValue("@alternateTitles", (object?)alternateTitles ?? DBNull.Value);
         ins.Parameters.AddWithValue("@author",          (object?)author          ?? DBNull.Value);
         ins.Parameters.AddWithValue("@description",     (object?)description     ?? DBNull.Value);
-        await ins.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        ins.ExecuteNonQuery();
+        return Task.CompletedTask;
     }
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<Guid>> SearchAsync(string query, int limit = 50, CancellationToken ct = default)
+    public Task<IReadOnlyList<Guid>> SearchAsync(string query, int limit = 50, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(query)) return [];
+        if (string.IsNullOrWhiteSpace(query))
+            return Task.FromResult<IReadOnlyList<Guid>>([]);
 
+        ct.ThrowIfCancellationRequested();
         var trimmed = query.Trim();
         using var conn = _db.CreateConnection();
 
@@ -180,12 +184,12 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
             likeCmd.Parameters.AddWithValue("@limit", limit);
 
             var likeResults = new List<Guid>();
-            using var likeReader = await likeCmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-            while (await likeReader.ReadAsync(ct).ConfigureAwait(false))
+            using var likeReader = likeCmd.ExecuteReader();
+            while (likeReader.Read())
             {
                 likeResults.Add(GuidSql.FromDb(likeReader.GetValue(0)));
             }
-            return likeResults;
+            return Task.FromResult<IReadOnlyList<Guid>>(likeResults);
         }
 
         // FTS5 trigram search: quote the phrase for exact substring matching.
@@ -202,22 +206,23 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         cmd.Parameters.AddWithValue("@limit", limit);
 
         var results = new List<Guid>();
-        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
         {
             results.Add(GuidSql.FromDb(reader.GetValue(0)));
         }
-        return results;
+        return Task.FromResult<IReadOnlyList<Guid>>(results);
     }
 
     /// <inheritdoc/>
-    public async Task RebuildAsync(CancellationToken ct = default)
+    public Task RebuildAsync(CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
 
         using var clear = conn.CreateCommand();
         clear.CommandText = "DELETE FROM search_index;";
-        await clear.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        clear.ExecuteNonQuery();
 
         // Phase 4 — repopulate using lineage-aware sources:
         //   • title, original_title, alternate_titles → SELF (asset row)
@@ -262,6 +267,7 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 WHERE ex.work_id = w.id
             );
             """;
-        await populate.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        populate.ExecuteNonQuery();
+        return Task.CompletedTask;
     }
 }

@@ -32,9 +32,10 @@ public static class TuvimaIntelligenceServiceCollectionExtensions
         services.AddSingleton<IScoringEngine, PriorityCascadeEngine>();
         services.AddSingleton<IRetailMatchScoringService, RetailMatchScoringService>();
         services.AddSingleton<ILocalMatchService, LocalMatchService>();
-        services.AddSingletonImplementations<IMediaTypeIdentityStrategy>(
-            expectedCount: 6,
-            typeof(BookIdentityStrategy).Assembly);
+        foreach (var profile in MediaTypeIdentityProfileCatalog.All)
+        {
+            services.AddSingleton<IMediaTypeIdentityStrategy>(profile);
+        }
         services.AddSingleton<IdentityDecisionService>();
         services.AddSingleton<IIdentityMatcher>(sp =>
             new IdentityMatcher(

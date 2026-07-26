@@ -695,11 +695,11 @@ public static partial class MetadataEndpoints
                 ? await libraryItemRepo.GetDetailAsync(workId, ct)
                 : null;
 
-            var assets = new List<EntityAsset>();
-            foreach (var artworkEntityId in context.ArtworkEntityIds)
-            {
-                assets.AddRange(await entityAssetRepo.GetByEntityAsync(artworkEntityId.ToString(), null, ct));
-            }
+            var assets = (await entityAssetRepo.GetByEntitiesAsync(
+                    context.ArtworkEntityIds.Select(id => id.ToString()).ToArray(),
+                    null,
+                    ct))
+                .ToList();
 
             var canonicalSources = new List<Guid>();
             ArtworkScopeService.AddCanonicalSource(canonicalSources, context.WorkId);
@@ -707,11 +707,10 @@ public static partial class MetadataEndpoints
             ArtworkScopeService.AddCanonicalSource(canonicalSources, context.PrimaryAssetId);
             ArtworkScopeService.AddCanonicalSource(canonicalSources, context.RootPrimaryAssetId);
 
-            var canonicals = new List<CanonicalValue>();
-            foreach (var sourceId in canonicalSources)
-            {
-                canonicals.AddRange(await canonicalRepo.GetByEntityAsync(sourceId, ct));
-            }
+            var canonicals = (await canonicalRepo.GetByEntitiesAsync(canonicalSources, ct))
+                .Values
+                .SelectMany(values => values)
+                .ToList();
 
             var slots = new[]
             {

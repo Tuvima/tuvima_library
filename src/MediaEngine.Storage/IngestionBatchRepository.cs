@@ -232,14 +232,14 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
     }
 
     /// <inheritdoc/>
-    public async Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(
+    public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(
         Guid batchId,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var snapshot = await conn.QueryFirstOrDefaultAsync<IngestionBatchProgressSnapshot>(
+        var snapshot = conn.QueryFirstOrDefault<IngestionBatchProgressSnapshot>(
             """
             WITH latest_jobs AS (
                 SELECT
@@ -288,9 +288,10 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             FROM job_states js
             LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
             """,
-            new { batchId }).ConfigureAwait(false) ?? new IngestionBatchProgressSnapshot();
+            new { batchId }) ?? new IngestionBatchProgressSnapshot();
 
-        var currentFileTitle = await conn.QueryFirstOrDefaultAsync<string?>(
+        ct.ThrowIfCancellationRequested();
+        var currentFileTitle = conn.QueryFirstOrDefault<string?>(
             """
             WITH latest_jobs AS (
                 SELECT
@@ -319,9 +320,9 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
             LIMIT 1;
             """,
-            new { batchId }).ConfigureAwait(false);
+            new { batchId });
 
-        return new IngestionBatchProgressSnapshot
+        return Task.FromResult(new IngestionBatchProgressSnapshot
         {
             TotalJobs = snapshot.TotalJobs,
             FilesReady = snapshot.FilesReady,
@@ -338,6 +339,6 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             Hydrating = snapshot.Hydrating,
             UniverseEnriching = snapshot.UniverseEnriching,
             CurrentFileTitle = currentFileTitle,
-        };
+        });
     }
 }

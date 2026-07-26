@@ -12,6 +12,12 @@ public interface IEntityAssetRepository
     Task<IReadOnlyList<EntityAsset>> GetByEntityAsync(
         string entityId, string? assetType = null, CancellationToken ct = default);
 
+    /// <summary>Get assets for multiple entities in bounded batches.</summary>
+    Task<IReadOnlyList<EntityAsset>> GetByEntitiesAsync(
+        IReadOnlyCollection<string> entityIds,
+        string? assetType = null,
+        CancellationToken ct = default);
+
     /// <summary>Find a single entity asset by its variant id.</summary>
     Task<EntityAsset?> FindByIdAsync(Guid assetId, CancellationToken ct = default);
 

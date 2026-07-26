@@ -13,10 +13,11 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
         _db = db;
     }
 
-    public async Task UpsertAsync(Guid assetId, byte[] fingerprint, double durationSec, CancellationToken ct = default)
+    public Task UpsertAsync(Guid assetId, byte[] fingerprint, double durationSec, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
+        conn.Execute(
             """
             INSERT INTO audio_fingerprints (asset_id, fingerprint, duration_sec, created_at)
             VALUES (@AssetId, @Fingerprint, @DurationSec, datetime('now'))
@@ -26,36 +27,42 @@ public sealed class AudioFingerprintRepository : IAudioFingerprintRepository
                 created_at = datetime('now')
             """,
             new { AssetId = assetId, Fingerprint = fingerprint, DurationSec = durationSec });
+        return Task.CompletedTask;
     }
 
-    public async Task<(byte[]? Fingerprint, double DurationSec)?> GetAsync(Guid assetId, CancellationToken ct = default)
+    public Task<(byte[]? Fingerprint, double DurationSec)?> GetAsync(Guid assetId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<FingerprintRow>(
+        var row = conn.QueryFirstOrDefault<FingerprintRow>(
             "SELECT fingerprint, duration_sec AS DurationSec FROM audio_fingerprints WHERE asset_id = @Id",
             new { Id = assetId });
 
-        if (row is null) return null;
-        return (row.fingerprint, row.DurationSec);
+        return Task.FromResult<(byte[]? Fingerprint, double DurationSec)?>(
+            row is null ? null : (row.fingerprint, row.DurationSec));
     }
 
-    public async Task<IReadOnlyList<(Guid AssetId, byte[] Fingerprint)>> GetAllAsync(CancellationToken ct = default)
+    public Task<IReadOnlyList<(Guid AssetId, byte[] Fingerprint)>> GetAllAsync(CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<FingerprintAllRow>(
+        var rows = conn.Query<FingerprintAllRow>(
             "SELECT asset_id AS AssetId, fingerprint FROM audio_fingerprints");
 
-        return rows
+        IReadOnlyList<(Guid AssetId, byte[] Fingerprint)> result = rows
             .Select(r => (r.AssetId, r.fingerprint))
             .ToList();
+        return Task.FromResult(result);
     }
 
-    public async Task<bool> ExistsAsync(Guid assetId, CancellationToken ct = default)
+    public Task<bool> ExistsAsync(Guid assetId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        return await conn.ExecuteScalarAsync<int>(
+        var exists = conn.ExecuteScalar<int>(
             "SELECT COUNT(1) FROM audio_fingerprints WHERE asset_id = @Id",
             new { Id = assetId }) > 0;
+        return Task.FromResult(exists);
     }
 
     // Private DTOs to avoid dynamic and boxing issues

@@ -118,6 +118,13 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 - `IDatabaseConnection.Open()` is startup/schema/integrity-only. New uses outside `DatabaseConnection`, Engine startup, or explicitly documented test fixtures should fail guardrail tests.
 - Current storage epoch is `guid-blob-v1`: internal SQLite GUIDs are 16-byte BLOBs, external IDs remain TEXT, API JSON still returns GUID strings, and legacy TEXT-GUID databases are reset/reingested rather than migrated in place.
 - SQLite connections use WAL plus `synchronous=NORMAL`, `busy_timeout=5000`, memory temp storage, a 16 MiB page cache target, and a 256 MiB mmap cap for local ingestion throughput. The accepted tradeoff is that an OS/power crash can require reingesting the most recent file changes.
+- Microsoft.Data.Sqlite does not provide asynchronous I/O. Repository APIs may
+  remain `Task`-shaped, but SQLite/Dapper commands execute synchronously after a
+  cancellation check; do not use their misleading async methods or wrap
+  database work in `Task.Run`.
+- Transactional writes use `IDatabaseConnection.ExecuteWriteAsync`. Only the
+  global writer-semaphore wait is asynchronous; the callback is synchronous,
+  bounded SQLite work that commits or rolls back before the lock is released.
 - `canonical_values` is scalar-only. Multi-valued metadata belongs in `canonical_value_arrays`; do not reintroduce packed delimiter storage or compatibility readers.
 - Provider/Wikidata/Wikipedia text shown in the Dashboard needs source attribution when available: provider name, source title, source URL, license, retrieved timestamp, and whether the displayed value was modified or summarized.
 - UI comma-separated lists use standard English punctuation: no space before a comma and exactly one space after it. Linked genre pairs must preserve that grammar and remain together without wrapping between genres.

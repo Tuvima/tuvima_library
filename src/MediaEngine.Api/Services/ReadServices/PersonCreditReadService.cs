@@ -395,17 +395,23 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         var entries = BuildCastEntriesFromClaims(rows)
             .Take(MaxCastCredits)
             .ToList();
+        var peopleByQid = (await personRepo.FindByQidsAsync(
+                entries.Where(entry => !string.IsNullOrWhiteSpace(entry.Qid)).Select(entry => entry.Qid!),
+                ct))
+            .Where(person => !string.IsNullOrWhiteSpace(person.WikidataQid))
+            .ToDictionary(person => person.WikidataQid!, StringComparer.OrdinalIgnoreCase);
+        var peopleByName = (await personRepo.FindByNamesAsync(
+                entries.Select(entry => entry.Name),
+                ct))
+            .ToDictionary(person => person.Name, StringComparer.OrdinalIgnoreCase);
 
         var credits = new List<CastCreditDto>(entries.Count);
         foreach (var entry in entries)
         {
-            Person? person = null;
-            if (!string.IsNullOrWhiteSpace(entry.Qid))
-            {
-                person = await personRepo.FindByQidAsync(entry.Qid, ct);
-            }
-
-            person ??= await personRepo.FindByNameAsync(entry.Name, ct);
+            var person = !string.IsNullOrWhiteSpace(entry.Qid)
+                ? peopleByQid.GetValueOrDefault(entry.Qid)
+                : null;
+            person ??= peopleByName.GetValueOrDefault(entry.Name);
 
             credits.Add(new CastCreditDto
             {

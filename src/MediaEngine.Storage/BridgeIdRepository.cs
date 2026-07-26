@@ -174,7 +174,7 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
         if (entries.Count == 0)
             return Task.CompletedTask;
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var entry in entries)
             {
@@ -201,7 +201,6 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
                     transaction: tx);
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 

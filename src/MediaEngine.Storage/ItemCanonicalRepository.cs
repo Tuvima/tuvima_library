@@ -25,7 +25,7 @@ public sealed class ItemCanonicalRepository(
         long Locked,
         string? RejectedQidsJson);
 
-    public async Task<ItemCanonicalWorkAssetContext?> ResolveWorkAssetContextAsync(
+    public Task<ItemCanonicalWorkAssetContext?> ResolveWorkAssetContextAsync(
         Guid entityId,
         CancellationToken ct = default)
     {
@@ -76,48 +76,49 @@ public sealed class ItemCanonicalRepository(
             """;
         cmd.Parameters.Add("@entityId", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
 
-        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        if (!await reader.ReadAsync(ct).ConfigureAwait(false))
-            return null;
+        using var reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return Task.FromResult<ItemCanonicalWorkAssetContext?>(null);
 
-        return new ItemCanonicalWorkAssetContext(
+        ItemCanonicalWorkAssetContext result = new(
             GuidSql.FromDb(reader.GetValue(0)),
             reader.IsDBNull(1) ? Domain.Enums.MediaType.Unknown.ToString() : reader.GetString(1),
             reader.IsDBNull(2) ? null : reader.GetString(2),
             reader.IsDBNull(3) ? null : reader.GetString(3),
             reader.IsDBNull(4) ? null : reader.GetString(4));
+        return Task.FromResult<ItemCanonicalWorkAssetContext?>(result);
     }
 
-    public async Task<ItemCanonicalDisplayOverrideState> LoadDisplayOverridesAsync(
+    public Task<ItemCanonicalDisplayOverrideState> LoadDisplayOverridesAsync(
         Guid workId,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = db.CreateConnection();
-        var row = await conn.QuerySingleOrDefaultAsync<DisplayOverrideRow>(new CommandDefinition(
+        var row = conn.QuerySingleOrDefault<DisplayOverrideRow>(new CommandDefinition(
             "SELECT display_overrides_json AS Json FROM works WHERE id = @workId LIMIT 1;",
             new { workId = GuidSql.ToBlob(workId) },
-            cancellationToken: ct)).ConfigureAwait(false);
+            cancellationToken: ct));
 
         if (row is null)
-            return new ItemCanonicalDisplayOverrideState(false, new(StringComparer.OrdinalIgnoreCase));
+            return Task.FromResult(new ItemCanonicalDisplayOverrideState(false, new(StringComparer.OrdinalIgnoreCase)));
 
         if (string.IsNullOrWhiteSpace(row.Json))
-            return new ItemCanonicalDisplayOverrideState(true, new(StringComparer.OrdinalIgnoreCase));
+            return Task.FromResult(new ItemCanonicalDisplayOverrideState(true, new(StringComparer.OrdinalIgnoreCase)));
 
         try
         {
             var parsed = JsonSerializer.Deserialize<Dictionary<string, string>>(row.Json);
-            return new ItemCanonicalDisplayOverrideState(
+            return Task.FromResult(new ItemCanonicalDisplayOverrideState(
                 true,
                 parsed is null
                     ? new(StringComparer.OrdinalIgnoreCase)
-                    : new(parsed, StringComparer.OrdinalIgnoreCase));
+                    : new(parsed, StringComparer.OrdinalIgnoreCase)));
         }
         catch (JsonException ex)
         {
             logger.LogWarning(ex, "Ignoring malformed display override JSON for work {WorkId}.", workId);
-            return new ItemCanonicalDisplayOverrideState(true, new(StringComparer.OrdinalIgnoreCase));
+            return Task.FromResult(new ItemCanonicalDisplayOverrideState(true, new(StringComparer.OrdinalIgnoreCase)));
         }
     }
 
@@ -129,9 +130,10 @@ public sealed class ItemCanonicalRepository(
         ArgumentNullException.ThrowIfNull(overrides);
         ct.ThrowIfCancellationRequested();
 
-        var affected = await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        var affected = await db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            return await conn.ExecuteAsync(new CommandDefinition(
+            innerCt.ThrowIfCancellationRequested();
+            return conn.Execute(new CommandDefinition(
                 "UPDATE works SET display_overrides_json = @json WHERE id = @workId;",
                 new
                 {
@@ -139,16 +141,16 @@ public sealed class ItemCanonicalRepository(
                     workId = GuidSql.ToBlob(workId),
                 },
                 tx,
-                cancellationToken: innerCt)).ConfigureAwait(false);
+                cancellationToken: innerCt));
         }, ct).ConfigureAwait(false);
         return affected > 0;
     }
 
-    public async Task<Guid?> ResolveWorkIdForAssetAsync(Guid assetId, CancellationToken ct = default)
+    public Task<Guid?> ResolveWorkIdForAssetAsync(Guid assetId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = db.CreateConnection();
-        var value = await conn.QuerySingleOrDefaultAsync<byte[]>(new CommandDefinition(
+        var value = conn.QuerySingleOrDefault<byte[]>(new CommandDefinition(
             """
             SELECT e.work_id
             FROM media_assets ma
@@ -157,17 +159,26 @@ public sealed class ItemCanonicalRepository(
             LIMIT 1;
             """,
             new { assetId = GuidSql.ToBlob(assetId) },
-            cancellationToken: ct)).ConfigureAwait(false);
-        return value is null ? null : GuidSql.FromDb(value);
+            cancellationToken: ct));
+        return Task.FromResult(value is null ? (Guid?)null : GuidSql.FromDb(value));
     }
 
-    public async Task<ItemCanonicalWorkWikidataState?> LoadWorkWikidataStateAsync(
+    public Task<ItemCanonicalWorkWikidataState?> LoadWorkWikidataStateAsync(
         Guid workId,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = db.CreateConnection();
-        var row = await conn.QuerySingleOrDefaultAsync<WikidataStateRow>(new CommandDefinition(
+        return Task.FromResult(LoadWorkWikidataState(conn, workId, ct));
+    }
+
+    private static ItemCanonicalWorkWikidataState? LoadWorkWikidataState(
+        SqliteConnection conn,
+        Guid workId,
+        CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        var row = conn.QuerySingleOrDefault<WikidataStateRow>(new CommandDefinition(
             """
             SELECT wikidata_qid                AS Qid,
                    wikidata_status             AS Status,
@@ -179,7 +190,7 @@ public sealed class ItemCanonicalRepository(
             LIMIT 1;
             """,
             new { workId = GuidSql.ToBlob(workId) },
-            cancellationToken: ct)).ConfigureAwait(false);
+            cancellationToken: ct));
 
         return row is null
             ? null
@@ -191,7 +202,7 @@ public sealed class ItemCanonicalRepository(
                 row.RejectedQidsJson);
     }
 
-    public async Task UpdateWorkIdentityAsync(
+    public Task UpdateWorkIdentityAsync(
         Guid workId,
         string wikidataQid,
         CancellationToken ct = default)
@@ -199,9 +210,10 @@ public sealed class ItemCanonicalRepository(
         ArgumentException.ThrowIfNullOrWhiteSpace(wikidataQid);
         ct.ThrowIfCancellationRequested();
 
-        await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            await conn.ExecuteAsync(new CommandDefinition(
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute(new CommandDefinition(
                 """
                 UPDATE works
                 SET wikidata_qid = @wikidataQid,
@@ -211,11 +223,11 @@ public sealed class ItemCanonicalRepository(
                 """,
                 new { wikidataQid, workId = GuidSql.ToBlob(workId) },
                 tx,
-                cancellationToken: innerCt)).ConfigureAwait(false);
-        }, ct).ConfigureAwait(false);
+                cancellationToken: innerCt));
+        }, ct);
     }
 
-    public async Task DeleteIdentityArtifactsAsync(
+    public Task DeleteIdentityArtifactsAsync(
         IReadOnlyCollection<ItemCanonicalIdentityArtifact> artifacts,
         CancellationToken ct = default)
     {
@@ -227,9 +239,9 @@ public sealed class ItemCanonicalRepository(
             .Distinct()
             .ToList();
         if (distinct.Count == 0)
-            return;
+            return Task.CompletedTask;
 
-        await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var artifact in distinct)
             {
@@ -239,26 +251,26 @@ public sealed class ItemCanonicalRepository(
                     entityId = GuidSql.ToBlob(artifact.EntityId),
                     key = artifact.Key,
                 };
-                await conn.ExecuteAsync(new CommandDefinition(
+                conn.Execute(new CommandDefinition(
                     "DELETE FROM canonical_values WHERE entity_id = @entityId AND key = @key;",
                     parameters,
                     tx,
-                    cancellationToken: innerCt)).ConfigureAwait(false);
-                await conn.ExecuteAsync(new CommandDefinition(
+                    cancellationToken: innerCt));
+                conn.Execute(new CommandDefinition(
                     "DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key;",
                     parameters,
                     tx,
-                    cancellationToken: innerCt)).ConfigureAwait(false);
-                await conn.ExecuteAsync(new CommandDefinition(
+                    cancellationToken: innerCt));
+                conn.Execute(new CommandDefinition(
                     "DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key;",
                     parameters,
                     tx,
-                    cancellationToken: innerCt)).ConfigureAwait(false);
+                    cancellationToken: innerCt));
             }
-        }, ct).ConfigureAwait(false);
+        }, ct);
     }
 
-    public async Task ReplaceExternalIdentifiersAsync(
+    public Task ReplaceExternalIdentifiersAsync(
         Guid workId,
         IReadOnlyCollection<string> keysToRemove,
         IReadOnlyDictionary<string, string> replacements,
@@ -268,13 +280,14 @@ public sealed class ItemCanonicalRepository(
         ArgumentNullException.ThrowIfNull(replacements);
         ct.ThrowIfCancellationRequested();
 
-        await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
-            var json = await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
+            innerCt.ThrowIfCancellationRequested();
+            var json = conn.QueryFirstOrDefault<string?>(new CommandDefinition(
                 "SELECT external_identifiers FROM works WHERE id = @workId LIMIT 1;",
                 new { workId = GuidSql.ToBlob(workId) },
                 tx,
-                cancellationToken: innerCt)).ConfigureAwait(false);
+                cancellationToken: innerCt));
 
             Dictionary<string, string> identifiers;
             try
@@ -301,7 +314,7 @@ public sealed class ItemCanonicalRepository(
                     identifiers[key] = value;
             }
 
-            await conn.ExecuteAsync(new CommandDefinition(
+            conn.Execute(new CommandDefinition(
                 "UPDATE works SET external_identifiers = @json WHERE id = @workId;",
                 new
                 {
@@ -309,16 +322,18 @@ public sealed class ItemCanonicalRepository(
                     workId = GuidSql.ToBlob(workId),
                 },
                 tx,
-                cancellationToken: innerCt)).ConfigureAwait(false);
-        }, ct).ConfigureAwait(false);
+                cancellationToken: innerCt));
+        }, ct);
     }
 
-    public async Task<string> AppendRejectedQidAsync(
+    public Task<string> AppendRejectedQidAsync(
         Guid workId,
         string? rejectedQid,
         CancellationToken ct = default)
     {
-        var state = await LoadWorkWikidataStateAsync(workId, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        using var conn = db.CreateConnection();
+        var state = LoadWorkWikidataState(conn, workId, ct);
         var rejected = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(state?.RejectedQidsJson))
         {
@@ -336,6 +351,7 @@ public sealed class ItemCanonicalRepository(
         if (!string.IsNullOrWhiteSpace(rejectedQid))
             rejected.Add(rejectedQid.Trim());
 
-        return JsonSerializer.Serialize(rejected.OrderBy(qid => qid, StringComparer.OrdinalIgnoreCase));
+        return Task.FromResult(
+            JsonSerializer.Serialize(rejected.OrderBy(qid => qid, StringComparer.OrdinalIgnoreCase)));
     }
 }

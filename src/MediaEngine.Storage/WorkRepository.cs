@@ -376,7 +376,7 @@ public sealed class WorkRepository : IWorkRepository
         if (string.IsNullOrWhiteSpace(parentKey))
             throw new ArgumentException("Parent key is required.", nameof(parentKey));
 
-        var resolved = await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        var resolved = await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             Guid? existing = grandparentWorkId.HasValue && ordinal.HasValue
                 ? conn.QueryFirstOrDefault<Guid?>(
@@ -413,7 +413,7 @@ public sealed class WorkRepository : IWorkRepository
                         tx);
                 }
 
-                return Task.FromResult(found);
+                return found;
             }
 
             var workId = Guid.NewGuid();
@@ -462,7 +462,7 @@ public sealed class WorkRepository : IWorkRepository
                     new { mediaType = mediaType.ToString(), parentKey },
                     tx);
 
-            return Task.FromResult(resolvedId);
+            return resolvedId;
         }, ct).ConfigureAwait(false);
 
         _logger?.LogDebug(
@@ -511,7 +511,7 @@ public sealed class WorkRepository : IWorkRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             Guid? existing = ordinalSort.HasValue
                 ? conn.QueryFirstOrDefault<Guid?>(
@@ -555,7 +555,7 @@ public sealed class WorkRepository : IWorkRepository
                     new { id = found, ordinalSort },
                     tx);
 
-                return Task.FromResult(found);
+                return found;
             }
 
             var workId = Guid.NewGuid();
@@ -600,7 +600,7 @@ public sealed class WorkRepository : IWorkRepository
                     new { id = workId },
                     tx);
 
-            return Task.FromResult(resolved);
+            return resolved;
         }, ct);
     }
 
@@ -720,7 +720,7 @@ public sealed class WorkRepository : IWorkRepository
         // Read existing blob, merge new keys (no overwrite), write back.
         // Done in a single transaction to avoid lost-update races between
         // RetailMatchWorker and WikidataBridgeWorker writing in parallel.
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             string? currentJson;
             using (var read = conn.CreateCommand())
@@ -773,7 +773,6 @@ public sealed class WorkRepository : IWorkRepository
                 write.ExecuteNonQuery();
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 

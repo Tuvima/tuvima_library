@@ -67,10 +67,10 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
                 new { cutoff = DateTimeOffset.UtcNow.AddDays(-Math.Max(1, searchMaxAgeDays)).ToString("O") },
                 request.DryRun));
 
-            steps.Add(await CleanImageCacheAsync(
+            steps.Add(CleanImageCache(
                 Math.Max(1, imageRetentionDays),
                 request.DryRun,
-                ct).ConfigureAwait(false));
+                ct));
 
             steps.Add(CompactDuplicateClaims(
                 Math.Max(1, claimBatchSize),
@@ -82,7 +82,7 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
         }
 
         // Runs AFTER the write lock is released: the rebuild goes through
-        // ExecuteInTransactionAsync, which acquires the same non-reentrant
+        // ExecuteWriteAsync, which acquires the same non-reentrant
         // write lock itself — calling it inside the locked region above
         // would deadlock.
         steps.Add(await RebuildUiSettingsCacheAsync(request.DryRun, ct).ConfigureAwait(false));
@@ -137,7 +137,7 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
             dryRun ? "expired rows counted" : "expired rows purged");
     }
 
-    private async Task<StorageMaintenanceStepResult> CleanImageCacheAsync(
+    private StorageMaintenanceStepResult CleanImageCache(
         int retentionDays,
         bool dryRun,
         CancellationToken ct)

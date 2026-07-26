@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Intelligence.Strategies;
 
 namespace MediaEngine.Intelligence.Tests;
@@ -7,6 +8,23 @@ namespace MediaEngine.Intelligence.Tests;
 /// </summary>
 public sealed class StrategyTests
 {
+    [Fact]
+    public void ExactMatch_HardIdentifierCatalog_RemainsStable()
+    {
+        Assert.Equal(
+            [
+                BridgeIdKeys.Isbn,
+                "imdbid",
+                "tmdbid",
+                "ean",
+                BridgeIdKeys.Asin,
+                "musicbrainzid",
+                "openlibrary_id",
+                BridgeIdKeys.WikidataQid,
+            ],
+            ExactMatchStrategy.HardIdentifierKeys);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  ExactMatchStrategy
     // ════════════════════════════════════════════════════════════════════════

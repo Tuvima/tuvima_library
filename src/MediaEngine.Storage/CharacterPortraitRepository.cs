@@ -142,7 +142,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        return _db.ExecuteInTransactionAsync((conn, transaction, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, transaction, innerCt) =>
         {
             // Look up the fictional_entity_id for this portrait.
             var fictionalEntityId = conn.QueryFirstOrDefault<Guid?>("""
@@ -153,7 +153,7 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
                 """, new { portraitId }, transaction);
 
             if (fictionalEntityId is null)
-                return Task.CompletedTask;
+                return;
 
             // Clear default on all portraits for this character.
             conn.Execute("""
@@ -172,7 +172,6 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
                 WHERE  id = @portraitId;
                 """, new { portraitId, now = DateTimeOffset.UtcNow }, transaction);
 
-            return Task.CompletedTask;
         }, ct);
     }
 

@@ -9,6 +9,29 @@ status: "internal"
 
 # Storage Policy Review
 
+## SQLite Execution Model
+
+Tuvima uses asynchronous APIs for scheduling, cancellation, HTTP, and worker
+coordination, but SQLite calls themselves are synchronous. Microsoft.Data.Sqlite
+does not support asynchronous I/O; its ADO.NET async methods execute
+synchronously. Repository APIs may remain `Task`-shaped so callers keep a stable
+application contract, but implementations must:
+
+- check the supplied cancellation token before each bounded SQLite operation;
+- use synchronous Dapper and Microsoft.Data.Sqlite command methods;
+- avoid `Task.Run` around database work;
+- use `IDatabaseConnection.ExecuteWriteAsync` for writes that need a
+  transaction. The method waits asynchronously for the global writer semaphore,
+  then runs its SQLite callback synchronously and commits or rolls back before
+  releasing the lock;
+- split large `IN` queries with `SqliteBatching.MaxParametersPerQuery`; and
+- batch related reads instead of issuing one query per item.
+
+WAL mode remains the concurrency mechanism for simultaneous readers and the
+single serialized writer. See Microsoft's
+[SQLite async limitations](https://learn.microsoft.com/dotnet/standard/data/sqlite/async)
+guidance.
+
 ## Goal
 
 Unify Tuvima Library's managed asset storage so downloaded/provider artwork and derived artifacts stop cluttering media folders, while playback-critical sidecars remain where external players and managers expect them.

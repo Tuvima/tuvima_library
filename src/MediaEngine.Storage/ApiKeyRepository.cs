@@ -47,12 +47,13 @@ public sealed class ApiKeyRepository : IApiKeyRepository
     }
 
     /// <inheritdoc/>
-    public async Task<ApiKey?> FindByHashedKeyAsync(string hashedKey, CancellationToken ct = default)
+    public Task<ApiKey?> FindByHashedKeyAsync(string hashedKey, CancellationToken ct = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(hashedKey);
+        ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        var result = await conn.QueryFirstOrDefaultAsync<ApiKey>(new CommandDefinition("""
+        var result = conn.QueryFirstOrDefault<ApiKey>(new CommandDefinition("""
             SELECT id         AS Id,
                    label      AS Label,
                    hashed_key AS HashedKey,
@@ -64,7 +65,7 @@ public sealed class ApiKeyRepository : IApiKeyRepository
             """,
             new { hashedKey },
             cancellationToken: ct));
-        return result;
+        return Task.FromResult(result);
     }
 
     /// <inheritdoc/>

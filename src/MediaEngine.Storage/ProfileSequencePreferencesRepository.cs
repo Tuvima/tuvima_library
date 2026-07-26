@@ -14,17 +14,18 @@ public sealed class ProfileSequencePreferencesRepository : IProfileSequencePrefe
         _db = db;
     }
 
-    public async Task<ProfileSequencePreference?> GetAsync(
+    public Task<ProfileSequencePreference?> GetAsync(
         Guid profileId,
         string mediaType,
         string containerKey,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var normalizedMediaType = NormalizeRequired(mediaType, nameof(mediaType));
         var normalizedContainerKey = NormalizeRequired(containerKey, nameof(containerKey));
 
         using var connection = _db.CreateConnection();
-        var row = await connection.QuerySingleOrDefaultAsync<PreferenceRow>(new CommandDefinition(
+        var row = connection.QuerySingleOrDefault<PreferenceRow>(new CommandDefinition(
             """
             SELECT profile_id AS ProfileId,
                    media_type AS MediaType,
@@ -44,31 +45,32 @@ public sealed class ProfileSequencePreferencesRepository : IProfileSequencePrefe
             },
             cancellationToken: ct));
 
-        return row is null ? null : Map(row);
+        return Task.FromResult(row is null ? null : Map(row));
     }
 
-    public async Task<ProfileSequencePreferenceSaveResult> SaveAsync(
+    public Task<ProfileSequencePreferenceSaveResult> SaveAsync(
         Guid profileId,
         string mediaType,
         string containerKey,
         bool showMissing,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var normalizedMediaType = NormalizeRequired(mediaType, nameof(mediaType));
         var normalizedContainerKey = NormalizeRequired(containerKey, nameof(containerKey));
 
         using var connection = _db.CreateConnection();
-        var profileExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+        var profileExists = connection.ExecuteScalar<long>(new CommandDefinition(
             "SELECT COUNT(1) FROM profiles WHERE id = @profileId;",
             new { profileId },
             cancellationToken: ct)) > 0;
         if (!profileExists)
         {
-            return new ProfileSequencePreferenceSaveResult(false, null);
+            return Task.FromResult(new ProfileSequencePreferenceSaveResult(false, null));
         }
 
         var now = DateTimeOffset.UtcNow;
-        await connection.ExecuteAsync(new CommandDefinition(
+        connection.Execute(new CommandDefinition(
             """
             INSERT INTO profile_sequence_preferences
                 (profile_id, media_type, container_key, show_missing, updated_at)
@@ -88,27 +90,28 @@ public sealed class ProfileSequencePreferencesRepository : IProfileSequencePrefe
             },
             cancellationToken: ct));
 
-        return new ProfileSequencePreferenceSaveResult(
+        return Task.FromResult(new ProfileSequencePreferenceSaveResult(
             true,
             new ProfileSequencePreference(
                 profileId,
                 normalizedMediaType,
                 normalizedContainerKey,
                 showMissing,
-                now));
+                now)));
     }
 
-    public async Task<bool> DeleteAsync(
+    public Task<bool> DeleteAsync(
         Guid profileId,
         string mediaType,
         string containerKey,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var normalizedMediaType = NormalizeRequired(mediaType, nameof(mediaType));
         var normalizedContainerKey = NormalizeRequired(containerKey, nameof(containerKey));
 
         using var connection = _db.CreateConnection();
-        var deleted = await connection.ExecuteAsync(new CommandDefinition(
+        var deleted = connection.Execute(new CommandDefinition(
             """
             DELETE FROM profile_sequence_preferences
             WHERE profile_id = @profileId
@@ -122,7 +125,7 @@ public sealed class ProfileSequencePreferencesRepository : IProfileSequencePrefe
                 containerKey = normalizedContainerKey,
             },
             cancellationToken: ct));
-        return deleted > 0;
+        return Task.FromResult(deleted > 0);
     }
 
     private static string NormalizeRequired(string value, string parameterName)

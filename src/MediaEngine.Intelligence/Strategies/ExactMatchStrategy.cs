@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Intelligence.Contracts;
 
 namespace MediaEngine.Intelligence.Strategies;
@@ -32,7 +33,16 @@ public sealed class ExactMatchStrategy : IScoringStrategy
     /// Used by IdentityMatcher to route hard identifiers to exact match.
     /// </summary>
     public static readonly IReadOnlyList<string> HardIdentifierKeys =
-        ["isbn", "imdbid", "tmdbid", "ean", "asin", "musicbrainzid", "openlibrary_id", "wikidata_qid"];
+        [
+            BridgeIdKeys.Isbn,
+            "imdbid",
+            "tmdbid",
+            "ean",
+            BridgeIdKeys.Asin,
+            "musicbrainzid",
+            "openlibrary_id",
+            BridgeIdKeys.WikidataQid,
+        ];
 
     private static readonly HashSet<string> _keySet =
         new(HardIdentifierKeys, StringComparer.OrdinalIgnoreCase);

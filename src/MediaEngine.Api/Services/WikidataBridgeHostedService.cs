@@ -1,4 +1,3 @@
-using MediaEngine.Domain.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
 
@@ -8,66 +7,30 @@ namespace MediaEngine.Api.Services;
 /// Background service that polls <see cref="WikidataBridgeWorker"/> for
 /// <c>RetailMatched</c> identity jobs and runs Stage 2 Wikidata bridge resolution.
 /// </summary>
-public sealed class WikidataBridgeHostedService : BackgroundService
+public sealed class WikidataBridgeHostedService : PipelineStageHostedService<WikidataBridgeWorker>
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IIdentityPipelineSignal _signal;
-    private readonly ILogger<WikidataBridgeHostedService> _logger;
-
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(30);
-
-    private DateTimeOffset _nextReclaimAt = DateTimeOffset.UtcNow;
-
     public WikidataBridgeHostedService(
         IServiceScopeFactory scopeFactory,
         IIdentityPipelineSignal signal,
         ILogger<WikidataBridgeHostedService> logger)
+        : base(scopeFactory, signal, logger)
     {
-        _scopeFactory = scopeFactory;
-        _signal = signal;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation("WikidataBridgeHostedService started");
+    protected override IdentityPipelineSignalKind WakeSignal =>
+        IdentityPipelineSignalKind.WikidataBridge;
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
+    protected override TimeSpan StuckJobThreshold => TimeSpan.FromMinutes(10);
 
-                // Reclaim jobs stuck in intermediate states every 30 seconds.
-                if (DateTimeOffset.UtcNow >= _nextReclaimAt)
-                {
-                    var jobRepo = scope.ServiceProvider.GetRequiredService<IIdentityJobRepository>();
-                    var reclaimed = await jobRepo.ReclaimStuckJobsAsync(
-                        TimeSpan.FromMinutes(10), stoppingToken);
-                    if (reclaimed > 0)
-                        _logger.LogInformation("{Service}: reclaimed {Count} stuck job(s)",
-                            nameof(WikidataBridgeHostedService), reclaimed);
-                    _nextReclaimAt = DateTimeOffset.UtcNow.AddSeconds(30);
-                }
+    protected override IdentityPipelineSignalKind? DownstreamSignal =>
+        IdentityPipelineSignalKind.Hydration;
 
-                var worker = scope.ServiceProvider.GetRequiredService<WikidataBridgeWorker>();
-                var processed = await worker.PollAsync(stoppingToken);
-                if (processed > 0)
-                    _signal.Signal(IdentityPipelineSignalKind.Hydration);
+    protected override Task<int> PollAsync(WikidataBridgeWorker worker, CancellationToken stoppingToken) =>
+        worker.PollAsync(stoppingToken);
 
-                var delay = processed > 0 ? PollInterval : IdleInterval;
-                await _signal.WaitAsync(IdentityPipelineSignalKind.WikidataBridge, delay, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "WikidataBridgeHostedService poll error");
-                await _signal.WaitAsync(IdentityPipelineSignalKind.WikidataBridge, IdleInterval, stoppingToken);
-            }
-        }
-    }
+    protected override void LogStarted() =>
+        Logger.LogInformation("WikidataBridgeHostedService started");
+
+    protected override void LogPollError(Exception exception) =>
+        Logger.LogError(exception, "WikidataBridgeHostedService poll error");
 }

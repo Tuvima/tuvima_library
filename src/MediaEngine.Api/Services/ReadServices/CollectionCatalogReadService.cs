@@ -339,12 +339,26 @@ public sealed class CollectionCatalogReadService(
             return null;
         }
 
+        var peopleByQid = (await personRepo.FindByQidsAsync(
+                references
+                    .Where(reference => string.Equals(reference.LookupKind, "qid", StringComparison.OrdinalIgnoreCase))
+                    .Select(reference => reference.LookupValue),
+                ct).ConfigureAwait(false))
+            .Where(person => !string.IsNullOrWhiteSpace(person.WikidataQid))
+            .ToDictionary(person => person.WikidataQid!, StringComparer.OrdinalIgnoreCase);
+        var peopleByName = (await personRepo.FindByNamesAsync(
+                references
+                    .Where(reference => !string.Equals(reference.LookupKind, "qid", StringComparison.OrdinalIgnoreCase))
+                    .Select(reference => reference.LookupValue),
+                ct).ConfigureAwait(false))
+            .ToDictionary(person => person.Name, StringComparer.OrdinalIgnoreCase);
+
         var resolved = new List<(Person Person, CatalogPersonReference Reference)>();
         foreach (var reference in references)
         {
             var person = string.Equals(reference.LookupKind, "qid", StringComparison.OrdinalIgnoreCase)
-                ? await personRepo.FindByQidAsync(reference.LookupValue, ct).ConfigureAwait(false)
-                : await personRepo.FindByNameAsync(reference.LookupValue, ct).ConfigureAwait(false);
+                ? peopleByQid.GetValueOrDefault(reference.LookupValue)
+                : peopleByName.GetValueOrDefault(reference.LookupValue);
             if (person is null)
             {
                 return null;

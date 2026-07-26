@@ -328,13 +328,15 @@ public static class UniverseGraphEndpoints
                 .ToList();
 
             // 3. Find neighbors that haven't been enriched yet.
+            var neighbors = (await entityRepo.FindByQidsAsync(neighborQids, ct))
+                .ToDictionary(item => item.WikidataQid, StringComparer.OrdinalIgnoreCase);
             var unenrichedCount = 0;
             foreach (var neighborQid in neighborQids)
             {
                 ct.ThrowIfCancellationRequested();
 
-                var neighbor = await entityRepo.FindByQidAsync(neighborQid, ct);
-                if (neighbor is null || neighbor.EnrichedAt is not null)
+                if (!neighbors.TryGetValue(neighborQid, out var neighbor)
+                    || neighbor.EnrichedAt is not null)
                     continue;
 
                 var entityType = neighbor.EntitySubType switch

@@ -87,6 +87,49 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<EntityAsset>> GetByEntitiesAsync(
+        IReadOnlyCollection<string> entityIds,
+        string? assetType = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(entityIds);
+
+        var normalizedIds = entityIds
+            .Where(entityId => !string.IsNullOrWhiteSpace(entityId))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Select(ToEntityIdParameter)
+            .ToArray();
+        if (normalizedIds.Length == 0)
+        {
+            return Task.FromResult<IReadOnlyList<EntityAsset>>([]);
+        }
+
+        using var conn = _db.CreateConnection();
+        var results = new List<EntityAsset>();
+        foreach (var batch in normalizedIds.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            results.AddRange(assetType is null
+                ? conn.Query<EntityAsset>($"""
+                    SELECT {SelectColumns}
+                    FROM   entity_assets
+                    WHERE  entity_id IN @entityIds
+                    ORDER BY entity_id, asset_type, is_preferred DESC, created_at;
+                    """, new { entityIds = batch })
+                : conn.Query<EntityAsset>($"""
+                    SELECT {SelectColumns}
+                    FROM   entity_assets
+                    WHERE  entity_id IN @entityIds
+                    AND    asset_type = @assetType
+                    ORDER BY entity_id, is_preferred DESC, created_at;
+                    """, new { entityIds = batch, assetType }));
+        }
+
+        return Task.FromResult<IReadOnlyList<EntityAsset>>(results);
+    }
+
+    /// <inheritdoc/>
     public Task<EntityAsset?> FindByIdAsync(Guid assetId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -179,7 +222,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             // Find the target asset's entity_id and asset_type.
             var target = conn.QuerySingleOrDefault<EntityAssetTargetRow>($"""
@@ -189,7 +232,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 """, new { assetId }, tx);
 
             if (target is null)
-                return Task.CompletedTask;
+                return;
 
             // Clear preferred flag on all assets with the same entity + asset type.
             conn.Execute("""
@@ -209,7 +252,6 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
                 WHERE  id = @assetId;
                 """, new { assetId }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 

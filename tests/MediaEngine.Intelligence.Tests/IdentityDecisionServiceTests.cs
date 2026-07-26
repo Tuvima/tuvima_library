@@ -20,15 +20,7 @@ public sealed class IdentityDecisionServiceTests
 
     private static IdentityDecisionService CreateService() =>
         new(
-            new List<IMediaTypeIdentityStrategy>
-            {
-                new BookIdentityStrategy(),
-                new AudiobookIdentityStrategy(),
-                new MovieIdentityStrategy(),
-                new TvIdentityStrategy(),
-                new MusicIdentityStrategy(),
-                new ComicIdentityStrategy(),
-            },
+            MediaTypeIdentityProfileCatalog.All,
             NullLogger<IdentityDecisionService>.Instance);
 
     // ── Context builder ──────────────────────────────────────────────────────
@@ -82,7 +74,7 @@ public sealed class IdentityDecisionServiceTests
         // Score 0.96 falls in the "Exact" band — decision must be Accept.
         var service = CreateService();
         var ctx     = MakeContext(retailScore: 0.96);
-        var strategy = new BookIdentityStrategy();
+        var strategy = MediaTypeIdentityProfileCatalog.Books;
 
         service.EvaluateRetailOutcome(ctx, strategy);
 
@@ -96,7 +88,7 @@ public sealed class IdentityDecisionServiceTests
         // Score 0.88 falls in the "Strong" band — also auto-accepted.
         var service  = CreateService();
         var ctx      = MakeContext(retailScore: 0.88);
-        var strategy = new BookIdentityStrategy();
+        var strategy = MediaTypeIdentityProfileCatalog.Books;
 
         service.EvaluateRetailOutcome(ctx, strategy);
 
@@ -110,7 +102,7 @@ public sealed class IdentityDecisionServiceTests
         // Score 0.60 falls in the "Provisional" band — accepted with review flag.
         var service  = CreateService();
         var ctx      = MakeContext(retailScore: 0.60);
-        var strategy = new BookIdentityStrategy();
+        var strategy = MediaTypeIdentityProfileCatalog.Books;
 
         service.EvaluateRetailOutcome(ctx, strategy);
 
@@ -125,7 +117,7 @@ public sealed class IdentityDecisionServiceTests
         // Score 0.20 is "Insufficient" and there is no fallback path, so → Review.
         var service  = CreateService();
         var ctx      = MakeContext(mediaType: MediaType.Music, retailScore: 0.20);
-        var strategy = new MusicIdentityStrategy();
+        var strategy = MediaTypeIdentityProfileCatalog.Music;
 
         service.EvaluateRetailOutcome(ctx, strategy);
 
@@ -139,7 +131,7 @@ public sealed class IdentityDecisionServiceTests
         // Tier A: HasUserLocks = true overrides any retail score (including 0.0).
         var service  = CreateService();
         var ctx      = MakeContext(retailScore: 0.0, hasUserLocks: true);
-        var strategy = new BookIdentityStrategy();
+        var strategy = MediaTypeIdentityProfileCatalog.Books;
 
         service.EvaluateRetailOutcome(ctx, strategy);
 

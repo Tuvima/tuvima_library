@@ -143,6 +143,14 @@ public interface ICollectionRepository
     Task<Collection?> GetByIdAsync(Guid collectionId, CancellationToken ct = default);
 
     /// <summary>
+    /// Returns the requested Collection rows without loading Works or relationships.
+    /// Missing IDs are omitted and results retain the first-occurrence order of the requested IDs.
+    /// </summary>
+    Task<IReadOnlyList<Collection>> GetByIdsAsync(
+        IEnumerable<Guid> collectionIds,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Finds a Collection by its Wikidata QID. Returns null if no Collection has this QID.
     /// </summary>
     Task<Collection?> FindByQidAsync(string qid, CancellationToken ct = default);
@@ -208,6 +216,14 @@ public interface ICollectionRepository
     /// Returns null when no collection with this ID exists.
     /// </summary>
     Task<Collection?> GetCollectionWithWorksAsync(Guid collectionId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the requested collections with their child Works and each Work's CanonicalValues loaded.
+    /// Missing IDs are omitted and results retain the first-occurrence order of the requested IDs.
+    /// </summary>
+    Task<IReadOnlyList<Collection>> GetCollectionsWithWorksAsync(
+        IEnumerable<Guid> collectionIds,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Returns the collection_id for a given work ID.

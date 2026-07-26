@@ -11,35 +11,35 @@ public sealed class CollectionPlacementRepository : ICollectionPlacementReposito
 
     public CollectionPlacementRepository(IDatabaseConnection db) => _db = db;
 
-    public async Task<IReadOnlyList<CollectionPlacement>> GetByCollectionIdAsync(Guid collectionId, CancellationToken ct = default)
+    public Task<IReadOnlyList<CollectionPlacement>> GetByCollectionIdAsync(Guid collectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var results = await conn.QueryAsync<CollectionPlacement>(
+        var results = conn.Query<CollectionPlacement>(
             "SELECT id AS Id, collection_id AS CollectionId, location AS Location, position AS Position, " +
             "display_limit AS DisplayLimit, display_mode AS DisplayMode, is_visible AS IsVisible, " +
             "created_at AS CreatedAt FROM collection_placements WHERE collection_id = @CollectionId ORDER BY position",
             new { CollectionId = collectionId });
-        return results.ToList();
+        return Task.FromResult<IReadOnlyList<CollectionPlacement>>(results.ToList());
     }
 
-    public async Task<IReadOnlyList<CollectionPlacement>> GetByLocationAsync(string location, CancellationToken ct = default)
+    public Task<IReadOnlyList<CollectionPlacement>> GetByLocationAsync(string location, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var results = await conn.QueryAsync<CollectionPlacement>(
+        var results = conn.Query<CollectionPlacement>(
             "SELECT id AS Id, collection_id AS CollectionId, location AS Location, position AS Position, " +
             "display_limit AS DisplayLimit, display_mode AS DisplayMode, is_visible AS IsVisible, " +
             "created_at AS CreatedAt FROM collection_placements WHERE location = @Location AND is_visible = 1 ORDER BY position",
             new { Location = location });
-        return results.ToList();
+        return Task.FromResult<IReadOnlyList<CollectionPlacement>>(results.ToList());
     }
 
-    public async Task UpsertAsync(CollectionPlacement placement, CancellationToken ct = default)
+    public Task UpsertAsync(CollectionPlacement placement, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT INTO collection_placements (id, collection_id, location, position, display_limit, display_mode, is_visible, created_at)
             VALUES (@Id, @CollectionId, @Location, @Position, @DisplayLimit, @DisplayMode, @IsVisible, @CreatedAt)
             ON CONFLICT(id) DO UPDATE SET
@@ -60,21 +60,24 @@ public sealed class CollectionPlacementRepository : ICollectionPlacementReposito
                 IsVisible = placement.IsVisible ? 1 : 0,
                 CreatedAt = placement.CreatedAt.ToString("o"),
             });
+        return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(Guid placementId, CancellationToken ct = default)
+    public Task DeleteAsync(Guid placementId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("DELETE FROM collection_placements WHERE id = @Id",
+        conn.Execute("DELETE FROM collection_placements WHERE id = @Id",
             new { Id = placementId });
+        return Task.CompletedTask;
     }
 
-    public async Task DeleteByCollectionIdAsync(Guid collectionId, CancellationToken ct = default)
+    public Task DeleteByCollectionIdAsync(Guid collectionId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("DELETE FROM collection_placements WHERE collection_id = @CollectionId",
+        conn.Execute("DELETE FROM collection_placements WHERE collection_id = @CollectionId",
             new { CollectionId = collectionId });
+        return Task.CompletedTask;
     }
 }

@@ -189,7 +189,7 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
             : new Dictionary<string, IReadOnlyList<string>>();
         var now = DateTimeOffset.UtcNow;
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var existing = conn.QueryFirstOrDefault<ArtifactRow>(
                 """
@@ -217,7 +217,7 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
                 && string.Equals(existing.OutputFingerprint, outputFingerprint, StringComparison.Ordinal)
                 && expectedProfileMatches)
             {
-                return Task.FromResult(new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: true));
+                return new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: true);
             }
 
             if (publishes)
@@ -297,7 +297,7 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
                 },
                 transaction: tx);
 
-            return Task.FromResult(new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: false));
+            return new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: false);
         }, ct);
     }
 

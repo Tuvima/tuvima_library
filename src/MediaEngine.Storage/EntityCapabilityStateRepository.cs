@@ -11,14 +11,14 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
 
     public EntityCapabilityStateRepository(IDatabaseConnection db) => _db = db;
 
-    public async Task<EntityCapabilityState> EnsureAsync(EntityCapabilityState state, CancellationToken ct = default)
+    public Task<EntityCapabilityState> EnsureAsync(EntityCapabilityState state, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow;
         var createdAt = state.CreatedAt == default ? now : state.CreatedAt;
         var updatedAt = state.UpdatedAt == default ? now : state.UpdatedAt;
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT OR IGNORE INTO entity_capability_states
                 (id, entity_id, entity_kind, media_type, capability_id, capability_kind,
                  capability_version, sub_key, status, requiredness, source, confidence,
@@ -62,14 +62,19 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 UpdatedAt = updatedAt.ToString("O")
             });
 
-        return (await GetAsync(state.EntityId, state.CapabilityId, state.SubKey, ct))!;
+        return GetAsync(state.EntityId, state.CapabilityId, state.SubKey, ct)
+            .ContinueWith(
+                completed => completed.Result!,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
     }
 
-    public async Task<EntityCapabilityState?> GetAsync(Guid entityId, string capabilityId, string? subKey = null, CancellationToken ct = default)
+    public Task<EntityCapabilityState?> GetAsync(Guid entityId, string capabilityId, string? subKey = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<Row>(
+        var row = conn.QueryFirstOrDefault<Row>(
             SelectSql + """
              WHERE entity_id = @entityId
                AND capability_id = @capabilityId
@@ -77,29 +82,33 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
              LIMIT 1;
             """,
             new { entityId, capabilityId, subKey });
-        return row is null ? null : Map(row);
+        return Task.FromResult(row is null ? null : Map(row));
     }
 
-    public async Task<IReadOnlyList<EntityCapabilityState>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityCapabilityState>> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<Row>(
+        var rows = conn.Query<Row>(
             SelectSql + " WHERE entity_id = @entityId ORDER BY capability_id ASC, COALESCE(sub_key, '') ASC;",
             new { entityId });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<EntityCapabilityState>>(rows.Select(Map).ToList());
     }
 
-    public async Task<IReadOnlyDictionary<string, int>> GetSummaryAsync(CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<string, int>> GetSummaryAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync("""
+        var rows = conn.Query("""
             SELECT capability_id || ':' || status AS Key, COUNT(*) AS Count
             FROM entity_capability_states
             GROUP BY capability_id, status;
             """);
-        return rows.ToDictionary(r => (string)r.Key, r => (int)r.Count, StringComparer.OrdinalIgnoreCase);
+        IReadOnlyDictionary<string, int> summary = rows.ToDictionary(
+            r => (string)r.Key,
+            r => (int)r.Count,
+            StringComparer.OrdinalIgnoreCase);
+        return Task.FromResult(summary);
     }
 
     public Task MarkQueuedAsync(Guid entityId, string capabilityId, string? subKey, Guid operationId, CancellationToken ct = default)
@@ -108,11 +117,11 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
     public Task MarkRunningAsync(Guid entityId, string capabilityId, string? subKey, Guid operationId, CancellationToken ct = default)
         => MarkAttemptAsync(entityId, capabilityId, subKey, EntityCapabilityStatus.Running, operationId, ct);
 
-    public async Task MarkSucceededAsync(Guid entityId, string capabilityId, string? subKey, CapabilityStateResult result, CancellationToken ct = default)
+    public Task MarkSucceededAsync(Guid entityId, string capabilityId, string? subKey, CapabilityStateResult result, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE entity_capability_states
             SET status = 'succeeded',
                 source = @source,
@@ -146,6 +155,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 operationId = result.OperationId,
                 now = DateTimeOffset.UtcNow.ToString("O")
             });
+        return Task.CompletedTask;
     }
 
     public Task MarkNoResultAsync(Guid entityId, string capabilityId, string? subKey, string reason, CancellationToken ct = default)
@@ -160,11 +170,11 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
     public Task MarkNotApplicableAsync(Guid entityId, string capabilityId, string? subKey, string reason, CancellationToken ct = default)
         => MarkStateAsync(entityId, capabilityId, subKey, EntityCapabilityStatus.NotApplicable, reason, null, ct);
 
-    public async Task InvalidateForCapabilityVersionAsync(string capabilityId, string newVersion, CancellationToken ct = default)
+    public Task InvalidateForCapabilityVersionAsync(string capabilityId, string newVersion, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE entity_capability_states
             SET status = 'stale',
                 stale = 1,
@@ -174,13 +184,14 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
               AND COALESCE(capability_version, '') <> @newVersion;
             """,
             new { capabilityId, newVersion, now = DateTimeOffset.UtcNow.ToString("O") });
+        return Task.CompletedTask;
     }
 
-    private async Task MarkAttemptAsync(Guid entityId, string capabilityId, string? subKey, string status, Guid operationId, CancellationToken ct)
+    private Task MarkAttemptAsync(Guid entityId, string capabilityId, string? subKey, string status, Guid operationId, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE entity_capability_states
             SET status = @status,
                 last_operation_id = @operationId,
@@ -201,13 +212,14 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 operationId,
                 now = DateTimeOffset.UtcNow.ToString("O")
             });
+        return Task.CompletedTask;
     }
 
-    private async Task MarkStateAsync(Guid entityId, string capabilityId, string? subKey, string status, string? missingReason, string? lastError, CancellationToken ct)
+    private Task MarkStateAsync(Guid entityId, string capabilityId, string? subKey, string status, string? missingReason, string? lastError, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE entity_capability_states
             SET status = @status,
                 missing_reason = @missingReason,
@@ -220,6 +232,7 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
               AND COALESCE(sub_key, '') = COALESCE(@subKey, '');
             """,
             new { entityId, capabilityId, subKey, status, missingReason, lastError, now = DateTimeOffset.UtcNow.ToString("O") });
+        return Task.CompletedTask;
     }
 
     private const string SelectSql = """

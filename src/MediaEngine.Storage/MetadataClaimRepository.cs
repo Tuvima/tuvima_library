@@ -42,7 +42,7 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         if (claims.Count == 0)
             return;
 
-        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureBuiltInProvidersExist(conn, tx, claims);
 
@@ -70,7 +70,6 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
             });
 
             conn.Execute(sql, rows, transaction: tx);
-            return Task.CompletedTask;
         }, ct).ConfigureAwait(false);
     }
 

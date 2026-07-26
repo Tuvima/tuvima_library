@@ -32,6 +32,11 @@ public interface IPersonRepository
         string name,
         CancellationToken ct = default);
 
+    /// <summary>Finds all people matching the supplied names in bounded batches.</summary>
+    Task<IReadOnlyList<Person>> FindByNamesAsync(
+        IEnumerable<string> names,
+        CancellationToken ct = default);
+
     /// <summary>
     /// Adds a role to the given person in the <c>person_roles</c> junction table.
     /// Idempotent — duplicate (person_id, role) pairs are silently ignored.

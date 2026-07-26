@@ -25,7 +25,7 @@ public sealed class WorkHierarchyMaintenanceService
     {
         ct.ThrowIfCancellationRequested();
 
-        var deleted = await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        var deleted = await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var count = 0;
             while (true)
@@ -43,7 +43,7 @@ public sealed class WorkHierarchyMaintenanceService
                 }
             }
 
-            return Task.FromResult(count);
+            return count;
         }, ct).ConfigureAwait(false);
 
         if (deleted > 0)

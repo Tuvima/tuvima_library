@@ -1,4 +1,3 @@
-using MediaEngine.Domain.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
 
@@ -8,64 +7,27 @@ namespace MediaEngine.Api.Services;
 /// Background service that polls <see cref="QuickHydrationWorker"/> for
 /// <c>QidResolved</c> identity jobs and runs Quick hydration + post-pipeline evaluation.
 /// </summary>
-public sealed class QuickHydrationHostedService : BackgroundService
+public sealed class QuickHydrationHostedService : PipelineStageHostedService<QuickHydrationWorker>
 {
-    private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IIdentityPipelineSignal _signal;
-    private readonly ILogger<QuickHydrationHostedService> _logger;
-
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
-    private static readonly TimeSpan IdleInterval = TimeSpan.FromSeconds(30);
-
-    private DateTimeOffset _nextReclaimAt = DateTimeOffset.UtcNow;
-
     public QuickHydrationHostedService(
         IServiceScopeFactory scopeFactory,
         IIdentityPipelineSignal signal,
         ILogger<QuickHydrationHostedService> logger)
+        : base(scopeFactory, signal, logger)
     {
-        _scopeFactory = scopeFactory;
-        _signal = signal;
-        _logger = logger;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
-        _logger.LogInformation("QuickHydrationHostedService started");
+    protected override IdentityPipelineSignalKind WakeSignal =>
+        IdentityPipelineSignalKind.Hydration;
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
-                using var scope = _scopeFactory.CreateScope();
+    protected override TimeSpan StuckJobThreshold => TimeSpan.FromMinutes(5);
 
-                // Reclaim jobs stuck in intermediate states every 30 seconds.
-                if (DateTimeOffset.UtcNow >= _nextReclaimAt)
-                {
-                    var jobRepo = scope.ServiceProvider.GetRequiredService<IIdentityJobRepository>();
-                    var reclaimed = await jobRepo.ReclaimStuckJobsAsync(
-                        TimeSpan.FromMinutes(5), stoppingToken);
-                    if (reclaimed > 0)
-                        _logger.LogInformation("{Service}: reclaimed {Count} stuck job(s)",
-                            nameof(QuickHydrationHostedService), reclaimed);
-                    _nextReclaimAt = DateTimeOffset.UtcNow.AddSeconds(30);
-                }
+    protected override Task<int> PollAsync(QuickHydrationWorker worker, CancellationToken stoppingToken) =>
+        worker.PollAsync(stoppingToken);
 
-                var worker = scope.ServiceProvider.GetRequiredService<QuickHydrationWorker>();
-                var processed = await worker.PollAsync(stoppingToken);
+    protected override void LogStarted() =>
+        Logger.LogInformation("QuickHydrationHostedService started");
 
-                var delay = processed > 0 ? PollInterval : IdleInterval;
-                await _signal.WaitAsync(IdentityPipelineSignalKind.Hydration, delay, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                break;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "QuickHydrationHostedService poll error");
-                await _signal.WaitAsync(IdentityPipelineSignalKind.Hydration, IdleInterval, stoppingToken);
-            }
-        }
-    }
+    protected override void LogPollError(Exception exception) =>
+        Logger.LogError(exception, "QuickHydrationHostedService poll error");
 }

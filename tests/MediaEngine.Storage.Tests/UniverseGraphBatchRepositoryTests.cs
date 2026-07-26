@@ -64,14 +64,26 @@ public sealed class UniverseGraphBatchRepositoryTests : IDisposable
             tx.Commit();
         }
 
-        var links = await new FictionalEntityRepository(_db).GetWorkLinksAsync(entityIds);
+        var fictionalEntities = new FictionalEntityRepository(_db);
+        var links = await fictionalEntities.GetWorkLinksAsync(entityIds);
         Assert.Equal(LargeGraphSize, links.Count);
         Assert.Contains(links, link => link.FictionalEntityId == entityIds[^1] && link.WorkQid == $"W{LargeGraphSize - 1}");
 
-        var people = await new PersonRepository(_db).FindByQidsAsync(
+        var entities = await fictionalEntities.FindByQidsAsync(
+            qids.Select(qid => qid.ToLowerInvariant()));
+        Assert.Equal(LargeGraphSize, entities.Count);
+        Assert.Contains(entities, entity => entity.WikidataQid == qids[^1]);
+
+        var personRepository = new PersonRepository(_db);
+        var people = await personRepository.FindByQidsAsync(
             Enumerable.Range(0, LargeGraphSize).Select(index => $"p{index}"));
         Assert.Equal(LargeGraphSize, people.Count);
         Assert.Contains(people, person => person.WikidataQid == "P0" && person.Roles.SequenceEqual(["Actor"]));
+
+        var peopleByName = await personRepository.FindByNamesAsync(
+            Enumerable.Range(0, LargeGraphSize).Select(index => $"actor {index}"));
+        Assert.Equal(LargeGraphSize, peopleByName.Count);
+        Assert.Contains(peopleByName, person => person.Name == $"Actor {LargeGraphSize - 1}");
     }
 
     [Fact]

@@ -11,11 +11,11 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
 
     public MediaOperationEventRepository(IDatabaseConnection db) => _db = db;
 
-    public async Task AddAsync(MediaOperationEvent evt, CancellationToken ct = default)
+    public Task AddAsync(MediaOperationEvent evt, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT INTO media_operation_events
                 (id, operation_id, entity_id, batch_id, event_type, old_status, new_status,
                  old_stage, new_stage, message, detail_json, occurred_at)
@@ -38,26 +38,27 @@ public sealed class MediaOperationEventRepository : IMediaOperationEventReposito
                 evt.DetailJson,
                 OccurredAt = evt.OccurredAt.ToString("O")
             });
+        return Task.CompletedTask;
     }
 
-    public async Task<IReadOnlyList<MediaOperationEvent>> GetByOperationAsync(Guid operationId, CancellationToken ct = default)
+    public Task<IReadOnlyList<MediaOperationEvent>> GetByOperationAsync(Guid operationId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<Row>(
+        var rows = conn.Query<Row>(
             SelectSql + " WHERE operation_id = @operationId ORDER BY occurred_at ASC;",
             new { operationId });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperationEvent>>(rows.Select(Map).ToList());
     }
 
-    public async Task<IReadOnlyList<MediaOperationEvent>> GetByEntityAsync(Guid entityId, int limit, CancellationToken ct = default)
+    public Task<IReadOnlyList<MediaOperationEvent>> GetByEntityAsync(Guid entityId, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<Row>(
+        var rows = conn.Query<Row>(
             SelectSql + " WHERE entity_id = @entityId ORDER BY occurred_at DESC LIMIT @limit;",
             new { entityId, limit = Math.Clamp(limit, 1, 1000) });
-        return rows.Select(Map).ToList();
+        return Task.FromResult<IReadOnlyList<MediaOperationEvent>>(rows.Select(Map).ToList());
     }
 
     private const string SelectSql = """

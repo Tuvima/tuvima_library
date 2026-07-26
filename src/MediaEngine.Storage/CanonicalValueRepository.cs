@@ -51,7 +51,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             return;
 
         // Single transaction: atomicity + significant write-performance gain.
-        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             innerCt.ThrowIfCancellationRequested();
 
@@ -81,7 +81,6 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 }),
                 transaction: tx);
 
-            return Task.CompletedTask;
         }, ct).ConfigureAwait(false);
     }
 
@@ -340,7 +339,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         var outputFingerprint = ComputeOutputFingerprint(normalizedArrays, normalizedScalars);
         var now = DateTimeOffset.UtcNow;
 
-        return await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
             if (previous is not null
@@ -350,11 +349,11 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 && string.Equals(previous.OutputFingerprint, outputFingerprint, StringComparison.Ordinal)
                 && ArePublishedValuesCurrent(conn, tx, request.EntityId, previous))
             {
-                return Task.FromResult(new AiFeatureWriteResult(
+                return new AiFeatureWriteResult(
                     previous.Status,
                     previous.PublishedFields,
                     previous.ProtectedFields,
-                    IsUnchanged: true));
+                    IsUnchanged: true);
             }
 
             var published = new List<string>();
@@ -515,7 +514,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 publishedValues,
                 now);
 
-            return Task.FromResult(new AiFeatureWriteResult(status, published, protectedFields, IsUnchanged: false));
+            return new AiFeatureWriteResult(status, published, protectedFields, IsUnchanged: false);
         }, ct).ConfigureAwait(false);
     }
 
@@ -544,7 +543,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             throw new ArgumentOutOfRangeException(nameof(request), "Maximum attempts must be positive.");
 
         ct.ThrowIfCancellationRequested();
-        return await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
             var attempts = checked((previous?.Attempts ?? 0) + 1);
@@ -580,7 +579,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
                 now);
 
-            return Task.FromResult(new AiFeatureState(
+            return new AiFeatureState(
                 request.EntityId,
                 request.FeatureKey,
                 request.ProviderId,
@@ -597,7 +596,7 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
                 previous?.PublishedFields ?? [],
                 previous?.ProtectedFields ?? [],
                 previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
-                now));
+                now);
         }, ct).ConfigureAwait(false);
     }
 

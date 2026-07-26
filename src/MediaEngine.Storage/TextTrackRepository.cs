@@ -152,7 +152,7 @@ public sealed class TextTrackRepository : ITextTrackRepository
     public Task SetPreferredAsync(Guid id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var target = conn.QuerySingleOrDefault<(Guid AssetId, string Kind, string Language)>("""
                 SELECT asset_id AS AssetId, kind AS Kind, language AS Language
@@ -162,7 +162,7 @@ public sealed class TextTrackRepository : ITextTrackRepository
 
             if (target == default)
             {
-                return Task.CompletedTask;
+                return;
             }
 
             conn.Execute("""
@@ -177,7 +177,6 @@ public sealed class TextTrackRepository : ITextTrackRepository
                 WHERE id = @id;
                 """, new { id }, tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 }

@@ -68,7 +68,7 @@ public sealed class MusicPlayStatsRepository
             return Task.CompletedTask;
         }
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             EnsureTables(conn, tx);
             var now = _timeProvider.GetUtcNow();
@@ -96,17 +96,16 @@ public sealed class MusicPlayStatsRepository
                     ClearActive(conn, tx, profileId);
                 }
 
-                return Task.CompletedTask;
+                return;
             }
 
             if (active is null || ShouldRestart(active, item, heartbeat, now))
             {
                 UpsertActive(conn, tx, profileId, item, heartbeat, now);
-                return Task.CompletedTask;
+                return;
             }
 
             UpdateAndQualify(conn, tx, active, item, heartbeat, now);
-            return Task.CompletedTask;
         }, ct);
     }
 

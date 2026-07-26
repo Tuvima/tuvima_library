@@ -15,10 +15,11 @@ namespace MediaEngine.Storage;
 /// </summary>
 public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILibraryItemCurationRepository
 {
-    public async Task<LibraryItemTarget?> ResolveTargetAsync(Guid entityId, CancellationToken ct = default)
+    public Task<LibraryItemTarget?> ResolveTargetAsync(Guid entityId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var connection = db.CreateConnection();
-        return await connection.QuerySingleOrDefaultAsync<LibraryItemTarget>(new CommandDefinition(
+        var target = connection.QuerySingleOrDefault<LibraryItemTarget>(new CommandDefinition(
             TargetSelect + "\n" + """
                 WHERE ma.id = @entityId
                    OR e.work_id = @entityId
@@ -27,17 +28,20 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 """,
             new { entityId },
             cancellationToken: ct));
+        return Task.FromResult(target);
     }
 
-    public async Task<IReadOnlyDictionary<Guid, LibraryItemTarget>> ResolveWorkTargetsAsync(
+    public Task<IReadOnlyDictionary<Guid, LibraryItemTarget>> ResolveWorkTargetsAsync(
         IReadOnlyCollection<Guid> workIds,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (workIds.Count == 0)
-            return new Dictionary<Guid, LibraryItemTarget>();
+            return Task.FromResult<IReadOnlyDictionary<Guid, LibraryItemTarget>>(
+                new Dictionary<Guid, LibraryItemTarget>());
 
         using var connection = db.CreateConnection();
-        var rows = await connection.QueryAsync<LibraryItemTarget>(new CommandDefinition(
+        var rows = connection.Query<LibraryItemTarget>(new CommandDefinition(
             TargetSelect + "\n" + """
                 WHERE e.work_id IN @workIds
                 ORDER BY e.work_id, ma.file_path_root;
@@ -45,24 +49,27 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             new { workIds = ToBlobArray(workIds) },
             cancellationToken: ct));
 
-        return rows
+        IReadOnlyDictionary<Guid, LibraryItemTarget> targets = rows
             .GroupBy(row => row.WorkId)
             .ToDictionary(group => group.Key, group => group.First());
+        return Task.FromResult(targets);
     }
 
-    public async Task UpsertCanonicalValuesAsync(
+    public Task UpsertCanonicalValuesAsync(
         Guid entityId,
         IReadOnlyCollection<MetadataClaim> claims,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (claims.Count == 0)
-            return;
+            return Task.CompletedTask;
 
-        await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        return db.ExecuteWriteAsync((connection, transaction, innerCt) =>
         {
             foreach (var claim in claims)
             {
-                await connection.ExecuteAsync(new CommandDefinition("""
+                innerCt.ThrowIfCancellationRequested();
+                connection.Execute(new CommandDefinition("""
                     INSERT INTO canonical_values (entity_id, key, value, last_scored_at, is_conflicted, needs_review)
                     VALUES (@entityId, @key, @value, @scoredAt, 0, 0)
                     ON CONFLICT(entity_id, key) DO UPDATE SET
@@ -84,17 +91,19 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         }, ct);
     }
 
-    public async Task MarkWorkRegisteredAsync(Guid workId, CancellationToken ct = default)
+    public Task MarkWorkRegisteredAsync(Guid workId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var connection = db.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition("""
+        connection.Execute(new CommandDefinition("""
             UPDATE works
             SET curator_state = 'registered', rejected_at = NULL
             WHERE id = @workId;
             """, new { workId }, cancellationToken: ct));
+        return Task.CompletedTask;
     }
 
-    public async Task CompletePendingReviewsAsync(
+    public Task CompletePendingReviewsAsync(
         Guid assetId,
         Guid workId,
         string status,
@@ -102,26 +111,30 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         DateTimeOffset resolvedAt,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var connection = db.CreateConnection();
-        await connection.ExecuteAsync(new CommandDefinition("""
+        connection.Execute(new CommandDefinition("""
             UPDATE review_queue
             SET status = @status, resolved_at = @resolvedAt, resolved_by = @resolvedBy
             WHERE entity_id IN (@assetId, @workId) AND status = 'Pending';
             """,
             new { assetId, workId, status, resolvedAt = resolvedAt.ToString("O"), resolvedBy },
             cancellationToken: ct));
+        return Task.CompletedTask;
     }
 
-    public async Task<IReadOnlyDictionary<Guid, LibraryItemRemovalTarget>> GetRemovalTargetsAsync(
+    public Task<IReadOnlyDictionary<Guid, LibraryItemRemovalTarget>> GetRemovalTargetsAsync(
         IReadOnlyCollection<Guid> workIds,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (workIds.Count == 0)
-            return new Dictionary<Guid, LibraryItemRemovalTarget>();
+            return Task.FromResult<IReadOnlyDictionary<Guid, LibraryItemRemovalTarget>>(
+                new Dictionary<Guid, LibraryItemRemovalTarget>());
 
         using var connection = db.CreateConnection();
         var parameters = new { workIds = ToBlobArray(workIds) };
-        var rows = (await connection.QueryAsync<RemovalRow>(new CommandDefinition("""
+        var rows = connection.Query<RemovalRow>(new CommandDefinition("""
             SELECT w.id AS WorkId,
                    w.collection_id AS CollectionId,
                    w.parent_work_id AS ParentWorkId,
@@ -140,9 +153,9 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             INNER JOIN media_assets ma ON ma.edition_id = e.id
             WHERE w.id IN @workIds
             ORDER BY w.id, ma.file_path_root;
-            """, parameters, cancellationToken: ct))).ToList();
+            """, parameters, cancellationToken: ct)).ToList();
 
-        var assetRows = await connection.QueryAsync<ManagedAssetPathRow>(new CommandDefinition("""
+        var assetRows = connection.Query<ManagedAssetPathRow>(new CommandDefinition("""
             SELECT entity_id AS WorkId,
                    local_image_path AS LocalImagePath,
                    local_image_path_s AS LocalImagePathSmall,
@@ -169,7 +182,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList());
 
-        return rows
+        IReadOnlyDictionary<Guid, LibraryItemRemovalTarget> targets = rows
             .GroupBy(row => row.WorkId)
             .ToDictionary(
                 group => group.Key,
@@ -188,13 +201,16 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                         managedPaths.GetValueOrDefault(first.WorkId) ?? [],
                         group.Select(row => row.Title).FirstOrDefault(title => !string.IsNullOrWhiteSpace(title)));
                 });
+        return Task.FromResult(targets);
     }
 
-    public async Task DeleteWorkRecordsAsync(LibraryItemRemovalTarget target, CancellationToken ct = default)
+    public Task DeleteWorkRecordsAsync(LibraryItemRemovalTarget target, CancellationToken ct = default)
     {
-        await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        ct.ThrowIfCancellationRequested();
+        return db.ExecuteWriteAsync((connection, transaction, innerCt) =>
         {
-            await connection.ExecuteAsync(new CommandDefinition("""
+            innerCt.ThrowIfCancellationRequested();
+            connection.Execute(new CommandDefinition("""
                 DELETE FROM review_queue
                 WHERE entity_id IN (
                     SELECT ma.id
@@ -204,13 +220,13 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 );
                 """, new { workId = target.WorkId }, transaction, cancellationToken: innerCt));
 
-            await connection.ExecuteAsync(new CommandDefinition(
+            connection.Execute(new CommandDefinition(
                 "DELETE FROM entity_assets WHERE entity_id = @workId;",
                 new { workId = target.WorkId },
                 transaction,
                 cancellationToken: innerCt));
 
-            await connection.ExecuteAsync(new CommandDefinition(
+            connection.Execute(new CommandDefinition(
                 "DELETE FROM works WHERE id = @workId;",
                 new { workId = target.WorkId },
                 transaction,
@@ -218,7 +234,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
 
             if (target.CollectionId.HasValue)
             {
-                await connection.ExecuteAsync(new CommandDefinition("""
+                connection.Execute(new CommandDefinition("""
                     DELETE FROM collections
                     WHERE id = @collectionId
                       AND NOT EXISTS (SELECT 1 FROM works WHERE collection_id = @collectionId);
@@ -230,24 +246,26 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         }, ct);
     }
 
-    public async Task<int> ApproveWorksAsync(
+    public Task<int> ApproveWorksAsync(
         IReadOnlyCollection<Guid> workIds,
         DateTimeOffset now,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         if (workIds.Count == 0)
-            return 0;
+            return Task.FromResult(0);
 
         var parameters = new { workIds = ToBlobArray(workIds), now = now.ToString("O") };
-        return await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        return db.ExecuteWriteAsync((connection, transaction, innerCt) =>
         {
-            var processed = await connection.ExecuteAsync(new CommandDefinition("""
+            innerCt.ThrowIfCancellationRequested();
+            var processed = connection.Execute(new CommandDefinition("""
                 UPDATE works
                 SET wikidata_status = 'missing', wikidata_checked_at = @now
                 WHERE id IN @workIds;
                 """, parameters, transaction, cancellationToken: innerCt));
 
-            await connection.ExecuteAsync(new CommandDefinition("""
+            connection.Execute(new CommandDefinition("""
                 UPDATE review_queue
                 SET status = 'Resolved', resolved_at = @now, resolved_by = 'user:curator'
                 WHERE status = 'Pending'
@@ -263,12 +281,13 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         }, ct);
     }
 
-    public async Task MarkRejectedAsync(
+    public Task MarkRejectedAsync(
         LibraryItemTarget target,
         string newFilePath,
         DateTimeOffset now,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         var parameters = new
         {
             target.AssetId,
@@ -276,19 +295,20 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             path = newFilePath,
             now = now.ToString("O"),
         };
-        await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        return db.ExecuteWriteAsync((connection, transaction, innerCt) =>
         {
-            await connection.ExecuteAsync(new CommandDefinition(
+            innerCt.ThrowIfCancellationRequested();
+            connection.Execute(new CommandDefinition(
                 "UPDATE media_assets SET file_path_root = @path WHERE id = @AssetId;",
                 parameters,
                 transaction,
                 cancellationToken: innerCt));
-            await connection.ExecuteAsync(new CommandDefinition("""
+            connection.Execute(new CommandDefinition("""
                 UPDATE review_queue
                 SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:reject'
                 WHERE entity_id IN (@AssetId, @WorkId) AND status = 'Pending';
                 """, parameters, transaction, cancellationToken: innerCt));
-            await connection.ExecuteAsync(new CommandDefinition("""
+            connection.Execute(new CommandDefinition("""
                 UPDATE works
                 SET curator_state = 'rejected', rejected_at = @now
                 WHERE id = @WorkId;
@@ -296,14 +316,16 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         }, ct);
     }
 
-    public async Task<LibraryItemRecoveryResult?> RecoverAsync(
+    public Task<LibraryItemRecoveryResult?> RecoverAsync(
         Guid workId,
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        return await db.ExecuteInTransactionAsync<LibraryItemRecoveryResult?>(async (connection, transaction, innerCt) =>
+        ct.ThrowIfCancellationRequested();
+        return db.ExecuteWriteAsync<LibraryItemRecoveryResult?>((connection, transaction, innerCt) =>
         {
-            var affected = await connection.ExecuteAsync(new CommandDefinition("""
+            innerCt.ThrowIfCancellationRequested();
+            var affected = connection.Execute(new CommandDefinition("""
                 UPDATE works
                 SET curator_state = NULL, rejected_at = NULL
                 WHERE id = @workId AND curator_state = 'rejected';
@@ -313,7 +335,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 return null;
             }
 
-            var assetId = await connection.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition("""
+            var assetId = connection.QueryFirstOrDefault<Guid?>(new CommandDefinition("""
                 SELECT ma.id
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -326,7 +348,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             if (assetId.HasValue)
             {
                 reviewId = Guid.NewGuid();
-                await connection.ExecuteAsync(new CommandDefinition("""
+                connection.Execute(new CommandDefinition("""
                     INSERT INTO review_queue
                         (id, entity_id, entity_type, trigger, status, confidence_score, detail, created_at)
                     VALUES
@@ -342,16 +364,18 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         }, ct);
     }
 
-    public async Task<LibraryItemProvisionalResult?> MarkProvisionalAsync(
+    public Task<LibraryItemProvisionalResult?> MarkProvisionalAsync(
         Guid workId,
         LibraryItemProvisionalMetadata metadata,
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        return await db.ExecuteInTransactionAsync<LibraryItemProvisionalResult?>(async (connection, transaction, innerCt) =>
+        ct.ThrowIfCancellationRequested();
+        return db.ExecuteWriteAsync<LibraryItemProvisionalResult?>((connection, transaction, innerCt) =>
         {
+            innerCt.ThrowIfCancellationRequested();
             var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata);
-            var affected = await connection.ExecuteAsync(new CommandDefinition("""
+            var affected = connection.Execute(new CommandDefinition("""
                 UPDATE works
                 SET curator_state = 'provisional', provisional_metadata_json = @metadataJson
                 WHERE id = @workId;
@@ -361,7 +385,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 return null;
             }
 
-            var assetId = await connection.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition("""
+            var assetId = connection.QueryFirstOrDefault<Guid?>(new CommandDefinition("""
                 SELECT ma.id
                 FROM editions e
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -373,7 +397,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             var claimsWritten = 0;
             if (assetId.HasValue)
             {
-                await connection.ExecuteAsync(new CommandDefinition("""
+                connection.Execute(new CommandDefinition("""
                     UPDATE review_queue
                     SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:provisional'
                     WHERE entity_id = @assetId AND status = 'Pending';
@@ -385,6 +409,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 var fields = BuildProvisionalFields(metadata);
                 foreach (var (key, value) in fields)
                 {
+                    innerCt.ThrowIfCancellationRequested();
                     if (string.IsNullOrWhiteSpace(value))
                         continue;
 
@@ -397,7 +422,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                         providerId = WellKnownProviders.LocalProcessor,
                         now = now.ToString("O"),
                     };
-                    await connection.ExecuteAsync(new CommandDefinition("""
+                    connection.Execute(new CommandDefinition("""
                         INSERT INTO metadata_claims
                             (id, entity_id, claim_key, claim_value, provider_id, confidence, is_user_locked, claimed_at)
                         VALUES
@@ -421,12 +446,13 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         }, ct);
     }
 
-    public async Task<IReadOnlyList<LibraryItemHistoryEntry>> GetHistoryAsync(
+    public Task<IReadOnlyList<LibraryItemHistoryEntry>> GetHistoryAsync(
         Guid workId,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var connection = db.CreateConnection();
-        var assetId = await connection.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition("""
+        var assetId = connection.QueryFirstOrDefault<Guid?>(new CommandDefinition("""
             SELECT ma.id
             FROM editions e
             INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -435,7 +461,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             LIMIT 1;
             """, new { workId }, cancellationToken: ct));
 
-        var rows = await connection.QueryAsync<HistoryRow>(new CommandDefinition("""
+        var rows = connection.Query<HistoryRow>(new CommandDefinition("""
             SELECT id AS Id,
                    occurred_at AS OccurredAt,
                    action_type AS EventType,
@@ -449,13 +475,14 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
             new { workId, assetId = assetId ?? workId },
             cancellationToken: ct));
 
-        return rows.Select(row => new LibraryItemHistoryEntry(
+        IReadOnlyList<LibraryItemHistoryEntry> history = rows.Select(row => new LibraryItemHistoryEntry(
             row.Id.ToString(),
             row.EntityId ?? workId,
             row.OccurredAt,
             row.EventType ?? string.Empty,
             FormatActionTypeLabel(row.EventType ?? string.Empty),
             row.Detail)).ToList();
+        return Task.FromResult(history);
     }
 
     private static IReadOnlyDictionary<string, string?> BuildProvisionalFields(LibraryItemProvisionalMetadata metadata) =>

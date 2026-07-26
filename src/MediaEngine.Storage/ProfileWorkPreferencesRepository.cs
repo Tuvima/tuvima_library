@@ -15,13 +15,14 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
         _db = db;
     }
 
-    public async Task<ProfileWorkPreferences> GetAsync(
+    public Task<ProfileWorkPreferences> GetAsync(
         Guid profileId,
         Guid workId,
         CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var connection = _db.CreateConnection();
-        var row = await connection.QuerySingleOrDefaultAsync<PreferenceRow>(new CommandDefinition(
+        var row = connection.QuerySingleOrDefault<PreferenceRow>(new CommandDefinition(
             """
             SELECT profile_id AS ProfileId,
                    work_id AS WorkId,
@@ -37,18 +38,22 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
             new { profileId, workId },
             cancellationToken: ct));
 
-        return row is null ? ProfileWorkPreferences.Empty(profileId, workId) : Map(row);
+        return Task.FromResult(
+            row is null ? ProfileWorkPreferences.Empty(profileId, workId) : Map(row));
     }
 
     public Task<EditorPreferencesSaveResult> SaveAsync(
         EditorPreferencesSaveCommand command,
-        CancellationToken ct = default) =>
-        _db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((connection, transaction, innerCt) =>
         {
-            var workExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            innerCt.ThrowIfCancellationRequested();
+            var workExists = connection.ExecuteScalar<long>(new CommandDefinition(
                 "SELECT COUNT(1) FROM works WHERE id = @workId;",
                 new { workId = command.WorkId }, transaction, cancellationToken: innerCt)) > 0;
-            var profileExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+            var profileExists = connection.ExecuteScalar<long>(new CommandDefinition(
                 "SELECT COUNT(1) FROM profiles WHERE id = @profileId;",
                 new { profileId = command.ProfileId }, transaction, cancellationToken: innerCt)) > 0;
 
@@ -62,7 +67,7 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                     new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
             }
 
-            var current = await connection.QuerySingleOrDefaultAsync<PreferenceRow>(new CommandDefinition(
+            var current = connection.QuerySingleOrDefault<PreferenceRow>(new CommandDefinition(
                 """
                 SELECT profile_id AS ProfileId,
                        work_id AS WorkId,
@@ -78,7 +83,7 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                 new { profileId = command.ProfileId, workId = command.WorkId }, transaction, cancellationToken: innerCt));
 
             var currentRevision = current?.Revision ?? 0;
-            var displayOverrides = await LoadDisplayOverridesAsync(connection, transaction, command.WorkId, innerCt);
+            var displayOverrides = LoadDisplayOverrides(connection, transaction, command.WorkId, innerCt);
             if (currentRevision != command.ExpectedRevision)
             {
                 return new EditorPreferencesSaveResult(
@@ -107,7 +112,7 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                 .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            await connection.ExecuteAsync(new CommandDefinition(
+            connection.Execute(new CommandDefinition(
                 "UPDATE works SET display_overrides_json = @json WHERE id = @workId;",
                 new
                 {
@@ -115,7 +120,7 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                     workId = command.WorkId,
                 }, transaction, cancellationToken: innerCt));
 
-            await connection.ExecuteAsync(new CommandDefinition(
+            connection.Execute(new CommandDefinition(
                 """
                 INSERT INTO profile_work_preferences
                     (profile_id, work_id, personal_notes, local_tags_json, is_hidden,
@@ -158,14 +163,16 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                     now),
                 displayOverrides);
         }, ct);
+    }
 
-    private static async Task<Dictionary<string, string>> LoadDisplayOverridesAsync(
+    private static Dictionary<string, string> LoadDisplayOverrides(
         System.Data.IDbConnection connection,
         System.Data.IDbTransaction transaction,
         Guid workId,
         CancellationToken ct)
     {
-        var json = await connection.ExecuteScalarAsync<string?>(new CommandDefinition(
+        ct.ThrowIfCancellationRequested();
+        var json = connection.ExecuteScalar<string?>(new CommandDefinition(
             "SELECT display_overrides_json FROM works WHERE id = @workId;",
             new { workId }, transaction, cancellationToken: ct));
         if (string.IsNullOrWhiteSpace(json))

@@ -15,8 +15,9 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
         _db = db;
     }
 
-    public async Task<IReadOnlyList<PlaybackSegment>> ListByAssetAsync(Guid assetId, CancellationToken ct = default)
+    public Task<IReadOnlyList<PlaybackSegment>> ListByAssetAsync(Guid assetId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -30,15 +31,16 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
         cmd.Parameters.Add("@assetId", SqliteType.Blob).Value = GuidSql.ToBlob(assetId);
 
         var results = new List<PlaybackSegment>();
-        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
             results.Add(ReadSegment(reader));
 
-        return results;
+        return Task.FromResult<IReadOnlyList<PlaybackSegment>>(results);
     }
 
-    public async Task<PlaybackSegment?> FindByIdAsync(Guid segmentId, CancellationToken ct = default)
+    public Task<PlaybackSegment?> FindByIdAsync(Guid segmentId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -50,15 +52,15 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
             """;
         cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(segmentId);
 
-        using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        return await reader.ReadAsync(ct).ConfigureAwait(false) ? ReadSegment(reader) : null;
+        using var reader = cmd.ExecuteReader();
+        return Task.FromResult(reader.Read() ? ReadSegment(reader) : null);
     }
 
-    public async Task UpsertBatchAsync(Guid assetId, IReadOnlyList<PlaybackSegment> segments, CancellationToken ct = default)
+    public Task UpsertBatchAsync(Guid assetId, IReadOnlyList<PlaybackSegment> segments, CancellationToken ct = default)
     {
-        if (segments.Count == 0) return;
+        if (segments.Count == 0) return Task.CompletedTask;
 
-        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var now = DateTimeOffset.UtcNow;
 
@@ -89,13 +91,14 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
                         updated_at = excluded.updated_at;
                     """;
                 AddSegmentParameters(cmd, id, assetId, segment, createdAt, now);
-                await cmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
+                cmd.ExecuteNonQuery();
             }
-        }, ct).ConfigureAwait(false);
+        }, ct);
     }
 
-    public async Task UpdateAsync(PlaybackSegment segment, CancellationToken ct = default)
+    public Task UpdateAsync(PlaybackSegment segment, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = """
@@ -121,16 +124,19 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
         cmd.Parameters.AddWithValue("@isSkippable", segment.IsSkippable ? 1 : 0);
         cmd.Parameters.AddWithValue("@reviewStatus", segment.ReviewStatus);
         cmd.Parameters.AddWithValue("@updatedAt", DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture));
-        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        cmd.ExecuteNonQuery();
+        return Task.CompletedTask;
     }
 
-    public async Task DeleteAsync(Guid segmentId, CancellationToken ct = default)
+    public Task DeleteAsync(Guid segmentId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "DELETE FROM playback_segments WHERE id = @id;";
         cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(segmentId);
-        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        cmd.ExecuteNonQuery();
+        return Task.CompletedTask;
     }
 
     private static void AddSegmentParameters(

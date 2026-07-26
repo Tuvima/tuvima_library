@@ -129,12 +129,12 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
-    public async Task<Person> CreateAsync(Person person, CancellationToken ct = default)
+    public Task<Person> CreateAsync(Person person, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(person);
 
-        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var p = new DynamicParameters();
             p.Add("id",          person.Id);
@@ -174,10 +174,8 @@ public sealed class PersonRepository : IPersonRepository
                     """, rp, tx);
             }
 
-            return Task.CompletedTask;
-        }, ct).ConfigureAwait(false);
-
-        return person;
+            return person;
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -907,6 +905,39 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<Person>> FindByNamesAsync(
+        IEnumerable<string> names,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(names);
+        ct.ThrowIfCancellationRequested();
+
+        var normalizedNames = names
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Select(name => name.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (normalizedNames.Count == 0)
+            return Task.FromResult<IReadOnlyList<Person>>([]);
+
+        using var conn = _db.CreateConnection();
+        var people = new List<Person>();
+        foreach (var batch in normalizedNames.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            people.AddRange(conn.Query<Person>($"""
+                SELECT {SelectColumns}
+                FROM   persons
+                WHERE  name COLLATE NOCASE IN @names
+                ORDER  BY name;
+                """, new { names = batch }));
+        }
+
+        PopulateRoles(conn, people, ct);
+        return Task.FromResult<IReadOnlyList<Person>>(people);
+    }
+
+    /// <inheritdoc/>
     public Task<IReadOnlyList<CharacterPerformerCredit>> GetCharacterPerformersAsync(
         IEnumerable<Guid> fictionalEntityIds,
         CancellationToken ct = default)
@@ -966,7 +997,7 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             // 1. Reassign media links (OR IGNORE handles PK conflicts)
             var pToFrom = new DynamicParameters();
@@ -1010,7 +1041,6 @@ public sealed class PersonRepository : IPersonRepository
                 "DELETE FROM person_aliases WHERE pseudonym_person_id = @from OR real_person_id = @from;",
                 pFrom, transaction: tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 
@@ -1042,17 +1072,18 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
-    public async Task LinkGroupMemberAsync(Guid groupId, Guid memberId, CancellationToken ct = default)
+    public Task LinkGroupMemberAsync(Guid groupId, Guid memberId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync(
+        conn.Execute(
             """
             INSERT OR IGNORE INTO person_group_members (group_id, member_id)
             VALUES (@GroupId, @MemberId)
             """,
-            new { GroupId = groupId, MemberId = memberId }).ConfigureAwait(false);
+            new { GroupId = groupId, MemberId = memberId });
+        return Task.CompletedTask;
     }
 
     // -------------------------------------------------------------------------

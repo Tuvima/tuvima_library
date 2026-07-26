@@ -16,11 +16,11 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
 
     public IdentityJobRepository(IDatabaseConnection db) => _db = db;
 
-    public async Task CreateAsync(IdentityJob job, CancellationToken ct = default)
+    public Task CreateAsync(IdentityJob job, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT OR IGNORE INTO identity_jobs
                 (id, entity_id, entity_type, media_type, ingestion_run_id,
                  state, pass, attempt_count, lease_owner, lease_expires_at,
@@ -58,13 +58,14 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 CreatedAt           = job.CreatedAt.ToString("O"),
                 UpdatedAt           = job.UpdatedAt.ToString("O"),
             });
+        return Task.CompletedTask;
     }
 
-    public async Task<IdentityJob?> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public Task<IdentityJob?> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<IdentityJobRow>(
+        var row = conn.QueryFirstOrDefault<IdentityJobRow>(
             SelectSql + """
              WHERE entity_id = @entityId
              ORDER BY CASE
@@ -76,19 +77,19 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
              LIMIT 1;
             """,
             new { entityId });
-        return row is null ? null : MapRow(row);
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
-    public async Task<IdentityJob?> GetByIdAsync(Guid jobId, CancellationToken ct = default)
+    public Task<IdentityJob?> GetByIdAsync(Guid jobId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<IdentityJobRow>(SelectSql + " WHERE id = @jobId LIMIT 1;",
+        var row = conn.QueryFirstOrDefault<IdentityJobRow>(SelectSql + " WHERE id = @jobId LIMIT 1;",
             new { jobId });
-        return row is null ? null : MapRow(row);
+        return Task.FromResult(row is null ? null : MapRow(row));
     }
 
-    public async Task<IReadOnlyList<IdentityJob>> LeaseNextAsync(
+    public Task<IReadOnlyList<IdentityJob>> LeaseNextAsync(
         string workerName,
         IReadOnlyList<IdentityJobState> states,
         int batchSize,
@@ -150,11 +151,11 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """;
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<IdentityJobRow>(sql, new { workerName, leaseExpiry, now, batchSize, excludeRunIds = validExcludeRunIds });
-        return rows.Select(MapRow).ToList();
+        var rows = conn.Query<IdentityJobRow>(sql, new { workerName, leaseExpiry, now, batchSize, excludeRunIds = validExcludeRunIds });
+        return Task.FromResult<IReadOnlyList<IdentityJob>>(rows.Select(MapRow).ToList());
     }
 
-    public async Task UpdateStateAsync(Guid jobId, IdentityJobState newState, string? error = null, CancellationToken ct = default)
+    public Task UpdateStateAsync(Guid jobId, IdentityJobState newState, string? error = null, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var preserveLease = newState is
@@ -163,7 +164,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             IdentityJobState.Hydrating;
 
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE identity_jobs
             SET    state            = @state,
                    last_error       = @error,
@@ -182,13 +183,14 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 attemptIncrement = preserveLease ? 1 : 0,
                 now   = DateTimeOffset.UtcNow.ToString("O"),
             });
+        return Task.CompletedTask;
     }
 
-    public async Task ScheduleRetryAsync(Guid jobId, IdentityJobState retryState, DateTimeOffset nextRetryAt, string error, CancellationToken ct = default)
+    public Task ScheduleRetryAsync(Guid jobId, IdentityJobState retryState, DateTimeOffset nextRetryAt, string error, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE identity_jobs
             SET    state            = @state,
                    last_error       = @error,
@@ -207,16 +209,17 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 nextRetryAt = nextRetryAt.ToString("O"),
                 now = DateTimeOffset.UtcNow.ToString("O"),
             });
+        return Task.CompletedTask;
     }
 
     public Task MarkDeadLetteredAsync(Guid jobId, string error, CancellationToken ct = default)
         => UpdateStateAsync(jobId, IdentityJobState.Failed, error, ct);
 
-    public async Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
+    public Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE identity_jobs
             SET    selected_candidate_id = @candidateId,
                    updated_at           = @now
@@ -228,13 +231,14 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 candidateId,
                 now         = DateTimeOffset.UtcNow.ToString("O"),
             });
+        return Task.CompletedTask;
     }
 
-    public async Task SetResolvedQidAsync(Guid jobId, string qid, CancellationToken ct = default)
+    public Task SetResolvedQidAsync(Guid jobId, string qid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE identity_jobs
             SET    resolved_qid = @qid,
                    updated_at   = @now
@@ -246,14 +250,15 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 qid,
                 now   = DateTimeOffset.UtcNow.ToString("O"),
             });
+        return Task.CompletedTask;
     }
 
-    public async Task<IReadOnlyList<IdentityJob>> GetStaleAsync(TimeSpan age, int limit, CancellationToken ct = default)
+    public Task<IReadOnlyList<IdentityJob>> GetStaleAsync(TimeSpan age, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var cutoff = DateTimeOffset.UtcNow.Subtract(age).ToString("O");
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<IdentityJobRow>(
+        var rows = conn.Query<IdentityJobRow>(
             SelectSql + """
                  WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
                    AND updated_at < @cutoff
@@ -261,16 +266,16 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                  LIMIT @limit;
                 """,
             new { cutoff, limit });
-        return rows.Select(MapRow).ToList();
+        return Task.FromResult<IReadOnlyList<IdentityJob>>(rows.Select(MapRow).ToList());
     }
 
-    public async Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
+    public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var cutoff = DateTimeOffset.UtcNow.Subtract(stuckThreshold).ToString("O");
         var now = DateTimeOffset.UtcNow.ToString("O");
         using var conn = _db.CreateConnection();
-        return await conn.ExecuteAsync("""
+        var affected = conn.Execute("""
             UPDATE identity_jobs
             SET    state            = 'Ready',
                    lease_owner      = NULL,
@@ -346,14 +351,15 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
               AND  attempt_count >= 5;
             """,
             new { cutoff, now });
+        return Task.FromResult(affected);
     }
 
-    public async Task<int> RecoverInterruptedJobsAsync(CancellationToken ct = default)
+    public Task<int> RecoverInterruptedJobsAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow.ToString("O");
         using var conn = _db.CreateConnection();
-        return await conn.ExecuteAsync("""
+        var affected = conn.Execute("""
             UPDATE identity_jobs
             SET    state = CASE state
                        WHEN 'RetailSearching' THEN 'Queued'
@@ -370,49 +376,52 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
               AND  lease_owner IS NOT NULL;
             """,
             new { now });
+        return Task.FromResult(affected);
     }
 
-    public async Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default)
+    public Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<IdentityJobRow>(
+        var rows = conn.Query<IdentityJobRow>(
             SelectSql + " WHERE state = @state ORDER BY created_at ASC LIMIT @limit;",
             new { state = state.ToString(), limit });
-        return rows.Select(MapRow).ToList();
+        return Task.FromResult<IReadOnlyList<IdentityJob>>(rows.Select(MapRow).ToList());
     }
 
-    public async Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<string, int>> GetStateCountsByRunAsync(Guid ingestionRunId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync("""
+        var rows = conn.Query("""
             SELECT state, COUNT(*) AS cnt
             FROM   identity_jobs
             WHERE  ingestion_run_id = @runId
             GROUP BY state;
             """,
             new { runId = ingestionRunId });
-        return rows.ToDictionary(
+        IReadOnlyDictionary<string, int> counts = rows.ToDictionary(
             r => (string)r.state,
             r => (int)r.cnt);
+        return Task.FromResult(counts);
     }
 
-    public async Task<int> CountActiveAsync(CancellationToken ct = default)
+    public Task<int> CountActiveAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        return await conn.ExecuteScalarAsync<int>(
+        var count = conn.ExecuteScalar<int>(
             "SELECT COUNT(*) FROM identity_jobs WHERE state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')");
+        return Task.FromResult(count);
     }
 
-    public async Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
+    public Task<IReadOnlyDictionary<string, int>> GetPendingStage1CountsByRunAsync(
         IReadOnlyList<string> ingestionRunIds, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
         if (ingestionRunIds.Count == 0)
-            return new Dictionary<string, int>();
+            return Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
         // Validate all run ID strings are valid GUIDs before interpolating into SQL.
         var validRunIds = ingestionRunIds
@@ -421,7 +430,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             .Select(id => id!.Value)
             .ToList();
         if (validRunIds.Count == 0)
-            return new Dictionary<string, int>();
+            return Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
         // Build IN clause from validated GUID strings.
         const string sql = """
@@ -433,17 +442,18 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
             """;
 
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<PendingStageCountRow>(sql, new { validRunIds });
-        return rows.ToDictionary(
+        var rows = conn.Query<PendingStageCountRow>(sql, new { validRunIds });
+        IReadOnlyDictionary<string, int> counts = rows.ToDictionary(
             r => r.IngestionRunId.ToString("D"),
             r => r.Count);
+        return Task.FromResult(counts);
     }
 
-    public async Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default)
+    public Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE identity_jobs
             SET    lease_owner      = NULL,
                    lease_expires_at = NULL,
@@ -455,6 +465,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                 jobId,
                 now   = DateTimeOffset.UtcNow.ToString("O"),
             });
+        return Task.CompletedTask;
     }
 
     // ── Shared SELECT prefix ─────────────────────────────────────────────────

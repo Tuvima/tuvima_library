@@ -46,7 +46,7 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         if (entries.Select(entry => entry.Ordinal).Distinct().Count() != entries.Count)
             throw new ArgumentException("Canonical array ordinals must be unique within an entity and key.", nameof(entries));
 
-        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             // Delete existing entries for this (entity, key) pair.
             conn.Execute("""
@@ -76,7 +76,6 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
                     transaction: tx);
             }
 
-            return Task.CompletedTask;
         }, ct).ConfigureAwait(false);
     }
 

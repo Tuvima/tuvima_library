@@ -83,7 +83,7 @@ public sealed class UISettingsCacheRepository
     {
         ArgumentNullException.ThrowIfNull(configLoader);
 
-        return _db.ExecuteInTransactionAsync((conn, transaction, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, transaction, innerCt) =>
         {
             // Clear existing cache — must use raw command here because the transaction
             // cannot be passed through Dapper's Execute overload for SqliteTransaction
@@ -115,7 +115,6 @@ public sealed class UISettingsCacheRepository
                         System.Text.Json.JsonSerializer.Serialize(device));
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 

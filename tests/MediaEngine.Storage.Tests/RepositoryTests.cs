@@ -473,6 +473,36 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task EntityAsset_GetByEntities_LoadsAllRequestedOwnersInOneBatchApi()
+    {
+        var repo = new EntityAssetRepository(_db);
+        var firstEntityId = Guid.NewGuid().ToString();
+        var secondEntityId = Guid.NewGuid().ToString();
+        foreach (var entityId in new[] { firstEntityId, secondEntityId })
+        {
+            await repo.UpsertAsync(new EntityAsset
+            {
+                Id = Guid.NewGuid(),
+                EntityId = entityId,
+                EntityType = "Work",
+                AssetTypeValue = "CoverArt",
+                SourceProvider = "test",
+                AssetClassValue = "Artwork",
+                StorageLocationValue = "Central",
+                OwnerScope = "Work",
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+        }
+
+        var assets = await repo.GetByEntitiesAsync([firstEntityId, secondEntityId]);
+
+        Assert.Equal(2, assets.Count);
+        Assert.Equal(
+            new[] { firstEntityId, secondEntityId }.Order(StringComparer.OrdinalIgnoreCase),
+            assets.Select(asset => asset.EntityId).Order(StringComparer.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task ReviewQueue_InsertAndGetPending()
     {
         var repo = new ReviewQueueRepository(_db);

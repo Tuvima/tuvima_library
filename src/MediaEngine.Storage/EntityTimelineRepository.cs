@@ -15,26 +15,34 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
     public EntityTimelineRepository(IDatabaseConnection db) => _db = db;
 
-    // ── Events ─────────────────────────────────────────────────────────
-
-    public async Task InsertEventAsync(EntityEvent evt, CancellationToken ct = default)
+    public Task InsertEventAsync(EntityEvent evt, CancellationToken ct = default)
     {
-        using var conn = _db.CreateConnection();
-        await InsertEventCoreAsync(conn, tx: null, evt, ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync(
+            (conn, tx, innerCt) => InsertEventCore(conn, tx, evt, innerCt),
+            ct);
     }
 
-    public async Task InsertEventsAsync(IReadOnlyList<EntityEvent> events, CancellationToken ct = default)
+    public Task InsertEventsAsync(IReadOnlyList<EntityEvent> events, CancellationToken ct = default)
     {
-        if (events.Count == 0) return;
-        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        ct.ThrowIfCancellationRequested();
+        if (events.Count == 0)
+            return Task.CompletedTask;
+
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var evt in events)
-                await InsertEventCoreAsync(conn, tx, evt, innerCt).ConfigureAwait(false);
-        }, ct).ConfigureAwait(false);
+                InsertEventCore(conn, tx, evt, innerCt);
+        }, ct);
     }
 
-    private static async Task InsertEventCoreAsync(SqliteConnection conn, SqliteTransaction? tx, EntityEvent evt, CancellationToken ct)
+    private static void InsertEventCore(
+        SqliteConnection conn,
+        SqliteTransaction? tx,
+        EntityEvent evt,
+        CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         const string sql = """
             INSERT INTO entity_events (
                 id, entity_id, entity_type, event_type, stage, trigger,
@@ -53,38 +61,39 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             )
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Transaction = tx;
+        using var cmd = new SqliteCommand(sql, conn, tx);
         cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(evt.Id);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(evt.EntityId);
         cmd.Parameters.AddWithValue("@entity_type", evt.EntityType);
         cmd.Parameters.AddWithValue("@event_type", evt.EventType);
-        cmd.Parameters.AddWithValue("@stage", evt.Stage.HasValue ? (object)evt.Stage.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@stage", evt.Stage.HasValue ? evt.Stage.Value : DBNull.Value);
         cmd.Parameters.AddWithValue("@trigger", evt.Trigger);
         cmd.Parameters.AddWithValue("@provider_id", (object?)evt.ProviderId ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@provider_name", (object?)evt.ProviderName ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@bridge_id_type", (object?)evt.BridgeIdType ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@bridge_id_value", (object?)evt.BridgeIdValue ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@resolved_qid", (object?)evt.ResolvedQid ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@confidence", evt.Confidence.HasValue ? (object)evt.Confidence.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_title", evt.ScoreTitle.HasValue ? (object)evt.ScoreTitle.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_author", evt.ScoreAuthor.HasValue ? (object)evt.ScoreAuthor.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_year", evt.ScoreYear.HasValue ? (object)evt.ScoreYear.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_format", evt.ScoreFormat.HasValue ? (object)evt.ScoreFormat.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_cross_field", evt.ScoreCrossField.HasValue ? (object)evt.ScoreCrossField.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_cover_art", evt.ScoreCoverArt.HasValue ? (object)evt.ScoreCoverArt.Value : DBNull.Value);
-        cmd.Parameters.AddWithValue("@score_composite", evt.ScoreComposite.HasValue ? (object)evt.ScoreComposite.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@confidence", evt.Confidence.HasValue ? evt.Confidence.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_title", evt.ScoreTitle.HasValue ? evt.ScoreTitle.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_author", evt.ScoreAuthor.HasValue ? evt.ScoreAuthor.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_year", evt.ScoreYear.HasValue ? evt.ScoreYear.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_format", evt.ScoreFormat.HasValue ? evt.ScoreFormat.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_cross_field", evt.ScoreCrossField.HasValue ? evt.ScoreCrossField.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_cover_art", evt.ScoreCoverArt.HasValue ? evt.ScoreCoverArt.Value : DBNull.Value);
+        cmd.Parameters.AddWithValue("@score_composite", evt.ScoreComposite.HasValue ? evt.ScoreComposite.Value : DBNull.Value);
         cmd.Parameters.AddWithValue("@occurred_at", evt.OccurredAt.ToString("o"));
         cmd.Parameters.Add("@ingestion_run_id", SqliteType.Blob).Value = evt.IngestionRunId.HasValue
             ? GuidSql.ToBlob(evt.IngestionRunId.Value)
             : DBNull.Value;
         cmd.Parameters.AddWithValue("@detail", (object?)evt.Detail ?? DBNull.Value);
-
-        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        cmd.ExecuteNonQuery();
     }
 
-    public async Task<IReadOnlyList<EntityEvent>> GetEventsByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityEvent>> GetEventsByEntityAsync(
+        Guid entityId,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
@@ -98,13 +107,17 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             ORDER BY occurred_at DESC
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
-        return await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
+        return Task.FromResult<IReadOnlyList<EntityEvent>>(ReadEvents(cmd, ct));
     }
 
-    public async Task<EntityEvent?> GetLatestEventAsync(Guid entityId, int stage, CancellationToken ct = default)
+    public Task<EntityEvent?> GetLatestEventAsync(
+        Guid entityId,
+        int stage,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
@@ -119,17 +132,19 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             LIMIT 1
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         cmd.Parameters.AddWithValue("@stage", stage);
-        var results = await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
-        return results.Count > 0 ? results[0] : null;
+        var results = ReadEvents(cmd, ct);
+        return Task.FromResult<EntityEvent?>(results.Count > 0 ? results[0] : null);
     }
 
-    public async Task<IReadOnlyList<EntityEvent>> GetCurrentPipelineStateAsync(Guid entityId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityEvent>> GetCurrentPipelineStateAsync(
+        Guid entityId,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        // Most recent event per stage for this entity (stages 0-3).
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
                    provider_id, provider_name, bridge_id_type, bridge_id_value,
@@ -147,13 +162,14 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             ORDER BY stage ASC
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
-        return await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
+        return Task.FromResult<IReadOnlyList<EntityEvent>>(ReadEvents(cmd, ct));
     }
 
-    public async Task<EntityEvent?> GetEventByIdAsync(Guid eventId, CancellationToken ct = default)
+    public Task<EntityEvent?> GetEventByIdAsync(Guid eventId, CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, entity_id, entity_type, event_type, stage, trigger,
@@ -166,19 +182,21 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             WHERE id = @id
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(eventId);
-        var results = await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
-        return results.Count > 0 ? results[0] : null;
+        var results = ReadEvents(cmd, ct);
+        return Task.FromResult<EntityEvent?>(results.Count > 0 ? results[0] : null);
     }
 
-    // ── Field Changes ──────────────────────────────────────────────────
-
-    public async Task InsertFieldChangesAsync(IReadOnlyList<EntityFieldChange> changes, CancellationToken ct = default)
+    public Task InsertFieldChangesAsync(
+        IReadOnlyList<EntityFieldChange> changes,
+        CancellationToken ct = default)
     {
-        if (changes.Count == 0) return;
+        ct.ThrowIfCancellationRequested();
+        if (changes.Count == 0)
+            return Task.CompletedTask;
 
-        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             const string sql = """
                 INSERT INTO entity_field_changes (
@@ -194,8 +212,8 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
 
             foreach (var change in changes)
             {
-                await using var cmd = new SqliteCommand(sql, conn);
-                cmd.Transaction = tx;
+                innerCt.ThrowIfCancellationRequested();
+                using var cmd = new SqliteCommand(sql, conn, tx);
                 cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(change.Id);
                 cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EventId);
                 cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EntityId);
@@ -204,15 +222,18 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
                 cmd.Parameters.AddWithValue("@new_value", (object?)change.NewValue ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@old_provider_id", (object?)change.OldProviderId ?? DBNull.Value);
                 cmd.Parameters.AddWithValue("@new_provider_id", (object?)change.NewProviderId ?? DBNull.Value);
-                cmd.Parameters.AddWithValue("@confidence", change.Confidence.HasValue ? (object)change.Confidence.Value : DBNull.Value);
+                cmd.Parameters.AddWithValue("@confidence", change.Confidence.HasValue ? change.Confidence.Value : DBNull.Value);
                 cmd.Parameters.AddWithValue("@is_file_original", change.IsFileOriginal ? 1 : 0);
-                await cmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
+                cmd.ExecuteNonQuery();
             }
-        }, ct).ConfigureAwait(false);
+        }, ct);
     }
 
-    public async Task<IReadOnlyList<EntityFieldChange>> GetFieldChangesByEventAsync(Guid eventId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityFieldChange>> GetFieldChangesByEventAsync(
+        Guid eventId,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, event_id, entity_id, field,
@@ -223,13 +244,16 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             ORDER BY field ASC
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(eventId);
-        return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
+        return Task.FromResult<IReadOnlyList<EntityFieldChange>>(ReadFieldChanges(cmd, ct));
     }
 
-    public async Task<IReadOnlyList<EntityFieldChange>> GetFieldHistoryAsync(Guid entityId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityFieldChange>> GetFieldHistoryAsync(
+        Guid entityId,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT fc.id, fc.event_id, fc.entity_id, fc.field,
@@ -241,13 +265,17 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             ORDER BY e.occurred_at DESC, fc.field ASC
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
-        return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
+        return Task.FromResult<IReadOnlyList<EntityFieldChange>>(ReadFieldChanges(cmd, ct));
     }
 
-    public async Task<IReadOnlyList<EntityFieldChange>> GetFieldHistoryAsync(Guid entityId, string field, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityFieldChange>> GetFieldHistoryAsync(
+        Guid entityId,
+        string field,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT fc.id, fc.event_id, fc.entity_id, fc.field,
@@ -259,14 +287,17 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             ORDER BY e.occurred_at DESC
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
         cmd.Parameters.AddWithValue("@field", field);
-        return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
+        return Task.FromResult<IReadOnlyList<EntityFieldChange>>(ReadFieldChanges(cmd, ct));
     }
 
-    public async Task<IReadOnlyList<EntityFieldChange>> GetFileOriginalsForEventAsync(Guid eventId, CancellationToken ct = default)
+    public Task<IReadOnlyList<EntityFieldChange>> GetFileOriginalsForEventAsync(
+        Guid eventId,
+        CancellationToken ct = default)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
         const string sql = """
             SELECT id, event_id, entity_id, field,
@@ -277,40 +308,46 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             ORDER BY field ASC
             """;
 
-        await using var cmd = new SqliteCommand(sql, conn);
+        using var cmd = new SqliteCommand(sql, conn);
         cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(eventId);
-        return await ReadFieldChangesAsync(cmd, ct).ConfigureAwait(false);
+        return Task.FromResult<IReadOnlyList<EntityFieldChange>>(ReadFieldChanges(cmd, ct));
     }
 
-    // ── Queries for library list surfaces ──────────────────────────────
-
-    public async Task<IReadOnlyDictionary<Guid, EntityEvent>> GetLatestStage2EventsAsync(
-        IReadOnlyList<Guid> entityIds, CancellationToken ct = default)
+    public Task<IReadOnlyDictionary<Guid, EntityEvent>> GetLatestStage2EventsAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default)
     {
-        if (entityIds.Count == 0) return new Dictionary<Guid, EntityEvent>();
+        ct.ThrowIfCancellationRequested();
+        if (entityIds.Count == 0)
+            return Task.FromResult<IReadOnlyDictionary<Guid, EntityEvent>>(
+                new Dictionary<Guid, EntityEvent>());
 
-        // The whole method runs inside a single ExecuteInTransactionAsync body (rather
-        // than only the temp-table population, as before) because the SQLite TEMP TABLE
-        // used below is scoped to one physical connection: the helper hands out a fresh
-        // pooled connection, so the create/populate/query steps must all share that same
-        // connection instance to see the same temp table.
-        return await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        // The temp table is connection-scoped, so population and selection share
+        // one structurally locked transaction and one physical connection.
+        return _db.ExecuteWriteAsync<IReadOnlyDictionary<Guid, EntityEvent>>((conn, tx, innerCt) =>
         {
-            // SQLite doesn't support array parameters; use a temp table for efficiency.
-            await using var createCmd = new SqliteCommand(
-                "CREATE TEMP TABLE IF NOT EXISTS _tmp_entity_ids (id BLOB NOT NULL PRIMARY KEY)", conn, tx);
-            await createCmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
-
-            await using var clearCmd = new SqliteCommand("DELETE FROM _tmp_entity_ids", conn, tx);
-            await clearCmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
-
-            // Insert entity IDs into temp table.
-            foreach (var eid in entityIds)
+            using (var createCmd = new SqliteCommand(
+                "CREATE TEMP TABLE IF NOT EXISTS _tmp_entity_ids (id BLOB NOT NULL PRIMARY KEY)",
+                conn,
+                tx))
             {
-                await using var insertCmd = new SqliteCommand(
-                    "INSERT OR IGNORE INTO _tmp_entity_ids (id) VALUES (@id)", conn, tx);
-                insertCmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(eid);
-                await insertCmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
+                createCmd.ExecuteNonQuery();
+            }
+
+            using (var clearCmd = new SqliteCommand("DELETE FROM _tmp_entity_ids", conn, tx))
+            {
+                clearCmd.ExecuteNonQuery();
+            }
+
+            foreach (var entityId in entityIds)
+            {
+                innerCt.ThrowIfCancellationRequested();
+                using var insertCmd = new SqliteCommand(
+                    "INSERT OR IGNORE INTO _tmp_entity_ids (id) VALUES (@id)",
+                    conn,
+                    tx);
+                insertCmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+                insertCmd.ExecuteNonQuery();
             }
 
             const string sql = """
@@ -329,112 +366,117 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
                   )
                 """;
 
-            await using var cmd = new SqliteCommand(sql, conn, tx);
-            var events = await ReadEventsAsync(cmd, innerCt).ConfigureAwait(false);
-
-            var dict = new Dictionary<Guid, EntityEvent>();
+            using var cmd = new SqliteCommand(sql, conn, tx);
+            var events = ReadEvents(cmd, innerCt);
+            var result = new Dictionary<Guid, EntityEvent>();
             foreach (var evt in events)
-                dict.TryAdd(evt.EntityId, evt);
-            return (IReadOnlyDictionary<Guid, EntityEvent>)dict;
-        }, ct).ConfigureAwait(false);
+                result.TryAdd(evt.EntityId, evt);
+            return result;
+        }, ct);
     }
 
-    // ── Maintenance ────────────────────────────────────────────────────
-
-    public async Task<int> CullOldEventsAsync(TimeSpan retention, CancellationToken ct = default)
+    public Task<int> CullOldEventsAsync(TimeSpan retention, CancellationToken ct = default)
     {
-        using var conn = _db.CreateConnection();
+        ct.ThrowIfCancellationRequested();
         var cutoff = DateTimeOffset.UtcNow.Subtract(retention).ToString("o");
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            const string sql = """
+                DELETE FROM entity_events
+                WHERE occurred_at < @cutoff
+                  AND id NOT IN (
+                      SELECT id FROM (
+                          SELECT id, ROW_NUMBER() OVER (
+                              PARTITION BY entity_id, stage ORDER BY occurred_at DESC
+                          ) AS rn
+                          FROM entity_events
+                          WHERE stage IS NOT NULL
+                      ) ranked
+                      WHERE rn = 1
+                  )
+                """;
 
-        // Delete old events EXCEPT the most recent per entity per stage.
-        // Field changes cascade via FK ON DELETE CASCADE.
-        const string sql = """
-            DELETE FROM entity_events
-            WHERE occurred_at < @cutoff
-              AND id NOT IN (
-                  SELECT id FROM (
-                      SELECT id, ROW_NUMBER() OVER (
-                          PARTITION BY entity_id, stage ORDER BY occurred_at DESC
-                      ) AS rn
-                      FROM entity_events
-                      WHERE stage IS NOT NULL
-                  ) ranked
-                  WHERE rn = 1
-              )
-            """;
-
-        await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.AddWithValue("@cutoff", cutoff);
-        return await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+            using var cmd = new SqliteCommand(sql, conn, tx);
+            cmd.Parameters.AddWithValue("@cutoff", cutoff);
+            return cmd.ExecuteNonQuery();
+        }, ct);
     }
 
-    public async Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
+    public Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
-        using var conn = _db.CreateConnection();
-        // Field changes cascade via FK ON DELETE CASCADE.
-        const string sql = "DELETE FROM entity_events WHERE entity_id = @entity_id";
-        await using var cmd = new SqliteCommand(sql, conn);
-        cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
-        await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            const string sql = "DELETE FROM entity_events WHERE entity_id = @entity_id";
+            using var cmd = new SqliteCommand(sql, conn, tx);
+            cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(entityId);
+            cmd.ExecuteNonQuery();
+        }, ct);
     }
 
-    // ── Private helpers ────────────────────────────────────────────────
-
-    private static async Task<List<EntityEvent>> ReadEventsAsync(SqliteCommand cmd, CancellationToken ct)
+    private static List<EntityEvent> ReadEvents(SqliteCommand cmd, CancellationToken ct)
     {
         var results = new List<EntityEvent>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
         {
+            ct.ThrowIfCancellationRequested();
             results.Add(new EntityEvent
             {
-                Id             = GuidSql.FromDb(reader.GetValue(0)),
-                EntityId       = GuidSql.FromDb(reader.GetValue(1)),
-                EntityType     = reader.GetString(2),
-                EventType      = reader.GetString(3),
-                Stage          = reader.IsDBNull(4) ? null : reader.GetInt32(4),
-                Trigger        = reader.GetString(5),
-                ProviderId     = reader.IsDBNull(6) ? null : reader.GetString(6),
-                ProviderName   = reader.IsDBNull(7) ? null : reader.GetString(7),
-                BridgeIdType   = reader.IsDBNull(8) ? null : reader.GetString(8),
-                BridgeIdValue  = reader.IsDBNull(9) ? null : reader.GetString(9),
-                ResolvedQid    = reader.IsDBNull(10) ? null : reader.GetString(10),
-                Confidence     = reader.IsDBNull(11) ? null : reader.GetDouble(11),
-                ScoreTitle     = reader.IsDBNull(12) ? null : reader.GetDouble(12),
-                ScoreAuthor    = reader.IsDBNull(13) ? null : reader.GetDouble(13),
-                ScoreYear      = reader.IsDBNull(14) ? null : reader.GetDouble(14),
-                ScoreFormat    = reader.IsDBNull(15) ? null : reader.GetDouble(15),
+                Id = GuidSql.FromDb(reader.GetValue(0)),
+                EntityId = GuidSql.FromDb(reader.GetValue(1)),
+                EntityType = reader.GetString(2),
+                EventType = reader.GetString(3),
+                Stage = reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                Trigger = reader.GetString(5),
+                ProviderId = reader.IsDBNull(6) ? null : reader.GetString(6),
+                ProviderName = reader.IsDBNull(7) ? null : reader.GetString(7),
+                BridgeIdType = reader.IsDBNull(8) ? null : reader.GetString(8),
+                BridgeIdValue = reader.IsDBNull(9) ? null : reader.GetString(9),
+                ResolvedQid = reader.IsDBNull(10) ? null : reader.GetString(10),
+                Confidence = reader.IsDBNull(11) ? null : reader.GetDouble(11),
+                ScoreTitle = reader.IsDBNull(12) ? null : reader.GetDouble(12),
+                ScoreAuthor = reader.IsDBNull(13) ? null : reader.GetDouble(13),
+                ScoreYear = reader.IsDBNull(14) ? null : reader.GetDouble(14),
+                ScoreFormat = reader.IsDBNull(15) ? null : reader.GetDouble(15),
                 ScoreCrossField = reader.IsDBNull(16) ? null : reader.GetDouble(16),
-                ScoreCoverArt  = reader.IsDBNull(17) ? null : reader.GetDouble(17),
+                ScoreCoverArt = reader.IsDBNull(17) ? null : reader.GetDouble(17),
                 ScoreComposite = reader.IsDBNull(18) ? null : reader.GetDouble(18),
-                OccurredAt     = DateTimeOffset.Parse(reader.GetString(19)),
+                OccurredAt = DateTimeOffset.Parse(reader.GetString(19)),
                 IngestionRunId = reader.IsDBNull(20) ? null : GuidSql.FromDb(reader.GetValue(20)),
-                Detail         = reader.IsDBNull(21) ? null : reader.GetString(21),
+                Detail = reader.IsDBNull(21) ? null : reader.GetString(21),
             });
         }
+
         return results;
     }
 
-    private static async Task<List<EntityFieldChange>> ReadFieldChangesAsync(SqliteCommand cmd, CancellationToken ct)
+    private static List<EntityFieldChange> ReadFieldChanges(
+        SqliteCommand cmd,
+        CancellationToken ct)
     {
         var results = new List<EntityFieldChange>();
-        await using var reader = await cmd.ExecuteReaderAsync(ct).ConfigureAwait(false);
-        while (await reader.ReadAsync(ct).ConfigureAwait(false))
+        using var reader = cmd.ExecuteReader();
+        while (reader.Read())
         {
+            ct.ThrowIfCancellationRequested();
             results.Add(new EntityFieldChange
             {
-                Id             = GuidSql.FromDb(reader.GetValue(0)),
-                EventId        = GuidSql.FromDb(reader.GetValue(1)),
-                EntityId       = GuidSql.FromDb(reader.GetValue(2)),
-                Field          = reader.GetString(3),
-                OldValue       = reader.IsDBNull(4) ? null : reader.GetString(4),
-                NewValue       = reader.IsDBNull(5) ? null : reader.GetString(5),
-                OldProviderId  = reader.IsDBNull(6) ? null : reader.GetString(6),
-                NewProviderId  = reader.IsDBNull(7) ? null : reader.GetString(7),
-                Confidence     = reader.IsDBNull(8) ? null : reader.GetDouble(8),
+                Id = GuidSql.FromDb(reader.GetValue(0)),
+                EventId = GuidSql.FromDb(reader.GetValue(1)),
+                EntityId = GuidSql.FromDb(reader.GetValue(2)),
+                Field = reader.GetString(3),
+                OldValue = reader.IsDBNull(4) ? null : reader.GetString(4),
+                NewValue = reader.IsDBNull(5) ? null : reader.GetString(5),
+                OldProviderId = reader.IsDBNull(6) ? null : reader.GetString(6),
+                NewProviderId = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Confidence = reader.IsDBNull(8) ? null : reader.GetDouble(8),
                 IsFileOriginal = !reader.IsDBNull(9) && reader.GetInt32(9) == 1,
             });
         }
+
         return results;
     }
 }

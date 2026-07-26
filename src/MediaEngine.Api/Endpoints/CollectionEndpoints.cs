@@ -602,10 +602,11 @@ public static class CollectionEndpoints
             var allYears = new List<string>();
 
             int albumIndex = 0;
+            var collectionsById = (await collectionRepo.GetCollectionsWithWorksAsync(collectionIds, ct))
+                .ToDictionary(collection => collection.Id);
             foreach (var collectionId in collectionIds)
             {
-                var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId, ct);
-                if (collection is null)
+                if (!collectionsById.TryGetValue(collectionId, out var collection))
                 {
                     continue;
                 }
@@ -2039,11 +2040,15 @@ public static class CollectionEndpoints
         {
             var placements = await placementRepo.GetByLocationAsync(location, ct);
             var result = new List<CollectionLocationPlacementSummary>();
+            var collectionsById = (await collectionRepo.GetByIdsAsync(
+                    placements.Select(placement => placement.CollectionId),
+                    ct))
+                .ToDictionary(collection => collection.Id);
 
             foreach (var p in placements)
             {
-                var collection = await collectionRepo.GetByIdAsync(p.CollectionId, ct);
-                if (collection is null || !collection.IsEnabled)
+                if (!collectionsById.TryGetValue(p.CollectionId, out var collection)
+                    || !collection.IsEnabled)
                 {
                     continue;
                 }

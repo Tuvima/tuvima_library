@@ -123,7 +123,7 @@ public sealed class QidLabelRepository : IQidLabelRepository
         ct.ThrowIfCancellationRequested();
         if (labels.Count == 0) return Task.CompletedTask;
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             const string sql = """
                 INSERT INTO qid_labels (qid, label, description, entity_type, fetched_at, updated_at)
@@ -149,7 +149,6 @@ public sealed class QidLabelRepository : IQidLabelRepository
                 }, tx);
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 

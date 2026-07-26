@@ -49,6 +49,48 @@ public sealed class FictionalEntityRepository : IFictionalEntityRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<FictionalEntity>> FindByQidsAsync(
+        IEnumerable<string> qids,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(qids);
+
+        var distinctQids = qids
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (distinctQids.Length == 0)
+        {
+            return Task.FromResult<IReadOnlyList<FictionalEntity>>([]);
+        }
+
+        using var conn = _db.CreateConnection();
+        var results = new List<FictionalEntity>(distinctQids.Length);
+        foreach (var batch in distinctQids.Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            results.AddRange(conn.Query<FictionalEntity>("""
+                SELECT id                       AS Id,
+                       wikidata_qid             AS WikidataQid,
+                       label                    AS Label,
+                       description              AS Description,
+                       entity_sub_type          AS EntitySubType,
+                       fictional_universe_qid   AS FictionalUniverseQid,
+                       fictional_universe_label AS FictionalUniverseLabel,
+                       image_url                AS ImageUrl,
+                       local_image_path         AS LocalImagePath,
+                       created_at               AS CreatedAt,
+                       enriched_at              AS EnrichedAt
+                FROM   fictional_entities
+                WHERE  wikidata_qid COLLATE NOCASE IN @qids;
+                """, new { qids = batch }));
+        }
+
+        return Task.FromResult<IReadOnlyList<FictionalEntity>>(results);
+    }
+
+    /// <inheritdoc/>
     public Task<FictionalEntity?> FindByIdAsync(Guid id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

@@ -112,9 +112,9 @@ public sealed class VideoProcessor : IMediaProcessor
         // Return empty candidates and Unknown type — IngestionEngine calls MediaTypeAdvisor.
         return new ProcessorResult
         {
-            FilePath            = filePath,
-            DetectedType        = MediaType.Unknown,
-            Claims              = claims,
+            FilePath = filePath,
+            DetectedType = MediaType.Unknown,
+            Claims = claims,
             MediaTypeCandidates = [],
         };
     }
@@ -127,39 +127,30 @@ public sealed class VideoProcessor : IMediaProcessor
 
     private static VideoContainer DetectContainer(string filePath)
     {
-        try
-        {
-            Span<byte> header = stackalloc byte[16];
-            using var fs = new FileStream(
-                filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                bufferSize: 16, FileOptions.None);
-
-            int read = fs.Read(header);
-            if (read < 4) return VideoContainer.Unknown;
-
-            // MKV / WebM: EBML header  1A 45 DF A3
-            if (header[0] == 0x1A && header[1] == 0x45 &&
-                header[2] == 0xDF && header[3] == 0xA3)
-                return VideoContainer.Mkv;
-
-            // MP4 / M4V / QuickTime: ISO BMFF ftyp box at offset 4
-            if (read >= 8 &&
-                header[4] == 0x66 && header[5] == 0x74 &&   // 'f' 't'
-                header[6] == 0x79 && header[7] == 0x70)      // 'y' 'p'
-                return VideoContainer.Mp4;
-
-            // AVI: RIFF....AVI
-            if (read >= 12 &&
-                header[0] == 0x52 && header[1] == 0x49 &&   // 'R' 'I'
-                header[2] == 0x46 && header[3] == 0x46 &&   // 'F' 'F'
-                header[8] == 0x41 && header[9] == 0x56 &&   // 'A' 'V'
-                header[10] == 0x49 && header[11] == 0x20)    // 'I' ' '
-                return VideoContainer.Avi;
-
+        Span<byte> header = stackalloc byte[16];
+        if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < 4)
             return VideoContainer.Unknown;
-        }
-        catch (IOException)               { return VideoContainer.Unknown; }
-        catch (UnauthorizedAccessException) { return VideoContainer.Unknown; }
+
+        // MKV / WebM: EBML header  1A 45 DF A3
+        if (header[0] == 0x1A && header[1] == 0x45 &&
+            header[2] == 0xDF && header[3] == 0xA3)
+            return VideoContainer.Mkv;
+
+        // MP4 / M4V / QuickTime: ISO BMFF ftyp box at offset 4
+        if (read >= 8 &&
+            header[4] == 0x66 && header[5] == 0x74 &&   // 'f' 't'
+            header[6] == 0x79 && header[7] == 0x70)      // 'y' 'p'
+            return VideoContainer.Mp4;
+
+        // AVI: RIFF....AVI
+        if (read >= 12 &&
+            header[0] == 0x52 && header[1] == 0x49 &&   // 'R' 'I'
+            header[2] == 0x46 && header[3] == 0x46 &&   // 'F' 'F'
+            header[8] == 0x41 && header[9] == 0x56 &&   // 'A' 'V'
+            header[10] == 0x49 && header[11] == 0x20)    // 'I' ' '
+            return VideoContainer.Avi;
+
+        return VideoContainer.Unknown;
     }
 
     // -------------------------------------------------------------------------
@@ -301,7 +292,7 @@ public sealed class VideoProcessor : IMediaProcessor
             VideoContainer.Mp4 => "MP4",
             VideoContainer.Mkv => "MKV",
             VideoContainer.Avi => "AVI",
-            _                  => "Unknown",
+            _ => "Unknown",
         };
         claims.Add(Claim("container", containerLabel, 1.0));
 
@@ -484,18 +475,9 @@ public sealed class VideoProcessor : IMediaProcessor
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static ExtractedClaim Claim(string key, string value, double confidence) => new()
-    {
-        Key        = key,
-        Value      = value,
-        Confidence = confidence,
-    };
+    private static ExtractedClaim Claim(string key, string value, double confidence) =>
+        ProcessorClaimFactory.Create(key, value, confidence);
 
-    private static ProcessorResult Corrupt(string filePath, string reason) => new()
-    {
-        FilePath      = filePath,
-        DetectedType  = MediaType.Movies,
-        IsCorrupt     = true,
-        CorruptReason = reason,
-    };
+    private static ProcessorResult Corrupt(string filePath, string reason) =>
+        ProcessorResultFactory.Corrupt(filePath, MediaType.Movies, reason);
 }

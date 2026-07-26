@@ -27,7 +27,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             var parameters = new
             {
@@ -91,7 +91,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
                     parameters.automationCompletedAt,
                 }, tx);
 
-                return Task.FromResult(existingId.Value);
+                return existingId.Value;
             }
 
             conn.Execute("""
@@ -112,7 +112,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
             var inserted = conn.ExecuteScalar<long>("SELECT changes();", transaction: tx) > 0;
             if (inserted)
             {
-                return Task.FromResult(entry.Id);
+                return entry.Id;
             }
 
             existingId = conn.QueryFirstOrDefault<Guid?>("""
@@ -125,7 +125,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
                 LIMIT 1;
                 """, parameters, tx);
 
-            return Task.FromResult(existingId ?? entry.Id);
+            return existingId ?? entry.Id;
         }, ct);
     }
 
@@ -275,7 +275,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(
         Guid entityId,
         CancellationToken ct = default) =>
-        _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        _db.ExecuteWriteAsync<IReadOnlyList<ReviewQueueEntry>>((conn, tx, innerCt) =>
         {
             var now = DateTimeOffset.UtcNow.ToString("O");
 
@@ -294,7 +294,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
 
             if (ids.Count == 0)
             {
-                return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
+                return [];
             }
 
             conn.Execute("""
@@ -336,7 +336,7 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
                 now,
             }, tx).AsList();
 
-            return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
+            return rows.Select(MapRow).ToList();
         }, ct);
 
     /// <inheritdoc/>

@@ -21,7 +21,7 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
         if (candidates.Count == 0)
             return Task.CompletedTask;
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             conn.Execute("""
                 INSERT INTO wikidata_bridge_candidates
@@ -48,7 +48,6 @@ public sealed class WikidataCandidateRepository : IWikidataCandidateRepository
                 }),
                 tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 

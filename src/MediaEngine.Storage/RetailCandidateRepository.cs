@@ -21,7 +21,7 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
         if (candidates.Count == 0)
             return Task.CompletedTask;
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             conn.Execute("""
                 INSERT INTO retail_match_candidates
@@ -54,7 +54,6 @@ public sealed class RetailCandidateRepository : IRetailCandidateRepository
                 }),
                 tx);
 
-            return Task.CompletedTask;
         }, ct);
     }
 

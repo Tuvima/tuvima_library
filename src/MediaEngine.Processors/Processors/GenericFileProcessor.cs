@@ -48,16 +48,12 @@ public sealed class GenericFileProcessor : IMediaProcessor
         var ext = Path.GetExtension(filePath);
         if (IsKnownFormatExtension(ext))
         {
-            return Task.FromResult(new ProcessorResult
-            {
-                FilePath      = filePath,
-                DetectedType  = MediaType.Unknown,
-                Claims        = [],
-                IsCorrupt     = true,
-                CorruptReason = $"File has a known media extension ({ext}) but no format-specific " +
-                                "processor could parse it. The file may be corrupt, truncated, " +
-                                "or have a misleading extension.",
-            });
+            return Task.FromResult(ProcessorResultFactory.Corrupt(
+                filePath,
+                MediaType.Unknown,
+                $"File has a known media extension ({ext}) but no format-specific " +
+                "processor could parse it. The file may be corrupt, truncated, " +
+                "or have a misleading extension."));
         }
 
         var stem = Path.GetFileNameWithoutExtension(filePath);
@@ -65,19 +61,14 @@ public sealed class GenericFileProcessor : IMediaProcessor
 
         if (!string.IsNullOrWhiteSpace(stem))
         {
-            claims.Add(new ExtractedClaim
-            {
-                Key        = "title",
-                Value      = stem,
-                Confidence = 0.5,
-            });
+            claims.Add(ProcessorClaimFactory.Create("title", stem, 0.5));
         }
 
         return Task.FromResult(new ProcessorResult
         {
-            FilePath     = filePath,
+            FilePath = filePath,
             DetectedType = MediaType.Unknown,
-            Claims       = claims,
+            Claims = claims,
         });
     }
 

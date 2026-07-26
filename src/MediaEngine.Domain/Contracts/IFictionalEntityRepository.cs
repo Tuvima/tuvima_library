@@ -20,6 +20,11 @@ public interface IFictionalEntityRepository
     /// <summary>Find a fictional entity by its Wikidata QID.</summary>
     Task<FictionalEntity?> FindByQidAsync(string qid, CancellationToken ct = default);
 
+    /// <summary>Find fictional entities by Wikidata QID in bounded batches.</summary>
+    Task<IReadOnlyList<FictionalEntity>> FindByQidsAsync(
+        IEnumerable<string> qids,
+        CancellationToken ct = default);
+
     /// <summary>Find a fictional entity by its database ID.</summary>
     Task<FictionalEntity?> FindByIdAsync(Guid id, CancellationToken ct = default);
 

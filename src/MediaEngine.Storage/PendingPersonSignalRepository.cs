@@ -54,7 +54,7 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
         if (signals.Count == 0)
             return Task.CompletedTask;
 
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var s in signals)
             {
@@ -78,7 +78,6 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
                     tx);
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 

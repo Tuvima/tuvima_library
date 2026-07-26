@@ -122,6 +122,62 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void ApiBatchReadMigrations_DoNotRegressToPerItemRepositoryCalls()
+    {
+        var repoRoot = FindRepoRoot();
+        var forbiddenSnippets = new Dictionary<string, string[]>
+        {
+            ["src/MediaEngine.Api/Endpoints/UniverseGraphEndpoints.cs"] =
+            [
+                "entityRepo.FindByQidAsync(neighborQid",
+            ],
+            ["src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"] =
+            [
+                "personRepo.FindByQidAsync(entry.Qid",
+                "personRepo.FindByNameAsync(entry.Name",
+            ],
+            ["src/MediaEngine.Api/Services/ReadServices/CollectionCatalogReadService.cs"] =
+            [
+                "personRepo.FindByQidAsync(reference.LookupValue",
+                "personRepo.FindByNameAsync(reference.LookupValue",
+            ],
+            ["src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs"] =
+            [
+                "entityAssetRepo.GetByEntityAsync(artworkEntityId",
+                "canonicalRepo.GetByEntityAsync(sourceId",
+            ],
+            ["src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs"] =
+            [
+                "collectionRepo.GetByIdAsync(p.CollectionId",
+            ],
+        };
+
+        var offenders = forbiddenSnippets
+            .SelectMany(entry =>
+            {
+                var path = Path.Combine(repoRoot, entry.Key.Replace('/', Path.DirectorySeparatorChar));
+                var text = File.ReadAllText(path);
+                return entry.Value
+                    .Where(snippet => text.Contains(snippet, StringComparison.Ordinal))
+                    .Select(snippet => $"{entry.Key}: {snippet}");
+            })
+            .ToList();
+
+        Assert.Empty(offenders);
+
+        var collectionEndpoints = File.ReadAllText(Path.Combine(
+            repoRoot,
+            "src",
+            "MediaEngine.Api",
+            "Endpoints",
+            "CollectionEndpoints.cs"));
+        Assert.Contains(
+            "collectionRepo.GetCollectionsWithWorksAsync(collectionIds, ct)",
+            collectionEndpoints,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ActiveRazorComponents_DoNotImportStorageImplementationModelsOrSql()
     {
         var repoRoot = FindRepoRoot();

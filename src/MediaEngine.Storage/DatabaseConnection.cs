@@ -104,16 +104,19 @@ public sealed class DatabaseConnection : IDatabaseConnection
         => _writeLock.Release();
 
     /// <inheritdoc/>
-    public async Task<T> ExecuteInTransactionAsync<T>(
-        Func<SqliteConnection, SqliteTransaction, CancellationToken, Task<T>> body,
+    public async Task<T> ExecuteWriteAsync<T>(
+        Func<SqliteConnection, SqliteTransaction, CancellationToken, T> body,
         CancellationToken ct = default)
     {
+        ArgumentNullException.ThrowIfNull(body);
         await AcquireWriteLockAsync(ct).ConfigureAwait(false);
         try
         {
+            ct.ThrowIfCancellationRequested();
             using var conn = CreateConnection();
             using var tx = conn.BeginTransaction();
-            var result = await body(conn, tx, ct).ConfigureAwait(false);
+            var result = body(conn, tx, ct);
+            ct.ThrowIfCancellationRequested();
             tx.Commit();
             return result;
         }
@@ -124,16 +127,19 @@ public sealed class DatabaseConnection : IDatabaseConnection
     }
 
     /// <inheritdoc/>
-    public Task ExecuteInTransactionAsync(
-        Func<SqliteConnection, SqliteTransaction, CancellationToken, Task> body,
+    public Task ExecuteWriteAsync(
+        Action<SqliteConnection, SqliteTransaction, CancellationToken> body,
         CancellationToken ct = default)
-        => ExecuteInTransactionAsync<object?>(
-            async (conn, tx, token) =>
+    {
+        ArgumentNullException.ThrowIfNull(body);
+        return ExecuteWriteAsync<object?>(
+            (conn, tx, token) =>
             {
-                await body(conn, tx, token).ConfigureAwait(false);
+                body(conn, tx, token);
                 return null;
             },
             ct);
+    }
 
     /// <inheritdoc/>
     public void Dispose()

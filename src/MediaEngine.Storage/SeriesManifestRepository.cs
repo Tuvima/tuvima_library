@@ -178,7 +178,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             conn.Execute(
                 """
@@ -271,7 +271,6 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     tx);
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 
@@ -281,7 +280,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var item in items.Where(i =>
                          i.OwnershipState == "Owned"
@@ -350,7 +349,6 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     tx);
             }
 
-            return Task.CompletedTask;
         }, ct);
     }
 

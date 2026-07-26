@@ -3,7 +3,7 @@ using Microsoft.Data.Sqlite;
 namespace MediaEngine.Storage.Tests;
 
 /// <summary>
-/// Covers <see cref="DatabaseConnection.ExecuteInTransactionAsync{T}"/> and its
+/// Covers <see cref="DatabaseConnection.ExecuteWriteAsync{T}"/> and its
 /// non-generic overload: commit correctness, rollback-on-throw, write-lock
 /// release after a failed body, write serialization under concurrent callers,
 /// and cancellation before the transaction body ever runs.
@@ -31,38 +31,38 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
     }
 
     [Fact]
-    public async Task ExecuteInTransactionAsync_CommitsWrittenRowOnSuccess()
+    public async Task ExecuteWriteAsync_CommitsWrittenRowOnSuccess()
     {
         const string path = "C:/library/commit-test.mkv";
 
-        await _db.ExecuteInTransactionAsync(async (conn, tx, _) =>
-            await InsertHashRowAsync(conn, tx, path, "hash-commit"));
+        await _db.ExecuteWriteAsync((conn, tx, _) =>
+            InsertHashRow(conn, tx, path, "hash-commit"));
 
-        Assert.Equal("hash-commit", await ReadHashAsync(path));
+        Assert.Equal("hash-commit", ReadHash(path));
     }
 
     [Fact]
-    public async Task ExecuteInTransactionAsync_RollsBackWhenBodyThrows()
+    public async Task ExecuteWriteAsync_RollsBackWhenBodyThrows()
     {
         const string path = "C:/library/rollback-test.mkv";
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _db.ExecuteInTransactionAsync(async (conn, tx, _) =>
+            _db.ExecuteWriteAsync((conn, tx, _) =>
             {
-                await InsertHashRowAsync(conn, tx, path, "hash-rollback");
+                InsertHashRow(conn, tx, path, "hash-rollback");
                 throw new InvalidOperationException("Simulated failure after write.");
             }));
 
-        Assert.Null(await ReadHashAsync(path));
+        Assert.Null(ReadHash(path));
     }
 
     [Fact]
-    public async Task ExecuteInTransactionAsync_ReleasesWriteLockAfterFailureSoNextCallSucceeds()
+    public async Task ExecuteWriteAsync_ReleasesWriteLockAfterFailureSoNextCallSucceeds()
     {
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            _db.ExecuteInTransactionAsync(async (conn, tx, _) =>
+            _db.ExecuteWriteAsync((conn, tx, _) =>
             {
-                await InsertHashRowAsync(conn, tx, "C:/library/lock-release.mkv", "will-not-persist");
+                InsertHashRow(conn, tx, "C:/library/lock-release.mkv", "will-not-persist");
                 throw new InvalidOperationException("Simulated failure after write.");
             }));
 
@@ -70,21 +70,21 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
         // block until the timeout token fires and surface OperationCanceledException
         // instead of completing — proving the lock was actually released in `finally`.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        await _db.ExecuteInTransactionAsync(
-            async (conn, tx, _) => await InsertHashRowAsync(conn, tx, "C:/library/after-failure.mkv", "hash-after"),
+        await _db.ExecuteWriteAsync(
+            (conn, tx, _) => InsertHashRow(conn, tx, "C:/library/after-failure.mkv", "hash-after"),
             timeout.Token);
 
-        Assert.Equal("hash-after", await ReadHashAsync("C:/library/after-failure.mkv"));
+        Assert.Equal("hash-after", ReadHash("C:/library/after-failure.mkv"));
     }
 
     [Fact]
-    public async Task ExecuteInTransactionAsync_SerializesConcurrentWritersWithoutDatabaseLockedErrors()
+    public async Task ExecuteWriteAsync_SerializesConcurrentWritersWithoutDatabaseLockedErrors()
     {
         const int writerCount = 8;
 
         var writers = Enumerable.Range(0, writerCount)
-            .Select(i => _db.ExecuteInTransactionAsync(async (conn, tx, _) =>
-                await InsertHashRowAsync(conn, tx, $"C:/library/concurrent-{i}.mkv", $"hash-{i}")))
+            .Select(i => _db.ExecuteWriteAsync((conn, tx, _) =>
+                InsertHashRow(conn, tx, $"C:/library/concurrent-{i}.mkv", $"hash-{i}")))
             .ToArray();
 
         // Task.WhenAll surfaces the first failure; a "database is locked" SqliteException
@@ -94,13 +94,13 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM file_hash_cache WHERE absolute_path LIKE 'C:/library/concurrent-%';";
-        var count = Convert.ToInt32(await cmd.ExecuteScalarAsync());
+        var count = Convert.ToInt32(cmd.ExecuteScalar());
 
         Assert.Equal(writerCount, count);
     }
 
     [Fact]
-    public async Task ExecuteInTransactionAsync_ThrowsBeforeInvokingBodyWhenTokenAlreadyCancelled()
+    public async Task ExecuteWriteAsync_ThrowsBeforeInvokingBodyWhenTokenAlreadyCancelled()
     {
         using var cts = new CancellationTokenSource();
         cts.Cancel();
@@ -109,18 +109,17 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
         // ThrowsAnyAsync: SemaphoreSlim.WaitAsync surfaces a pre-cancelled token
         // as TaskCanceledException, a subclass of OperationCanceledException.
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            _db.ExecuteInTransactionAsync<int>(
+            _db.ExecuteWriteAsync(
                 (_, _, _) =>
                 {
                     bodyInvoked = true;
-                    return Task.FromResult(0);
                 },
                 cts.Token));
 
         Assert.False(bodyInvoked);
     }
 
-    private static async Task InsertHashRowAsync(SqliteConnection conn, SqliteTransaction tx, string path, string hash)
+    private static void InsertHashRow(SqliteConnection conn, SqliteTransaction tx, string path, string hash)
     {
         var now = DateTimeOffset.UtcNow.ToString("o");
         using var cmd = conn.CreateCommand();
@@ -134,16 +133,16 @@ public sealed class DatabaseConnectionTransactionTests : IDisposable
         cmd.Parameters.AddWithValue("$mtime", now);
         cmd.Parameters.AddWithValue("$hash", hash);
         cmd.Parameters.AddWithValue("$cachedAt", now);
-        await cmd.ExecuteNonQueryAsync();
+        cmd.ExecuteNonQuery();
     }
 
-    private async Task<string?> ReadHashAsync(string path)
+    private string? ReadHash(string path)
     {
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
         cmd.CommandText = "SELECT sha256 FROM file_hash_cache WHERE absolute_path = $path;";
         cmd.Parameters.AddWithValue("$path", path);
-        return await cmd.ExecuteScalarAsync() as string;
+        return cmd.ExecuteScalar() as string;
     }
 
     private static void TryDelete(string path)

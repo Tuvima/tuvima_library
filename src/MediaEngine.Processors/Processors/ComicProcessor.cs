@@ -65,8 +65,8 @@ public sealed class ComicProcessor : IMediaProcessor
             StringComparer.OrdinalIgnoreCase);
 
     // EPUB mimetype entry name and value — used to exclude EPUBs.
-    private const string EpubMimeEntry  = "mimetype";
-    private const string EpubMimeValue  = "application/epub+zip";
+    private const string EpubMimeEntry = "mimetype";
+    private const string EpubMimeValue = "application/epub+zip";
 
     private enum ComicContainer { Unknown, Cbz, Cbr }
 
@@ -129,10 +129,10 @@ public sealed class ComicProcessor : IMediaProcessor
 
         return Task.FromResult(new ProcessorResult
         {
-            FilePath           = filePath,
-            DetectedType       = MediaType.Comics,
-            Claims             = claims,
-            CoverImage         = coverImage,
+            FilePath = filePath,
+            DetectedType = MediaType.Comics,
+            Claims = claims,
+            CoverImage = coverImage,
             CoverImageMimeType = coverImageMimeType,
         });
     }
@@ -143,28 +143,19 @@ public sealed class ComicProcessor : IMediaProcessor
 
     private static ComicContainer DetectContainer(string filePath)
     {
-        try
-        {
-            Span<byte> header = stackalloc byte[6];
-            using var fs = new FileStream(
-                filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
-                bufferSize: 6, FileOptions.None);
-
-            int read = fs.Read(header);
-            if (read < 4) return ComicContainer.Unknown;
-
-            // RAR: 6-byte signature
-            if (read >= 6 && header[..6].SequenceEqual(RarMagic))
-                return ComicContainer.Cbr;
-
-            // ZIP: 4-byte signature
-            if (header[..4].SequenceEqual(ZipMagic))
-                return IsComicZip(filePath) ? ComicContainer.Cbz : ComicContainer.Unknown;
-
+        Span<byte> header = stackalloc byte[6];
+        if (!ProcessorHeaderReader.TryRead(filePath, header, out var read) || read < 4)
             return ComicContainer.Unknown;
-        }
-        catch (IOException)               { return ComicContainer.Unknown; }
-        catch (UnauthorizedAccessException) { return ComicContainer.Unknown; }
+
+        // RAR: 6-byte signature
+        if (read >= 6 && header[..6].SequenceEqual(RarMagic))
+            return ComicContainer.Cbr;
+
+        // ZIP: 4-byte signature
+        if (header[..4].SequenceEqual(ZipMagic))
+            return IsComicZip(filePath) ? ComicContainer.Cbz : ComicContainer.Unknown;
+
+        return ComicContainer.Unknown;
     }
 
     /// <summary>
@@ -192,7 +183,7 @@ public sealed class ComicProcessor : IMediaProcessor
             return zip.Entries.Any(IsImageEntry);
         }
         catch (InvalidDataException) { return false; }
-        catch (IOException)          { return false; }
+        catch (IOException) { return false; }
     }
 
     // -------------------------------------------------------------------------
@@ -215,7 +206,7 @@ public sealed class ComicProcessor : IMediaProcessor
             return count > 0 ? count : null;
         }
         catch (InvalidDataException) { return null; }
-        catch (IOException)          { return null; }
+        catch (IOException) { return null; }
         catch (SharpCompress.Common.ArchiveException) { return null; }
     }
 
@@ -276,7 +267,7 @@ public sealed class ComicProcessor : IMediaProcessor
                 : (null, null);
         }
         catch (InvalidDataException) { return (null, null); }
-        catch (IOException)          { return (null, null); }
+        catch (IOException) { return (null, null); }
         catch (SharpCompress.Common.ArchiveException) { return (null, null); }
     }
 
@@ -285,11 +276,11 @@ public sealed class ComicProcessor : IMediaProcessor
         var extension = Path.GetExtension(entryKey ?? string.Empty);
         return extension.ToLowerInvariant() switch
         {
-            ".png"  => "image/png",
-            ".gif"  => "image/gif",
+            ".png" => "image/png",
+            ".gif" => "image/gif",
             ".webp" => "image/webp",
             ".avif" => "image/avif",
-            _       => "image/jpeg",
+            _ => "image/jpeg",
         };
     }
 
@@ -331,7 +322,7 @@ public sealed class ComicProcessor : IMediaProcessor
             ParseComicInfoXml(stream, claims);
         }
         catch (InvalidDataException) { /* corrupt ZIP — already handled by earlier steps */ }
-        catch (IOException)          { /* file access issue */ }
+        catch (IOException) { /* file access issue */ }
         catch (SharpCompress.Common.ArchiveException) { /* unsupported/corrupt archive */ }
         catch (System.Xml.XmlException) { /* malformed XML — skip silently */ }
     }
@@ -345,20 +336,20 @@ public sealed class ComicProcessor : IMediaProcessor
         var hasIssueIdentity = !string.IsNullOrWhiteSpace(ReadElement(root, "Series"))
             && !string.IsNullOrWhiteSpace(ReadElement(root, "Number"));
 
-        AddClaimIfPresent(root, "Title",     MetadataFieldConstants.Title,           0.8, claims);
+        AddClaimIfPresent(root, "Title", MetadataFieldConstants.Title, 0.8, claims);
         if (hasIssueIdentity)
             AddClaimIfPresent(root, "Title", MetadataFieldConstants.IssueTitle, 0.8, claims);
-        AddClaimIfPresent(root, "Writer",    "author",          0.8, claims);
-        AddClaimIfPresent(root, "Penciller", "illustrator",     0.8, claims);
-        AddClaimIfPresent(root, "Genre",     "genre",           0.7, claims);
-        AddClaimIfPresent(root, "Summary",   MetadataFieldConstants.Description,     0.7, claims);
+        AddClaimIfPresent(root, "Writer", "author", 0.8, claims);
+        AddClaimIfPresent(root, "Penciller", "illustrator", 0.8, claims);
+        AddClaimIfPresent(root, "Genre", "genre", 0.7, claims);
+        AddClaimIfPresent(root, "Summary", MetadataFieldConstants.Description, 0.7, claims);
         if (hasIssueIdentity)
             AddClaimIfPresent(root, "Summary", MetadataFieldConstants.IssueDescription, 0.7, claims);
-        AddClaimIfPresent(root, "Year",      "year",            0.8, claims);
-        AddClaimIfPresent(root, "Publisher", "publisher",       0.7, claims);
-        AddClaimIfPresent(root, "Series",    MetadataFieldConstants.Series,          0.8, claims);
-        AddClaimIfPresent(root, "Number",    MetadataFieldConstants.SeriesPosition, 0.8, claims);
-        AddClaimIfPresent(root, "PageCount", "page_count",      0.9, claims);
+        AddClaimIfPresent(root, "Year", "year", 0.8, claims);
+        AddClaimIfPresent(root, "Publisher", "publisher", 0.7, claims);
+        AddClaimIfPresent(root, "Series", MetadataFieldConstants.Series, 0.8, claims);
+        AddClaimIfPresent(root, "Number", MetadataFieldConstants.SeriesPosition, 0.8, claims);
+        AddClaimIfPresent(root, "PageCount", "page_count", 0.9, claims);
     }
 
     private static string? ReadElement(XElement root, string elementName)
@@ -383,18 +374,9 @@ public sealed class ComicProcessor : IMediaProcessor
     // Factory helpers
     // -------------------------------------------------------------------------
 
-    private static ExtractedClaim Claim(string key, string value, double confidence) => new()
-    {
-        Key        = key,
-        Value      = value,
-        Confidence = confidence,
-    };
+    private static ExtractedClaim Claim(string key, string value, double confidence) =>
+        ProcessorClaimFactory.Create(key, value, confidence);
 
-    private static ProcessorResult Corrupt(string filePath, string reason) => new()
-    {
-        FilePath      = filePath,
-        DetectedType  = MediaType.Comics,
-        IsCorrupt     = true,
-        CorruptReason = reason,
-    };
+    private static ProcessorResult Corrupt(string filePath, string reason) =>
+        ProcessorResultFactory.Corrupt(filePath, MediaType.Comics, reason);
 }

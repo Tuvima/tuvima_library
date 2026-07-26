@@ -48,7 +48,7 @@ public sealed class EpubProcessor : IMediaProcessor
     // ZIP local-file-header signature: PK\x03\x04
     private static ReadOnlySpan<byte> ZipMagic => [0x50, 0x4B, 0x03, 0x04];
 
-    private const string EpubMimeType     = "application/epub+zip";
+    private const string EpubMimeType = "application/epub+zip";
     private const string MimeTypeEntryName = "mimetype";
 
     /// <inheritdoc/>
@@ -112,10 +112,10 @@ public sealed class EpubProcessor : IMediaProcessor
 
         return new ProcessorResult
         {
-            FilePath          = filePath,
-            DetectedType      = MediaType.Books,
-            Claims            = claims,
-            CoverImage        = coverBytes,
+            FilePath = filePath,
+            DetectedType = MediaType.Books,
+            Claims = claims,
+            CoverImage = coverBytes,
             CoverImageMimeType = coverMime,
         };
     }
@@ -126,22 +126,10 @@ public sealed class EpubProcessor : IMediaProcessor
 
     private static bool HasZipMagic(string filePath)
     {
-        try
-        {
-            Span<byte> header = stackalloc byte[4];
-            using var fs = new FileStream(
-                filePath,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 4,
-                FileOptions.None);
-
-            int read = fs.Read(header);
-            return read == 4 && header.SequenceEqual(ZipMagic);
-        }
-        catch (IOException)               { return false; }
-        catch (UnauthorizedAccessException) { return false; }
+        Span<byte> header = stackalloc byte[4];
+        return ProcessorHeaderReader.TryRead(filePath, header, out var read)
+            && read == 4
+            && header.SequenceEqual(ZipMagic);
     }
 
     private static bool HasEpubMimeType(string filePath)
@@ -157,7 +145,7 @@ public sealed class EpubProcessor : IMediaProcessor
             return string.Equals(content, EpubMimeType, StringComparison.OrdinalIgnoreCase);
         }
         catch (InvalidDataException) { return false; } // Not a valid ZIP
-        catch (IOException)          { return false; }
+        catch (IOException) { return false; }
     }
 
     // -------------------------------------------------------------------------
@@ -251,7 +239,7 @@ public sealed class EpubProcessor : IMediaProcessor
                 foreach (var id in meta.Identifiers)
                 {
                     var scheme = id.Scheme;
-                    var text   = id.Identifier;  // VersOne 3.1.0: .Identifier not .Text
+                    var text = id.Identifier;  // VersOne 3.1.0: .Identifier not .Text
                     if (!string.IsNullOrWhiteSpace(text) &&
                         (string.Equals(scheme, "ISBN", StringComparison.OrdinalIgnoreCase) ||
                          text.StartsWith("isbn:", StringComparison.OrdinalIgnoreCase) ||
@@ -355,15 +343,11 @@ public sealed class EpubProcessor : IMediaProcessor
     // Factory helpers
     // -------------------------------------------------------------------------
 
-    private static ExtractedClaim Claim(string key, string value) => new()
-    {
-        Key        = key,
-        Value      = value.Trim(),
+    private static ExtractedClaim Claim(string key, string value) =>
         // File-embedded metadata is trustworthy but NOT authoritative. Confidence
         // 0.95 ensures Wikidata display-language titles (0.98) can override when
         // the file is in a foreign language. 1.0 is reserved for user locks only.
-        Confidence = 0.95,
-    };
+        ProcessorClaimFactory.Create(key, value, 0.95, trimValue: true);
 
     /// <summary>
     /// Strips URI prefixes (urn:isbn:, isbn:) and formatting (dashes, spaces) from an ISBN string.
@@ -384,11 +368,6 @@ public sealed class EpubProcessor : IMediaProcessor
         return null;
     }
 
-    private static ProcessorResult Corrupt(string filePath, string reason) => new()
-    {
-        FilePath     = filePath,
-        DetectedType = MediaType.Books,
-        IsCorrupt    = true,
-        CorruptReason = reason,
-    };
+    private static ProcessorResult Corrupt(string filePath, string reason) =>
+        ProcessorResultFactory.Corrupt(filePath, MediaType.Books, reason);
 }

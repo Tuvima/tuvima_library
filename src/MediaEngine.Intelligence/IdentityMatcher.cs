@@ -1,3 +1,4 @@
+using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
@@ -41,7 +42,7 @@ namespace MediaEngine.Intelligence;
 /// </summary>
 public sealed class IdentityMatcher : IIdentityMatcher
 {
-    private const string TitleKey   = "title";
+    private const string TitleKey = MetadataFieldConstants.Title;
     private const double TitleWeight = 0.5;      // title gets 50 % of total influence
 
     private readonly IFuzzyMatchingService _fuzzy;

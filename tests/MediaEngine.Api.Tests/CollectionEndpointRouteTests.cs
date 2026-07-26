@@ -200,8 +200,10 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("IPersonRepository personRepo", source, StringComparison.Ordinal);
         Assert.Contains("ResolveCatalogPersonAsync", source, StringComparison.Ordinal);
         Assert.Contains("CollectionRuleEvaluator.ParseRules(collection.RuleJson)", source, StringComparison.Ordinal);
-        Assert.Contains("FindByQidAsync(reference.LookupValue", source, StringComparison.Ordinal);
-        Assert.Contains("FindByNameAsync(reference.LookupValue", source, StringComparison.Ordinal);
+        Assert.Contains("FindByQidsAsync(", source, StringComparison.Ordinal);
+        Assert.Contains("FindByNamesAsync(", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FindByQidAsync(reference.LookupValue", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("FindByNameAsync(reference.LookupValue", source, StringComparison.Ordinal);
         Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl", source, StringComparison.Ordinal);
         Assert.Contains("HasKnownSeriesManifestAsync(collection, ct)", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogAggregation(collection) is null", source, StringComparison.Ordinal);

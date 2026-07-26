@@ -15,13 +15,13 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
         _db = db;
     }
 
-    public async Task<IReadOnlyList<PluginLoreSourceRecord>> GetSourcesAsync(
+    public Task<IReadOnlyList<PluginLoreSourceRecord>> GetSourcesAsync(
         string universeQid,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<PluginLoreSourceRecord>("""
+        var rows = conn.Query<PluginLoreSourceRecord>("""
             SELECT id AS Id, universe_qid AS UniverseQid, plugin_id AS PluginId,
                    source_key AS SourceKey, source_name AS SourceName, base_url AS BaseUrl,
                    api_url AS ApiUrl, status AS Status, confidence AS Confidence,
@@ -33,16 +33,16 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
             WHERE universe_qid = @universeQid COLLATE NOCASE
             ORDER BY status, confidence DESC, source_name;
             """, new { universeQid });
-        return rows.AsList();
+        return Task.FromResult<IReadOnlyList<PluginLoreSourceRecord>>(rows.AsList());
     }
 
-    public async Task<IReadOnlyList<PluginLoreSourceRecord>> GetApprovedSourcesAsync(
+    public Task<IReadOnlyList<PluginLoreSourceRecord>> GetApprovedSourcesAsync(
         string universeQid,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<PluginLoreSourceRecord>("""
+        var rows = conn.Query<PluginLoreSourceRecord>("""
             SELECT id AS Id, universe_qid AS UniverseQid, plugin_id AS PluginId,
                    source_key AS SourceKey, source_name AS SourceName, base_url AS BaseUrl,
                    api_url AS ApiUrl, status AS Status, confidence AS Confidence,
@@ -55,16 +55,16 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
               AND status = @status
             ORDER BY confidence DESC, source_name;
             """, new { universeQid, status = PluginLoreSourceStatus.Approved });
-        return rows.AsList();
+        return Task.FromResult<IReadOnlyList<PluginLoreSourceRecord>>(rows.AsList());
     }
 
-    public async Task<PluginLoreSourceRecord?> FindSourceAsync(
+    public Task<PluginLoreSourceRecord?> FindSourceAsync(
         Guid sourceId,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        return await conn.QueryFirstOrDefaultAsync<PluginLoreSourceRecord>("""
+        var source = conn.QueryFirstOrDefault<PluginLoreSourceRecord>("""
             SELECT id AS Id, universe_qid AS UniverseQid, plugin_id AS PluginId,
                    source_key AS SourceKey, source_name AS SourceName, base_url AS BaseUrl,
                    api_url AS ApiUrl, status AS Status, confidence AS Confidence,
@@ -76,9 +76,10 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
             WHERE id = @sourceId
             LIMIT 1;
             """, new { sourceId });
+        return Task.FromResult(source);
     }
 
-    public async Task UpsertSourceCandidateAsync(
+    public Task UpsertSourceCandidateAsync(
         string universeQid,
         string pluginId,
         PluginLoreSourceCandidateRecord candidate,
@@ -87,7 +88,7 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow;
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT INTO plugin_lore_sources
                 (id, universe_qid, plugin_id, source_key, source_name, base_url, api_url,
                  status, confidence, evidence_json, license, last_discovered_at, created_at, updated_at)
@@ -119,9 +120,10 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
                 candidate.License,
                 Now = now,
             });
+        return Task.CompletedTask;
     }
 
-    public async Task<PluginLoreSourceRecord> AddManualSourceAsync(
+    public Task<PluginLoreSourceRecord> AddManualSourceAsync(
         string universeQid,
         string pluginId,
         string sourceName,
@@ -134,7 +136,7 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
         var sourceKey = NormalizeSourceKey(baseUrl);
 
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             INSERT INTO plugin_lore_sources
                 (id, universe_qid, plugin_id, source_key, source_name, base_url, api_url,
                  status, confidence, evidence_json, last_discovered_at, created_at, updated_at)
@@ -162,7 +164,7 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
                 Now = now,
             });
 
-        return await conn.QueryFirstAsync<PluginLoreSourceRecord>("""
+        var source = conn.QueryFirst<PluginLoreSourceRecord>("""
             SELECT id AS Id, universe_qid AS UniverseQid, plugin_id AS PluginId,
                    source_key AS SourceKey, source_name AS SourceName, base_url AS BaseUrl,
                    api_url AS ApiUrl, status AS Status, confidence AS Confidence,
@@ -176,9 +178,10 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
               AND source_key = @sourceKey COLLATE NOCASE
             LIMIT 1;
             """, new { universeQid, pluginId, sourceKey });
+        return Task.FromResult(source);
     }
 
-    public async Task SetSourceStatusAsync(
+    public Task SetSourceStatusAsync(
         Guid sourceId,
         string status,
         string? actor,
@@ -190,7 +193,7 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
 
         var now = DateTimeOffset.UtcNow;
         using var conn = _db.CreateConnection();
-        await conn.ExecuteAsync("""
+        conn.Execute("""
             UPDATE plugin_lore_sources
             SET status = @status,
                 approved_at = CASE WHEN @status = @approved THEN @now ELSE approved_at END,
@@ -208,9 +211,10 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
                 actor,
                 now,
             });
+        return Task.CompletedTask;
     }
 
-    public async Task UpsertExtractionResultAsync(
+    public Task UpsertExtractionResultAsync(
         PluginLoreSourceRecord source,
         IReadOnlyList<PluginLoreEntityRecord> entities,
         IReadOnlyList<PluginLoreRelationshipRecord> relationships,
@@ -219,11 +223,12 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow;
 
-        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             foreach (var entity in entities.Where(e => !string.IsNullOrWhiteSpace(e.ExternalKey) && !string.IsNullOrWhiteSpace(e.Label)))
             {
-                await conn.ExecuteAsync("""
+                innerCt.ThrowIfCancellationRequested();
+                conn.Execute("""
                     INSERT INTO plugin_lore_entities
                         (id, source_id, universe_qid, plugin_id, external_key, wikidata_qid,
                          label, description, entity_type, aliases_json, source_url, confidence,
@@ -267,7 +272,8 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
                                                                   && !string.IsNullOrWhiteSpace(r.ObjectExternalKey)
                                                                   && !string.IsNullOrWhiteSpace(r.RelationshipType)))
             {
-                await conn.ExecuteAsync("""
+                innerCt.ThrowIfCancellationRequested();
+                conn.Execute("""
                     INSERT INTO plugin_lore_relationships
                         (id, source_id, universe_qid, plugin_id, subject_external_key, subject_qid,
                          object_external_key, object_qid, relationship_type, source_url, confidence,
@@ -303,23 +309,24 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
                     tx);
             }
 
-            await conn.ExecuteAsync("""
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute("""
                 UPDATE plugin_lore_sources
                 SET last_enriched_at = @now,
                     updated_at = @now
                 WHERE id = @sourceId;
                 """, new { sourceId = source.Id, now }, tx);
-        }, ct).ConfigureAwait(false);
+        }, ct);
     }
 
-    public async Task<IReadOnlyList<PluginLoreEntityRecord>> GetEntitiesAsync(
+    public Task<IReadOnlyList<PluginLoreEntityRecord>> GetEntitiesAsync(
         string universeQid,
         bool approvedOnly = true,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<PluginLoreEntityRecord>("""
+        var rows = conn.Query<PluginLoreEntityRecord>("""
             SELECT e.id AS Id, e.source_id AS SourceId, e.universe_qid AS UniverseQid,
                    e.plugin_id AS PluginId, e.external_key AS ExternalKey, e.wikidata_qid AS WikidataQid,
                    e.label AS Label, e.description AS Description, e.entity_type AS EntityType,
@@ -331,17 +338,17 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
               AND (@approvedOnly = 0 OR s.status = @approved)
             ORDER BY e.entity_type, e.label;
             """, new { universeQid, approvedOnly = approvedOnly ? 1 : 0, approved = PluginLoreSourceStatus.Approved });
-        return rows.AsList();
+        return Task.FromResult<IReadOnlyList<PluginLoreEntityRecord>>(rows.AsList());
     }
 
-    public async Task<IReadOnlyList<PluginLoreRelationshipRecord>> GetRelationshipsAsync(
+    public Task<IReadOnlyList<PluginLoreRelationshipRecord>> GetRelationshipsAsync(
         string universeQid,
         bool approvedOnly = true,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var rows = await conn.QueryAsync<PluginLoreRelationshipRecord>("""
+        var rows = conn.Query<PluginLoreRelationshipRecord>("""
             SELECT r.id AS Id, r.source_id AS SourceId, r.universe_qid AS UniverseQid,
                    r.plugin_id AS PluginId, r.subject_external_key AS SubjectExternalKey,
                    r.subject_qid AS SubjectQid, r.object_external_key AS ObjectExternalKey,
@@ -354,7 +361,7 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
               AND (@approvedOnly = 0 OR s.status = @approved)
             ORDER BY r.relationship_type;
             """, new { universeQid, approvedOnly = approvedOnly ? 1 : 0, approved = PluginLoreSourceStatus.Approved });
-        return rows.AsList();
+        return Task.FromResult<IReadOnlyList<PluginLoreRelationshipRecord>>(rows.AsList());
     }
 
     private static string NormalizeSourceKey(string baseUrl)
