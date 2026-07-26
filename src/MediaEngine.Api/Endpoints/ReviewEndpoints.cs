@@ -1,8 +1,10 @@
 using System.Text.Json;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Review;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -62,12 +64,12 @@ public static class ReviewEndpoints
             CancellationToken ct) =>
         {
             var item = await reviewReadService.GetByIdAsync(id, ct);
-            return item is null ? Results.NotFound() : Results.Ok(item);
+            return item is null ? ApiErrors.NotFound($"Review item '{id}' not found.") : Results.Ok(item);
         })
         .WithName("GetReviewItem")
         .WithSummary("Get a single review queue item with full details.")
         .Produces<ReviewItemDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── POST /review/{id}/resolve ────────────────────────────────────────
@@ -84,10 +86,10 @@ public static class ReviewEndpoints
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Review item '{id}' not found.");
 
             if (item.Status != ReviewStatus.Pending)
-                return Results.BadRequest("Review item is not pending.");
+                return ApiErrors.BadRequest("Review item is not pending.");
 
             // 1. Apply user field overrides (creates user-locked claims).
             if (request.FieldOverrides is { Count: > 0 })
@@ -201,13 +203,13 @@ public static class ReviewEndpoints
                 status         = "Resolved",
             }, ct);
 
-            return Results.Ok(new { resolved = true, review_item_id = id });
+            return Results.Ok(new ReviewResolveResponse(resolved: true, review_item_id: id));
         })
         .WithName("ResolveReviewItem")
         .WithSummary("Resolve a review queue item: select a QID and/or override fields.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<ReviewResolveResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // ── POST /review/{id}/dismiss ────────────────────────────────────────
@@ -221,10 +223,10 @@ public static class ReviewEndpoints
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Review item '{id}' not found.");
 
             if (item.Status != ReviewStatus.Pending)
-                return Results.BadRequest("Review item is not pending.");
+                return ApiErrors.BadRequest("Review item is not pending.");
 
             await reviewRepo.UpdateStatusAsync(id, ReviewStatus.Dismissed, "user", ct);
 
@@ -265,13 +267,13 @@ public static class ReviewEndpoints
                 status         = "Dismissed",
             }, ct);
 
-            return Results.Ok(new { dismissed = true, review_item_id = id });
+            return Results.Ok(new ReviewDismissResponse(dismissed: true, review_item_id: id));
         })
         .WithName("DismissReviewItem")
         .WithSummary("Dismiss a review queue item as irrelevant.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<ReviewDismissResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // ── POST /review/{id}/skip-universe ────────────────────────────────
@@ -286,10 +288,10 @@ public static class ReviewEndpoints
         {
             var item = await reviewRepo.GetByIdAsync(id, ct);
             if (item is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Review item '{id}' not found.");
 
             if (item.Status != ReviewStatus.Pending)
-                return Results.BadRequest("Review item is not pending.");
+                return ApiErrors.BadRequest("Review item is not pending.");
 
             // 1. Set universe_mismatch flag on the Work.
             await collectionRepo.SetUniverseMismatchAsync(item.EntityId, ct);
@@ -336,13 +338,13 @@ public static class ReviewEndpoints
                 status         = "Dismissed",
             }, ct);
 
-            return Results.Ok(new { skipped = true, review_item_id = id });
+            return Results.Ok(new ReviewSkipUniverseResponse(skipped: true, review_item_id: id));
         })
         .WithName("SkipUniverseMatch")
         .WithSummary("Skip Universe (Wikidata) matching for this item. Sets universe_mismatch on the Work and dismisses the review item.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<ReviewSkipUniverseResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         return app;

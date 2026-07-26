@@ -363,6 +363,11 @@ builder.Services.AddApiReadServices();
 builder.Services.AddSingleton<ILibraryItemCurationStore, LibraryItemCurationStore>();
 builder.Services.AddSingleton<IMetadataEndpointDataService, MetadataEndpointDataService>();
 builder.Services.AddSingleton<IItemCanonicalDataService, ItemCanonicalDataService>();
+// Non-HTTP logic extracted out of the endpoint files. All three are stateless
+// over singleton dependencies, so they follow the read/data-service lifetime.
+builder.Services.AddSingleton<MediaEngine.Api.Services.Collections.AlbumTrackManifestService>();
+builder.Services.AddSingleton<MediaEngine.Api.Services.Metadata.ArtworkScopeService>();
+builder.Services.AddSingleton<MediaEngine.Api.Services.Canonical.CanonicalCandidateBuilder>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.IDisplayProjectionRepository, MediaEngine.Api.Services.Display.DisplayProjectionRepository>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayWorkProjectionReader>();
 builder.Services.AddScoped<MediaEngine.Api.Services.Display.DisplayProfilePreferenceProjectionReader>();

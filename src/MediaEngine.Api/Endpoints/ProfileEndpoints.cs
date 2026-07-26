@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
@@ -54,13 +55,13 @@ public static class ProfileEndpoints
         {
             var profile = await svc.GetProfileAsync(id, ct);
             return profile is null
-                ? Results.NotFound($"Profile '{id}' not found.")
+                ? ApiErrors.NotFound($"Profile '{id}' not found.")
                 : Results.Ok(ProfileResponseDto.FromDomain(profile));
         })
         .WithName("GetProfile")
         .WithSummary("Get a single profile by ID.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         group.MapGet("/{id:guid}/taste", async (
@@ -72,7 +73,7 @@ public static class ProfileEndpoints
             var profile = await svc.GetProfileAsync(id, ct);
             if (profile is null)
             {
-                return Results.NotFound($"Profile '{id}' not found.");
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             var taste = await tasteProfiler.GetProfileAsync(id, ct);
@@ -81,7 +82,7 @@ public static class ProfileEndpoints
         .WithName("GetProfileTaste")
         .WithSummary("Get the computed taste profile for a user profile.")
         .Produces<TasteProfileBuildResult>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/overview", async (
@@ -92,7 +93,7 @@ public static class ProfileEndpoints
             var response = await overviewReadService.GetOverviewAsync(id, ct);
             if (response is null)
             {
-                return Results.NotFound($"Profile '{id}' not found.");
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             return Results.Ok(response);
@@ -100,7 +101,7 @@ public static class ProfileEndpoints
         .WithName("GetProfileOverview")
         .WithSummary("Get user-facing profile details, history, statistics, and taste signals.")
         .Produces<ProfileOverviewResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/settings/playback", async (
@@ -115,13 +116,13 @@ public static class ProfileEndpoints
             }
             catch (KeyNotFoundException ex)
             {
-                return Results.NotFound(new { error = ex.Message });
+                return ApiErrors.NotFound(ex.Message);
             }
         })
         .WithName("GetProfilePlaybackSettings")
         .WithSummary("Get user playback and reading settings for a profile.")
         .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPut("/{id:guid}/settings/playback", async (
@@ -137,18 +138,18 @@ public static class ProfileEndpoints
             }
             catch (KeyNotFoundException ex)
             {
-                return Results.NotFound(new { error = ex.Message });
+                return ApiErrors.NotFound(ex.Message);
             }
             catch (ArgumentException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return ApiErrors.BadRequest(ex.Message);
             }
         })
         .WithName("UpdateProfilePlaybackSettings")
         .WithSummary("Save user playback and reading settings for a profile.")
         .Produces<UserPlaybackSettingsDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/sequence-preferences/missing-items", async (
@@ -161,12 +162,12 @@ public static class ProfileEndpoints
         {
             if (string.IsNullOrWhiteSpace(mediaType) || string.IsNullOrWhiteSpace(containerKey))
             {
-                return Results.BadRequest(new { error = "mediaType and containerKey are required." });
+                return ApiErrors.BadRequest("mediaType and containerKey are required.");
             }
 
             if (await profileService.GetProfileAsync(id, ct) is null)
             {
-                return Results.NotFound(new { error = $"Profile '{id}' not found." });
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             var preference = await preferences.GetAsync(id, mediaType, containerKey, ct);
@@ -179,8 +180,8 @@ public static class ProfileEndpoints
         .WithName("GetProfileSeriesMissingItemPreference")
         .WithSummary("Get an explicit per-series missing-item visibility override. A null value inherits the media configuration default.")
         .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPut("/{id:guid}/sequence-preferences/missing-items", async (
@@ -191,7 +192,7 @@ public static class ProfileEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.MediaType) || string.IsNullOrWhiteSpace(request.ContainerKey))
             {
-                return Results.BadRequest(new { error = "media_type and container_key are required." });
+                return ApiErrors.BadRequest("media_type and container_key are required.");
             }
 
             var saved = await preferences.SaveAsync(
@@ -202,7 +203,7 @@ public static class ProfileEndpoints
                 ct);
             if (!saved.ProfileExists || saved.Preference is null)
             {
-                return Results.NotFound(new { error = $"Profile '{id}' not found." });
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             return Results.Ok(ToSeriesMissingItemPreferenceDto(
@@ -214,8 +215,8 @@ public static class ProfileEndpoints
         .WithName("SetProfileSeriesMissingItemPreference")
         .WithSummary("Save an explicit per-series missing-item visibility override for a profile.")
         .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapDelete("/{id:guid}/sequence-preferences/missing-items", async (
@@ -228,12 +229,12 @@ public static class ProfileEndpoints
         {
             if (string.IsNullOrWhiteSpace(mediaType) || string.IsNullOrWhiteSpace(containerKey))
             {
-                return Results.BadRequest(new { error = "mediaType and containerKey are required." });
+                return ApiErrors.BadRequest("mediaType and containerKey are required.");
             }
 
             if (await profileService.GetProfileAsync(id, ct) is null)
             {
-                return Results.NotFound(new { error = $"Profile '{id}' not found." });
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             await preferences.DeleteAsync(id, mediaType, containerKey, ct);
@@ -246,8 +247,8 @@ public static class ProfileEndpoints
         .WithName("ResetProfileSeriesMissingItemPreference")
         .WithSummary("Remove a per-series override so the series inherits its media configuration default.")
         .Produces<SeriesMissingItemPreferenceDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/avatar", async (
@@ -258,12 +259,12 @@ public static class ProfileEndpoints
             var profile = await svc.GetProfileAsync(id, ct);
             if (profile is null)
             {
-                return Results.NotFound($"Profile '{id}' not found.");
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             if (string.IsNullOrWhiteSpace(profile.AvatarImagePath) || !File.Exists(profile.AvatarImagePath))
             {
-                return Results.NotFound("No avatar image has been uploaded.");
+                return ApiErrors.NotFound("No avatar image has been uploaded.");
             }
 
             var bytes = await File.ReadAllBytesAsync(profile.AvatarImagePath, ct);
@@ -272,7 +273,7 @@ public static class ProfileEndpoints
         .WithName("GetProfileAvatar")
         .WithSummary("Serves a profile avatar image.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPost("/{id:guid}/avatar", UploadProfileAvatarAsync)
@@ -280,8 +281,8 @@ public static class ProfileEndpoints
         .WithSummary("Uploads and stores a profile avatar image.")
         .DisableAntiforgery()
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapDelete("/{id:guid}/avatar", async (
@@ -292,7 +293,7 @@ public static class ProfileEndpoints
             var profile = await svc.GetProfileAsync(id, ct);
             if (profile is null)
             {
-                return Results.NotFound($"Profile '{id}' not found.");
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             var existingPath = profile.AvatarImagePath;
@@ -313,7 +314,7 @@ public static class ProfileEndpoints
         .WithName("RemoveProfileAvatar")
         .WithSummary("Removes the uploaded avatar image for a profile.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/external-logins", async (
@@ -325,7 +326,7 @@ public static class ProfileEndpoints
             var profile = await profileService.GetProfileAsync(id, ct);
             if (profile is null)
             {
-                return Results.NotFound($"Profile '{id}' not found.");
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             var logins = await loginService.GetByProfileAsync(id, ct);
@@ -334,7 +335,7 @@ public static class ProfileEndpoints
         .WithName("ListProfileExternalLogins")
         .WithSummary("List SSO/OAuth sign-in accounts linked to a profile.")
         .Produces<List<ProfileExternalLoginDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         group.MapPost("/", async (
@@ -344,12 +345,12 @@ public static class ProfileEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.DisplayName))
             {
-                return Results.BadRequest("display_name must not be empty.");
+                return ApiErrors.BadRequest("display_name must not be empty.");
             }
 
             if (!Enum.TryParse<ProfileRole>(request.Role, ignoreCase: true, out var role))
             {
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     $"Invalid role '{request.Role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
             }
 
@@ -361,7 +362,7 @@ public static class ProfileEndpoints
         .WithName("CreateProfile")
         .WithSummary("Create a new user profile.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         group.MapPost("/{id:guid}/external-logins", async (
@@ -384,21 +385,21 @@ public static class ProfileEndpoints
             }
             catch (ArgumentException ex)
             {
-                return Results.BadRequest(ex.Message);
+                return ApiErrors.BadRequest(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
                 return ex.Message.Contains("not found", StringComparison.OrdinalIgnoreCase)
-                    ? Results.NotFound(ex.Message)
-                    : Results.Conflict(ex.Message);
+                    ? ApiErrors.NotFound(ex.Message)
+                    : ApiErrors.Conflict(ex.Message);
             }
         })
         .WithName("LinkProfileExternalLogin")
         .WithSummary("Link an external SSO/OAuth account to a local profile.")
         .Produces<ProfileExternalLoginDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAdmin();
 
         group.MapMethods("/{id:guid}", ["PUT"], async (
@@ -409,18 +410,18 @@ public static class ProfileEndpoints
         {
             if (string.IsNullOrWhiteSpace(request.DisplayName))
             {
-                return Results.BadRequest("display_name must not be empty.");
+                return ApiErrors.BadRequest("display_name must not be empty.");
             }
 
             var existing = await svc.GetProfileAsync(id, ct);
             if (existing is null)
             {
-                return Results.NotFound($"Profile '{id}' not found.");
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
             }
 
             if (!Enum.TryParse<ProfileRole>(request.Role, ignoreCase: true, out var role))
             {
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     $"Invalid role '{request.Role}'. Must be one of: {string.Join(", ", AppRoles.All)}.");
             }
 
@@ -434,14 +435,14 @@ public static class ProfileEndpoints
             var updated = await svc.UpdateProfileAsync(existing, ct);
             return updated
                 ? Results.Ok(ProfileResponseDto.FromDomain(existing))
-                : Results.BadRequest(
+                : ApiErrors.BadRequest(
                     "Cannot demote the seed Owner or the last Administrator profile.");
         })
         .WithName("UpdateProfile")
         .WithSummary("Update an existing profile's display name, avatar color, and role.")
         .Produces<ProfileResponseDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         group.MapDelete("/{id:guid}", async (
@@ -452,13 +453,13 @@ public static class ProfileEndpoints
             var deleted = await svc.DeleteProfileAsync(id, ct);
             return deleted
                 ? Results.NoContent()
-                : Results.BadRequest(
+                : ApiErrors.BadRequest(
                     "Cannot delete this profile. It may be the seed profile or the last Administrator.");
         })
         .WithName("DeleteProfile")
         .WithSummary("Delete a profile. Cannot delete the seed Owner profile or the last Administrator.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         group.MapDelete("/external-logins/{loginId:guid}", async (
@@ -469,12 +470,12 @@ public static class ProfileEndpoints
             var deleted = await loginService.UnlinkAsync(loginId, ct);
             return deleted
                 ? Results.NoContent()
-                : Results.NotFound($"External login '{loginId}' not found.");
+                : ApiErrors.NotFound($"External login '{loginId}' not found.");
         })
         .WithName("UnlinkProfileExternalLogin")
         .WithSummary("Unlink an external SSO/OAuth account from its local profile.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         return app;
@@ -503,31 +504,31 @@ public static class ProfileEndpoints
         var profile = await svc.GetProfileAsync(id, ct);
         if (profile is null)
         {
-            return Results.NotFound($"Profile '{id}' not found.");
+            return ApiErrors.NotFound($"Profile '{id}' not found.");
         }
 
         if (!request.HasFormContentType)
         {
-            return Results.BadRequest("Expected multipart form data.");
+            return ApiErrors.BadRequest("Expected multipart form data.");
         }
 
         var form = await request.ReadFormAsync(ct);
         var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
         if (file is null || file.Length == 0)
         {
-            return Results.BadRequest("No file uploaded.");
+            return ApiErrors.BadRequest("No file uploaded.");
         }
 
         if (file.Length > 5 * 1024 * 1024)
         {
-            return Results.BadRequest("Avatar image must be 5 MB or smaller.");
+            return ApiErrors.BadRequest("Avatar image must be 5 MB or smaller.");
         }
 
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         var mimeType = NormalizeAvatarMimeType(file.ContentType, extension);
         if (mimeType is null)
         {
-            return Results.BadRequest("Avatar image must be a JPEG, PNG, or WebP image.");
+            return ApiErrors.BadRequest("Avatar image must be a JPEG, PNG, or WebP image.");
         }
 
         var zoom = ParseAvatarZoom(form.TryGetValue("zoom", out var zoomValue) ? zoomValue.ToString() : null);
@@ -554,7 +555,7 @@ public static class ProfileEndpoints
         }
         catch (ArgumentException ex)
         {
-            return Results.BadRequest(ex.Message);
+            return ApiErrors.BadRequest(ex.Message);
         }
         finally
         {

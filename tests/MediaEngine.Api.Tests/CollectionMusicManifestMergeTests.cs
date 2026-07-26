@@ -1,14 +1,10 @@
-using System.Reflection;
-using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.Collections;
 
 namespace MediaEngine.Api.Tests;
 
 public sealed class CollectionMusicManifestMergeTests
 {
-    private static readonly MethodInfo MergeMethod = typeof(CollectionEndpoints)
-        .GetMethod("MergeUnownedMusicTracks", BindingFlags.NonPublic | BindingFlags.Static)
-        ?? throw new InvalidOperationException("MergeUnownedMusicTracks was not found.");
 
     [Fact]
     public void MergeUnownedMusicTracks_DedupesOwnedTrackWithParentheticalManifestTitle()
@@ -75,11 +71,10 @@ public sealed class CollectionMusicManifestMergeTests
         Assert.Contains(merged, item => !item.IsOwned && item.DiscNumber == 2 && item.TrackNumber == "1");
     }
 
+    // Called directly rather than by reflection: the merge is a pure static function on
+    // AlbumTrackManifestService, extracted out of CollectionEndpoints in stage 5A.
     private static List<CollectionGroupWorkDto> Merge(
         List<CollectionGroupWorkDto> owned,
-        string childEntitiesJson)
-    {
-        var result = MergeMethod.Invoke(null, [owned, childEntitiesJson, null]);
-        return Assert.IsType<List<CollectionGroupWorkDto>>(result);
-    }
+        string childEntitiesJson) =>
+        AlbumTrackManifestService.MergeUnownedMusicTracks(owned, childEntitiesJson, null);
 }

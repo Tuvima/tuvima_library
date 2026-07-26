@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
@@ -24,17 +25,19 @@ public static class DetailEndpoints
             CancellationToken ct) =>
         {
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedType))
-                return Results.BadRequest(new { message = $"Unsupported detail entity type '{entityType}'." });
+                return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
 
             var presentationContext = DetailComposerService.ParseContext(context);
             var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId, profileId);
-            return detail is null ? Results.NotFound() : Results.Ok(detail);
+            return detail is null
+                ? ApiErrors.NotFound($"No detail page found for {entityType} '{id}'.")
+                : Results.Ok(detail);
         })
         .WithName("GetDetailPage")
         .WithSummary("Returns the unified Tuvima detail-page model for media and related entities.")
         .Produces<DetailPageViewModel>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPut("/{entityType}/{id:guid}/sequence-default", async (
@@ -46,17 +49,17 @@ public static class DetailEndpoints
             CancellationToken ct) =>
         {
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedType))
-                return Results.BadRequest(new { message = $"Unsupported detail entity type '{entityType}'." });
+                return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
 
             var containerId = NormalizeContainerId(request.ContainerId);
             if (string.IsNullOrWhiteSpace(containerId))
-                return Results.BadRequest(new { message = "A valid sequence container is required." });
+                return ApiErrors.BadRequest("A valid sequence container is required.");
 
             var detail = await composer.BuildAsync(parsedType, id, DetailPresentationContext.Default, ct);
             var matchingContainer = detail?.SequencePlacement?.AvailableContainers.FirstOrDefault(option =>
                 ContainerMatches(option, containerId));
             if (matchingContainer is null)
-                return Results.BadRequest(new { message = "The selected container is not valid for this item." });
+                return ApiErrors.BadRequest("The selected container is not valid for this item.");
 
             var now = DateTimeOffset.UtcNow;
             await canonicalValues.UpsertBatchAsync(
@@ -86,8 +89,8 @@ public static class DetailEndpoints
         .WithName("SetDetailDefaultSequence")
         .WithSummary("Sets the default same-media sequence container for a work.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
         .RequireAdminOrCurator();
 
         return app;

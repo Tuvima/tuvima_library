@@ -1,8 +1,10 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Progress;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -25,9 +27,10 @@ public static class ProgressEndpoints
             var uid = ResolveUserId(userId);
             var state = await stateStore.GetAsync(uid, assetId, ct);
             return state is null
-                ? Results.NotFound("No progress recorded for this asset.")
+                ? ApiErrors.NotFound("No progress recorded for this asset.")
                 : Results.Ok(MapStateResponse(state));
-        });
+        })
+        .Produces<UserStateResponse>(StatusCodes.Status200OK);
 
         group.MapPut("/{assetId:guid}", async (
             Guid assetId,
@@ -38,7 +41,7 @@ public static class ProgressEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var state = new UserState
             {
@@ -52,7 +55,8 @@ public static class ProgressEndpoints
 
             await stateStore.SaveAsync(state, ct);
             return Results.Ok(MapStateResponse(state));
-        });
+        })
+        .Produces<UserStateResponse>(StatusCodes.Status200OK);
 
         group.MapGet("/recent", async (
             string? userId,
@@ -64,7 +68,8 @@ public static class ProgressEndpoints
             var page = PagedRequest.From(null, limit, defaultLimit: 10);
             var items = await stateStore.GetRecentAsync(uid, page.Limit, ct);
             return Results.Ok(items.Select(MapStateResponse));
-        });
+        })
+        .Produces<IEnumerable<UserStateResponse>>(StatusCodes.Status200OK);
 
         group.MapGet("/journey", async (
             string? userId,
@@ -89,15 +94,13 @@ public static class ProgressEndpoints
             ? parsed
             : Guid.Parse("00000000-0000-0000-0000-000000000001");
 
-    private static object MapStateResponse(UserState s) => new
-    {
-        user_id = s.UserId,
-        asset_id = s.AssetId,
-        content_hash = s.ContentHash,
-        progress_pct = s.ProgressPct,
-        last_accessed = s.LastAccessed,
-        extended_properties = s.ExtendedProperties,
-    };
+    private static UserStateResponse MapStateResponse(UserState s) => new(
+        user_id: s.UserId,
+        asset_id: s.AssetId,
+        content_hash: s.ContentHash,
+        progress_pct: s.ProgressPct,
+        last_accessed: s.LastAccessed,
+        extended_properties: s.ExtendedProperties);
 }
 
 public sealed record ProgressUpdateRequest(

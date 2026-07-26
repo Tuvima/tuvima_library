@@ -1,6 +1,8 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Library;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -127,7 +129,7 @@ public static class LibraryEndpoints
         {
             if (request.EntityIds.Count == 0 || request.FieldChanges.Count == 0)
             {
-                return Results.BadRequest("Must provide entity IDs and field changes.");
+                return ApiErrors.BadRequest("Must provide entity IDs and field changes.");
             }
 
             var targetMap = await curationReadService.ResolveBatchEditTargetsAsync(
@@ -186,7 +188,7 @@ public static class LibraryEndpoints
         {
             if (request.EntityIds.Count == 0 || request.FieldChanges.Count == 0)
             {
-                return Results.BadRequest("Must provide entity IDs and field changes.");
+                return ApiErrors.BadRequest("Must provide entity IDs and field changes.");
             }
 
             var updatedCount = 0;
@@ -315,10 +317,11 @@ public static class LibraryEndpoints
             }
 
             await collectionRepo.AssignWorkToCollectionAsync(workId, collection.Id, ct);
-            return Results.Ok(new { assigned = true, collection_id = collection.Id });
+            return Results.Ok(new UniverseCandidateAcceptResponse(assigned: true, collection_id: collection.Id));
         })
         .WithName("AcceptUniverseCandidate")
         .WithSummary("Accept a universe assignment for a work.")
+        .Produces<UniverseCandidateAcceptResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // â”€â”€ POST /library/universe-candidates/{workId}/reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -332,7 +335,7 @@ public static class LibraryEndpoints
 
             if (entityId is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"No owned media asset found for work '{workId}'.");
             }
 
             // Mark as reviewed/rejected so it doesn't reappear in the pending queue
@@ -347,10 +350,11 @@ public static class LibraryEndpoints
                 NeedsReview = false,
             }], ct);
 
-            return Results.Ok(new { rejected = true });
+            return Results.Ok(new UniverseCandidateRejectResponse(rejected: true));
         })
         .WithName("RejectUniverseCandidate")
         .WithSummary("Reject a universe candidate for a work.")
+        .Produces<UniverseCandidateRejectResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // â”€â”€ POST /library/universe-candidates/batch-accept â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -438,10 +442,11 @@ public static class LibraryEndpoints
             CancellationToken ct) =>
         {
             await collectionRepo.AssignWorkToCollectionAsync(request.WorkId, request.CollectionId, ct);
-            return Results.Ok(new { assigned = true });
+            return Results.Ok(new UniverseManualAssignResponse(assigned: true));
         })
         .WithName("ManualUniverseAssign")
         .WithSummary("Manually assign a work to an existing collection.")
+        .Produces<UniverseManualAssignResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;

@@ -1,6 +1,8 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Contracts.Items;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
@@ -65,12 +67,12 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             var detail = await repo.GetDetailAsync(entityId, ct);
-            return detail is null ? Results.NotFound() : Results.Ok(detail);
+            return detail is null ? ApiErrors.NotFound($"Library item '{entityId}' not found.") : Results.Ok(detail);
         })
         .WithName("GetLibraryItemDetail")
         .WithSummary("Full detail for a single library item.")
         .Produces<LibraryItemDetail>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapGet("/counts", async (ILibraryItemRepository repo, CancellationToken ct) =>
@@ -110,7 +112,7 @@ public static class LibraryItemEndpoints
         {
             var target = await store.ResolveTargetAsync(entityId, ct);
             if (target is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var now = DateTimeOffset.UtcNow;
             var claims = BuildApplyMatchClaims(target.AssetId, request, now);
@@ -211,7 +213,7 @@ public static class LibraryItemEndpoints
         .WithName("ApplyLibraryItemMatch")
         .WithSummary("Apply a selected match to a library item. Provide a QID to register the item.")
         .Produces<ApplyMatchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId}/create-manual", async (
@@ -223,11 +225,11 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
-                return Results.BadRequest("Title is required for manual entry.");
+                return ApiErrors.BadRequest("Title is required for manual entry.");
 
             var target = await store.ResolveTargetAsync(entityId, ct);
             if (target is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var claims = BuildManualClaims(target.AssetId, request, DateTimeOffset.UtcNow);
             await claimRepo.InsertBatchAsync(claims, ct);
@@ -245,8 +247,8 @@ public static class LibraryItemEndpoints
         .WithName("CreateManualLibraryItemEntry")
         .WithSummary("Create a manual metadata entry for a library item with no provider match.")
         .Produces<CreateManualResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapDelete("/{entityId}", async (
@@ -259,12 +261,12 @@ public static class LibraryItemEndpoints
         {
             var targets = await store.GetRemovalTargetsAsync([entityId], ct);
             if (!targets.TryGetValue(entityId, out var target) || target.FilePaths.Count == 0)
-                return Results.NotFound($"No media assets found for work {entityId}.");
+                return ApiErrors.NotFound($"No media assets found for work {entityId}.");
 
             var filesDeleted = await DeleteTargetAsync(
                 target, store, hierarchyMaintenance, activityRepo, logger, isBatch: false, ct);
 
-            return Results.Ok(new
+            return Results.Ok(new DeleteLibraryItemResponse
             {
                 EntityId = entityId,
                 FilesDeleted = filesDeleted,
@@ -273,8 +275,8 @@ public static class LibraryItemEndpoints
         })
         .WithName("DeleteLibraryCatalogItem")
         .WithSummary("Permanently remove a work and all its files from the library.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<DeleteLibraryItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId}/reject", async (
@@ -288,18 +290,18 @@ public static class LibraryItemEndpoints
         {
             var target = await store.ResolveTargetAsync(entityId, ct);
             if (target is null || string.IsNullOrWhiteSpace(target.FilePath))
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var rejectedDirectory = ResolveRejectedDirectory(configLoader);
             if (rejectedDirectory is null)
-                return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
+                return ApiErrors.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
 
             Directory.CreateDirectory(rejectedDirectory);
             try
             {
                 var newPath = await RejectTargetAsync(
                     target, rejectedDirectory, store, activityRepo, publisher, logger, ct);
-                return Results.Ok(new
+                return Results.Ok(new RejectLibraryItemResponse
                 {
                     EntityId = entityId,
                     NewFilePath = newPath,
@@ -314,9 +316,9 @@ public static class LibraryItemEndpoints
         })
         .WithName("RejectLibraryCatalogItem")
         .WithSummary("Reject a library item: move its file to .data/staging/rejected and mark it as Rejected.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<RejectLibraryItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/batch/approve", async (
@@ -326,7 +328,7 @@ public static class LibraryItemEndpoints
         {
             var entityIds = DistinctEntityIds(request);
             if (entityIds.Length == 0)
-                return Results.BadRequest("No entity IDs provided.");
+                return ApiErrors.BadRequest("No entity IDs provided.");
 
             var processed = await store.ApproveWorksAsync(entityIds, DateTimeOffset.UtcNow, ct);
             return Results.Ok(new BatchLibraryItemResponse
@@ -351,7 +353,7 @@ public static class LibraryItemEndpoints
         {
             var entityIds = DistinctEntityIds(request);
             if (entityIds.Length == 0)
-                return Results.BadRequest("No entity IDs provided.");
+                return ApiErrors.BadRequest("No entity IDs provided.");
 
             var targets = await store.GetRemovalTargetsAsync(entityIds, ct);
             var processed = 0;
@@ -400,11 +402,11 @@ public static class LibraryItemEndpoints
         {
             var entityIds = DistinctEntityIds(request);
             if (entityIds.Length == 0)
-                return Results.BadRequest("No entity IDs provided.");
+                return ApiErrors.BadRequest("No entity IDs provided.");
 
             var rejectedDirectory = ResolveRejectedDirectory(configLoader);
             if (rejectedDirectory is null)
-                return Results.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
+                return ApiErrors.BadRequest("LibraryRoot is not configured. Cannot determine rejected folder.");
 
             Directory.CreateDirectory(rejectedDirectory);
             var targets = await store.ResolveWorkTargetsAsync(entityIds, ct);
@@ -452,7 +454,7 @@ public static class LibraryItemEndpoints
         {
             var recovered = await store.RecoverAsync(entityId, DateTimeOffset.UtcNow, ct);
             if (recovered is null)
-                return Results.NotFound($"Work {entityId} is not in rejected state.");
+                return ApiErrors.NotFound($"Work {entityId} is not in rejected state.");
 
             await LogSupplementaryActivityAsync(activityRepo, new SystemActivityEntry
             {
@@ -469,12 +471,15 @@ public static class LibraryItemEndpoints
                 trigger = "UserFixMatch",
             }, logger, ct);
 
-            return Results.Ok(new { message = "Item un-rejected and returned to review queue." });
+            return Results.Ok(new RecoverLibraryItemResponse
+            {
+                message = "Item un-rejected and returned to review queue.",
+            });
         })
         .WithName("RecoverLibraryCatalogItem")
         .WithSummary("Recover a previously rejected library item and return it to review.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<RecoverLibraryItemResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/provisional", async (
@@ -487,11 +492,11 @@ public static class LibraryItemEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Title))
-                return Results.BadRequest("Title is required for provisional metadata.");
+                return ApiErrors.BadRequest("Title is required for provisional metadata.");
 
             var provisional = await store.MarkProvisionalAsync(entityId, body, DateTimeOffset.UtcNow, ct);
             if (provisional is null)
-                return Results.NotFound($"Work {entityId} not found.");
+                return ApiErrors.NotFound($"Work {entityId} not found.");
 
             await LogSupplementaryActivityAsync(activityRepo, new SystemActivityEntry
             {
@@ -508,7 +513,7 @@ public static class LibraryItemEndpoints
                 action = "provisional",
             }, logger, ct);
 
-            return Results.Ok(new
+            return Results.Ok(new MarkProvisionalResponse
             {
                 EntityId = entityId,
                 State = "Provisional",
@@ -518,9 +523,9 @@ public static class LibraryItemEndpoints
         })
         .WithName("MarkProvisional")
         .WithSummary("Mark a library item as provisional with curator-entered metadata.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<MarkProvisionalResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapGet("/{entityId:guid}/history", async (

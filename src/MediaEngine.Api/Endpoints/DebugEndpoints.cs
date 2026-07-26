@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
@@ -38,7 +39,7 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
-                return Results.BadRequest("Title is required.");
+                return ApiErrors.BadRequest("Title is required.");
 
             // Find the Wikidata Reconciliation provider.
             var provider = providers.FirstOrDefault(p => p.Domain == ProviderDomain.Universal);
@@ -185,7 +186,7 @@ public static class DebugEndpoints
         .WithName("DebugLookup")
         .WithSummary("Live Wikidata lookup for a title + media type. Returns all enrichment claims without persisting anything.")
         .Produces<DebugLookupResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status502BadGateway)
         .Produces(StatusCodes.Status503ServiceUnavailable)
         .RequireAdmin();
@@ -199,7 +200,7 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
-                return Results.BadRequest("Title is required.");
+                return ApiErrors.BadRequest("Title is required.");
 
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
             var core = configLoader.LoadCore();
@@ -248,7 +249,7 @@ public static class DebugEndpoints
         .WithName("DebugSearch")
         .WithSummary("Step 1: Search Wikidata Reconciliation API for candidates. Returns a list for user selection.")
         .Produces<DebugSearchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status502BadGateway)
         .RequireAdmin();
 
@@ -265,7 +266,7 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Qid))
-                return Results.BadRequest("QID is required.");
+                return ApiErrors.BadRequest("QID is required.");
 
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
             var core = configLoader.LoadCore();
@@ -399,7 +400,7 @@ public static class DebugEndpoints
         .WithName("DebugEnrich")
         .WithSummary("Step 2: Takes a confirmed QID and runs full Data Extension + enrichment without persisting.")
         .Produces<DebugLookupResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status502BadGateway)
         .RequireAdmin();
 
@@ -417,7 +418,7 @@ public static class DebugEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Qid))
-                return Results.BadRequest("QID is required.");
+                return ApiErrors.BadRequest("QID is required.");
 
             Enum.TryParse<MediaType>(request.MediaType, ignoreCase: true, out var mediaType);
             var core = configLoader.LoadCore();
@@ -646,7 +647,7 @@ public static class DebugEndpoints
         .WithName("DebugEnrichUniverse")
         .WithSummary("Step 3: Takes a confirmed QID, runs Data Extension, and creates Person + FictionalEntity records from companion QID claims.")
         .Produces<DebugLookupResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .Produces(StatusCodes.Status502BadGateway)
         .RequireAdmin();
 

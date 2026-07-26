@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using Microsoft.AspNetCore.Builder;
@@ -16,13 +17,13 @@ public static partial class MetadataEndpoints
         {
             var navigator = await navigationReadService.GetNavigatorAsync(entityId, ct);
             return navigator is null
-                ? Results.NotFound($"Navigator for {entityId} not found.")
+                ? ApiErrors.NotFound($"Navigator for {entityId} not found.")
                 : Results.Ok(navigator);
         })
         .WithName("GetMediaEditorNavigator")
         .WithSummary("Resolve series-aware editor navigation for a launch entity.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{entityId:guid}/membership-suggestions", async (
@@ -51,13 +52,13 @@ public static partial class MetadataEndpoints
         {
             var preview = await membershipReadService.PreviewAsync(entityId, request, ct);
             return preview is null
-                ? Results.NotFound($"Membership preview for {entityId} not found.")
+                ? ApiErrors.NotFound($"Membership preview for {entityId} not found.")
                 : Results.Ok(preview);
         })
         .WithName("PreviewMediaEditorMembershipChange")
         .WithSummary("Preview a hierarchy move or parent identity rename before applying it.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPost("/{entityId:guid}/membership-apply", async (
@@ -68,13 +69,13 @@ public static partial class MetadataEndpoints
         {
             var result = await membershipReadService.ApplyAsync(entityId, request, ct);
             return result is null
-                ? Results.NotFound($"Membership apply for {entityId} not found.")
+                ? ApiErrors.NotFound($"Membership apply for {entityId} not found.")
                 : Results.Ok(result);
         })
         .WithName("ApplyMediaEditorMembershipChange")
         .WithSummary("Apply a confirmed hierarchy move or parent identity rename.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
     }
 }

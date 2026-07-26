@@ -1,4 +1,5 @@
-﻿using MediaEngine.Api.Security;
+﻿using MediaEngine.Api.Http;
+using MediaEngine.Api.Security;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -65,7 +66,7 @@ public static class ReaderEndpoints
         {
             var existing = await repo.FindByIdAsync(id, ct);
             if (existing is null)
-                return Results.NotFound($"Bookmark '{id}' not found.");
+                return ApiErrors.NotFound($"Bookmark '{id}' not found.");
 
             await repo.DeleteAsync(id, ct);
             return Results.NoContent();
@@ -73,7 +74,7 @@ public static class ReaderEndpoints
         .WithName("DeleteBookmark")
         .WithSummary("Deletes a bookmark by ID.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // ── Highlights ──────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ public static class ReaderEndpoints
         {
             var existing = await repo.FindByIdAsync(id, ct);
             if (existing is null)
-                return Results.NotFound($"Highlight '{id}' not found.");
+                return ApiErrors.NotFound($"Highlight '{id}' not found.");
 
             await repo.UpdateAsync(id, request.Color, request.NoteText, ct);
             return Results.NoContent();
@@ -135,7 +136,7 @@ public static class ReaderEndpoints
         .WithName("UpdateHighlight")
         .WithSummary("Updates a highlight's colour and/or note text.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapDelete("/highlights/{id:guid}", async (
@@ -145,7 +146,7 @@ public static class ReaderEndpoints
         {
             var existing = await repo.FindByIdAsync(id, ct);
             if (existing is null)
-                return Results.NotFound($"Highlight '{id}' not found.");
+                return ApiErrors.NotFound($"Highlight '{id}' not found.");
 
             await repo.DeleteAsync(id, ct);
             return Results.NoContent();
@@ -153,7 +154,7 @@ public static class ReaderEndpoints
         .WithName("DeleteHighlight")
         .WithSummary("Deletes a highlight by ID.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // ── Statistics ──────────────────────────────────────────────────────
@@ -242,12 +243,12 @@ public static class ReaderEndpoints
             CancellationToken ct) =>
         {
             var cancelled = await whisperSync.CancelJobAsync(jobId, ct);
-            return cancelled ? Results.NoContent() : Results.NotFound($"Job '{jobId}' not found or already completed.");
+            return cancelled ? Results.NoContent() : ApiErrors.NotFound($"Job '{jobId}' not found or already completed.");
         })
         .WithName("CancelWhisperSyncJob")
         .WithSummary("Cancels a pending alignment job.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         return app;

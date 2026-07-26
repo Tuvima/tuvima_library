@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
@@ -17,12 +18,12 @@ public static class WorkEndpoints
             CancellationToken ct) =>
         {
             var detail = await workDetailReadService.GetAsync(workId, ct);
-            return detail is null ? Results.NotFound() : Results.Ok(detail);
+            return detail is null ? ApiErrors.NotFound($"Work '{workId}' not found.") : Results.Ok(detail);
         })
         .WithName("GetWorkDetail")
         .WithSummary("Returns a single work with canonical values, editions, and owned assets.")
         .Produces<WorkDetailDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{workId:guid}/editions", async (
@@ -31,12 +32,12 @@ public static class WorkEndpoints
             CancellationToken ct) =>
         {
             var detail = await workDetailReadService.GetAsync(workId, ct);
-            return detail is null ? Results.NotFound() : Results.Ok(detail.Editions);
+            return detail is null ? ApiErrors.NotFound($"Work '{workId}' not found.") : Results.Ok(detail.Editions);
         })
         .WithName("GetWorkEditions")
         .WithSummary("Returns editions and owned assets for a single work.")
         .Produces<List<EditionDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{workId:guid}/cast", async (

@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Contracts.Paging;
 using Microsoft.Extensions.Options;
 using MediaEngine.Api.Models;
@@ -43,11 +45,11 @@ public static class IngestionEndpoints
                 ?? opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(rootPath))
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     "No root_path provided and no library source path is configured.");
 
             if (!Directory.Exists(rootPath))
-                return Results.BadRequest($"Directory does not exist: {rootPath}");
+                return ApiErrors.BadRequest($"Directory does not exist: {rootPath}");
 
             var operations = await engine.DryRunAsync(rootPath, ct);
             var response = new ScanResponse
@@ -62,7 +64,7 @@ public static class IngestionEndpoints
         .WithName("TriggerScan")
         .WithSummary("Simulate a library scan and return pending operations without mutating files.")
         .Produces<ScanResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── POST /ingestion/library-scan ──────────────────────────────────────────
@@ -75,11 +77,11 @@ public static class IngestionEndpoints
             var root = opts.Value.LibraryRoot;
 
             if (string.IsNullOrWhiteSpace(root))
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     "LibraryRoot is not configured. Set Ingestion:LibraryRoot in appsettings.json.");
 
             if (!Directory.Exists(root))
-                return Results.BadRequest($"Library root does not exist: {root}");
+                return ApiErrors.BadRequest($"Library root does not exist: {root}");
 
             var result = await scanner.ScanAsync(root, ct);
 
@@ -103,7 +105,7 @@ public static class IngestionEndpoints
             "Scans media files in the Library Root, updates file paths for known assets, " +
             "and notes new files for a follow-up ingestion pass (Great Inhale v2).")
         .Produces<LibraryScanResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── GET /ingestion/watch-folder ─────────────────────────────────────────
@@ -118,10 +120,10 @@ public static class IngestionEndpoints
             var watchDir = opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(watchDir))
-                return Results.Ok(new { watch_directory = (string?)null, files = Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, has_more = false, next_cursor = (string?)null });
+                return Results.Ok(new WatchFolderPageResponse(null, Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, false, null));
 
             if (!Directory.Exists(watchDir))
-                return Results.Ok(new { watch_directory = watchDir, files = Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, has_more = false, next_cursor = (string?)null });
+                return Results.Ok(new WatchFolderPageResponse(watchDir, Array.Empty<WatchFolderFileDto>(), page.Offset, page.Limit, false, null));
 
             var searchOption = opts.Value.IncludeSubdirectories
                 ? SearchOption.AllDirectories
@@ -132,19 +134,17 @@ public static class IngestionEndpoints
                 files.Skip(page.Offset).ToList(),
                 page);
 
-            return Results.Ok(new
-            {
-                watch_directory = watchDir,
-                files = response.Items,
-                offset = response.Offset,
-                limit = response.Limit,
-                has_more = response.HasMore,
-                next_cursor = response.NextCursor,
-            });
+            return Results.Ok(new WatchFolderPageResponse(
+                watchDir,
+                response.Items,
+                response.Offset,
+                response.Limit,
+                response.HasMore,
+                response.NextCursor));
         })
         .WithName("ListWatchFolder")
         .WithSummary("List files currently sitting in the Watch Folder.")
-        .Produces<WatchFolderResponse>(StatusCodes.Status200OK)
+        .Produces<WatchFolderPageResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── POST /ingestion/rescan ──────────────────────────────────────────────
@@ -161,7 +161,7 @@ public static class IngestionEndpoints
             if (!string.IsNullOrWhiteSpace(requestedRoot))
             {
                 if (!Directory.Exists(requestedRoot))
-                    return Results.BadRequest($"Watch directory does not exist: {requestedRoot}");
+                    return ApiErrors.BadRequest($"Watch directory does not exist: {requestedRoot}");
 
                 await engine.ScanDirectory(requestedRoot, includeSubdirectories, ct);
 
@@ -170,7 +170,7 @@ public static class IngestionEndpoints
 
             var watchDirs = opts.Value.EffectiveWatchDirectories;
             if (watchDirs.Count == 0)
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     "No library source paths are configured.");
 
             var scanTargets = watchDirs
@@ -179,7 +179,7 @@ public static class IngestionEndpoints
                 .ToList();
 
             if (scanTargets.Count == 0)
-                return Results.BadRequest("No configured watch directories exist on disk.");
+                return ApiErrors.BadRequest("No configured watch directories exist on disk.");
 
             await engine.ScanDirectories(scanTargets, ct);
 
@@ -190,7 +190,7 @@ public static class IngestionEndpoints
             "Re-scan the Watch Folder for new or unprocessed files. " +
             "Files are fed into the ingestion pipeline for processing.")
         .Produces(StatusCodes.Status202Accepted)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // ── POST /ingestion/reconcile ─────────────────────────────────────────
@@ -200,18 +200,16 @@ public static class IngestionEndpoints
             CancellationToken ct) =>
         {
             var result = await reconciler.ReconcileAsync(ct);
-            return Results.Ok(new
-            {
-                total_scanned = result.TotalScanned,
-                missing_count = result.MissingCount,
-                elapsed_ms    = result.ElapsedMs,
-            });
+            return Results.Ok(new ReconciliationResultResponse(
+                result.TotalScanned,
+                result.MissingCount,
+                result.ElapsedMs));
         })
         .WithName("TriggerReconciliation")
         .WithSummary(
             "Scan all Normal-status assets and clean up any whose files " +
             "are missing from disk.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<ReconciliationResultResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ingestion/batches ────────────────────────────────────────────
@@ -233,11 +231,11 @@ public static class IngestionEndpoints
             IIngestionBatchRepository batchRepo) =>
         {
             var count = await batchRepo.GetNeedsAttentionCountAsync();
-            return Results.Ok(new { count });
+            return Results.Ok(new BatchAttentionCountResponse(count));
         })
         .WithName("GetBatchAttentionCount")
         .WithSummary("Count of items across all batches that need curator attention.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<BatchAttentionCountResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── GET /ingestion/batches/{id} ───────────────────────────────────────
@@ -290,12 +288,12 @@ public static class IngestionEndpoints
             CancellationToken ct) =>
         {
             var response = await batchResponses.GetByIdAsync(id, ct);
-            return response is null ? Results.NotFound() : Results.Ok(response);
+            return response is null ? ApiErrors.NotFound($"Batch '{id}' not found.") : Results.Ok(response);
         })
         .WithName("GetBatchById")
         .WithSummary("Get details of a specific ingestion batch.")
         .Produces<IngestionBatchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── POST /ingestion/upload ────────────────────────────────────────────────
@@ -311,10 +309,10 @@ public static class IngestionEndpoints
             var mediaType = form["mediaType"].ToString();
 
             if (file is null || string.IsNullOrWhiteSpace(mediaType))
-                return Results.BadRequest("File and mediaType are required.");
+                return ApiErrors.BadRequest("File and mediaType are required.");
 
             if (file.Length <= 0)
-                return Results.BadRequest("Upload file must not be empty.");
+                return ApiErrors.BadRequest("Upload file must not be empty.");
 
             var libraries = configLoader.LoadLibraries();
             var mediaTypes = configLoader.LoadMediaTypes();
@@ -324,7 +322,7 @@ public static class IngestionEndpoints
                 .FirstOrDefault(Directory.Exists);
 
             if (watchFolder is null)
-                return Results.BadRequest("No watch folder configured.");
+                return ApiErrors.BadRequest("No watch folder configured.");
 
             var plan = UploadSafety.CreatePlan(
                 watchFolder,
@@ -372,11 +370,12 @@ public static class IngestionEndpoints
                 throw;
             }
 
-            return Results.Ok(new { path = plan.TargetPath, mediaType = plan.CanonicalMediaType });
+            return Results.Ok(new UploadMediaResponse(plan.TargetPath, plan.CanonicalMediaType));
         })
         .WithName("UploadMedia")
         .WithSummary("Upload a media file and route it to the correct watch subfolder.")
         .DisableAntiforgery()
+        .Produces<UploadMediaResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;
@@ -440,10 +439,10 @@ public static class UploadSafety
         IngestionOptions options)
     {
         if (string.IsNullOrWhiteSpace(watchRoot))
-            return UploadPlan.Fail(Results.BadRequest("No watch folder configured."));
+            return UploadPlan.Fail(ApiErrors.BadRequest("No watch folder configured."));
 
         if (fileLength <= 0)
-            return UploadPlan.Fail(Results.BadRequest("Upload file must not be empty."));
+            return UploadPlan.Fail(ApiErrors.BadRequest("Upload file must not be empty."));
 
         if (fileLength > options.MaxUploadSizeBytes)
         {
@@ -455,16 +454,16 @@ public static class UploadSafety
 
         var definition = ResolveMediaType(mediaType, mediaTypes);
         if (definition is null)
-            return UploadPlan.Fail(Results.BadRequest($"Unsupported media type: {mediaType}"));
+            return UploadPlan.Fail(ApiErrors.BadRequest($"Unsupported media type: {mediaType}"));
 
         if (!IsSafeFileName(fileName, out var safeFileName))
-            return UploadPlan.Fail(Results.BadRequest("Invalid filename."));
+            return UploadPlan.Fail(ApiErrors.BadRequest("Invalid filename."));
 
         var extension = Path.GetExtension(safeFileName);
         if (string.IsNullOrWhiteSpace(extension)
             || !definition.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
         {
-            return UploadPlan.Fail(Results.BadRequest(
+            return UploadPlan.Fail(ApiErrors.BadRequest(
                 $"Files with extension '{extension}' are not allowed for {definition.DisplayName}."));
         }
 
@@ -474,7 +473,7 @@ public static class UploadSafety
             ? watchRootFull
             : watchRootFull + Path.DirectorySeparatorChar;
         if (!targetDir.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
-            return UploadPlan.Fail(Results.BadRequest("Invalid media type destination."));
+            return UploadPlan.Fail(ApiErrors.BadRequest("Invalid media type destination."));
 
         var targetPath = ResolveCollisionPath(targetDir, safeFileName);
         return new UploadPlan(
@@ -557,6 +556,28 @@ public sealed record UploadPlan(
 {
     public static UploadPlan Fail(IResult error) => new(false, error, string.Empty, string.Empty, string.Empty, string.Empty);
 }
+
+/// <summary>
+/// Api-internal wire shape for <c>GET /ingestion/watch-folder</c>. Kept endpoint-local (not moved
+/// to <c>MediaEngine.Contracts.Ingestion</c>) because it embeds <see cref="WatchFolderFileDto"/>,
+/// which lives in <c>MediaEngine.Api.Models</c> — a type the Contracts project cannot reference.
+///
+/// Property names are deliberately identical to the three anonymous objects this record replaces
+/// (no <see cref="JsonPropertyNameAttribute"/>), so the wire shape is unchanged. The two
+/// empty-result branches used the implicit-name projection <c>page.Offset, page.Limit</c>
+/// (PascalCase members); the populated branch explicitly named them <c>offset</c>/<c>limit</c>
+/// (lowercase). Both serialize identically today because the Engine's minimal-API JSON options
+/// are the untouched <see cref="System.Text.Json.JsonSerializerDefaults.Web"/> default
+/// (camelCase policy, case-insensitive), which folds "Offset"/"Limit" down to "offset"/"limit" —
+/// so a single lowercase shape reproduces both call sites byte for byte.
+/// </summary>
+public sealed record WatchFolderPageResponse(
+    string? watch_directory,
+    IReadOnlyList<WatchFolderFileDto> files,
+    int offset,
+    int limit,
+    bool has_more,
+    string? next_cursor);
 
 /// <summary>API response shape for an ingestion batch.</summary>
 public sealed class IngestionBatchResponse

@@ -7,7 +7,11 @@ public sealed class CollectionEndpointRouteTests
     [Fact]
     public void CollectionEndpoints_GroupFeedsUseSharedVisibilityRulesAndRichMetadata()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        // Response shaping moved out of the endpoint file into
+        // CollectionResponseFormatting in stage 5A; scan both as one surface.
+        var source =
+            File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"))
+            + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Collections\CollectionResponseFormatting.cs"));
         var browseReadServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionBrowseReadService.cs"));
 
         var readServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));

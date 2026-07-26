@@ -1,4 +1,6 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Ai;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -29,23 +31,23 @@ internal static class AiEnrichmentEndpoints
             var existing = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, "tldr", StringComparison.OrdinalIgnoreCase));
             if (existing is not null)
-                return Results.Ok(new { tldr = existing.Value });
+                return Results.Ok(new TldrResponse(existing.Value));
 
             // Need a description to summarize.
             var description = canonicals
                 .FirstOrDefault(c => string.Equals(c.Key, "description", StringComparison.OrdinalIgnoreCase));
             if (description is null)
-                return Results.NotFound(new { error = "No description available to summarize." });
+                return ApiErrors.NotFound("No description available to summarize.");
 
             var summary = await tldr.SummarizeAsync(description.Value, ct);
             return summary is not null
-                ? Results.Ok(new { tldr = summary })
-                : Results.Ok(new { tldr = (string?)null, note = "Could not generate summary." });
+                ? Results.Ok(new TldrResponse(summary))
+                : Results.Ok(new TldrUnavailableResponse(tldr: null, note: "Could not generate summary."));
         })
         .WithName("GetTldr")
         .WithSummary("Generate or fetch a one-sentence TL;DR summary for an entity.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<TldrResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // ── GET /ai/enrich/vibes/{entityId} ──────────────────────────────────
@@ -64,7 +66,7 @@ internal static class AiEnrichmentEndpoints
                 .ToList();
 
             if (existingVibes.Count > 0)
-                return Results.Ok(new { vibes = existingVibes });
+                return Results.Ok(new VibesResponse(existingVibes));
 
             // Generate vibes from description + genre + media type.
             var description = canonicals.FirstOrDefault(c =>
@@ -80,11 +82,11 @@ internal static class AiEnrichmentEndpoints
                 entityId.ToString(), description?.Value, genres,
                 mediaType?.Value ?? "unknown", ct);
 
-            return Results.Ok(new { vibes = tags });
+            return Results.Ok(new VibesResponse(tags));
         })
         .WithName("GetVibes")
         .WithSummary("Generate or fetch vibe/mood tags for an entity.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<VibesResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // ── POST /ai/enrich/search/intent ────────────────────────────────────
@@ -110,12 +112,12 @@ internal static class AiEnrichmentEndpoints
             var result = await extractor.ExtractAsync(request.Url, ct);
             return result.Success
                 ? Results.Ok(result)
-                : Results.BadRequest(result);
+                : ApiErrors.BadRequest(result.ErrorMessage ?? "Failed to extract metadata from the URL.");
         })
         .WithName("ExtractUrlMetadata")
         .WithSummary("Extract structured metadata from a URL using AI. Requires Curator or Administrator role.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         return group;

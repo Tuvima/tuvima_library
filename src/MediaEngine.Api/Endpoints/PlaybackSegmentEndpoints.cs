@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Contracts.Playback;
@@ -45,7 +46,7 @@ internal static class PlaybackSegmentEndpoints
         {
             var existing = await segments.FindByIdAsync(segmentId, ct);
             if (existing is null || existing.AssetId != assetId)
-                return Results.NotFound($"Segment '{segmentId}' not found.");
+                return ApiErrors.NotFound($"Segment '{segmentId}' not found.");
 
             existing.Kind = request.Kind ?? existing.Kind;
             existing.StartSeconds = request.StartSeconds ?? existing.StartSeconds;
@@ -68,7 +69,7 @@ internal static class PlaybackSegmentEndpoints
         {
             var existing = await segments.FindByIdAsync(segmentId, ct);
             if (existing is null || existing.AssetId != assetId)
-                return Results.NotFound($"Segment '{segmentId}' not found.");
+                return ApiErrors.NotFound($"Segment '{segmentId}' not found.");
 
             existing.ReviewStatus = "hidden";
             await segments.UpdateAsync(existing, ct);

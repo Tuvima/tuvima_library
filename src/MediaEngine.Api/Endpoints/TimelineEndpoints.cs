@@ -1,4 +1,6 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Timeline;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -72,13 +74,13 @@ public static class TimelineEndpoints
         {
             // Verify the event exists and is a sync_writeback
             var evt = await repo.GetEventByIdAsync(eventId, ct);
-            if (evt is null) return Results.NotFound("Event not found");
-            if (evt.EntityId != entityId) return Results.NotFound("Event not found for this entity");
-            if (evt.EventType != "sync_writeback") return Results.BadRequest("Can only revert sync_writeback events");
+            if (evt is null) return ApiErrors.NotFound("Event not found");
+            if (evt.EntityId != entityId) return ApiErrors.NotFound("Event not found for this entity");
+            if (evt.EventType != "sync_writeback") return ApiErrors.BadRequest("Can only revert sync_writeback events");
 
             // Require that file originals were recorded for this event
             var originals = await repo.GetFileOriginalsForEventAsync(eventId, ct);
-            if (originals.Count == 0) return Results.BadRequest("No file originals recorded for this event");
+            if (originals.Count == 0) return ApiErrors.BadRequest("No file originals recorded for this event");
 
             return Results.Problem(
                 statusCode: StatusCodes.Status501NotImplemented,
@@ -88,8 +90,8 @@ public static class TimelineEndpoints
         .WithName("RevertSyncWriteback")
         .WithSummary("Validates whether a sync writeback can be reverted. Metadata restore is not yet supported.")
         .ProducesProblem(StatusCodes.Status501NotImplemented)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── POST /timeline/{entityId}/rematch ─────────────────────────────────
@@ -103,7 +105,7 @@ public static class TimelineEndpoints
         {
             // Verify the entity exists
             var asset = await assetRepo.FindByIdAsync(entityId, ct);
-            if (asset is null) return Results.NotFound("Entity not found");
+            if (asset is null) return ApiErrors.NotFound("Entity not found");
 
             // Snapshot current canonicals for pre/post diff
             var beforeValues = await canonicalRepo.GetByEntityAsync(entityId, ct);
@@ -142,12 +144,12 @@ public static class TimelineEndpoints
                 Hints      = hints,
             }, ct);
 
-            return Results.Ok(new { queued = true, entityId });
+            return Results.Ok(new RematchEntityResponse(queued: true, entityId));
         })
         .WithName("RematchEntity")
         .WithSummary("Re-matches an entity through the full pipeline.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<RematchEntityResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         return app;

@@ -1,9 +1,16 @@
 using System.Text.Json;
 using System.Security.Cryptography;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+// Explicit alias (not a blanket `using MediaEngine.Contracts.Settings;`) because that
+// namespace and MediaEngine.Storage.Models (imported above) both declare
+// LibraryPreferencesSettings / MissingItemDisplayPolicy / LibraryLaneGroupDisplaySettings —
+// a wildcard import would make every existing unqualified use of those names in this file
+// ambiguous (CS0104).
+using LibraryPreferencesDiagnosticsResponse = MediaEngine.Contracts.Settings.LibraryPreferencesDiagnosticsResponse;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -77,20 +84,20 @@ public static class UISettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (!ValidDeviceClasses.Contains(deviceClass))
-                return Results.BadRequest(new { error = $"Unknown device class '{deviceClass}'. Valid: web, mobile, television, automotive." });
+                return ApiErrors.BadRequest($"Unknown device class '{deviceClass}'. Valid: web, mobile, television, automotive.");
 
             var device = configLoader.LoadConfig<UIDeviceProfile>("ui/devices", deviceClass);
 
             if (device is null)
-                return Results.NotFound(new { error = $"No device profile found for '{deviceClass}'." });
+                return ApiErrors.NotFound($"No device profile found for '{deviceClass}'.");
 
             return Results.Ok(device);
         })
         .WithName("GetUIDeviceProfile")
         .WithSummary("Returns the device profile and constraints for a specific device class.")
         .Produces<UIDeviceProfile>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── PUT /settings/ui/device/{deviceClass} ────────────────────────────
@@ -101,7 +108,7 @@ public static class UISettingsEndpoints
             UISettingsCacheRepository cache) =>
         {
             if (!ValidDeviceClasses.Contains(deviceClass))
-                return Results.BadRequest(new { error = $"Unknown device class '{deviceClass}'. Valid: web, mobile, television, automotive." });
+                return ApiErrors.BadRequest($"Unknown device class '{deviceClass}'. Valid: web, mobile, television, automotive.");
 
             // Ensure the device_class field matches the route parameter.
             profile.DeviceClass = deviceClass;
@@ -114,7 +121,7 @@ public static class UISettingsEndpoints
         .WithName("UpdateUIDeviceProfile")
         .WithSummary("Saves a device profile to the configuration file and updates the cache.")
         .Produces<UIDeviceProfile>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── GET /settings/ui/profile/{profileId} ─────────────────────────────
@@ -125,14 +132,14 @@ public static class UISettingsEndpoints
             var profile = configLoader.LoadConfig<UIProfileSettings>("ui/profiles", profileId);
 
             if (profile is null)
-                return Results.NotFound(new { error = $"No UI profile found for '{profileId}'." });
+                return ApiErrors.NotFound($"No UI profile found for '{profileId}'.");
 
             return Results.Ok(profile);
         })
         .WithName("GetUIProfileSettings")
         .WithSummary("Returns the UI preferences for a specific user profile.")
         .Produces<UIProfileSettings>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // ── PUT /settings/ui/profile/{profileId} ─────────────────────────────
@@ -165,7 +172,7 @@ public static class UISettingsEndpoints
             var profileId   = query["profile"].FirstOrDefault();
 
             if (!ValidDeviceClasses.Contains(deviceClass))
-                return Results.BadRequest(new { error = $"Unknown device class '{deviceClass}'. Valid: web, mobile, television, automotive." });
+                return ApiErrors.BadRequest($"Unknown device class '{deviceClass}'. Valid: web, mobile, television, automotive.");
 
             var resolved = resolver.Resolve(deviceClass, profileId);
 
@@ -174,7 +181,7 @@ public static class UISettingsEndpoints
         .WithName("GetResolvedUISettings")
         .WithSummary("Returns the fully cascaded UI settings for a device class and optional profile.")
         .Produces<ResolvedUISettings>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         // ── Library Preferences ──────────────────────────────────────────────
@@ -193,19 +200,18 @@ public static class UISettingsEndpoints
         {
             var path = Path.Combine(configLoader.ConfigDirectoryPath, "ui", "library-preferences.json");
             if (!File.Exists(path))
-                return Results.NotFound(new { error = "config/ui/library-preferences.json was not found." });
+                return ApiErrors.NotFound("config/ui/library-preferences.json was not found.");
 
             var bytes = File.ReadAllBytes(path);
-            return Results.Ok(new
-            {
-                source_path = path,
-                sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes)),
-                last_modified_at = File.GetLastWriteTimeUtc(path),
-                settings = configLoader.LoadConfig<LibraryPreferencesSettings>("ui", "library-preferences"),
-            });
+            return Results.Ok(new LibraryPreferencesDiagnosticsResponse(
+                source_path: path,
+                sha256: Convert.ToHexStringLower(SHA256.HashData(bytes)),
+                last_modified_at: File.GetLastWriteTimeUtc(path),
+                settings: configLoader.LoadConfig<MediaEngine.Contracts.Settings.LibraryPreferencesSettings>("ui", "library-preferences")));
         })
         .WithName("GetLibraryPreferencesDiagnostics")
         .WithSummary("Returns the tracked source file, content hash, timestamp, and effective per-media library preferences.")
+        .Produces<LibraryPreferencesDiagnosticsResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         grp.MapPut("/library-preferences", (

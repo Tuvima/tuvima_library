@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
@@ -14,6 +15,15 @@ using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
+// Explicit aliases (not a blanket `using MediaEngine.Contracts.Settings;`) because that
+// namespace and MediaEngine.Storage.Models (imported above) both declare
+// TranscodingSettings / PipelineConfiguration / LibraryPreferencesSettings — a wildcard
+// import would make every unqualified use of those pre-existing names ambiguous (CS0104).
+using ProviderHealthStatusResponse = MediaEngine.Contracts.Settings.ProviderHealthStatusResponse;
+using ProviderPriorityOrderResponse = MediaEngine.Contracts.Settings.ProviderPriorityOrderResponse;
+using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
+using ProviderIconPathResponse = MediaEngine.Contracts.Settings.ProviderIconPathResponse;
+using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCatalogEntryResponse;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -160,7 +170,7 @@ public static class SettingsEndpoints
                 {
                     var err = PathValidator.Validate(watchDirectory);
                     if (err is not null)
-                        return Results.BadRequest(new { error = err });
+                        return ApiErrors.BadRequest(err);
                 }
             }
             var core = configLoader.LoadCore();
@@ -174,7 +184,7 @@ public static class SettingsEndpoints
                     "library folder",
                     libraries.Libraries.SelectMany(EffectiveSourcePaths));
                 if (overlapError is not null)
-                    return Results.BadRequest(new { error = overlapError });
+                    return ApiErrors.BadRequest(overlapError);
             }
 
             if (requestedWatchDirectories is not null)
@@ -213,7 +223,7 @@ public static class SettingsEndpoints
         grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>
         {
             if (request.Libraries.Count == 0)
-                return Results.BadRequest(new { error = "At least one library is required." });
+                return ApiErrors.BadRequest("At least one library is required.");
 
             var mappedLibraries = new List<LibraryFolderConfig>(request.Libraries.Count);
             var overlapEntries = new List<LibraryFolderEntry>(request.Libraries.Count);
@@ -222,17 +232,17 @@ public static class SettingsEndpoints
             {
                 var category = library.Name.Trim();
                 if (string.IsNullOrWhiteSpace(category))
-                    return Results.BadRequest(new { error = "Library name cannot be empty." });
+                    return ApiErrors.BadRequest("Library name cannot be empty.");
 
                 var sourcePaths = CleanPaths(library.SourcePaths);
                 if (sourcePaths.Count == 0)
-                    return Results.BadRequest(new { error = $"Library '{category}' must include at least one source path." });
+                    return ApiErrors.BadRequest($"Library '{category}' must include at least one source path.");
 
                 foreach (var sourcePath in sourcePaths)
                 {
                     var err = PathValidator.Validate(sourcePath);
                     if (err is not null)
-                        return Results.BadRequest(new { error = err });
+                        return ApiErrors.BadRequest(err);
                 }
 
                 var mediaTypes = library.MediaTypes
@@ -267,7 +277,7 @@ public static class SettingsEndpoints
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return ApiErrors.BadRequest(ex.Message);
             }
 
             var current = configLoader.LoadLibraries();
@@ -278,7 +288,7 @@ public static class SettingsEndpoints
                 "library folder",
                 mappedLibraries.SelectMany(EffectiveSourcePaths));
             if (importOverlapError is not null)
-                return Results.BadRequest(new { error = importOverlapError });
+                return ApiErrors.BadRequest(importOverlapError);
 
             current.Libraries = mappedLibraries;
             configLoader.SaveLibraries(current);
@@ -288,7 +298,7 @@ public static class SettingsEndpoints
         .WithName("UpdateLibraries")
         .WithSummary("Saves configured library folders to config/libraries.json.")
         .Produces<IEnumerable<LibraryFolderSettingsDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── POST /settings/test-path ────────────────────────────────────────────
@@ -300,7 +310,7 @@ public static class SettingsEndpoints
             // Path traversal validation.
             var pathError = PathValidator.Validate(path);
             if (pathError is not null)
-                return Results.BadRequest(new { error = pathError });
+                return ApiErrors.BadRequest(pathError);
 
             var exists = Directory.Exists(path);
             bool hasRead  = false;
@@ -367,7 +377,7 @@ public static class SettingsEndpoints
             // Path traversal validation.
             var pathError = PathValidator.Validate(path);
             if (pathError is not null)
-                return Results.BadRequest(new { error = pathError });
+                return ApiErrors.BadRequest(pathError);
 
             if (!Directory.Exists(path))
                 return Results.Ok(new BrowseDirectoryResponse
@@ -413,22 +423,20 @@ public static class SettingsEndpoints
             CancellationToken ct) =>
         {
             var records = await healthRepo.GetAllAsync(ct);
-            return Results.Ok(records.Select(r => new
-            {
+            return Results.Ok(records.Select(r => new ProviderHealthStatusResponse(
                 r.ProviderId,
-                Status = r.Status.ToString(),
+                r.Status.ToString(),
                 r.ConsecutiveFailures,
-                LastCheckAt = r.LastCheckAt?.ToString("o"),
-                LastSuccessAt = r.LastSuccessAt?.ToString("o"),
-                LastFailureAt = r.LastFailureAt?.ToString("o"),
+                r.LastCheckAt?.ToString("o"),
+                r.LastSuccessAt?.ToString("o"),
+                r.LastFailureAt?.ToString("o"),
                 r.LastFailureReason,
-                NextCheckAt = r.NextCheckAt?.ToString("o"),
-                DownSince = r.DownSince?.ToString("o"),
-            }));
+                r.NextCheckAt?.ToString("o"),
+                r.DownSince?.ToString("o"))));
         })
         .WithName("GetProviderHealth")
         .WithSummary("Returns health status for all tracked providers.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IEnumerable<ProviderHealthStatusResponse>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── PUT /settings/providers/{name} ───────────────────────────────────────
@@ -441,7 +449,7 @@ public static class SettingsEndpoints
             var provider = configLoader.LoadProvider(name);
 
             if (provider is null)
-                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+                return ApiErrors.NotFound($"Provider '{name}' not found.");
 
             provider.Enabled = request.Enabled;
             configLoader.SaveProvider(provider);
@@ -453,7 +461,7 @@ public static class SettingsEndpoints
         .WithName("UpdateProvider")
         .WithSummary("Toggles a provider's enabled state and saves to the manifest.")
         .Produces<ProviderStatusResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // ── GET /settings/providers ─────────────────────────────────────────────
@@ -524,11 +532,11 @@ public static class SettingsEndpoints
             IFileOrganizer                    organizer) =>
         {
             if (string.IsNullOrWhiteSpace(request.Template))
-                return Results.BadRequest(new { error = "Template cannot be empty." });
+                return ApiErrors.BadRequest("Template cannot be empty.");
 
             string? preview = organizer.ValidateTemplate(request.Template, out var error);
             if (preview is null)
-                return Results.BadRequest(new { error = error ?? "Invalid template." });
+                return ApiErrors.BadRequest(error ?? "Invalid template.");
 
             if (request.Templates is not null)
             {
@@ -537,7 +545,7 @@ public static class SettingsEndpoints
                     if (string.IsNullOrWhiteSpace(tmpl)) continue;
                     string? typePreview = organizer.ValidateTemplate(tmpl, out var typeError);
                     if (typePreview is null)
-                        return Results.BadRequest(new { error = $"Invalid template for '{key}': {typeError}" });
+                        return ApiErrors.BadRequest($"Invalid template for '{key}': {typeError}");
                 }
             }
 
@@ -553,7 +561,7 @@ public static class SettingsEndpoints
         .WithName("PreviewOrganizationTemplate")
         .WithSummary("Validates file organization templates and returns a sample preview without saving.")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         grp.MapPut("/organization-template", (
@@ -562,11 +570,11 @@ public static class SettingsEndpoints
             IFileOrganizer                    organizer) =>
         {
             if (string.IsNullOrWhiteSpace(request.Template))
-                return Results.BadRequest(new { error = "Template cannot be empty." });
+                return ApiErrors.BadRequest("Template cannot be empty.");
 
             string? preview = organizer.ValidateTemplate(request.Template, out var error);
             if (preview is null)
-                return Results.BadRequest(new { error = error ?? "Invalid template." });
+                return ApiErrors.BadRequest(error ?? "Invalid template.");
 
             // Validate per-media-type templates if provided.
             if (request.Templates is not null)
@@ -576,7 +584,7 @@ public static class SettingsEndpoints
                     if (string.IsNullOrWhiteSpace(tmpl)) continue;
                     string? typePreview = organizer.ValidateTemplate(tmpl, out var typeError);
                     if (typePreview is null)
-                        return Results.BadRequest(new { error = $"Invalid template for '{key}': {typeError}" });
+                        return ApiErrors.BadRequest($"Invalid template for '{key}': {typeError}");
                 }
             }
 
@@ -596,7 +604,7 @@ public static class SettingsEndpoints
         .WithName("UpdateOrganizationTemplate")
         .WithSummary("Validates and saves file organization templates (default + per-media-type).")
         .Produces<OrganizationTemplateResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── POST /settings/providers/{name}/test ────────────────────────────────
@@ -611,7 +619,7 @@ public static class SettingsEndpoints
         {
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
-                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+                return ApiErrors.NotFound($"Provider '{name}' not found.");
 
             if (!ProviderExecutionFilter.IsEnabled(name, [providerConfig]))
             {
@@ -629,7 +637,7 @@ public static class SettingsEndpoints
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
             if (adapter is null)
-                return Results.NotFound(new { error = $"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration." });
+                return ApiErrors.NotFound($"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration.");
 
             // Build a test request with domain-appropriate test data.
             var baseUrl = GetBaseUrlForProvider(providerConfig);
@@ -705,7 +713,7 @@ public static class SettingsEndpoints
         .WithName("TestProvider")
         .WithSummary("Tests a provider with a sample title and returns success/failure and available fields.")
         .Produces<ProviderTestResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // ── POST /settings/providers/{name}/sample ──────────────────────────────
@@ -721,7 +729,7 @@ public static class SettingsEndpoints
         {
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
-                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+                return ApiErrors.NotFound($"Provider '{name}' not found.");
 
             if (!ProviderExecutionFilter.IsEnabled(name, [providerConfig]))
             {
@@ -738,7 +746,7 @@ public static class SettingsEndpoints
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
             if (adapter is null)
-                return Results.NotFound(new { error = $"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration." });
+                return ApiErrors.NotFound($"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration.");
 
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
@@ -784,7 +792,7 @@ public static class SettingsEndpoints
         .WithName("SampleProvider")
         .WithSummary("Fetches sample claims from a provider for a given title, for the property picker UI.")
         .Produces<ProviderSampleResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // ── PUT /settings/providers/{name}/config ───────────────────────────────
@@ -797,16 +805,13 @@ public static class SettingsEndpoints
         {
             var existing = configLoader.LoadProvider(name);
             if (existing is null)
-                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+                return ApiErrors.NotFound($"Provider '{name}' not found.");
 
             string? normalizedLanguageStrategy = null;
             if (request.LanguageStrategy is not null
                 && !TryNormalizeLanguageStrategy(request.LanguageStrategy, out normalizedLanguageStrategy))
             {
-                return Results.BadRequest(new
-                {
-                    error = "language_strategy must be one of: source, localized, both.",
-                });
+                return ApiErrors.BadRequest("language_strategy must be one of: source, localized, both.");
             }
 
             // Update mutable fields.
@@ -868,7 +873,7 @@ public static class SettingsEndpoints
         .WithName("UpdateProviderConfig")
         .WithSummary("Saves full provider configuration including endpoints, weights, throttle, and capabilities.")
         .Produces<ProviderStatusResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // ── DELETE /settings/providers/{name} ───────────────────────────────────
@@ -891,7 +896,7 @@ public static class SettingsEndpoints
 
             var existing = configLoader.LoadProvider(name);
             if (existing is null)
-                return Results.NotFound(new { error = $"Provider '{name}' not found." });
+                return ApiErrors.NotFound($"Provider '{name}' not found.");
 
             // Disable rather than physically deleting the file — preserves history.
             existing.Enabled = false;
@@ -902,8 +907,8 @@ public static class SettingsEndpoints
         .WithName("DeleteProvider")
         .WithSummary("Removes a metadata provider (disables its configuration).")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status403Forbidden)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status403Forbidden)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // ── PUT /settings/providers/priority ────────────────────────────────────
@@ -914,18 +919,18 @@ public static class SettingsEndpoints
             IConfigurationLoader    configLoader) =>
         {
             if (request.Order is null || request.Order.Count == 0)
-                return Results.BadRequest(new { error = "Order list cannot be empty." });
+                return ApiErrors.BadRequest("Order list cannot be empty.");
 
             var core = configLoader.LoadCore();
             core.ProviderPriority = request.Order;
             configLoader.SaveCore(core);
 
-            return Results.Ok(new { order = request.Order });
+            return Results.Ok(new ProviderPriorityOrderResponse(request.Order));
         })
         .WithName("UpdateProviderPriority")
         .WithSummary("Saves the provider priority order for metadata harvesting.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<ProviderPriorityOrderResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── GET /settings/hydration ──────────────────────────────────────────
@@ -945,11 +950,11 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             configLoader.SaveHydration(settings);
-            return Results.Ok(new { saved = true });
+            return Results.Ok(new SettingsSavedResponse(true));
         })
         .WithName("SaveHydrationSettings")
         .WithSummary("Save hydration pipeline configuration.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<SettingsSavedResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /settings/pipelines ──────────────────────────────────────
@@ -969,11 +974,11 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             configLoader.SavePipelines(pipelines);
-            return Results.Ok(new { saved = true });
+            return Results.Ok(new SettingsSavedResponse(true));
         })
         .WithName("SavePipelines")
         .WithDescription("Save pipeline configuration")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<SettingsSavedResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /settings/media-types ──────────────────────────────────────────
@@ -993,27 +998,27 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (config?.Types is null || config.Types.Count == 0)
-                return Results.BadRequest(new { error = "At least one media type is required." });
+                return ApiErrors.BadRequest("At least one media type is required.");
 
             var dupKeys = config.Types
                 .GroupBy(t => t.Key, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault(g => g.Count() > 1)?.Key;
             if (dupKeys is not null)
-                return Results.BadRequest(new { error = $"Duplicate media type key: '{dupKeys}'." });
+                return ApiErrors.BadRequest($"Duplicate media type key: '{dupKeys}'.");
 
             var dupNames = config.Types
                 .GroupBy(t => t.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault(g => g.Count() > 1)?.Key;
             if (dupNames is not null)
-                return Results.BadRequest(new { error = $"Duplicate media type display name: '{dupNames}'." });
+                return ApiErrors.BadRequest($"Duplicate media type display name: '{dupNames}'.");
 
             configLoader.SaveMediaTypes(config);
-            return Results.Ok(new { saved = true });
+            return Results.Ok(new SettingsSavedResponse(true));
         })
         .WithName("SaveMediaTypes")
         .WithSummary("Save media type definitions including custom types.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<SettingsSavedResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── POST /settings/media-types/add ────────────────────────────────────
@@ -1022,15 +1027,15 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (string.IsNullOrWhiteSpace(newType.Key) || string.IsNullOrWhiteSpace(newType.DisplayName))
-                return Results.BadRequest(new { error = "Key and display name are required." });
+                return ApiErrors.BadRequest("Key and display name are required.");
 
             var config = configLoader.LoadMediaTypes();
 
             if (config.Types.Any(t => string.Equals(t.Key, newType.Key, StringComparison.OrdinalIgnoreCase)))
-                return Results.BadRequest(new { error = $"Media type key '{newType.Key}' already exists." });
+                return ApiErrors.BadRequest($"Media type key '{newType.Key}' already exists.");
 
             if (config.Types.Any(t => string.Equals(t.DisplayName, newType.DisplayName, StringComparison.OrdinalIgnoreCase)))
-                return Results.BadRequest(new { error = $"Media type '{newType.DisplayName}' already exists." });
+                return ApiErrors.BadRequest($"Media type '{newType.DisplayName}' already exists.");
 
             newType.BuiltIn = false;
             config.Types.Add(newType);
@@ -1041,7 +1046,7 @@ public static class SettingsEndpoints
         .WithName("AddMediaType")
         .WithSummary("Add a custom media type definition.")
         .Produces<MediaTypeConfiguration>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // ── DELETE /settings/media-types/{key} ────────────────────────────────
@@ -1054,10 +1059,10 @@ public static class SettingsEndpoints
                 t => string.Equals(t.Key, key, StringComparison.OrdinalIgnoreCase));
 
             if (existing is null)
-                return Results.NotFound(new { error = $"Media type '{key}' not found." });
+                return ApiErrors.NotFound($"Media type '{key}' not found.");
 
             if (existing.BuiltIn)
-                return Results.BadRequest(new { error = "Built-in media types cannot be deleted." });
+                return ApiErrors.BadRequest("Built-in media types cannot be deleted.");
 
             config.Types.Remove(existing);
             configLoader.SaveMediaTypes(config);
@@ -1067,8 +1072,8 @@ public static class SettingsEndpoints
         .WithName("DeleteMediaType")
         .WithSummary("Remove a custom media type definition.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // ── Provider Icon Upload ──────────────────────────────────────────────
@@ -1079,19 +1084,19 @@ public static class SettingsEndpoints
             IConfiguration config) =>
         {
             if (!request.HasFormContentType)
-                return Results.BadRequest(new { error = "Expected multipart form data." });
+                return ApiErrors.BadRequest("Expected multipart form data.");
 
             var form = await request.ReadFormAsync();
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
-                return Results.BadRequest(new { error = "No file uploaded." });
+                return ApiErrors.BadRequest("No file uploaded.");
 
             if (file.Length > 256 * 1024)
-                return Results.BadRequest(new { error = "Icon must be 256 KB or smaller." });
+                return ApiErrors.BadRequest("Icon must be 256 KB or smaller.");
 
             var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
             if (ext is not ".svg" and not ".png" and not ".jpg" and not ".jpeg")
-                return Results.BadRequest(new { error = "Allowed formats: SVG, PNG, JPG." });
+                return ApiErrors.BadRequest("Allowed formats: SVG, PNG, JPG.");
 
             var configDir = config["MediaEngine:ConfigDirectory"] ?? "config";
             var iconsDir  = Path.Combine(configDir, "icons");
@@ -1105,13 +1110,13 @@ public static class SettingsEndpoints
             await using var stream = File.Create(filePath);
             await file.CopyToAsync(stream);
 
-            return Results.Ok(new { path = $"/settings/providers/{name}/icon" });
+            return Results.Ok(new ProviderIconPathResponse($"/settings/providers/{name}/icon"));
         })
         .WithName("UploadProviderIcon")
         .WithSummary("Upload an icon (SVG/PNG/JPG, max 256KB) for a provider.")
         .Accepts<IFormFile>("multipart/form-data")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<ProviderIconPathResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .DisableAntiforgery()
         .RequireAdmin();
 
@@ -1123,11 +1128,11 @@ public static class SettingsEndpoints
             var iconsDir  = Path.Combine(configDir, "icons");
 
             if (!Directory.Exists(iconsDir))
-                return Results.NotFound();
+                return ApiErrors.NotFound($"No icon has been uploaded for provider '{name}'.");
 
             var match = Directory.EnumerateFiles(iconsDir, $"{name}.*").FirstOrDefault();
             if (match is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"No icon has been uploaded for provider '{name}'.");
 
             var ext = Path.GetExtension(match).ToLowerInvariant();
             var contentType = ext switch
@@ -1144,7 +1149,7 @@ public static class SettingsEndpoints
         .WithName("GetProviderIcon")
         .WithSummary("Serve the uploaded icon for a provider.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // ── GET /settings/server-general ──────────────────────────────────────
@@ -1177,7 +1182,7 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (string.IsNullOrWhiteSpace(request.ServerName))
-                return Results.BadRequest(new { error = "server_name cannot be empty" });
+                return ApiErrors.BadRequest("server_name cannot be empty");
 
             var core = configLoader.LoadCore();
             core.ServerName = request.ServerName.Trim();
@@ -1197,80 +1202,69 @@ public static class SettingsEndpoints
         .WithName("UpdateServerGeneral")
         .WithSummary("Saves server identity and regional settings.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         grp.MapGet("/catalog", () => Results.Ok(new[]
         {
-            new
-            {
-                key = "core",
-                label = "Core runtime",
-                source = "config/core.json",
-                owner = "json",
-                editable = true,
-                role = "Administrator",
-                restart_required = false,
-                deprecated = false,
-            },
-            new
-            {
-                key = "libraries",
-                label = "Libraries",
-                source = "config/libraries.json",
-                owner = "json",
-                editable = true,
-                role = "Administrator",
-                restart_required = false,
-                deprecated = false,
-            },
-            new
-            {
-                key = "providers",
-                label = "Providers",
-                source = "config/providers/*.json + config/secrets/*.json",
-                owner = "json",
-                editable = true,
-                role = "Administrator",
-                restart_required = false,
-                deprecated = false,
-            },
-            new
-            {
-                key = "metadata",
-                label = "Metadata behavior",
-                source = "config/media_types.json, config/scoring.json, config/hydration.json, config/pipelines.json, config/field_priorities.json",
-                owner = "json",
-                editable = true,
-                role = "Administrator",
-                restart_required = false,
-                deprecated = false,
-            },
-            new
-            {
-                key = "operational-state",
-                label = "Operational state",
-                source = "SQLite: profiles, api_keys, provider_health, review_queue, system_activity, encode_jobs",
-                owner = "sqlite",
-                editable = false,
-                role = "Administrator",
-                restart_required = false,
-                deprecated = false,
-            },
-            new
-            {
-                key = "ui-palette",
-                label = "UI palette and accent customization",
-                source = "config/ui/palette.json and accent_color fields",
-                owner = "internal",
-                editable = false,
-                role = "None",
-                restart_required = false,
-                deprecated = true,
-            },
+            new SettingsCatalogEntryResponse(
+                key: "core",
+                label: "Core runtime",
+                source: "config/core.json",
+                owner: "json",
+                editable: true,
+                role: "Administrator",
+                restart_required: false,
+                deprecated: false),
+            new SettingsCatalogEntryResponse(
+                key: "libraries",
+                label: "Libraries",
+                source: "config/libraries.json",
+                owner: "json",
+                editable: true,
+                role: "Administrator",
+                restart_required: false,
+                deprecated: false),
+            new SettingsCatalogEntryResponse(
+                key: "providers",
+                label: "Providers",
+                source: "config/providers/*.json + config/secrets/*.json",
+                owner: "json",
+                editable: true,
+                role: "Administrator",
+                restart_required: false,
+                deprecated: false),
+            new SettingsCatalogEntryResponse(
+                key: "metadata",
+                label: "Metadata behavior",
+                source: "config/media_types.json, config/scoring.json, config/hydration.json, config/pipelines.json, config/field_priorities.json",
+                owner: "json",
+                editable: true,
+                role: "Administrator",
+                restart_required: false,
+                deprecated: false),
+            new SettingsCatalogEntryResponse(
+                key: "operational-state",
+                label: "Operational state",
+                source: "SQLite: profiles, api_keys, provider_health, review_queue, system_activity, encode_jobs",
+                owner: "sqlite",
+                editable: false,
+                role: "Administrator",
+                restart_required: false,
+                deprecated: false),
+            new SettingsCatalogEntryResponse(
+                key: "ui-palette",
+                label: "UI palette and accent customization",
+                source: "config/ui/palette.json and accent_color fields",
+                owner: "internal",
+                editable: false,
+                role: "None",
+                restart_required: false,
+                deprecated: true),
         }))
         .WithName("GetSettingsCatalog")
         .WithSummary("Returns the canonical settings source-of-truth catalog.")
+        .Produces<SettingsCatalogEntryResponse[]>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;

@@ -1,4 +1,6 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Universe;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 
@@ -30,7 +32,7 @@ public static class UniverseGraphEndpoints
             CancellationToken ct) =>
         {
             var roots = await rootRepo.ListAllAsync(ct);
-            var results = new List<object>();
+            var results = new List<UniverseListItemDto>();
             foreach (var root in roots)
             {
                 var entities = await entityRepo.GetByUniverseAsync(root.Qid, ct);
@@ -40,29 +42,28 @@ public static class UniverseGraphEndpoints
                         ? []
                         : await relRepo.GetByUniverseAsync(entityQids, ct);
 
-                results.Add(new
-                {
-                    qid   = root.Qid,
-                    label = root.Label,
-                    level = root.Level,
-                    parent_qid = root.ParentQid,
-                    entity_count = entities.Count,
-                    character_count = entities.Count(e => e.EntitySubType == "Character"),
-                    location_count = entities.Count(e => e.EntitySubType == "Location"),
-                    organization_count = entities.Count(e => e.EntitySubType == "Organization"),
-                    event_count = entities.Count(e => e.EntitySubType == "Event"),
-                    relationship_count = relationships.Count,
-                    has_graph = entities.Count > 0 && relationships.Count > 0,
-                    enrichment_status = entities.Count == 0
+                results.Add(new UniverseListItemDto(
+                    qid: root.Qid,
+                    label: root.Label,
+                    level: root.Level,
+                    parent_qid: root.ParentQid,
+                    entity_count: entities.Count,
+                    character_count: entities.Count(e => e.EntitySubType == "Character"),
+                    location_count: entities.Count(e => e.EntitySubType == "Location"),
+                    organization_count: entities.Count(e => e.EntitySubType == "Organization"),
+                    event_count: entities.Count(e => e.EntitySubType == "Event"),
+                    relationship_count: relationships.Count,
+                    has_graph: entities.Count > 0 && relationships.Count > 0,
+                    enrichment_status: entities.Count == 0
                         ? "Enrichment pending"
                         : relationships.Count == 0
                             ? "Partial"
-                            : "Live",
-                });
+                            : "Live"));
             }
 
             return Results.Ok(results);
-        });
+        })
+        .Produces<List<UniverseListItemDto>>(StatusCodes.Status200OK);
 
         // GET /universe/{qid} — universe detail with entity counts.
         group.MapGet("/universe/{qid}", async (
@@ -74,22 +75,21 @@ public static class UniverseGraphEndpoints
         {
             var root = await rootRepo.FindByQidAsync(qid, ct);
             if (root is null)
-                return Results.NotFound($"Narrative root '{qid}' not found.");
+                return ApiErrors.NotFound($"Narrative root '{qid}' not found.");
 
             var entities = await entityRepo.GetByUniverseAsync(qid, ct);
             var entityQids = entities.Select(e => e.WikidataQid).ToHashSet();
             var relationships = await relRepo.GetByUniverseAsync(entityQids, ct);
 
-            return Results.Ok(new
-            {
-                universe = new { qid = root.Qid, label = root.Label, level = root.Level },
-                entity_count = entities.Count,
-                character_count = entities.Count(e => e.EntitySubType == "Character"),
-                location_count = entities.Count(e => e.EntitySubType == "Location"),
-                organization_count = entities.Count(e => e.EntitySubType == "Organization"),
-                relationship_count = relationships.Count,
-            });
-        });
+            return Results.Ok(new UniverseDetailResponse(
+                universe: new UniverseDetailRef(qid: root.Qid, label: root.Label, level: root.Level),
+                entity_count: entities.Count,
+                character_count: entities.Count(e => e.EntitySubType == "Character"),
+                location_count: entities.Count(e => e.EntitySubType == "Location"),
+                organization_count: entities.Count(e => e.EntitySubType == "Organization"),
+                relationship_count: relationships.Count));
+        })
+        .Produces<UniverseDetailResponse>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/health — universe health score based on entity enrichment.
         group.MapGet("/universe/{qid}/health", async (
@@ -102,7 +102,7 @@ public static class UniverseGraphEndpoints
         {
             var root = await rootRepo.FindByQidAsync(qid, ct);
             if (root is null)
-                return Results.NotFound($"Narrative root '{qid}' not found.");
+                return ApiErrors.NotFound($"Narrative root '{qid}' not found.");
 
             var entities      = await entityRepo.GetByUniverseAsync(qid, ct);
             var entityQids    = entities.Select(e => e.WikidataQid).ToHashSet();
@@ -123,17 +123,16 @@ public static class UniverseGraphEndpoints
                 health += relDensity * 20.0;
             }
 
-            return Results.Ok(new
-            {
-                qid                  = root.Qid,
-                label                = root.Label,
-                entities_total       = total,
-                entities_enriched    = enriched,
-                entities_with_images = withImages,
-                relationships_total  = relCount,
-                health_percent       = Math.Round(health, 1),
-            });
-        });
+            return Results.Ok(new UniverseHealthResponse(
+                qid: root.Qid,
+                label: root.Label,
+                entities_total: total,
+                entities_enriched: enriched,
+                entities_with_images: withImages,
+                relationships_total: relCount,
+                health_percent: Math.Round(health, 1)));
+        })
+        .Produces<UniverseHealthResponse>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/lore-delta — check for Wikidata revision changes.
         group.MapGet("/universe/{qid}/lore-delta", async (
@@ -163,7 +162,7 @@ public static class UniverseGraphEndpoints
         {
             var root = await rootRepo.FindByQidAsync(qid, ct);
             if (root is null)
-                return Results.NotFound($"Narrative root '{qid}' not found.");
+                return ApiErrors.NotFound($"Narrative root '{qid}' not found.");
 
             // Load all entities in this universe.
             var allEntities = await entityRepo.GetByUniverseAsync(qid, ct);
@@ -236,7 +235,7 @@ public static class UniverseGraphEndpoints
                     ct);
             }
 
-            var nodes = new List<object>(allEntities.Count);
+            var nodes = new List<UniverseGraphNodeDto>(allEntities.Count);
             foreach (var entity in allEntities)
             {
                 // Resolve era-specific actor image for character nodes.
@@ -252,38 +251,34 @@ public static class UniverseGraphEndpoints
                         resolution.HeadshotUrl);
                 }
 
-                nodes.Add(new
-                {
-                    id         = entity.WikidataQid,
-                    label      = entity.Label,
-                    type       = entity.EntitySubType,
-                    description = entity.Description,
-                    image,
-                    works      = workLinksByEntity[entity.Id]
-                        .Select(link => new { qid = link.WorkQid, label = link.WorkLabel }),
-                    supplemental = false,
-                    provenance = "wikidata",
-                    source_plugin = (string?)null,
-                    source_url = (string?)null,
-                });
+                nodes.Add(new UniverseGraphNodeDto(
+                    id: entity.WikidataQid,
+                    label: entity.Label,
+                    type: entity.EntitySubType,
+                    description: entity.Description,
+                    image: image,
+                    works: workLinksByEntity[entity.Id]
+                        .Select(link => new UniverseGraphWorkLinkDto(qid: link.WorkQid, label: link.WorkLabel)),
+                    supplemental: false,
+                    provenance: "wikidata",
+                    source_plugin: (string?)null,
+                    source_url: (string?)null));
             }
 
             // Build edges.
-            var edges = relationships.Select(r => (object)new
-            {
-                source       = r.SubjectQid,
-                target       = r.ObjectQid,
-                type         = r.RelationshipTypeValue,
-                label        = FormatEdgeLabel(r.RelationshipTypeValue),
-                confidence   = r.Confidence,
-                context_work = r.ContextWorkQid,
-                start_time   = r.StartTime,
-                end_time     = r.EndTime,
-                supplemental = false,
-                provenance = "wikidata",
-                source_plugin = (string?)null,
-                source_url = (string?)null,
-            }).ToList();
+            var edges = relationships.Select(r => new UniverseGraphEdgeDto(
+                source: r.SubjectQid,
+                target: r.ObjectQid,
+                type: r.RelationshipTypeValue,
+                label: FormatEdgeLabel(r.RelationshipTypeValue),
+                confidence: r.Confidence,
+                context_work: r.ContextWorkQid,
+                start_time: r.StartTime,
+                end_time: r.EndTime,
+                supplemental: false,
+                provenance: "wikidata",
+                source_plugin: (string?)null,
+                source_url: (string?)null)).ToList();
 
             if (include_supplemental_lore == true
                 && string.IsNullOrWhiteSpace(work)
@@ -299,13 +294,12 @@ public static class UniverseGraphEndpoints
                     ct).ConfigureAwait(false);
             }
 
-            return Results.Ok(new
-            {
-                universe = new { qid = root.Qid, label = root.Label },
-                nodes,
-                edges,
-            });
-        });
+            return Results.Ok(new UniverseGraphResponse(
+                universe: new UniverseGraphRef(qid: root.Qid, label: root.Label),
+                nodes: nodes,
+                edges: edges));
+        })
+        .Produces<UniverseGraphResponse>(StatusCodes.Status200OK);
 
         // POST /universe/entity/{qid}/deep-enrich — on-demand deep enrichment.
         // Fetches 2+ hop entities for a character/entity that hasn't been deep-enriched.
@@ -320,7 +314,7 @@ public static class UniverseGraphEndpoints
             // 1. Check if entity exists.
             var entity = await entityRepo.FindByQidAsync(qid, ct);
             if (entity is null)
-                return Results.NotFound($"Entity '{qid}' not found.");
+                return ApiErrors.NotFound($"Entity '{qid}' not found.");
 
             var maxDepth = Math.Min(depth ?? 2, 3); // Cap at 3 to prevent runaway traversal.
 
@@ -398,16 +392,15 @@ public static class UniverseGraphEndpoints
                 unenrichedCount++;
             }
 
-            return Results.Ok(new
-            {
-                entity_qid          = qid,
-                neighbors_found     = neighborQids.Count,
-                enrichment_enqueued = unenrichedCount,
-                message             = unenrichedCount > 0
+            return Results.Ok(new UniverseDeepEnrichResponse(
+                entity_qid: qid,
+                neighbors_found: neighborQids.Count,
+                enrichment_enqueued: unenrichedCount,
+                message: unenrichedCount > 0
                     ? $"Enqueued {unenrichedCount} entities for deep enrichment."
-                    : "All neighboring entities are already enriched.",
-            });
+                    : "All neighboring entities are already enriched."));
         })
+        .Produces<UniverseDeepEnrichResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // GET /universe/{qid}/paths?from=Q1&to=Q2&maxHops=4 — find paths between entities.
@@ -420,8 +413,9 @@ public static class UniverseGraphEndpoints
             CancellationToken ct) =>
         {
             var paths = await graphQuery.FindPathsAsync(qid, from, to, maxHops ?? 4, ct);
-            return Results.Ok(new { universe_qid = qid, from_qid = from, to_qid = to, paths });
-        });
+            return Results.Ok(new UniversePathsResponse(universe_qid: qid, from_qid: from, to_qid: to, paths: paths));
+        })
+        .Produces<UniversePathsResponse>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/family-tree?character=Q1&generations=3 — character family tree.
         group.MapGet("/universe/{qid}/family-tree", async (
@@ -432,15 +426,14 @@ public static class UniverseGraphEndpoints
             CancellationToken ct) =>
         {
             var tree = await graphQuery.GetFamilyTreeAsync(qid, character, generations ?? 3, ct);
-            return Results.Ok(new
-            {
-                universe_qid  = qid,
-                character_qid = character,
-                generations   = tree.ToDictionary(
+            return Results.Ok(new UniverseFamilyTreeResponse(
+                universe_qid: qid,
+                character_qid: character,
+                generations: tree.ToDictionary(
                     kvp => kvp.Key.ToString(),
-                    kvp => kvp.Value),
-            });
-        });
+                    kvp => kvp.Value)));
+        })
+        .Produces<UniverseFamilyTreeResponse>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/cross-media — entities appearing in 2+ works.
         group.MapGet("/universe/{qid}/cross-media", async (
@@ -449,8 +442,9 @@ public static class UniverseGraphEndpoints
             CancellationToken ct) =>
         {
             var entities = await graphQuery.FindCrossMediaEntitiesAsync(qid, ct);
-            return Results.Ok(new { universe_qid = qid, cross_media_entities = entities });
-        });
+            return Results.Ok(new UniverseCrossMediaResponse(universe_qid: qid, cross_media_entities: entities));
+        })
+        .Produces<UniverseCrossMediaResponse>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/cast — characters with their real-world performers.
         group.MapGet("/universe/{qid}/cast", async (
@@ -465,7 +459,7 @@ public static class UniverseGraphEndpoints
                 string.Equals(e.EntitySubType, "Character", StringComparison.OrdinalIgnoreCase)).ToList();
 
             if (characters.Count == 0)
-                return Results.Ok(new { universe_qid = qid, characters = Array.Empty<object>() });
+                return Results.Ok(new UniverseCastResponse(universe_qid: qid, characters: Array.Empty<UniverseCastCharacterDto>()));
 
             var allPerformerRows = await personRepo.GetCharacterPerformersAsync(
                 characters.Select(character => character.Id),
@@ -479,28 +473,25 @@ public static class UniverseGraphEndpoints
             var castList = characters.Select(character =>
             {
                 performersByEntity.TryGetValue(character.Id, out var performers);
-                return (object)new
-                {
-                    qid         = character.WikidataQid,
-                    label       = character.Label,
-                    image       = character.ImageUrl,
-                    description = character.Description,
-                    performers  = (performers ?? []).Select(p => new
-                    {
-                        person_id    = p.PersonId,
-                        name         = p.PerformerName,
-                        headshot_url = ApiImageUrls.BuildPersonHeadshotUrl(
+                return new UniverseCastCharacterDto(
+                    qid: character.WikidataQid,
+                    label: character.Label,
+                    image: character.ImageUrl,
+                    description: character.Description,
+                    performers: (performers ?? []).Select(p => new UniverseCastPerformerDto(
+                        person_id: p.PersonId,
+                        name: p.PerformerName,
+                        headshot_url: ApiImageUrls.BuildPersonHeadshotUrl(
                             p.PersonId,
                             p.LocalHeadshotPath,
                             p.HeadshotUrl),
-                        work_qid     = p.WorkQid,
-                        year         = (int?)null,
-                    }),
-                };
+                        work_qid: p.WorkQid,
+                        year: (int?)null)));
             }).ToList();
 
-            return Results.Ok(new { universe_qid = qid, characters = castList });
-        });
+            return Results.Ok(new UniverseCastResponse(universe_qid: qid, characters: castList));
+        })
+        .Produces<UniverseCastResponse>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/adaptations — adaptation chain (based_on/derivative_work).
         group.MapGet("/universe/{qid}/adaptations", async (
@@ -512,7 +503,7 @@ public static class UniverseGraphEndpoints
         {
             var root = await rootRepo.FindByQidAsync(qid, ct);
             if (root is null)
-                return Results.NotFound($"Narrative root '{qid}' not found.");
+                return ApiErrors.NotFound($"Narrative root '{qid}' not found.");
 
             // Load all entities and adaptation-type relationships.
             var allEntities    = await entityRepo.GetByUniverseAsync(qid, ct);
@@ -543,21 +534,19 @@ public static class UniverseGraphEndpoints
             // If no adaptation relationships exist, return all works as flat roots.
             if (!adaptationRels.Any())
             {
-                var flatWorks = allEntities.Select(e => new
-                {
-                    qid                    = e.WikidataQid,
-                    label                  = e.Label,
-                    year                   = (int?)null,
-                    media_type             = e.EntitySubType,
-                    cover_image            = e.ImageUrl,
-                    relationship_to_parent = (string?)null,
-                    children               = Array.Empty<object>(),
-                }).ToList();
-                return Results.Ok(new { universe_qid = qid, works = flatWorks });
+                var flatWorks = allEntities.Select(e => new UniverseAdaptationNodeDto(
+                    qid: e.WikidataQid,
+                    label: e.Label,
+                    year: (int?)null,
+                    media_type: e.EntitySubType,
+                    cover_image: e.ImageUrl,
+                    relationship_to_parent: (string?)null,
+                    children: Array.Empty<UniverseAdaptationNodeDto>())).ToList();
+                return Results.Ok(new UniverseAdaptationTreeResponse(universe_qid: qid, works: flatWorks));
             }
 
             // Build tree recursively.
-            static IEnumerable<object> BuildChildren(
+            static IEnumerable<UniverseAdaptationNodeDto> BuildChildren(
                 string parentQid,
                 IReadOnlyList<MediaEngine.Domain.Entities.EntityRelationship> rels,
                 IReadOnlyDictionary<string, MediaEngine.Domain.Entities.FictionalEntity> byQid,
@@ -568,36 +557,33 @@ public static class UniverseGraphEndpoints
                     string.Equals(r.ObjectQid, parentQid, StringComparison.OrdinalIgnoreCase)))
                 {
                     byQid.TryGetValue(rel.SubjectQid, out var child);
-                    yield return new
-                    {
-                        qid                    = rel.SubjectQid,
-                        label                  = child?.Label ?? rel.SubjectQid,
-                        year                   = (int?)null,
-                        media_type             = child?.EntitySubType ?? "Unknown",
-                        cover_image            = child?.ImageUrl,
-                        relationship_to_parent = FormatEdgeLabel(rel.RelationshipTypeValue),
-                        children               = BuildChildren(rel.SubjectQid, rels, byQid, depth + 1).ToList(),
-                    };
+                    yield return new UniverseAdaptationNodeDto(
+                        qid: rel.SubjectQid,
+                        label: child?.Label ?? rel.SubjectQid,
+                        year: (int?)null,
+                        media_type: child?.EntitySubType ?? "Unknown",
+                        cover_image: child?.ImageUrl,
+                        relationship_to_parent: FormatEdgeLabel(rel.RelationshipTypeValue),
+                        children: BuildChildren(rel.SubjectQid, rels, byQid, depth + 1).ToList());
                 }
             }
 
             var tree = rootWorkQids.Select(rootQid =>
             {
                 entityByQid.TryGetValue(rootQid, out var entity);
-                return (object)new
-                {
-                    qid                    = rootQid,
-                    label                  = entity?.Label ?? rootQid,
-                    year                   = (int?)null,
-                    media_type             = entity?.EntitySubType ?? "Unknown",
-                    cover_image            = entity?.ImageUrl,
-                    relationship_to_parent = (string?)null,
-                    children               = BuildChildren(rootQid, adaptationRels, entityByQid, 1).ToList(),
-                };
+                return new UniverseAdaptationNodeDto(
+                    qid: rootQid,
+                    label: entity?.Label ?? rootQid,
+                    year: (int?)null,
+                    media_type: entity?.EntitySubType ?? "Unknown",
+                    cover_image: entity?.ImageUrl,
+                    relationship_to_parent: (string?)null,
+                    children: BuildChildren(rootQid, adaptationRels, entityByQid, 1).ToList());
             }).ToList();
 
-            return Results.Ok(new { universe_qid = qid, works = tree });
-        });
+            return Results.Ok(new UniverseAdaptationTreeResponse(universe_qid: qid, works: tree));
+        })
+        .Produces<UniverseAdaptationTreeResponse>(StatusCodes.Status200OK);
 
         return app;
     }
@@ -607,8 +593,8 @@ public static class UniverseGraphEndpoints
         string? types,
         IPluginLoreRepository pluginLoreRepo,
         IReadOnlySet<string> existingQids,
-        List<object> nodes,
-        List<object> edges,
+        List<UniverseGraphNodeDto> nodes,
+        List<UniverseGraphEdgeDto> edges,
         CancellationToken ct)
     {
         var typeSet = string.IsNullOrWhiteSpace(types)
@@ -635,19 +621,17 @@ public static class UniverseGraphEndpoints
             if (!nodeIds.Add(nodeId))
                 continue;
 
-            nodes.Add(new
-            {
-                id = nodeId,
-                label = entity.Label,
-                type = entity.EntityType,
-                description = entity.Description,
-                image = (string?)null,
-                works = Array.Empty<object>(),
-                supplemental = true,
-                provenance = "plugin",
-                source_plugin = entity.PluginId,
-                source_url = entity.SourceUrl,
-            });
+            nodes.Add(new UniverseGraphNodeDto(
+                id: nodeId,
+                label: entity.Label,
+                type: entity.EntityType,
+                description: entity.Description,
+                image: (string?)null,
+                works: Array.Empty<UniverseGraphWorkLinkDto>(),
+                supplemental: true,
+                provenance: "plugin",
+                source_plugin: entity.PluginId,
+                source_url: entity.SourceUrl));
         }
 
         var supplementalRelationships = await pluginLoreRepo.GetRelationshipsAsync(universeQid, approvedOnly: true, ct).ConfigureAwait(false);
@@ -665,21 +649,19 @@ public static class UniverseGraphEndpoints
             if (!nodeIds.Contains(sourceId) || !nodeIds.Contains(targetId))
                 continue;
 
-            edges.Add(new
-            {
-                source = sourceId,
-                target = targetId,
-                type = relationship.RelationshipType,
-                label = FormatEdgeLabel(relationship.RelationshipType),
-                confidence = relationship.Confidence,
-                context_work = (string?)null,
-                start_time = (string?)null,
-                end_time = (string?)null,
-                supplemental = true,
-                provenance = "plugin",
-                source_plugin = relationship.PluginId,
-                source_url = relationship.SourceUrl,
-            });
+            edges.Add(new UniverseGraphEdgeDto(
+                source: sourceId,
+                target: targetId,
+                type: relationship.RelationshipType,
+                label: FormatEdgeLabel(relationship.RelationshipType),
+                confidence: relationship.Confidence,
+                context_work: (string?)null,
+                start_time: (string?)null,
+                end_time: (string?)null,
+                supplemental: true,
+                provenance: "plugin",
+                source_plugin: relationship.PluginId,
+                source_url: relationship.SourceUrl));
         }
     }
 

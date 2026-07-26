@@ -69,7 +69,11 @@ public sealed class PersonAndWorkEndpointRouteTests
     [Fact]
     public void CollectionGroupDetail_ExposesAudioPaletteAndCompleteAlbumTrackData()
     {
-        var endpointSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"));
+        // The album-track manifest logic moved out of the endpoint file into
+        // AlbumTrackManifestService in stage 5A; scan both as one surface.
+        var endpointSource =
+            File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"))
+            + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Collections\AlbumTrackManifestService.cs"));
         var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionGroupDetailDto.cs"));
 
         Assert.Contains("PrimaryColor", dtoSource, StringComparison.Ordinal);

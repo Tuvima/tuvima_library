@@ -133,12 +133,23 @@ public sealed class ItemEndpointRouteTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
 
+        // ClearStaleIdsAsync (the caller of itemCanonicalData.DeleteIdentityArtifactsAsync) was
+        // extracted into CanonicalCandidateBuilder as part of Stage 5A wave 2 (packet f2, Job 3
+        // helper extraction) alongside the rest of the candidate-scoring / field-bag cluster.
+        // The endpoint file still injects and calls the typed data service directly for its own
+        // work (ResolveWorkAssetContextAsync); the identity-artifact deletion call now lives in
+        // the extracted service, so it is asserted there instead.
+        var candidateBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Canonical\CanonicalCandidateBuilder.cs"));
+
         Assert.Contains("IItemCanonicalDataService itemCanonicalData", source, StringComparison.Ordinal);
         Assert.Contains("itemCanonicalData.ResolveWorkAssetContextAsync", source, StringComparison.Ordinal);
-        Assert.Contains("itemCanonicalData.DeleteIdentityArtifactsAsync", source, StringComparison.Ordinal);
+        Assert.Contains("itemCanonicalData.DeleteIdentityArtifactsAsync", candidateBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("IDatabaseConnection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("CreateConnection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GuidSql", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IDatabaseConnection", candidateBuilder, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateConnection", candidateBuilder, StringComparison.Ordinal);
+        Assert.DoesNotContain("GuidSql", candidateBuilder, StringComparison.Ordinal);
     }
 
     [Fact]

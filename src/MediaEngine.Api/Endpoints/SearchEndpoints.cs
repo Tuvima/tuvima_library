@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
@@ -22,7 +23,7 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
-                return Results.BadRequest("Query is required.");
+                return ApiErrors.BadRequest("Query is required.");
 
             var result = await searchService.SearchUniverseAsync(request, ct);
             return Results.Ok(result);
@@ -30,7 +31,7 @@ public static class SearchEndpoints
         .WithName("SearchUniverse")
         .WithSummary("Search Wikidata for identity candidates, enriched with cover art from retail providers.")
         .Produces<SearchUniverseResult>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // ── POST /search/retail ──────────────────────────────────────────────
@@ -40,7 +41,7 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
-                return Results.BadRequest("Query is required.");
+                return ApiErrors.BadRequest("Query is required.");
 
             var result = await searchService.SearchRetailAsync(request, ct);
             return Results.Ok(result);
@@ -48,7 +49,7 @@ public static class SearchEndpoints
         .WithName("SearchRetail")
         .WithSummary("Search retail providers (TMDB, Apple Books, etc.) for cover art and basic metadata.")
         .Produces<SearchRetailResult>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // ── POST /search/resolve ─────────────────────────────────────────────
@@ -58,7 +59,7 @@ public static class SearchEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Query))
-                return Results.BadRequest("Query is required.");
+                return ApiErrors.BadRequest("Query is required.");
 
             // Extract local title/author/year from file hints for retail scoring
             request.FileHints.TryGetValue("title",  out var localTitle);
@@ -103,7 +104,7 @@ public static class SearchEndpoints
         .WithDescription("Unified resolve search: retail identification with description-based scoring. " +
                          "Wikidata bridge resolution runs client-side after candidate selection.")
         .Produces<ResolveSearchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         return app;

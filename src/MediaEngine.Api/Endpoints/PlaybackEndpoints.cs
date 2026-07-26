@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Playback;
@@ -35,13 +36,13 @@ public static class PlaybackEndpoints
         {
             var manifest = await playback.BuildManifestAsync(assetId, client, profileId, ct);
             return manifest is null
-                ? Results.NotFound($"Asset '{assetId}' not found.")
+                ? ApiErrors.NotFound($"Asset '{assetId}' not found.")
                 : Results.Ok(manifest);
         })
         .WithName("GetPlaybackManifest")
         .WithSummary("Return the centralized playback manifest for an asset and client profile.")
         .Produces<PlaybackManifestDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPost("/{assetId:guid}/encode", async (
@@ -52,13 +53,13 @@ public static class PlaybackEndpoints
         {
             var job = await playback.QueueEncodeAsync(assetId, request, ct);
             return job is null
-                ? Results.NotFound($"Asset '{assetId}' not found.")
+                ? ApiErrors.NotFound($"Asset '{assetId}' not found.")
                 : Results.Accepted($"/playback/encode/jobs/{job.Id}", job);
         })
         .WithName("QueueEncodeJob")
         .WithSummary("Queue or schedule a managed encode/offline variant job.")
         .Produces<EncodeJobDto>(StatusCodes.Status202Accepted)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/encode/jobs", async (
@@ -104,14 +105,14 @@ public static class PlaybackEndpoints
             var variant = await playback.GetOfflineVariantFileAsync(assetId, variantId, ct);
             if (variant is null)
             {
-                return Results.NotFound("Offline variant not found.");
+                return ApiErrors.NotFound("Offline variant not found.");
             }
 
             if (!string.Equals(variant.Status, OfflineVariantStatuses.Ready, StringComparison.OrdinalIgnoreCase)
                 || string.IsNullOrWhiteSpace(variant.OutputPath)
                 || !File.Exists(variant.OutputPath))
             {
-                return Results.NotFound("Offline variant is not ready.");
+                return ApiErrors.NotFound("Offline variant is not ready.");
             }
 
             var stream = File.OpenRead(variant.OutputPath);

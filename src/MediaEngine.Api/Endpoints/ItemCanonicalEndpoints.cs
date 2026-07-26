@@ -1,6 +1,8 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Canonical;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -43,11 +45,11 @@ public static class ItemCanonicalEndpoints
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
-                return Results.BadRequest("At least one preference field is required.");
+                return ApiErrors.BadRequest("At least one preference field is required.");
 
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var now = DateTimeOffset.UtcNow;
             var claims = new List<MetadataClaim>();
@@ -88,7 +90,7 @@ public static class ItemCanonicalEndpoints
             }
 
             if (updatedKeys.Count == 0)
-                return Results.BadRequest("No valid preference fields were provided.");
+                return ApiErrors.BadRequest("No valid preference fields were provided.");
 
             await claimRepo.InsertBatchAsync(claims, ct);
             await canonicalRepo.UpsertBatchAsync(canonicals, ct);
@@ -132,8 +134,8 @@ public static class ItemCanonicalEndpoints
         .WithName("SaveItemPreferences")
         .WithSummary("Save user-preferred item fields without changing external IDs.")
         .Produces<ItemPreferencesResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPut("/{entityId:guid}/display-overrides", async (
@@ -144,7 +146,7 @@ public static class ItemCanonicalEndpoints
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
-                return Results.BadRequest("At least one display override is required.");
+                return ApiErrors.BadRequest("At least one display override is required.");
 
             var unsupportedKeys = request.Fields.Keys
                 .Where(key => !AllowedDisplayOverrideKeys.Contains(key.Trim()))
@@ -152,11 +154,11 @@ public static class ItemCanonicalEndpoints
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (unsupportedKeys.Count > 0)
-                return Results.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
+                return ApiErrors.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
 
             var displayOverrideState = await itemCanonicalData.LoadDisplayOverridesAsync(entityId, ct);
             if (!displayOverrideState.WorkExists)
-                return Results.NotFound($"No work found for {entityId}.");
+                return ApiErrors.NotFound($"No work found for {entityId}.");
 
             var current = displayOverrideState.Values;
             var updatedKeys = new List<string>();
@@ -179,10 +181,10 @@ public static class ItemCanonicalEndpoints
             }
 
             if (updatedKeys.Count == 0)
-                return Results.BadRequest("No valid display override fields were provided.");
+                return ApiErrors.BadRequest("No valid display override fields were provided.");
 
             if (!await itemCanonicalData.SaveDisplayOverridesAsync(entityId, current, ct))
-                return Results.NotFound($"No work found for {entityId}.");
+                return ApiErrors.NotFound($"No work found for {entityId}.");
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -205,8 +207,8 @@ public static class ItemCanonicalEndpoints
         .WithName("SaveItemDisplayOverrides")
         .WithSummary("Save presentation-only display overrides without changing canonical values.")
         .Produces<ItemDisplayOverridesResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/canonical-search", async (
@@ -218,20 +220,20 @@ public static class ItemCanonicalEndpoints
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var mediaType = ResolveMediaType(request.MediaType, context.MediaType);
             var policy = ResolveTargetPolicy(mediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
-                return Results.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{mediaType}'.");
+                return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{mediaType}'.");
 
             var draftFields = request.DraftFields
                 .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-            var query = BuildCanonicalQuery(policy, draftFields, request.QueryOverride);
+            var query = CanonicalCandidateBuilder.BuildCanonicalQuery(policy, draftFields, request.QueryOverride);
             if (string.IsNullOrWhiteSpace(query))
-                return Results.BadRequest("A search query or draft field values are required.");
+                return ApiErrors.BadRequest("A search query or draft field values are required.");
 
             var missingRequired = policy.RequiredFieldKeys
                 .Where(key => !draftFields.TryGetValue(key, out var value) || string.IsNullOrWhiteSpace(value))
@@ -259,7 +261,7 @@ public static class ItemCanonicalEndpoints
                     ct);
 
                 retailCandidates = retail.Candidates
-                    .Select(candidate => BuildRetailCandidate(candidate, mediaType, policy))
+                    .Select(candidate => CanonicalCandidateBuilder.BuildRetailCandidate(candidate, mediaType, policy))
                     .ToList();
             }
 
@@ -276,7 +278,7 @@ public static class ItemCanonicalEndpoints
                     ct);
 
                 linkedCandidates = universe.Candidates
-                    .Select(candidate => BuildLinkedCandidate(candidate, mediaType, policy))
+                    .Select(candidate => CanonicalCandidateBuilder.BuildLinkedCandidate(candidate, mediaType, policy))
                     .ToList();
             }
 
@@ -315,8 +317,8 @@ public static class ItemCanonicalEndpoints
         .WithName("SearchItemCanonicalCandidates")
         .WithSummary("Run a targeted canonical search for a specific item field group.")
         .Produces<ItemCanonicalSearchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/canonical-apply", async (
@@ -333,16 +335,17 @@ public static class ItemCanonicalEndpoints
             IHydrationPipelineService pipeline,
             TimelineRecorder timeline,
             IItemCanonicalDataService itemCanonicalData,
+            CanonicalCandidateBuilder candidateBuilder,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
-                return Results.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+                return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
 
             var now = DateTimeOffset.UtcNow;
             var selectedSuggested = request.AcceptedSuggestedKeys
@@ -354,7 +357,7 @@ public static class ItemCanonicalEndpoints
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
             if (selectedFields.Count == 0 && request.BridgeIds.Count == 0 && request.QidFields.Count == 0)
-                return Results.BadRequest("No canonical data was selected to apply.");
+                return ApiErrors.BadRequest("No canonical data was selected to apply.");
 
             var claims = new List<MetadataClaim>();
             var canonicals = new List<CanonicalValue>();
@@ -395,7 +398,7 @@ public static class ItemCanonicalEndpoints
             if (canonicals.Count > 0)
                 await canonicalRepo.UpsertBatchAsync(canonicals, ct);
 
-            var clearedIds = await ClearStaleIdsAsync(context.AssetId, lineage, policy, request, itemCanonicalData, ct);
+            var clearedIds = await candidateBuilder.ClearStaleIdsAsync(context.AssetId, lineage, policy, request, ct);
 
             if (request.BridgeIds.Count > 0)
             {
@@ -530,8 +533,8 @@ public static class ItemCanonicalEndpoints
         .WithName("ApplyItemCanonicalCandidate")
         .WithSummary("Apply a targeted canonical candidate and clear stale IDs for the same field group.")
         .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapGet("/{entityId:guid}/editor-preferences/{profileId:guid}", async (
@@ -562,10 +565,10 @@ public static class ItemCanonicalEndpoints
                 .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (unsupportedKeys.Count > 0)
-                return Results.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
+                return ApiErrors.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
 
             if (request.PersonalNotes?.Length > 4000)
-                return Results.BadRequest("Personal notes cannot exceed 4,000 characters.");
+                return ApiErrors.BadRequest("Personal notes cannot exceed 4,000 characters.");
 
             var localTags = request.LocalTags
                 .Select(tag => tag.Trim())
@@ -573,7 +576,7 @@ public static class ItemCanonicalEndpoints
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
             if (localTags.Count > 30 || localTags.Any(tag => tag.Length > 64))
-                return Results.BadRequest("Use at most 30 local tags, each no longer than 64 characters.");
+                return ApiErrors.BadRequest("Use at most 30 local tags, each no longer than 64 characters.");
 
             var result = await preferences.SaveAsync(new EditorPreferencesSaveCommand(
                 profileId,
@@ -586,13 +589,17 @@ public static class ItemCanonicalEndpoints
                 request.IncludeInRecommendations), ct);
 
             if (!result.WorkExists)
-                return Results.NotFound($"No work found for {entityId}.");
+                return ApiErrors.NotFound($"No work found for {entityId}.");
             if (!result.ProfileExists)
-                return Results.NotFound($"No profile found for {profileId}.");
+                return ApiErrors.NotFound($"No profile found for {profileId}.");
 
             var response = ToEditorPreferencesResponse(result.Preferences, result.DisplayOverrides);
             if (result.Conflict)
-                return Results.Conflict(response);
+                // Not a bare ad-hoc error: this returns the same typed ItemEditorPreferencesResponse
+                // body declared by .Produces<ItemEditorPreferencesResponse>(Status409Conflict) below,
+                // so it deliberately does not route through ApiErrors (which only emits a string
+                // "detail" problem+json body and would change this endpoint's documented 409 shape).
+                return Results.Json(response, statusCode: StatusCodes.Status409Conflict);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {
@@ -609,8 +616,8 @@ public static class ItemCanonicalEndpoints
         .WithSummary("Atomically saves presentation overrides and profile-owned library preferences.")
         .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status200OK)
         .Produces<ItemEditorPreferencesResponse>(StatusCodes.Status409Conflict)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/retail-match", async (
@@ -628,27 +635,28 @@ public static class ItemCanonicalEndpoints
             CoverArtWorker coverArtWorker,
             TimelineRecorder timeline,
             IItemCanonicalDataService itemCanonicalData,
+            CanonicalCandidateBuilder candidateBuilder,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             if (string.IsNullOrWhiteSpace(request.ProviderName) || string.IsNullOrWhiteSpace(request.ProviderItemId))
-                return Results.BadRequest("Provider name and provider item ID are required.");
+                return ApiErrors.BadRequest("Provider name and provider item ID are required.");
 
             if (!Guid.TryParse(request.ProviderId, out var providerId))
-                return Results.BadRequest("A valid provider ID is required for a retail replacement.");
+                return ApiErrors.BadRequest("A valid provider ID is required for a retail replacement.");
 
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
-                return Results.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+                return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
 
             var now = DateTimeOffset.UtcNow;
             var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
             if (lineage is null)
-                return Results.NotFound($"No work lineage found for {entityId}.");
+                return ApiErrors.NotFound($"No work lineage found for {entityId}.");
             var allowedFieldKeys = policy.RequiredFieldKeys
                 .Concat(policy.SuggestedFieldKeys)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -661,23 +669,21 @@ public static class ItemCanonicalEndpoints
                 .Where(key => !selectedFields.ContainsKey(key))
                 .ToList();
             if (missingRequiredFields.Count > 0)
-                return Results.BadRequest($"Retail match is missing required fields: {string.Join(", ", missingRequiredFields)}.");
+                return ApiErrors.BadRequest($"Retail match is missing required fields: {string.Join(", ", missingRequiredFields)}.");
 
             var selectedBridgeIds = request.BridgeIds
                 .Where(kv => policy.BridgeIdKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase)
                              && !string.IsNullOrWhiteSpace(kv.Value))
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-            var parentConflict = await FindChildParentIdentityConflictAsync(
+            var parentConflict = await candidateBuilder.FindChildParentIdentityConflictAsync(
                 policy,
                 lineage,
                 selectedFields,
                 selectedBridgeIds,
-                canonicalRepo,
-                bridgeIdRepo,
                 ct);
             if (!string.IsNullOrWhiteSpace(parentConflict))
-                return Results.Conflict(parentConflict);
+                return ApiErrors.Conflict(parentConflict);
 
             var staleBridgeKeys = policy.BridgeIdKeys
                 .Where(key => !selectedBridgeIds.ContainsKey(key))
@@ -957,8 +963,8 @@ public static class ItemCanonicalEndpoints
         .WithName("ReplaceItemRetailMatch")
         .WithSummary("Replace or confirm the item retail/provider match.")
         .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapPost("/{entityId:guid}/wikidata-match", async (
@@ -977,15 +983,15 @@ public static class ItemCanonicalEndpoints
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
             if (context is null)
-                return Results.NotFound($"No current media asset or work target found for {entityId}.");
+                return ApiErrors.NotFound($"No current media asset or work target found for {entityId}.");
 
             var action = (request.Action ?? "replace").Trim().ToLowerInvariant();
             var policy = ResolveTargetPolicy(context.MediaType, request.TargetKind, request.TargetFieldGroup);
             if (policy is null)
-                return Results.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
+                return ApiErrors.BadRequest($"Unsupported target field group '{request.TargetFieldGroup}' for media type '{context.MediaType}'.");
             var lineage = await workRepo.GetLineageByAssetAsync(context.AssetId, ct);
             if (lineage is null)
-                return Results.NotFound($"No work lineage found for {entityId}.");
+                return ApiErrors.NotFound($"No work lineage found for {entityId}.");
             var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
             var now = DateTimeOffset.UtcNow;
             var fieldsApplied = 0;
@@ -1002,7 +1008,7 @@ public static class ItemCanonicalEndpoints
             if (action == "replace")
             {
                 if (string.IsNullOrWhiteSpace(request.Qid))
-                    return Results.BadRequest("QID is required when replacing a Wikidata match.");
+                    return ApiErrors.BadRequest("QID is required when replacing a Wikidata match.");
 
                 var qid = request.Qid.Trim();
                 await claimRepo.InsertBatchAsync([new MetadataClaim
@@ -1062,7 +1068,7 @@ public static class ItemCanonicalEndpoints
             }
             else
             {
-                return Results.BadRequest("Unsupported Wikidata match action.");
+                return ApiErrors.BadRequest("Unsupported Wikidata match action.");
             }
 
             if (request.ReviewItemId is { } reviewItemId)
@@ -1101,14 +1107,14 @@ public static class ItemCanonicalEndpoints
         .WithName("ReplaceItemWikidataMatch")
         .WithSummary("Replace, clear, reject, or mark missing the item Wikidata identity.")
         .Produces<ItemCanonicalApplyResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         return app;
     }
 
-    private sealed record CanonicalTargetPolicy(
+    internal sealed record CanonicalTargetPolicy(
         string MediaType,
         string TargetKind,
         string TargetFieldGroup,
@@ -1229,360 +1235,6 @@ public static class ItemCanonicalEndpoints
             _ => null,
         };
 
-    private static string BuildCanonicalQuery(CanonicalTargetPolicy policy, IReadOnlyDictionary<string, string> draftFields, string? queryOverride)
-    {
-        if (!string.IsNullOrWhiteSpace(queryOverride))
-            return queryOverride.Trim();
-
-        return string.Join(" ", policy.QueryFieldKeys
-            .Where(draftFields.ContainsKey)
-            .Select(key => draftFields[key].Trim())
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase));
-    }
-
-    private static ItemCanonicalRetailCandidate BuildRetailCandidate(
-        Domain.Models.RetailCandidate candidate,
-        string mediaType,
-        CanonicalTargetPolicy policy)
-    {
-        var allFields = BuildRetailFieldBag(candidate, mediaType, policy.TargetFieldGroup);
-        var allowContainerTitleAliases = IsContainerIdentityPolicy(policy);
-        var requiredFields = ExtractFields(allFields, policy.RequiredFieldKeys, allowContainerTitleAliases);
-        var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys, allowContainerTitleAliases);
-        var bridgeIds = ExtractFields(allFields, policy.BridgeIdKeys);
-        var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
-
-        return new ItemCanonicalRetailCandidate
-        {
-            CandidateId = $"{candidate.ProviderName}:{candidate.ProviderItemId ?? candidate.Title}",
-            ProviderId = candidate.ProviderId,
-            ProviderName = candidate.ProviderName,
-            ProviderItemId = candidate.ProviderItemId,
-            Title = candidate.Title,
-            Year = candidate.Year,
-            Author = candidate.Author,
-            Director = candidate.Director,
-            Description = candidate.Description,
-            CoverUrl = candidate.CoverUrl,
-            Confidence = candidate.Confidence,
-            CompositeScore = candidate.CompositeScore,
-            ExtraFields = candidate.ExtraFields?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
-                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-            LinkState = "provider_only",
-            LinkStatusLabel = "Linked to provider only",
-            IsApplicable = missingRequired.Count == 0,
-            BlockedReason = missingRequired.Count == 0 ? null : $"Missing required anchors: {string.Join(", ", missingRequired)}.",
-            RequiredFields = requiredFields,
-            SuggestedFields = suggestedFields,
-            BridgeIds = bridgeIds,
-            QidFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-        };
-    }
-
-    private static ItemCanonicalLinkedCandidate BuildLinkedCandidate(
-        Domain.Models.UniverseCandidate candidate,
-        string mediaType,
-        CanonicalTargetPolicy policy)
-    {
-        var allFields = BuildUniverseFieldBag(candidate, mediaType, policy.TargetFieldGroup);
-        var requiredFields = ExtractFields(allFields, policy.RequiredFieldKeys);
-        var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys);
-        var qidFields = policy.QidFieldKeys.ToDictionary(key => key, _ => candidate.Qid, StringComparer.OrdinalIgnoreCase);
-        var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
-
-        return new ItemCanonicalLinkedCandidate
-        {
-            CandidateId = $"wikidata:{candidate.Qid}",
-            Qid = candidate.Qid,
-            Label = candidate.Label,
-            Description = candidate.Description,
-            InstanceOf = candidate.InstanceOf,
-            Year = candidate.Year,
-            Author = candidate.Author,
-            Director = candidate.Director,
-            CoverUrl = candidate.CoverUrl,
-            WikipediaExtract = candidate.WikipediaExtract,
-            ResolutionTier = candidate.ResolutionTier,
-            Confidence = candidate.Confidence,
-            BridgeIds = candidate.BridgeIds?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
-                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-            MediaTypeMetadata = candidate.MediaTypeMetadata?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
-                ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
-            LinkState = "linked",
-            LinkStatusLabel = "Linked to Wikidata",
-            IsApplicable = missingRequired.Count == 0,
-            BlockedReason = missingRequired.Count == 0 ? null : $"Missing required anchors: {string.Join(", ", missingRequired)}.",
-            RequiredFields = requiredFields,
-            SuggestedFields = suggestedFields,
-            QidFields = qidFields,
-        };
-    }
-
-    private static Dictionary<string, string> BuildRetailFieldBag(Domain.Models.RetailCandidate candidate, string mediaType, string targetFieldGroup)
-    {
-        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(candidate.Title))
-            fields[MetadataFieldConstants.Title] = candidate.Title;
-        if (!string.IsNullOrWhiteSpace(candidate.Author))
-        {
-            fields[MetadataFieldConstants.Author] = candidate.Author;
-            fields.TryAdd(MetadataFieldConstants.Artist, candidate.Author);
-        }
-        if (!string.IsNullOrWhiteSpace(candidate.Director))
-            fields[MetadataFieldConstants.Director] = candidate.Director;
-        if (!string.IsNullOrWhiteSpace(candidate.Description))
-            fields[MetadataFieldConstants.Description] = candidate.Description;
-        if (!string.IsNullOrWhiteSpace(candidate.Year))
-            fields[MetadataFieldConstants.Year] = candidate.Year;
-        if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
-            fields[MetadataFieldConstants.CoverUrl] = candidate.CoverUrl;
-        if (!string.IsNullOrWhiteSpace(candidate.ProviderItemId))
-            fields["provider_item_id"] = candidate.ProviderItemId;
-
-        foreach (var (key, value) in candidate.ExtraFields ?? new Dictionary<string, string>())
-        {
-            if (!string.IsNullOrWhiteSpace(value))
-                fields[key] = value;
-        }
-
-        if (!string.IsNullOrWhiteSpace(candidate.ProviderItemId))
-        {
-            var guessedBridgeId = GuessBridgeIdKey(candidate.ProviderName, mediaType, targetFieldGroup);
-            if (!string.IsNullOrWhiteSpace(guessedBridgeId))
-                fields.TryAdd(guessedBridgeId, candidate.ProviderItemId!);
-        }
-
-        return fields;
-    }
-
-    private static Dictionary<string, string> BuildUniverseFieldBag(Domain.Models.UniverseCandidate candidate, string mediaType, string targetFieldGroup)
-    {
-        var fields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        if (!string.IsNullOrWhiteSpace(candidate.Label))
-            fields[MetadataFieldConstants.Title] = candidate.Label;
-        if (!string.IsNullOrWhiteSpace(candidate.Author))
-        {
-            fields[MetadataFieldConstants.Author] = candidate.Author;
-            fields.TryAdd(MetadataFieldConstants.Artist, candidate.Author);
-        }
-        if (!string.IsNullOrWhiteSpace(candidate.Director))
-            fields[MetadataFieldConstants.Director] = candidate.Director;
-        if (!string.IsNullOrWhiteSpace(candidate.Description))
-            fields[MetadataFieldConstants.Description] = candidate.Description;
-        if (!string.IsNullOrWhiteSpace(candidate.Year))
-            fields[MetadataFieldConstants.Year] = candidate.Year;
-        if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
-            fields[MetadataFieldConstants.CoverUrl] = candidate.CoverUrl;
-
-        foreach (var (key, value) in candidate.MediaTypeMetadata ?? new Dictionary<string, string>())
-        {
-            if (!string.IsNullOrWhiteSpace(value))
-                fields[key] = value;
-        }
-
-        switch (targetFieldGroup)
-        {
-            case "album":
-                fields[MetadataFieldConstants.Album] = candidate.Label;
-                break;
-            case "artist":
-                fields[MetadataFieldConstants.Artist] = candidate.Label;
-                break;
-            case "narrator":
-                fields[MetadataFieldConstants.Narrator] = candidate.Label;
-                break;
-            case "series":
-                fields[MetadataFieldConstants.Series] = candidate.Label;
-                break;
-            case "show":
-                fields[MetadataFieldConstants.ShowName] = candidate.Label;
-                break;
-            case "show_episode":
-                fields.TryAdd(MetadataFieldConstants.EpisodeTitle, candidate.Label);
-                break;
-            case "movie_identity":
-            case "book_identity":
-            case "audiobook_identity":
-            case "issue":
-                fields[MetadataFieldConstants.Title] = candidate.Label;
-                break;
-        }
-
-        if (string.Equals(mediaType, MediaType.Music.ToString(), StringComparison.OrdinalIgnoreCase)
-            && fields.TryGetValue(MetadataFieldConstants.Author, out var creator))
-        {
-            fields.TryAdd(MetadataFieldConstants.Artist, creator);
-        }
-
-        return fields;
-    }
-
-    private static Dictionary<string, string> ExtractFields(
-        IReadOnlyDictionary<string, string> source,
-        IEnumerable<string> keys,
-        bool allowContainerTitleAliases = true)
-    {
-        var output = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var key in keys)
-        {
-            if (TryResolveFieldValue(source, key, allowContainerTitleAliases, out var value))
-                output[key] = value;
-        }
-
-        return output;
-    }
-
-    private static bool TryResolveFieldValue(
-        IReadOnlyDictionary<string, string> source,
-        string key,
-        bool allowContainerTitleAliases,
-        out string value)
-    {
-        if (source.TryGetValue(key, out value!) && !string.IsNullOrWhiteSpace(value))
-            return true;
-
-        var aliases = key switch
-        {
-            MetadataFieldConstants.Artist => [MetadataFieldConstants.Author],
-            MetadataFieldConstants.Author => [MetadataFieldConstants.Artist],
-            MetadataFieldConstants.Album when allowContainerTitleAliases => [MetadataFieldConstants.Title],
-            MetadataFieldConstants.Series when allowContainerTitleAliases => [MetadataFieldConstants.Title],
-            MetadataFieldConstants.ShowName when allowContainerTitleAliases => [MetadataFieldConstants.Title],
-            _ => Array.Empty<string>(),
-        };
-
-        foreach (var alias in aliases)
-        {
-            if (source.TryGetValue(alias, out value!) && !string.IsNullOrWhiteSpace(value))
-                return true;
-        }
-
-        value = string.Empty;
-        return false;
-    }
-
-    private static string? GuessBridgeIdKey(string providerName, string mediaType, string targetFieldGroup)
-    {
-        var normalized = providerName?.Trim().ToLowerInvariant() ?? "";
-        if (normalized.Contains("comic"))
-            return BridgeIdKeys.ComicVineId;
-        if (normalized.Contains("tmdb"))
-            return string.Equals(mediaType, MediaType.TV.ToString(), StringComparison.OrdinalIgnoreCase)
-                   && string.Equals(targetFieldGroup, "show_episode", StringComparison.OrdinalIgnoreCase)
-                ? BridgeIdKeys.TmdbEpisodeId
-                : BridgeIdKeys.TmdbId;
-        if (normalized.Contains("imdb"))
-            return BridgeIdKeys.ImdbId;
-        if (normalized.Contains("audible"))
-            return BridgeIdKeys.AudibleId;
-        if (normalized.Contains("apple_books"))
-            return BridgeIdKeys.AppleBooksId;
-        if (normalized.Contains("open_library"))
-            return BridgeIdKeys.OpenLibraryId;
-        if (normalized.Contains("apple_music"))
-        {
-            return targetFieldGroup switch
-            {
-                "artist" => BridgeIdKeys.AppleArtistId,
-                "album" => BridgeIdKeys.AppleMusicCollectionId,
-                _ => BridgeIdKeys.AppleMusicId,
-            };
-        }
-
-        return mediaType switch
-        {
-            "Music" when targetFieldGroup == "album" => BridgeIdKeys.AppleMusicCollectionId,
-            "Music" when targetFieldGroup == "artist" => BridgeIdKeys.AppleArtistId,
-            _ => null,
-        };
-    }
-
-    private static async Task<IReadOnlyList<string>> ClearStaleIdsAsync(
-        Guid assetId,
-        WorkLineage? lineage,
-        CanonicalTargetPolicy policy,
-        ItemCanonicalApplyRequest request,
-        IItemCanonicalDataService itemCanonicalData,
-        CancellationToken ct)
-    {
-        var retainedIdKeys = request.BridgeIds.Keys
-            .Concat(request.QidFields.Keys)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var groupIdKeys = policy.BridgeIdKeys.Concat(policy.QidFieldKeys).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
-        var toClear = groupIdKeys.Where(key => !retainedIdKeys.Contains(key)).ToList();
-
-        if (toClear.Count > 0)
-        {
-            var artifacts = toClear
-                .Select(key => new ItemCanonicalIdentityArtifact(
-                    ResolveScopedTarget(assetId, lineage, key),
-                    key))
-                .ToList();
-            await itemCanonicalData.DeleteIdentityArtifactsAsync(artifacts, ct);
-        }
-
-        return toClear;
-    }
-
-    private static async Task<string?> FindChildParentIdentityConflictAsync(
-        CanonicalTargetPolicy policy,
-        WorkLineage lineage,
-        IReadOnlyDictionary<string, string> selectedFields,
-        IReadOnlyDictionary<string, string> selectedBridgeIds,
-        ICanonicalValueRepository canonicalRepo,
-        IBridgeIdRepository bridgeIdRepo,
-        CancellationToken ct)
-    {
-        if (lineage.TargetForSelfScope == lineage.TargetForParentScope)
-            return null;
-
-        string? parentField = policy.TargetFieldGroup switch
-        {
-            "show_episode" => MetadataFieldConstants.ShowName,
-            "track" => MetadataFieldConstants.Album,
-            _ => null,
-        };
-        if (string.IsNullOrWhiteSpace(parentField))
-            return null;
-
-        var parentCanonicals = await canonicalRepo.GetByEntityAsync(lineage.TargetForParentScope, ct);
-        var currentParentName = parentCanonicals
-            .FirstOrDefault(value => string.Equals(value.Key, parentField, StringComparison.OrdinalIgnoreCase))?.Value
-            ?? parentCanonicals.FirstOrDefault(value =>
-                string.Equals(value.Key, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
-
-        if (selectedFields.TryGetValue(parentField, out var selectedParentName)
-            && !string.IsNullOrWhiteSpace(currentParentName)
-            && !IdentityTextEquals(currentParentName, selectedParentName))
-        {
-            var childLabel = policy.TargetFieldGroup == "show_episode" ? "episode" : "track";
-            var parentLabel = policy.TargetFieldGroup == "show_episode" ? "series" : "album";
-            return $"This {childLabel} match belongs to '{selectedParentName}', not the current {parentLabel} '{currentParentName}'. Move the {childLabel} from the Details panel before applying this identity match.";
-        }
-
-        if (policy.TargetFieldGroup == "show_episode"
-            && selectedBridgeIds.TryGetValue(BridgeIdKeys.TmdbId, out var selectedShowId))
-        {
-            var existingShowId = await bridgeIdRepo.FindAsync(lineage.TargetForParentScope, BridgeIdKeys.TmdbId, ct);
-            if (existingShowId is not null
-                && !string.Equals(existingShowId.IdValue, selectedShowId, StringComparison.OrdinalIgnoreCase))
-            {
-                return "This episode match resolves to a different TMDB series. Move the episode from the Details panel before applying the episode identity.";
-            }
-        }
-
-        return null;
-    }
-
-    private static bool IdentityTextEquals(string left, string right)
-    {
-        static string Normalize(string value) =>
-            new(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
-
-        return string.Equals(Normalize(left), Normalize(right), StringComparison.Ordinal);
-    }
-
     private static Guid ResolvePolicyIdentityTarget(
         Guid assetId,
         WorkLineage lineage,
@@ -1608,7 +1260,7 @@ public static class ItemCanonicalEndpoints
             ? lineage.TargetForParentScope
             : lineage.TargetForSelfScope;
 
-    private static bool IsContainerIdentityPolicy(CanonicalTargetPolicy policy) =>
+    internal static bool IsContainerIdentityPolicy(CanonicalTargetPolicy policy) =>
         string.Equals(policy.TargetKind, "container", StringComparison.OrdinalIgnoreCase);
 
     private static bool SupportsImmediateRetailArtworkReplacement(CanonicalTargetPolicy policy) =>
@@ -1649,7 +1301,7 @@ public static class ItemCanonicalEndpoints
         }
     }
 
-    private static Guid ResolveScopedTarget(Guid assetId, WorkLineage? lineage, string key)
+    internal static Guid ResolveScopedTarget(Guid assetId, WorkLineage? lineage, string key)
     {
         if (lineage is null)
             return assetId;

@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
@@ -50,7 +51,7 @@ public static class AdminEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Label))
-                return Results.BadRequest("label must not be empty.");
+                return ApiErrors.BadRequest("label must not be empty.");
 
             var role = request.Role ?? "Administrator";
             var (key, plaintext) = await svc.GenerateAsync(request.Label, role, ct);
@@ -74,7 +75,7 @@ public static class AdminEndpoints
         .WithName("CreateApiKey")
         .WithSummary("Generate a new API key. The key value is shown only in this response.")
         .Produces<CreateApiKeyResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin()
         .RequireRateLimiting("key_generation");
 
@@ -93,12 +94,12 @@ public static class AdminEndpoints
 
             return deleted
                 ? Results.NoContent()
-                : Results.NotFound($"API key '{id}' not found.");
+                : ApiErrors.NotFound($"API key '{id}' not found.");
         })
         .WithName("RevokeApiKey")
         .WithSummary("Revoke an API key. Existing sessions using this key will immediately receive 401.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         // Revoke ALL keys — no route parameter distinguishes this from single revoke.
@@ -144,11 +145,11 @@ public static class AdminEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Value))
-                return Results.BadRequest("value must not be empty.");
+                return ApiErrors.BadRequest("value must not be empty.");
 
             // Guard: reject the masked sentinel — the caller must provide the real value.
             if (request.Value == "********")
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     "Cannot store '********'. Provide the actual plaintext value.");
 
             await configRepo.UpsertAsync(
@@ -159,7 +160,7 @@ public static class AdminEndpoints
         .WithName("UpsertProviderConfig")
         .WithSummary("Set a provider configuration value. Secret values are encrypted before storage.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         group.MapDelete("/provider-configs/{providerId}/{configKey}", async (

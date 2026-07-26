@@ -1,6 +1,8 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -64,7 +66,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             if (!File.Exists(asset.FilePathRoot))
                 return Results.Problem(
@@ -107,7 +109,7 @@ public static class StreamEndpoints
         .WithSummary("Stream a media asset with HTTP 206 byte-range support.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status206PartialContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole()
         .RequireRateLimiting("streaming");
 
@@ -121,13 +123,13 @@ public static class StreamEndpoints
         {
             var variant = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (variant is null)
-                return Results.NotFound($"Artwork variant '{variantId}' not found.");
+                return ApiErrors.NotFound($"Artwork variant '{variantId}' not found.");
 
             var hasRequestedSize = !string.IsNullOrWhiteSpace(size);
             var normalizedSize = NormalizeArtworkSize(size);
             if (hasRequestedSize && normalizedSize is null)
             {
-                return Results.BadRequest("Artwork size must be one of 's', 'm', or 'l'.");
+                return ApiErrors.BadRequest("Artwork size must be one of 's', 'm', or 'l'.");
             }
 
             if (normalizedSize is not null)
@@ -173,7 +175,7 @@ public static class StreamEndpoints
         .WithSummary("Serve artwork by variant id.")
         .Produces(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status302Found)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/entity/{entityType}/{entityId:guid}/cover", async (
@@ -185,7 +187,7 @@ public static class StreamEndpoints
             CancellationToken ct) =>
         {
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedEntityType))
-                return Results.BadRequest($"Unsupported detail entity type '{entityType}'.");
+                return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
 
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "CoverArt", ct)
                 ?? await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "SquareArt", ct);
@@ -234,7 +236,7 @@ public static class StreamEndpoints
         .WithName("GetEntityCover")
         .WithSummary("Serve the same managed or canonical cover artwork used by a detail page.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/cover", async (
@@ -246,7 +248,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
@@ -261,7 +263,7 @@ public static class StreamEndpoints
         .WithName("GetAssetCover")
         .WithSummary("Serve the preferred centrally-managed cover artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
         // NOTE: No rate limit — cover art is small, cacheable, and loaded in bulk on
         // Home/category pages (dozens per reload). The streaming policy (100/min) is
@@ -275,7 +277,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var tracks = await textTrackRepo.GetByAssetAsync(assetId, null, ct);
             return Results.Ok(tracks.Select(t => new TextTrackDto(
@@ -298,7 +300,7 @@ public static class StreamEndpoints
         .WithName("GetAssetTextTracks")
         .WithSummary("List lyrics and subtitle tracks available for a media asset.")
         .Produces<IReadOnlyList<TextTrackDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/lyrics", async (
@@ -308,7 +310,7 @@ public static class StreamEndpoints
         {
             var track = await textTrackRepo.GetPreferredAsync(assetId, TextTrackKind.Lyrics, null, ct);
             if (track is null || string.IsNullOrWhiteSpace(track.LocalPath) || !File.Exists(track.LocalPath))
-                return Results.NotFound("No synced lyrics found for this asset.");
+                return ApiErrors.NotFound("No synced lyrics found for this asset.");
 
             var bytes = await File.ReadAllBytesAsync(track.LocalPath, ct);
             return Results.File(bytes, "text/plain; charset=utf-8", Path.GetFileName(track.LocalPath));
@@ -316,7 +318,7 @@ public static class StreamEndpoints
         .WithName("GetAssetLyrics")
         .WithSummary("Serve the preferred synchronized lyrics for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/subtitles", async (
@@ -327,7 +329,7 @@ public static class StreamEndpoints
         {
             var track = await textTrackRepo.GetPreferredAsync(assetId, TextTrackKind.Subtitles, language, ct);
             if (track is null || string.IsNullOrWhiteSpace(track.LocalPath) || !File.Exists(track.LocalPath))
-                return Results.NotFound("No subtitles found for this asset.");
+                return ApiErrors.NotFound("No subtitles found for this asset.");
 
             var bytes = await File.ReadAllBytesAsync(track.LocalPath, ct);
             return Results.File(bytes, "text/vtt; charset=utf-8", Path.GetFileName(track.LocalPath));
@@ -335,7 +337,7 @@ public static class StreamEndpoints
         .WithName("GetAssetSubtitles")
         .WithSummary("Serve the preferred normalized WebVTT subtitles for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPost("/{assetId:guid}/text-tracks/refresh", async (
@@ -347,13 +349,13 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var type = string.Equals(kind, "subtitles", StringComparison.OrdinalIgnoreCase)
                 ? EnrichmentType.Subtitles
                 : EnrichmentType.TimedLyrics;
             await enrichmentService.RunSingleEnrichmentAsync(assetId, string.Empty, type, ct);
-            return Results.Ok(new
+            return Results.Ok(new RefreshTextTracksResponse
             {
                 asset_id = assetId,
                 enrichment_type = type.ToString(),
@@ -362,8 +364,8 @@ public static class StreamEndpoints
         })
         .WithName("RefreshAssetTextTracks")
         .WithSummary("Manually refresh timed lyrics or subtitles for a media asset.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<RefreshTextTracksResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/cover-thumb", async (
@@ -375,7 +377,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "CoverArt", ct);
@@ -391,7 +393,7 @@ public static class StreamEndpoints
         .WithName("GetAssetCoverThumb")
         .WithSummary("Serve the centrally-managed derived cover thumbnail for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
         // NOTE: No rate limit — thumbnails are loaded in bulk on Home/category pages.
         // The 100/min streaming cap was causing 429s on page reloads with many swimlanes.
@@ -405,7 +407,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Banner", ct);
@@ -421,7 +423,7 @@ public static class StreamEndpoints
         .WithName("GetAssetBanner")
         .WithSummary("Serve uploaded banner artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/square", async (
@@ -433,7 +435,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "SquareArt", ct);
@@ -449,7 +451,7 @@ public static class StreamEndpoints
         .WithName("GetAssetSquareArt")
         .WithSummary("Serve uploaded square artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/background", async (
@@ -461,7 +463,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Background", ct);
@@ -477,7 +479,7 @@ public static class StreamEndpoints
         .WithName("GetAssetBackground")
         .WithSummary("Serve uploaded background artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/logo", async (
@@ -489,7 +491,7 @@ public static class StreamEndpoints
         {
             var asset = await assetRepo.FindByIdAsync(assetId, ct);
             if (asset is null)
-                return Results.NotFound($"Asset '{assetId}' not found.");
+                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
 
             var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
             var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Logo", ct);
@@ -505,7 +507,7 @@ public static class StreamEndpoints
         .WithName("GetAssetLogo")
         .WithSummary("Serve uploaded logo artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         return app;

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
@@ -93,12 +94,14 @@ public static class ActivityEndpoints
             CancellationToken ct) =>
         {
             var detail = await readService.GetItemDetailAsync(batchId, assetId, ct);
-            return detail is null ? Results.NotFound() : Results.Ok(detail);
+            return detail is null
+                ? ApiErrors.NotFound($"No item found for batch '{batchId}' and asset '{assetId}'.")
+                : Results.Ok(detail);
         })
         .WithName("GetActivityBatchItemDetail")
         .WithSummary("Returns timeline, file details, people, and provenance for one batch item.")
         .Produces<ActivityBatchItemDetailDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         group.MapGet("/people", async (
@@ -201,7 +204,7 @@ public static class ActivityEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (days < 1 || days > 365)
-                return Results.BadRequest("Retention must be between 1 and 365 days.");
+                return ApiErrors.BadRequest("Retention must be between 1 and 365 days.");
 
             var maintenance = configLoader.LoadMaintenance();
             maintenance.ActivityRetentionDays = days;
@@ -216,7 +219,7 @@ public static class ActivityEndpoints
         .WithName("UpdateActivityRetention")
         .WithSummary("Updates the activity retention period in days.")
         .Produces<ActivityStatsResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
         // GET /activity/by-types?types=BatchCreated,BatchCompleted&limit=50

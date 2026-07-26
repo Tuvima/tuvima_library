@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
@@ -35,7 +36,7 @@ public static class OperationsEndpoints
         {
             var operation = await repository.GetByIdAsync(id, ct);
             if (operation is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Media operation '{id}' not found.");
 
             var timeline = await events.GetByOperationAsync(id, ct);
             return Results.Ok(new OperationDetailDto(
@@ -63,7 +64,7 @@ public static class OperationsEndpoints
             CancellationToken ct) =>
         {
             if (await repository.GetByIdAsync(id, ct) is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Media operation '{id}' not found.");
 
             await repository.RequeueAsync(id, ct);
             return Results.Accepted($"/operations/{id}");
@@ -78,7 +79,7 @@ public static class OperationsEndpoints
             CancellationToken ct) =>
         {
             if (await repository.GetByIdAsync(id, ct) is null)
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Media operation '{id}' not found.");
 
             await repository.MarkCancelledAsync(id, "Cancelled by user.", ct);
             return Results.Accepted($"/operations/{id}");

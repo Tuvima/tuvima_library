@@ -1,5 +1,7 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -21,21 +23,20 @@ public static class MaintenanceEndpoints
         // the Dashboard can render the confirmation card.
         app.MapGet("/maintenance/retag-sweep/state", (WritebackConfigState hashState) =>
         {
-            return Results.Ok(new
-            {
-                has_pending_diff = hashState.HasPendingDiff,
-                pending_diff     = hashState.PendingDiff.Select(d => new
-                {
-                    media_type     = d.MediaType,
-                    added_fields   = d.AddedFields,
-                    removed_fields = d.RemovedFields,
-                }).ToArray(),
-                current_hashes = hashState.CurrentHashes,
-            });
+            return Results.Ok(new RetagSweepStateResponse(
+                has_pending_diff: hashState.HasPendingDiff,
+                pending_diff: hashState.PendingDiff
+                    .Select(d => new RetagSweepPendingDiffEntry(
+                        media_type: d.MediaType,
+                        added_fields: d.AddedFields,
+                        removed_fields: d.RemovedFields))
+                    .ToArray(),
+                current_hashes: hashState.CurrentHashes));
         })
         .WithTags("Maintenance")
         .WithName("GetRetagSweepState")
         .WithSummary("Returns the pending writeback-fields.json diff and current per-media-type hashes.")
+        .Produces<RetagSweepStateResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // ── POST /maintenance/retag-sweep/apply ───────────────────────────
@@ -43,11 +44,12 @@ public static class MaintenanceEndpoints
         app.MapPost("/maintenance/retag-sweep/apply", (WritebackConfigState hashState) =>
         {
             hashState.ApplyPending();
-            return Results.Ok(new { applied = true });
+            return Results.Ok(new RetagSweepAppliedResponse(applied: true));
         })
         .WithTags("Maintenance")
         .WithName("ApplyRetagSweepPending")
         .WithSummary("Commits the staged writeback field diff so the sweep becomes eligible.")
+        .Produces<RetagSweepAppliedResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /maintenance/retag-sweep/run-now ─────────────────────────
@@ -57,11 +59,12 @@ public static class MaintenanceEndpoints
         app.MapPost("/maintenance/retag-sweep/run-now", (WritebackConfigState hashState) =>
         {
             hashState.SignalRunNow();
-            return Results.Ok(new { triggered = true });
+            return Results.Ok(new RetagSweepTriggeredResponse(triggered: true));
         })
         .WithTags("Maintenance")
         .WithName("RunRetagSweepNow")
         .WithSummary("Wakes the retag sweep worker immediately for an out-of-band pass.")
+        .Produces<RetagSweepTriggeredResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /maintenance/retag-sweep/retry/{assetId} ─────────────────
@@ -86,11 +89,12 @@ public static class MaintenanceEndpoints
                 await reviewRepo.UpdateStatusAsync(entry.Id, ReviewStatus.Resolved, "manual retry", ct);
             }
 
-            return Results.Ok(new { requeued = true });
+            return Results.Ok(new RetagSweepRetryResponse(requeued: true));
         })
         .WithTags("Maintenance")
         .WithName("RetryRetagForAsset")
         .WithSummary("Clears the terminal re-tag failure flag on a single asset so the worker retries it.")
+        .Produces<RetagSweepRetryResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /maintenance/initial-sweep/run ───────────────────────────
@@ -104,13 +108,13 @@ public static class MaintenanceEndpoints
         {
             return commands.TrySchedule()
                 ? Results.Accepted(value: new { started = true })
-                : Results.Conflict(new { started = false, reason = "An initial sweep is already queued or running." });
+                : ApiErrors.Conflict("An initial sweep is already queued or running.");
         })
         .WithTags("Maintenance")
         .WithName("RunInitialSweep")
         .WithSummary("Runs the SHA-256 initial sweep across every configured library source path.")
         .Produces(StatusCodes.Status202Accepted)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAdmin();
 
         app.MapPost("/maintenance/storage/run", async (

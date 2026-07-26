@@ -1,5 +1,7 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Characters;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 
@@ -38,7 +40,7 @@ public static class CharacterEndpoints
             var portrait = await portraitRepo.FindByIdAsync(portraitId, ct);
             if (portrait is null)
             {
-                return Results.NotFound($"Portrait '{portraitId}' not found.");
+                return ApiErrors.NotFound($"Portrait '{portraitId}' not found.");
             }
 
             if (!string.IsNullOrWhiteSpace(portrait.LocalImagePath) && File.Exists(portrait.LocalImagePath))
@@ -51,20 +53,20 @@ public static class CharacterEndpoints
                 || !Uri.TryCreate(portrait.ImageUrl, UriKind.Absolute, out var imageUri)
                 || (imageUri.Scheme != Uri.UriSchemeHttp && imageUri.Scheme != Uri.UriSchemeHttps))
             {
-                return Results.NotFound("Portrait image source not found.");
+                return ApiErrors.NotFound("Portrait image source not found.");
             }
 
             using var client = httpFactory.CreateClient("cover_download");
             using var response = await client.GetAsync(imageUri, ct);
             if (!response.IsSuccessStatusCode)
             {
-                return Results.NotFound("Portrait image source could not be retrieved.");
+                return ApiErrors.NotFound("Portrait image source could not be retrieved.");
             }
 
             var bytesFromSource = await response.Content.ReadAsByteArrayAsync(ct);
             if (bytesFromSource.Length == 0)
             {
-                return Results.NotFound("Portrait image source was empty.");
+                return ApiErrors.NotFound("Portrait image source was empty.");
             }
 
             var localPath = string.IsNullOrWhiteSpace(portrait.LocalImagePath)
@@ -97,24 +99,23 @@ public static class CharacterEndpoints
             var portraits = await portraitRepo.GetByCharacterAsync(fictionalEntityId, ct);
             var entity = await entityRepo.FindByIdAsync(fictionalEntityId, ct);
 
-            var result = new List<object>(portraits.Count);
+            var result = new List<CharacterPortraitDto>(portraits.Count);
             foreach (var p in portraits)
             {
                 var person = await personRepo.FindByIdAsync(p.PersonId, ct);
-                result.Add(new
-                {
-                    id = p.Id,
-                    person_id = p.PersonId,
-                    person_name = person?.Name,
-                    fictional_entity_id = p.FictionalEntityId,
-                    character_name = entity?.Label,
-                    image_url = ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl),
-                    is_default = p.IsDefault,
-                });
+                result.Add(new CharacterPortraitDto(
+                    id: p.Id,
+                    person_id: p.PersonId,
+                    person_name: person?.Name,
+                    fictional_entity_id: p.FictionalEntityId,
+                    character_name: entity?.Label,
+                    image_url: ApiImageUrls.BuildCharacterPortraitUrl(p.Id, p.LocalImagePath, p.ImageUrl),
+                    is_default: p.IsDefault));
             }
 
             return Results.Ok(result);
-        });
+        })
+        .Produces<List<CharacterPortraitDto>>(StatusCodes.Status200OK);
 
         // PUT /library/characters/{fictionalEntityId}/portraits/{portraitId}/default
         // Sets a portrait as the default for its character.
@@ -129,12 +130,13 @@ public static class CharacterEndpoints
             var match = portraits.FirstOrDefault(p => p.Id == portraitId);
             if (match is null)
             {
-                return Results.NotFound($"Portrait '{portraitId}' not found for character '{fictionalEntityId}'.");
+                return ApiErrors.NotFound($"Portrait '{portraitId}' not found for character '{fictionalEntityId}'.");
             }
 
             await portraitRepo.SetDefaultAsync(portraitId, ct);
-            return Results.Ok(new { portrait_id = portraitId, is_default = true });
+            return Results.Ok(new SetDefaultPortraitResponse(portrait_id: portraitId, is_default: true));
         })
+        .Produces<SetDefaultPortraitResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // GET /library/persons/{personId}/character-roles
@@ -148,7 +150,7 @@ public static class CharacterEndpoints
             var person = await personRepo.FindByIdAsync(personId, ct);
             if (person is null)
             {
-                return Results.NotFound($"Person '{personId}' not found.");
+                return ApiErrors.NotFound($"Person '{personId}' not found.");
             }
 
             var result = await personCreditReadService.GetCharacterRolesAsync(personId, ct);
@@ -172,7 +174,7 @@ public static class CharacterEndpoints
             var portraitsByChar = allPortraits.GroupBy(p => p.FictionalEntityId)
                                               .ToDictionary(g => g.Key, g => g.ToList());
 
-            var result = new List<object>(characters.Count);
+            var result = new List<UniverseCharacterSummaryDto>(characters.Count);
             foreach (var character in characters)
             {
                 portraitsByChar.TryGetValue(character.Id, out var charPortraits);
@@ -186,24 +188,23 @@ public static class CharacterEndpoints
                     actorName = actor?.Name;
                 }
 
-                result.Add(new
-                {
-                    fictional_entity_id = character.Id,
-                    character_name = character.Label,
-                    default_actor_name = actorName,
-                    default_actor_id = defaultPortrait?.PersonId,
-                    portrait_url = defaultPortrait is null
+                result.Add(new UniverseCharacterSummaryDto(
+                    fictional_entity_id: character.Id,
+                    character_name: character.Label,
+                    default_actor_name: actorName,
+                    default_actor_id: defaultPortrait?.PersonId,
+                    portrait_url: defaultPortrait is null
                         ? null
                         : ApiImageUrls.BuildCharacterPortraitUrl(
                             defaultPortrait.Id,
                             defaultPortrait.LocalImagePath,
                             defaultPortrait.ImageUrl),
-                    actor_count = charPortraits?.Count ?? 0,
-                });
+                    actor_count: charPortraits?.Count ?? 0));
             }
 
             return Results.Ok(result);
-        });
+        })
+        .Produces<List<UniverseCharacterSummaryDto>>(StatusCodes.Status200OK);
 
         // GET /library/assets/{entityId}
         // Returns all entity assets, grouped by type.
@@ -213,17 +214,16 @@ public static class CharacterEndpoints
             CancellationToken ct) =>
         {
             var assets = await assetRepo.GetByEntityAsync(entityId, null, ct);
-            var result = assets.Select(a => new
-            {
-                id = a.Id,
-                entity_id = a.EntityId,
-                asset_type = a.AssetTypeValue,
-                image_url = a.ImageUrl,
-                is_preferred = a.IsPreferred,
-                source_provider = a.SourceProvider,
-            });
+            var result = assets.Select(a => new EntityAssetSummaryDto(
+                id: a.Id,
+                entity_id: a.EntityId,
+                asset_type: a.AssetTypeValue,
+                image_url: a.ImageUrl,
+                is_preferred: a.IsPreferred,
+                source_provider: a.SourceProvider));
             return Results.Ok(result);
-        });
+        })
+        .Produces<IEnumerable<EntityAssetSummaryDto>>(StatusCodes.Status200OK);
 
         // POST /library/enrichment/universe/trigger
         // Manually trigger Stage 3 universe enrichment on the next cycle.
@@ -247,8 +247,9 @@ public static class CharacterEndpoints
                 },
             }, ct);
 
-            return Results.Ok(new { triggered = true, message = "Universe enrichment sweep queued." });
+            return Results.Ok(new UniverseEnrichmentTriggerResponse(triggered: true, message: "Universe enrichment sweep queued."));
         })
+        .Produces<UniverseEnrichmentTriggerResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;

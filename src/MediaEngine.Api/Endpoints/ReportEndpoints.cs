@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -21,7 +22,7 @@ public static class ReportEndpoints
             ISystemActivityRepository activityRepo) =>
         {
             if (request.EntityId == Guid.Empty)
-                return Results.BadRequest("entity_id is required.");
+                return ApiErrors.BadRequest("entity_id is required.");
 
             var changesJson = JsonSerializer.Serialize(new
             {
@@ -51,7 +52,7 @@ public static class ReportEndpoints
         .WithName("SubmitReport")
         .WithSummary("Submits a user problem report on a media item.")
         .Produces<SubmitReportResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // GET /reports/entity/{entityId} — get all reports for a specific item.

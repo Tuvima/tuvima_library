@@ -11,7 +11,7 @@ public sealed class ProfileEndpointRouteTests
         Assert.Contains("GetProfileOverview", source, StringComparison.Ordinal);
         Assert.Contains("IProfileOverviewReadService overviewReadService", source, StringComparison.Ordinal);
         Assert.Contains("overviewReadService.GetOverviewAsync(id, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("Results.NotFound($\"Profile '{id}' not found.\")", source, StringComparison.Ordinal);
+        Assert.Contains("ApiErrors.NotFound($\"Profile '{id}' not found.\")", source, StringComparison.Ordinal);
         Assert.DoesNotContain("IDatabaseConnection", source, StringComparison.Ordinal);
         Assert.DoesNotContain("FROM user_states us", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetSystemStatus", source, StringComparison.Ordinal);

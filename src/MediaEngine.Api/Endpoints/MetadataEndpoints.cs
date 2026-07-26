@@ -2,10 +2,13 @@ using System.Text.Json.Nodes;
 using System.Text.Json;
 using System.Globalization;
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -84,11 +87,11 @@ public static partial class MetadataEndpoints
             ct.ThrowIfCancellationRequested();
 
             if (string.IsNullOrWhiteSpace(request.ClaimKey))
-                return Results.BadRequest("claim_key must not be empty.");
+                return ApiErrors.BadRequest("claim_key must not be empty.");
             if (string.IsNullOrWhiteSpace(request.ChosenValue))
-                return Results.BadRequest("chosen_value must not be empty.");
+                return ApiErrors.BadRequest("chosen_value must not be empty.");
             if (!UserLockableFields.Contains(request.ClaimKey))
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     $"Field '{request.ClaimKey}' cannot be user-locked. " +
                     $"Only these fields accept user locks: {string.Join(", ", UserLockableFields)}. " +
                     "Structured metadata (title, author, year, etc.) is resolved by the provider hierarchy.");
@@ -143,7 +146,7 @@ public static partial class MetadataEndpoints
         .WithName("LockClaim")
         .WithSummary("Create a user-locked metadata claim and update the canonical value. Used by the Curator's Drawer.")
         .Produces<LockClaimResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // -- POST /metadata/hydrate/{entityId} -----------------------------
@@ -215,17 +218,17 @@ public static partial class MetadataEndpoints
             var searchLogger = loggerFactory.CreateLogger("MetadataSearch");
 
             if (string.IsNullOrWhiteSpace(request.ProviderName))
-                return Results.BadRequest("provider_name is required.");
+                return ApiErrors.BadRequest("provider_name is required.");
 
             if (string.IsNullOrWhiteSpace(request.Query))
-                return Results.BadRequest("query is required.");
+                return ApiErrors.BadRequest("query is required.");
 
             // Find the named provider.
             var provider = providers.FirstOrDefault(
                 p => string.Equals(p.Name, request.ProviderName, StringComparison.OrdinalIgnoreCase));
 
             if (provider is null)
-                return Results.NotFound($"Provider '{request.ProviderName}' not found.");
+                return ApiErrors.NotFound($"Provider '{request.ProviderName}' not found.");
 
             // Parse media type.
             var mediaType = Domain.Enums.MediaType.Unknown;
@@ -278,8 +281,8 @@ public static partial class MetadataEndpoints
         .WithName("SearchMetadata")
         .WithSummary("Search an external metadata provider for multiple result candidates. Admin or Curator.")
         .Produces<MetadataSearchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- PUT /metadata/{entityId}/override ----------------------------
@@ -294,7 +297,7 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
-                return Results.BadRequest("At least one field override is required.");
+                return ApiErrors.BadRequest("At least one field override is required.");
 
             var now = DateTimeOffset.UtcNow;
             var updatedKeys = new List<string>();
@@ -307,7 +310,7 @@ public static partial class MetadataEndpoints
                 .Where(k => !string.IsNullOrWhiteSpace(k) && !UserLockableFields.Contains(k))
                 .ToList();
             if (rejectedKeys.Count > 0)
-                return Results.BadRequest(
+                return ApiErrors.BadRequest(
                     $"Fields cannot be user-locked: {string.Join(", ", rejectedKeys)}. " +
                     $"Only these fields accept user locks: {string.Join(", ", UserLockableFields)}. " +
                     "Structured metadata (title, author, year, etc.) is resolved by the provider hierarchy.");
@@ -348,7 +351,7 @@ public static partial class MetadataEndpoints
                 await canonicalRepo.UpsertBatchAsync(canonicals, ct);
 
             if (updatedKeys.Count == 0)
-                return Results.BadRequest("No valid field overrides provided.");
+                return ApiErrors.BadRequest("No valid field overrides provided.");
 
             // 3. Log to activity ledger.
             await activityRepo.LogAsync(new SystemActivityEntry
@@ -386,7 +389,7 @@ public static partial class MetadataEndpoints
         .WithName("OverrideMetadata")
         .WithSummary("Manually override metadata fields for an entity. Creates user-locked claims at confidence 1.0.")
         .Produces<MetadataOverrideResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // -- POST /metadata/{entityId}/reclassify ------------------------------
@@ -403,13 +406,13 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.MediaType))
-                return Results.BadRequest("media_type is required.");
+                return ApiErrors.BadRequest("media_type is required.");
 
             // Validate the media type string parses to a known MediaType enum value.
             if (!Enum.TryParse<Domain.Enums.MediaType>(request.MediaType, ignoreCase: true, out var newMediaType)
                 || newMediaType == Domain.Enums.MediaType.Unknown)
             {
-                return Results.BadRequest($"Invalid media type: {request.MediaType}");
+                return ApiErrors.BadRequest($"Invalid media type: {request.MediaType}");
             }
 
             var now = DateTimeOffset.UtcNow;
@@ -516,7 +519,7 @@ public static partial class MetadataEndpoints
         .WithName("ReclassifyMediaType")
         .WithSummary("Reclassify a media asset to a different media type. Creates a user-locked claim and re-triggers hydration.")
         .Produces<ReclassifyResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // -- GET /metadata/{entityId}/editor-context -------------------------
@@ -529,7 +532,7 @@ public static partial class MetadataEndpoints
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
-                return Results.NotFound($"Editor context for {entityId} not found.");
+                return ApiErrors.NotFound($"Editor context for {entityId} not found.");
 
             return Results.Ok(new MediaEditorContextEnvelope(
                 context.LaunchEntityId,
@@ -570,7 +573,7 @@ public static partial class MetadataEndpoints
         .WithName("GetMediaEditorContext")
         .WithSummary("Resolve scope-aware edit panel context for a launch entity.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         MapMediaEditorNavigatorEndpoints(group);
@@ -581,26 +584,26 @@ public static partial class MetadataEndpoints
             string scopeId,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IEntityAssetRepository entityAssetRepo,
             IMetadataEndpointDataService metadataData,
+            ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
-                return Results.NotFound($"Editor context for {entityId} not found.");
+                return ApiErrors.NotFound($"Editor context for {entityId} not found.");
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
-                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+                return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
 
-            var artwork = await BuildScopedArtworkEnvelopeAsync(scope, entityAssetRepo, canonicalRepo, libraryItemRepo, ct);
+            var artwork = await artworkScopeService.BuildScopedArtworkEnvelopeAsync(scope, ct);
             return Results.Ok(artwork);
         })
         .WithName("GetScopedArtworkEditor")
         .WithSummary("Return grouped artwork variants for one editor scope.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // -- POST /metadata/{entityId}/artwork/{scopeId}/refresh-provider ---
@@ -609,30 +612,30 @@ public static partial class MetadataEndpoints
             string scopeId,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IWorkRepository workRepo,
             IImageEnrichmentService imageEnrichment,
             IMetadataEndpointDataService metadataData,
+            ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
-                return Results.NotFound($"Editor context for {entityId} not found.");
+                return ApiErrors.NotFound($"Editor context for {entityId} not found.");
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
-                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+                return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
 
-            if (!IsProviderArtworkRefreshSupported(scope))
+            if (!ArtworkScopeService.IsProviderArtworkRefreshSupported(scope))
             {
-                return Results.Ok(CreateProviderArtworkRefreshEnvelope(
+                return Results.Ok(ArtworkScopeService.CreateProviderArtworkRefreshEnvelope(
                     status: "Skipped",
                     skippedReason: "unsupported_scope",
                     message: "Provider artwork refresh is available for movie and TV artwork scopes.",
                     mediaType: scope.MediaType));
             }
 
-            var target = await ResolveProviderArtworkRefreshTargetAsync(scope, canonicalRepo, workRepo, metadataData, ct);
+            var target = await artworkScopeService.ResolveProviderArtworkRefreshTargetAsync(scope, ct);
             if (target.Skipped is not null)
                 return Results.Ok(target.Skipped);
 
@@ -641,12 +644,12 @@ public static partial class MetadataEndpoints
                 target.WorkQid!,
                 ct);
 
-            return Results.Ok(MapProviderArtworkRefreshResult(result));
+            return Results.Ok(ArtworkScopeService.MapProviderArtworkRefreshResult(result));
         })
         .WithName("RefreshScopedProviderArtwork")
         .WithSummary("Refresh provider artwork for one editor scope without rerunning full identity matching.")
         .Produces<ProviderArtworkRefreshEnvelope>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- GET /metadata/{entityId}/artwork --------------------------------
@@ -672,10 +675,10 @@ public static partial class MetadataEndpoints
             }
 
             var canonicalSources = new List<Guid>();
-            AddCanonicalSource(canonicalSources, context.WorkId);
-            AddCanonicalSource(canonicalSources, context.RootWorkId);
-            AddCanonicalSource(canonicalSources, context.PrimaryAssetId);
-            AddCanonicalSource(canonicalSources, context.RootPrimaryAssetId);
+            ArtworkScopeService.AddCanonicalSource(canonicalSources, context.WorkId);
+            ArtworkScopeService.AddCanonicalSource(canonicalSources, context.RootWorkId);
+            ArtworkScopeService.AddCanonicalSource(canonicalSources, context.PrimaryAssetId);
+            ArtworkScopeService.AddCanonicalSource(canonicalSources, context.RootPrimaryAssetId);
 
             var canonicals = new List<CanonicalValue>();
             foreach (var sourceId in canonicalSources)
@@ -696,18 +699,18 @@ public static partial class MetadataEndpoints
             {
                 var variants = assets
                     .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
-                    .GroupBy(BuildArtworkVariantIdentity, StringComparer.OrdinalIgnoreCase)
+                    .GroupBy(ArtworkScopeService.BuildArtworkVariantIdentity, StringComparer.OrdinalIgnoreCase)
                     .Select(group => group
                         .OrderByDescending(asset => asset.IsPreferred)
                         .ThenByDescending(asset => asset.CreatedAt)
                         .First())
                     .OrderByDescending(asset => asset.IsPreferred)
                     .ThenByDescending(asset => asset.CreatedAt)
-                    .Select(MapArtworkVariant)
+                    .Select(ArtworkScopeService.MapArtworkVariant)
                     .ToList();
 
-                var preferredUrl = GetArtworkCanonicalValue(canonicals, assetType)
-                                   ?? GetArtworkDetailUrl(detail, assetType);
+                var preferredUrl = ArtworkScopeService.GetArtworkCanonicalValue(canonicals, assetType)
+                                   ?? ArtworkScopeService.GetArtworkDetailUrl(detail, assetType);
 
                 if (!string.IsNullOrWhiteSpace(preferredUrl)
                     && !variants.Any(variant => string.Equals(variant.ImageUrl, preferredUrl, StringComparison.OrdinalIgnoreCase)))
@@ -717,7 +720,7 @@ public static partial class MetadataEndpoints
                         assetType,
                         preferredUrl,
                         true,
-                        InferSyntheticArtworkOrigin(canonicals, assetType, detail?.ArtworkSource),
+                        ArtworkScopeService.InferSyntheticArtworkOrigin(canonicals, assetType, detail?.ArtworkSource),
                         ProviderName: null,
                         CanDelete: false,
                         CreatedAt: null));
@@ -736,12 +739,11 @@ public static partial class MetadataEndpoints
         // -- POST /metadata/{entityId}/cover ---------------------------------
         group.MapPost("/{entityId:guid}/cover", async (
             Guid entityId,
-            ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ISystemActivityRepository activityRepo,
             IMetadataEndpointDataService metadataData,
-            AssetPathService assetPathService,
+            ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -749,25 +751,24 @@ public static partial class MetadataEndpoints
             var coverLogger = loggerFactory.CreateLogger("CoverUpload");
 
             if (!httpRequest.HasFormContentType)
-                return Results.BadRequest("Expected multipart form data.");
+                return ApiErrors.BadRequest("Expected multipart form data.");
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
-                return Results.BadRequest("No file provided.");
+                return ApiErrors.BadRequest("No file provided.");
 
             var normalizedAssetType = "CoverArt";
-            if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
-                return Results.BadRequest("Only JPEG and PNG images are accepted.");
+            if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+                return ApiErrors.BadRequest("Only JPEG and PNG images are accepted.");
 
             var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var targetEntityId = context.RootWorkId ?? context.WorkId;
             if (targetEntityId is null || targetEntityId == Guid.Empty)
-                return Results.NotFound($"Asset {entityId} not found.");
+                return ApiErrors.NotFound($"Asset {entityId} not found.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(
-                assetPathService,
+            var localPath = artworkScopeService.BuildArtworkUploadPath(
                 "Work",
                 targetEntityId.Value,
                 normalizedAssetType,
@@ -802,7 +803,7 @@ public static partial class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await artworkScopeService.SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, ct);
             await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
             coverLogger.LogInformation("Cover uploaded for {EntityId} ? {Path}", entityId, localPath);
@@ -815,19 +816,17 @@ public static partial class MetadataEndpoints
                 Detail     = "Cover art uploaded manually",
             }, ct);
 
-            return Results.Ok(new
-            {
-                entity_id = entityId,
-                asset_type = normalizedAssetType,
-                variant_id = storedAsset.Id,
-                image_url = storedAsset.ImageUrl,
-            });
+            return Results.Ok(new ArtworkUploadResponse(
+                entityId,
+                normalizedAssetType,
+                storedAsset.Id,
+                storedAsset.ImageUrl));
         })
         .WithName("UploadCover")
         .WithSummary("Upload cover art for a media asset.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
@@ -841,47 +840,47 @@ public static partial class MetadataEndpoints
             IAssetExportService assetExportService,
             ILibraryItemRepository libraryItemRepo,
             IMetadataEndpointDataService metadataData,
-            AssetPathService assetPathService,
+            ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
         {
-            var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
+            var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return Results.BadRequest("Artwork type is not supported for scoped upload.");
+                return ApiErrors.BadRequest("Artwork type is not supported for scoped upload.");
 
             if (!httpRequest.HasFormContentType)
-                return Results.BadRequest("Expected multipart form data.");
+                return ApiErrors.BadRequest("Expected multipart form data.");
 
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
-                return Results.NotFound($"Editor context for {entityId} not found.");
+                return ApiErrors.NotFound($"Editor context for {entityId} not found.");
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
-                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+                return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
 
             if (!scope.CanEditArtwork || scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
-                return Results.BadRequest($"Scope '{scope.Label}' does not accept artwork uploads.");
+                return ApiErrors.BadRequest($"Scope '{scope.Label}' does not accept artwork uploads.");
 
-            var allowedSlots = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
+            var allowedSlots = ArtworkScopeService.GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
             if (!allowedSlots.Contains(normalizedAssetType, StringComparer.OrdinalIgnoreCase))
-                return Results.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
+                return ApiErrors.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
-                return Results.BadRequest("No file provided.");
+                return ApiErrors.BadRequest("No file provided.");
 
-            if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
-                return Results.BadRequest(normalizedAssetType == "Logo"
+            if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+                return ApiErrors.BadRequest(normalizedAssetType == "Logo"
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildScopedArtworkUploadPath(assetPathService, scope, normalizedAssetType, variantId, file.ContentType);
+            var localPath = artworkScopeService.BuildScopedArtworkUploadPath(scope, normalizedAssetType, variantId, file.ContentType);
             if (string.IsNullOrWhiteSpace(localPath))
-                return Results.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
+                return ApiErrors.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
 
             AssetPathService.EnsureDirectory(localPath);
             await using (var stream = file.OpenReadStream())
@@ -911,24 +910,22 @@ public static partial class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await artworkScopeService.SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, ct);
             await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
-            return Results.Ok(new
-            {
-                entity_id = entityId,
-                scope_id = scope.ScopeId,
-                owner_entity_id = scope.ArtworkOwnerEntityId,
-                asset_type = normalizedAssetType,
-                variant_id = storedAsset.Id,
-                image_url = storedAsset.ImageUrl,
-            });
+            return Results.Ok(new ScopedArtworkUploadResponse(
+                entityId,
+                scope.ScopeId,
+                scope.ArtworkOwnerEntityId,
+                normalizedAssetType,
+                storedAsset.Id,
+                storedAsset.ImageUrl));
         })
         .WithName("UploadScopedArtwork")
         .WithSummary("Upload a new artwork variant for a specific editor scope owner.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<ScopedArtworkUploadResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
@@ -943,52 +940,52 @@ public static partial class MetadataEndpoints
             IAssetExportService assetExportService,
             ILibraryItemRepository libraryItemRepo,
             IMetadataEndpointDataService metadataData,
-            AssetPathService assetPathService,
+            ArtworkScopeService artworkScopeService,
             IHttpClientFactory httpFactory,
             CancellationToken ct) =>
         {
-            var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
+            var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return Results.BadRequest("Artwork type is not supported for scoped download.");
+                return ApiErrors.BadRequest("Artwork type is not supported for scoped download.");
 
             if (string.IsNullOrWhiteSpace(request.ImageUrl))
-                return Results.BadRequest("image_url is required.");
+                return ApiErrors.BadRequest("image_url is required.");
 
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
             if (context is null)
-                return Results.NotFound($"Editor context for {entityId} not found.");
+                return ApiErrors.NotFound($"Editor context for {entityId} not found.");
 
             var scope = context.Scopes.FirstOrDefault(candidate =>
                 string.Equals(candidate.ScopeId, scopeId, StringComparison.OrdinalIgnoreCase));
             if (scope is null)
-                return Results.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
+                return ApiErrors.NotFound($"Scope '{scopeId}' was not found for {entityId}.");
 
             if (!scope.CanEditArtwork || scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
-                return Results.BadRequest($"Scope '{scope.Label}' does not accept artwork downloads.");
+                return ApiErrors.BadRequest($"Scope '{scope.Label}' does not accept artwork downloads.");
 
-            var allowedSlots = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
+            var allowedSlots = ArtworkScopeService.GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
             if (!allowedSlots.Contains(normalizedAssetType, StringComparer.OrdinalIgnoreCase))
-                return Results.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
+                return ApiErrors.BadRequest($"{normalizedAssetType} is not valid for the {scope.Label} scope.");
 
             using var client = httpFactory.CreateClient("cover_download");
             using var response = await client.GetAsync(request.ImageUrl, ct);
             if (!response.IsSuccessStatusCode)
-                return Results.BadRequest($"Failed to download image: {(int)response.StatusCode} {response.ReasonPhrase}");
+                return ApiErrors.BadRequest($"Failed to download image: {(int)response.StatusCode} {response.ReasonPhrase}");
 
             var imageBytes = await response.Content.ReadAsByteArrayAsync(ct);
             if (imageBytes.Length == 0)
-                return Results.BadRequest("Downloaded image is empty.");
+                return ApiErrors.BadRequest("Downloaded image is empty.");
 
             var contentType = response.Content.Headers.ContentType?.MediaType;
-            if (!IsArtworkUploadAllowed(contentType, normalizedAssetType))
-                return Results.BadRequest(normalizedAssetType == "Logo"
+            if (!ArtworkScopeService.IsArtworkUploadAllowed(contentType, normalizedAssetType))
+                return ApiErrors.BadRequest(normalizedAssetType == "Logo"
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildScopedArtworkUploadPath(assetPathService, scope, normalizedAssetType, variantId, contentType);
+            var localPath = artworkScopeService.BuildScopedArtworkUploadPath(scope, normalizedAssetType, variantId, contentType);
             if (string.IsNullOrWhiteSpace(localPath))
-                return Results.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
+                return ApiErrors.NotFound($"Could not resolve an artwork folder for the {scope.Label} scope.");
 
             AssetPathService.EnsureDirectory(localPath);
             await File.WriteAllBytesAsync(localPath, imageBytes, ct);
@@ -1014,63 +1011,59 @@ public static partial class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await artworkScopeService.SyncArtworkCanonicalAsync(scope.ArtworkOwnerEntityId.Value, normalizedAssetType, storedAsset, ct);
             await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
-            return Results.Ok(new
-            {
-                entity_id = entityId,
-                scope_id = scope.ScopeId,
-                owner_entity_id = scope.ArtworkOwnerEntityId,
-                asset_type = normalizedAssetType,
-                variant_id = storedAsset.Id,
-                image_url = storedAsset.ImageUrl,
-            });
+            return Results.Ok(new ScopedArtworkUploadResponse(
+                entityId,
+                scope.ScopeId,
+                scope.ArtworkOwnerEntityId,
+                normalizedAssetType,
+                storedAsset.Id,
+                storedAsset.ImageUrl));
         })
         .WithName("UploadScopedArtworkFromUrl")
         .WithSummary("Download a new artwork variant from a URL for a specific editor scope owner.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<ScopedArtworkUploadResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- POST /metadata/{entityId}/artwork/{assetType} -------------------
         group.MapPost("/{entityId:guid}/artwork/{assetType}", async (
             Guid entityId,
             string assetType,
-            ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             IMetadataEndpointDataService metadataData,
-            AssetPathService assetPathService,
+            ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
         {
-            var normalizedAssetType = NormalizeUploadedArtworkType(assetType);
+            var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return Results.BadRequest("Artwork type must be CoverArt, SquareArt, Background, Banner, or Logo.");
+                return ApiErrors.BadRequest("Artwork type must be CoverArt, SquareArt, Background, Banner, or Logo.");
 
             if (!httpRequest.HasFormContentType)
-                return Results.BadRequest("Expected multipart form data.");
+                return ApiErrors.BadRequest("Expected multipart form data.");
 
             var form = await httpRequest.ReadFormAsync(ct);
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
-                return Results.BadRequest("No file provided.");
+                return ApiErrors.BadRequest("No file provided.");
 
-            if (!IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
-                return Results.BadRequest(normalizedAssetType == "Logo"
+            if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedAssetType))
+                return ApiErrors.BadRequest(normalizedAssetType == "Logo"
                     ? "Logo uploads must be PNG images."
                     : "Only JPEG and PNG images are accepted.");
 
             var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
             var targetEntityId = context.RootWorkId ?? context.WorkId;
             if (targetEntityId is null || targetEntityId == Guid.Empty)
-                return Results.NotFound($"Asset {entityId} not found.");
+                return ApiErrors.NotFound($"Asset {entityId} not found.");
 
             var variantId = Guid.NewGuid();
-            var localPath = BuildArtworkUploadPath(
-                assetPathService,
+            var localPath = artworkScopeService.BuildArtworkUploadPath(
                 "Work",
                 targetEntityId.Value,
                 normalizedAssetType,
@@ -1105,22 +1098,20 @@ public static partial class MetadataEndpoints
 
             await entityAssetRepo.UpsertAsync(storedAsset, ct);
             await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-            await SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, canonicalRepo, entityAssetRepo, ct);
+            await artworkScopeService.SyncArtworkCanonicalAsync(targetEntityId.Value, normalizedAssetType, storedAsset, ct);
             await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
-            return Results.Ok(new
-            {
-                entity_id = entityId,
-                asset_type = normalizedAssetType,
-                variant_id = storedAsset.Id,
-                image_url = storedAsset.ImageUrl,
-            });
+            return Results.Ok(new ArtworkUploadResponse(
+                entityId,
+                normalizedAssetType,
+                storedAsset.Id,
+                storedAsset.ImageUrl));
         })
         .WithName("UploadEntityArtwork")
         .WithSummary("Upload a new artwork variant for a media asset.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator()
         .DisableAntiforgery();
 
@@ -1129,38 +1120,34 @@ public static partial class MetadataEndpoints
             Guid variantId,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            ICanonicalValueRepository canonicalRepo,
+            ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
         {
             var target = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (target is null)
-                return Results.NotFound($"Artwork variant {variantId} not found.");
+                return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
 
             await entityAssetRepo.SetPreferredAsync(variantId, ct);
             target = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (target is null)
-                return Results.NotFound($"Artwork variant {variantId} not found.");
+                return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
 
-            await SyncArtworkCanonicalAsync(
+            await artworkScopeService.SyncArtworkCanonicalAsync(
                 Guid.Parse(target.EntityId),
                 target.AssetTypeValue,
                 target,
-                canonicalRepo,
-                entityAssetRepo,
                 ct);
             await assetExportService.ReconcileArtworkAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
 
-            return Results.Ok(new
-            {
-                variant_id = variantId,
-                asset_type = target.AssetTypeValue,
-                image_url = target.ImageUrl,
-            });
+            return Results.Ok(new ArtworkVariantPreferredResponse(
+                variantId,
+                target.AssetTypeValue,
+                target.ImageUrl));
         })
         .WithName("SetPreferredArtwork")
         .WithSummary("Mark an artwork variant as preferred for its slot.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<ArtworkVariantPreferredResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- DELETE /metadata/artwork/{variantId} ----------------------------
@@ -1168,12 +1155,12 @@ public static partial class MetadataEndpoints
             Guid variantId,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            ICanonicalValueRepository canonicalRepo,
+            ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
         {
             var target = await entityAssetRepo.FindByIdAsync(variantId, ct);
             if (target is null)
-                return Results.NotFound($"Artwork variant {variantId} not found.");
+                return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
 
             var entityId = Guid.Parse(target.EntityId);
             var siblings = await entityAssetRepo.GetByEntityAsync(target.EntityId, target.AssetTypeValue, ct);
@@ -1209,23 +1196,21 @@ public static partial class MetadataEndpoints
                 nextPreferred = await entityAssetRepo.FindByIdAsync(nextPreferred.Id, ct);
             }
 
-            await SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, canonicalRepo, entityAssetRepo, ct);
+            await artworkScopeService.SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, ct);
             if (nextPreferred is not null)
                 await assetExportService.ReconcileArtworkAsync(nextPreferred.EntityId, nextPreferred.EntityType, nextPreferred.AssetTypeValue, ct);
             else
                 await assetExportService.ClearArtworkExportAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
 
-            return Results.Ok(new
-            {
-                variant_id = variantId,
-                asset_type = target.AssetTypeValue,
-                preferred_variant_id = nextPreferred?.Id,
-            });
+            return Results.Ok(new ArtworkVariantDeletedResponse(
+                variantId,
+                target.AssetTypeValue,
+                nextPreferred?.Id));
         })
         .WithName("DeleteArtworkVariant")
         .WithSummary("Delete an artwork variant from the item.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<ArtworkVariantDeletedResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- GET /metadata/wikidata-test ----------------------------------------
@@ -1246,7 +1231,7 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(isbn))
-                return Results.BadRequest(new { error = "Provide ?title= or ?isbn= query parameter." });
+                return ApiErrors.BadRequest("Provide ?title= or ?isbn= query parameter.");
 
             var provConfigs = configLoader.LoadAllProviders();
             var endpointMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -1330,7 +1315,7 @@ public static partial class MetadataEndpoints
             var searchLogger = loggerFactory.CreateLogger("MetadataFanOutSearch");
 
             if (string.IsNullOrWhiteSpace(request.Query))
-                return Results.BadRequest("query is required.");
+                return ApiErrors.BadRequest("query is required.");
 
             var mediaType = Domain.Enums.MediaType.Unknown;
             if (!string.IsNullOrEmpty(request.MediaType))
@@ -1432,7 +1417,7 @@ public static partial class MetadataEndpoints
         .WithName("SearchMetadataFanOut")
         .WithSummary("Fan-out search across all eligible providers. Admin or Curator.")
         .Produces<FanOutSearchResponse>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // -- GET /metadata/{entityId}/search-cache -------------------------
@@ -1442,13 +1427,13 @@ public static partial class MetadataEndpoints
         {
             var json = await cache.FindAsync(entityId, maxAgeDays: 30);
             return json is not null
-                ? Results.Ok(new { results_json = json })
-                : Results.NotFound();
+                ? Results.Ok(new SearchResultsCacheResponse(json))
+                : ApiErrors.NotFound($"No cached search results found for entity {entityId}.");
         })
         .WithName("GetSearchResultsCache")
         .WithSummary("Retrieve cached fan-out search results for an entity (30-day TTL)")
-        .Produces<object>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<SearchResultsCacheResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- PUT /metadata/{entityId}/search-cache -------------------------
@@ -1458,14 +1443,14 @@ public static partial class MetadataEndpoints
             ISearchResultsCacheRepository cache) =>
         {
             if (string.IsNullOrEmpty(body.ResultsJson))
-                return Results.BadRequest("results_json is required");
+                return ApiErrors.BadRequest("results_json is required");
             await cache.UpsertAsync(entityId, body.ResultsJson);
             return Results.NoContent();
         })
         .WithName("PutSearchResultsCache")
         .WithSummary("Cache fan-out search results for an entity")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
         // â"€â"€ GET /metadata/canonical/{entityId} â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -1497,7 +1482,7 @@ public static partial class MetadataEndpoints
             }
 
             if (canonicals.Count == 0)
-                return Results.NotFound($"No canonical values found for entity {entityId}.");
+                return ApiErrors.NotFound($"No canonical values found for entity {entityId}.");
 
             // Load claims to determine user-lock and conflict status per field.
             var allClaims = await claimRepo.GetByEntityAsync(resolvedId, ct);
@@ -1549,7 +1534,7 @@ public static partial class MetadataEndpoints
         .WithName("GetCanonicalValues")
         .WithSummary("Get all canonical values for an entity with provenance. Curator+.")
         .Produces<List<CanonicalFieldDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // â"€â"€ POST /metadata/{entityId}/cover-from-url â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
@@ -1562,10 +1547,10 @@ public static partial class MetadataEndpoints
             CoverFromUrlRequest request,
             IMediaAssetRepository assetRepo,
             IWorkRepository workRepo,
-            ICanonicalValueRepository canonicalRepo,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             AssetPathService assetPathService,
+            ArtworkScopeService artworkScopeService,
             IHttpClientFactory httpFactory,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -1573,11 +1558,11 @@ public static partial class MetadataEndpoints
             var logger = loggerFactory.CreateLogger("CoverFromUrl");
 
             if (string.IsNullOrWhiteSpace(request.ImageUrl))
-                return Results.BadRequest("image_url is required.");
+                return ApiErrors.BadRequest("image_url is required.");
 
             var asset = await assetRepo.FindByIdAsync(entityId, ct);
             if (asset is null)
-                return Results.NotFound($"Media asset {entityId} not found.");
+                return ApiErrors.NotFound($"Media asset {entityId} not found.");
 
             var lineage = await workRepo.GetLineageByAssetAsync(entityId, ct);
             var ownerEntityId = lineage?.TargetForParentScope ?? entityId;
@@ -1591,14 +1576,14 @@ public static partial class MetadataEndpoints
                 var imageBytes = await response.Content.ReadAsByteArrayAsync(ct);
 
                 if (imageBytes.Length == 0)
-                    return Results.BadRequest("Downloaded image is empty.");
+                    return ApiErrors.BadRequest("Downloaded image is empty.");
 
                 var contentType = response.Content.Headers.ContentType?.MediaType;
-                if (!IsArtworkUploadAllowed(contentType, "CoverArt"))
-                    return Results.BadRequest("Only JPEG and PNG images are accepted.");
+                if (!ArtworkScopeService.IsArtworkUploadAllowed(contentType, "CoverArt"))
+                    return ApiErrors.BadRequest("Only JPEG and PNG images are accepted.");
 
                 var variantId = Guid.NewGuid();
-                var coverPath = BuildArtworkUploadPath(assetPathService, "Work", ownerEntityId, "CoverArt", variantId, contentType);
+                var coverPath = artworkScopeService.BuildArtworkUploadPath("Work", ownerEntityId, "CoverArt", variantId, contentType);
                 AssetPathService.EnsureDirectory(coverPath);
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
@@ -1628,30 +1613,28 @@ public static partial class MetadataEndpoints
 
                 await entityAssetRepo.UpsertAsync(storedAsset, ct);
                 await entityAssetRepo.SetPreferredAsync(storedAsset.Id, ct);
-                await SyncArtworkCanonicalAsync(ownerEntityId, "CoverArt", storedAsset, canonicalRepo, entityAssetRepo, ct);
+                await artworkScopeService.SyncArtworkCanonicalAsync(ownerEntityId, "CoverArt", storedAsset, ct);
                 await assetExportService.ReconcileArtworkAsync(storedAsset.EntityId, storedAsset.EntityType, storedAsset.AssetTypeValue, ct);
 
-                return Results.Ok(new
-                {
-                    entity_id      = entityId,
-                    variant_id     = storedAsset.Id,
-                    cover_path     = coverPath,
-                    primary_hex    = storedAsset.PrimaryHex,
-                    secondary_hex  = storedAsset.SecondaryHex,
-                    accent_hex     = storedAsset.AccentHex,
-                });
+                return Results.Ok(new CoverFromUrlResponse(
+                    entityId,
+                    storedAsset.Id,
+                    coverPath,
+                    storedAsset.PrimaryHex,
+                    storedAsset.SecondaryHex,
+                    storedAsset.AccentHex));
             }
             catch (HttpRequestException ex)
             {
                 logger.LogWarning(ex, "Failed to download cover from URL for entity {Id}", entityId);
-                return Results.BadRequest($"Failed to download image: {ex.Message}");
+                return ApiErrors.BadRequest($"Failed to download image: {ex.Message}");
             }
         })
         .WithName("CoverFromUrl")
         .WithSummary("Download cover art from a URL and rebuild measured artwork metadata. Curator+.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .Produces<CoverFromUrlResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
         // -- POST /metadata/labels/resolve ---------------------------------
@@ -1692,17 +1675,17 @@ public static partial class MetadataEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(qid) || !qid.StartsWith("Q", StringComparison.OrdinalIgnoreCase))
-                return Results.BadRequest(new { error = "qid must be a valid Wikidata QID starting with 'Q'." });
+                return ApiErrors.BadRequest("qid must be a valid Wikidata QID starting with 'Q'.");
 
             if (reconciler is null)
-                return Results.Ok(new { qid, label = (string?)null, aliases = Array.Empty<string>() });
+                return Results.Ok(new WikidataAliasesResponse(qid, null, Array.Empty<string>()));
 
             try
             {
                 var entities = await reconciler.GetEntitiesAsync([qid], "en", ct);
 
                 if (!entities.TryGetValue(qid, out var entity))
-                    return Results.Ok(new { qid, label = (string?)null, aliases = Array.Empty<string>() });
+                    return Results.Ok(new WikidataAliasesResponse(qid, null, Array.Empty<string>()));
 
                 var resultLabel = entity.Label;
                 var resultAliases = (IReadOnlyList<string>)(entity.Aliases ?? []);
@@ -1740,22 +1723,20 @@ public static partial class MetadataEndpoints
                     }
                 }
 
-                return Results.Ok(new
-                {
+                return Results.Ok(new WikidataAliasesResponse(
                     qid,
-                    label   = resultLabel,
-                    aliases = resultAliases,
-                });
+                    resultLabel,
+                    resultAliases));
             }
             catch (Exception)
             {
-                return Results.Ok(new { qid, label = (string?)null, aliases = Array.Empty<string>() });
+                return Results.Ok(new WikidataAliasesResponse(qid, null, Array.Empty<string>()));
             }
         })
         .WithName("GetWikidataAliases")
         .WithSummary("Returns the Wikidata label and all aliases for a given QID.")
-        .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .Produces<WikidataAliasesResponse>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         return app;
@@ -1989,10 +1970,10 @@ public static partial class MetadataEndpoints
         var hasDistinctRoot = rootWorkId != Guid.Empty && rootWorkId != launch.WorkId;
         var launchWorkKind = launch.WorkKind.Trim().ToLowerInvariant();
         var isParentLaunch = string.Equals(launchWorkKind, "parent", StringComparison.OrdinalIgnoreCase);
-        var containerFolder = GetContainerFolderPath(launch.RepresentativeMediaFilePath);
-        var seriesFolder = GetSeriesFolderPath(launch.RepresentativeMediaFilePath);
-        var seasonFolder = GetSeasonFolderPath(launch.RepresentativeMediaFilePath);
-        var artistFolder = GetArtistFolderPath(launch.RepresentativeMediaFilePath);
+        var containerFolder = ArtworkScopeService.GetContainerFolderPath(launch.RepresentativeMediaFilePath);
+        var seriesFolder = ArtworkScopeService.GetSeriesFolderPath(launch.RepresentativeMediaFilePath);
+        var seasonFolder = ArtworkScopeService.GetSeasonFolderPath(launch.RepresentativeMediaFilePath);
+        var artistFolder = ArtworkScopeService.GetArtistFolderPath(launch.RepresentativeMediaFilePath);
 
         switch (mediaType)
         {
@@ -2209,278 +2190,6 @@ public static partial class MetadataEndpoints
         return scopes;
     }
 
-    private static async Task<ArtworkEditorEnvelope> BuildScopedArtworkEnvelopeAsync(
-        EditorScopeResolution scope,
-        IEntityAssetRepository entityAssetRepo,
-        ICanonicalValueRepository canonicalRepo,
-        ILibraryItemRepository libraryItemRepo,
-        CancellationToken ct)
-    {
-        var slotTypes = GetScopedArtworkSlots(scope.MediaType, scope.ScopeId);
-        if (scope.ArtworkOwnerEntityId is null || slotTypes.Count == 0)
-            return new ArtworkEditorEnvelope(scope.FieldEntityId, []);
-
-        var assets = await entityAssetRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value.ToString(), null, ct);
-        var canonicals = await canonicalRepo.GetByEntityAsync(scope.ArtworkOwnerEntityId.Value, ct);
-        var detail = string.Equals(scope.ArtworkOwnerEntityKind, "Work", StringComparison.OrdinalIgnoreCase)
-            ? await libraryItemRepo.GetDetailAsync(scope.ArtworkOwnerEntityId.Value, ct)
-            : null;
-
-        var payload = slotTypes.Select(assetType =>
-        {
-            var variants = assets
-                .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
-                .GroupBy(BuildArtworkVariantIdentity, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group
-                    .OrderByDescending(asset => asset.IsPreferred)
-                    .ThenByDescending(asset => asset.CreatedAt)
-                    .First())
-                .OrderByDescending(asset => asset.IsPreferred)
-                .ThenByDescending(asset => asset.CreatedAt)
-                .Select(MapArtworkVariant)
-                .ToList();
-
-            var preferredUrl = GetArtworkCanonicalValue(canonicals, assetType)
-                               ?? GetArtworkDetailUrl(detail, assetType);
-
-            if (!string.IsNullOrWhiteSpace(preferredUrl)
-                && !variants.Any(variant => string.Equals(variant.ImageUrl, preferredUrl, StringComparison.OrdinalIgnoreCase)))
-            {
-                variants.Insert(0, new ArtworkVariantEnvelope(
-                    Guid.Empty,
-                    assetType,
-                    preferredUrl,
-                    true,
-                    InferSyntheticArtworkOrigin(canonicals, assetType, detail?.ArtworkSource),
-                    ProviderName: null,
-                    CanDelete: false,
-                    CreatedAt: null));
-            }
-
-            return new ArtworkSlotEnvelope(assetType, variants);
-        }).ToList();
-
-        return new ArtworkEditorEnvelope(scope.ArtworkOwnerEntityId.Value, payload);
-    }
-
-    private static IReadOnlyList<string> GetScopedArtworkSlots(string mediaType, string scopeId) =>
-        (NormalizeEditorMediaType(mediaType), scopeId) switch
-        {
-            ("TV", "series") =>
-            [
-                "CoverArt",
-                "SquareArt",
-                "Background",
-                "Banner",
-                "Logo",
-                "ClearArt",
-            ],
-            ("TV", "season") =>
-            [
-                "SeasonPoster",
-                "SeasonThumb",
-            ],
-            ("Movies", "item") =>
-            [
-                "CoverArt",
-                "SquareArt",
-                "Background",
-                "Banner",
-                "Logo",
-                "DiscArt",
-                "ClearArt",
-            ],
-            ("TV", "episode") =>
-            [
-                "EpisodeStill",
-            ],
-            ("Music", "album") =>
-            [
-                "CoverArt",
-                "SquareArt",
-                "DiscArt",
-                "ClearArt",
-            ],
-            ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
-            [
-                "CoverArt",
-                "SquareArt",
-                "Background",
-            ],
-            _ => [],
-        };
-
-    private static bool IsProviderArtworkRefreshSupported(EditorScopeResolution scope) =>
-        (NormalizeEditorMediaType(scope.MediaType), scope.ScopeId) is
-            ("Movies", "item")
-            or ("TV", "series")
-            or ("TV", "season")
-            or ("TV", "episode");
-
-    private static async Task<ProviderArtworkRefreshTarget> ResolveProviderArtworkRefreshTargetAsync(
-        EditorScopeResolution scope,
-        ICanonicalValueRepository canonicalRepo,
-        IWorkRepository workRepo,
-        IMetadataEndpointDataService metadataData,
-        CancellationToken ct)
-    {
-        var representativeAssetId = await metadataData.ResolveRepresentativeAssetAsync(
-            [scope.FieldEntityId, scope.ArtworkOwnerEntityId ?? Guid.Empty],
-            ct);
-        if (representativeAssetId is null)
-        {
-            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
-                status: "Skipped",
-                skippedReason: "missing_representative_asset",
-                message: "No owned media file was found for this artwork scope.",
-                mediaType: scope.MediaType));
-        }
-
-        var lineage = await workRepo.GetLineageByAssetAsync(representativeAssetId.Value, ct);
-        var qidCandidateIds = new List<Guid>();
-        if (lineage is not null && NormalizeEditorMediaType(scope.MediaType) == "TV")
-            AddCanonicalSource(qidCandidateIds, lineage.TargetForParentScope);
-        AddCanonicalSource(qidCandidateIds, scope.ArtworkOwnerEntityId);
-        AddCanonicalSource(qidCandidateIds, scope.FieldEntityId);
-        if (lineage is not null)
-            AddCanonicalSource(qidCandidateIds, lineage.TargetForSelfScope);
-        AddCanonicalSource(qidCandidateIds, representativeAssetId.Value);
-
-        var canonicalLookup = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        string? qid = null;
-        foreach (var candidateId in qidCandidateIds.Distinct())
-        {
-            foreach (var canonical in await canonicalRepo.GetByEntityAsync(candidateId, ct))
-            {
-                if (!string.IsNullOrWhiteSpace(canonical.Key)
-                    && !string.IsNullOrWhiteSpace(canonical.Value)
-                    && !canonicalLookup.ContainsKey(canonical.Key))
-                {
-                    canonicalLookup[canonical.Key] = canonical.Value;
-                }
-
-                if (qid is null
-                    && string.Equals(canonical.Key, "wikidata_qid", StringComparison.OrdinalIgnoreCase))
-                {
-                    qid = NormalizeWikidataQid(canonical.Value);
-                }
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(qid))
-        {
-            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
-                status: "Skipped",
-                skippedReason: "missing_qid",
-                message: "This item needs a confirmed Wikidata QID before provider artwork can be refreshed.",
-                mediaType: scope.MediaType));
-        }
-
-        var bridge = ResolveProviderArtworkBridge(canonicalLookup, scope.MediaType);
-        if (bridge is null)
-        {
-            return ProviderArtworkRefreshTarget.Skip(CreateProviderArtworkRefreshEnvelope(
-                status: "Skipped",
-                skippedReason: "missing_bridge_id",
-                message: "This item needs a provider bridge ID before Fanart.tv artwork can be refreshed.",
-                mediaType: scope.MediaType));
-        }
-
-        return new ProviderArtworkRefreshTarget(representativeAssetId, qid, null);
-    }
-
-    private static (string Key, string Value)? ResolveProviderArtworkBridge(
-        IReadOnlyDictionary<string, string> canonicals,
-        string mediaType)
-    {
-        var normalized = NormalizeEditorMediaType(mediaType);
-        if (normalized == "Movies")
-        {
-            var tmdb = StringHelpers.FirstNonBlankOr(string.Empty,
-                GetCanonicalValue(canonicals, "tmdb_movie_id"),
-                GetCanonicalValue(canonicals, BridgeIdKeys.TmdbId));
-            return string.IsNullOrWhiteSpace(tmdb) ? null : ("tmdb_movie_id", tmdb);
-        }
-
-        if (normalized == "TV")
-        {
-            var tvdb = GetCanonicalValue(canonicals, BridgeIdKeys.TvdbId);
-            return string.IsNullOrWhiteSpace(tvdb) ? null : (BridgeIdKeys.TvdbId, tvdb);
-        }
-
-        return null;
-    }
-
-    private static string? NormalizeWikidataQid(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var qid = value.Trim();
-        if (qid.Contains('/'))
-            qid = qid.Split('/')[^1];
-        if (qid.Contains("::", StringComparison.Ordinal))
-            qid = qid.Split("::", 2, StringSplitOptions.None)[0].Trim();
-
-        return qid.Length > 1 && qid[0] is 'Q' && qid.Skip(1).All(char.IsDigit)
-            ? qid
-            : null;
-    }
-
-    private static ProviderArtworkRefreshEnvelope MapProviderArtworkRefreshResult(ImageEnrichmentResult result) =>
-        CreateProviderArtworkRefreshEnvelope(
-            result.Status,
-            result.SkippedReason,
-            result.Message,
-            result.MediaType,
-            result.BridgeKey,
-            result.BridgeId,
-            result.Endpoint,
-            result.HttpStatusCode,
-            result.DownloadedCount,
-            result.UpdatedPreferredCount,
-            result.StoredVariantCounts,
-            result.Diagnostics,
-            result.LastCheckedAt,
-            result.Provider,
-            result.ProviderName);
-
-    private static ProviderArtworkRefreshEnvelope CreateProviderArtworkRefreshEnvelope(
-        string status,
-        string? skippedReason,
-        string? message,
-        string? mediaType,
-        string? bridgeKey = null,
-        string? bridgeId = null,
-        string? endpoint = null,
-        int? httpStatusCode = null,
-        int downloadedCount = 0,
-        int updatedPreferredCount = 0,
-        IReadOnlyDictionary<string, int>? storedCounts = null,
-        IReadOnlyList<string>? diagnostics = null,
-        DateTimeOffset? lastCheckedAt = null,
-        string provider = "fanart_tv",
-        string providerName = "Fanart.tv") =>
-        new(
-            Provider: provider,
-            ProviderName: providerName,
-            Status: status,
-            Success: string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase)
-                     || string.Equals(status, "NoImages", StringComparison.OrdinalIgnoreCase),
-            Skipped: !string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase),
-            SkippedReason: skippedReason,
-            Message: message,
-            MediaType: mediaType,
-            BridgeKey: bridgeKey,
-            BridgeId: bridgeId,
-            Endpoint: endpoint,
-            HttpStatusCode: httpStatusCode,
-            DownloadedCount: downloadedCount,
-            UpdatedPreferredCount: updatedPreferredCount,
-            StoredVariantCounts: storedCounts ?? new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase),
-            Diagnostics: diagnostics ?? [],
-            LastCheckedAt: lastCheckedAt ?? DateTimeOffset.UtcNow);
-
     private static string GetDefaultEditorScope(EditorLaunchContext launch, IReadOnlyList<EditorScopeResolution> scopes)
     {
         var launchWorkKind = launch.WorkKind.Trim().ToLowerInvariant();
@@ -2499,50 +2208,6 @@ public static partial class MetadataEndpoints
             ?? scopes[0].ScopeId;
     }
 
-    private static string? BuildScopedArtworkUploadPath(
-        AssetPathService assetPathService,
-        EditorScopeResolution scope,
-        string normalizedAssetType,
-        Guid variantId,
-        string? contentType)
-    {
-        if (scope.ArtworkOwnerEntityId is null || string.IsNullOrWhiteSpace(scope.ArtworkOwnerEntityKind))
-            return null;
-
-        return assetPathService.GetCentralAssetPath(
-            scope.ArtworkOwnerEntityKind!,
-            scope.ArtworkOwnerEntityId.Value,
-            normalizedAssetType,
-            variantId,
-            BuildArtworkExtension(normalizedAssetType, contentType));
-    }
-
-    private static string? GetContainerFolderPath(string? mediaFilePath) =>
-        string.IsNullOrWhiteSpace(mediaFilePath)
-            ? null
-            : Path.GetDirectoryName(mediaFilePath);
-
-    private static string? GetSeriesFolderPath(string? mediaFilePath)
-    {
-        var seasonFolder = GetSeasonFolderPath(mediaFilePath);
-        return string.IsNullOrWhiteSpace(seasonFolder)
-            ? null
-            : Path.GetDirectoryName(seasonFolder);
-    }
-
-    private static string? GetSeasonFolderPath(string? mediaFilePath) =>
-        string.IsNullOrWhiteSpace(mediaFilePath)
-            ? null
-            : Path.GetDirectoryName(mediaFilePath);
-
-    private static string? GetArtistFolderPath(string? mediaFilePath)
-    {
-        var albumFolder = GetContainerFolderPath(mediaFilePath);
-        return string.IsNullOrWhiteSpace(albumFolder)
-            ? null
-            : Path.GetDirectoryName(albumFolder);
-    }
-
     private static IReadOnlyDictionary<string, string> BuildLatestCanonicalMap(
         IEnumerable<CanonicalValue> canonicals) =>
         canonicals
@@ -2553,12 +2218,12 @@ public static partial class MetadataEndpoints
                 group => group.OrderByDescending(item => item.LastScoredAt).First().Value,
                 StringComparer.OrdinalIgnoreCase);
 
-    private static string? GetCanonicalValue(IReadOnlyDictionary<string, string> values, string key) =>
+    internal static string? GetCanonicalValue(IReadOnlyDictionary<string, string> values, string key) =>
         values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
             ? value
             : null;
 
-    private static string NormalizeEditorMediaType(string? mediaType) =>
+    internal static string NormalizeEditorMediaType(string? mediaType) =>
         (mediaType ?? string.Empty).Trim() switch
         {
             "Book" => "Books",
@@ -2566,62 +2231,6 @@ public static partial class MetadataEndpoints
             "" => "Books",
             var value => value,
         };
-
-    private static string? NormalizeUploadedArtworkType(string assetType) =>
-        assetType.Trim() switch
-        {
-            "cover" or "Cover" or "Poster" or "poster" or "CoverArt" => "CoverArt",
-            "banner" or "Banner" => "Banner",
-            "square" or "Square" or "SquareArt" => "SquareArt",
-            "background" or "Background" => "Background",
-            "logo" or "Logo" => "Logo",
-            "discart" or "disc" or "DiscArt" => "DiscArt",
-            "clearart" or "clear" or "ClearArt" => "ClearArt",
-            "seasonposter" or "SeasonPoster" => "SeasonPoster",
-            "seasonthumb" or "SeasonThumb" => "SeasonThumb",
-            "episodestill" or "EpisodeStill" or "still" or "Still" => "EpisodeStill",
-            _ => null,
-        };
-
-    private static bool IsArtworkUploadAllowed(string? contentType, string normalizedAssetType)
-    {
-        if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalizedAssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalizedAssetType, "ClearArt", StringComparison.OrdinalIgnoreCase))
-            return string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase);
-
-        return contentType is not null && (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase));
-    }
-
-    private static void AddCanonicalSource(List<Guid> sources, Guid? sourceId)
-    {
-        if (!sourceId.HasValue || sourceId == Guid.Empty || sources.Contains(sourceId.Value))
-            return;
-
-        sources.Add(sourceId.Value);
-    }
-
-    private static string? GetArtworkDetailUrl(LibraryItemDetail? detail, string assetType) =>
-        assetType switch
-        {
-            "CoverArt" => detail?.CoverUrl,
-            "Background" => detail?.BackgroundUrl,
-            "Banner" => detail?.BannerUrl,
-            _ => null,
-        };
-
-    private static string BuildArtworkVariantIdentity(EntityAsset asset)
-    {
-        var stableSource = !string.IsNullOrWhiteSpace(asset.ImageUrl)
-            ? asset.ImageUrl
-            : !string.IsNullOrWhiteSpace(asset.LocalImagePath)
-                ? asset.LocalImagePath
-                : asset.Id.ToString("D");
-
-        return $"{asset.AssetTypeValue}|{stableSource}";
-    }
 
     private static Guid? TryParseGuid(string? value) =>
         Guid.TryParse(value, out var parsed) ? parsed : null;
@@ -2649,159 +2258,10 @@ public static partial class MetadataEndpoints
             ?.Value;
     }
 
-    private static string BuildArtworkUploadPath(
-        AssetPathService assetPathService,
-        string ownerEntityKind,
-        Guid ownerEntityId,
-        string normalizedAssetType,
-        Guid variantId,
-        string? contentType) =>
-        assetPathService.GetCentralAssetPath(
-            ownerEntityKind,
-            ownerEntityId,
-            normalizedAssetType,
-            variantId,
-            BuildArtworkExtension(normalizedAssetType, contentType));
-
-    private static string BuildArtworkExtension(string normalizedAssetType, string? contentType) =>
-        string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(normalizedAssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(normalizedAssetType, "ClearArt", StringComparison.OrdinalIgnoreCase)
-            ? ".png"
-            : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
-                ? ".png"
-                : ".jpg";
-
-    private static string BuildArtworkVariantStreamUrl(Guid variantId) =>
+    internal static string BuildArtworkVariantStreamUrl(Guid variantId) =>
         $"/stream/artwork/{variantId}";
 
-    private static string GetArtworkCanonicalKey(string normalizedAssetType) =>
-        normalizedAssetType switch
-        {
-            "CoverArt" => MetadataFieldConstants.CoverUrl,
-            "SquareArt" => "square",
-            "Background" => "background",
-            "Banner" => "banner",
-            "Logo" => "logo",
-            "DiscArt" => "disc",
-            "ClearArt" => "clearart",
-            "SeasonPoster" => "season_poster",
-            "SeasonThumb" => "season_thumb",
-            "EpisodeStill" => "episode_still",
-            _ => throw new ArgumentOutOfRangeException(nameof(normalizedAssetType), normalizedAssetType, "Unsupported artwork type."),
-        };
-
-    private static async Task SyncArtworkCanonicalAsync(
-        Guid entityId,
-        string assetType,
-        EntityAsset? preferredAsset,
-        ICanonicalValueRepository canonicalRepo,
-        IEntityAssetRepository entityAssetRepo,
-        CancellationToken ct)
-    {
-        var canonicalKey = GetArtworkCanonicalKey(assetType);
-
-        if (preferredAsset is null)
-        {
-            await canonicalRepo.DeleteByKeyAsync(entityId, canonicalKey, ct);
-
-            if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
-            {
-                await canonicalRepo.UpsertBatchAsync(
-                    ArtworkCanonicalHelper.CreateFlags(
-                        entityId,
-                        coverState: "missing",
-                        coverSource: null,
-                        heroState: "missing",
-                        lastScoredAt: DateTimeOffset.UtcNow,
-                        settled: true),
-                    ct);
-            }
-
-            return;
-        }
-
-        var canonicals = ArtworkCanonicalHelper.CreatePreferredAssetCanonicals(
-            entityId,
-            preferredAsset,
-            DateTimeOffset.UtcNow);
-
-        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
-        {
-            var coverSource = string.Equals(preferredAsset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
-                ? "manual"
-                : !string.IsNullOrWhiteSpace(preferredAsset.SourceProvider)
-                    ? "provider"
-                    : "stored";
-
-            canonicals.AddRange(ArtworkCanonicalHelper.CreateFlags(
-                entityId,
-                coverState: "present",
-                coverSource: coverSource,
-                heroState: "missing",
-                lastScoredAt: DateTimeOffset.UtcNow,
-                settled: true));
-        }
-
-        await canonicalRepo.UpsertBatchAsync(canonicals, ct);
-    }
-
-    private static string? GetArtworkCanonicalValue(IReadOnlyList<CanonicalValue> canonicals, string assetType)
-    {
-        var canonicalKey = GetArtworkCanonicalKey(assetType);
-        return canonicals.FirstOrDefault(c =>
-            string.Equals(c.Key, canonicalKey, StringComparison.OrdinalIgnoreCase))?.Value;
-    }
-
-    private static string InferSyntheticArtworkOrigin(
-        IReadOnlyList<CanonicalValue> canonicals,
-        string assetType,
-        string? detailArtworkSource)
-    {
-        if (string.Equals(assetType, "CoverArt", StringComparison.OrdinalIgnoreCase))
-        {
-            var coverSource = canonicals.FirstOrDefault(c =>
-                string.Equals(c.Key, MetadataFieldConstants.CoverSource, StringComparison.OrdinalIgnoreCase))?.Value
-                ?? detailArtworkSource;
-
-            return coverSource switch
-            {
-                "manual" => "Uploaded",
-                "provider" => "Provider",
-                "embedded" => "Stored",
-                _ => "Stored",
-            };
-        }
-
-        return "Stored";
-    }
-
-    private static ArtworkVariantEnvelope MapArtworkVariant(EntityAsset asset) =>
-        new(
-            asset.Id,
-            asset.AssetTypeValue,
-            BuildArtworkVariantStreamUrl(asset.Id),
-            asset.IsPreferred,
-            string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase)
-                ? "Uploaded"
-                : !string.IsNullOrWhiteSpace(asset.SourceProvider)
-                    ? "Provider"
-                    : "Stored",
-            FormatArtworkProviderName(asset.SourceProvider),
-            CanDelete: true,
-            CreatedAt: asset.CreatedAt);
-
-    private static string? FormatArtworkProviderName(string? sourceProvider) =>
-        string.IsNullOrWhiteSpace(sourceProvider)
-            ? null
-            : sourceProvider switch
-            {
-                "fanart_tv" => "Fanart.tv",
-                "user_upload" => "Library Upload",
-                _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(sourceProvider.Replace('_', ' ')),
-            };
-
-    private sealed record ArtworkEditorEnvelope(
+    internal sealed record ArtworkEditorEnvelope(
         [property: JsonPropertyName("entity_id")] Guid EntityId,
         [property: JsonPropertyName("slots")] IReadOnlyList<ArtworkSlotEnvelope> Slots);
     private sealed record MediaEditorContextEnvelope(
@@ -2852,10 +2312,10 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("read_only_hint")] string? ReadOnlyHint,
         [property: JsonPropertyName("can_edit_fields")] bool CanEditFields,
         [property: JsonPropertyName("can_edit_artwork")] bool CanEditArtwork);
-    private sealed record ArtworkSlotEnvelope(
+    internal sealed record ArtworkSlotEnvelope(
         [property: JsonPropertyName("asset_type")] string AssetType,
         [property: JsonPropertyName("variants")] IReadOnlyList<ArtworkVariantEnvelope> Variants);
-    private sealed record ArtworkVariantEnvelope(
+    internal sealed record ArtworkVariantEnvelope(
         [property: JsonPropertyName("id")] Guid Id,
         [property: JsonPropertyName("asset_type")] string AssetType,
         [property: JsonPropertyName("image_url")] string? ImageUrl,
@@ -2864,7 +2324,7 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("provider_name")] string? ProviderName,
         [property: JsonPropertyName("can_delete")] bool CanDelete,
         [property: JsonPropertyName("created_at")] DateTimeOffset? CreatedAt);
-    private sealed record ProviderArtworkRefreshEnvelope(
+    internal sealed record ProviderArtworkRefreshEnvelope(
         [property: JsonPropertyName("provider")] string Provider,
         [property: JsonPropertyName("provider_name")] string ProviderName,
         [property: JsonPropertyName("status")] string Status,
@@ -2882,7 +2342,7 @@ public static partial class MetadataEndpoints
         [property: JsonPropertyName("stored_variant_counts")] IReadOnlyDictionary<string, int> StoredVariantCounts,
         [property: JsonPropertyName("diagnostics")] IReadOnlyList<string> Diagnostics,
         [property: JsonPropertyName("last_checked_at")] DateTimeOffset LastCheckedAt);
-    private sealed record ProviderArtworkRefreshTarget(
+    internal sealed record ProviderArtworkRefreshTarget(
         Guid? RepresentativeAssetId,
         string? WorkQid,
         ProviderArtworkRefreshEnvelope? Skipped)
@@ -2907,7 +2367,7 @@ public static partial class MetadataEndpoints
         string InitialScope,
         IReadOnlyList<EditorScopeResolution> Scopes,
         IReadOnlyDictionary<Guid, MediaEditorIdentitySummaryEnvelope> ScopeIdentitySummaries);
-    private sealed record EditorScopeResolution(
+    internal sealed record EditorScopeResolution(
         string ScopeId,
         string Label,
         int Order,

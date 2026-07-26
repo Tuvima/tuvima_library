@@ -1,13 +1,12 @@
 using System.Globalization;
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Collections;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
@@ -20,6 +19,7 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
+using static MediaEngine.Api.Services.Collections.CollectionResponseFormatting;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -36,12 +36,14 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var manifest = await manifestRepo.GetViewByCollectionIdAsync(collectionId, ct);
-            return manifest is null ? Results.NotFound() : Results.Ok(manifest);
+            return manifest is null
+                ? ApiErrors.NotFound($"No series manifest found for collection '{collectionId}'.")
+                : Results.Ok(manifest);
         })
         .WithName("GetCollectionSeriesManifest")
         .WithSummary("Returns a Wikidata-backed ordered series manifest with owned and missing item states.")
         .Produces<SeriesManifestViewDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/", async (
@@ -126,19 +128,18 @@ public static class CollectionEndpoints
         group.MapGet("/{id:guid}/children", async (Guid id, ICollectionRepository collectionRepo, CancellationToken ct) =>
         {
             var children = await collectionRepo.GetChildCollectionsAsync(id, ct);
-            var result = children.Select(h => new
-            {
-                id = h.Id,
-                displayName = h.DisplayName,
-                parentCollectionId = h.ParentCollectionId,
-                createdAt = h.CreatedAt,
-                universeStatus = h.UniverseStatus,
-            }).ToList();
+            var result = children.Select(h => new CollectionChildSummary(
+                h.Id,
+                h.DisplayName,
+                h.ParentCollectionId,
+                h.CreatedAt,
+                h.UniverseStatus)).ToList();
 
             return Results.Ok(result);
         })
         .WithName("GetCollectionChildren")
         .WithSummary("Returns child Collections of the given Parent Collection.")
+        .Produces<List<CollectionChildSummary>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // GET /collections/{id}/parent — returns the parent Collection of a given Collection (if any).
@@ -147,33 +148,26 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!collection.ParentCollectionId.HasValue)
             {
-                return Results.Ok(new { parentCollection = (object?)null });
+                return Results.Ok(new CollectionParentResponse(null));
             }
 
             var parent = await collectionRepo.GetByIdAsync(collection.ParentCollectionId.Value, ct);
             if (parent is null)
             {
-                return Results.Ok(new { parentCollection = (object?)null });
+                return Results.Ok(new CollectionParentResponse(null));
             }
 
-            return Results.Ok(new
-            {
-                parentCollection = new
-                {
-                    id = parent.Id,
-                    displayName = parent.DisplayName,
-                    createdAt = parent.CreatedAt,
-                    universeStatus = parent.UniverseStatus,
-                }
-            });
+            return Results.Ok(new CollectionParentResponse(
+                new ParentCollectionSummary(parent.Id, parent.DisplayName, parent.CreatedAt, parent.UniverseStatus)));
         })
         .WithName("GetCollectionParent")
         .WithSummary("Returns the Parent Collection of the given Collection, if any.")
+        .Produces<CollectionParentResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/related", async (
@@ -188,7 +182,7 @@ public static class CollectionEndpoints
             var target = dtos.FirstOrDefault(h => h.Id == id);
             if (target is null)
             {
-                return Results.NotFound($"Collection '{id}' not found.");
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             var page = PagedRequest.From(null, limit, defaultLimit: 20);
@@ -285,12 +279,13 @@ public static class CollectionEndpoints
             IPersonCreditReadService personCreditReadService,
             AppleRetailClient appleRetailClient,
             ICollectionBrowseReadService browseReadService,
+            AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
             var collection = await collectionRepo.GetCollectionWithWorksAsync(collectionId, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{collectionId}' not found.");
             }
 
             // Determine primary media type from the works.
@@ -486,21 +481,19 @@ public static class CollectionEndpoints
             }
             else if (isMusic)
             {
-                collectionChildJson = await EnsureAppleAlbumTrackManifestAsync(
+                collectionChildJson = await manifestService.EnsureAppleAlbumTrackManifestAsync(
                     rootParentWorkId,
                     collectionCreator,
                     StringHelpers.FirstNonBlank(ParentCv(MetadataFieldConstants.Album), ParentCv(MetadataFieldConstants.Title), collection.DisplayName),
                     collectionChildJson,
                     parentCvs,
-                    canonicalRepo,
-                    appleRetailClient,
                     ct);
 
                 // Music: tracks are already within one album collection, show as flat list with track ordering
                 var ownedTracks = workDtos
                     .OrderBy(w => int.TryParse(w.TrackNumber, out var tn) ? tn : w.Ordinal ?? int.MaxValue)
                     .ToList();
-                flatWorks = MergeUnownedMusicTracks(ownedTracks, collectionChildJson, collectionCover);
+                flatWorks = AlbumTrackManifestService.MergeUnownedMusicTracks(ownedTracks, collectionChildJson, collectionCover);
             }
             else
             {
@@ -557,7 +550,7 @@ public static class CollectionEndpoints
         .WithName("GetCollectionGroupDetail")
         .WithSummary("Returns collection header metadata and child works sorted by sequence for sub-page rendering. TV works are grouped by season.")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // GET /collections/artist-group-detail?collection_ids=id1,id2,... — combined multi-collection detail for artist-level drill-down.
@@ -566,11 +559,12 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             IPersonRepository personRepo,
             ICollectionBrowseReadService browseReadService,
+            AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(collectionIdsParam))
             {
-                return Results.BadRequest("collection_ids parameter is required");
+                return ApiErrors.BadRequest("collection_ids parameter is required");
             }
 
             var collectionIds = collectionIdsParam.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -581,7 +575,7 @@ public static class CollectionEndpoints
 
             if (collectionIds.Count == 0)
             {
-                return Results.BadRequest("No valid collection IDs provided");
+                return ApiErrors.BadRequest("No valid collection IDs provided");
             }
 
             // Load all collections and build album-based seasons
@@ -667,7 +661,7 @@ public static class CollectionEndpoints
                 }
 
                 // Merge unowned tracks from child_entities_json.
-                var mergedTracks = MergeUnownedMusicTracks(ownedTracks, childJson, albumCover);
+                var mergedTracks = AlbumTrackManifestService.MergeUnownedMusicTracks(ownedTracks, childJson, albumCover);
 
                 if (mergedTracks.Any(t => t.IsOwned && !string.IsNullOrWhiteSpace(t.Year)))
                 {
@@ -737,7 +731,7 @@ public static class CollectionEndpoints
         .WithName("GetArtistGroupDetail")
         .WithSummary("Returns combined multi-collection detail for artist-level drill-down in the Music tab. Each collection becomes an album 'season'.")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         // GET /collections/artist-detail-by-name?artistName=X — Artist drill-down for system-view mode.
@@ -746,11 +740,12 @@ public static class CollectionEndpoints
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "artistName")] string? artistName,
             ICollectionBrowseReadService browseReadService,
             IPersonRepository personRepo,
+            AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(artistName))
             {
-                return Results.BadRequest("artistName parameter is required");
+                return ApiErrors.BadRequest("artistName parameter is required");
             }
 
             var rows = await browseReadService.GetArtistWorksAsync(artistName, ct);
@@ -830,7 +825,7 @@ public static class CollectionEndpoints
                 var albumCover = albumCovers.TryGetValue(albumKey, out var c) ? c : null;
                 var albumYear = albumYears.TryGetValue(albumKey, out var y) ? y : null;
                 var childJson = albumChildJson.TryGetValue(albumKey, out var j) ? j : null;
-                var merged = MergeUnownedMusicTracks(kvp.Value, childJson, albumCover);
+                var merged = AlbumTrackManifestService.MergeUnownedMusicTracks(kvp.Value, childJson, albumCover);
                 totalItems += merged.Count(t => t.IsOwned);
                 return new CollectionGroupSeasonDto
                 {
@@ -884,7 +879,7 @@ public static class CollectionEndpoints
         .WithName("GetArtistDetailByName")
         .WithSummary("Returns artist drill-down detail by artist name, querying directly from canonical values. Used when system-view collections are active and ContentGroup collections are unavailable.")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         // GET /collections/system-view-detail?groupField=album&groupValue=The%20Record&mediaType=Music
@@ -898,11 +893,12 @@ public static class CollectionEndpoints
             ICanonicalValueRepository canonicalRepo,
             AppleRetailClient appleRetailClient,
             ICollectionBrowseReadService browseReadService,
+            AlbumTrackManifestService manifestService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(groupField) || string.IsNullOrWhiteSpace(groupValue))
             {
-                return Results.BadRequest("groupField and groupValue parameters are required");
+                return ApiErrors.BadRequest("groupField and groupValue parameters are required");
             }
 
             // Determine the secondary grouping field and sort fields based on the primary group
@@ -1079,20 +1075,18 @@ public static class CollectionEndpoints
             {
                 rootCanonicals = await canonicalRepo.GetByEntityAsync(combinedRootWorkId.Value, ct);
                 collectedChildJson ??= FirstCanonicalValue(rootCanonicals, MetadataFieldConstants.ChildEntitiesJson);
-                collectedChildJson = await EnsureAppleAlbumTrackManifestAsync(
+                collectedChildJson = await manifestService.EnsureAppleAlbumTrackManifestAsync(
                     combinedRootWorkId,
                     combinedCreator,
                     groupValue,
                     collectedChildJson,
                     rootCanonicals,
-                    canonicalRepo,
-                    appleRetailClient,
                     ct);
             }
 
             if (!string.IsNullOrWhiteSpace(collectedChildJson))
             {
-                MergeUnownedChildEntities(
+                manifestService.MergeUnownedChildEntities(
                     sectionMap,
                     collectedChildJson,
                     groupField,
@@ -1190,7 +1184,7 @@ public static class CollectionEndpoints
         .WithName("GetSystemViewGroupDetail")
         .WithSummary("Generic system-view drill-down. Returns works grouped by a secondary field for any group field (show_name, series, album, artist).")
         .Produces<CollectionGroupDetailDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         // ── Content Groups ───────────────────────────────────────────────────────
@@ -1472,7 +1466,7 @@ public static class CollectionEndpoints
                 var collection = await collectionRepo.GetByIdAsync(collectionId.Value, ct);
                 if (collection is null)
                 {
-                    return Results.NotFound();
+                    return ApiErrors.NotFound($"Collection '{collectionId.Value}' not found.");
                 }
 
                 if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
@@ -1504,12 +1498,14 @@ public static class CollectionEndpoints
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var summary = await catalogReadService.GetSummaryAsync(id, activeProfile, ct);
-            return summary is null ? Results.NotFound() : Results.Ok(summary);
+            return summary is null
+                ? ApiErrors.NotFound($"Collection '{id}' not found or not visible to the active profile.")
+                : Results.Ok(summary);
         })
         .WithName("GetCollectionSummary")
         .WithSummary("Returns the Collections hub summary for one visible collection.")
         .Produces<CollectionManagementCatalogDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/{id:guid}/items", async (
@@ -1526,7 +1522,7 @@ public static class CollectionEndpoints
             var result = await catalogReadService.GetItemsAsync(id, activeProfile, take, ct);
             if (!result.Found)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (result.Forbidden)
@@ -1554,7 +1550,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1565,11 +1561,11 @@ public static class CollectionEndpoints
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
                 || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
-                return Results.BadRequest("Only saved/manual collections support direct item membership.");
+                return ApiErrors.BadRequest("Only saved/manual collections support direct item membership.");
             }
             if (body.WorkId == Guid.Empty)
             {
-                return Results.BadRequest("work_id is required.");
+                return ApiErrors.BadRequest("work_id is required.");
             }
 
             var collectionWorkId = await catalogReadService.ResolveMembershipWorkIdAsync(body.WorkId, ct);
@@ -1611,7 +1607,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1622,13 +1618,13 @@ public static class CollectionEndpoints
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
                 || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
-                return Results.BadRequest("Only saved/manual collections support direct item membership.");
+                return ApiErrors.BadRequest("Only saved/manual collections support direct item membership.");
             }
 
             var existingItems = await collectionRepo.GetCollectionItemsAsync(id, 1000, ct);
             if (!existingItems.Any(item => item.Id == itemId))
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Item '{itemId}' not found in collection '{id}'.");
             }
 
             await collectionRepo.RemoveCollectionItemAsync(itemId, ct);
@@ -1650,7 +1646,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1661,7 +1657,7 @@ public static class CollectionEndpoints
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
                 || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
             {
-                return Results.BadRequest("Only saved/manual collections support direct item ordering.");
+                return ApiErrors.BadRequest("Only saved/manual collections support direct item ordering.");
             }
 
             var requestedIds = body.ItemIds.Where(itemId => itemId != Guid.Empty).Distinct().ToList();
@@ -1669,7 +1665,7 @@ public static class CollectionEndpoints
             var existingIds = existingItems.Select(item => item.Id).ToHashSet();
             if (requestedIds.Count != existingItems.Count || requestedIds.Any(itemId => !existingIds.Contains(itemId)))
             {
-                return Results.BadRequest("item_ids must include every item in this collection exactly once.");
+                return ApiErrors.BadRequest("item_ids must include every item in this collection exactly once.");
             }
 
             await collectionRepo.ReorderCollectionItemsAsync(id, requestedIds, ct);
@@ -1691,7 +1687,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.CanAccess(collection, activeProfile))
@@ -1701,7 +1697,7 @@ public static class CollectionEndpoints
 
             if (string.IsNullOrWhiteSpace(collection.SquareArtworkPath) || !File.Exists(collection.SquareArtworkPath))
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' has no square artwork.");
             }
 
             var bytes = await File.ReadAllBytesAsync(collection.SquareArtworkPath, ct);
@@ -1715,7 +1711,7 @@ public static class CollectionEndpoints
         .WithName("GetCollectionSquareArtwork")
         .WithSummary("Serves custom square artwork for a collection.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // POST /collections/{id}/square-artwork — upload collection-owned square artwork.
@@ -1732,12 +1728,12 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
             {
-                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+                return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1747,26 +1743,26 @@ public static class CollectionEndpoints
 
             if (!request.HasFormContentType)
             {
-                return Results.BadRequest("Expected multipart form data.");
+                return ApiErrors.BadRequest("Expected multipart form data.");
             }
 
             var form = await request.ReadFormAsync(ct);
             var file = form.Files.GetFile("file") ?? form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
             {
-                return Results.BadRequest("No file uploaded.");
+                return ApiErrors.BadRequest("No file uploaded.");
             }
 
             if (file.Length > 5 * 1024 * 1024)
             {
-                return Results.BadRequest("Artwork must be 5 MB or smaller.");
+                return ApiErrors.BadRequest("Artwork must be 5 MB or smaller.");
             }
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             var mimeType = NormalizeCollectionArtworkMimeType(file.ContentType, extension);
             if (mimeType is null)
             {
-                return Results.BadRequest("Artwork must be a JPEG or PNG image.");
+                return ApiErrors.BadRequest("Artwork must be a JPEG or PNG image.");
             }
 
             dataPaths.EnsureRootExists();
@@ -1788,10 +1784,11 @@ public static class CollectionEndpoints
             }
 
             await collectionRepo.UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType, ct);
-            return Results.Ok(new { square_artwork_url = $"/collections/{id}/square-artwork" });
+            return Results.Ok(new CollectionSquareArtworkUploadResponse($"/collections/{id}/square-artwork"));
         })
         .WithName("UploadCollectionSquareArtwork")
         .WithSummary("Uploads custom square artwork for a managed collection.")
+        .Produces<CollectionSquareArtworkUploadResponse>(StatusCodes.Status200OK)
         .DisableAntiforgery()
         .RequireAnyRole();
 
@@ -1807,12 +1804,12 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
             {
-                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+                return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1845,7 +1842,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1873,7 +1870,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -1902,7 +1899,7 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             // For materialized collections, return works directly
@@ -1911,7 +1908,7 @@ public static class CollectionEndpoints
                 var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(id, ct);
                 if (collectionWithWorks is null)
                 {
-                    return Results.NotFound();
+                    return ApiErrors.NotFound($"Collection '{id}' not found.");
                 }
 
                 var take = limit ?? 0;
@@ -1950,7 +1947,7 @@ public static class CollectionEndpoints
         .WithName("ResolveCollection")
         .WithSummary("Evaluate a collection's rules and return matching items.")
         .Produces<List<CollectionResolvedItemDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // GET /collections/resolve/by-name?name=All%20Songs&limit=200
@@ -1970,7 +1967,7 @@ public static class CollectionEndpoints
         {
             if (string.IsNullOrWhiteSpace(name))
             {
-                return Results.BadRequest("name parameter is required");
+                return ApiErrors.BadRequest("name parameter is required");
             }
 
             var definition = BuiltInBrowseCollectionCatalog.FindByName(name);
@@ -1978,7 +1975,7 @@ public static class CollectionEndpoints
 
             if (collection is null)
             {
-                return Results.NotFound($"No dynamic browse view found with name '{name}'");
+                return ApiErrors.NotFound($"No dynamic browse view found with name '{name}'");
             }
 
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
@@ -1996,8 +1993,8 @@ public static class CollectionEndpoints
         .WithName("ResolveCollectionByName")
         .WithSummary("Resolves a System collection by display name and returns items, reading both asset-level and parent-Work-level canonical values. Bypasses the libraryItem visibility filter so in-flight items are included.")
         .Produces<List<CollectionResolvedItemDto>>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         // GET /collections/by-location/{location} — collections placed at a location
@@ -2008,7 +2005,7 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var placements = await placementRepo.GetByLocationAsync(location, ct);
-            var result = new List<object>();
+            var result = new List<CollectionLocationPlacementSummary>();
 
             foreach (var p in placements)
             {
@@ -2018,23 +2015,22 @@ public static class CollectionEndpoints
                     continue;
                 }
 
-                result.Add(new
-                {
-                    collection_id = collection.Id,
-                    name = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
-                    collection_type = collection.CollectionType,
-                    icon_name = collection.IconName,
-                    location = p.Location,
-                    position = p.Position,
-                    display_limit = p.DisplayLimit,
-                    display_mode = p.DisplayMode,
-                });
+                result.Add(new CollectionLocationPlacementSummary(
+                    collection.Id,
+                    collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
+                    collection.CollectionType,
+                    collection.IconName,
+                    p.Location,
+                    p.Position,
+                    p.DisplayLimit,
+                    p.DisplayMode));
             }
 
             return Results.Ok(result);
         })
         .WithName("GetCollectionsByLocation")
         .WithSummary("Returns all collections placed at a specific UI location, ordered by position.")
+        .Produces<List<CollectionLocationPlacementSummary>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // POST /collections/preview — evaluate rules without saving
@@ -2046,17 +2042,18 @@ public static class CollectionEndpoints
         {
             if (body.Rules.Count == 0)
             {
-                return Results.Ok(new { count = 0, items = new List<CollectionResolvedItemDto>() });
+                return Results.Ok(new CollectionPreviewResponse(0, []));
             }
 
             var entityIds = browseReadService.EvaluateRules(
                 body.Rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
-            return Results.Ok(new { count = entityIds.Count, items = resolved });
+            return Results.Ok(new CollectionPreviewResponse(entityIds.Count, resolved));
         })
         .WithName("PreviewCollection")
         .WithSummary("Evaluate collection rules and return matching items without saving.")
+        .Produces<CollectionPreviewResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // POST /collections — create a new collection
@@ -2070,18 +2067,18 @@ public static class CollectionEndpoints
         {
             if (string.IsNullOrWhiteSpace(body.Name))
             {
-                return Results.BadRequest("Collection name is required.");
+                return ApiErrors.BadRequest("Collection name is required.");
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(body.CollectionType))
             {
-                return Results.BadRequest($"Collection type '{body.CollectionType}' is reserved for browse-only system data.");
+                return ApiErrors.BadRequest($"Collection type '{body.CollectionType}' is reserved for browse-only system data.");
             }
 
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             if (activeProfile is null)
             {
-                return Results.BadRequest("profileId is required to create a collection.");
+                return ApiErrors.BadRequest("profileId is required to create a collection.");
             }
 
             var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
@@ -2144,10 +2141,11 @@ public static class CollectionEndpoints
                 }
             }
 
-            return Results.Created($"/collections/{collection.Id}", new { id = collection.Id, name = collection.DisplayName });
+            return Results.Created($"/collections/{collection.Id}", new CollectionCreatedResponse(collection.Id, collection.DisplayName));
         })
         .WithName("CreateCollection")
         .WithSummary("Create a new collection with rules and optional placements.")
+        .Produces<CollectionCreatedResponse>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         // PUT /collections/{id} — update collection
@@ -2163,12 +2161,12 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
             {
-                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
+                return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be edited here.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -2274,17 +2272,17 @@ public static class CollectionEndpoints
             var collection = await collectionRepo.GetByIdAsync(id, ct);
             if (collection is null)
             {
-                return Results.NotFound();
+                return ApiErrors.NotFound($"Collection '{id}' not found.");
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType))
             {
-                return Results.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be deleted here.");
+                return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be deleted here.");
             }
 
             if (collection.CollectionType == "System")
             {
-                return Results.BadRequest("System collections cannot be deleted.");
+                return ApiErrors.BadRequest("System collections cannot be deleted.");
             }
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
@@ -2321,18 +2319,17 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var placements = await placementRepo.GetByCollectionIdAsync(id, ct);
-            return Results.Ok(placements.Select(p => new
-            {
-                id = p.Id,
-                location = p.Location,
-                position = p.Position,
-                display_limit = p.DisplayLimit,
-                display_mode = p.DisplayMode,
-                is_visible = p.IsVisible,
-            }));
+            return Results.Ok(placements.Select(p => new CollectionPlacementSummary(
+                p.Id,
+                p.Location,
+                p.Position,
+                p.DisplayLimit,
+                p.DisplayMode,
+                p.IsVisible)));
         })
         .WithName("GetCollectionPlacements")
         .WithSummary("Returns placements for a collection.")
+        .Produces<IEnumerable<CollectionPlacementSummary>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // PUT /collections/{id}/placements — replace all placements
@@ -2371,6 +2368,12 @@ public static class CollectionEndpoints
     public sealed record EnabledRequest(bool Enabled);
     public sealed record FeaturedRequest(bool Featured);
 
+    // ── Response bodies ───────────────────────────────────────────────────────
+    // CollectionResolvedItemDto is an Api-internal model (MediaEngine.Api.Models), so this
+    // response record stays here rather than in MediaEngine.Contracts.Collections, which may
+    // only reference Domain. See PreviewCollection ("/collections/preview").
+    public sealed record CollectionPreviewResponse(int count, List<CollectionResolvedItemDto> items);
+
     // ── Private helpers ───────────────────────────────────────────────────────
 
     private static async Task<Profile?> ResolveActiveProfileAsync(
@@ -2386,95 +2389,6 @@ public static class CollectionEndpoints
         return await profileRepo.GetByIdAsync(profileId.Value, ct);
     }
 
-    private static bool TryGetRelationshipAggregation(
-        Collection collection,
-        string relationshipType,
-        out CollectionCatalogAggregation aggregation)
-    {
-        var relationship = collection.Relationships
-            .FirstOrDefault(candidate => string.Equals(candidate.RelType, relationshipType, StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(candidate.RelQid));
-        if (relationship is null)
-        {
-            aggregation = default!;
-            return false;
-        }
-
-        aggregation = new CollectionCatalogAggregation(
-            $"{relationshipType}:{NormalizeCatalogQid(relationship.RelQid)}",
-            StringHelpers.FirstNonBlank(relationship.RelLabel, collection.DisplayName));
-        return true;
-    }
-
-    private static string NormalizeCatalogQid(string qid)
-    {
-        var value = qid.Contains('/') ? qid.Split('/')[^1] : qid;
-        if (value.Contains("::", StringComparison.Ordinal))
-        {
-            value = value.Split("::", 2)[0];
-        }
-
-        return value.Trim();
-    }
-
-    private static bool IsGeneratedSeriesCollection(Collection collection)
-        => string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase);
-
-    private sealed class CollectionArtworkItemRow
-    {
-        public Guid WorkId { get; init; }
-        public string? Title { get; init; }
-        public string? MediaType { get; init; }
-        public string? CoverUrl { get; init; }
-        public string? PrimaryColor { get; init; }
-        public string? SecondaryColor { get; init; }
-        public string? AccentColor { get; init; }
-        public string? LocalImagePath { get; init; }
-    }
-
-    private static string? NormalizeCollectionArtworkMimeType(string? contentType, string extension)
-    {
-        if (string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase) || extension == ".png")
-        {
-            return "image/png";
-        }
-
-        if (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(contentType, "image/jpg", StringComparison.OrdinalIgnoreCase)
-            || extension is ".jpg" or ".jpeg")
-        {
-            return "image/jpeg";
-        }
-
-        return null;
-    }
-
-    private static string GetCollectionArtworkMimeType(string path) =>
-        string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)
-            ? "image/png"
-            : "image/jpeg";
-
-    private sealed class CollectionSearchRow
-    {
-        public Guid WorkId { get; init; }
-        public Guid? CollectionId { get; init; }
-        public string MediaType { get; init; } = string.Empty;
-        public string Title { get; init; } = string.Empty;
-        public string? Author { get; init; }
-        public string CollectionDisplayName { get; init; } = string.Empty;
-        public string? CoverUrl { get; init; }
-    }
-
-    private static string? GetCanonical(WorkDto? w, string key)
-    {
-        var raw = w?.CanonicalValues
-            .FirstOrDefault(cv => cv.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
-            ?.Value;
-        return raw;
-    }
-
     private static string? BuildCoverStreamUrl(Work? w, Guid? assetId = null)
     {
         return BuildArtworkStreamUrl(
@@ -2484,45 +2398,6 @@ public static class CollectionEndpoints
             assetId,
             MetadataFieldConstants.CoverUrl,
             MetadataFieldConstants.Cover);
-    }
-
-    private static string ResolveContentGroupPreviewShape(
-        string primaryMediaType,
-        string? imageUrl,
-        string? coverUrl,
-        string? backgroundUrl,
-        string? bannerUrl,
-        int? coverWidth,
-        int? coverHeight)
-    {
-        if (string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase))
-        {
-            return "square";
-        }
-
-        if (string.Equals(imageUrl, backgroundUrl, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(imageUrl, bannerUrl, StringComparison.OrdinalIgnoreCase))
-        {
-            return "wide";
-        }
-
-        if (string.Equals(imageUrl, coverUrl, StringComparison.OrdinalIgnoreCase)
-            && coverWidth is > 0
-            && coverHeight is > 0)
-        {
-            var ratio = coverWidth.Value / (double)coverHeight.Value;
-            if (ratio >= 1.32)
-            {
-                return "wide";
-            }
-
-            if (ratio >= 0.86)
-            {
-                return "square";
-            }
-        }
-
-        return "portrait";
     }
 
     private static string? BuildBackgroundStreamUrl(Work? w, Guid? assetId = null)
@@ -2589,11 +2464,6 @@ public static class CollectionEndpoints
             .Select(asset => asset.Id)
             .FirstOrDefault(id => id != Guid.Empty);
 
-    private static string? FirstCanonicalValue(Work work, params string[] keys) =>
-        work.CanonicalValues
-            .FirstOrDefault(c => keys.Any(key => string.Equals(c.Key, key, StringComparison.OrdinalIgnoreCase)))
-            ?.Value;
-
     private static string? SuppressExternalProviderArtworkUrl(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -2608,1208 +2478,4 @@ public static class CollectionEndpoints
             : value;
     }
 
-    private static PlaybackTechnicalSummary? BuildPlaybackSummaryFromWork(WorkDto work)
-    {
-        string? Canonical(string key) => GetCanonical(work, key);
-
-        var subtitleLanguages = SplitValues(Canonical("subtitle_languages"));
-        var summary = new PlaybackTechnicalSummary
-        {
-            VideoResolutionLabel = FormatResolution(
-                ParseNullableInt(Canonical("video_width")),
-                ParseNullableInt(Canonical("video_height"))),
-            VideoCodec = NormalizeCodec(Canonical("video_codec")),
-            AudioLanguage = SplitValues(Canonical("audio_language")).FirstOrDefault(),
-            AudioCodec = NormalizeCodec(Canonical("audio_codec")),
-            AudioChannels = FormatAudioChannels(Canonical("audio_channels")),
-            SubtitleSummary = FormatSubtitleSummary(subtitleLanguages),
-            AudioLanguages = SplitValues(Canonical("audio_language")),
-            SubtitleLanguages = subtitleLanguages,
-        };
-
-        if (string.IsNullOrWhiteSpace(summary.VideoResolutionLabel)
-            && string.IsNullOrWhiteSpace(summary.VideoCodec)
-            && string.IsNullOrWhiteSpace(summary.AudioLanguage)
-            && string.IsNullOrWhiteSpace(summary.AudioCodec)
-            && string.IsNullOrWhiteSpace(summary.AudioChannels)
-            && string.IsNullOrWhiteSpace(summary.SubtitleSummary))
-        {
-            return null;
-        }
-
-        return summary;
-    }
-
-    private static string? NormalizeReleaseDate(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        if (DateTimeOffset.TryParse(value, out var parsed))
-        {
-            return parsed.ToString("MMMM d, yyyy");
-        }
-
-        return value.Length > 10 && DateTime.TryParse(value, out var parsedDate)
-            ? parsedDate.ToString("MMMM d, yyyy")
-            : value;
-    }
-
-    private static int? ParseDisplayYear(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        var trimmed = value.Trim();
-        var prefixLength = Math.Min(4, trimmed.Length);
-        return int.TryParse(trimmed.AsSpan(0, prefixLength), NumberStyles.None, CultureInfo.InvariantCulture, out var year)
-               && year is >= 1000 and <= 9999
-            ? year
-            : null;
-    }
-
-    private static int? ParseNullableInt(string? value) =>
-        int.TryParse(value, out var parsed) ? parsed : null;
-
-    private static List<string> SplitValues(string? value) =>
-        string.IsNullOrWhiteSpace(value)
-            ? []
-            : value
-                .Split(['|', ',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-                .Where(item => !string.IsNullOrWhiteSpace(item))
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToList();
-
-    private static string? FormatResolution(int? width, int? height)
-    {
-        if (width is null || height is null || width <= 0 || height <= 0)
-        {
-            return null;
-        }
-
-        var h = height.Value;
-        return h switch
-        {
-            >= 2160 => "2160p",
-            >= 1440 => "1440p",
-            >= 1080 => "1080p",
-            >= 720 => "720p",
-            >= 480 => "480p",
-            _ => $"{h}p",
-        };
-    }
-
-    private static string? FormatAudioChannels(string? value)
-    {
-        if (!int.TryParse(value, out var parsed) || parsed <= 0)
-        {
-            return null;
-        }
-
-        return parsed switch
-        {
-            1 => "Mono",
-            2 => "2.0",
-            _ => $"{parsed - 1}.1",
-        };
-    }
-
-    private static string? FormatSubtitleSummary(IReadOnlyList<string> languages)
-    {
-        if (languages.Count == 0)
-        {
-            return null;
-        }
-
-        if (languages.Count == 1)
-        {
-            return languages[0];
-        }
-
-        return $"{languages[0]} + {languages.Count - 1} more";
-    }
-
-    private static string? NormalizeCodec(string? codec)
-    {
-        if (string.IsNullOrWhiteSpace(codec))
-        {
-            return null;
-        }
-
-        return codec.ToLowerInvariant() switch
-        {
-            "h264" => "H.264",
-            "hevc" => "HEVC",
-            "aac" => "AAC",
-            "ac3" => "AC3",
-            "eac3" => "EAC3",
-            "dts" => "DTS",
-            "truehd" => "TrueHD",
-            "opus" => "Opus",
-            "flac" => "FLAC",
-            "subrip" => "SRT",
-            _ => codec.ToUpperInvariant(),
-        };
-    }
-
-    /// <summary>
-    /// Merges Wikidata-discovered tracks (from <c>child_entities_json</c>) into the owned-track list,
-    /// flagging those without a matching local file as <c>IsOwned = false</c>. Owned tracks are matched
-    /// to Wikidata tracks by case-insensitive title.
-    /// </summary>
-    private static List<CollectionGroupWorkDto> MergeUnownedMusicTracks(
-        List<CollectionGroupWorkDto> ownedTracks,
-        string? childEntitiesJson,
-        string? albumCover)
-    {
-        if (string.IsNullOrWhiteSpace(childEntitiesJson))
-        {
-            // No Wikidata data — sort owned by track number and return.
-            return SortAlbumTracks(ownedTracks);
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(childEntitiesJson);
-            if (!doc.RootElement.TryGetProperty("tracks", out var tracksArr) ||
-                tracksArr.ValueKind != JsonValueKind.Array)
-            {
-                return SortAlbumTracks(ownedTracks);
-            }
-
-            // Build a lookup of owned tracks by normalized title for matching.
-            var ownedByAppleMusicId = ownedTracks
-                .Where(t => !string.IsNullOrWhiteSpace(t.AppleMusicId))
-                .GroupBy(t => t.AppleMusicId!, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-            var ownedByTitleAndNumber = ownedTracks
-                .Where(t => !string.IsNullOrWhiteSpace(t.Title))
-                .GroupBy(t => BuildTrackMatchKey(t.Title, t.DiscNumber, ParseNullableInt(t.TrackNumber)))
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-            var ownedByTitle = ownedTracks
-                .Where(t => !string.IsNullOrWhiteSpace(t.Title))
-                .GroupBy(t => NormalizeTrackTitle(t.Title))
-                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
-
-            var merged = new List<CollectionGroupWorkDto>();
-            var seenOwned = new HashSet<Guid>();
-            int manifestOrdinal = 0;
-
-            foreach (var trackEl in tracksArr.EnumerateArray())
-            {
-                manifestOrdinal++;
-                var title = ReadJsonString(trackEl, "title", "trackName", "name");
-                if (string.IsNullOrWhiteSpace(title))
-                {
-                    continue;
-                }
-
-                var trackNumber = ReadJsonInt(trackEl, "track_number", "trackNumber", "number");
-                var discNumber = ReadJsonInt(trackEl, "disc_number", "discNumber");
-                var ordinal = ReadJsonInt(trackEl, "ordinal", "position") ?? trackNumber ?? manifestOrdinal;
-                var durationSeconds = ReadChildDurationSeconds(trackEl);
-                var appleMusicId = ReadJsonString(trackEl, "apple_music_id", "appleMusicId", "trackId");
-                var owned = (!string.IsNullOrWhiteSpace(appleMusicId)
-                        ? ownedByAppleMusicId.GetValueOrDefault(appleMusicId)
-                        : null)
-                    ?? ownedByTitleAndNumber.GetValueOrDefault(BuildTrackMatchKey(title, discNumber, trackNumber));
-                if (owned is null)
-                {
-                    var titleMatch = ownedByTitle.GetValueOrDefault(NormalizeTrackTitle(title));
-                    if (titleMatch is not null
-                        && !HasKnownTrackIdentityConflict(titleMatch, discNumber, trackNumber, durationSeconds))
-                    {
-                        owned = titleMatch;
-                    }
-                }
-                if (owned is not null)
-                {
-                    // Owned — keep the local row but normalise the track number from Wikidata.
-                    merged.Add(new CollectionGroupWorkDto
-                    {
-                        WorkId = owned.WorkId,
-                        AssetId = owned.AssetId,
-                        Title = owned.Title,
-                        Ordinal = owned.Ordinal ?? ordinal,
-                        Year = owned.Year,
-                        Duration = StringHelpers.FirstNonBlank(owned.Duration, FormatAudioDuration(durationSeconds, null)),
-                        DurationSeconds = owned.DurationSeconds ?? durationSeconds,
-                        CoverUrl = owned.CoverUrl ?? albumCover,
-                        BackgroundUrl = owned.BackgroundUrl,
-                        BannerUrl = owned.BannerUrl,
-                        HeroUrl = owned.HeroUrl,
-                        WikidataQid = owned.WikidataQid,
-                        TrackNumber = StringHelpers.FirstNonBlank(owned.TrackNumber, (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture)),
-                        DiscNumber = owned.DiscNumber ?? discNumber,
-                        AppleMusicId = StringHelpers.FirstNonBlank(owned.AppleMusicId, appleMusicId),
-                        Status = owned.Status,
-                        Description = owned.Description,
-                        Director = owned.Director,
-                        Writer = owned.Writer,
-                        ReleaseDate = owned.ReleaseDate,
-                        PlaybackSummary = owned.PlaybackSummary,
-                        IsOwned = true,
-                        Stage1 = owned.Stage1,
-                        Stage2 = owned.Stage2,
-                        Stage3 = owned.Stage3,
-                    });
-                    seenOwned.Add(owned.WorkId);
-                }
-                else
-                {
-                    // Unowned — synthesize a row from Wikidata data.
-                    merged.Add(new CollectionGroupWorkDto
-                    {
-                        WorkId = Guid.Empty,
-                        Title = title,
-                        Ordinal = ordinal,
-                        TrackNumber = (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
-                        DiscNumber = discNumber,
-                        AppleMusicId = appleMusicId,
-                        Duration = FormatAudioDuration(durationSeconds, null),
-                        DurationSeconds = durationSeconds,
-                        CoverUrl = albumCover,
-                        Status = "Missing",
-                        IsOwned = false,
-                    });
-                }
-            }
-
-            // Append any owned tracks that didn't match a Wikidata title (rare — bonus tracks, mislabeled).
-            foreach (var t in ownedTracks)
-            {
-                if (!seenOwned.Contains(t.WorkId))
-                {
-                    merged.Add(t);
-                }
-            }
-
-            return SortAlbumTracks(merged);
-        }
-        catch (JsonException)
-        {
-            // Malformed JSON — fall back to owned-only.
-            return SortAlbumTracks(ownedTracks);
-        }
-    }
-
-    /// <summary>
-    /// Merges Wikidata-discovered child entities (from <c>child_entities_json</c>)
-    /// into <paramref name="sectionMap"/> as unowned rows, deduplicating against
-    /// owned rows by case-insensitive title. Supports TV (episodes grouped by
-    /// season), music (tracks in flat "_flat" section), and comics (issues).
-    ///
-    /// Called by <c>system-view-detail</c> after the owned-works reader loop.
-    /// </summary>
-    private static void MergeUnownedChildEntities(
-        Dictionary<string, List<CollectionGroupWorkDto>> sectionMap,
-        string childEntitiesJson,
-        string groupField,
-        string? secondaryGroup,
-        string? fallbackCover)
-    {
-        try
-        {
-            using var doc = System.Text.Json.JsonDocument.Parse(childEntitiesJson);
-            var root = doc.RootElement;
-
-            // Determine which array key to read. Mirrors ReconciliationAdapter conventions.
-            // "tracks" for music, "episodes" for TV (flat or grouped), "issues" for comics.
-            string[]? arrayKeys = groupField.ToLowerInvariant() switch
-            {
-                "show_name" => ["episodes", "seasons"],
-                "album" => ["tracks"],
-                "series" => ["issues"],
-                _ => null,
-            };
-
-            if (arrayKeys is null)
-            {
-                return;
-            }
-
-            // TV episodes may be nested: root.seasons[].episodes[].
-            if (groupField.Equals("show_name", StringComparison.OrdinalIgnoreCase)
-                && root.TryGetProperty("seasons", out var seasonsArr)
-                && seasonsArr.ValueKind == System.Text.Json.JsonValueKind.Array)
-            {
-                foreach (var seasonEl in seasonsArr.EnumerateArray())
-                {
-                    var seasonNum = seasonEl.TryGetProperty("season_number", out var snEl)
-                        && snEl.ValueKind == System.Text.Json.JsonValueKind.Number
-                        ? snEl.GetInt32().ToString()
-                        : null;
-
-                    if (!seasonEl.TryGetProperty("episodes", out var epArr)
-                        || epArr.ValueKind != System.Text.Json.JsonValueKind.Array)
-                    {
-                        continue;
-                    }
-
-                    MergeChildArray(sectionMap, epArr, seasonNum ?? "Unknown",
-                        isEpisode: true, fallbackCover);
-                }
-                return;
-            }
-
-            // Flat structure: tracks, issues, or flat episodes.
-            foreach (var key in arrayKeys)
-            {
-                if (root.TryGetProperty(key, out var arr)
-                    && arr.ValueKind == System.Text.Json.JsonValueKind.Array)
-                {
-                    MergeChildArray(sectionMap, arr, "_flat",
-                        isEpisode: key == "episodes", fallbackCover);
-                    return;
-                }
-            }
-        }
-        catch
-        {
-            // Malformed JSON — leave sectionMap as-is (owned only).
-        }
-    }
-
-    /// <summary>
-    /// Adds unowned rows from <paramref name="childArray"/> into
-    /// <paramref name="sectionMap"/>[<paramref name="sectionKey"/>],
-    /// skipping entries whose title already appears as an owned row.
-    /// </summary>
-    private static void MergeChildArray(
-        Dictionary<string, List<CollectionGroupWorkDto>> sectionMap,
-        System.Text.Json.JsonElement childArray,
-        string sectionKey,
-        bool isEpisode,
-        string? fallbackCover)
-    {
-        // Build a set of owned titles in this section for O(1) dedup.
-        var ownedTitles = sectionMap.TryGetValue(sectionKey, out var existing)
-            ? existing
-                .Where(w => w.IsOwned && !string.IsNullOrWhiteSpace(w.Title))
-                .Select(w => isEpisode ? w.Title.Trim().ToLowerInvariant() : NormalizeTrackTitle(w.Title))
-                .ToHashSet(StringComparer.OrdinalIgnoreCase)
-            : new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        if (!sectionMap.ContainsKey(sectionKey))
-        {
-            sectionMap[sectionKey] = [];
-        }
-
-        int wikiOrdinal = 0;
-        foreach (var el in childArray.EnumerateArray())
-        {
-            wikiOrdinal++;
-            var title = el.TryGetProperty("title", out var tEl)
-                && tEl.ValueKind == System.Text.Json.JsonValueKind.String
-                ? tEl.GetString()
-                : null;
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                continue;
-            }
-
-            // Skip if an owned row with the same title is already in this section.
-            var titleKey = isEpisode ? title.Trim().ToLowerInvariant() : NormalizeTrackTitle(title);
-            if (ownedTitles.Contains(titleKey))
-            {
-                continue;
-            }
-
-            var trackNumber = ReadJsonInt(el, "track_number", "trackNumber", "number");
-            var discNumber = ReadJsonInt(el, "disc_number", "discNumber");
-            var ordinal = ReadJsonInt(el, "ordinal", "position") ?? trackNumber ?? wikiOrdinal;
-            var durationSeconds = ReadChildDurationSeconds(el);
-            var appleMusicId = ReadJsonString(el, "apple_music_id", "appleMusicId", "trackId");
-
-            var episodeNumStr = isEpisode
-                ? (ReadJsonInt(el, "episode_number", "episodeNumber") ?? ordinal).ToString(CultureInfo.InvariantCulture)
-                : null;
-
-            sectionMap[sectionKey].Add(new CollectionGroupWorkDto
-            {
-                WorkId = Guid.Empty,
-                Title = title,
-                Ordinal = ordinal,
-                Episode = episodeNumStr,
-                TrackNumber = isEpisode ? null : (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
-                DiscNumber = isEpisode ? null : discNumber,
-                AppleMusicId = isEpisode ? null : appleMusicId,
-                Duration = FormatAudioDuration(durationSeconds, null),
-                DurationSeconds = durationSeconds,
-                CoverUrl = fallbackCover,
-                Status = "Missing",
-                IsOwned = false,
-            });
-        }
-    }
-
-    private static List<CollectionGroupWorkDto> SortAlbumTracks(IEnumerable<CollectionGroupWorkDto> tracks)
-        => tracks
-            .OrderBy(track => track.DiscNumber ?? 1)
-            .ThenBy(track => ParseNullableInt(track.TrackNumber) ?? track.Ordinal ?? int.MaxValue)
-            .ThenBy(track => track.Title, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-    private static string NormalizeTrackTitle(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        var normalized = value.Trim().ToLowerInvariant();
-        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\s*[\(\[\{].*?[\)\]\}]\s*", " ");
-        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"\b(remaster(ed)?|remix|mono|stereo|explicit|clean|single version|album version)\b", " ");
-        normalized = System.Text.RegularExpressions.Regex.Replace(normalized, @"[^\p{L}\p{Nd}]+", " ");
-        return string.Join(' ', normalized.Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
-
-    private static string BuildTrackMatchKey(string? title, int? discNumber, int? trackNumber)
-        => $"{NormalizeTrackTitle(title)}|{discNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}|{trackNumber?.ToString(CultureInfo.InvariantCulture) ?? string.Empty}";
-
-    private static bool HasKnownTrackIdentityConflict(
-        CollectionGroupWorkDto owned,
-        int? manifestDiscNumber,
-        int? manifestTrackNumber,
-        double? manifestDurationSeconds)
-    {
-        if (owned.DiscNumber is { } ownedDisc
-            && manifestDiscNumber is { } manifestDisc
-            && ownedDisc != manifestDisc)
-        {
-            return true;
-        }
-
-        var ownedTrackNumber = ParseNullableInt(owned.TrackNumber);
-        if (ownedTrackNumber is { } ownedTrack
-            && manifestTrackNumber is { } manifestTrack
-            && ownedTrack != manifestTrack)
-        {
-            return true;
-        }
-
-        if (owned.DurationSeconds is { } ownedDuration
-            && manifestDurationSeconds is { } manifestDuration
-            && Math.Abs(ownedDuration - manifestDuration) > 3)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static string? ReadJsonString(JsonElement element, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (element.TryGetProperty(key, out var value) && value.ValueKind == JsonValueKind.String)
-            {
-                return value.GetString();
-            }
-        }
-
-        return null;
-    }
-
-    private static int? ReadJsonInt(JsonElement element, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (!element.TryGetProperty(key, out var value))
-            {
-                continue;
-            }
-
-            if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var parsed))
-            {
-                return parsed;
-            }
-
-            if (value.ValueKind == JsonValueKind.String
-                && int.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed))
-            {
-                return parsed;
-            }
-        }
-
-        return null;
-    }
-
-    private static double? ReadJsonDouble(JsonElement element, params string[] keys)
-    {
-        foreach (var key in keys)
-        {
-            if (!element.TryGetProperty(key, out var value))
-            {
-                continue;
-            }
-
-            if (value.ValueKind == JsonValueKind.Number && value.TryGetDouble(out var parsed))
-            {
-                return parsed;
-            }
-
-            if (value.ValueKind == JsonValueKind.String
-                && double.TryParse(value.GetString(), NumberStyles.Float, CultureInfo.InvariantCulture, out parsed))
-            {
-                return parsed;
-            }
-        }
-
-        return null;
-    }
-
-    private static double? ReadChildDurationSeconds(JsonElement element)
-    {
-        var seconds = ReadJsonDouble(element, "duration_seconds", "durationSeconds");
-        if (seconds is > 0)
-        {
-            return seconds;
-        }
-
-        var millis = ReadJsonDouble(element, "duration_ms", "durationMillis", "trackTimeMillis");
-        if (millis is > 0)
-        {
-            return millis.Value / 1000d;
-        }
-
-        return NormalizeAudioDurationSeconds(ReadJsonString(element, "duration", "runtime"));
-    }
-
-    private static double? NormalizeAudioDurationSeconds(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return null;
-        }
-
-        if (TimeSpan.TryParse(value, CultureInfo.InvariantCulture, out var span) && span.TotalSeconds > 0)
-        {
-            return span.TotalSeconds;
-        }
-
-        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric) && numeric > 0)
-        {
-            return numeric >= 60000 ? numeric / 1000d : numeric;
-        }
-
-        return null;
-    }
-
-    private static string? FormatAudioDuration(double? seconds, string? fallback)
-    {
-        if (seconds is > 0)
-        {
-            var span = TimeSpan.FromSeconds(seconds.Value);
-            return span.TotalHours >= 1
-                ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
-                : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
-        }
-
-        var fallbackSeconds = NormalizeAudioDurationSeconds(fallback);
-        if (fallbackSeconds is > 0)
-        {
-            return FormatAudioDuration(fallbackSeconds, null);
-        }
-
-        return string.IsNullOrWhiteSpace(fallback) ? null : fallback;
-    }
-
-    private static string? FirstCanonicalValue(IReadOnlyList<CanonicalValue> values, params string[] keys)
-        => values
-            .FirstOrDefault(value => keys.Any(key => string.Equals(value.Key, key, StringComparison.OrdinalIgnoreCase))
-                && !string.IsNullOrWhiteSpace(value.Value))
-            ?.Value;
-
-    private static CollectionPalette ResolvePalette(
-        IReadOnlyList<CanonicalValue> canonicalValues,
-        CollectionPaletteReadModel? storedPalette)
-    {
-        var primary = FirstCanonicalValue(canonicalValues,
-            MetadataFieldConstants.ArtworkPrimaryHex,
-            "cover_primary_hex",
-            "primary_color");
-        var secondary = FirstCanonicalValue(canonicalValues,
-            MetadataFieldConstants.ArtworkSecondaryHex,
-            "cover_secondary_hex",
-            "secondary_color");
-        var accent = FirstCanonicalValue(canonicalValues,
-            MetadataFieldConstants.ArtworkAccentHex,
-            "cover_accent_hex",
-            "accent_color",
-            "dominant_color");
-
-        var colors = new List<string>();
-        AddColor(colors, primary);
-        AddColor(colors, secondary);
-        AddColor(colors, accent);
-
-        if (storedPalette is not null
-            && (string.IsNullOrWhiteSpace(primary)
-                || string.IsNullOrWhiteSpace(secondary)
-                || string.IsNullOrWhiteSpace(accent)))
-        {
-            primary ??= storedPalette.PrimaryHex;
-            secondary ??= storedPalette.SecondaryHex;
-            accent ??= storedPalette.AccentHex;
-            AddColor(colors, storedPalette.PrimaryHex);
-            AddColor(colors, storedPalette.SecondaryHex);
-            AddColor(colors, storedPalette.AccentHex);
-        }
-
-        return new CollectionPalette(primary, secondary, accent, colors);
-    }
-
-    private static void AddColor(List<string> colors, string? color)
-    {
-        if (!string.IsNullOrWhiteSpace(color) && !colors.Contains(color, StringComparer.OrdinalIgnoreCase))
-        {
-            colors.Add(color);
-        }
-    }
-
-    private static async Task<string?> EnsureAppleAlbumTrackManifestAsync(
-        Guid? rootWorkId,
-        string? artist,
-        string? album,
-        string? existingChildEntitiesJson,
-        IReadOnlyList<CanonicalValue> rootCanonicalValues,
-        ICanonicalValueRepository canonicalRepo,
-        AppleRetailClient appleRetailClient,
-        CancellationToken ct)
-    {
-        if (!NeedsAppleAlbumTrackGapFill(existingChildEntitiesJson))
-        {
-            return existingChildEntitiesJson;
-        }
-
-        var collectionId = FirstCanonicalValue(rootCanonicalValues, BridgeIdKeys.AppleMusicCollectionId);
-        if (string.IsNullOrWhiteSpace(collectionId))
-        {
-            collectionId = await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct);
-        }
-
-        if (string.IsNullOrWhiteSpace(collectionId))
-        {
-            return existingChildEntitiesJson;
-        }
-
-        var appleTracks = await appleRetailClient.FetchAlbumTracksAsync(collectionId, "us", "en", ct);
-        if (appleTracks.Count == 0)
-        {
-            return existingChildEntitiesJson;
-        }
-
-        var appleManifest = BuildAppleAlbumTrackManifest(appleTracks);
-        var mergedManifest = MergeTrackManifests(existingChildEntitiesJson, appleManifest);
-        if (rootWorkId.HasValue && !string.IsNullOrWhiteSpace(mergedManifest) && !string.Equals(mergedManifest, existingChildEntitiesJson, StringComparison.Ordinal))
-        {
-            await canonicalRepo.UpsertBatchAsync(
-                [
-                    new CanonicalValue
-                    {
-                        EntityId = rootWorkId.Value,
-                        Key = MetadataFieldConstants.ChildEntitiesJson,
-                        Value = mergedManifest,
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                        WinningProviderId = WellKnownProviders.AppleApi,
-                    },
-                    new CanonicalValue
-                    {
-                        EntityId = rootWorkId.Value,
-                        Key = MetadataFieldConstants.TrackCount,
-                        Value = CountManifestTracks(mergedManifest).ToString(CultureInfo.InvariantCulture),
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                        WinningProviderId = WellKnownProviders.AppleApi,
-                    },
-                ],
-                ct);
-        }
-
-        return mergedManifest;
-    }
-
-    private static bool NeedsAppleAlbumTrackGapFill(string? childEntitiesJson)
-    {
-        if (string.IsNullOrWhiteSpace(childEntitiesJson))
-        {
-            return true;
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(childEntitiesJson);
-            if (!doc.RootElement.TryGetProperty("tracks", out var tracks) || tracks.ValueKind != JsonValueKind.Array || tracks.GetArrayLength() == 0)
-            {
-                return true;
-            }
-
-            return tracks.EnumerateArray().Any(track =>
-                string.IsNullOrWhiteSpace(ReadJsonString(track, "title", "trackName", "name"))
-                || ReadJsonInt(track, "ordinal", "position") is null
-                || ReadJsonInt(track, "track_number", "trackNumber", "number") is null
-                || ReadChildDurationSeconds(track) is null);
-        }
-        catch (JsonException)
-        {
-            return true;
-        }
-    }
-
-    private static string BuildAppleAlbumTrackManifest(IReadOnlyList<JsonNode> tracks)
-    {
-        var array = new JsonArray();
-        var ordinal = 0;
-        foreach (var track in tracks)
-        {
-            ordinal++;
-            var title = track["trackName"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                continue;
-            }
-
-            var trackNumber = track["trackNumber"]?.GetValue<int?>() ?? ordinal;
-            var durationMillis = track["trackTimeMillis"]?.GetValue<long?>();
-            var item = new JsonObject
-            {
-                ["title"] = title,
-                ["ordinal"] = trackNumber,
-                ["track_number"] = trackNumber,
-                ["source"] = "apple_itunes",
-            };
-
-            if (track["discNumber"]?.GetValue<int?>() is { } discNumber)
-            {
-                item["disc_number"] = discNumber;
-            }
-
-            if (durationMillis is > 0)
-            {
-                item["duration_seconds"] = Math.Round(durationMillis.Value / 1000d, 3);
-            }
-
-            if (track["trackId"]?.GetValue<long?>() is { } trackId)
-            {
-                item["apple_music_id"] = trackId.ToString(CultureInfo.InvariantCulture);
-            }
-
-            array.Add(item);
-        }
-
-        return new JsonObject { ["tracks"] = array }.ToJsonString();
-    }
-
-    private static string MergeTrackManifests(string? existingJson, string appleJson)
-    {
-        var items = ReadTrackManifest(existingJson, defaultSource: "wikidata");
-        var appleItems = ReadTrackManifest(appleJson, defaultSource: "apple_itunes");
-        if (items.Count == 0)
-        {
-            items = appleItems;
-        }
-        else
-        {
-            foreach (var appleItem in appleItems)
-            {
-                var existing = !string.IsNullOrWhiteSpace(appleItem.AppleMusicId)
-                    ? items.FirstOrDefault(item => string.Equals(item.AppleMusicId, appleItem.AppleMusicId, StringComparison.OrdinalIgnoreCase))
-                    : null;
-                existing ??= items.FirstOrDefault(item =>
-                    string.Equals(
-                        BuildTrackMatchKey(item.Title, item.DiscNumber, item.TrackNumber),
-                        BuildTrackMatchKey(appleItem.Title, appleItem.DiscNumber, appleItem.TrackNumber),
-                        StringComparison.OrdinalIgnoreCase))
-                    ?? items.FirstOrDefault(item =>
-                        string.Equals(NormalizeTrackTitle(item.Title), NormalizeTrackTitle(appleItem.Title), StringComparison.OrdinalIgnoreCase)
-                        && !HasTrackManifestIdentityConflict(item, appleItem));
-
-                if (existing is null)
-                {
-                    items.Add(appleItem);
-                    continue;
-                }
-
-                existing.TrackNumber ??= appleItem.TrackNumber;
-                existing.Ordinal = existing.Ordinal <= 0 ? appleItem.Ordinal : existing.Ordinal;
-                existing.DiscNumber ??= appleItem.DiscNumber;
-                existing.DurationSeconds ??= appleItem.DurationSeconds;
-                existing.AppleMusicId ??= appleItem.AppleMusicId;
-            }
-        }
-
-        var array = new JsonArray();
-        foreach (var item in items
-                     .OrderBy(item => item.DiscNumber ?? 1)
-                     .ThenBy(item => item.TrackNumber ?? item.Ordinal)
-                     .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase))
-        {
-            var obj = new JsonObject
-            {
-                ["title"] = item.Title,
-                ["ordinal"] = item.Ordinal,
-                ["source"] = item.Source,
-            };
-            if (item.TrackNumber is { } trackNumber)
-            {
-                obj["track_number"] = trackNumber;
-            }
-            if (item.DiscNumber is { } discNumber)
-            {
-                obj["disc_number"] = discNumber;
-            }
-            if (item.DurationSeconds is { } duration)
-            {
-                obj["duration_seconds"] = Math.Round(duration, 3);
-            }
-            if (!string.IsNullOrWhiteSpace(item.AppleMusicId))
-            {
-                obj["apple_music_id"] = item.AppleMusicId;
-            }
-
-            array.Add(obj);
-        }
-
-        return new JsonObject { ["tracks"] = array }.ToJsonString();
-    }
-
-    private static bool HasTrackManifestIdentityConflict(
-        AlbumTrackManifestItem existing,
-        AlbumTrackManifestItem incoming)
-    {
-        if (existing.DiscNumber is { } existingDisc
-            && incoming.DiscNumber is { } incomingDisc
-            && existingDisc != incomingDisc)
-        {
-            return true;
-        }
-
-        if (existing.TrackNumber is { } existingTrack
-            && incoming.TrackNumber is { } incomingTrack
-            && existingTrack != incomingTrack)
-        {
-            return true;
-        }
-
-        if (existing.DurationSeconds is { } existingDuration
-            && incoming.DurationSeconds is { } incomingDuration
-            && Math.Abs(existingDuration - incomingDuration) > 3)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static List<AlbumTrackManifestItem> ReadTrackManifest(string? json, string defaultSource)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return [];
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("tracks", out var tracks) || tracks.ValueKind != JsonValueKind.Array)
-            {
-                return [];
-            }
-
-            var ordinal = 0;
-            var result = new List<AlbumTrackManifestItem>();
-            foreach (var track in tracks.EnumerateArray())
-            {
-                ordinal++;
-                var title = ReadJsonString(track, "title", "trackName", "name");
-                if (string.IsNullOrWhiteSpace(title))
-                {
-                    continue;
-                }
-
-                var trackNumber = ReadJsonInt(track, "track_number", "trackNumber", "number");
-                result.Add(new AlbumTrackManifestItem
-                {
-                    Title = title,
-                    Ordinal = ReadJsonInt(track, "ordinal", "position") ?? trackNumber ?? ordinal,
-                    TrackNumber = trackNumber,
-                    DiscNumber = ReadJsonInt(track, "disc_number", "discNumber"),
-                    DurationSeconds = ReadChildDurationSeconds(track),
-                    AppleMusicId = ReadJsonString(track, "apple_music_id", "appleMusicId", "trackId"),
-                    Source = ReadJsonString(track, "source", "provider") ?? defaultSource,
-                });
-            }
-
-            return result;
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
-
-    private static int CountManifestTracks(string manifestJson)
-    {
-        try
-        {
-            using var doc = JsonDocument.Parse(manifestJson);
-            return doc.RootElement.TryGetProperty("tracks", out var tracks) && tracks.ValueKind == JsonValueKind.Array
-                ? tracks.GetArrayLength()
-                : 0;
-        }
-        catch (JsonException)
-        {
-            return 0;
-        }
-    }
-
-    private sealed record CollectionPalette(
-        string? PrimaryColor,
-        string? SecondaryColor,
-        string? AccentColor,
-        List<string> DominantColors);
-
-    private sealed class AssetPaletteRow
-    {
-        public string? PrimaryHex { get; init; }
-        public string? SecondaryHex { get; init; }
-        public string? AccentHex { get; init; }
-    }
-
-    private sealed class AlbumTrackManifestItem
-    {
-        public string Title { get; init; } = string.Empty;
-        public int Ordinal { get; set; }
-        public int? TrackNumber { get; set; }
-        public int? DiscNumber { get; set; }
-        public double? DurationSeconds { get; set; }
-        public string? AppleMusicId { get; set; }
-        public string Source { get; init; } = "provider";
-    }
-
-    private static IReadOnlyList<ContentGroupDto> NormalizeSystemViewGroups(
-        IReadOnlyList<ContentGroupDto> groups,
-        string? mediaType,
-        string? groupField)
-    {
-        if (groups.Count == 0)
-        {
-            return groups;
-        }
-
-        var normalizedGroups = IsMusicAlbumSystemView(mediaType, groupField)
-            ? groups
-                .GroupBy(group => BuildSystemViewGroupIdentity(group, mediaType, groupField), StringComparer.OrdinalIgnoreCase)
-                .Select(group => (Key: group.Key, Items: (IReadOnlyList<ContentGroupDto>)group.ToList()))
-                .ToList()
-            : groups
-                .Select(group => (
-                    Key: BuildSystemViewGroupIdentity(group, mediaType, groupField),
-                    Items: (IReadOnlyList<ContentGroupDto>)[group]))
-                .ToList();
-
-        return normalizedGroups
-            .Select(group =>
-            {
-                var preferred = group.Items
-                    .OrderByDescending(ScoreSystemViewGroup)
-                    .ThenByDescending(item => item.CreatedAt)
-                    .First();
-
-                var seasonCounts = group.Items
-                    .Where(item => item.SeasonCount.HasValue)
-                    .Select(item => item.SeasonCount!.Value)
-                    .ToList();
-
-                var albumCounts = group.Items
-                    .Where(item => item.AlbumCount.HasValue)
-                    .Select(item => item.AlbumCount!.Value)
-                    .ToList();
-
-                var earliestYears = group.Items
-                    .Where(item => item.EarliestYear.HasValue)
-                    .Select(item => item.EarliestYear!.Value)
-                    .ToList();
-
-                var latestYears = group.Items
-                    .Where(item => item.LatestYear.HasValue)
-                    .Select(item => item.LatestYear!.Value)
-                    .ToList();
-
-                return new ContentGroupDto
-                {
-                    CollectionId = SystemViewGroupIdentity.CreateId(preferred, mediaType, groupField),
-                    RootWorkId = preferred.RootWorkId,
-                    DisplayName = preferred.DisplayName.Trim(),
-                    WikidataQid = preferred.WikidataQid,
-                    PrimaryMediaType = preferred.PrimaryMediaType,
-                    WorkCount = group.Items.Max(item => item.WorkCount),
-                    DistinctTitleCount = group.Items
-                        .Where(item => item.DistinctTitleCount.HasValue)
-                        .Select(item => item.DistinctTitleCount!.Value)
-                        .DefaultIfEmpty(group.Items.Max(item => item.WorkCount))
-                        .Max(),
-                    PreviewItems = group.Items
-                        .SelectMany(item => item.PreviewItems)
-                        .DistinctBy(item => item.WorkId)
-                        .Take(4)
-                        .ToList(),
-                    CoverUrl = preferred.CoverUrl,
-                    BackgroundUrl = preferred.BackgroundUrl,
-                    BannerUrl = preferred.BannerUrl,
-                    HeroUrl = null,
-                    LogoUrl = preferred.LogoUrl,
-                    CoverAspectClass = preferred.CoverAspectClass,
-                    SquareAspectClass = preferred.SquareAspectClass,
-                    BackgroundAspectClass = preferred.BackgroundAspectClass,
-                    BannerAspectClass = preferred.BannerAspectClass,
-                    CoverWidthPx = preferred.CoverWidthPx,
-                    CoverHeightPx = preferred.CoverHeightPx,
-                    SquareWidthPx = preferred.SquareWidthPx,
-                    SquareHeightPx = preferred.SquareHeightPx,
-                    BackgroundWidthPx = preferred.BackgroundWidthPx,
-                    BackgroundHeightPx = preferred.BackgroundHeightPx,
-                    BannerWidthPx = preferred.BannerWidthPx,
-                    BannerHeightPx = preferred.BannerHeightPx,
-                    Description = preferred.Description,
-                    Tagline = preferred.Tagline,
-                    Creator = preferred.Creator,
-                    Director = preferred.Director,
-                    Writer = preferred.Writer,
-                    ReleaseDate = preferred.ReleaseDate,
-                    UniverseStatus = preferred.UniverseStatus,
-                    CreatedAt = preferred.CreatedAt,
-                    ArtistPhotoUrl = preferred.ArtistPhotoUrl,
-                    ArtistPersonId = preferred.ArtistPersonId,
-                    PersonPhotoUrl = preferred.PersonPhotoUrl,
-                    PersonId = preferred.PersonId,
-                    PersonRoles = preferred.PersonRoles,
-                    Network = preferred.Network,
-                    Year = preferred.Year,
-                    EarliestYear = earliestYears.Count == 0 ? null : earliestYears.Min(),
-                    LatestYear = latestYears.Count == 0 ? null : latestYears.Max(),
-                    SeasonCount = seasonCounts.Count == 0 ? null : seasonCounts.Max(),
-                    AlbumCount = albumCounts.Count == 0 ? null : albumCounts.Max(),
-                };
-            })
-            .ToList();
-    }
-
-    private static bool IsMusicAlbumSystemView(string? mediaType, string? groupField)
-        => string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
-           && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
-
-    private sealed class MusicSystemViewGroupRow
-    {
-        public string GroupName { get; init; } = string.Empty;
-        public string? Creator { get; init; }
-        public int WorkCount { get; init; }
-        public int DistinctTitleCount { get; init; }
-        public int AlbumCount { get; init; }
-        public Guid? FirstAssetId { get; init; }
-        public string? Year { get; init; }
-        public string? Description { get; init; }
-        public string? CoverAspectClass { get; init; }
-    }
-
-    private static int CountDistinctWorkTitles(IEnumerable<Work> works)
-    {
-        var titles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var work in works)
-        {
-            var dto = WorkDto.FromDomain(work);
-            var title = GetCanonical(dto, "title") ?? GetCanonical(dto, "original_title");
-            titles.Add(NormalizeDistinctTitle(title) ?? work.Id.ToString("N"));
-        }
-
-        return titles.Count;
-    }
-
-    private static string? NormalizeDistinctTitle(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? null
-            : string.Join(' ', value.Trim().ToLowerInvariant().Split(' ', StringSplitOptions.RemoveEmptyEntries));
-
-    private static string BuildSystemViewGroupIdentity(ContentGroupDto group, string? mediaType, string? groupField)
-    {
-        var name = NormalizeSystemViewIdentity(group.DisplayName);
-        if (string.Equals(mediaType, "Music", StringComparison.OrdinalIgnoreCase)
-            && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"{name}|{NormalizeSystemViewIdentity(group.Creator)}";
-        }
-
-        return string.Join("|",
-            name,
-            NormalizeSystemViewIdentity(group.Creator),
-            NormalizeSystemViewIdentity(group.Network),
-            NormalizeSystemViewIdentity(group.Year));
-    }
-
-    private static string NormalizeSystemViewIdentity(string? value)
-        => string.IsNullOrWhiteSpace(value)
-            ? "(blank)"
-            : value.Trim().ToLowerInvariant();
-
-    private static int ScoreSystemViewGroup(ContentGroupDto group)
-    {
-        var score = 0;
-        score += string.IsNullOrWhiteSpace(group.CoverUrl) ? 0 : 8;
-        score += string.IsNullOrWhiteSpace(group.ArtistPhotoUrl) ? 0 : 8;
-        score += string.IsNullOrWhiteSpace(group.PersonPhotoUrl) ? 0 : 8;
-        score += string.IsNullOrWhiteSpace(group.Description) ? 0 : 4;
-        score += string.IsNullOrWhiteSpace(group.Creator) ? 0 : 2;
-        return score + group.WorkCount;
-    }
-
-    private static Guid CreateDeterministicSystemViewGroupId(string value) => Hashing.DeterministicGuid(value);
-
-    /// <summary>
-    /// Lineage-aware variant of <see cref="ResolveEntityMetadata"/> used by the
-    /// <c>/resolve/by-name</c> endpoint.  For each Work this reads canonical values
-    /// from both the asset row (Self-scoped fields: title, track_number) and from
-    /// the topmost parent Work row (Parent-scoped fields: artist, album, genre,
-    /// year).  Cover art is resolved via <c>/stream/{assetId}/cover</c> from the
-    /// asset ID rather than canonical_values.  This mirrors the LibraryItemRepository
-    /// pattern so that music items have correct artist/album/cover values even
-    /// after the lineage-aware write splits them onto the album Work's entity_id.
-    /// </summary>
-    private sealed record CollectionMediaLookupRow(
-        Guid WorkId,
-        string MediaType,
-        string? WorkKind,
-        int? Ordinal,
-        Guid? AssetId,
-        string Title,
-        string? Creator,
-        string? Year,
-        string? ArtworkUrl,
-        string? ShowName,
-        string? SeasonNumber,
-        string? Album,
-        string? Artist);
-
-    private sealed class GeneratedCollectionItemRow
-    {
-        public Guid WorkId { get; init; }
-        public string Title { get; init; } = string.Empty;
-        public object? Creator { get; init; }
-        public string MediaType { get; init; } = string.Empty;
-        public string? CoverUrl { get; init; }
-        public int SortOrder { get; init; }
-    }
-
-    private sealed record CollectionDisplayWorkRow(Guid WorkId);
-
-    private sealed record CollectionCatalogAggregation(string Key, string? Label);
-
-    private sealed record CollectionManagementCatalogCandidate(
-        Collection Collection,
-        CollectionCatalogClassification Classification,
-        CollectionCatalogAggregation? Grouping,
-        IReadOnlyList<Guid> WorkIds,
-        int ItemCount,
-        CollectionMediaCounts MediaCounts);
 }

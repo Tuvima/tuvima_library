@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Plugins;
+using MediaEngine.Contracts.Universe;
 using MediaEngine.Domain.Entities;
 
 namespace MediaEngine.Api.Endpoints;
@@ -21,6 +23,7 @@ internal static class UniverseLoreEndpoints
             return Results.Ok(sources.Select(ToDto).ToList());
         })
         .WithName("GetUniverseLoreSources")
+        .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/lore-sources/discover", async (
@@ -32,6 +35,7 @@ internal static class UniverseLoreEndpoints
             return Results.Ok(sources.Select(ToDto).ToList());
         })
         .WithName("DiscoverUniverseLoreSources")
+        .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/lore-sources/manual", async (
@@ -41,7 +45,7 @@ internal static class UniverseLoreEndpoints
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.BaseUrl))
-                return Results.BadRequest("A base URL is required.");
+                return ApiErrors.BadRequest("A base URL is required.");
 
             try
             {
@@ -55,10 +59,11 @@ internal static class UniverseLoreEndpoints
             }
             catch (UriFormatException ex)
             {
-                return Results.BadRequest(ex.Message);
+                return ApiErrors.BadRequest(ex.Message);
             }
         })
         .WithName("AddManualUniverseLoreSource")
+        .Produces<UniverseLoreSourceResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/lore-sources/{sourceId:guid}/approve", async (
@@ -79,10 +84,11 @@ internal static class UniverseLoreEndpoints
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(ex.Message);
+                return ApiErrors.BadRequest(ex.Message);
             }
         })
         .WithName("ApproveUniverseLoreSource")
+        .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/lore-sources/{sourceId:guid}/reject", async (
@@ -103,10 +109,11 @@ internal static class UniverseLoreEndpoints
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(ex.Message);
+                return ApiErrors.BadRequest(ex.Message);
             }
         })
         .WithName("RejectUniverseLoreSource")
+        .Produces<List<UniverseLoreSourceResponse>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/lore/enrich", async (
@@ -115,40 +122,37 @@ internal static class UniverseLoreEndpoints
             CancellationToken ct) =>
         {
             var summary = await lore.EnrichUniverseAsync(qid, ct).ConfigureAwait(false);
-            return Results.Ok(new
-            {
-                universe_qid = summary.UniverseQid,
-                sources_enriched = summary.SourcesEnriched,
-                entities_written = summary.EntitiesWritten,
-                relationships_written = summary.RelationshipsWritten,
-            });
+            return Results.Ok(new UniverseLoreEnrichResponse(
+                universe_qid: summary.UniverseQid,
+                sources_enriched: summary.SourcesEnriched,
+                entities_written: summary.EntitiesWritten,
+                relationships_written: summary.RelationshipsWritten));
         })
         .WithName("EnrichUniverseLoreSources")
+        .Produces<UniverseLoreEnrichResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return group;
     }
 
-    private static object ToDto(PluginLoreSourceRecord source) => new
-    {
-        id = source.Id,
-        universe_qid = source.UniverseQid,
-        plugin_id = source.PluginId,
-        source_key = source.SourceKey,
-        source_name = source.SourceName,
-        base_url = source.BaseUrl,
-        api_url = source.ApiUrl,
-        status = source.Status,
-        confidence = source.Confidence,
-        license = source.License,
-        approved_at = source.ApprovedAt,
-        approved_by = source.ApprovedBy,
-        rejected_at = source.RejectedAt,
-        last_discovered_at = source.LastDiscoveredAt,
-        last_enriched_at = source.LastEnrichedAt,
-        created_at = source.CreatedAt,
-        updated_at = source.UpdatedAt,
-    };
+    private static UniverseLoreSourceResponse ToDto(PluginLoreSourceRecord source) => new(
+        id: source.Id,
+        universe_qid: source.UniverseQid,
+        plugin_id: source.PluginId,
+        source_key: source.SourceKey,
+        source_name: source.SourceName,
+        base_url: source.BaseUrl,
+        api_url: source.ApiUrl,
+        status: source.Status,
+        confidence: source.Confidence,
+        license: source.License,
+        approved_at: source.ApprovedAt,
+        approved_by: source.ApprovedBy,
+        rejected_at: source.RejectedAt,
+        last_discovered_at: source.LastDiscoveredAt,
+        last_enriched_at: source.LastEnrichedAt,
+        created_at: source.CreatedAt,
+        updated_at: source.UpdatedAt);
 }
 
 internal sealed record ManualLoreSourceRequest(

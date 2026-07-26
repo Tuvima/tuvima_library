@@ -1,3 +1,4 @@
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Paging;
@@ -45,17 +46,17 @@ public static class PlayerEndpoints
             }
             catch (PlayerStateConflictException ex)
             {
-                return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
+                return ApiErrors.Conflict(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return ApiErrors.BadRequest(ex.Message);
             }
         })
         .WithName("ReplacePlayerQueue")
         .WithSummary("Replace the queue and start playback from the requested item.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAnyRole();
 
         group.MapPost("/queue/items", async (
@@ -70,17 +71,17 @@ public static class PlayerEndpoints
             }
             catch (PlayerStateConflictException ex)
             {
-                return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
+                return ApiErrors.Conflict(ex.Message);
             }
             catch (InvalidOperationException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return ApiErrors.BadRequest(ex.Message);
             }
         })
         .WithName("AddPlayerQueueItems")
         .WithSummary("Add works to the current queue at the end or next slot.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAnyRole();
 
         group.MapMethods("/queue/order", ["PUT", "POST"], async (
@@ -94,13 +95,13 @@ public static class PlayerEndpoints
             }
             catch (PlayerStateConflictException ex)
             {
-                return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
+                return ApiErrors.Conflict(ex.Message);
             }
         })
         .WithName("ReorderPlayerQueue")
         .WithSummary("Persist a new queue order.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAnyRole();
 
         group.MapDelete("/queue/items/{queueItemId:guid}", async (
@@ -127,13 +128,13 @@ public static class PlayerEndpoints
             }
             catch (PlayerStateConflictException ex)
             {
-                return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
+                return ApiErrors.Conflict(ex.Message);
             }
         })
         .WithName("RemovePlayerQueueItem")
         .WithSummary("Remove one queue item.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAnyRole();
 
         group.MapDelete("/queue", async (
@@ -159,13 +160,13 @@ public static class PlayerEndpoints
             }
             catch (PlayerStateConflictException ex)
             {
-                return Results.Conflict(new { error = ex.Message, ex.CurrentVersion, ex.ExpectedVersion });
+                return ApiErrors.Conflict(ex.Message);
             }
         })
         .WithName("ClearPlayerQueue")
         .WithSummary("Clear the queue and stop playback.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAnyRole();
 
         group.MapPost("/command", async (
@@ -205,13 +206,13 @@ public static class PlayerEndpoints
             }
             catch (PlayerSessionConflictException ex)
             {
-                return Results.Conflict(new { error = ex.Message });
+                return ApiErrors.Conflict(ex.Message);
             }
         })
         .WithName("TakeOverPlayerSession")
         .WithSummary("Take control of a stale or explicitly forced player session from another client.")
         .Produces<PlayerStateDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status409Conflict)
+        .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAnyRole();
 
         group.MapGet("/audiobooks/{workId:guid}/history", async (
@@ -255,7 +256,7 @@ public static class PlayerEndpoints
         {
             if (request.AssetId == Guid.Empty)
             {
-                return Results.BadRequest(new { error = "An asset id is required for an audiobook bookmark." });
+                return ApiErrors.BadRequest("An asset id is required for an audiobook bookmark.");
             }
 
             var bookmark = await player.CreateAudiobookBookmarkAsync(profileId, workId, request, ct);
@@ -264,7 +265,7 @@ public static class PlayerEndpoints
         .WithName("CreateAudiobookBookmark")
         .WithSummary("Save the current audiobook playback position as a bookmark.")
         .Produces<AudiobookBookmarkDto>(StatusCodes.Status201Created)
-        .Produces(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAnyRole();
 
         group.MapDelete("/audiobooks/bookmarks/{bookmarkId:guid}", async (
@@ -274,12 +275,12 @@ public static class PlayerEndpoints
             CancellationToken ct) =>
         {
             var deleted = await player.DeleteAudiobookBookmarkAsync(profileId, bookmarkId, ct);
-            return deleted ? Results.NoContent() : Results.NotFound();
+            return deleted ? Results.NoContent() : ApiErrors.NotFound($"Audiobook bookmark '{bookmarkId}' not found.");
         })
         .WithName("DeleteAudiobookBookmark")
         .WithSummary("Delete one saved audiobook bookmark.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapPost("/audiobooks/{workId:guid}/chapters/suggest-names", async (
@@ -294,13 +295,13 @@ public static class PlayerEndpoints
             }
             catch (KeyNotFoundException ex)
             {
-                return Results.NotFound(new { error = ex.Message });
+                return ApiErrors.NotFound(ex.Message);
             }
         })
         .WithName("SuggestAudiobookChapterNames")
         .WithSummary("Suggest display-only audiobook chapter names using local AI.")
         .Produces<AudiobookChapterNameSuggestionsDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapGet("/audiobooks/{workId:guid}/chapter-overrides", async (
@@ -329,18 +330,18 @@ public static class PlayerEndpoints
             }
             catch (ArgumentException ex)
             {
-                return Results.BadRequest(new { error = ex.Message });
+                return ApiErrors.BadRequest(ex.Message);
             }
             catch (KeyNotFoundException ex)
             {
-                return Results.NotFound(new { error = ex.Message });
+                return ApiErrors.NotFound(ex.Message);
             }
         })
         .WithName("UpsertAudiobookChapterTitleOverride")
         .WithSummary("Create or update one display-only audiobook chapter title override.")
         .Produces<AudiobookChapterTitleOverrideDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         group.MapDelete("/audiobooks/{workId:guid}/chapter-overrides/{assetId:guid}/{chapterIndex:int}", async (
@@ -351,12 +352,14 @@ public static class PlayerEndpoints
             CancellationToken ct) =>
         {
             var deleted = await naming.DeleteOverrideAsync(workId, assetId, chapterIndex, ct);
-            return deleted ? Results.NoContent() : Results.NotFound();
+            return deleted
+                ? Results.NoContent()
+                : ApiErrors.NotFound($"Chapter title override not found for work '{workId}', asset '{assetId}', chapter {chapterIndex}.");
         })
         .WithName("DeleteAudiobookChapterTitleOverride")
         .WithSummary("Delete one display-only audiobook chapter title override.")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status404NotFound)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
         return app;

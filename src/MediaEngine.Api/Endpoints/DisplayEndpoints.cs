@@ -1,5 +1,6 @@
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
@@ -114,12 +115,12 @@ public static class DisplayEndpoints
                 paged.Limit,
                 profileId,
                 ct);
-            return page is null ? Results.NotFound() : Results.Ok(page);
+            return page is null ? ApiErrors.NotFound($"No shelf found for key '{shelfKey}'.") : Results.Ok(page);
         })
             .WithName("GetDisplayShelf")
             .WithSummary("Returns one paged display shelf for native and TV clients.")
             .Produces<DisplayShelfPageDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAnyRole();
 
         group.MapGet("/groups/{groupId:guid}", async (
@@ -130,12 +131,12 @@ public static class DisplayEndpoints
             CancellationToken ct) =>
         {
             var page = await display.BuildGroupAsync(groupId, includeCatalog ?? true, profileId, ct);
-            return page is null ? Results.NotFound() : Results.Ok(page);
+            return page is null ? ApiErrors.NotFound($"No display group found for '{groupId}'.") : Results.Ok(page);
         })
             .WithName("GetDisplayGroup")
             .WithSummary("Returns display cards for a consumer group or collection.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
-            .Produces(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status404NotFound)
             .RequireAnyRole();
 
         return app;
