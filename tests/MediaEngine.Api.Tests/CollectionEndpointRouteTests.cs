@@ -87,6 +87,7 @@ public sealed class CollectionEndpointRouteTests
         var detailsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\DetailEndpoints.cs"));
         var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Details\DetailComposerService.cs"));
         var watchPageSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchTvShowPage.razor"));
+        var detailRouteRequestSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Details\DetailRouteRequest.cs"));
 
         Assert.Contains("group.MapGet(\"/system-views\"", collectionSource, StringComparison.Ordinal);
         Assert.Contains("groupField", collectionSource, StringComparison.Ordinal);
@@ -95,7 +96,9 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("return $\"/watch/tv/show/{row.WorkId:D}\";", lookupSource, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/{entityType}/{id:guid}\"", detailsSource, StringComparison.Ordinal);
         Assert.Contains("DetailEntityType.TvShow", composerSource, StringComparison.Ordinal);
-        Assert.Contains("GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch", watchPageSource, StringComparison.Ordinal);
+        Assert.Contains("DetailRouteRequest.ForTvShow(CollectionId, EpisodeId)", watchPageSource, StringComparison.Ordinal);
+        Assert.Contains("isEpisode ? DetailEntityType.TvEpisode : DetailEntityType.TvShow", detailRouteRequestSource, StringComparison.Ordinal);
+        Assert.Contains("DetailPresentationContext.Watch", detailRouteRequestSource, StringComparison.Ordinal);
     }
 
     [Fact]

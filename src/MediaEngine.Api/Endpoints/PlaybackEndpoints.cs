@@ -71,6 +71,7 @@ public static class PlaybackEndpoints
         })
         .WithName("ListEncodeJobs")
         .WithSummary("List recent encode jobs.")
+        .Produces<IReadOnlyList<EncodeJobDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPost("/encode/jobs/{jobId:guid}/cancel", async (
@@ -83,6 +84,7 @@ public static class PlaybackEndpoints
         })
         .WithName("CancelEncodeJob")
         .WithSummary("Cancel a queued, scheduled, or running encode job.")
+        .Produces(StatusCodes.Status204NoContent)
         .RequireAnyRole();
 
         group.MapGet("/diagnostics", async (
@@ -94,6 +96,7 @@ public static class PlaybackEndpoints
         })
         .WithName("GetPlaybackDiagnostics")
         .WithSummary("Report playback, inspection, and encode readiness.")
+        .Produces<PlaybackDiagnosticsDto>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/offline/{variantId:guid}", async (
@@ -121,6 +124,8 @@ public static class PlaybackEndpoints
         })
         .WithName("DownloadOfflineVariant")
         .WithSummary("Download a prepared offline variant with HTTP range support.")
+        .Produces(StatusCodes.Status200OK)
+        .Produces(StatusCodes.Status206PartialContent)
         .RequireAnyRole()
         .RequireRateLimiting("streaming");
 

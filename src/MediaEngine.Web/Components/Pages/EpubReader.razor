@@ -26,10 +26,9 @@
 
     @if (_loading)
     {
-        <div class="reader-loading">
-            <MudProgressCircular Color="Color.Primary" Indeterminate="true" Size="Size.Large" />
-            <span class="reader-loading-title">Opening book...</span>
-        </div>
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Opening book"
+                      Class="reader-loading" />
     }
     else if (_metadata is not null)
     {
@@ -283,14 +282,16 @@
     }
     else
     {
-        <div class="reader-loading">
-            <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" Size="Size.Large"
-                     Class="tl-u-color-reader-chrome-text-dim tl-u-font-size-3rem" />
-            <span class="reader-loading-title">Book not found</span>
-            <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
-                Return to Library
-            </AppButton>
-        </div>
+        <AppPageState Kind="AppPageStateKind.Unavailable"
+                      Title="Book not found"
+                      Icon="@Icons.Material.Filled.ErrorOutline"
+                      Class="reader-loading">
+            <Actions>
+                <AppButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="ExitReader">
+                    Return to Library
+                </AppButton>
+            </Actions>
+        </AppPageState>
     }
 </div>
 

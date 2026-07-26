@@ -1,4 +1,5 @@
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -16,38 +17,32 @@ public static class DeferredEnrichmentEndpoints
         var group = app.MapGroup("/metadata/pass2")
                        .WithTags("Deferred Enrichment");
 
-        // ── POST /metadata/pass2/trigger ────────────────────────────────────
+        // ── POST /metadata/pass2/trigger ─────────────────────────────────
         group.MapPost("/trigger", async (
             IDeferredEnrichmentService deferredService,
             CancellationToken ct) =>
         {
             var count = await deferredService.TriggerImmediateProcessingAsync(ct);
-            return Results.Ok(new
-            {
-                pending_count = count,
-                message = $"Pass 2 triggered — {count} items queued for processing.",
-            });
+            return Results.Ok(new DeferredEnrichmentTriggerResponse(
+                count,
+                $"Pass 2 triggered — {count} items queued for processing."));
         })
         .WithName("TriggerPass2")
         .WithSummary("Trigger immediate processing of all pending Pass 2 (Universe Lookup) items.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<DeferredEnrichmentTriggerResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
-        // ── GET /metadata/pass2/status ───────────────────────────────────────
+        // ── GET /metadata/pass2/status ───────────────────────────────────
         group.MapGet("/status", async (
             IDeferredEnrichmentService deferredService,
             CancellationToken ct) =>
         {
             var pendingCount = await deferredService.GetPendingCountAsync(ct);
-            return Results.Ok(new
-            {
-                pending_count    = pendingCount,
-                two_pass_enabled = true,
-            });
+            return Results.Ok(new DeferredEnrichmentStatusResponse(pendingCount, true));
         })
         .WithName("GetPass2Status")
         .WithSummary("Returns the current Pass 2 queue status.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<DeferredEnrichmentStatusResponse>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;

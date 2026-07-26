@@ -927,7 +927,7 @@
     private async Task LoadPlaylistsAsync()
     {
         var playlists = (await ApiClient.GetManagedCollectionsAsync(_activeProfileId))
-            .Where(IsUserVisiblePlaylist)
+            .Where(MediaTileComposerService.IsUserVisiblePlaylist)
             .Where(playlist => string.IsNullOrWhiteSpace(_searchText)
                                || playlist.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
                                || (playlist.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false))
@@ -943,7 +943,7 @@
         };
 
         _cards.Clear();
-        _cards.AddRange(playlists.Select(ToPlaylistCard));
+        _cards.AddRange(playlists.Select(MediaTileComposerService.FromPlaylist));
         _items = playlists.Select(playlist => new LibraryItemViewModel
         {
             EntityId = playlist.Id,
@@ -1885,55 +1885,6 @@
             : IsTvTimelineGrouping
                 ? "show_name"
             : BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);
-
-    private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
-    {
-        if (string.Equals(collection.Name, "Watchlist", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Favorites", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Liked Media", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Loved Media", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-               || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static MediaTileViewModel ToPlaylistCard(ManagedCollectionViewModel playlist)
-    {
-        var smallArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "s");
-        var mediumArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "m");
-        var route = $"/listen/music/playlists/{playlist.Id:D}";
-        return new MediaTileViewModel
-        {
-            Id = playlist.Id,
-            CollectionId = playlist.Id,
-            Title = playlist.Name,
-            Subtitle = playlist.ItemCount == 1 ? "1 item" : $"{playlist.ItemCount} items",
-            Description = playlist.Description,
-            CoverUrl = playlist.SquareArtworkUrl,
-            MediaKind = "Music",
-            AccentColor = "var(--tl-media-audio)",
-            Shape = MediaTileShape.Square,
-            HoverArtworkShape = MediaTileShape.Square,
-            Presentation = MediaTilePresentation.Album,
-            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
-            HoverMode = MediaTileHoverMode.GlowOnly,
-            TileTextMode = MediaTileTextMode.Caption,
-            TileImageUrl = smallArtwork ?? playlist.SquareArtworkUrl,
-            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(smallArtwork, mediumArtwork),
-            HoverImageUrl = mediumArtwork ?? playlist.SquareArtworkUrl,
-            NavigationUrl = route,
-            DetailsNavigationUrl = route,
-            PrimaryNavigationUrl = route,
-            PrimaryActionLabel = "Open",
-            SortTimestamp = playlist.ModifiedAt ?? playlist.CreatedAt,
-            IsCollection = true,
-        };
-    }
 
     private bool IsPersonGrouping => _grouping is "authors" or "creators" or "directors" or "artists" or "narrators";
 

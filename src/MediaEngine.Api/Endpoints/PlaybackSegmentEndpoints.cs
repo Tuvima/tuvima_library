@@ -35,6 +35,7 @@ internal static class PlaybackSegmentEndpoints
             return Results.Ok(rows);
         })
         .WithName("DetectPlaybackSegments")
+        .Produces<IReadOnlyList<PlaybackSegmentDto>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPut("/{assetId:guid}/segments/{segmentId:guid}", async (
@@ -59,6 +60,7 @@ internal static class PlaybackSegmentEndpoints
             return Results.Ok(PluginSegmentDetectionService.ToDto(existing));
         })
         .WithName("UpdatePlaybackSegment")
+        .Produces<PlaybackSegmentDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapDelete("/{assetId:guid}/segments/{segmentId:guid}", async (
@@ -76,6 +78,7 @@ internal static class PlaybackSegmentEndpoints
             return Results.NoContent();
         })
         .WithName("HidePlaybackSegment")
+        .Produces(StatusCodes.Status204NoContent)
         .RequireAdmin();
 
         return group;

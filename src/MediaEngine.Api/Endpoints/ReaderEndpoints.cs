@@ -31,7 +31,7 @@ public static class ReaderEndpoints
         })
         .WithName("ListBookmarks")
         .WithSummary("Lists all bookmarks for the given asset.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<ReaderBookmark>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPost("/{assetId:guid}/bookmarks", async (
@@ -56,7 +56,7 @@ public static class ReaderEndpoints
         })
         .WithName("CreateBookmark")
         .WithSummary("Creates a bookmark at the specified chapter position.")
-        .Produces(StatusCodes.Status201Created)
+        .Produces<ReaderBookmark>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         group.MapDelete("/bookmarks/{id:guid}", async (
@@ -89,7 +89,7 @@ public static class ReaderEndpoints
         })
         .WithName("ListHighlights")
         .WithSummary("Lists all highlights for the given asset.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<ReaderHighlight>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPost("/{assetId:guid}/highlights", async (
@@ -117,7 +117,7 @@ public static class ReaderEndpoints
         })
         .WithName("CreateHighlight")
         .WithSummary("Creates a text highlight with optional note and colour.")
-        .Produces(StatusCodes.Status201Created)
+        .Produces<ReaderHighlight>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         group.MapPut("/highlights/{id:guid}", async (
@@ -177,7 +177,7 @@ public static class ReaderEndpoints
         })
         .WithName("GetReadingStatistics")
         .WithSummary("Returns reading statistics for the given asset (or defaults if none exist).")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<ReaderStatistics>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPut("/{assetId:guid}/statistics", async (
@@ -221,7 +221,7 @@ public static class ReaderEndpoints
         })
         .WithName("CreateWhisperSyncJob")
         .WithSummary("Creates an ebook-to-audiobook alignment job.")
-        .Produces(StatusCodes.Status201Created)
+        .Produces<AlignmentJob>(StatusCodes.Status201Created)
         .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}/whispersync", async (
@@ -234,7 +234,7 @@ public static class ReaderEndpoints
         })
         .WithName("GetWhisperSyncJobs")
         .WithSummary("Gets alignment job status for an ebook asset.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<AlignmentJob>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapDelete("/whispersync/{jobId:guid}", async (

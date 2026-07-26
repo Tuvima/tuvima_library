@@ -1,6 +1,7 @@
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Infrastructure;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Ai;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
@@ -25,19 +26,17 @@ internal static class AiEndpoints
             IModelLifecycleManager lifecycle) =>
         {
             var status = lifecycle.GetHealthStatus();
-            return Results.Ok(new
-            {
-                models = status.Models.Select(ToModelStatusResponse),
-                memoryUsedMB = status.MemoryUsedMB,
-                memoryLimitMB = status.MemoryLimitMB,
-                gpuAvailable = status.GpuAvailable,
-                memoryProfile = status.MemoryProfile,
-                isReady = status.IsReady,
-            });
+            return Results.Ok(new AiHealthStatusResponse(
+                status.Models.Select(ToModelStatusResponse).ToList(),
+                status.MemoryUsedMB,
+                status.MemoryLimitMB,
+                status.GpuAvailable,
+                status.MemoryProfile,
+                status.IsReady));
         })
         .WithName("GetAiStatus")
         .WithSummary("Returns overall AI subsystem health status.")
-        .Produces<AiHealthStatus>(StatusCodes.Status200OK)
+        .Produces<AiHealthStatusResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ai/models ───────────────────────────────────────────────────
@@ -62,7 +61,7 @@ internal static class AiEndpoints
         })
         .WithName("GetAiModelStatuses")
         .WithSummary("Returns download and lifecycle status for all AI model roles.")
-        .Produces<IReadOnlyList<AiModelStatus>>(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<AiModelStatusResponse>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /ai/models/{role}/download ──────────────────────────────────
@@ -105,7 +104,7 @@ internal static class AiEndpoints
             try
             {
                 await downloadManager.CancelDownloadAsync(modelRole, ct);
-                return Results.Ok(new { cancelled = true, role = ToRoleKey(modelRole) });
+                return Results.Ok(new AiDownloadCancelledResponse(true, ToRoleKey(modelRole)));
             }
             catch (Exception ex)
             {
@@ -115,7 +114,7 @@ internal static class AiEndpoints
         })
         .WithName("CancelAiModelDownload")
         .WithSummary("Cancels an in-progress model download for the specified role.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiDownloadCancelledResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -132,7 +131,7 @@ internal static class AiEndpoints
             try
             {
                 await lifecycle.LoadModelAsync(modelRole, ct);
-                return Results.Ok(new { loaded = true, role = ToRoleKey(modelRole) });
+                return Results.Ok(new AiModelLoadedResponse(true, ToRoleKey(modelRole)));
             }
             catch (Exception ex)
             {
@@ -142,7 +141,7 @@ internal static class AiEndpoints
         })
         .WithName("LoadAiModel")
         .WithSummary("Loads the model for the specified role into memory. Unloads any currently loaded model first.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiModelLoadedResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -162,7 +161,7 @@ internal static class AiEndpoints
                 if (lifecycle.CurrentlyLoadedRole == modelRole)
                     await lifecycle.UnloadCurrentAsync(ct);
 
-                return Results.Ok(new { unloaded = true, role = ToRoleKey(modelRole) });
+                return Results.Ok(new AiModelUnloadedResponse(true, ToRoleKey(modelRole)));
             }
             catch (Exception ex)
             {
@@ -172,7 +171,7 @@ internal static class AiEndpoints
         })
         .WithName("UnloadAiModel")
         .WithSummary("Unloads the model for the specified role from memory, freeing resources.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiModelUnloadedResponse>(StatusCodes.Status200OK)
         .Produces(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -197,30 +196,28 @@ internal static class AiEndpoints
                 return Results.ValidationProblem(errors.ToDictionary(e => e.Key, e => e.Value));
 
             configLoader.SaveAi(settings);
-            return Results.Ok(new { saved = true });
+            return Results.Ok(new AiSettingsSavedResponse(true));
         })
         .WithName("SaveAiConfig")
         .WithSummary("Saves updated AI configuration to config/ai.json.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiSettingsSavedResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ai/profile ──────────────────────────────────────────────────
         group.MapGet("/profile", (AiSettings settings) =>
         {
             var p = settings.HardwareProfile;
-            return Results.Ok(new
-            {
-                tier               = p.Tier,
-                backend            = p.Backend,
-                gpu_name           = p.GpuName,
-                tokens_per_second  = p.TokensPerSecond,
-                available_ram_mb   = p.AvailableRamMb,
-                benchmarked_at     = p.BenchmarkedAt,
-            });
+            return Results.Ok(new AiHardwareProfileResponse(
+                p.Tier,
+                p.Backend,
+                p.GpuName,
+                p.TokensPerSecond,
+                p.AvailableRamMb,
+                p.BenchmarkedAt));
         })
         .WithName("GetAiHardwareProfile")
         .WithSummary("Returns the cached hardware profile and performance tier.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiHardwareProfileResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── POST /ai/benchmark ───────────────────────────────────────────────
@@ -229,35 +226,33 @@ internal static class AiEndpoints
             CancellationToken ct) =>
         {
             var profile = await benchmark.BenchmarkAsync(ct);
-            return Results.Ok(new
-            {
-                tier               = profile.Tier,
-                backend            = profile.Backend,
-                gpu_name           = profile.GpuName,
-                tokens_per_second  = profile.TokensPerSecond,
-                available_ram_mb   = profile.AvailableRamMb,
-                benchmarked_at     = profile.BenchmarkedAt,
-            });
+            return Results.Ok(new AiHardwareProfileResponse(
+                profile.Tier,
+                profile.Backend,
+                profile.GpuName,
+                profile.TokensPerSecond,
+                profile.AvailableRamMb,
+                profile.BenchmarkedAt));
         })
         .WithName("RunAiHardwareBenchmark")
         .WithSummary("Re-runs the hardware benchmark and returns the updated profile.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiHardwareProfileResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapGet("/benchmark/suites", (
             AiBenchmarkHarness harness) =>
         {
-            return Results.Ok(harness.GetBuiltInSuites().Select(suite => new
-            {
-                key = suite.Key,
-                role = suite.OperationalRole ?? ToRoleKey(suite.Role),
-                gates = suite.Gates,
-                cases = suite.Cases,
-            }));
+            return Results.Ok(harness.GetBuiltInSuites()
+                .Select(suite => new AiBenchmarkSuiteResponse<AiBenchmarkGates, AiBenchmarkCase>(
+                    suite.Key,
+                    suite.OperationalRole ?? ToRoleKey(suite.Role),
+                    suite.Gates,
+                    suite.Cases))
+                .ToList());
         })
         .WithName("GetAiBenchmarkSuites")
         .WithSummary("Returns built-in model validation suites and promotion gates.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<AiBenchmarkSuiteResponse<AiBenchmarkGates, AiBenchmarkCase>>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/benchmark/suites/{suiteKey}/run", async (
@@ -313,18 +308,16 @@ internal static class AiEndpoints
         group.MapGet("/resources", (ResourceMonitorService monitor) =>
         {
             var snapshot = monitor.GetSnapshot();
-            return Results.Ok(new
-            {
-                total_ram_mb       = snapshot.TotalRamMb,
-                free_ram_mb        = snapshot.FreeRamMb,
-                engine_ram_mb      = snapshot.EngineRamMb,
-                cpu_pressure       = snapshot.CpuPressure,
-                transcoding_active = snapshot.TranscodingActive,
-            });
+            return Results.Ok(new AiResourceSnapshotResponse(
+                snapshot.TotalRamMb,
+                snapshot.FreeRamMb,
+                snapshot.EngineRamMb,
+                snapshot.CpuPressure,
+                snapshot.TranscodingActive));
         })
         .WithName("GetAiResourceSnapshot")
         .WithSummary("Returns current system resource usage (RAM, CPU pressure, transcoding status).")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiResourceSnapshotResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /ai/enrichment/progress ──────────────────────────────────────
@@ -338,16 +331,14 @@ internal static class AiEndpoints
             var completed = await canonicals.GetEntitiesNeedingEnrichmentAsync("themes", "__nonexistent__", 10000, ct);
             int pendingCount   = pending.Count;
             int completedCount = completed.Count;
-            return Results.Ok(new
-            {
-                pending_count   = pendingCount,
-                completed_count = completedCount,
-                total           = pendingCount + completedCount,
-            });
+            return Results.Ok(new AiEnrichmentProgressResponse(
+                pendingCount,
+                completedCount,
+                pendingCount + completedCount));
         })
         .WithName("GetAiEnrichmentProgress")
         .WithSummary("Returns pending and completed AI enrichment counts.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AiEnrichmentProgressResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return group;
@@ -653,50 +644,6 @@ internal static class AiEndpoints
 
         return errors;
     }
-
-    private sealed record AiModelStatusResponse(
-        string Role,
-        string RoleName,
-        bool Supported,
-        string ModelType,
-        string State,
-        string Description,
-        string ModelFile,
-        int SizeMB,
-        string? DownloadUrlHost,
-        int DownloadProgressPercent,
-        long BytesDownloaded,
-        long TotalBytes,
-        bool Loaded,
-        bool Active,
-        int MemoryFootprintMB,
-        string RequiredHardwareTier,
-        string? ErrorMessage,
-        string? CatalogKey,
-        string DisplayName,
-        string Family,
-        string Provider,
-        string License,
-        string Runtime,
-        string SelectionTier,
-        string SelectionStatus,
-        string SelectionRationale,
-        string RoleRequirement,
-        string BenchmarkSuite,
-        IReadOnlyList<string> ValidationWarnings,
-        IReadOnlyList<string> Capabilities,
-        string DiskStatus,
-        long DiskSizeMB,
-        int MemoryEnvelopeMB,
-        string Quantization,
-        string SourceUrl,
-        string ChecksumStatus,
-        bool ConfigurationReady,
-        bool RuntimeReady,
-        bool Validated,
-        bool CanOperate,
-        bool Experimental,
-        IReadOnlyList<string> BlockingReasons);
 
     private sealed record AiBenchmarkRunRequest(
         string CatalogKey,

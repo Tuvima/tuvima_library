@@ -83,9 +83,9 @@
             <AppPanel Elevation="0" Class="settings-admin-panel">
                 @if (ShouldDeferForRoleResolution)
                 {
-                    <MudStack AlignItems="AlignItems.Center" Justify="Justify.Center" Class="py-8">
-                        <MudProgressCircular Indeterminate="true" />
-                    </MudStack>
+                    <AppPageState Kind="AppPageStateKind.Loading"
+                                  Title="Checking profile permissions"
+                                  Class="py-8" />
                 }
                 else
                 {

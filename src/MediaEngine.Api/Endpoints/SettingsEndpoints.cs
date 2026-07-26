@@ -218,6 +218,7 @@ public static class SettingsEndpoints
         })
         .WithName("GetLibraries")
         .WithSummary("Returns configured library folders (source paths, ReadOnly, writeback) from config/libraries.json.")
+        .Produces<IEnumerable<LibraryFolderSettingsDto>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>

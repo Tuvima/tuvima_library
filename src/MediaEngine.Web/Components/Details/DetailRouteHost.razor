@@ -1,0 +1,123 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject UIOrchestratorService Orchestrator
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<PageTitle>@PageTitleText</PageTitle>
+
+@if (_loading)
+{
+    <div class="tl-detail-page tl-detail-route-state">
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading details"
+                      Class="tl-detail-route-state__content" />
+    </div>
+}
+else if (_detail is null)
+{
+    <div class="tl-detail-page tl-detail-route-state">
+        <AppPageState Kind="AppPageStateKind.Unavailable"
+                      Title="@Request.NotFoundTitle"
+                      Message="@Request.NotFoundMessage"
+                      Class="tl-detail-route-state__content" />
+    </div>
+}
+else
+{
+    <div class="tl-detail-route-shell">
+        @if (Request.OriginNavigation is { } origin)
+        {
+            <AppNativeButton Type="button"
+                             Class="tl-detail-origin-back"
+                             OnClick="NavigateBackAsync"
+                             aria-label="@origin.Label">
+                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />
+                <span>@origin.Label</span>
+            </AppNativeButton>
+        }
+        <DetailPage Model="_detail"
+                    ActiveTab="@_activeTab"
+                    ActiveTabChanged="HandleTabChangedAsync"
+                    OnActionSelected="HandleActionAsync" />
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public DetailRouteRequest Request { get; set; } =
+        DetailRouteRequest.ForUnified(string.Empty, Guid.Empty, null);
+
+    private DetailPageViewModel? _detail;
+    private bool _loading = true;
+    private string? _activeTab;
+    private int _loadVersion;
+
+    private string PageTitleText =>
+        $"{_detail?.Title ?? Request.PageTitleFallback} - {Request.ProductTitle}";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Request.OriginNavigation is not null)
+            await JS.InvokeVoidAsync("detailOrigin.initialize");
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var loadVersion = ++_loadVersion;
+        _loading = true;
+        _detail = null;
+
+        if (Request.EntityType is not { } entityType)
+        {
+            _loading = false;
+            return;
+        }
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var detail = await ApiClient.GetDetailPageAsync(
+            entityType,
+            Request.EntityId,
+            Request.PresentationContext,
+            containerId: Request.ContainerId,
+            profileId: profile?.Id);
+
+        if (loadVersion != _loadVersion)
+            return;
+
+        _detail = detail;
+        ApplyDetailTabRoute();
+        _loading = false;
+    }
+
+    private Task HandleActionAsync(DetailAction action)
+    {
+        if (!string.IsNullOrWhiteSpace(action.Route))
+            Nav.NavigateTo(action.Route);
+
+        return Task.CompletedTask;
+    }
+
+    private Task HandleTabChangedAsync(string tab)
+    {
+        _activeTab = tab;
+        return Task.CompletedTask;
+    }
+
+    private async Task NavigateBackAsync()
+    {
+        if (Request.OriginNavigation is { } origin)
+            await JS.InvokeVoidAsync("detailOrigin.back", origin.FallbackRoute);
+    }
+
+    private void ApplyDetailTabRoute()
+    {
+        if (_detail is null)
+            return;
+
+        var resolution = DetailTabNavigation.Resolve(_detail, _activeTab);
+        _activeTab = resolution.ActiveTab;
+    }
+}

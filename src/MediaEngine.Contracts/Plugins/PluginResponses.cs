@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace MediaEngine.Contracts.Plugins;
 
 /// <summary>
@@ -37,3 +39,23 @@ public sealed record PluginDeletedResponse
     public string plugin_id { get; init; } = string.Empty;
     public bool deleted { get; init; }
 }
+
+/// <summary>
+/// Public plugin summary returned by plugin catalogue routes. The lower_snake_case member names
+/// preserve the anonymous response object's existing JSON contract.
+/// </summary>
+public sealed record PluginSummaryResponse(
+    string id,
+    string name,
+    string version,
+    string description,
+    bool enabled,
+    bool is_built_in,
+    string? load_error,
+    IReadOnlyList<object> capabilities,
+    IReadOnlyList<string> permissions,
+    IReadOnlyList<object> tool_requirements,
+    IReadOnlyList<object> ai_permissions,
+    IReadOnlyDictionary<string, JsonElement> settings,
+    JsonElement? settings_schema,
+    string? manifest_path);

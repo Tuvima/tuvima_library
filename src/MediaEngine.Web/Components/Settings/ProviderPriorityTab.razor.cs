@@ -298,7 +298,7 @@ public partial class ProviderPriorityTab
         };
     }
 
-    private static Dictionary<string, ProviderStatusDto> BuildProviderStatusLookup(
+    private Dictionary<string, ProviderStatusDto> BuildProviderStatusLookup(
         IReadOnlyList<ProviderStatusDto> statuses)
     {
         var lookup = new Dictionary<string, ProviderStatusDto>(StringComparer.OrdinalIgnoreCase);
@@ -478,7 +478,7 @@ public partial class ProviderPriorityTab
         bool applyMediaFilter)
     {
         var query = _liveCatalogue
-            .Where(p => MediaEngine.Web.Models.ProviderAccentMap.IsVisibleProvider(p.Name))
+            .Where(p => ProviderCatalogueService.IsVisibleProvider(p.Name))
             .Where(p => ProviderBelongsToStage(p, stageId));
 
         if (applyMediaFilter && !string.Equals(_providerMediaFilter, AllProviderFilter, StringComparison.OrdinalIgnoreCase))
@@ -501,7 +501,7 @@ public partial class ProviderPriorityTab
             .Select(group => group.First());
     }
 
-    private static ProviderInfo ToProviderInfo(ProviderCatalogueDto p) =>
+    private ProviderInfo ToProviderInfo(ProviderCatalogueDto p) =>
         new(
             Name: ResolveProviderDisplayName(p.Name, p.DisplayName),
             Type: p.Category,
@@ -584,10 +584,10 @@ public partial class ProviderPriorityTab
             ? string.Empty
             : new string(value.Where(char.IsLetterOrDigit).Select(char.ToLowerInvariant).ToArray());
 
-    private static string ResolveProviderDisplayName(string providerKey, string? configuredDisplayName = null)
+    private string ResolveProviderDisplayName(string providerKey, string? configuredDisplayName = null)
     {
-        var mapped = MediaEngine.Web.Models.ProviderAccentMap.GetDisplayName(providerKey);
-        var formatted = MediaEngine.Web.Models.ProviderAccentMap.FormatProviderName(providerKey);
+        var mapped = CatalogueService.GetDisplayName(providerKey);
+        var formatted = ProviderCatalogueService.FormatProviderName(providerKey);
         if (!string.Equals(mapped, formatted, StringComparison.OrdinalIgnoreCase))
             return mapped;
 
@@ -885,7 +885,7 @@ public partial class ProviderPriorityTab
         if (_liveCatalogue.Count > 0)
         {
             return _liveCatalogue
-                .Where(p => MediaEngine.Web.Models.ProviderAccentMap.IsVisibleProvider(p.Name))
+                .Where(p => ProviderCatalogueService.IsVisibleProvider(p.Name))
                 .Where(p => ProviderBelongsToStage(p, ProviderStageRetail))
                 .Select(ToProviderInfo)
                 .Where(p => !inChain.Contains(p.Name)
@@ -1038,7 +1038,7 @@ public partial class ProviderPriorityTab
     private ProviderCatalogueDto? FindProviderCatalogueEntry(string providerName) =>
         _liveCatalogue.FirstOrDefault(p => ProviderMatches(p, providerName));
 
-    private static bool ProviderMatches(ProviderCatalogueDto provider, string providerName)
+    private bool ProviderMatches(ProviderCatalogueDto provider, string providerName)
     {
         var normalized = NormalizeProviderLookupKey(providerName);
         return NormalizeProviderLookupKey(provider.Name) == normalized
@@ -1097,8 +1097,7 @@ public partial class ProviderPriorityTab
         if (!string.IsNullOrWhiteSpace(live?.AccentColor))
             return live.AccentColor;
 
-        var (color, _) = MediaEngine.Web.Models.ProviderAccentMap.GetAccent(ResolveProviderConfigName(providerName));
-        return color;
+        return CatalogueService.GetAccentColor(ResolveProviderConfigName(providerName));
     }
 
     private string GetProviderDescription(string providerName)
@@ -1175,23 +1174,9 @@ public partial class ProviderPriorityTab
         var catalogueEntry = FindProviderCatalogueEntry(provider);
         if (catalogueEntry is not null)
         {
-            var (_, icon) = MediaEngine.Web.Models.ProviderAccentMap.GetAccent(
-                catalogueEntry.Name, catalogueEntry.MaterialIcon);
-            return icon;
+            return CatalogueService.GetAccent(catalogueEntry.Name, catalogueEntry.MaterialIcon).Icon;
         }
-        return provider switch
-        {
-            "Apple API"                     => Icons.Material.Outlined.MenuBook,
-            "Open Library"                  => Icons.Material.Outlined.LocalLibrary,
-            "TMDB"                          => Icons.Material.Outlined.Movie,
-            "MusicBrainz"                   => Icons.Material.Outlined.MusicNote,
-            "Comic Vine"                    => Icons.Material.Outlined.AutoStories,
-            "Wikidata"                      => Icons.Material.Outlined.Collections,
-            "Fanart.tv"                     => Icons.Material.Outlined.Image,
-            "LRCLIB"                        => Icons.Material.Outlined.Lyrics,
-            "OpenSubtitles"                 => Icons.Material.Outlined.Subtitles,
-            _                               => Icons.Material.Outlined.Storage,
-        };
+        return CatalogueService.GetMaterialIcon(provider);
     }
 
     private ProviderInfo? GetProviderInfo(string name)

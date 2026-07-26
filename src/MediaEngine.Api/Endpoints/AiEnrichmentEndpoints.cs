@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Ai;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -100,7 +101,7 @@ internal static class AiEnrichmentEndpoints
         })
         .WithName("IntentSearch")
         .WithSummary("Parse a natural language search query into structured filters.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IntentSearchResult>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // ── POST /ai/enrich/extract-url ───────────────────────────────────────
@@ -116,7 +117,7 @@ internal static class AiEnrichmentEndpoints
         })
         .WithName("ExtractUrlMetadata")
         .WithSummary("Extract structured metadata from a URL using AI. Requires Curator or Administrator role.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<UrlExtractionResult>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 

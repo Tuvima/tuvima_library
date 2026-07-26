@@ -69,17 +69,17 @@
 
     @if (_loading)
     {
-        <div class="browse-shell__loading">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
-        </div>
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading collections"
+                      Class="browse-shell__loading" />
     }
     else if (FilteredCollections.Count == 0)
     {
-        <div class="browse-shell__empty">
-            <MudIcon Icon="@Icons.Material.Outlined.CollectionsBookmark" Class="tl-u-font-size-52px tl-u-opacity-0-16" />
-            <h3>No collections found</h3>
-            <p>Collections appear when the Engine finds Wikidata-backed universes or when you create one.</p>
-        </div>
+        <AppPageState Kind="AppPageStateKind.Empty"
+                      Title="No collections found"
+                      Message="Collections appear when the Engine finds Wikidata-backed universes or when you create one."
+                      Icon="@Icons.Material.Outlined.CollectionsBookmark"
+                      Class="browse-shell__empty" />
     }
     else if (CollectionCards.Count > 0)
     {
@@ -236,6 +236,11 @@
         var primaryArtwork = PrimaryArtwork(collection);
         var primarySmall = MediaTileArtworkUrl.Sized(primaryArtwork, "s");
         var primaryMedium = MediaTileArtworkUrl.Sized(primaryArtwork, "m");
+        var surface = MediaTileArtworkResolver.Resolve(
+            MediaTileBucket.Other,
+            MediaTilePresentation.Default,
+            [new MediaTileArtworkVariant(ArtworkRole.Cover, primarySmall, primaryMedium)],
+            preferLandscapeTile: true);
         var heroArtwork = HeroBackground(collection);
         var heroSmall = MediaTileArtworkUrl.Sized(heroArtwork, "s");
         var heroMedium = MediaTileArtworkUrl.Sized(heroArtwork, "m");
@@ -270,15 +275,16 @@
             AccentColor = accentColor,
             SecondaryAccentColor = secondaryAccentColor,
             ArtworkPalette = collection.ArtworkPalette,
-            Shape = MediaTileShape.Landscape,
+            Shape = surface.Shape,
+            HoverArtworkShape = surface.HoverArtworkShape,
             Presentation = MediaTilePresentation.Default,
-            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
-            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            SurfaceKind = surface.SurfaceKind,
+            HoverLayout = surface.HoverLayout,
             TileTextMode = MediaTileTextMode.CoverOnly,
-            TileImageUrl = primarySmall,
-            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(primarySmall, primaryMedium),
-            HoverImageUrl = primaryMedium,
-            HoverImageSrcSet = BuildMediumSrcSet(primaryMedium),
+            TileImageUrl = surface.TileImageUrl,
+            TileImageSrcSet = surface.TileImageSrcSet,
+            HoverImageUrl = surface.HoverImageUrl,
+            HoverImageSrcSet = surface.HoverImageSrcSet,
             HeroBackgroundImageUrl = heroMedium,
             NavigationUrl = navigationUrl,
             PrimaryNavigationUrl = navigationUrl,
@@ -461,9 +467,6 @@
 
     private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
         StringHelpers.FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
-
-    private static string? BuildMediumSrcSet(string? url) =>
-        string.IsNullOrWhiteSpace(url) ? null : $"{url} 960w";
 
     private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemViewModel item) => new()
     {

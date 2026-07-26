@@ -1,4 +1,5 @@
 using MediaEngine.Api.Http;
+using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Characters;
@@ -85,7 +86,9 @@ public static class CharacterEndpoints
 
             var contentType = response.Content.Headers.ContentType?.MediaType ?? GetImageMimeTypeOrJpeg(localPath);
             return Results.File(bytesFromSource, contentType, Path.GetFileName(localPath));
-        });
+        })
+        .WithName("GetCharacterPortrait")
+        .Produces(StatusCodes.Status200OK);
 
         // GET /library/characters/{fictionalEntityId}/portraits
         // Returns all portraits for a character, enriched with actor name.
@@ -155,7 +158,8 @@ public static class CharacterEndpoints
 
             var result = await personCreditReadService.GetCharacterRolesAsync(personId, ct);
             return Results.Ok(result);
-        });
+        })
+        .Produces<List<PersonCharacterRoleDto>>(StatusCodes.Status200OK);
 
         // GET /library/universes/{universeQid}/characters
         // Returns characters in a universe with default actor/portrait.

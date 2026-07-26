@@ -25,9 +25,9 @@
 
     @if (_loading)
     {
-        <div class="my-list-page__state" role="status" aria-label="Loading My List">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-        </div>
+        <AppPageState Kind="AppPageStateKind.Loading"
+                      Title="Loading My List"
+                      Class="my-list-page__state" />
     }
     else if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -115,6 +115,21 @@
     {
         var mediaType = NormalizeMediaType(item.MediaType);
         var isSquare = mediaType is "Music" or "Audiobook";
+        var bucket = mediaType switch
+        {
+            "Book" => MediaTileBucket.Book,
+            "Comic" => MediaTileBucket.Comic,
+            "Audiobook" => MediaTileBucket.Audiobook,
+            "Music" => MediaTileBucket.Music,
+            "Movie" => MediaTileBucket.Movie,
+            "TV" => MediaTileBucket.Tv,
+            _ => MediaTileBucket.Other,
+        };
+        var artworkRole = isSquare ? ArtworkRole.Square : ArtworkRole.Cover;
+        var surface = MediaTileArtworkResolver.Resolve(
+            bucket,
+            MediaTilePresentation.Default,
+            [new MediaTileArtworkVariant(artworkRole, item.CoverUrl, item.CoverUrl)]);
 
         return new MediaTileViewModel
         {
@@ -125,12 +140,15 @@
             Creator = item.Creator,
             MediaKind = mediaType,
             CoverUrl = item.CoverUrl,
-            TileImageUrl = item.CoverUrl,
-            HoverImageUrl = item.CoverUrl,
-            Shape = isSquare ? MediaTileShape.Square : MediaTileShape.Portrait,
-            SurfaceKind = isSquare ? MediaTileSurfaceKind.CoverSquare : MediaTileSurfaceKind.CoverPortrait,
+            TileImageUrl = surface.TileImageUrl,
+            TileImageSrcSet = surface.TileImageSrcSet,
+            HoverImageUrl = surface.HoverImageUrl,
+            HoverImageSrcSet = surface.HoverImageSrcSet,
+            Shape = surface.Shape,
+            HoverArtworkShape = surface.HoverArtworkShape,
+            SurfaceKind = surface.SurfaceKind,
             Presentation = MediaTilePresentation.Default,
-            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            HoverLayout = surface.HoverLayout,
             HoverMode = MediaTileHoverMode.Preview,
             TileTextMode = MediaTileTextMode.Caption,
             NavigationUrl = $"/details/Work/{item.WorkId:D}",

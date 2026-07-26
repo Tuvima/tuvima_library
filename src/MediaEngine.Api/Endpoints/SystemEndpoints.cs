@@ -4,6 +4,7 @@ using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Operations;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -64,21 +65,20 @@ public static class SystemEndpoints
         .RequireAnyRole();
 
         app.MapGet("/system/watcher-status", (IFileWatcher watcher) =>
-            Results.Ok(new
-            {
-                running = watcher.IsRunning,
-                directory_count = watcher.WatchedPaths.Count,
-                directories = watcher.WatchedPaths,
-                event_count = watcher.EventCount,
-                last_event_at = watcher.LastEventAt,
-                error_count = watcher.ErrorCount,
-                last_error_at = watcher.LastErrorAt,
-                last_error_kind = watcher.LastErrorKind,
-                last_error_message = watcher.LastErrorMessage,
-            }))
+            Results.Ok(new FileWatcherStatusResponse(
+                watcher.IsRunning,
+                watcher.WatchedPaths.Count,
+                watcher.WatchedPaths,
+                watcher.EventCount,
+                watcher.LastEventAt,
+                watcher.ErrorCount,
+                watcher.LastErrorAt,
+                watcher.LastErrorKind,
+                watcher.LastErrorMessage)))
         .WithTags("System")
         .WithName("GetWatcherStatus")
         .WithSummary("Returns file watcher diagnostic status.")
+        .Produces<FileWatcherStatusResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         app.MapPost("/maintenance/sweep-orphan-assets", (
@@ -86,16 +86,12 @@ public static class SystemEndpoints
             CancellationToken ct) =>
         {
             var result = cleanupService.SweepOrphanAssets(ct);
-            return Results.Ok(new
-            {
-                cleaned = result.Cleaned,
-                message = result.Message,
-            });
+            return Results.Ok(new AssetStoreSweepResponse(result.Cleaned, result.Message));
         })
         .WithTags("System")
         .WithName("SweepOrphanAssets")
         .WithSummary("Scans .data/assets for managed files not referenced by the database and removes them.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<AssetStoreSweepResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return app;

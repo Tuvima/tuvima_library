@@ -21,9 +21,9 @@
 
 @if (_loading)
 {
-    <div class="watch-player-state">
-        <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-rgba-255-255-255-0-28" />
-    </div>
+    <AppPageState Kind="AppPageStateKind.Loading"
+                  Title="Loading player"
+                  Class="watch-player-state" />
 }
 else
 {

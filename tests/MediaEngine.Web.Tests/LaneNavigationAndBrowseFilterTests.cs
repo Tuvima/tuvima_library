@@ -47,6 +47,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var watch = ReadSource("src/MediaEngine.Web/Components/Pages/WatchPage.razor");
         var listen = ReadSource("src/MediaEngine.Web/Components/Pages/ListenBrowsePage.razor");
         var listenPreset = ReadSource("src/MediaEngine.Web/Components/Pages/ListenBrowseConfiguration.cs");
+        var lanePage = ReadSource("src/MediaEngine.Web/Components/Pages/MediaLanePage.razor");
+        var laneConfiguration = ReadSource("src/MediaEngine.Web/Components/Pages/MediaLaneConfigurationBuilder.cs");
         var collections = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionsPage.razor");
         var hub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
         var laneHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaLaneHeader.razor");
@@ -59,11 +61,11 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var multiSelectStyles = ReadSource("src/MediaEngine.Web/Components/Browse/BrowseMultiSelect.razor.css");
         var mediaShelf = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaShelf.razor");
 
-        Assert.Contains("<MediaSectionShell", read, StringComparison.Ordinal);
-        Assert.Contains("<MediaSectionShell", watch, StringComparison.Ordinal);
-        Assert.Contains("<MediaLaneHeader Title=\"Read\"", read, StringComparison.Ordinal);
-        Assert.Contains("<MediaLaneHeader Title=\"Watch\"", watch, StringComparison.Ordinal);
-        Assert.Contains("<MediaLaneHeader Title=\"Listen\"", listen, StringComparison.Ordinal);
+        Assert.Contains("<MediaLanePage Title=\"Read\"", read, StringComparison.Ordinal);
+        Assert.Contains("<MediaLanePage Title=\"Watch\"", watch, StringComparison.Ordinal);
+        Assert.Contains("<MediaLanePage Title=\"Listen\"", listen, StringComparison.Ordinal);
+        Assert.Contains("<MediaSectionShell", lanePage, StringComparison.Ordinal);
+        Assert.Contains("<MediaLaneHeader Title=\"@Title\"", lanePage, StringComparison.Ordinal);
         Assert.Contains("<SurfaceNavigationBar", laneHeader, StringComparison.Ordinal);
         Assert.DoesNotContain("media-lane-header__identity", laneHeader, StringComparison.Ordinal);
         Assert.DoesNotContain("[Parameter] public string? Subtitle", laneHeader, StringComparison.Ordinal);
@@ -77,19 +79,12 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("new(\"series\", \"Movie Series\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("new(\"collections\", \"Collections\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("new(\"Movie Series\",", watch, StringComparison.Ordinal);
-        Assert.Contains("SupportsHero=\"false\"", read, StringComparison.Ordinal);
-        Assert.Contains("SupportsHero=\"false\"", watch, StringComparison.Ordinal);
-        Assert.Contains("SupportsHero=\"false\"", listen, StringComparison.Ordinal);
-        Assert.Contains("SupportsHeader=\"false\"", read, StringComparison.Ordinal);
-        Assert.Contains("SupportsHeader=\"false\"", watch, StringComparison.Ordinal);
-        Assert.Contains("SupportsHeader=\"false\"", listen, StringComparison.Ordinal);
-        Assert.Contains("SupportsNavigation=\"false\"", read, StringComparison.Ordinal);
-        Assert.Contains("SupportsNavigation=\"false\"", watch, StringComparison.Ordinal);
-        Assert.Contains("SupportsNavigation=\"false\"", listen, StringComparison.Ordinal);
-        Assert.Contains("ShowTitleBlock=\"false\"", read, StringComparison.Ordinal);
-        Assert.Contains("ShowTitleBlock=\"false\"", watch, StringComparison.Ordinal);
-        Assert.Contains("ShowTabNavigation=\"false\"", read, StringComparison.Ordinal);
-        Assert.Contains("ShowTabNavigation=\"false\"", watch, StringComparison.Ordinal);
+        Assert.Contains("SupportsHero=\"false\"", lanePage, StringComparison.Ordinal);
+        Assert.Contains("SupportsHeader=\"false\"", lanePage, StringComparison.Ordinal);
+        Assert.Contains("SupportsNavigation=\"false\"", lanePage, StringComparison.Ordinal);
+        Assert.Contains("ShowTitleBlock=\"false\"", lanePage, StringComparison.Ordinal);
+        Assert.Contains("ShowTabNavigation=\"false\"", lanePage, StringComparison.Ordinal);
+        Assert.Contains("<AppPageState Kind=\"AppPageStateKind.Loading\"", lanePage, StringComparison.Ordinal);
         Assert.Contains("GridHoverMode => MediaTileHoverMode.GlowOnly", browseShell, StringComparison.Ordinal);
         Assert.Contains("if (IsPersonGrouping)", browseShell, StringComparison.Ordinal);
         Assert.Contains("MediaPersonGroupTileComposer.Compose", browseShell, StringComparison.Ordinal);
@@ -125,6 +120,9 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("StreamingServiceLogos.ResolveLogoPath(group.DisplayName)", browseShell, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", read, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", watch, StringComparison.Ordinal);
+        Assert.Contains("BuildLibraryGroup(Preset)", read, StringComparison.Ordinal);
+        Assert.Contains("BuildLibraryGroup(Preset)", watch, StringComparison.Ordinal);
+        Assert.Contains("preset.Tabs.Select", laneConfiguration, StringComparison.Ordinal);
         Assert.Contains("new(\"My List\", \"/my-list\"", read, StringComparison.Ordinal);
         Assert.Contains("new(\"My List\", \"/my-list\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Browse audiobooks\"", listen, StringComparison.Ordinal);
@@ -148,6 +146,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
 
         Assert.Contains("ListenBrowseConfiguration.Preset", listen, StringComparison.Ordinal);
         Assert.Contains("MediaBrowseNavigationBuilder.BuildBrowseGroup", listen, StringComparison.Ordinal);
+        Assert.Contains("MediaLaneConfigurationBuilder.BuildModes(Preset)", listenPreset, StringComparison.Ordinal);
         Assert.Contains("new(\"albums\", \"Albums\"", listenPreset, StringComparison.Ordinal);
         Assert.Contains("new(\"artists\", \"Artists\"", listenPreset, StringComparison.Ordinal);
         Assert.Contains("new(\"songs\", \"Songs\"", listenPreset, StringComparison.Ordinal);

@@ -259,7 +259,7 @@ public partial class ListenPage
         : "audiobooks-books";
     private IReadOnlyList<string> PlaylistCoverUrls => ActivePlaylistTracks.Select(track => track.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Distinct().Cast<string>().Take(4).ToList();
     private IReadOnlyList<ManagedCollectionViewModel> PlaylistCollections => _managedCollections
-        .Where(IsUserVisiblePlaylist)
+        .Where(MediaTileComposerService.IsUserVisiblePlaylist)
         .OrderBy(GetPlaylistOrderIndex)
         .ThenBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase)
         .ToList();
@@ -269,7 +269,7 @@ public partial class ListenPage
     private bool HasPlaylistCollections => PlaylistCollections.Count > 0;
     private IReadOnlyList<MediaTileViewModel> HomePlaylistTiles => PlaylistCollections
         .Take(6)
-        .Select(ToPlaylistTile)
+        .Select(MediaTileComposerService.FromPlaylist)
         .ToList();
     private IReadOnlyList<MediaTileViewModel> AlbumTiles => FilteredAlbumGroups
         .Select(ToAlbumTile)
@@ -278,7 +278,7 @@ public partial class ListenPage
         .Select(ToArtistAlbumTile)
         .ToList();
     private IReadOnlyList<MediaTileViewModel> PlaylistTiles => PlaylistCollections
-        .Select(ToPlaylistTile)
+        .Select(MediaTileComposerService.FromPlaylist)
         .ToList();
     private IReadOnlyList<string> SongGenres => _musicWorks
         .SelectMany(work => work.Genres)
@@ -2919,22 +2919,6 @@ public partial class ListenPage
         return Task.CompletedTask;
     }
 
-    private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
-    {
-        if (string.Equals(collection.Name, "Watchlist", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Favorites", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Liked Media", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.Name, "Loved Media", StringComparison.OrdinalIgnoreCase))
-        {
-            return false;
-        }
-
-        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase);
-    }
-
     private static bool CanAcceptPlaylistItems(ManagedCollectionViewModel collection)
         => string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
 
@@ -2965,19 +2949,6 @@ public partial class ListenPage
 
     private static string Pluralize(int count, string singular)
         => count == 1 ? $"1 {singular}" : $"{count} {singular}s";
-
-    private static MediaTileViewModel ToPlaylistTile(ManagedCollectionViewModel playlist)
-    {
-        var route = $"/listen/music/playlists/{playlist.Id}";
-        return SquareTile(
-            id: playlist.Id,
-            title: playlist.Name,
-            subtitle: $"{playlist.ItemCount} items",
-            imageUrl: playlist.SquareArtworkUrl,
-            route: route,
-            presentation: MediaTilePresentation.Album,
-            primaryActionLabel: "Open");
-    }
 
     private MediaTileViewModel ToAudiobookTile(AudiobookDisplayItem item)
     {

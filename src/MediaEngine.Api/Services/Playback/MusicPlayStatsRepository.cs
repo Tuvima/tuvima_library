@@ -13,10 +13,14 @@ public sealed class MusicPlayStatsRepository
     private static readonly TimeSpan ActiveSegmentGap = TimeSpan.FromSeconds(45);
 
     private readonly IDatabaseConnection _db;
+    private readonly TimeProvider _timeProvider;
 
-    public MusicPlayStatsRepository(IDatabaseConnection db)
+    public MusicPlayStatsRepository(
+        IDatabaseConnection db,
+        TimeProvider? timeProvider = null)
     {
         _db = db;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public Task<IReadOnlyDictionary<Guid, MusicPlayStat>> GetStatsAsync(
@@ -67,7 +71,7 @@ public sealed class MusicPlayStatsRepository
         return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
             EnsureTables(conn, tx);
-            var now = DateTimeOffset.UtcNow;
+            var now = _timeProvider.GetUtcNow();
             var active = conn.QueryFirstOrDefault<ActiveSegmentRow>("""
                 SELECT profile_id AS ProfileId,
                        work_id AS WorkId,

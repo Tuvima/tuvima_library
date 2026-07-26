@@ -43,8 +43,10 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("<CinematicHeroCarousel", source, StringComparison.Ordinal);
         Assert.Contains("<SurfaceTabBar", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
-        Assert.Contains("Shape = MediaTileShape.Landscape", source, StringComparison.Ordinal);
-        Assert.Contains("SurfaceKind = MediaTileSurfaceKind.BannerLandscape", source, StringComparison.Ordinal);
+        Assert.Contains("MediaTileArtworkResolver.Resolve(", source, StringComparison.Ordinal);
+        Assert.Contains("preferLandscapeTile: true", source, StringComparison.Ordinal);
+        Assert.Contains("Shape = surface.Shape", source, StringComparison.Ordinal);
+        Assert.Contains("SurfaceKind = surface.SurfaceKind", source, StringComparison.Ordinal);
         Assert.Contains("UseLandscapeGroupTile = true", source, StringComparison.Ordinal);
         Assert.Contains("item.RenderAsLandscapeGroupTile", tileGridSource, StringComparison.Ordinal);
         Assert.Contains("<MediaGroupTile", tileGridSource, StringComparison.Ordinal);

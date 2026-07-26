@@ -9,11 +9,12 @@ namespace MediaEngine.Api.Tests;
 public sealed class MusicPlayStatsRepositoryTests : IDisposable
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima-music-plays-{Guid.NewGuid():N}.db");
+    private readonly ManualTimeProvider _timeProvider = new(
+        new DateTimeOffset(2026, 7, 26, 12, 0, 0, TimeSpan.Zero));
     private readonly DatabaseConnection _db;
 
     public MusicPlayStatsRepositoryTests()
     {
-        DapperConfiguration.Configure();
         _db = new DatabaseConnection(_dbPath);
         _db.InitializeSchema();
         _db.RunStartupChecks();
@@ -23,16 +24,18 @@ public sealed class MusicPlayStatsRepositoryTests : IDisposable
     public async Task TrackHeartbeatAsync_CountsLongTrackAfterThirtyListenedSecondsOnlyOncePerSegment()
     {
         var ids = await CreateProfileAssetAsync();
-        var repository = new MusicPlayStatsRepository(_db);
+        var repository = CreateRepository();
         var item = CreateQueueItem(ids.WorkId, ids.AssetId, durationSeconds: 240);
 
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 0, 240, true));
         await SetActiveProgressAsync(ids.ProfileId, listenedSeconds: 29, positionSeconds: 29);
+        _timeProvider.Advance(TimeSpan.FromSeconds(2));
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 31, 240, true));
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 42, 240, true));
 
         var stat = Assert.Single(await repository.GetStatsAsync(ids.ProfileId, [ids.WorkId])).Value;
         Assert.Equal(1, stat.PlayCount);
+        Assert.Equal(_timeProvider.GetUtcNow(), stat.LastPlayedAt);
 
         using var conn = _db.CreateConnection();
         var keyTypes = await conn.QuerySingleAsync<KeyTypeRow>(
@@ -52,30 +55,63 @@ public sealed class MusicPlayStatsRepositoryTests : IDisposable
     public async Task TrackHeartbeatAsync_CountsShortTrackAtHalfItsDuration()
     {
         var ids = await CreateProfileAssetAsync();
-        var repository = new MusicPlayStatsRepository(_db);
+        var repository = CreateRepository();
         var item = CreateQueueItem(ids.WorkId, ids.AssetId, durationSeconds: 20);
 
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 0, 20, true));
         await SetActiveProgressAsync(ids.ProfileId, listenedSeconds: 9, positionSeconds: 9);
+        _timeProvider.Advance(TimeSpan.FromSeconds(2));
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 10.2, 20, true));
 
         var stat = Assert.Single(await repository.GetStatsAsync(ids.ProfileId, [ids.WorkId])).Value;
         Assert.Equal(1, stat.PlayCount);
+        Assert.Equal(_timeProvider.GetUtcNow(), stat.LastPlayedAt);
     }
 
     [Fact]
     public async Task TrackHeartbeatAsync_DoesNotTreatAForwardSeekAsListeningTime()
     {
         var ids = await CreateProfileAssetAsync();
-        var repository = new MusicPlayStatsRepository(_db);
+        var repository = CreateRepository();
         var item = CreateQueueItem(ids.WorkId, ids.AssetId, durationSeconds: 240);
 
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 0, 240, true));
-        await SetActiveProgressAsync(ids.ProfileId, listenedSeconds: 0, positionSeconds: 0);
+        _timeProvider.Advance(TimeSpan.FromSeconds(2));
         await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 120, 240, true));
 
         Assert.Empty(await repository.GetStatsAsync(ids.ProfileId, [ids.WorkId]));
     }
+
+    [Fact]
+    public async Task TrackHeartbeatAsync_RestartsAfterInactiveGapWithoutCountingElapsedPosition()
+    {
+        var ids = await CreateProfileAssetAsync();
+        var repository = CreateRepository();
+        var item = CreateQueueItem(ids.WorkId, ids.AssetId, durationSeconds: 240);
+
+        await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 0, 240, true));
+        _timeProvider.Advance(TimeSpan.FromSeconds(46));
+        await repository.TrackHeartbeatAsync(ids.ProfileId, item, Heartbeat(item, 120, 240, true));
+
+        Assert.Empty(await repository.GetStatsAsync(ids.ProfileId, [ids.WorkId]));
+
+        using var conn = _db.CreateConnection();
+        var active = await conn.QuerySingleAsync<ActiveProgressRow>(
+            """
+            SELECT last_position_seconds AS PositionSeconds,
+                   listened_seconds AS ListenedSeconds,
+                   last_heartbeat_at AS LastHeartbeatAt
+            FROM music_play_active_segments
+            WHERE profile_id = @profileId;
+            """,
+            new { profileId = ids.ProfileId });
+
+        Assert.Equal(120, active.PositionSeconds);
+        Assert.Equal(0, active.ListenedSeconds);
+        Assert.Equal(_timeProvider.GetUtcNow(), active.LastHeartbeatAt);
+    }
+
+    private MusicPlayStatsRepository CreateRepository() => new(_db, _timeProvider);
 
     private async Task SetActiveProgressAsync(Guid profileId, double listenedSeconds, double positionSeconds)
     {
@@ -93,7 +129,7 @@ public sealed class MusicPlayStatsRepositoryTests : IDisposable
                 profileId,
                 listenedSeconds,
                 positionSeconds,
-                lastHeartbeatAt = DateTimeOffset.UtcNow.AddSeconds(-2),
+                lastHeartbeatAt = _timeProvider.GetUtcNow(),
             });
     }
 
@@ -155,7 +191,8 @@ public sealed class MusicPlayStatsRepositoryTests : IDisposable
     public void Dispose()
     {
         _db.Dispose();
-        SqliteConnection.ClearAllPools();
+        using var connection = new SqliteConnection($"Data Source={_dbPath}");
+        SqliteConnection.ClearPool(connection);
         foreach (var suffix in new[] { "", "-wal", "-shm" })
         {
             var path = _dbPath + suffix;
@@ -170,5 +207,25 @@ public sealed class MusicPlayStatsRepositoryTests : IDisposable
     {
         public string ProfileType { get; init; } = string.Empty;
         public string WorkType { get; init; } = string.Empty;
+    }
+
+    private sealed record ActiveProgressRow
+    {
+        public double PositionSeconds { get; init; }
+        public double ListenedSeconds { get; init; }
+        public DateTimeOffset LastHeartbeatAt { get; init; }
+    }
+
+    private sealed class ManualTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        private DateTimeOffset _utcNow = utcNow;
+
+        public override DateTimeOffset GetUtcNow() => _utcNow;
+
+        public void Advance(TimeSpan duration)
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(duration, TimeSpan.Zero);
+            _utcNow += duration;
+        }
     }
 }

@@ -1,5 +1,11 @@
 namespace MediaEngine.Contracts.Metadata;
 
+/// <summary>One title-search row embedded in the Wikidata diagnostic response.</summary>
+public sealed record WikidataSearchItemResponse(
+    string? id,
+    string? label,
+    string? description);
+
 /// <summary>
 /// Responses promoted from anonymous types previously returned directly by
 /// <c>src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs</c> artwork upload/lookup

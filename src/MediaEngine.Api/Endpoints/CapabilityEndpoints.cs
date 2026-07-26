@@ -20,6 +20,7 @@ public static class CapabilityEndpoints
         .WithTags("Capabilities")
         .WithName("GetAssetCapabilities")
         .WithSummary("List explicit capability readiness states for a media asset.")
+        .Produces<IReadOnlyList<CapabilityStateDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         app.MapGet("/capabilities/summary", async (
@@ -32,6 +33,7 @@ public static class CapabilityEndpoints
         .WithTags("Capabilities")
         .WithName("GetCapabilitySummary")
         .WithSummary("Return counts by capability/status.")
+        .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;

@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -23,6 +24,7 @@ public static class CanonEndpoints
             var discrepancies = await canonService.DetectAsync(entityId, ct);
             return Results.Ok(discrepancies);
         })
+        .Produces<IReadOnlyList<CanonDiscrepancy>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;

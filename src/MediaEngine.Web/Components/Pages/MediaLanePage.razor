@@ -1,0 +1,91 @@
+@namespace MediaEngine.Web.Components.Pages
+@using MediaEngine.Web.Components.Browse
+@using MediaEngine.Web.Components.MediaHub
+@using MediaEngine.Web.Models.ViewDTOs
+
+<PageTitle>@Title - Tuvima</PageTitle>
+
+<MediaSectionShell Title="@Title"
+                   NavigationGroups="@NavigationGroups"
+                   OnNavigationItemDrop="@OnNavigationItemDrop">
+    <MediaLaneHeader Title="@Title"
+                     Modes="@Modes"
+                     ActiveMode="@ActiveMode" />
+
+    @if (string.IsNullOrWhiteSpace(Tab))
+    {
+        @if (Loading)
+        {
+            <AppPageState Kind="AppPageStateKind.Loading"
+                          Title="@($"Loading {Title}")"
+                          Message="@LoadingMessage"
+                          Class="browse-shell__loading" />
+        }
+        else if (LoadFailed)
+        {
+            <AppErrorState Title="@LoadFailedTitle"
+                           Message="@LoadFailedMessage"
+                           Retry="@Retry" />
+        }
+        else if (LandingPage is not null)
+        {
+            <MediaHubPage SectionType="@SectionType"
+                          Title="@Title"
+                          Subtitle="@Subtitle"
+                          SelectedMode="all"
+                          AvailableModes="@Modes"
+                          Shelves="@Shelves"
+                          SearchPlaceholder="@SearchPlaceholder"
+                          RouteBase="@RouteBase"
+                          SupportsHero="false"
+                          SupportsHeader="false"
+                          SupportsNavigation="false" />
+        }
+        else
+        {
+            <AppPageState Kind="AppPageStateKind.Empty"
+                          Title="@EmptyTitle"
+                          Message="@EmptyMessage" />
+        }
+    }
+    else if (IsSupportedBrowseTab)
+    {
+        <MediaBrowseShell Tab="@Tab"
+                          Preset="@Preset"
+                          ShowTitleBlock="false"
+                          ShowTabNavigation="false" />
+    }
+    else
+    {
+        <AppPageState Kind="AppPageStateKind.Unavailable"
+                      Title="@UnsupportedTitle"
+                      Message="@UnsupportedMessage" />
+    }
+</MediaSectionShell>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string RouteBase { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Subtitle { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string SearchPlaceholder { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public MediaHubSectionType SectionType { get; set; }
+    [Parameter, EditorRequired] public LibraryBrowsePreset Preset { get; set; } = default!;
+    [Parameter, EditorRequired] public IReadOnlyList<MediaHubModeViewModel> Modes { get; set; } = [];
+    [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
+    [Parameter, EditorRequired] public string ActiveMode { get; set; } = "all";
+    [Parameter] public string? Tab { get; set; }
+    [Parameter] public DiscoveryPageViewModel? LandingPage { get; set; }
+    [Parameter] public IReadOnlyList<MediaHubShelfViewModel> Shelves { get; set; } = [];
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool LoadFailed { get; set; }
+    [Parameter] public bool IsSupportedBrowseTab { get; set; } = true;
+    [Parameter] public string? LoadingMessage { get; set; }
+    [Parameter] public string LoadFailedTitle { get; set; } = "Page failed to load";
+    [Parameter] public string LoadFailedMessage { get; set; } = "The Dashboard could not load this page from the Engine.";
+    [Parameter] public string EmptyTitle { get; set; } = "Nothing here yet";
+    [Parameter] public string? EmptyMessage { get; set; }
+    [Parameter] public string UnsupportedTitle { get; set; } = "Page not found";
+    [Parameter] public string UnsupportedMessage { get; set; } = "Choose another library section.";
+    [Parameter] public EventCallback Retry { get; set; }
+    [Parameter] public EventCallback<Guid> OnNavigationItemDrop { get; set; }
+}

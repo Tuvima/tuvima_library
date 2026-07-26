@@ -142,7 +142,8 @@ public static class UniverseGraphEndpoints
         {
             var results = await loreDeltaService.CheckForUpdatesAsync(qid, ct);
             return Results.Ok(results);
-        });
+        })
+        .Produces<IReadOnlyList<LoreDeltaResult>>(StatusCodes.Status200OK);
 
         // GET /universe/{qid}/graph — Cytoscape.js-ready JSON: { universe, nodes[], edges[] }
         group.MapGet("/universe/{qid}/graph", async (

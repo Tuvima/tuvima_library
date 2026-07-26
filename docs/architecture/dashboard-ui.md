@@ -162,9 +162,11 @@ Listen profile navigation JSON is decoded, reordered, and encoded through
 work rather than own the persistence format.
 
 Listen discovery and direct browse follow the same lane-shell contract as Read
-and Watch. `ListenBrowsePage` owns `/listen`, `/listen/music`, and
-`/listen/audiobooks`; `ListenBrowseConfiguration` is the single typed source for
-Music/Audiobook browse modes and rail shortcuts. Music browse state is expressed
+and Watch. `MediaLanePage` owns the common page-state, lane header, discovery,
+and direct-browse composition used by the three thin route components.
+`ListenBrowsePage` owns `/listen`, `/listen/music`, `/listen/audiobooks`, and
+`/listen/playlists`; `ListenBrowseConfiguration` is the single typed source for
+Music/Audiobook/Playlist browse modes and rail shortcuts. Music browse state is expressed
 with query parameters, for example `/listen/music?browse=artists` and
 `/listen/music?browse=songs`, while album, artist, playlist, and audiobook
 details retain dedicated routes. The landing remains album-first and separates
@@ -176,7 +178,24 @@ Dashboard Engine calls continue to be exposed through `IEngineApiClient`.
 Feature-focused typed clients or `EngineApiClient.*.cs` partials own cohesive
 endpoint families so the facade remains source-compatible while its
 implementation is decomposed. AI endpoint methods are a separate feature area
-and must not be moved as a side effect of non-AI client work.
+and must not be moved as a side effect of non-AI client work. Shared HTTP
+helpers are used only where the existing method already follows the same
+failure-state envelope. Legacy `LastError`-only calls, raw-response GETs,
+diagnostic responses, and calls with no failure bookkeeping remain explicit
+until their observable error classification is intentionally redesigned.
+
+Routed book, movie, TV show/episode, and generic detail entry points translate
+their parameters into `DetailRouteRequest` and delegate loading, page state,
+tab selection, actions, and origin navigation to `DetailRouteHost`. The route
+wrappers do not duplicate detail orchestration.
+
+Page-sized loading, empty, unavailable, and retryable failures use
+`AppPageState`/`AppErrorState`. Compact progress indicators remain appropriate
+inside buttons, tables, refresh controls, playback transports, dialogs, and
+other already-mounted content where replacing the whole page would be
+misleading. Provider display names, accents, and fallback icons are owned by
+`ProviderCatalogueService`; tile artwork selection delegates to
+`MediaTileArtworkResolver` or `MediaTileComposerService`.
 
 The live ingestion dashboard separates three responsibilities. The primary
 `IngestionLiveDashboardState` partial owns polling, subscriptions, cancellation,

@@ -8,50 +8,25 @@
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>Watch - Tuvima</PageTitle>
-
-<MediaSectionShell Title="Watch" NavigationGroups="@WatchNavigationGroups">
-    <MediaLaneHeader Title="Watch"
-                     Modes="@WatchModes"
-                     ActiveMode="@ActiveWatchMode" />
-
-    @if (string.IsNullOrWhiteSpace(Tab))
-    {
-        @if (_loading)
-        {
-            <div class="browse-shell__loading">
-                <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
-            </div>
-        }
-        else if (_loadFailed)
-        {
-            <AppErrorState Title="Watch failed to load"
-                           Message="The Dashboard could not load the Watch landing from the Engine."
-                           Retry="LoadLandingAsync" />
-        }
-        else if (_landingPage is not null)
-        {
-            <MediaHubPage SectionType="MediaHubSectionType.Watch"
-                          Title="Watch"
-                          Subtitle="Movies and shows from your local library"
-                          SelectedMode="all"
-                          AvailableModes="@WatchModes"
-                          Shelves="@WatchHubShelves"
-                          SearchPlaceholder="Search movies and TV..."
-                          RouteBase="/watch"
-                          SupportsHero="false"
-                          SupportsHeader="false"
-                          SupportsNavigation="false" />
-        }
-    }
-    else
-    {
-        <MediaBrowseShell Tab="@Tab"
-                          Preset="@Preset"
-                          ShowTitleBlock="false"
-                          ShowTabNavigation="false" />
-    }
-</MediaSectionShell>
+<MediaLanePage Title="Watch"
+               RouteBase="/watch"
+               Subtitle="Movies and shows from your local library"
+               SearchPlaceholder="Search movies and TV..."
+               SectionType="MediaHubSectionType.Watch"
+               Preset="@Preset"
+               Modes="@WatchModes"
+               NavigationGroups="@WatchNavigationGroups"
+               ActiveMode="@ActiveWatchMode"
+               Tab="@Tab"
+               LandingPage="@_landingPage"
+               Shelves="@WatchHubShelves"
+               Loading="@_loading"
+               LoadFailed="@_loadFailed"
+               LoadFailedTitle="Watch failed to load"
+               LoadFailedMessage="The Dashboard could not load the Watch landing from the Engine."
+               EmptyTitle="No movies or shows yet"
+               EmptyMessage="Add video to your library to populate this lane."
+               Retry="LoadLandingAsync" />
 
 @code {
     [Parameter] public string? Tab { get; set; }
@@ -67,21 +42,9 @@
         _ => "all",
     };
 
-    private static readonly IReadOnlyList<MediaHubModeViewModel> WatchModes =
-    [
-        new("all", "Discover", "/watch"),
-        new("movies", "Movies", "/watch/movies"),
-        new("tv", "TV Shows", "/watch/tv"),
-    ];
-
     private static IReadOnlyList<MediaSectionNavigationGroup> WatchNavigationGroups =>
     [
-        new("Library",
-        [
-            new("Discover", "/watch", Icons.Material.Outlined.Explore, Exact: true),
-            new("Movies", "/watch/movies", Icons.Material.Outlined.LocalMovies),
-            new("TV Shows", "/watch/tv", Icons.Material.Outlined.LiveTv),
-        ]),
+        MediaLaneConfigurationBuilder.BuildLibraryGroup(Preset),
         new("Watch next",
         [
             new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
@@ -90,6 +53,9 @@
             new("Recently Added", "/watch/movies?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
         ]),
     ];
+
+    private static IReadOnlyList<MediaHubModeViewModel> WatchModes =>
+        MediaLaneConfigurationBuilder.BuildModes(Preset);
 
     private IReadOnlyList<MediaHubShelfViewModel> WatchHubShelves => _landingPage?.Shelves
         .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))

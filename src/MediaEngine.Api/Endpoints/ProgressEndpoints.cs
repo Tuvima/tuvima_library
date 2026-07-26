@@ -84,7 +84,8 @@ public static class ProgressEndpoints
             IReadOnlyList<JourneyItemResponse> results =
                 await journeyReadService.GetJourneyAsync(uid, parsedCollectionId, page.Limit, ct);
             return Results.Ok(results);
-        });
+        })
+        .Produces<IReadOnlyList<JourneyItemResponse>>(StatusCodes.Status200OK);
 
         return app;
     }

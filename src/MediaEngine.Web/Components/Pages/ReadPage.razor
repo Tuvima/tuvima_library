@@ -8,50 +8,25 @@
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>Read - Tuvima</PageTitle>
-
-<MediaSectionShell Title="Read" NavigationGroups="@ReadNavigationGroups">
-    <MediaLaneHeader Title="Read"
-                     Modes="@ReadModes"
-                     ActiveMode="@ActiveReadMode" />
-
-    @if (string.IsNullOrWhiteSpace(Tab))
-    {
-        @if (_loading)
-        {
-            <div class="browse-shell__loading">
-                <MudProgressCircular Indeterminate="true" Size="Size.Large" Class="tl-u-color-tl-text-faint" />
-            </div>
-        }
-        else if (_loadFailed)
-        {
-            <AppErrorState Title="Read failed to load"
-                           Message="The Dashboard could not load the Read landing from the Engine."
-                           Retry="LoadLandingAsync" />
-        }
-        else if (_landingPage is not null)
-        {
-            <MediaHubPage SectionType="MediaHubSectionType.Read"
-                          Title="Read"
-                          Subtitle="Books and comics from your local library"
-                          SelectedMode="all"
-                          AvailableModes="@ReadModes"
-                          Shelves="@ReadHubShelves"
-                          SearchPlaceholder="Search books and comics..."
-                          RouteBase="/read"
-                          SupportsHero="false"
-                          SupportsHeader="false"
-                          SupportsNavigation="false" />
-        }
-    }
-    else
-    {
-        <MediaBrowseShell Tab="@Tab"
-                          Preset="@Preset"
-                          ShowTitleBlock="false"
-                          ShowTabNavigation="false" />
-    }
-</MediaSectionShell>
+<MediaLanePage Title="Read"
+               RouteBase="/read"
+               Subtitle="Books and comics from your local library"
+               SearchPlaceholder="Search books and comics..."
+               SectionType="MediaHubSectionType.Read"
+               Preset="@Preset"
+               Modes="@ReadModes"
+               NavigationGroups="@ReadNavigationGroups"
+               ActiveMode="@ActiveReadMode"
+               Tab="@Tab"
+               LandingPage="@_landingPage"
+               Shelves="@ReadHubShelves"
+               Loading="@_loading"
+               LoadFailed="@_loadFailed"
+               LoadFailedTitle="Read failed to load"
+               LoadFailedMessage="The Dashboard could not load the Read landing from the Engine."
+               EmptyTitle="No books or comics yet"
+               EmptyMessage="Add reading material to your library to populate this lane."
+               Retry="LoadLandingAsync" />
 
 @code {
     [Parameter] public string? Tab { get; set; }
@@ -67,21 +42,9 @@
         _ => "all",
     };
 
-    private static readonly IReadOnlyList<MediaHubModeViewModel> ReadModes =
-    [
-        new("all", "Discover", "/read"),
-        new("books", "Books", "/read/books"),
-        new("comics", "Comics", "/read/comics"),
-    ];
-
     private static IReadOnlyList<MediaSectionNavigationGroup> ReadNavigationGroups =>
     [
-        new("Library",
-        [
-            new("Discover", "/read", Icons.Material.Outlined.Explore, Exact: true),
-            new("Books", "/read/books", Icons.Material.Outlined.MenuBook),
-            new("Comics", "/read/comics", Icons.Material.Outlined.AutoStories),
-        ]),
+        MediaLaneConfigurationBuilder.BuildLibraryGroup(Preset),
         new("Reading",
         [
             new("My List", "/my-list", Icons.Material.Outlined.BookmarkBorder, Exact: true),
@@ -90,6 +53,9 @@
             new("Recently Added", "/read/books?sort=newest", Icons.Material.Outlined.Schedule, Exact: true),
         ]),
     ];
+
+    private static IReadOnlyList<MediaHubModeViewModel> ReadModes =>
+        MediaLaneConfigurationBuilder.BuildModes(Preset);
 
     private IReadOnlyList<MediaHubShelfViewModel> ReadHubShelves => _landingPage?.Shelves
         .Select(shelf => MediaHubShelfViewModel.FromShelf(shelf))

@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Reading;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -42,7 +43,7 @@ public static class ReadEndpoints
         })
         .WithName("GetBookMetadata")
         .WithSummary("Returns EPUB book metadata (title, author, chapter count, word count).")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<EpubBookMetadata>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -68,7 +69,7 @@ public static class ReadEndpoints
         })
         .WithName("GetTableOfContents")
         .WithSummary("Returns the EPUB Table of Contents as a hierarchical tree.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<List<EpubTocEntry>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -106,7 +107,7 @@ public static class ReadEndpoints
         })
         .WithName("GetChapterContent")
         .WithSummary("Returns chapter HTML with resource URLs rewritten for the reader.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<EpubChapterContent>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -171,7 +172,7 @@ public static class ReadEndpoints
         })
         .WithName("SearchEpub")
         .WithSummary("Full-text search across all chapters (case-insensitive, min 2 chars).")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<List<EpubSearchHit>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();

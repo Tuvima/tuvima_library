@@ -26,6 +26,7 @@ public static class OperationsEndpoints
         })
         .WithName("ListMediaOperations")
         .WithSummary("List durable media operations by queue order.")
+        .Produces<IReadOnlyList<OperationDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapGet("/{id:guid}", async (
@@ -45,6 +46,7 @@ public static class OperationsEndpoints
         })
         .WithName("GetMediaOperation")
         .WithSummary("Get one durable media operation and its event timeline.")
+        .Produces<OperationDetailDto>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapGet("/summary", async (
@@ -56,6 +58,7 @@ public static class OperationsEndpoints
         })
         .WithName("GetMediaOperationsSummary")
         .WithSummary("Get media operation counts by status.")
+        .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         group.MapPost("/{id:guid}/retry", async (
@@ -71,6 +74,7 @@ public static class OperationsEndpoints
         })
         .WithName("RetryMediaOperation")
         .WithSummary("Requeue a durable media operation for another attempt.")
+        .Produces(StatusCodes.Status202Accepted)
         .RequireAdminOrCurator();
 
         group.MapPost("/{id:guid}/cancel", async (
@@ -86,6 +90,7 @@ public static class OperationsEndpoints
         })
         .WithName("CancelMediaOperation")
         .WithSummary("Cancel a durable media operation.")
+        .Produces(StatusCodes.Status202Accepted)
         .RequireAdminOrCurator();
 
         return app;

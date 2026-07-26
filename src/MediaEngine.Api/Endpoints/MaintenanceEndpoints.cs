@@ -107,13 +107,13 @@ public static class MaintenanceEndpoints
             IInitialSweepCommandService commands) =>
         {
             return commands.TrySchedule()
-                ? Results.Accepted(value: new { started = true })
+                ? Results.Accepted(value: new InitialSweepStartedResponse(true))
                 : ApiErrors.Conflict("An initial sweep is already queued or running.");
         })
         .WithTags("Maintenance")
         .WithName("RunInitialSweep")
         .WithSummary("Runs the SHA-256 initial sweep across every configured library source path.")
-        .Produces(StatusCodes.Status202Accepted)
+        .Produces<InitialSweepStartedResponse>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status409Conflict)
         .RequireAdmin();
 
@@ -136,6 +136,7 @@ public static class MaintenanceEndpoints
         .WithTags("Maintenance")
         .WithName("RunStorageMaintenance")
         .WithSummary("Runs storage/cache maintenance immediately. Supports ?dryRun=true for counts only.")
+        .Produces<StorageMaintenanceResult>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return app;

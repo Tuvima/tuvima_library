@@ -4962,7 +4962,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     backdrop-filter: blur(0.7rem) saturate(115%);
 }
 
-/* The shared button renders outside UnifiedDetailPage's isolated style scope.
+/* The shared button renders outside DetailRouteHost's isolated style scope.
    Keep the origin action inside the hero without consuming layout height. */
 .tl-detail-origin-back {
     position: absolute !important;

@@ -165,7 +165,7 @@ public static class DisplayFormat
     /// (e.g. "tmdb_id" -&gt; "TMDB ID", "MediaTypeAudit" -&gt; "Media Type Audit"),
     /// with a few domain-specific acronym fixups (API/QID/TMDB). Originally
     /// byte-identical private copies in Components/Activity/ActivityDisplay.cs
-    /// and Components/Shared/ProviderDisplayNames.cs.
+    /// and ProviderCatalogueService.
     /// </summary>
     public static string SplitWords(string value)
     {

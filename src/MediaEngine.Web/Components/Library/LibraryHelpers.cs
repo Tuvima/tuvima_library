@@ -2,6 +2,7 @@
 using MediaEngine.Domain;
 using MediaEngine.Web.Components.LibraryItems;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Theming;
 using MudBlazor;
 
@@ -281,60 +282,17 @@ public static class LibraryHelpers
         _ => trigger ?? "This item needs review",
     };
 
-    // -- Well-known provider GUIDs -> display names -----------------------------
-
-    private static readonly Dictionary<Guid, string> ProviderDisplayNames = new()
-    {
-        [WellKnownProviders.LocalProcessor]  = "File Scan",
-        [WellKnownProviders.LibraryScanner]  = "Library Scanner",
-        [WellKnownProviders.AppleApi]        = "Apple API",
-        [WellKnownProviders.Wikidata]        = "Wikidata",
-        [WellKnownProviders.Wikipedia]       = "Wikipedia",
-        [WellKnownProviders.OpenLibrary]     = "Open Library",
-        [WellKnownProviders.MusicBrainz]     = "MusicBrainz",
-        [WellKnownProviders.Tmdb]            = "TMDB",
-        [WellKnownProviders.AiProvider]      = "Fanart.tv",
-        [WellKnownProviders.UserManual]      = "Manual Match",
-    };
-
     /// <summary>
     /// Converts a technical source/provider name or GUID to a human-readable display name.
     /// </summary>
-    public static string FormatSourceName(string? source)
-    {
-        if (string.IsNullOrWhiteSpace(source)) return "Unknown";
-
-        // Try parsing as GUID first (claims use provider_id)
-        if (Guid.TryParse(source, out var guid) && ProviderDisplayNames.TryGetValue(guid, out var guidName))
-            return guidName;
-
-        return source.ToLowerInvariant() switch
-        {
-            "user_manual"              => "Manual Match",
-            "local_processor"          => "File Scan",
-            "file_metadata"            => "File Metadata",
-            "wikidata_reconciliation"  => "Wikidata",
-            "wikidata"                 => "Wikidata",
-            "wikipedia"                => "Wikipedia",
-            "retail_provider"          => "Retail Provider",
-            "apple_api"                => "Apple API",
-            "open_library"             => "Open Library",
-            "musicbrainz"              => "MusicBrainz",
-            "tmdb"                     => "TMDB",
-            "fanart_tv"                => "Fanart.tv",
-            "local_filesystem"         => "File Scan",
-            "library_scanner"          => "Library Scanner",
-            _                          => source,
-        };
-    }
+    public static string FormatSourceName(string? source) =>
+        ProviderCatalogueService.FormatSourceName(source);
 
     /// <summary>
     /// Converts a provider GUID to a human-readable display name.
     /// </summary>
-    public static string FormatProviderName(Guid providerId)
-    {
-        return ProviderDisplayNames.TryGetValue(providerId, out var name) ? name : providerId.ToString();
-    }
+    public static string FormatProviderName(Guid providerId) =>
+        ProviderCatalogueService.FormatProviderName(providerId);
 
     /// <summary>
     /// Returns true if the given provider GUID represents a file/local source

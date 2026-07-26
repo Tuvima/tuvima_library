@@ -20,6 +20,12 @@ All endpoints require authentication unless noted. Three roles: **Administrator*
 
 Paginated GET endpoints accept `offset`/`limit` query parameters. `limit` is clamped server-side (default varies by endpoint; capped at 250 unless the endpoint's documented default already exceeds that) so a caller cannot force an unbounded read.
 
+JSON errors use RFC 7807 Problem Details through the shared `ApiErrors`
+factories. JSON success bodies use named `MediaEngine.Contracts` types, and
+every production route declares its 2xx response metadata for Swagger. Untyped
+success metadata is reserved for reviewed bodyless, redirect, file, stream, and
+direct-response routes.
+
 ---
 
 ## System

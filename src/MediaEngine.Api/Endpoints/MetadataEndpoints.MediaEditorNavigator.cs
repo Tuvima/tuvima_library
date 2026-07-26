@@ -22,7 +22,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("GetMediaEditorNavigator")
         .WithSummary("Resolve series-aware editor navigation for a launch entity.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<MediaEditorNavigationReadService.MediaEditorNavigatorEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -41,7 +41,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("GetMediaEditorMembershipSuggestions")
         .WithSummary("Return same-media-type autocomplete targets for membership correction.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<IReadOnlyList<MediaEditorNavigationReadService.MembershipSuggestionEnvelope>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPost("/{entityId:guid}/membership-preview", async (
@@ -57,7 +57,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("PreviewMediaEditorMembershipChange")
         .WithSummary("Preview a hierarchy move or parent identity rename before applying it.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<MediaEditorNavigationReadService.MembershipPreviewEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -74,7 +74,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("ApplyMediaEditorMembershipChange")
         .WithSummary("Apply a confirmed hierarchy move or parent identity rename.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<MediaEditorNavigationReadService.MembershipPreviewEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
     }

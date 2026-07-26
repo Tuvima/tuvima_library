@@ -52,21 +52,7 @@ SQL belongs in Storage repositories or focused API read services that use
 
 ## Remaining Allowlist
 
-| File | Risk | Reason still allowlisted | Suggested target |
-| --- | --- | --- | --- |
-| `CharacterEndpoints.cs` | Medium | Character graph projections combine several relationship tables. | `CharacterReadService` |
-| `CollectionEndpoints.cs` | High | Browse/search/media lookup read routes were extracted in Sprint 4; large group/detail, system-view, management catalog, preview, artwork, and mutation workflows still mix reads and commands. | Continue splitting focused collection detail, management, and command services |
-| `ItemCanonicalEndpoints.cs` | Medium | Canonical value mutation paths need careful contract preservation. | `ItemCanonicalService` |
-| `LibraryEndpoints.cs` | High | Broad browse and management surface with paging/sort behavior. | `LibraryBrowseReadService` |
-| `LibraryItemEndpoints.cs` | High | Item projection, review, mutation, and delete behavior are coupled. | `LibraryItemCommandService` plus read service |
-| `MetadataEndpoints.cs` | High | Claim history was extracted in Sprint 4; metadata edit, artwork, provider matching, editor-context, and cache behavior remains broad. | `MetadataEditorService` and focused artwork/editor-context read services |
-| `MetadataEndpoints.MediaEditorNavigator.cs` | Low | Route mapping is now thin, but the file remains listed until follow-up confirms no direct database access returns during membership apply hardening. | Remove after guardrail coverage confirms the new service boundary |
-| `UniverseGraphEndpoints.cs` | High | Graph traversal and filtering needs focused regression tests. | `UniverseGraphReadService` |
-| `WorkEndpoints.cs` | Medium | Work detail projections include direct SQL. | `WorkReadService` |
-
-## Recommended Order
-
-1. Continue small, test-backed read-only carve-outs from `LibraryEndpoints.cs`.
-2. Move `CharacterEndpoints.cs` graph projections behind a focused read service.
-3. Move `MetadataEndpoints.MediaEditorNavigator.cs` projections behind a focused read service.
-4. Mutation-heavy metadata, item, collection, and universe graph files after stronger route-level tests exist.
+The endpoint direct-database-access and direct-SQL allowlists are empty.
+`ArchitectureBoundaryTests` now require endpoint handlers to remain HTTP
+adapters. Further decomposition can still make broad endpoint files easier to
+navigate, but it must not restore SQL or `IDatabaseConnection` access there.

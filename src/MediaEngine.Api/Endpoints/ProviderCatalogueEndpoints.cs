@@ -38,6 +38,7 @@ public static class ProviderCatalogueEndpoints
         })
         .WithName("GetProviderCatalogue")
         .WithSummary("Returns consolidated UI metadata for all configured providers.")
+        .Produces<IReadOnlyList<ProviderCatalogueEntry>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;

@@ -1,39 +1,9 @@
-﻿@page "/watch/tv/show/{CollectionId:guid}"
-@using MediaEngine.Contracts.Details
+@page "/watch/tv/show/{CollectionId:guid}"
 @using MediaEngine.Web.Components.Details
-@using MediaEngine.Web.Services.Integration
-@inject IEngineApiClient ApiClient
-@inject UIOrchestratorService Orchestrator
-@inject NavigationManager Nav
 
 @namespace MediaEngine.Web.Components.Pages
 
-<PageTitle>@((_detail?.Title ?? "TV Show")) - Tuvima</PageTitle>
-
-@if (_loading)
-{
-    <div class="tl-detail-page">
-        <div class="tl-glass-panel">
-            <MudProgressCircular Indeterminate="true" Size="Size.Large" />
-        </div>
-    </div>
-}
-else if (_detail is null)
-{
-    <div class="tl-detail-page">
-        <div class="tl-glass-panel">
-            <MudText Typo="Typo.h5">@(EpisodeId.HasValue ? "Episode not found" : "TV show not found")</MudText>
-            <MudText Typo="Typo.body2">@(EpisodeId.HasValue ? "This episode could not be loaded from your library." : "This show could not be loaded from your library.")</MudText>
-        </div>
-    </div>
-}
-else
-{
-    <DetailPage Model="_detail"
-                ActiveTab="@_activeTab"
-                ActiveTabChanged="HandleTabChangedAsync"
-                OnActionSelected="HandleActionAsync" />
-}
+<DetailRouteHost Request="@DetailRouteRequest.ForTvShow(CollectionId, EpisodeId)" />
 
 @code {
     [Parameter] public Guid CollectionId { get; set; }
@@ -43,48 +13,4 @@ else
 
     [SupplyParameterFromQuery(Name = "episode")]
     public Guid? EpisodeId { get; set; }
-
-    private DetailPageViewModel? _detail;
-    private bool _loading = true;
-    private string? _activeTab;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        _loading = true;
-        var profile = await Orchestrator.GetActiveProfileAsync();
-        _detail = EpisodeId.HasValue
-            ? await ApiClient.GetDetailPageAsync(
-                DetailEntityType.TvEpisode,
-                EpisodeId.Value,
-                DetailPresentationContext.Watch,
-                containerId: CollectionId.ToString("D"),
-                profileId: profile?.Id)
-            : await ApiClient.GetDetailPageAsync(DetailEntityType.TvShow, CollectionId, DetailPresentationContext.Watch, profileId: profile?.Id);
-        ApplyDetailTabRoute();
-        _loading = false;
-    }
-
-    private Task HandleActionAsync(DetailAction action)
-    {
-        if (!string.IsNullOrWhiteSpace(action.Route))
-            Nav.NavigateTo(action.Route);
-
-        return Task.CompletedTask;
-    }
-
-    private Task HandleTabChangedAsync(string tab)
-    {
-        _activeTab = tab;
-        return Task.CompletedTask;
-    }
-
-    private void ApplyDetailTabRoute()
-    {
-        if (_detail is null)
-            return;
-
-        var resolution = DetailTabNavigation.Resolve(_detail, _activeTab);
-        _activeTab = resolution.ActiveTab;
-    }
-
 }

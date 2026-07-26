@@ -165,7 +165,9 @@ public static class IngestionEndpoints
 
                 await engine.ScanDirectory(requestedRoot, includeSubdirectories, ct);
 
-                return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly.", paths_scanned = 1 });
+                return Results.Accepted(value: new RescanAcceptedResponse(
+                    "Rescan triggered. Files will be processed shortly.",
+                    1));
             }
 
             var watchDirs = opts.Value.EffectiveWatchDirectories;
@@ -183,13 +185,15 @@ public static class IngestionEndpoints
 
             await engine.ScanDirectories(scanTargets, ct);
 
-            return Results.Accepted(value: new { message = "Rescan triggered. Files will be processed shortly.", paths_scanned = scanTargets.Count });
+            return Results.Accepted(value: new RescanAcceptedResponse(
+                "Rescan triggered. Files will be processed shortly.",
+                scanTargets.Count));
         })
         .WithName("TriggerRescan")
         .WithSummary(
             "Re-scan the Watch Folder for new or unprocessed files. " +
             "Files are fed into the ingestion pipeline for processing.")
-        .Produces(StatusCodes.Status202Accepted)
+        .Produces<RescanAcceptedResponse>(StatusCodes.Status202Accepted)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 

@@ -1,6 +1,6 @@
 using MudBlazor;
-using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Services.Formatting;
+using MediaEngine.Web.Services.Integration;
 
 namespace MediaEngine.Web.Components.Activity;
 
@@ -9,7 +9,7 @@ public static class ActivityDisplay
     public const string ReviewGroup = "Needs Review";
 
     public static string ProviderName(string? provider)
-        => ProviderDisplayNames.Format(provider);
+        => ProviderCatalogueService.FormatProviderLabel(provider);
 
     public static string MediaIcon(string? mediaType) => NormalizeMediaType(mediaType) switch
     {

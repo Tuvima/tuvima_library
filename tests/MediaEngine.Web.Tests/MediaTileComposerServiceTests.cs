@@ -8,6 +8,38 @@ namespace MediaEngine.Web.Tests;
 public sealed class MediaTileComposerServiceTests
 {
     [Fact]
+    public void PlaylistComposition_CentralizesVisibilityAndArtworkPolicy()
+    {
+        var playlist = new ManagedCollectionViewModel
+        {
+            Id = Guid.Parse("99999999-9999-9999-9999-999999999999"),
+            Name = "Road Trip",
+            Description = "Songs for the highway",
+            CollectionType = "Playlist",
+            ItemCount = 1,
+            SquareArtworkUrl = "/stream/artwork/99999999-9999-9999-9999-999999999999",
+            CreatedAt = DateTimeOffset.Parse("2026-01-02T03:04:05Z"),
+        };
+
+        Assert.True(MediaTileComposerService.IsUserVisiblePlaylist(playlist));
+        Assert.False(MediaTileComposerService.IsUserVisiblePlaylist(new ManagedCollectionViewModel
+        {
+            Name = "Favorites",
+            CollectionType = "Playlist",
+        }));
+
+        var tile = MediaTileComposerService.FromPlaylist(playlist);
+
+        Assert.Equal("1 item", tile.Subtitle);
+        Assert.Equal("/listen/music/playlists/99999999-9999-9999-9999-999999999999", tile.NavigationUrl);
+        Assert.Equal(MediaTileShape.Square, tile.Shape);
+        Assert.Equal(MediaTileHoverMode.GlowOnly, tile.HoverMode);
+        Assert.True(tile.IsCollection);
+        Assert.Contains("size=s", tile.TileImageUrl, StringComparison.Ordinal);
+        Assert.Contains("size=m", tile.HoverImageUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void FromDisplayCard_PreservesCompactDisplayHintsAndProgress()
     {
         var assetId = Guid.Parse("11111111-1111-1111-1111-111111111111");

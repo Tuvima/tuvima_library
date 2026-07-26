@@ -18,3 +18,6 @@ public sealed record BatchAttentionCountResponse(int count);
 /// Wire shape for <c>POST /ingestion/upload</c>.
 /// </summary>
 public sealed record UploadMediaResponse(string path, string mediaType);
+
+/// <summary>Wire shape for <c>POST /ingestion/rescan</c>.</summary>
+public sealed record RescanAcceptedResponse(string message, int paths_scanned);

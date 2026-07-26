@@ -572,7 +572,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("GetMediaEditorContext")
         .WithSummary("Resolve scope-aware edit panel context for a launch entity.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<MediaEditorContextEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -602,7 +602,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("GetScopedArtworkEditor")
         .WithSummary("Return grouped artwork variants for one editor scope.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<ArtworkEditorEnvelope>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
@@ -733,7 +733,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("GetArtworkEditor")
         .WithSummary("Return grouped artwork variants for the editor.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<ArtworkEditorEnvelope>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // -- POST /metadata/{entityId}/cover ---------------------------------
@@ -1272,12 +1272,12 @@ public static partial class MetadataEndpoints
                         var search   = json?["search"]?.AsArray();
 
                         results["title_result_count"] = search?.Count ?? 0;
-                        results["title_results"] = search?.Select(r => new
-                        {
-                            id          = r?["id"]?.GetValue<string>(),
-                            label       = r?["label"]?.GetValue<string>(),
-                            description = r?["description"]?.GetValue<string>(),
-                        }).ToArray();
+                        results["title_results"] = search?
+                            .Select(r => new WikidataSearchItemResponse(
+                                r?["id"]?.GetValue<string>(),
+                                r?["label"]?.GetValue<string>(),
+                                r?["description"]?.GetValue<string>()))
+                            .ToArray();
                         results["title_qid"] = search?.FirstOrDefault()?["id"]?.GetValue<string>();
                     }
                     catch (Exception ex)
@@ -1296,7 +1296,7 @@ public static partial class MetadataEndpoints
         })
         .WithName("WikidataTest")
         .WithSummary("Diagnostic: test Wikidata search by title or ISBN bridge lookup.")
-        .Produces(StatusCodes.Status200OK)
+        .Produces<Dictionary<string, object?>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
 

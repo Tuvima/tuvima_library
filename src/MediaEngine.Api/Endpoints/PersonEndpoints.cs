@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Persons;
@@ -83,7 +84,8 @@ public static class PersonEndpoints
                 : Results.Ok(response);
         })
         .WithName("GetPersonAliases")
-        .WithSummary("Linked pseudonym and real-person entries for a given person.");
+        .WithSummary("Linked pseudonym and real-person entries for a given person.")
+        .Produces<PersonAliasResponse>(StatusCodes.Status200OK);
 
         // GET /persons/{id}/headshot â€” serves the canonical person headshot asset.
         // Local files resolve only from Person.LocalHeadshotPath or .data/assets/people/{personId}/headshot.*.
@@ -166,7 +168,9 @@ public static class PersonEndpoints
                 person.LocalHeadshotPath);
 
             return ApiErrors.NotFound("Headshot not available.");
-        });
+        })
+        .WithName("GetPersonHeadshot")
+        .Produces(StatusCodes.Status200OK);
 
         // GET /persons/by-collection/{collectionId} â€” all persons linked to works in a collection.
         group.MapGet("/by-collection/{collectionId:guid}", async (
@@ -176,7 +180,8 @@ public static class PersonEndpoints
         {
             var persons = await personScopeReadService.GetByCollectionAsync(collectionId, ct);
             return Results.Ok(persons);
-        });
+        })
+        .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK);
 
         // GET /persons/by-work/{workId} â€” all persons linked to a specific work.
         group.MapGet("/by-work/{workId:guid}", async (
@@ -186,7 +191,8 @@ public static class PersonEndpoints
         {
             var persons = await personScopeReadService.GetByWorkAsync(workId, ct);
             return Results.Ok(persons);
-        });
+        })
+        .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK);
 
         // GET /persons/{id}/library-credits â€” role-aware owned work credits for a person.
         group.MapGet("/{id:guid}/library-credits", async (
@@ -252,7 +258,8 @@ public static class PersonEndpoints
             return Results.Ok(filtered);
         })
         .WithName("GetPersonRoleCounts")
-        .WithSummary("Count of persons per role.");
+        .WithSummary("Count of persons per role.")
+        .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK);
 
         // GET /persons/presence?ids=guid1,guid2,... â€” media type counts per person.
         group.MapGet("/presence", async (string ids, IPersonPresenceReadService presenceReadService, CancellationToken ct) =>
@@ -266,7 +273,8 @@ public static class PersonEndpoints
             return Results.Ok(presence);
         })
         .WithName("GetPersonPresence")
-        .WithSummary("Media type counts per person.");
+        .WithSummary("Media type counts per person.")
+        .Produces<IReadOnlyDictionary<string, Dictionary<string, int>>>(StatusCodes.Status200OK);
 
         // GET /persons?role=Author&limit=50 -- list persons filtered by role.
         group.MapGet("/", async (

@@ -421,6 +421,7 @@ public static class LibraryEndpoints
         })
         .WithName("BatchAcceptUniverseCandidates")
         .WithSummary("Batch accept universe assignments.")
+        .Produces<UniverseBatchAcceptResult>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         // â”€â”€ GET /library/universe-unlinked â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

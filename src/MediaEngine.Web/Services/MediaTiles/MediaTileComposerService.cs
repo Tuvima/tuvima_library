@@ -31,6 +31,55 @@ public sealed class MediaTileComposerService
             _api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", profileId: profileId, ct: ct),
             "listen"));
 
+    public static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
+    {
+        if (string.Equals(collection.Name, "Watchlist", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.Name, "Favorites", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.Name, "Liked Media", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.Name, "Disliked Media", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(collection.Name, "Loved Media", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
+               || string.Equals(collection.CollectionType, "PlaylistFolder", StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static MediaTileViewModel FromPlaylist(ManagedCollectionViewModel playlist)
+    {
+        var route = $"/listen/music/playlists/{playlist.Id:D}";
+        var smallArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "s");
+        var mediumArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "m");
+        return new MediaTileViewModel
+        {
+            Id = playlist.Id,
+            CollectionId = playlist.Id,
+            Title = playlist.Name,
+            Subtitle = playlist.ItemCount == 1 ? "1 item" : $"{playlist.ItemCount} items",
+            Description = playlist.Description,
+            CoverUrl = playlist.SquareArtworkUrl,
+            MediaKind = "Music",
+            AccentColor = "var(--tl-media-audio)",
+            Shape = MediaTileShape.Square,
+            HoverArtworkShape = MediaTileShape.Square,
+            Presentation = MediaTilePresentation.Album,
+            SurfaceKind = MediaTileSurfaceKind.CoverSquare,
+            HoverMode = MediaTileHoverMode.GlowOnly,
+            TileTextMode = MediaTileTextMode.Caption,
+            TileImageUrl = smallArtwork ?? playlist.SquareArtworkUrl,
+            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(smallArtwork, mediumArtwork),
+            HoverImageUrl = mediumArtwork ?? playlist.SquareArtworkUrl,
+            NavigationUrl = route,
+            DetailsNavigationUrl = route,
+            PrimaryNavigationUrl = route,
+            PrimaryActionLabel = "Open",
+            SortTimestamp = playlist.ModifiedAt ?? playlist.CreatedAt,
+            IsCollection = true,
+        };
+    }
+
     public static DiscoveryPageViewModel FromDisplayPage(DisplayPageDto page)
     {
         var shelves = page.Shelves

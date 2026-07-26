@@ -18,11 +18,13 @@ internal static class PluginEndpoints
         group.MapGet("", (PluginCatalog catalog) =>
             Results.Ok(catalog.List().Select(ToDto)))
             .WithName("ListPlugins")
+            .Produces<IEnumerable<PluginSummaryResponse>>(StatusCodes.Status200OK)
             .RequireAdmin();
 
         group.MapGet("/approved", async (ApprovedPluginCatalogService catalog, CancellationToken ct) =>
             Results.Ok(await catalog.GetAsync(ct).ConfigureAwait(false)))
             .WithName("ListApprovedPlugins")
+            .Produces<ApprovedPluginCatalogDto>(StatusCodes.Status200OK)
             .RequireAdmin();
 
         group.MapGet("/{pluginId}", (string pluginId, PluginCatalog catalog) =>
@@ -31,6 +33,7 @@ internal static class PluginEndpoints
             return plugin is null ? ApiErrors.NotFound($"Plugin '{pluginId}' not found.") : Results.Ok(ToDto(plugin));
         })
         .WithName("GetPlugin")
+        .Produces<PluginSummaryResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         group.MapPost("/{pluginId}/enable", (string pluginId, PluginCatalog catalog) =>
@@ -155,6 +158,7 @@ internal static class PluginEndpoints
             return Results.Ok(jobs.Select((op, index) => OperationDto.From(op, index + 1)).ToList());
         })
             .WithName("GetPluginJobs")
+            .Produces<IReadOnlyList<OperationDto>>(StatusCodes.Status200OK)
             .RequireAdmin();
 
         group.MapPost("/jobs/segment-detection/run", async (
@@ -165,28 +169,27 @@ internal static class PluginEndpoints
             return Results.Ok(jobs);
         })
         .WithName("RunPluginSegmentDetectionJobs")
+        .Produces<IReadOnlyList<PluginJobSnapshot>>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         return group;
     }
 
-    private static object ToDto(PluginRegistration registration) => new
-    {
-        id = registration.Manifest.Id,
-        name = registration.Manifest.Name,
-        version = registration.Manifest.Version,
-        description = registration.Manifest.Description,
-        enabled = registration.Enabled,
-        is_built_in = registration.IsBuiltIn,
-        load_error = registration.LoadError,
-        capabilities = registration.Manifest.Capabilities,
-        permissions = registration.Manifest.Permissions,
-        tool_requirements = registration.Manifest.ToolRequirements,
-        ai_permissions = registration.Manifest.AiPermissions,
-        settings = registration.Settings,
-        settings_schema = registration.SettingsSchema,
-        manifest_path = registration.ManifestPath,
-    };
+    private static PluginSummaryResponse ToDto(PluginRegistration registration) => new(
+        registration.Manifest.Id,
+        registration.Manifest.Name,
+        registration.Manifest.Version,
+        registration.Manifest.Description,
+        registration.Enabled,
+        registration.IsBuiltIn,
+        registration.LoadError,
+        registration.Manifest.Capabilities,
+        registration.Manifest.Permissions,
+        registration.Manifest.ToolRequirements,
+        registration.Manifest.AiPermissions,
+        registration.Settings,
+        registration.SettingsSchema,
+        registration.ManifestPath);
 }
 
 internal sealed record PluginJsonUpdateRequest(string Json);
@@ -202,4 +205,3 @@ internal sealed record PluginHealthCheckResponse
     public string status { get; init; } = string.Empty;
     public List<PluginHealthResult> checks { get; init; } = [];
 }
-

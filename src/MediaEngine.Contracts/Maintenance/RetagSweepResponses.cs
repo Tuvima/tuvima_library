@@ -24,3 +24,6 @@ public sealed record RetagSweepTriggeredResponse(bool triggered);
 
 /// <summary>Response body for <c>POST /maintenance/retag-sweep/retry/{assetId}</c>.</summary>
 public sealed record RetagSweepRetryResponse(bool requeued);
+
+/// <summary>Response body for <c>POST /maintenance/initial-sweep/run</c>.</summary>
+public sealed record InitialSweepStartedResponse(bool started);

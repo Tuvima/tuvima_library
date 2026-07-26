@@ -1593,6 +1593,7 @@ public static class CollectionEndpoints
         })
         .WithName("AddCollectionItem")
         .WithSummary("Adds a work to a saved/manual collection.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapDelete("/{id:guid}/items/{itemId:guid}", async (
@@ -1632,6 +1633,7 @@ public static class CollectionEndpoints
         })
         .WithName("RemoveCollectionItem")
         .WithSummary("Removes a work from a saved/manual collection.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         group.MapPut("/{id:guid}/items/reorder", async (
@@ -1673,6 +1675,7 @@ public static class CollectionEndpoints
         })
         .WithName("ReorderCollectionItems")
         .WithSummary("Reorders saved/manual collection items.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // GET /collections/{id}/square-artwork — serve collection-owned square artwork.
@@ -1827,6 +1830,7 @@ public static class CollectionEndpoints
         })
         .WithName("DeleteCollectionSquareArtwork")
         .WithSummary("Clears custom square artwork for a managed collection.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // PUT /collections/{id}/enabled — toggle collection visibility.
@@ -1855,6 +1859,7 @@ public static class CollectionEndpoints
         })
         .WithName("UpdateCollectionEnabled")
         .WithSummary("Toggle a collection's enabled state.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // PUT /collections/{id}/featured — toggle collection featured state.
@@ -1883,6 +1888,7 @@ public static class CollectionEndpoints
         })
         .WithName("UpdateCollectionFeatured")
         .WithSummary("Toggle a collection's featured state.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // ── Parameterized Collection endpoints ─────────────────────────────────────────
@@ -2258,6 +2264,7 @@ public static class CollectionEndpoints
         })
         .WithName("UpdateCollection")
         .WithSummary("Update a collection's rules, settings, or metadata.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // DELETE /collections/{id} — soft delete (disable)
@@ -2295,6 +2302,7 @@ public static class CollectionEndpoints
         })
         .WithName("DeleteCollection")
         .WithSummary("Soft-delete a collection by disabling it.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // GET /collections/field-values/{field} — distinct values for autocomplete
@@ -2310,6 +2318,7 @@ public static class CollectionEndpoints
         })
         .WithName("GetFieldValues")
         .WithSummary("Returns distinct values for a metadata field (used for collection builder autocomplete).")
+        .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         // GET /collections/{id}/placements
@@ -2358,6 +2367,7 @@ public static class CollectionEndpoints
         })
         .WithName("UpdateCollectionPlacements")
         .WithSummary("Replace all placements for a collection.")
+        .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
         return app;

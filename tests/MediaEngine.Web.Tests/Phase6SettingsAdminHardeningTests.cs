@@ -67,10 +67,12 @@ public sealed class Phase6SettingsAdminHardeningTests
     public void WatchTv_UsesSharedBrowseShellAndDirectShowDetails()
     {
         var watchPage = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\WatchPage.razor");
+        var lanePage = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\MediaLanePage.razor");
         var browseShell = ReadRepoFile(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor");
         var queryBuilder = ReadRepoFile(@"src\MediaEngine.Web\Components\Browse\BrowseQueryBuilder.cs");
 
-        Assert.Contains("<MediaBrowseShell Tab=\"@Tab\"", watchPage, StringComparison.Ordinal);
+        Assert.Contains("<MediaLanePage Title=\"Watch\"", watchPage, StringComparison.Ordinal);
+        Assert.Contains("<MediaBrowseShell Tab=\"@Tab\"", lanePage, StringComparison.Ordinal);
         Assert.DoesNotContain("<TvBrowsePage", watchPage, StringComparison.Ordinal);
         Assert.Contains("IsTvShowsGrouping && !UseListLayout", browseShell, StringComparison.Ordinal);
         Assert.Contains("LoadDisplayCardsAsync(append)", browseShell, StringComparison.Ordinal);

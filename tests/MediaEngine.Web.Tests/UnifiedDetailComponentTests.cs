@@ -674,6 +674,7 @@ public sealed class UnifiedDetailComponentTests
         var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
         var navigation = ReadSource("src/MediaEngine.Web/Services/Navigation/MediaNavigation.cs");
         var showPage = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
+        var routeRequest = ReadSource("src/MediaEngine.Web/Components/Details/DetailRouteRequest.cs");
 
         Assert.Contains("ShowCoverageDonut", sequence);
         Assert.Contains("OwnedSummary", sequence);
@@ -688,8 +689,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("EpisodeDetailRoute", sequence);
         Assert.Contains("?episode={episodeId:D}", sequence);
         Assert.Contains("SupplyParameterFromQuery(Name = \"episode\")", showPage);
-        Assert.Contains("DetailEntityType.TvEpisode,", showPage);
-        Assert.Contains("containerId: CollectionId.ToString(\"D\")", showPage);
+        Assert.Contains("DetailRouteRequest.ForTvShow(CollectionId, EpisodeId)", showPage);
+        Assert.Contains("isEpisode ? DetailEntityType.TvEpisode : DetailEntityType.TvShow", routeRequest);
+        Assert.Contains("containerId: isEpisode ? collectionId.ToString(\"D\") : null", routeRequest);
         Assert.DoesNotContain("HeroSecondaryActions", showPage);
         Assert.DoesNotContain("show-details", showPage);
         Assert.DoesNotContain("tl-tv-episode-detail-back", showPage);
@@ -747,22 +749,36 @@ public sealed class UnifiedDetailComponentTests
         var movie = ReadSource("src/MediaEngine.Web/Components/Pages/WatchMoviePage.razor");
         var show = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
         var routePages = new[] { book, unified, movie, show };
+        var routeHost = ReadSource("src/MediaEngine.Web/Components/Details/DetailRouteHost.razor");
+        var routeRequest = ReadSource("src/MediaEngine.Web/Components/Details/DetailRouteRequest.cs");
 
         Assert.Contains("@page \"/book/{Id:guid}\"", book);
         Assert.Contains("@page \"/details/{EntityType}/{Id:guid}\"", unified);
         Assert.Contains("@page \"/watch/movie/{WorkId:guid}\"", movie);
         Assert.Contains("@page \"/watch/tv/show/{CollectionId:guid}\"", show);
-        Assert.Contains("entityType != DetailEntityType.TvEpisode", unified);
+        Assert.Contains("entityType != DetailEntityType.TvEpisode", routeRequest);
         Assert.False(File.Exists(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Pages/WatchTvEpisodePage.razor")));
 
         foreach (var source in routePages)
         {
-            Assert.Contains("_activeTab = tab;", source);
+            Assert.Contains("<DetailRouteHost Request=", source);
             Assert.DoesNotContain("{Tab}", source);
             Assert.DoesNotContain("BuildTabUrl", source);
             Assert.DoesNotContain("DetailTabNavigation.BuildUrl", source);
             Assert.DoesNotContain("Nav.NavigateTo(BuildTabUrl", source);
+            Assert.DoesNotContain("_activeTab", source);
         }
+
+        Assert.Contains("_activeTab = tab;", routeHost);
+        Assert.Contains("<AppPageState", routeHost);
+        Assert.Contains("DetailTabNavigation.Resolve(_detail, _activeTab)", routeHost);
+        Assert.Contains("Nav.NavigateTo(action.Route)", routeHost);
+        Assert.Contains("detailOrigin.initialize", routeHost);
+        Assert.Contains("detailOrigin.back", routeHost);
+        Assert.DoesNotContain("{Tab}", routeHost);
+        Assert.DoesNotContain("BuildTabUrl", routeHost);
+        Assert.DoesNotContain("DetailTabNavigation.BuildUrl", routeHost);
+        Assert.DoesNotContain("Nav.NavigateTo(BuildTabUrl", routeHost);
     }
 
     [Fact]
