@@ -1,0 +1,180 @@
+.tl-embedded-audio {
+    display: flex;
+    min-height: 0;
+    height: 100%;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.75rem;
+    background:
+        linear-gradient(110deg, rgba(7, 13, 23, 0.88), rgba(25, 22, 50, 0.78)),
+        color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 7%, transparent);
+    box-shadow: 0 1.1rem 3rem rgba(0, 0, 0, 0.22);
+}
+
+.tl-embedded-audio__toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex: 0 0 auto;
+    min-height: 3rem;
+    padding: 0.4rem 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 14, 25, 0.62);
+    backdrop-filter: blur(14px);
+}
+
+.tl-embedded-audio__toolbar-leading,
+.tl-embedded-audio__primary-actions,
+.tl-embedded-audio__tools {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.tl-embedded-audio__tools {
+    margin-left: auto;
+}
+
+.tl-embedded-audio__missing {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 0.78rem;
+    white-space: nowrap;
+}
+
+.tl-embedded-audio__scroller {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 56%, transparent) transparent;
+}
+
+.tl-embedded-audio__table {
+    min-width: 44rem;
+}
+
+.tl-embedded-audio__row {
+    display: grid;
+    grid-template-columns: 4.2rem minmax(16rem, 1fr) 5rem 7.5rem 2.5rem;
+    align-items: center;
+    min-height: 2.7rem;
+    padding: 0 0.65rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.065);
+    color: rgba(245, 247, 252, 0.84);
+    font-size: 0.84rem;
+}
+
+.tl-embedded-audio__row.is-playing {
+    background: linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 22%, transparent),
+        rgba(255, 255, 255, 0.025));
+}
+
+.tl-embedded-audio__row.is-missing {
+    color: rgba(235, 239, 248, 0.52);
+}
+
+.tl-embedded-audio__ordinal {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    color: rgba(255, 255, 255, 0.68);
+    font-variant-numeric: tabular-nums;
+}
+
+::deep .tl-embedded-audio__row-play {
+    display: grid;
+    width: 1.55rem;
+    height: 1.55rem;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+::deep .tl-embedded-audio__row-play:hover,
+::deep .tl-embedded-audio__row-play:focus-visible {
+    background: var(--tl-detail-primary, #8b5cf6);
+}
+
+.tl-embedded-audio__playing {
+    display: grid;
+    width: 1.55rem;
+    place-items: center;
+    color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 62%, #fff);
+}
+
+.tl-embedded-audio__title {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.tl-embedded-audio__title strong {
+    overflow: hidden;
+    font-weight: 500;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tl-embedded-audio__title > span {
+    display: grid;
+    width: 1rem;
+    height: 1rem;
+    place-items: center;
+    border-radius: 0.15rem;
+    background: rgba(255, 255, 255, 0.18);
+    font-size: 0.55rem;
+    font-weight: 700;
+}
+
+.tl-embedded-audio__duration {
+    color: rgba(255, 255, 255, 0.66);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.tl-embedded-audio__status {
+    padding-left: 1rem;
+}
+
+.tl-embedded-audio__status > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.tl-embedded-audio__status .is-owned {
+    color: #54d69b;
+}
+
+.tl-embedded-audio__status .is-missing {
+    color: rgba(225, 231, 244, 0.56);
+}
+
+::deep .tl-embedded-audio__more {
+    width: 2rem !important;
+    min-width: 2rem !important;
+    height: 2rem !important;
+}
+
+@media (max-width: 720px) {
+    .tl-embedded-audio__table {
+        min-width: 35rem;
+    }
+
+    .tl-embedded-audio__row {
+        grid-template-columns: 3.5rem minmax(13rem, 1fr) 4.5rem 6.25rem 2.25rem;
+        padding-inline: 0.35rem;
+    }
+}

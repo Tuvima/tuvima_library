@@ -304,7 +304,7 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
-    public async Task TvNetworkAndTimelineGroups_CountEachShowOnceInsteadOfEachEpisode()
+    public async Task TvNetworkAndTimelineGroups_CountEachShowOnceAndUseTheShowPremiereYear()
     {
         var showWorkId = Guid.NewGuid();
         var seasonWorkId = Guid.NewGuid();
@@ -385,7 +385,8 @@ public sealed class CollectionReadServicesTests : IDisposable
         Assert.Equal(1, timeline.WorkCount);
         Assert.Equal(1, timeline.SeasonCount);
         Assert.Equal(2020, timeline.EarliestYear);
-        Assert.Equal(2023, timeline.LatestYear);
+        Assert.Equal(2020, timeline.LatestYear);
+        Assert.Equal("2020", timeline.Year);
         Assert.Equal(showWorkId, Assert.Single(timeline.PreviewItems).WorkId);
     }
 

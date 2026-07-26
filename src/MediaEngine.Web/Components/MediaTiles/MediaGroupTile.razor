@@ -3,7 +3,7 @@
 @inject NavigationManager Nav
 
 <AppCssElement Tag="div" Css="@($"display: contents; {TileStyle}")">
-    <article class="media-group-tile @(AllowsHoverPresentation ? "is-interactive" : "is-static") @(HasPerson ? "has-person" : null)" aria-label="@Item.Title">
+    <article class="media-group-tile @(AllowsHoverPresentation ? "is-interactive" : "is-static") @(HasPerson ? "has-person" : HasBrandLogo ? "has-brand" : null)" aria-label="@Item.Title">
         <a class="media-group-tile__surface"
            href="@GroupNavigationUrl"
            aria-label="@AccessibleLabel"
@@ -41,6 +41,12 @@
                             <MudIcon Icon="@Icons.Material.Outlined.Person" />
                         </span>
                     }
+                </div>
+            }
+            else if (HasBrandLogo)
+            {
+                <div class="media-group-tile__brand" aria-hidden="true">
+                    <img src="@Item.LogoUrl" alt="" />
                 </div>
             }
 
@@ -102,6 +108,7 @@
     private MediaTileHoverMode EffectiveHoverMode => HoverMode ?? Item.HoverMode;
     private bool AllowsHoverPresentation => EffectiveHoverMode != MediaTileHoverMode.None;
     private bool HasPerson => Item.Person is not null;
+    private bool HasBrandLogo => Item.ShowLogoAsBrand && !string.IsNullOrWhiteSpace(Item.LogoUrl);
     private int ResolvedTotalCount => Math.Max(Item.GroupSummary?.OwnedCount ?? Item.PreviewTotalCount ?? RepresentativeItems.Count, RepresentativeItems.Count);
 
     // The API orders series previews by progress and canonical position and already caps

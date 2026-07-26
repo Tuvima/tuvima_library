@@ -11053,25 +11053,34 @@
         max-width: none !important;
     }
 
-    .tl-detail-stage--audiobook
+    .tl-detail-stage--audiobook-with-chapters
         ::deep .tl-detail-primary-module--embedded {
         height: clamp(18rem, 32svh, 24rem) !important;
     }
 
-    .tl-detail-stage--audiobook
+    .tl-detail-stage--audiobook-with-chapters
         ::deep .tl-detail-hero:not(.tl-detail-hero--person) .tl-detail-hero__inner {
         padding-bottom: calc(3.75rem + clamp(20rem, 35svh, 26rem)) !important;
     }
 
     .tl-detail-stage--audiobook
         ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
-        top: calc(var(--app-topbar-height, 65px) + 1svh) !important;
-        right: 8vw !important;
-        width: min(34vw, 58svh) !important;
+        top: 50% !important;
+        right: 6vw !important;
+        width: min(38vw, 66svh) !important;
         max-width: none !important;
-        height: min(34vw, 58svh) !important;
+        height: min(38vw, 66svh) !important;
         max-height: none !important;
-        transform: none !important;
+        transform: translateY(-50%) !important;
+    }
+
+    .tl-detail-stage--audiobook-with-chapters
+        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
+        top: 50% !important;
+        right: 6vw !important;
+        width: min(27vw, 31svh) !important;
+        height: min(27vw, 31svh) !important;
+        transform: translateY(-50%) !important;
     }
 
     .tl-detail-stage--audiobook
@@ -11079,6 +11088,15 @@
         width: 100% !important;
         height: 100% !important;
         max-width: none !important;
+        max-height: 100% !important;
+    }
+
+    .tl-detail-stage--audiobook
+        ::deep .tl-detail-media-stage__foreground--cover .tl-detail-media-stage__cover {
+        width: 100% !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
     }
 }
 
@@ -11093,10 +11111,17 @@
 
     .tl-detail-stage--audiobook
         ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
-        top: calc(var(--app-topbar-height, 65px) + 0.5svh) !important;
+        top: 50% !important;
         right: 6vw !important;
-        width: min(25vw, 33svh) !important;
-        height: min(25vw, 33svh) !important;
+        width: min(29vw, 42svh) !important;
+        height: min(29vw, 42svh) !important;
+        transform: translateY(-50%) !important;
+    }
+
+    .tl-detail-stage--audiobook-with-chapters
+        ::deep .tl-detail-media-stage--audiobook .tl-detail-media-stage__cover-wrap {
+        width: min(25vw, 29svh) !important;
+        height: min(25vw, 29svh) !important;
     }
 }
 
@@ -11128,9 +11153,9 @@
         top: 50% !important;
         right: clamp(3rem, 6vw, 8rem) !important;
         width: auto !important;
-        max-width: min(38vw, 42rem) !important;
-        height: min(64svh, calc(100% - var(--app-topbar-height, 65px) - 7rem)) !important;
-        max-height: min(64svh, calc(100% - var(--app-topbar-height, 65px) - 7rem)) !important;
+        max-width: min(40vw, 44rem) !important;
+        height: min(69svh, calc(100% - var(--app-topbar-height, 65px) - 7rem)) !important;
+        max-height: min(69svh, calc(100% - var(--app-topbar-height, 65px) - 7rem)) !important;
         transform: translateY(-50%) !important;
     }
 
@@ -11141,6 +11166,7 @@
         width: auto !important;
         max-width: 100% !important;
         height: 100% !important;
+        max-height: 100% !important;
     }
 
     .tl-detail-stage:not(.tl-detail-stage--primary-before-navigation)
@@ -11177,4 +11203,14 @@
         height: min(58svh, calc(100% - var(--app-topbar-height, 65px) - 5.5rem)) !important;
         max-height: min(58svh, calc(100% - var(--app-topbar-height, 65px) - 5.5rem)) !important;
     }
+}
+
+/* Standard collections have no truthful item-level credit roll. Their Overview
+   uses the full content width instead of reserving an empty credits column. */
+::deep .tl-overview-surface--collection {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+::deep .tl-overview-surface--collection .tl-overview-section--copy {
+    max-width: 92rem;
 }

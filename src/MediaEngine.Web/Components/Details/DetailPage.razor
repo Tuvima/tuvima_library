@@ -209,6 +209,7 @@
         $"{(HasPrimaryModuleAfterNavigation ? " tl-detail-stage--primary-after-navigation" : string.Empty)}" +
         $"{(IsMusicAlbumDetail ? " tl-detail-stage--music-album" : string.Empty)}" +
         $"{(IsAudiobookDetail ? " tl-detail-stage--audiobook" : string.Empty)}" +
+        $"{(IsAudiobookDetail && HasPrimaryModuleBeforeNavigation ? " tl-detail-stage--audiobook-with-chapters" : string.Empty)}" +
         $"{(Model?.EntityType == DetailEntityType.Person ? " tl-detail-stage--person" : string.Empty)}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);

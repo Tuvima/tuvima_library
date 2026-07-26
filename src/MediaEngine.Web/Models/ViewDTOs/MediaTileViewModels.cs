@@ -97,6 +97,7 @@ public sealed class MediaTileViewModel
     public string? BannerUrl { get; init; }
     public string? HeroUrl { get; init; }
     public string? LogoUrl { get; init; }
+    public bool ShowLogoAsBrand { get; init; }
     public IReadOnlyList<string> PreviewImages { get; init; } = [];
     public IReadOnlyList<ArtworkStackItem> ArtworkStackItems { get; init; } = [];
     public int? PreviewTotalCount { get; init; }

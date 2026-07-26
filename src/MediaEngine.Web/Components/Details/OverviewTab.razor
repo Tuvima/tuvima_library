@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-tab-panel tl-overview-surface @(Model.EntityType == DetailEntityType.Person ? "tl-overview-surface--person" : "tl-overview-surface--media")">
+<div class="tl-detail-tab-panel tl-overview-surface @OverviewSurfaceModifier">
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
         <section class="tl-overview-section tl-overview-section--copy">
@@ -77,41 +77,44 @@
             }
         </section>
 
-        <aside class="tl-overview-section tl-overview-section--secondary tl-overview-section--credits">
-            <header class="tl-overview-section__heading">
-                <span>@CreditPanelTitle</span>
-                @if (OverviewCreditRows.Count > 0 && HasCreditTab)
-                {
-                    <AppNativeButton Type="button"
-                                     Class="tl-overview-section__credits-link"
-                                     OnClick="@(() => OnTabRequested.InvokeAsync(CreditTabKey))">
-                        View full @CreditPanelTitle.ToLowerInvariant()
-                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
-                    </AppNativeButton>
-                }
-            </header>
-            @if (DisplayedOverviewCreditGroups.Count == 0)
-            {
-                <p class="tl-overview-section__empty">No linked people are available yet.</p>
-            }
-            else
-            {
-                <div class="tl-overview-credit-groups">
-                    @foreach (var group in DisplayedOverviewCreditGroups)
+        @if (ShowOverviewCredits)
+        {
+            <aside class="tl-overview-section tl-overview-section--secondary tl-overview-section--credits">
+                <header class="tl-overview-section__heading">
+                    <span>@CreditPanelTitle</span>
+                    @if (OverviewCreditRows.Count > 0 && HasCreditTab)
                     {
-                        <section class="@OverviewCreditGroupClass(group)">
-                            <h3>@OverviewCreditGroupTitle(group)</h3>
-                            <div class="tl-overview-credit-rows">
-                                @foreach (var credit in group.Credits)
-                                {
-                                    <PersonCreditCard Credit="credit" Compact="true" />
-                                }
-                            </div>
-                        </section>
+                        <AppNativeButton Type="button"
+                                         Class="tl-overview-section__credits-link"
+                                         OnClick="@(() => OnTabRequested.InvokeAsync(CreditTabKey))">
+                            View full @CreditPanelTitle.ToLowerInvariant()
+                            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
+                        </AppNativeButton>
                     }
-                </div>
-            }
-        </aside>
+                </header>
+                @if (DisplayedOverviewCreditGroups.Count == 0)
+                {
+                    <p class="tl-overview-section__empty">No linked people are available yet.</p>
+                }
+                else
+                {
+                    <div class="tl-overview-credit-groups">
+                        @foreach (var group in DisplayedOverviewCreditGroups)
+                        {
+                            <section class="@OverviewCreditGroupClass(group)">
+                                <h3>@OverviewCreditGroupTitle(group)</h3>
+                                <div class="tl-overview-credit-rows">
+                                    @foreach (var credit in group.Credits)
+                                    {
+                                        <PersonCreditCard Credit="credit" Compact="true" />
+                                    }
+                                </div>
+                            </section>
+                        }
+                    </div>
+                }
+            </aside>
+        }
     }
 </div>
 
@@ -121,6 +124,13 @@
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
 
     private bool _creditsExpanded;
+    private bool ShowOverviewCredits => Model.EntityType != DetailEntityType.Collection;
+    private string OverviewSurfaceModifier => Model.EntityType switch
+    {
+        DetailEntityType.Person => "tl-overview-surface--person",
+        DetailEntityType.Collection => "tl-overview-surface--collection",
+        _ => "tl-overview-surface--media",
+    };
 
     private bool IsCanonicalSeriesContainer => Model.EntityType is DetailEntityType.MovieSeries
         or DetailEntityType.BookSeries

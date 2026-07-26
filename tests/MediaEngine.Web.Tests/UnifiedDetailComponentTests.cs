@@ -394,6 +394,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-overview-credit-groups", source);
         Assert.Contains("View full @CreditPanelTitle.ToLowerInvariant()", source);
         Assert.Contains("OverviewCreditRows", source);
+        Assert.Contains("ShowOverviewCredits => Model.EntityType != DetailEntityType.Collection", source);
+        Assert.Contains("tl-overview-surface--collection", source);
+        Assert.Contains(".tl-overview-surface--collection", styles);
         Assert.Contains("CreditGroupType.Authors", source);
         Assert.Contains("CreditGroupType.Narrators", source);
         Assert.Contains("CreditGroupType.Writers", source);
@@ -821,6 +824,7 @@ public sealed class UnifiedDetailComponentTests
         var backdrop = ReadSource("src/MediaEngine.Web/Components/Details/HeroBackdrop.razor");
         var trackList = ReadSource("src/MediaEngine.Web/Components/Details/MusicTrackList.razor");
         var audioTable = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor");
+        var audioTableStyles = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor.css");
         var apiClient = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
         var albumRoute = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
 
@@ -835,16 +839,20 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<MusicAlbumSeriesRail Model=\"Model\"", albumOverview);
         Assert.Contains("grid-template-columns: minmax(0, 1fr) minmax(17rem, 27%)", albumOverviewStyles);
         Assert.Contains("background: transparent", albumOverviewStyles);
+        Assert.DoesNotContain("grid-template-columns: repeat(2, minmax(0, 1fr))", albumOverviewStyles);
         Assert.Contains("MoreByAlbums.Count: > 0", seriesRail);
         Assert.Contains("loading=\"lazy\"", seriesRail);
         Assert.Contains("width: min(34vw, 58svh) !important", detailPageStyles);
         Assert.Contains("top: 50% !important", detailPageStyles);
         Assert.Contains("tl-detail-media-stage__foreground--album", detailPageStyles);
         Assert.Contains("width: 100% !important", detailPageStyles);
-        Assert.Contains("width: min(34vw, 58svh) !important", detailPageStyles);
+        Assert.Contains("tl-detail-stage--audiobook-with-chapters", detailPage);
+        Assert.Contains("width: min(38vw, 66svh) !important", detailPageStyles);
+        Assert.Contains(".tl-detail-stage--audiobook-with-chapters", detailPageStyles);
         Assert.Contains("tl-detail-media-stage--book.tl-detail-media-stage--cover-fallback", detailPageStyles);
         Assert.Contains("tl-detail-media-stage--landscape.tl-detail-media-stage--cover-fallback", detailPageStyles);
-        Assert.Contains("height: min(64svh", detailPageStyles);
+        Assert.Contains("height: min(69svh", detailPageStyles);
+        Assert.Contains("max-height: 100% !important", detailPageStyles);
         Assert.Contains("IsMusicAlbumBackdrop", backdrop);
         Assert.Contains("Artwork.CoverUrl ?? Artwork.PosterUrl", backdrop);
         Assert.Contains("tl-detail-media-stage--music-cover-background", backdrop);
@@ -853,6 +861,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<AudioItemTable", trackList);
         Assert.Contains("ReplaceQueueItemsAsync", audioTable);
         Assert.Contains("tl-embedded-audio__table", audioTable);
+        Assert.Contains("grid-template-columns: 4.2rem minmax(16rem, 1fr) 5rem 7.5rem 2.5rem", audioTableStyles);
+        Assert.Contains("overflow: auto", audioTableStyles);
         Assert.Contains("Show missing tracks", audioTable);
         Assert.Contains("item.IsOwned", audioTable);
         Assert.Contains("DurationSeconds", audioTable);

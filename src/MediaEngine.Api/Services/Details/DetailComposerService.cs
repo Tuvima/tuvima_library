@@ -658,7 +658,9 @@ public sealed class DetailComposerService
                 GetValue(values, "poster"),
                 fallbackCover);
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
-        var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
+        IReadOnlyList<CreditGroupViewModel> contributorGroups = entityType == DetailEntityType.Collection
+            ? []
+            : await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
         var musicAlbumCompanion = entityType == DetailEntityType.MusicAlbum
             ? await BuildMusicAlbumCompanionAsync(
                 rootWorkId ?? collectionId,
@@ -4658,7 +4660,9 @@ public sealed class DetailComposerService
 
             Album = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Album), GetValue(canonicalValues, MetadataFieldConstants.Title)),
             AlbumArtist = albumArtists.FirstOrDefault(),
-            TrackCount = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.TrackCount), entityType is DetailEntityType.MusicAlbum ? works.Count.ToString(CultureInfo.InvariantCulture) : null),
+            TrackCount = entityType is DetailEntityType.MusicAlbum
+                ? works.Count.ToString(CultureInfo.InvariantCulture)
+                : GetValue(canonicalValues, MetadataFieldConstants.TrackCount),
             DiscCount = GetValue(canonicalValues, MetadataFieldConstants.DiscCount),
             Isrc = GetValue(canonicalValues, "isrc"),
             Label = FirstNonBlank(GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
@@ -6104,10 +6108,14 @@ public sealed class DetailComposerService
                 return SortMusicAlbumTracks(ownedTracks);
             }
 
+            var manifestTracks = SelectMusicAlbumManifestTracks(
+                trackArray,
+                canonicalValues,
+                ownedTracks.Select(track => track.DiscNumber));
             var remainingOwned = ownedTracks.ToList();
             var merged = new List<CollectionWorkSummary>();
             var manifestIndex = 0;
-            foreach (var element in trackArray.EnumerateArray())
+            foreach (var element in manifestTracks)
             {
                 manifestIndex++;
                 var title = ReadDetailJsonString(element, "title", "name");
@@ -6186,6 +6194,37 @@ public sealed class DetailComposerService
             // Provider manifests are best-effort enrichment; malformed JSON degrades to owned tracks.
             return SortMusicAlbumTracks(ownedTracks);
         }
+    }
+
+    internal static IReadOnlyList<JsonElement> SelectMusicAlbumManifestTracks(
+        JsonElement trackArray,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        IEnumerable<int?> ownedDiscNumbers)
+    {
+        var tracks = trackArray.EnumerateArray().ToList();
+        var canonicalDiscCount = TryParseInt(GetValue(canonicalValues, MetadataFieldConstants.DiscCount));
+        var ownedDiscs = ownedDiscNumbers
+            .Where(number => number.HasValue)
+            .Select(number => number!.Value)
+            .Distinct()
+            .ToList();
+        var canonicalDiscNumber = TryParseInt(GetValue(canonicalValues, MetadataFieldConstants.DiscNumber))
+            ?? (ownedDiscs.Count == 1 ? ownedDiscs[0] : null);
+
+        // Retail providers sometimes resolve one tagged album to a much larger box set.
+        // When that manifest spans more than three discs, the file's canonical disc
+        // identifies the album-sized slice that should appear in this detail surface.
+        // Ordinary one-, two-, and three-disc albums retain their complete manifests.
+        if (canonicalDiscCount is <= 3 || canonicalDiscNumber is null)
+        {
+            return tracks;
+        }
+
+        var scopedTracks = tracks
+            .Where(track => ReadDetailJsonInt(track, "disc_number", "discNumber") == canonicalDiscNumber)
+            .ToList();
+
+        return scopedTracks.Count > 0 ? scopedTracks : tracks;
     }
 
     private static IReadOnlyList<CollectionWorkSummary> SortMusicAlbumTracks(
@@ -6847,7 +6886,7 @@ public sealed class DetailComposerService
             var pills = new List<MetadataPill>();
             AddPlain(pills, FormatEntityType(entityType), "type");
             AddPlain(pills, FirstNonBlank(GetValue(values, "year"), GetValue(values, "release_year"), works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y))), "year");
-            AddPlain(pills, FormatCountLabel(GetValue(values, "track_count") ?? works.Count.ToString(CultureInfo.InvariantCulture), "track"), "track_count");
+            AddPlain(pills, FormatCountLabel(works.Count.ToString(CultureInfo.InvariantCulture), "track"), "track_count");
             AddPlain(pills, FormatAlbumDuration(works), "duration");
             AddPlain(pills, GetValue(values, "genre"), "genre");
             AddPlain(pills, FirstNonBlank(GetValue(values, "quality"), GetValue(values, "audio_quality"), works.Select(w => w.Quality).FirstOrDefault(q => !string.IsNullOrWhiteSpace(q))), "quality");

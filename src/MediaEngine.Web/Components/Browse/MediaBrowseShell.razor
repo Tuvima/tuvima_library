@@ -1266,6 +1266,7 @@
             previewImages: BuildGroupPreviewImages(group, wideArtwork, presentation),
             creator: group.Creator,
             collectionKey: group.DisplayName,
+            showLogoAsBrand: IsTvNetworksGrouping,
             sortYear: group.LatestYear ?? group.EarliestYear ?? ParseYear(group.Year));
     }
 
@@ -2027,6 +2028,7 @@
         IReadOnlyList<string>? previewImages,
         string? creator,
         string? collectionKey,
+        bool showLogoAsBrand,
         int sortYear) => new()
     {
         Id = card.Id,
@@ -2040,6 +2042,7 @@
         BannerUrl = card.BannerUrl,
         HeroUrl = heroUrl,
         LogoUrl = card.LogoUrl,
+        ShowLogoAsBrand = showLogoAsBrand,
         PreviewImages = previewImages ?? card.PreviewImages,
         ArtworkStackItems = card.ArtworkStackItems,
         PreviewTotalCount = card.PreviewTotalCount,

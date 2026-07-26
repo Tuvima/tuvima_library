@@ -680,9 +680,9 @@ public sealed class CollectionBrowseReadService(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1)) AS AlbumName,
                        CASE WHEN @IsTvShowGroup = 1 THEN COALESCE(
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('air_date', 'release_date', 'year') ORDER BY CASE key WHEN 'air_date' THEN 1 WHEN 'release_date' THEN 2 ELSE 3 END LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key IN ('air_date', 'release_date', 'year') ORDER BY CASE key WHEN 'air_date' THEN 1 WHEN 'release_date' THEN 2 ELSE 3 END LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key IN ('release_year', 'year') ORDER BY CASE key WHEN 'release_year' THEN 1 ELSE 2 END LIMIT 1))
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key IN ('premiere_date', 'first_air_date', 'release_date', 'release_year', 'year') ORDER BY CASE key WHEN 'premiere_date' THEN 1 WHEN 'first_air_date' THEN 2 WHEN 'release_date' THEN 3 WHEN 'release_year' THEN 4 ELSE 5 END LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key IN ('premiere_date', 'first_air_date', 'release_date', 'release_year', 'year', 'air_date') ORDER BY CASE key WHEN 'premiere_date' THEN 1 WHEN 'first_air_date' THEN 2 WHEN 'release_date' THEN 3 WHEN 'release_year' THEN 4 WHEN 'year' THEN 5 ELSE 6 END LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('premiere_date', 'first_air_date', 'release_date', 'release_year', 'year', 'air_date') ORDER BY CASE key WHEN 'premiere_date' THEN 1 WHEN 'first_air_date' THEN 2 WHEN 'release_date' THEN 3 WHEN 'release_year' THEN 4 WHEN 'year' THEN 5 ELSE 6 END LIMIT 1))
                        ELSE COALESCE(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'release_year' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'year' LIMIT 1),
@@ -731,7 +731,12 @@ public sealed class CollectionBrowseReadService(
                        MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS Artist,
                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS Author,
                        MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS Network,
-                       MAX(CASE WHEN cv.key IN ('release_year', 'year') THEN cv.value END) AS Year,
+                       COALESCE(
+                           MAX(CASE WHEN cv.key = 'premiere_date' THEN cv.value END),
+                           MAX(CASE WHEN cv.key = 'first_air_date' THEN cv.value END),
+                           MAX(CASE WHEN cv.key = 'release_date' THEN cv.value END),
+                           MAX(CASE WHEN cv.key = 'release_year' THEN cv.value END),
+                           MAX(CASE WHEN cv.key = 'year' THEN cv.value END)) AS Year,
                        MAX(CASE WHEN cv.key = 'description' THEN cv.value END) AS Description,
                        MAX(CASE WHEN cv.key = 'tagline' THEN cv.value END) AS Tagline,
                        MAX(CASE WHEN cv.key = 'cover_aspect_class' THEN cv.value END) AS CoverAspectClass,

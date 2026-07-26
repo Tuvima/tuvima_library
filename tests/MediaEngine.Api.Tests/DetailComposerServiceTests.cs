@@ -1,11 +1,90 @@
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
+using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
 
 public sealed class DetailComposerServiceTests
 {
+    [Fact]
+    public void SelectMusicAlbumManifestTracks_ScopesOversizedBoxSetToCanonicalDisc()
+    {
+        using var document = JsonDocument.Parse("""
+            {
+              "tracks": [
+                { "title": "Other Album", "disc_number": 1, "track_number": 1 },
+                { "title": "Album Opener", "disc_number": 2, "track_number": 1 },
+                { "title": "Album Closer", "disc_number": 2, "track_number": 2 },
+                { "title": "Live Bonus", "disc_number": 4, "track_number": 1 }
+              ]
+            }
+            """);
+        var canonicalValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.DiscCount] = "9",
+            [MetadataFieldConstants.DiscNumber] = "2",
+        };
+
+        var selected = DetailComposerService.SelectMusicAlbumManifestTracks(
+            document.RootElement.GetProperty("tracks"),
+            canonicalValues,
+            [2]);
+
+        Assert.Equal(["Album Opener", "Album Closer"], selected.Select(track => track.GetProperty("title").GetString()));
+    }
+
+    [Fact]
+    public void SelectMusicAlbumManifestTracks_PreservesNormalMultiDiscAlbum()
+    {
+        using var document = JsonDocument.Parse("""
+            {
+              "tracks": [
+                { "title": "Disc One", "disc_number": 1, "track_number": 1 },
+                { "title": "Disc Two", "disc_number": 2, "track_number": 1 }
+              ]
+            }
+            """);
+        var canonicalValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.DiscCount] = "2",
+            [MetadataFieldConstants.DiscNumber] = "2",
+        };
+
+        var selected = DetailComposerService.SelectMusicAlbumManifestTracks(
+            document.RootElement.GetProperty("tracks"),
+            canonicalValues,
+            [2]);
+
+        Assert.Equal(2, selected.Count);
+    }
+
+    [Fact]
+    public void SelectMusicAlbumManifestTracks_UsesOwnedDiscWhenAlbumRootHasNoDiscNumber()
+    {
+        using var document = JsonDocument.Parse("""
+            {
+              "tracks": [
+                { "title": "Other Album", "disc_number": 1, "track_number": 1 },
+                { "title": "Owned Album", "disc_number": 2, "track_number": 1 },
+                { "title": "Live Set", "disc_number": 4, "track_number": 1 }
+              ]
+            }
+            """);
+        var canonicalValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.DiscCount] = "9",
+        };
+
+        var selected = DetailComposerService.SelectMusicAlbumManifestTracks(
+            document.RootElement.GetProperty("tracks"),
+            canonicalValues,
+            [2]);
+
+        Assert.Equal("Owned Album", Assert.Single(selected).GetProperty("title").GetString());
+    }
+
     [Fact]
     public void TryParseEntityType_DoesNotExposePodcastTypes()
     {
@@ -168,6 +247,8 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\"", source);
         Assert.Contains("DetailEntityType.Person => [\"overview\"]", source);
         Assert.Contains("DetailEntityType.Collection => [\"overview\", \"details\"]", source);
+        Assert.Contains("entityType == DetailEntityType.Collection", source);
+        Assert.Contains("? []", source);
         Assert.Contains("BuildStandardCollectionMetadata(works)", source);
         Assert.Contains("Kind = $\"{lane}_count\"", source);
         Assert.DoesNotContain("BuildCollectionLaneActions", source);

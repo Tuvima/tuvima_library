@@ -466,6 +466,47 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaGroupTile_NetworkGroupShowsItsResolvedLogoWithoutChangingTheGroupRoute()
+    {
+        var group = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            CollectionId = Guid.NewGuid(),
+            Title = "HBO",
+            MediaKind = "TV",
+            Shape = MediaTileShape.Landscape,
+            Presentation = MediaTilePresentation.Default,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverMode = MediaTileHoverMode.Expanded,
+            LogoUrl = "/images/brands/hbo.svg",
+            ShowLogoAsBrand = true,
+            NavigationUrl = "/watch/tv?browse=networks&network=HBO",
+            DetailsNavigationUrl = "/watch/tv?browse=networks&network=HBO",
+            IsCollection = true,
+            UseLandscapeGroupTile = true,
+            PreviewTotalCount = 1,
+            ArtworkStackItems =
+            [
+                new ArtworkStackItem
+                {
+                    Id = "1",
+                    Title = "Test Show",
+                    ImageUrl = "/covers/test-show.jpg",
+                    MediaType = "TV",
+                    Shape = ArtworkShape.Portrait,
+                },
+            ],
+        };
+
+        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+
+        Assert.Contains("has-brand", cut.Find("article.media-group-tile").ClassList);
+        Assert.Equal("/images/brands/hbo.svg", cut.Find(".media-group-tile__brand img").GetAttribute("src"));
+        Assert.Equal("/watch/tv?browse=networks&network=HBO", cut.Find("a.media-group-tile__surface").GetAttribute("href"));
+        Assert.Empty(cut.FindAll(".media-group-tile__person"));
+    }
+
+    [Fact]
     public void MediaGroupTile_MixedCollectionUsesRepresentativeMediaBreadthWithoutChangingSeriesOrder()
     {
         var collection = new MediaTileViewModel
