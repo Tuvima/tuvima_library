@@ -1,4 +1,5 @@
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Paging;
@@ -13,7 +14,8 @@ public static class PersonEndpoints
     public static IEndpointRouteBuilder MapPersonEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/persons")
-                       .WithTags("Persons");
+                       .WithTags("Persons")
+                       .RequireAnyRole();
 
         // GET /persons/{id} â€” person detail including local headshot availability.
         group.MapGet("/{id:guid}", async (

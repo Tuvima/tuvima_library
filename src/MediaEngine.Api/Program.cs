@@ -217,6 +217,26 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 // hardcoded values: key_generation=5/min, streaming=100/min, general=60/min.
 {
     var rateLimits = configLoader.LoadCore().RateLimiting;
+
+    // Paths exempt from the process-wide GlobalLimiter below: exact matches are
+    // always-open health/status probes, prefix matches are route groups that
+    // already carry their own named policy (streaming, key_generation) with a
+    // different limit — the general default must not stack underneath them.
+    string[] globalLimiterExemptPaths =
+    [
+        "/system/status",
+        "/health",
+    ];
+    string[] globalLimiterExemptPrefixes =
+    [
+        "/swagger",
+        SignalREvents.IntercomPath,
+        "/stream",
+        "/read",
+        "/playback",
+        "/admin/api-keys",
+    ];
+
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
@@ -250,6 +270,36 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
                     PermitLimit = rateLimits.General.PermitLimit,
                     Window      = TimeSpan.FromMinutes(rateLimits.General.WindowMinutes),
                 }));
+
+        // Global limiter: applies the "general" per-IP limit to every request by
+        // default. Before this, only 4 of ~367 routes had opted into a named
+        // policy above, leaving everything else completely unthrottled. Requests
+        // for exempt paths (health/status probes, Swagger, the SignalR hub, and
+        // route groups that already carry their own named policy) fall through
+        // with no limit applied here so they are not double-throttled.
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+        {
+            var path = context.Request.Path.Value ?? string.Empty;
+
+            // Prefix matches are segment-aware: "/read" must exempt "/read/..." but
+            // not "/reader/...", which is a different route group with no policy.
+            var isExempt =
+                globalLimiterExemptPaths.Any(exempt => path.Equals(exempt, StringComparison.OrdinalIgnoreCase))
+                || globalLimiterExemptPrefixes.Any(prefix =>
+                    path.Equals(prefix, StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase));
+
+            if (isExempt)
+                return RateLimitPartition.GetNoLimiter("exempt");
+
+            return RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = rateLimits.General.PermitLimit,
+                    Window      = TimeSpan.FromMinutes(rateLimits.General.WindowMinutes),
+                });
+        });
     });
 }
 
@@ -273,6 +323,10 @@ builder.Services.AddSingleton<IAudioFingerprintRepository, MediaEngine.Storage.A
 builder.Services.AddSingleton<IProviderConfigurationRepository, ProviderConfigurationRepository>();
 builder.Services.AddSingleton<IApiKeyRepository, ApiKeyRepository>();
 builder.Services.AddSingleton<ApiKeyService>();
+// Short-TTL (30s) cache in front of IApiKeyRepository.FindByHashedKeyAsync — avoids a
+// blocking SQLite connection + query on every authenticated request. See
+// MediaEngine.Api.Services.ApiKeyLookupCache for the invalidation design.
+builder.Services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
 builder.Services.AddSingleton<IProfileRepository, ProfileRepository>();
 builder.Services.AddSingleton<IProfileWorkPreferencesRepository, ProfileWorkPreferencesRepository>();
 builder.Services.AddSingleton<IProfileSequencePreferencesRepository, ProfileSequencePreferencesRepository>();
@@ -977,8 +1031,12 @@ app.UseExceptionHandler(errorApp =>
     });
 });
 app.UseCors("BlazorWasm");
-app.UseMiddleware<ApiKeyMiddleware>();
+// SECURITY: rate limiting must run before authentication. ApiKeyMiddleware performs
+// a database lookup for every X-Api-Key header it sees, so an unauthenticated flood
+// of requests must be throttled here first — otherwise the flood reaches the DB
+// lookup on every single request before any limiter has a chance to reject it.
 app.UseRateLimiter();
+app.UseMiddleware<ApiKeyMiddleware>();
 
 app.MapHealthChecks("/health");
 

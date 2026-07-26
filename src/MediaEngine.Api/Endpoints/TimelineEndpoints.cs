@@ -1,3 +1,4 @@
+using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -20,7 +21,7 @@ public static class TimelineEndpoints
 {
     public static IEndpointRouteBuilder MapTimelineEndpoints(this IEndpointRouteBuilder app)
     {
-        var grp = app.MapGroup("/timeline").WithTags("Timeline");
+        var grp = app.MapGroup("/timeline").WithTags("Timeline").RequireAnyRole();
 
         // ── GET /timeline/{entityId} ──────────────────────────────────────────
         grp.MapGet("/{entityId:guid}", async (
@@ -88,7 +89,8 @@ public static class TimelineEndpoints
         .WithSummary("Validates whether a sync writeback can be reverted. Metadata restore is not yet supported.")
         .ProducesProblem(StatusCodes.Status501NotImplemented)
         .Produces(StatusCodes.Status400BadRequest)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
 
         // ── POST /timeline/{entityId}/rematch ─────────────────────────────────
         grp.MapPost("/{entityId:guid}/rematch", async (
@@ -145,7 +147,8 @@ public static class TimelineEndpoints
         .WithName("RematchEntity")
         .WithSummary("Re-matches an entity through the full pipeline.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
 
         return app;
     }

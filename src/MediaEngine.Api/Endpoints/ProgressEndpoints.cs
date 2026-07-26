@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Api.Security;
 using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -11,7 +13,8 @@ public static class ProgressEndpoints
     public static IEndpointRouteBuilder MapProgressEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/progress")
-                       .WithTags("Progress");
+                       .WithTags("Progress")
+                       .RequireAnyRole();
 
         group.MapGet("/{assetId:guid}", async (
             Guid assetId,
@@ -58,7 +61,8 @@ public static class ProgressEndpoints
             CancellationToken ct) =>
         {
             var uid = ResolveUserId(userId);
-            var items = await stateStore.GetRecentAsync(uid, limit ?? 10, ct);
+            var page = PagedRequest.From(null, limit, defaultLimit: 10);
+            var items = await stateStore.GetRecentAsync(uid, page.Limit, ct);
             return Results.Ok(items.Select(MapStateResponse));
         });
 
@@ -71,8 +75,9 @@ public static class ProgressEndpoints
         {
             var uid = ResolveUserId(userId);
             var parsedCollectionId = Guid.TryParse(collectionId, out var value) ? value : (Guid?)null;
+            var page = PagedRequest.From(null, limit, defaultLimit: 5);
             IReadOnlyList<JourneyItemResponse> results =
-                await journeyReadService.GetJourneyAsync(uid, parsedCollectionId, limit ?? 5, ct);
+                await journeyReadService.GetJourneyAsync(uid, parsedCollectionId, page.Limit, ct);
             return Results.Ok(results);
         });
 

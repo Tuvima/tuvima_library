@@ -1,0 +1,16 @@
+# Paging clamp guardrail allowlist.
+# Format: <repo-relative-file-path>:<route> — one justified exception per line.
+# Blank lines and lines starting with # are ignored.
+#
+# An entry here means the named route still passes a raw int?/int limit or
+# offset parameter straight through its handler without clamping it via
+# PagedRequest.From. Remove the entry as soon as the owning file converts
+# that site — do not add new entries for code you are free to fix instead.
+
+# Collection resolution routes use `limit ?? 0` where 0 is a deliberate
+# "return the entire resolved membership" sentinel consumed by
+# CollectionRuleEvaluator/EvaluateRules. Materialized collections and
+# rule-based system views (e.g. "All Songs") legitimately return every
+# member; clamping through PagedRequest.From would silently truncate them.
+src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs:/collections/resolve/{id:guid}
+src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs:/collections/resolve/by-name

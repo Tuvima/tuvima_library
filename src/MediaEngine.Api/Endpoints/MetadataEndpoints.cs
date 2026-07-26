@@ -1447,7 +1447,8 @@ public static partial class MetadataEndpoints
         .WithName("GetSearchResultsCache")
         .WithSummary("Retrieve cached fan-out search results for an entity (30-day TTL)")
         .Produces<object>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAdminOrCurator();
 
         // -- PUT /metadata/{entityId}/search-cache -------------------------
         group.MapPut("/{entityId:guid}/search-cache", async (
@@ -1463,7 +1464,8 @@ public static partial class MetadataEndpoints
         .WithName("PutSearchResultsCache")
         .WithSummary("Cache fan-out search results for an entity")
         .Produces(StatusCodes.Status204NoContent)
-        .Produces(StatusCodes.Status400BadRequest);
+        .Produces(StatusCodes.Status400BadRequest)
+        .RequireAdminOrCurator();
 
         // â"€â"€ GET /metadata/canonical/{entityId} â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
         //
@@ -1674,7 +1676,8 @@ public static partial class MetadataEndpoints
         })
         .WithName("ResolveLabels")
         .WithSummary("Batch-resolve Wikidata QIDs to display labels from the local cache.")
-        .Produces<Dictionary<string, LabelResolveEntry>>(StatusCodes.Status200OK);
+        .Produces<Dictionary<string, LabelResolveEntry>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
 
         // -- GET /metadata/{qid}/aliases ---------------------------------------
         //

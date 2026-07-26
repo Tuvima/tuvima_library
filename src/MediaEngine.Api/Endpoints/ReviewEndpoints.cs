@@ -2,6 +2,7 @@ using System.Text.Json;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -31,7 +32,8 @@ public static class ReviewEndpoints
             IReviewQueueReadService reviewReadService,
             CancellationToken ct) =>
         {
-            var dtos = await reviewReadService.GetPendingAsync(limit ?? 50, ct);
+            var paged = PagedRequest.From(null, limit, defaultLimit: 50);
+            var dtos = await reviewReadService.GetPendingAsync(paged.Limit, ct);
             return Results.Ok(dtos);
         })
         .WithName("GetPendingReviews")

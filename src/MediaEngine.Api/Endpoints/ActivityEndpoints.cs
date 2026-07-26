@@ -33,6 +33,7 @@ public static class ActivityEndpoints
             string? sortDirection,
             CancellationToken ct) =>
         {
+            var page = PagedRequest.From(offset, limit, defaultLimit: 25);
             var query = new ActivityBatchQuery(
                 search,
                 mediaType,
@@ -41,8 +42,8 @@ public static class ActivityEndpoints
                 eventType,
                 start,
                 end,
-                offset ?? 0,
-                limit ?? 25,
+                page.Offset,
+                page.Limit,
                 sort,
                 sortDirection);
 
@@ -114,6 +115,7 @@ public static class ActivityEndpoints
             string? sortDirection,
             CancellationToken ct) =>
         {
+            var page = PagedRequest.From(offset, limit, defaultLimit: 25);
             var query = new ActivityBatchQuery(
                 search,
                 mediaType,
@@ -122,8 +124,8 @@ public static class ActivityEndpoints
                 eventType,
                 start,
                 end,
-                offset ?? 0,
-                limit ?? 25,
+                page.Offset,
+                page.Limit,
                 sort,
                 sortDirection);
 
@@ -142,7 +144,7 @@ public static class ActivityEndpoints
             int? limit,
             CancellationToken ct) =>
         {
-            var entries = await repo.GetRecentAsync(limit ?? 50);
+            var entries = await repo.GetRecentAsync(PagedRequest.From(null, limit, defaultLimit: 50).Limit);
 
             var response = await MapEntriesAsync(entries, personRepo, qidLabelRepo, ct);
 
@@ -230,7 +232,7 @@ public static class ActivityEndpoints
                 ? Array.Empty<string>()
                 : types.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-            var entries = await repo.GetRecentByTypesAsync(typeList, limit ?? 50);
+            var entries = await repo.GetRecentByTypesAsync(typeList, PagedRequest.From(null, limit, defaultLimit: 50).Limit);
             var response = await MapEntriesAsync(entries, personRepo, qidLabelRepo, ct);
             return Results.Ok(response);
         })

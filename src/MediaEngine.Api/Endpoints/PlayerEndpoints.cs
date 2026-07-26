@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 
 namespace MediaEngine.Api.Endpoints;
@@ -220,7 +221,10 @@ public static class PlayerEndpoints
             PlayerService player,
             CancellationToken ct) =>
         {
-            var history = await player.GetAudiobookHistoryAsync(profileId, workId, limit, ct);
+            // A caller-supplied limit is clamped to PagedRequest.MaxLimit; when absent, null is
+            // preserved so the service falls back to the profile's configured history limit.
+            var clampedLimit = limit.HasValue ? PagedRequest.From(null, limit).Limit : (int?)null;
+            var history = await player.GetAudiobookHistoryAsync(profileId, workId, clampedLimit, ct);
             return Results.Ok(history);
         })
         .WithName("GetAudiobookListenHistory")

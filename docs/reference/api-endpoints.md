@@ -18,6 +18,8 @@ Interactive documentation: `http://localhost:61495/swagger`
 
 All endpoints require authentication unless noted. Three roles: **Administrator** (full access), **Curator** (browse + metadata), **Consumer** (browse only). API keys are passed as `X-Api-Key` header.
 
+Paginated GET endpoints accept `offset`/`limit` query parameters. `limit` is clamped server-side (default varies by endpoint; capped at 250 unless the endpoint's documented default already exceeds that) so a caller cannot force an unbounded read.
+
 ---
 
 ## System
@@ -132,7 +134,7 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/operations` | Durable work queue ordered by queue priority and position. Supports `queueName` and `limit`. | Curator |
+| GET | `/operations` | Durable work queue ordered by queue priority and position. Supports `queueName` and `limit` (default 200, capped at 250). | Curator |
 | GET | `/operations/{id}` | One operation plus its event timeline. | Curator |
 | GET | `/operations/summary` | Counts by durable operation status. | Curator |
 | POST | `/operations/{id}/retry` | Requeue a durable operation for another attempt. | Curator |
@@ -187,6 +189,8 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | GET | `/universe/{qid}/cross-media` | Entities that appear across more than one media type within the universe | Required |
 | GET | `/universe/{qid}/cast` | Characters with their linked performers, including era-correct actor data | Required |
 | GET | `/universe/{qid}/adaptations` | Adaptation chain - all works derived from or adapted into each other | Required |
+| GET | `/universe/{qid}/lore-delta` | Check for Wikidata revision changes since the last enrichment pass | Required |
+| POST | `/universe/entity/{qid}/deep-enrich` | On-demand deep enrichment of a character/entity and its immediate neighbors | Curator |
 
 ---
 
@@ -304,6 +308,8 @@ The Dashboard renders Stages 1-8 as compact progress rows. Review/attention stat
 | GET | `/settings/ui/profile/{id}` | Per-user UI preference overrides for a profile | Required |
 | PUT | `/settings/ui/profile/{id}` | Update per-user UI preferences | Required |
 | GET | `/settings/ui/resolved` | Effective resolved settings for the current request context (global + device + profile merged) | Required |
+| GET | `/settings/ui/library-preferences` | Current per-media library display preferences (missing-item visibility defaults) | Required |
+| PUT | `/settings/ui/library-preferences` | Save per-media library display preferences to `config/ui/library-preferences.json` | Administrator |
 
 ---
 

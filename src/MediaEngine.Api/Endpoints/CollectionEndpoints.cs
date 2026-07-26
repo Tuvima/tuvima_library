@@ -8,6 +8,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -40,7 +41,8 @@ public static class CollectionEndpoints
         .WithName("GetCollectionSeriesManifest")
         .WithSummary("Returns a Wikidata-backed ordered series manifest with owned and missing item states.")
         .Produces<SeriesManifestViewDto>(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
 
         group.MapGet("/", async (
             ICollectionBrowseReadService browseReadService,
@@ -189,7 +191,8 @@ public static class CollectionEndpoints
                 return Results.NotFound($"Collection '{id}' not found.");
             }
 
-            int take = limit is > 0 ? limit.Value : 20;
+            var page = PagedRequest.From(null, limit, defaultLimit: 20);
+            int take = page.Limit;
 
             var targetSeries = GetCanonical(target.Works.FirstOrDefault(), "series");
             var targetAuthor = GetCanonical(target.Works.FirstOrDefault(), "author");
@@ -1483,7 +1486,8 @@ public static class CollectionEndpoints
                     .ToHashSet();
             }
 
-            var results = await mediaLookupReadService.LookupAsync(q, mediaTypes, existingWorkIds, offset, limit, ct);
+            var page = PagedRequest.From(offset, limit, defaultLimit: 24);
+            var results = await mediaLookupReadService.LookupAsync(q, mediaTypes, existingWorkIds, page.Offset, page.Limit, ct);
             return Results.Ok(results);
         })
         .WithName("LookupCollectionMedia")
@@ -1517,7 +1521,8 @@ public static class CollectionEndpoints
             CancellationToken ct) =>
         {
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
-            var take = limit is > 0 ? limit.Value : 20;
+            var page = PagedRequest.From(null, limit, defaultLimit: 20);
+            var take = page.Limit;
             var result = await catalogReadService.GetItemsAsync(id, activeProfile, take, ct);
             if (!result.Found)
             {
@@ -2301,7 +2306,8 @@ public static class CollectionEndpoints
             ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
-            var values = await browseReadService.GetFieldValuesAsync(field, limit ?? 50, ct);
+            var page = PagedRequest.From(null, limit, defaultLimit: 50);
+            var values = await browseReadService.GetFieldValuesAsync(field, page.Limit, ct);
             return Results.Ok(values);
         })
         .WithName("GetFieldValues")

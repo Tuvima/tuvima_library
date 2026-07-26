@@ -1,3 +1,4 @@
+using MediaEngine.Api.Security;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
@@ -14,7 +15,7 @@ namespace MediaEngine.Api.Endpoints;
 /// The Dashboard reads this endpoint once on load and caches the result.
 /// </para>
 ///
-/// Access: anonymous (no sensitive data; purely display metadata).
+/// Access: any authenticated role (no sensitive data; purely display metadata).
 /// Route:  <c>GET /providers/catalogue</c>
 /// </summary>
 public static class ProviderCatalogueEndpoints
@@ -37,7 +38,7 @@ public static class ProviderCatalogueEndpoints
         })
         .WithName("GetProviderCatalogue")
         .WithSummary("Returns consolidated UI metadata for all configured providers.")
-        .AllowAnonymous();
+        .RequireAnyRole();
 
         return app;
     }

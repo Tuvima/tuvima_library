@@ -186,7 +186,8 @@ public static class UISettingsEndpoints
         })
         .WithName("GetLibraryPreferences")
         .WithSummary("Returns the current per-media library display preferences.")
-        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK);
+        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK)
+        .RequireAnyRole();
 
         grp.MapGet("/library-preferences/diagnostics", (IConfigurationLoader configLoader) =>
         {
@@ -218,7 +219,8 @@ public static class UISettingsEndpoints
         })
         .WithName("UpdateLibraryPreferences")
         .WithSummary("Validates and atomically saves per-media library display preferences and refreshes the runtime cache.")
-        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK);
+        .Produces<LibraryPreferencesSettings>(StatusCodes.Status200OK)
+        .RequireAdmin();
 
         return app;
     }

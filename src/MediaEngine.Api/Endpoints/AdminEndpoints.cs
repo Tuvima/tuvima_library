@@ -46,6 +46,7 @@ public static class AdminEndpoints
         group.MapPost("/api-keys", async (
             CreateApiKeyRequest request,
             ApiKeyService svc,
+            IApiKeyLookupCache apiKeyCache,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Label))
@@ -53,6 +54,11 @@ public static class AdminEndpoints
 
             var role = request.Role ?? "Administrator";
             var (key, plaintext) = await svc.GenerateAsync(request.Label, role, ct);
+
+            // Discard any cached lookups so a re-created key with the same hash
+            // (edge case, but cheap to guard against) is picked up immediately
+            // rather than serving a stale cached "not found" from before creation.
+            apiKeyCache.InvalidateAll();
 
             // The plaintext is returned exactly once in this response.
             // SECURITY: do not log, cache, or re-send the 'key' field.
@@ -75,9 +81,16 @@ public static class AdminEndpoints
         group.MapDelete("/api-keys/{id:guid}", async (
             Guid id,
             IApiKeyRepository repo,
+            IApiKeyLookupCache apiKeyCache,
             CancellationToken ct) =>
         {
             var deleted = await repo.DeleteAsync(id, ct);
+
+            // Revoked keys must stop authenticating immediately, not after the
+            // cache's 30-second TTL expires.
+            if (deleted)
+                apiKeyCache.InvalidateAll();
+
             return deleted
                 ? Results.NoContent()
                 : Results.NotFound($"API key '{id}' not found.");
@@ -91,9 +104,15 @@ public static class AdminEndpoints
         // Revoke ALL keys — no route parameter distinguishes this from single revoke.
         group.MapDelete("/api-keys", async (
             IApiKeyRepository repo,
+            IApiKeyLookupCache apiKeyCache,
             CancellationToken ct) =>
         {
             var count = await repo.DeleteAllAsync(ct);
+
+            // Revoked keys must stop authenticating immediately, not after the
+            // cache's 30-second TTL expires.
+            apiKeyCache.InvalidateAll();
+
             return Results.Ok(new RevokeAllKeysResponse { RevokedCount = count });
         })
         .WithName("RevokeAllApiKeys")

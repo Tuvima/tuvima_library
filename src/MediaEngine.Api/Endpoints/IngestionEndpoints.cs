@@ -220,7 +220,7 @@ public static class IngestionEndpoints
             int? limit,
             CancellationToken ct) =>
         {
-            var responses = await batchResponses.GetRecentAsync(limit ?? 20, ct);
+            var responses = await batchResponses.GetRecentAsync(PagedRequest.From(null, limit, defaultLimit: 20).Limit, ct);
             return Results.Ok(responses);
         })
         .WithName("GetRecentBatches")

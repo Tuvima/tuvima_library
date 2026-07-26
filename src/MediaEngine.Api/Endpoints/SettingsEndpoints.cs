@@ -960,7 +960,8 @@ public static class SettingsEndpoints
         })
         .WithName("GetPipelines")
         .WithDescription("Current pipeline configuration per media type")
-        .Produces<PipelineConfiguration>(StatusCodes.Status200OK);
+        .Produces<PipelineConfiguration>(StatusCodes.Status200OK)
+        .RequireAdmin();
 
         // ── PUT /settings/pipelines ──────────────────────────────────────
         grp.MapPut("/pipelines", (
@@ -972,7 +973,8 @@ public static class SettingsEndpoints
         })
         .WithName("SavePipelines")
         .WithDescription("Save pipeline configuration")
-        .Produces(StatusCodes.Status200OK);
+        .Produces(StatusCodes.Status200OK)
+        .RequireAdmin();
 
         // ── GET /settings/media-types ──────────────────────────────────────────
         grp.MapGet("/media-types", (IConfigurationLoader configLoader) =>
@@ -1142,7 +1144,8 @@ public static class SettingsEndpoints
         .WithName("GetProviderIcon")
         .WithSummary("Serve the uploaded icon for a provider.")
         .Produces(StatusCodes.Status200OK)
-        .Produces(StatusCodes.Status404NotFound);
+        .Produces(StatusCodes.Status404NotFound)
+        .RequireAnyRole();
 
         // ── GET /settings/server-general ──────────────────────────────────────
 

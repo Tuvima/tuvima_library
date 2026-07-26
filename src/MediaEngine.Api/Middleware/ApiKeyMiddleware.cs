@@ -1,14 +1,16 @@
 using System.Net;
 using MediaEngine.Api.Services;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Api.Middleware;
 
 /// <summary>
 /// Authenticates every incoming HTTP request using one of three methods:
 ///
-/// 1. <c>X-Api-Key</c> header — the key is hashed and looked up in the database.
+/// 1. <c>X-Api-Key</c> header — the key is hashed and looked up via
+///    <see cref="IApiKeyLookupCache"/>, a short-TTL (30s) in-memory cache in front
+///    of the database so this lookup — which runs on EVERY authenticated
+///    request — does not open a SQLite connection per request.
 ///    On match, <c>HttpContext.Items["ApiKeyRole"]</c> is set to the key's role.
 ///
 /// 2. Localhost bypass — if enabled (<c>MediaEngine:Security:LocalhostBypass = true</c>,
@@ -43,7 +45,7 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
         SignalREvents.IntercomPath,
     ];
 
-    public async Task InvokeAsync(HttpContext ctx, IApiKeyRepository repo, IConfiguration config)
+    public async Task InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config)
     {
         var path = ctx.Request.Path.Value ?? string.Empty;
 
@@ -68,8 +70,8 @@ public sealed class ApiKeyMiddleware(RequestDelegate next)
 
             // Hash the incoming key and look it up — the plaintext is NEVER logged.
             var hashedKey = ApiKeyService.HashKey(rawKey);
-            var match     = await repo.FindByHashedKeyAsync(hashedKey, ctx.RequestAborted)
-                                       .ConfigureAwait(false);
+            var match     = await apiKeyCache.FindByHashedKeyAsync(hashedKey, ctx.RequestAborted)
+                                              .ConfigureAwait(false);
 
             if (match is null)
             {

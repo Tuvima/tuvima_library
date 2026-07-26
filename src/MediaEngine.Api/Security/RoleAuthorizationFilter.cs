@@ -49,6 +49,14 @@ public sealed class RoleAuthorizationFilter : IEndpointFilter
     public static RoleAuthorizationFilter RequireRole(params string[] roles) => new(roles);
 }
 
+/// <summary>
+/// Endpoint metadata recording which roles a route requires. Attached by every
+/// <c>Require*</c> extension in <see cref="RoleFilterExtensions"/> so guardrail
+/// tests and diagnostics can discover role requirements from endpoint metadata
+/// instead of re-deriving them from the filter pipeline.
+/// </summary>
+public sealed record RoleRequirementMetadata(IReadOnlyList<string> Roles);
+
 // ── Convenience extension methods ───────────────────────────────────────────
 
 /// <summary>
@@ -58,13 +66,31 @@ public static class RoleFilterExtensions
 {
     /// <summary>Restricts the endpoint to Administrators only.</summary>
     public static RouteHandlerBuilder RequireAdmin(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator));
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator))
+               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator]));
 
     /// <summary>Restricts the endpoint to Administrators and Curators.</summary>
     public static RouteHandlerBuilder RequireAdminOrCurator(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator, AppRoles.Curator));
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator, AppRoles.Curator))
+               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator, AppRoles.Curator]));
 
     /// <summary>Requires any authenticated role (Administrator, Curator, or Consumer).</summary>
     public static RouteHandlerBuilder RequireAnyRole(this RouteHandlerBuilder builder) =>
-        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.All));
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.All))
+               .WithMetadata(new RoleRequirementMetadata(AppRoles.All));
+
+    /// <summary>Restricts every endpoint in the group to Administrators only.</summary>
+    public static RouteGroupBuilder RequireAdmin(this RouteGroupBuilder builder) =>
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator))
+               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator]));
+
+    /// <summary>Restricts every endpoint in the group to Administrators and Curators.</summary>
+    public static RouteGroupBuilder RequireAdminOrCurator(this RouteGroupBuilder builder) =>
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.Administrator, AppRoles.Curator))
+               .WithMetadata(new RoleRequirementMetadata([AppRoles.Administrator, AppRoles.Curator]));
+
+    /// <summary>Requires any authenticated role (Administrator, Curator, or Consumer) for every endpoint in the group.</summary>
+    public static RouteGroupBuilder RequireAnyRole(this RouteGroupBuilder builder) =>
+        builder.AddEndpointFilter(RoleAuthorizationFilter.RequireRole(AppRoles.All))
+               .WithMetadata(new RoleRequirementMetadata(AppRoles.All));
 }

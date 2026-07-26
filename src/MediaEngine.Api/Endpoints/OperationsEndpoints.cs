@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MediaEngine.Api.Security;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 
@@ -18,7 +19,8 @@ public static class OperationsEndpoints
             IMediaOperationRepository repository,
             CancellationToken ct) =>
         {
-            var operations = await repository.GetQueueAsync(queueName, limit ?? 200, ct);
+            var paged = PagedRequest.From(null, limit, defaultLimit: 200);
+            var operations = await repository.GetQueueAsync(queueName, paged.Limit, ct);
             return Results.Ok(operations.Select((op, index) => OperationDto.From(op, index + 1)).ToList());
         })
         .WithName("ListMediaOperations")

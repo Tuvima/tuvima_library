@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
@@ -35,13 +36,15 @@ public static class DisplayEndpoints
             Guid? profileId,
             DisplayComposerService display,
             CancellationToken ct) =>
-            Results.Ok(await display.BuildBrowseAsync(
+        {
+            var paged = PagedRequest.From(offset, limit, defaultLimit: 48);
+            return Results.Ok(await display.BuildBrowseAsync(
                 lane,
                 mediaType,
                 grouping,
                 search,
-                offset ?? 0,
-                limit ?? 48,
+                paged.Offset,
+                paged.Limit,
                 includeCatalog ?? true,
                 profileId,
                 ct,
@@ -49,7 +52,8 @@ public static class DisplayEndpoints
                 creator,
                 status,
                 year,
-                sort)))
+                sort));
+        })
             .WithName("GetDisplayBrowse")
             .WithSummary("Returns cross-platform display cards for a media lane or browse query.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
@@ -62,7 +66,10 @@ public static class DisplayEndpoints
             bool? includeCatalog,
             DisplayComposerService display,
             CancellationToken ct) =>
-            Results.Ok(await display.BuildContinueAsync(lane, limit ?? 24, includeCatalog ?? true, ct, mediaType)))
+        {
+            var paged = PagedRequest.From(null, limit, defaultLimit: 24);
+            return Results.Ok(await display.BuildContinueAsync(lane, paged.Limit, includeCatalog ?? true, ct, mediaType));
+        })
             .WithName("GetDisplayContinue")
             .WithSummary("Returns cross-platform continue cards with progress.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
@@ -73,7 +80,10 @@ public static class DisplayEndpoints
             int? limit,
             IUniversalSearchReadService search,
             CancellationToken ct) =>
-            Results.Ok(await search.SearchAsync(q, limit ?? 48, ct)))
+        {
+            var paged = PagedRequest.From(null, limit, defaultLimit: 48);
+            return Results.Ok(await search.SearchAsync(q, paged.Limit, ct));
+        })
             .WithName("GetDisplaySearch")
             .WithSummary("Returns ranked local media, people, series, collections, and playlists for universal search.")
             .Produces<UniversalSearchResponseDto>(StatusCodes.Status200OK)
@@ -92,6 +102,7 @@ public static class DisplayEndpoints
             DisplayComposerService display,
             CancellationToken ct) =>
         {
+            var paged = PagedRequest.From(offset, limit, defaultLimit: 24);
             var page = await display.BuildShelfPageAsync(
                 shelfKey,
                 lane,
@@ -99,8 +110,8 @@ public static class DisplayEndpoints
                 grouping,
                 search,
                 cursor,
-                offset,
-                limit ?? 24,
+                paged.Offset,
+                paged.Limit,
                 profileId,
                 ct);
             return page is null ? Results.NotFound() : Results.Ok(page);

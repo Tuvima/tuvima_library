@@ -1,3 +1,4 @@
+using MediaEngine.Api.Security;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 
@@ -18,7 +19,8 @@ public static class UniverseGraphEndpoints
     public static IEndpointRouteBuilder MapUniverseGraphEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/")
-                       .WithTags("Universe Graph");
+                       .WithTags("Universe Graph")
+                       .RequireAnyRole();
 
         // GET /universes — list all known narrative roots.
         group.MapGet("/universes", async (
@@ -405,7 +407,8 @@ public static class UniverseGraphEndpoints
                     ? $"Enqueued {unenrichedCount} entities for deep enrichment."
                     : "All neighboring entities are already enriched.",
             });
-        });
+        })
+        .RequireAdminOrCurator();
 
         // GET /universe/{qid}/paths?from=Q1&to=Q2&maxHops=4 — find paths between entities.
         group.MapGet("/universe/{qid}/paths", async (

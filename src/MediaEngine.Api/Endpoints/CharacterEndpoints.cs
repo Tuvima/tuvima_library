@@ -1,3 +1,4 @@
+using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
@@ -22,7 +23,8 @@ public static class CharacterEndpoints
     public static IEndpointRouteBuilder MapCharacterEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/library")
-                       .WithTags("Library Characters");
+                       .WithTags("Library Characters")
+                       .RequireAnyRole();
 
         // GET /library/portraits/{portraitId}
         // Serves a character portrait from local storage, downloading and caching if needed.
@@ -132,7 +134,8 @@ public static class CharacterEndpoints
 
             await portraitRepo.SetDefaultAsync(portraitId, ct);
             return Results.Ok(new { portrait_id = portraitId, is_default = true });
-        });
+        })
+        .RequireAdminOrCurator();
 
         // GET /library/persons/{personId}/character-roles
         // Returns all character roles for a person, with portraits and universe info.
@@ -245,7 +248,8 @@ public static class CharacterEndpoints
             }, ct);
 
             return Results.Ok(new { triggered = true, message = "Universe enrichment sweep queued." });
-        });
+        })
+        .RequireAdminOrCurator();
 
         return app;
     }

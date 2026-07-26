@@ -1,6 +1,7 @@
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
@@ -38,9 +39,10 @@ public static class LibraryItemEndpoints
             ILibraryItemRepository repo,
             CancellationToken ct) =>
         {
+            var paged = PagedRequest.From(offset, limit, defaultLimit: 50);
             var query = new LibraryItemQuery(
-                Offset: offset ?? 0,
-                Limit: limit ?? 50,
+                Offset: paged.Offset,
+                Limit: paged.Limit,
                 Search: search,
                 MediaType: type,
                 Status: status,

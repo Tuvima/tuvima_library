@@ -412,7 +412,7 @@ public sealed class IngestionOperationsContractTests
             "ReviewEndpoints.cs"));
 
         Assert.Contains("IReviewQueueReadService reviewReadService", source, StringComparison.Ordinal);
-        Assert.Contains("reviewReadService.GetPendingAsync(limit ?? 50, ct)", source, StringComparison.Ordinal);
+        Assert.Contains("reviewReadService.GetPendingAsync(paged.Limit, ct)", source, StringComparison.Ordinal);
         Assert.Contains("reviewReadService.GetPendingCountAsync(ct)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("libraryItemRepo.GetDetailAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Status: \"InReview\"", source, StringComparison.Ordinal);

@@ -43,6 +43,55 @@ Each API key carries one of three roles:
 
 **Consumer** - Can browse the library, stream files, and read metadata claim history. Cannot modify metadata or access any settings endpoints.
 
+## Endpoint Role Guards
+
+Authentication (via `ApiKeyMiddleware`) only proves a caller has a valid key; it does not by itself
+restrict *which* endpoints that key can reach. Role restriction is applied per endpoint through
+`RoleAuthorizationFilter` (`src/MediaEngine.Api/Security/RoleAuthorizationFilter.cs`) using three
+fluent extensions — `RequireAdmin()`, `RequireAdminOrCurator()`, `RequireAnyRole()` — with overloads
+for both an individual route (`RouteHandlerBuilder`) and a whole `MapGroup(...)` (`RouteGroupBuilder`).
+
+Guards are applied at whichever level matches the endpoint's shape:
+
+- **Group-level** — when every route under a group shares the same minimum role (for example, all of
+  `/persons`, `/library` (characters), `/timeline`, `/progress`, and the universe graph routes require
+  any authenticated role), the guard is chained directly onto the `MapGroup(...)` declaration so every
+  route mapped on that group inherits it.
+- **Per-route escalation** — a route that needs a stricter guard than its group can still add its own
+  `Require*()` call on top; both filters run, so the stricter one wins. For example, the universe graph
+  group requires any role, but `POST /universe/entity/{qid}/deep-enrich` additionally requires
+  `RequireAdminOrCurator()`.
+- **Per-route only** — groups with mixed read/write access levels (for example `/collections`,
+  `/metadata`, `/settings`) keep guards on individual routes rather than the group.
+
+Every `Require*()` call — group or route level — also attaches `RoleRequirementMetadata` (an
+endpoint-metadata record listing the allowed roles) via `WithMetadata(...)`. This makes the role
+requirement discoverable from endpoint metadata rather than only from the filter pipeline, which is
+what `RouteAuthorizationGuardrailTests` (`tests/MediaEngine.Api.Tests/RouteAuthorizationGuardrailTests.cs`)
+scans for: every mapped route in `src/MediaEngine.Api/Endpoints/*.cs` must resolve a `Require*()` guard,
+either on its own chain or on its file's `MapGroup(...)` declaration, with a narrow allowlist for
+`/system/status` (the intentionally open connectivity probe), `/health`, and Swagger.
+
+Surfaces brought under a guard as part of the security hardening pass: the universe graph endpoints
+(`/universes`, `/universe/{qid}/...`), people (`/persons/...`), library characters
+(`/library/characters/...`, `/library/portraits/...`, `/library/persons/{id}/character-roles`,
+`/library/universes/{qid}/characters`, `/library/assets/{id}`, `/library/enrichment/universe/trigger`),
+the entity timeline (`/timeline/...`), playback/reading progress (`/progress/...`), the provider
+catalogue (`/providers/catalogue`), canon discrepancy detection (`/metadata/{id}/canon-discrepancies`),
+pipeline settings (`/settings/pipelines`) and provider icons (`/settings/providers/{name}/icon`), UI
+library preferences (`/settings/ui/library-preferences`), metadata search-cache
+(`/metadata/{id}/search-cache`) and label resolution (`/metadata/labels/resolve`), and the collection
+series manifest (`/collections/{id}/series-manifest`).
+
+## API Key Lookup Cache
+
+Every authenticated request hashes the incoming `X-Api-Key` header and looks it up. Rather than hitting the database on every single request, `ApiKeyMiddleware` calls `IApiKeyLookupCache` — a private, service-owned, in-memory cache that sits in front of `IApiKeyRepository`:
+
+- Both matches and "not found" results are cached, so a flood of invalid-key guesses cannot force a database round trip per request.
+- Entries expire after 30 seconds (absolute TTL), which caps the maximum time it could take for a change to be noticed if nothing invalidated the cache proactively.
+- Creating or revoking a key (`POST /admin/api-keys`, `DELETE /admin/api-keys/{id}`, `DELETE /admin/api-keys`) clears the cache immediately, so in the normal case a revoked key stops working right away rather than waiting out the TTL. The 30-second TTL is only the worst-case ceiling.
+- The cache is capped at 1024 entries so it cannot grow without bound under a scanning/brute-force attempt.
+
 ## Rate Limiting
 
 Three rate-limiting policies protect the Engine from abuse or runaway automation:
@@ -52,6 +101,20 @@ Three rate-limiting policies protect the Engine from abuse or runaway automation
 | Key generation | 5 requests / minute / IP |
 | File streaming | 100 requests / minute / IP |
 | General API | 60 requests / minute / IP |
+
+The general policy is also registered as the Engine's process-wide default (`GlobalLimiter`), so every
+connection point is throttled per IP even if it never opts into a named policy explicitly. Rate limiting
+runs before API key authentication in the request pipeline, so a flood of unauthenticated requests is
+throttled before it can trigger a database lookup.
+
+A small set of paths are exempt from the general default because they either must always stay reachable
+or already carry their own, differently-tuned policy that would otherwise be double-throttled underneath it:
+
+- `/system/status`, `/health` — health/status probes that must remain reachable for monitoring
+- `/swagger` — API documentation, development-only
+- the SignalR Intercom hub path — real-time push connections, not request-driven traffic
+- `/stream`, `/read`, `/playback` — carry the higher-limit streaming policy for media playback
+- `/admin/api-keys` — carries the stricter key-generation policy
 
 ## Path Traversal Protection
 
