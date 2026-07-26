@@ -1,5 +1,7 @@
 using Dapper;
 using MediaEngine.Api.Models;
+using MediaEngine.Application.ReadModels;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Library;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
@@ -8,21 +10,6 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface ILibraryCurationReadService
-{
-    Task<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, Guid>>> ResolveBatchEditTargetsAsync(
-        IReadOnlyCollection<Guid> entityIds,
-        IReadOnlyCollection<string> fieldKeys,
-        CancellationToken ct = default);
-
-    Task<IReadOnlyList<UniverseCandidateDto>> GetUniverseCandidatesAsync(CancellationToken ct = default);
-    Task<Guid?> FindOwnedAssetIdForWorkAsync(Guid workId, CancellationToken ct = default);
-    Task<IReadOnlyDictionary<Guid, string>> GetBestUniverseCandidateQidsAsync(
-        IReadOnlyCollection<Guid> workIds,
-        CancellationToken ct = default);
-    Task<IReadOnlyList<UnlinkedWorkDto>> GetUniverseUnlinkedAsync(CancellationToken ct = default);
-}
 
 /// <summary>
 /// Typed read boundary for library curation. It owns GUID-BLOB SQL shape and
@@ -135,12 +122,12 @@ public sealed class LibraryCurationReadService(IDatabaseConnection db) : ILibrar
         return result;
     }
 
-    public async Task<IReadOnlyList<UniverseCandidateDto>> GetUniverseCandidatesAsync(
+    public async Task<IReadOnlyList<UniverseCandidateReadModel>> GetUniverseCandidatesAsync(
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = db.CreateConnection();
-        var rows = await conn.QueryAsync<UniverseCandidateDto>(new CommandDefinition(
+        var rows = await conn.QueryAsync<UniverseCandidateReadModel>(new CommandDefinition(
             """
             SELECT DISTINCT
                 w.id AS WorkId,

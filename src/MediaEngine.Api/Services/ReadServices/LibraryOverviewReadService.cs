@@ -1,12 +1,9 @@
 using Dapper;
+using MediaEngine.Application.ReadModels;
+using MediaEngine.Application.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface ILibraryOverviewReadService
-{
-    Task<LibraryOverviewReadModel> GetOverviewAggregatesAsync(CancellationToken ct);
-}
 
 public sealed class LibraryOverviewReadService(IDatabaseConnection db) : ILibraryOverviewReadService
 {
@@ -63,10 +60,3 @@ public sealed class LibraryOverviewReadService(IDatabaseConnection db) : ILibrar
             Math.Round(successRate, 4));
     }
 }
-
-public sealed record LibraryOverviewReadModel(
-    int Added24h,
-    int Added7d,
-    int Added30d,
-    IReadOnlyDictionary<string, int> PipelineStates,
-    double PipelineSuccessRate);

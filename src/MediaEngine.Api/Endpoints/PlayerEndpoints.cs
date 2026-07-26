@@ -3,6 +3,7 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Storage.Playback;
 
 namespace MediaEngine.Api.Endpoints;
 

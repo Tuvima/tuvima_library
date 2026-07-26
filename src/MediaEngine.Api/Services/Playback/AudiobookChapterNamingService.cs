@@ -6,6 +6,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Playback;
 
 namespace MediaEngine.Api.Services.Playback;
 

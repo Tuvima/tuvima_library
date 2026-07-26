@@ -285,7 +285,17 @@ public static class LibraryEndpoints
             ILibraryCurationReadService curationReadService,
             CancellationToken ct) =>
         {
-            return Results.Ok(await curationReadService.GetUniverseCandidatesAsync(ct));
+            var candidates = await curationReadService.GetUniverseCandidatesAsync(ct);
+            return Results.Ok(candidates.Select(candidate => new UniverseCandidateDto
+            {
+                WorkId = candidate.WorkId,
+                EntityId = candidate.EntityId,
+                Title = candidate.Title,
+                MediaType = candidate.MediaType,
+                CandidateQid = candidate.CandidateQid,
+                CandidateType = candidate.CandidateType,
+                CandidateLabel = candidate.CandidateLabel,
+            }).ToList());
         })
         .WithName("GetUniverseCandidates")
         .WithSummary("Items with universe-related QIDs but no collection assignment.")

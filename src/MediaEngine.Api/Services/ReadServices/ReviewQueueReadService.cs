@@ -1,4 +1,6 @@
 using Dapper;
+using MediaEngine.Application.ReadModels;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Review;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
@@ -7,19 +9,6 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IReviewQueueReadService
-{
-    Task<IReadOnlyList<ReviewItemDto>> GetPendingAsync(int limit, CancellationToken ct = default);
-
-    Task<ReviewItemDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
-
-    Task<int> GetPendingCountAsync(CancellationToken ct = default);
-
-    Task<IReadOnlyList<ReviewReasonCount>> GetPendingReasonCountsAsync(CancellationToken ct = default);
-}
-
-public sealed record ReviewReasonCount(string? Trigger, string? Detail, int Count);
 
 public sealed class ReviewQueueReadService : IReviewQueueReadService
 {

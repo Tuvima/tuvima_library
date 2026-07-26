@@ -3,7 +3,7 @@ using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Storage.Contracts;
 
-namespace MediaEngine.Api.Services.Playback;
+namespace MediaEngine.Storage.Playback;
 
 public sealed class PlaybackStateRepository
 {

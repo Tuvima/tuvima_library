@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Playback;
 
 namespace MediaEngine.Api.Services.Playback;
 

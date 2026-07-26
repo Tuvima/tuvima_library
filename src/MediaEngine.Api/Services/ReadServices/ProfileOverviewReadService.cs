@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Profiles;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Identity.Contracts;
@@ -7,11 +8,6 @@ using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IProfileOverviewReadService
-{
-    Task<ProfileOverviewResponseDto?> GetOverviewAsync(Guid profileId, CancellationToken ct);
-}
 
 public sealed class ProfileOverviewReadService(
     IProfileService profiles,

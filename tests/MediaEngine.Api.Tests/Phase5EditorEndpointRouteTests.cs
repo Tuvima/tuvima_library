@@ -33,7 +33,9 @@ public sealed class Phase5EditorEndpointRouteTests
         var navigator = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs");
         var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
 
-        var navigatorService = ReadSource("src/MediaEngine.Api/Services/ReadServices/MediaEditorNavigationReadService.cs");
+        var navigatorService =
+            ReadSource("src/MediaEngine.Api/Services/ReadServices/MediaEditorNavigationReadService.cs")
+            + ReadSource("src/MediaEngine.Application/ReadModels/MediaEditorReadModels.cs");
         Assert.Contains("IMediaEditorNavigationReadService navigationReadService", navigator, StringComparison.Ordinal);
         Assert.Contains("IMediaEditorMembershipReadService membershipReadService", navigator, StringComparison.Ordinal);
         Assert.Contains("compact_ordinal_label", navigatorService, StringComparison.Ordinal);

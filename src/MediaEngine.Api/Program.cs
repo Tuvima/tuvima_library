@@ -27,6 +27,7 @@ using MediaEngine.Processors.Processors;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Playback;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
 using MediaEngine.Domain.Enums;

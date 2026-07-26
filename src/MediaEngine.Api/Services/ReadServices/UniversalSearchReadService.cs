@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Domain.Services;
@@ -6,11 +7,6 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IUniversalSearchReadService
-{
-    Task<UniversalSearchResponseDto> SearchAsync(string? query, int limit, CancellationToken ct);
-}
 
 public sealed class UniversalSearchReadService(
     IDatabaseConnection db,

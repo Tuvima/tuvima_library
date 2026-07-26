@@ -1,14 +1,10 @@
 using Dapper;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface ICollectionSearchReadService
-{
-    Task<List<SearchResultDto>> SearchAsync(string? query, CancellationToken ct);
-}
 
 public sealed class CollectionSearchReadService(IDatabaseConnection db) : ICollectionSearchReadService
 {

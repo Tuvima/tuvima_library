@@ -7,6 +7,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
+using MediaEngine.Storage.Playback;
 using MediaInfo;
 
 namespace MediaEngine.Api.Services.Playback;

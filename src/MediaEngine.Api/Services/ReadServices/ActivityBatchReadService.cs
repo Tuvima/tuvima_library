@@ -1,5 +1,7 @@
 using System.Text;
 using Dapper;
+using MediaEngine.Application.ReadModels;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Activity;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Domain.Enums;
@@ -7,48 +9,6 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IActivityBatchReadService
-{
-    Task<PagedResponse<ActivityBatchSummaryDto>> GetBatchesAsync(
-        ActivityBatchQuery query,
-        CancellationToken ct = default);
-
-    Task<IReadOnlyList<ActivityMediaTypeGroupDto>> GetGroupsAsync(
-        Guid batchId,
-        CancellationToken ct = default);
-
-    Task<PagedResponse<ActivityBatchItemDto>> GetItemsAsync(
-        Guid batchId,
-        string? mediaType,
-        int offset,
-        int limit,
-        string? sort,
-        string? sortDirection,
-        CancellationToken ct = default);
-
-    Task<ActivityBatchItemDetailDto?> GetItemDetailAsync(
-        Guid batchId,
-        Guid assetId,
-        CancellationToken ct = default);
-
-    Task<PagedResponse<ActivityPersonAuditDto>> GetPeopleAsync(
-        ActivityBatchQuery query,
-        CancellationToken ct = default);
-}
-
-public sealed record ActivityBatchQuery(
-    string? Search,
-    string? MediaType,
-    string? Status,
-    string? Source,
-    string? EventType,
-    DateTimeOffset? Start,
-    DateTimeOffset? End,
-    int Offset,
-    int Limit,
-    string? Sort = null,
-    string? SortDirection = null);
 
 public sealed class ActivityBatchReadService : IActivityBatchReadService
 {

@@ -1,15 +1,11 @@
 using System.Data;
 using Dapper;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IWorkDetailReadService
-{
-    Task<WorkDetailDto?> GetAsync(Guid workId, CancellationToken ct = default);
-}
 
 public sealed class WorkDetailReadService(IDatabaseConnection db) : IWorkDetailReadService
 {

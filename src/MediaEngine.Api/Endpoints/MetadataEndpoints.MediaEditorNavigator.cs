@@ -1,6 +1,7 @@
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Application.ReadModels;
 using MediaEngine.Contracts.Metadata;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -81,7 +82,7 @@ public static partial class MetadataEndpoints
     }
 
     private static MediaEditorNavigatorDto ToContract(
-        MediaEditorNavigationReadService.MediaEditorNavigatorEnvelope source) => new()
+        MediaEditorNavigatorEnvelope source) => new()
     {
         Enabled = source.Enabled,
         MediaType = source.MediaType,
@@ -115,7 +116,7 @@ public static partial class MetadataEndpoints
     };
 
     private static MediaEditorMembershipSuggestionDto ToContract(
-        MediaEditorNavigationReadService.MembershipSuggestionEnvelope source) => new()
+        MembershipSuggestionEnvelope source) => new()
     {
         EntityId = source.EntityId,
         Source = source.Source,
@@ -130,7 +131,7 @@ public static partial class MetadataEndpoints
     };
 
     private static MediaEditorMembershipPreviewDto ToContract(
-        MediaEditorNavigationReadService.MembershipPreviewEnvelope source) => new()
+        MembershipPreviewEnvelope source) => new()
     {
         Action = source.Action,
         CurrentPath = source.CurrentPath,
@@ -146,14 +147,14 @@ public static partial class MetadataEndpoints
         Stage2TargetEntityId = source.Stage2TargetEntityId,
     };
 
-    private static MediaEditorNavigationReadService.MembershipPreviewRequest ToInternal(
+    private static MembershipPreviewRequest ToInternal(
         MediaEditorMembershipPreviewRequestDto source) => new(
             source.ScopeId,
             source.FieldValues,
             source.SelectedTargetIds,
             source.SelectedSuggestions?.ToDictionary(
                 pair => pair.Key,
-                pair => new MediaEditorNavigationReadService.MembershipSuggestionSelection(
+                pair => new MembershipSuggestionSelection(
                     pair.Value.EntityId,
                     pair.Value.Source,
                     pair.Value.LocalExisting,

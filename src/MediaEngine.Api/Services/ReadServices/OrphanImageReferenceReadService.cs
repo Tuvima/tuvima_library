@@ -1,11 +1,8 @@
+using MediaEngine.Application.ReadModels;
+using MediaEngine.Application.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IOrphanImageReferenceReadService
-{
-    Task<OrphanImageReferenceSet> GetKnownReferencesAsync(CancellationToken ct);
-}
 
 public sealed class OrphanImageReferenceReadService(IDatabaseConnection db) : IOrphanImageReferenceReadService
 {
@@ -75,9 +72,3 @@ public sealed class OrphanImageReferenceReadService(IDatabaseConnection db) : IO
         return values;
     }
 }
-
-public sealed record OrphanImageReferenceSet(
-    HashSet<string> KnownWorkQids,
-    HashSet<string> KnownWorkId12,
-    HashSet<string> KnownPersonQids,
-    HashSet<string> KnownUniverseQids);

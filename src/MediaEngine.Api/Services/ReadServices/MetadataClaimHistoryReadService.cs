@@ -1,15 +1,11 @@
 using Dapper;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Metadata;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface IMetadataClaimHistoryReadService
-{
-    Task<List<ClaimDto>> GetClaimHistoryAsync(Guid entityId, CancellationToken ct);
-}
 
 public sealed class MetadataClaimHistoryReadService(
     IMetadataClaimRepository claimRepo,

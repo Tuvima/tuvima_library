@@ -1,31 +1,12 @@
 using Dapper;
 using MediaEngine.Api.Models;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface ICollectionMediaLookupReadService
-{
-    Task<List<CollectionMediaLookupDto>> LookupAsync(
-        string? query,
-        string? mediaTypes,
-        IReadOnlySet<Guid> existingWorkIds,
-        int? offset,
-        int? limit,
-        CancellationToken ct);
-
-    Task<List<CollectionItemDto>> ResolveItemsAsync(
-        Guid collectionId,
-        IReadOnlyList<CollectionItem> items,
-        CancellationToken ct);
-
-    Task<List<CollectionResolvedItemDto>> ResolveMetadataAsync(
-        IReadOnlyList<Guid> workIds,
-        CancellationToken ct);
-}
 
 public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : ICollectionMediaLookupReadService
 {

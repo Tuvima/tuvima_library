@@ -1,6 +1,8 @@
 using Dapper;
 using MediaEngine.Api.Endpoints;
 using BuiltInBrowseCollectionCatalog = MediaEngine.Api.Models.BuiltInBrowseCollectionCatalog;
+using MediaEngine.Application.ReadModels;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
@@ -9,90 +11,6 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface ICollectionBrowseReadService
-{
-    Task<List<CollectionDto>> GetAllAsync(CancellationToken ct);
-
-    Task<Guid?> GetRootWorkIdAsync(Guid workId, CancellationToken ct);
-    Task<Guid?> GetRepresentativeAssetIdAsync(Guid workId, CancellationToken ct);
-    Task<Dictionary<Guid, Guid?>> GetPrimaryAssetIdsAsync(IEnumerable<Guid> workIds, CancellationToken ct);
-    Task<CollectionPaletteReadModel?> GetAssetPaletteAsync(Guid entityId, CancellationToken ct);
-    Task<IReadOnlyList<CollectionArtistWorkReadModel>> GetArtistWorksAsync(string artistName, CancellationToken ct);
-    Task<IReadOnlyList<CollectionSystemViewDetailWorkReadModel>> GetSystemViewDetailWorksAsync(
-        string groupField,
-        string groupValue,
-        string? mediaType,
-        string? artistName,
-        CancellationToken ct);
-    IReadOnlyList<Guid> EvaluateRules(
-        IReadOnlyList<CollectionRulePredicate> predicates,
-        string matchMode = "all",
-        string? sortField = null,
-        string sortDirection = "desc",
-        int limit = 0);
-    Task<IReadOnlyList<string>> GetFieldValuesAsync(string field, int limit, CancellationToken ct);
-    Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(string? mediaType, string? groupField, CancellationToken ct);
-}
-
-public sealed record CollectionPaletteReadModel(string? PrimaryHex, string? SecondaryHex, string? AccentHex);
-
-public sealed class CollectionArtistWorkReadModel
-{
-    public Guid WorkId { get; init; }
-    public Guid? AssetId { get; init; }
-    public string? Title { get; init; }
-    public string? Album { get; init; }
-    public string? Artist { get; init; }
-    public string? TrackNumber { get; init; }
-    public string? DiscNumber { get; init; }
-    public string? AppleMusicId { get; init; }
-    public string? ReleaseYear { get; init; }
-    public string? YearValue { get; init; }
-    public string? DurationSecondsValue { get; init; }
-    public string? Duration { get; init; }
-    public string? Runtime { get; init; }
-    public string? Cover { get; init; }
-    public string? Genre { get; init; }
-    public string? ChildEntitiesJson { get; init; }
-}
-
-public sealed class CollectionSystemViewDetailWorkReadModel
-{
-    public Guid WorkId { get; init; }
-    public Guid? AssetId { get; init; }
-    public Guid? RootWorkId { get; init; }
-    public string? Title { get; init; }
-    public string? EpisodeTitle { get; init; }
-    public string? ShowName { get; init; }
-    public string? SeasonNumber { get; init; }
-    public string? EpisodeNumber { get; init; }
-    public string? Series { get; init; }
-    public string? SeriesIndex { get; init; }
-    public string? Album { get; init; }
-    public string? Artist { get; init; }
-    public string? Author { get; init; }
-    public string? Director { get; init; }
-    public string? TrackNumber { get; init; }
-    public string? DiscNumber { get; init; }
-    public string? AppleMusicId { get; init; }
-    public string? ReleaseYear { get; init; }
-    public string? YearValue { get; init; }
-    public string? DurationSecondsValue { get; init; }
-    public string? Duration { get; init; }
-    public string? Runtime { get; init; }
-    public string? Cover { get; init; }
-    public string? Background { get; init; }
-    public string? Banner { get; init; }
-    public string? Hero { get; init; }
-    public string? Logo { get; init; }
-    public string? PrimaryColor { get; init; }
-    public string? SecondaryColor { get; init; }
-    public string? AccentColor { get; init; }
-    public string? Genre { get; init; }
-    public string? Network { get; init; }
-    public string? ChildEntitiesJson { get; init; }
-}
 
 public sealed class CollectionSystemViewGroupReadModel
 {

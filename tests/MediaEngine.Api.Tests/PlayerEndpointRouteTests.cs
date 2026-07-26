@@ -45,7 +45,7 @@ public sealed class PlayerEndpointRouteTests
     public void PlayerStorageSchema_PersistsQueueSessionAndExactResumePosition()
     {
         var schema = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Storage/Schema/schema.sql"));
-        var repositorySource = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/Services/Playback/PlayerSessionRepository.cs"));
+        var repositorySource = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Storage/Playback/PlayerSessionRepository.cs"));
         var serviceSource = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/Services/Playback/PlayerService.cs"));
 
         Assert.Contains("CREATE TABLE IF NOT EXISTS player_sessions", schema, StringComparison.Ordinal);

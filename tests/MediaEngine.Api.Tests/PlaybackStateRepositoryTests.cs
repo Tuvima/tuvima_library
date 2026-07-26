@@ -1,6 +1,6 @@
 using Dapper;
-using MediaEngine.Api.Services.Playback;
 using MediaEngine.Storage;
+using MediaEngine.Storage.Playback;
 using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Api.Tests;

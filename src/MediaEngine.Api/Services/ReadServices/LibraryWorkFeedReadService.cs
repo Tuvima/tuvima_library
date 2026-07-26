@@ -1,17 +1,11 @@
 using Dapper;
+using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
-
-public interface ILibraryWorkFeedReadService
-{
-    Task<PagedResponse<LibraryWorkListItemDto>> GetWorksAsync(
-        PagedRequest page,
-        CancellationToken ct = default);
-}
 
 /// <summary>
 /// Owns the library work-feed projection, including hierarchy-aware metadata
