@@ -1,4 +1,6 @@
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
@@ -17,25 +19,31 @@ public sealed record BuiltInBrowseCollectionDefinition(
     string? SortField = null,
     string SortDirection = "desc")
 {
-    public Collection ToCollection() => new()
+    public Collection ToCollection()
     {
-        Id = CreateDeterministicGuid(Name),
-        DisplayName = Name,
-        Description = Description,
-        IconName = Icon,
-        CollectionType = CollectionType,
-        Scope = "library",
-        IsEnabled = true,
-        Resolution = Resolution,
-        RuleJson = System.Text.Json.JsonSerializer.Serialize(Rules),
-        RuleHash = CollectionRuleEvaluator.ComputeRuleHash(Rules),
-        GroupByField = GroupByField,
-        MatchMode = MatchMode,
-        SortField = SortField,
-        SortDirection = SortDirection,
-        LiveUpdating = true,
-        CreatedAt = DateTimeOffset.UnixEpoch,
-    };
+        var collection = new Collection
+        {
+            Id = CreateDeterministicGuid(Name),
+            DisplayName = Name,
+            Description = Description,
+            IconName = Icon,
+            IsEnabled = true,
+            RuleJson = System.Text.Json.JsonSerializer.Serialize(Rules),
+            RuleHash = CollectionRuleEvaluator.ComputeRuleHash(Rules),
+            GroupByField = GroupByField,
+            SortField = SortField,
+            LiveUpdating = true,
+            CreatedAt = DateTimeOffset.UnixEpoch,
+        };
+        collection.RestoreDefinition(
+            AggregateStateSerializer.ParseCollectionType(CollectionType),
+            CollectionScope.Library,
+            AggregateStateSerializer.ParseCollectionResolution(Resolution),
+            AggregateStateSerializer.ParseCollectionMatchMode(MatchMode),
+            AggregateStateSerializer.ParseCollectionSortDirection(SortDirection),
+            CollectionUniverseStatus.Unknown);
+        return collection;
+    }
 
     private static Guid CreateDeterministicGuid(string value) => Hashing.DeterministicGuid(value);
 }

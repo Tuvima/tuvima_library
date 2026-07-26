@@ -9,6 +9,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -319,11 +320,15 @@ public static class LibraryEndpoints
                     Id = Guid.NewGuid(),
                     WikidataQid = request.TargetCollectionQid,
                     DisplayName = request.TargetCollectionQid, // Will be enriched later
-                    CollectionType = "ContentGroup",
-                    Resolution = "materialized",
-                    Scope = "library",
                     IsEnabled = true,
                 };
+                collection.RestoreDefinition(
+                    CollectionType.ContentGroup,
+                    CollectionScope.Library,
+                    CollectionResolution.Materialized,
+                    CollectionMatchMode.All,
+                    CollectionSortDirection.Desc,
+                    CollectionUniverseStatus.Unknown);
                 await collectionRepo.UpsertAsync(collection, ct);
             }
 
@@ -403,11 +408,15 @@ public static class LibraryEndpoints
                             Id = Guid.NewGuid(),
                             WikidataQid = candidateQid,
                             DisplayName = candidateQid,
-                            CollectionType = "ContentGroup",
-                            Resolution = "materialized",
-                            Scope = "library",
                             IsEnabled = true,
                         };
+                        collection.RestoreDefinition(
+                            CollectionType.ContentGroup,
+                            CollectionScope.Library,
+                            CollectionResolution.Materialized,
+                            CollectionMatchMode.All,
+                            CollectionSortDirection.Desc,
+                            CollectionUniverseStatus.Unknown);
                         await collectionRepo.UpsertAsync(collection, ct);
                     }
 

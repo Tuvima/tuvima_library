@@ -36,14 +36,14 @@ public sealed class CollectionCatalogReadService(
             .ToList();
         var materializedCounts = await collectionRepo.GetCollectionItemCountsAsync(
             collections
-                .Where(collection => !string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase))
+                .Where(collection => collection.Resolution != CollectionResolution.Query)
                 .Select(collection => collection.Id),
             ct).ConfigureAwait(false);
 
         var results = new List<ManagedCollectionDto>(collections.Count);
         foreach (var collection in collections)
         {
-            var count = string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase)
+            var count = collection.Resolution == CollectionResolution.Query
                 ? (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false)).Count
                 : GetManagedCollectionItemCount(collection, materializedCounts, []);
             results.Add(ManagedCollectionMapper.FromDomain(collection, count, activeProfile));
@@ -188,7 +188,7 @@ public sealed class CollectionCatalogReadService(
                 .ToList();
             dtos = await ResolveCollectionWorkIdsToItemsAsync(collectionId, workIds, ct).ConfigureAwait(false);
         }
-        else if (string.Equals(collection.Resolution, CollectionResolutionNames.Materialized, StringComparison.OrdinalIgnoreCase))
+        else if (collection.Resolution == CollectionResolution.Materialized)
         {
             var items = await collectionRepo.GetCollectionItemsAsync(collectionId, take, ct).ConfigureAwait(false);
             dtos = await mediaLookupReadService.ResolveItemsAsync(collectionId, items, ct).ConfigureAwait(false);
@@ -218,7 +218,7 @@ public sealed class CollectionCatalogReadService(
         IReadOnlyDictionary<Guid, int> curatedCountByCollection,
         IReadOnlyList<Guid> workIds)
     {
-        if (!string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase)
+        if (collection.Resolution != CollectionResolution.Query
             && curatedCountByCollection.TryGetValue(collection.Id, out var count))
         {
             return Math.Max(count, workIds.Count);
@@ -235,10 +235,14 @@ public sealed class CollectionCatalogReadService(
             return new CollectionCatalogClassification("System", CollectionTypeNames.System, systemKey, true, SystemLaneForKey(systemKey));
         }
 
-        var family = string.Equals(collection.Scope, CollectionScopeNames.Library, StringComparison.OrdinalIgnoreCase)
+        var family = collection.Scope == CollectionScope.Library
             ? "Global"
             : "User";
-        return new CollectionCatalogClassification(family, collection.CollectionType, null, false);
+        return new CollectionCatalogClassification(
+            family,
+            collection.CollectionType.ToStorageValue(),
+            null,
+            false);
     }
 
     private static string? GetSystemCollectionKey(Collection collection)
@@ -249,7 +253,7 @@ public sealed class CollectionCatalogReadService(
             return null;
         }
 
-        if (string.Equals(collection.CollectionType, CollectionTypeNames.System, StringComparison.OrdinalIgnoreCase))
+        if (collection.CollectionType == CollectionType.System)
         {
             return normalizedName.ToLowerInvariant().Replace(' ', '-');
         }
@@ -314,9 +318,9 @@ public sealed class CollectionCatalogReadService(
     }
 
     private static bool IsPlaylistCatalogCollection(Collection collection)
-        => string.Equals(collection.CollectionType, CollectionTypeNames.Playlist, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, CollectionTypeNames.PlaylistFolder, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, CollectionTypeNames.Smart, StringComparison.OrdinalIgnoreCase);
+        => collection.CollectionType is CollectionType.Playlist
+            or CollectionType.PlaylistFolder
+            or CollectionType.Smart;
 
     private static CollectionManagementCatalogCandidate SelectCatalogRepresentative(
         IReadOnlyList<CollectionManagementCatalogCandidate> entries)
@@ -426,7 +430,7 @@ public sealed class CollectionCatalogReadService(
 
         if (!foundExplicitReference
             && !string.IsNullOrWhiteSpace(collection.DisplayName)
-            && TryGetPersonCollectionRole(collection.CollectionType, out var collectionRole))
+            && TryGetPersonCollectionRole(collection.CollectionType.ToStorageValue(), out var collectionRole))
         {
             var personName = RemoveCollectionSuffix(collection.DisplayName);
             if (!string.IsNullOrWhiteSpace(personName))
@@ -569,9 +573,9 @@ public sealed class CollectionCatalogReadService(
         };
 
     private static bool IsGeneratedSeriesCollection(Collection collection)
-        => string.Equals(collection.CollectionType, CollectionTypeNames.Universe, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, CollectionTypeNames.Series, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, CollectionTypeNames.ContentGroup, StringComparison.OrdinalIgnoreCase);
+        => collection.CollectionType is CollectionType.Universe
+            or CollectionType.Series
+            or CollectionType.ContentGroup;
 
     private static bool IsGeneratedTvShowContainer(Collection collection, CollectionMediaCounts mediaCounts)
         => IsGeneratedSeriesCollection(collection)
@@ -711,7 +715,7 @@ public sealed class CollectionCatalogReadService(
 
     private async Task<IReadOnlyList<Guid>> GetCollectionWorkIdsAsync(Collection collection, CancellationToken ct)
     {
-        if (string.Equals(collection.Resolution, CollectionResolutionNames.Query, StringComparison.OrdinalIgnoreCase)
+        if (collection.Resolution == CollectionResolution.Query
             && !string.IsNullOrWhiteSpace(collection.RuleJson))
         {
             var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
@@ -721,7 +725,12 @@ public sealed class CollectionCatalogReadService(
             }
 
             var evaluator = new CollectionRuleEvaluator(db);
-            return evaluator.Evaluate(predicates, collection.MatchMode, collection.SortField, collection.SortDirection, 0);
+            return evaluator.Evaluate(
+                predicates,
+                collection.MatchMode.ToStorageValue(),
+                collection.SortField,
+                collection.SortDirection.ToStorageValue(),
+                0);
         }
 
         var items = await collectionRepo.GetCollectionItemsAsync(collection.Id, 5000, ct).ConfigureAwait(false);

@@ -12,16 +12,8 @@ public sealed class CollectionAccessPolicyTests
     [Fact]
     public void ResolveVisibility_MapsUserAndLibraryScopes()
     {
-        var privateCollection = new Collection
-        {
-            Scope = "user",
-            ProfileId = OwnerProfileId,
-        };
-        var sharedCollection = new Collection
-        {
-            Scope = "library",
-            ProfileId = null,
-        };
+        var privateCollection = CreateCollection(CollectionScope.User, OwnerProfileId);
+        var sharedCollection = CreateCollection(CollectionScope.Library);
 
         Assert.Equal(CollectionAccessPolicy.PrivateVisibility, CollectionAccessPolicy.ResolveVisibility(privateCollection));
         Assert.Equal(CollectionAccessPolicy.SharedVisibility, CollectionAccessPolicy.ResolveVisibility(sharedCollection));
@@ -36,21 +28,9 @@ public sealed class CollectionAccessPolicyTests
             Role = ProfileRole.Consumer,
         };
 
-        var ownedPrivateCollection = new Collection
-        {
-            Scope = "user",
-            ProfileId = OwnerProfileId,
-        };
-        var otherPrivateCollection = new Collection
-        {
-            Scope = "user",
-            ProfileId = OtherProfileId,
-        };
-        var sharedCollection = new Collection
-        {
-            Scope = "library",
-            ProfileId = null,
-        };
+        var ownedPrivateCollection = CreateCollection(CollectionScope.User, OwnerProfileId);
+        var otherPrivateCollection = CreateCollection(CollectionScope.User, OtherProfileId);
+        var sharedCollection = CreateCollection(CollectionScope.Library);
 
         Assert.True(CollectionAccessPolicy.CanAccess(ownedPrivateCollection, activeProfile));
         Assert.False(CollectionAccessPolicy.CanAccess(otherPrivateCollection, activeProfile));
@@ -60,11 +40,7 @@ public sealed class CollectionAccessPolicyTests
     [Fact]
     public void CanEdit_SharedCollectionsRequireCuratorOrAdministrator()
     {
-        var sharedCollection = new Collection
-        {
-            Scope = "library",
-            ProfileId = null,
-        };
+        var sharedCollection = CreateCollection(CollectionScope.Library);
 
         var consumer = new Profile
         {
@@ -88,12 +64,21 @@ public sealed class CollectionAccessPolicyTests
 
         CollectionAccessPolicy.ApplyVisibility(collection, CollectionAccessPolicy.PrivateVisibility, OwnerProfileId);
 
-        Assert.Equal("user", collection.Scope);
+        Assert.Equal(CollectionScope.User, collection.Scope);
         Assert.Equal(OwnerProfileId, collection.ProfileId);
 
         CollectionAccessPolicy.ApplyVisibility(collection, CollectionAccessPolicy.SharedVisibility, OwnerProfileId);
 
-        Assert.Equal("library", collection.Scope);
+        Assert.Equal(CollectionScope.Library, collection.Scope);
         Assert.Null(collection.ProfileId);
+    }
+
+    private static Collection CreateCollection(
+        CollectionScope scope,
+        Guid? profileId = null)
+    {
+        var collection = new Collection();
+        collection.SetVisibility(scope, profileId);
+        return collection;
     }
 }

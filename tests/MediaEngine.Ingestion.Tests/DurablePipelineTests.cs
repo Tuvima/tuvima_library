@@ -9,6 +9,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Intelligence;
@@ -990,10 +991,11 @@ public sealed class DurablePipelineTests : IDisposable
                 NullLogger<MediaTypeResolver>.Instance),
             new DuplicateResolver(_assetRepo),
             new IngestionLogScribe(_ingestionLog, _publisher, NullLogger<IngestionLogScribe>.Instance),
-            new IdentityPipelineSignal(),
-            _entityAssetRepo,
-            _assetPaths,
-            _workRepo);
+            new HashDedupeStageDependencies(null),
+            new ScoreIdentifyStageDependencies(null),
+            new OrganizeStageDependencies(null),
+            new WriteBackStageDependencies(_entityAssetRepo, _assetPaths, _workRepo, null),
+            new IdentityJobStageDependencies(new IdentityPipelineSignal()));
 
     private static StageOutcomeFactory CreateOutcomeFactory() =>
         new StageOutcomeFactory(

@@ -1,3 +1,5 @@
+using MediaEngine.Providers.Workers;
+
 namespace MediaEngine.Providers.Tests;
 
 public sealed class WikidataBridgeWorkerProgressTests
@@ -5,8 +7,7 @@ public sealed class WikidataBridgeWorkerProgressTests
     [Fact]
     public void BridgeOperationStaysRunningThroughPropertyFetchAndPostPipeline()
     {
-        var source = File.ReadAllText(GetRepoFilePath(
-            @"src\MediaEngine.Providers\Workers\WikidataBridgeWorker.cs"));
+        var source = ReadWorkerSource(nameof(WikidataBridgeWorker));
         var normalized = source.Replace("\r\n", "\n", StringComparison.Ordinal);
 
         var successCall = "await MarkBridgeSucceededAsync(ctx.Operation, job, ctx.ResolvedQid, ct).ConfigureAwait(false);";
@@ -35,8 +36,7 @@ public sealed class WikidataBridgeWorkerProgressTests
     [Fact]
     public void BridgeFinalisationDoesNotBlockOnInlinePersonEnrichment()
     {
-        var source = File.ReadAllText(GetRepoFilePath(
-            @"src\MediaEngine.Providers\Workers\WikidataBridgeWorker.cs"));
+        var source = ReadWorkerSource(nameof(WikidataBridgeWorker));
         var normalized = source.Replace("\r\n", "\n", StringComparison.Ordinal);
 
         var fullClaimBlockStart = normalized.IndexOf(
@@ -61,5 +61,19 @@ public sealed class WikidataBridgeWorkerProgressTests
             dir = dir.Parent;
 
         return Path.Combine(dir?.FullName ?? throw new InvalidOperationException("Repo root not found."), relativePath);
+    }
+
+    private static string ReadWorkerSource(string workerName)
+    {
+        var workers = GetRepoFilePath(@"src\MediaEngine.Providers\Workers");
+        return string.Join(
+            Environment.NewLine,
+            new[] { Path.Combine(workers, $"{workerName}.cs") }
+                .Concat(Directory
+                    .GetFiles(
+                        Path.Combine(workers, "Internals"),
+                        $"{workerName}.*.cs")
+                    .Order(StringComparer.Ordinal))
+                .Select(File.ReadAllText));
     }
 }

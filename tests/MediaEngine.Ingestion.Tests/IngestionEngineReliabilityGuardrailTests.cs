@@ -46,8 +46,8 @@ public sealed class IngestionEngineReliabilityGuardrailTests
         var source = ReadIngestionEngineSource();
 
         Assert.Contains("ComputeHashWithCacheAsync", source, StringComparison.Ordinal);
-        Assert.Contains("_fileHashCache.TryGetAsync", source, StringComparison.Ordinal);
-        Assert.Contains("_fileHashCache.UpsertAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_hashStageDependencies.FileHashCache.TryGetAsync", source, StringComparison.Ordinal);
+        Assert.Contains("_hashStageDependencies.FileHashCache.UpsertAsync", source, StringComparison.Ordinal);
         Assert.Contains("MarkRetryableOperationAsync", source, StringComparison.Ordinal);
         Assert.Contains("MarkInterruptedOperationAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("await NoResultOperationAsync(durableOperation, candidate.FailureReason", source, StringComparison.Ordinal);
@@ -66,7 +66,14 @@ public sealed class IngestionEngineReliabilityGuardrailTests
             "MediaEngine.Ingestion",
             "IngestionEngine.cs"));
 
-        return File.ReadAllText(path);
+        return string.Join(
+            Environment.NewLine,
+            Directory.EnumerateFiles(
+                    Path.GetDirectoryName(path)!,
+                    "IngestionEngine*.cs",
+                    SearchOption.TopDirectoryOnly)
+                .OrderBy(file => file, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
     }
 
     private static int CountOccurrences(string source, string value)

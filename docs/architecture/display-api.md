@@ -53,6 +53,26 @@ fields that were previously split across API and Dashboard mirrors.
 
 `DisplayCardBuilder` owns card, fact, badge, artwork, progress, and action construction. Hero facts should flow from the source card so spotlight and tile metadata stay consistent.
 
+### Detail composition
+
+`DetailComposerService` is the stable public facade for unified detail responses.
+It dispatches to the internal detail composition pipeline without owning SQL,
+entity-specific branching, or presentation rules.
+
+The internal structure follows the same separation used by display composition:
+
+- `DetailProjectionReader` owns focused database and repository projection reads.
+- `DetailViewModelBuilder` builds reusable detail response fragments from loaded data.
+- `DetailPresentationPolicy` owns route parsing and artwork-presentation decisions.
+- `DetailCompositionOrchestrator.*` components coordinate work, collection, person,
+  character, sequence, and Universe detail behavior in bounded feature files.
+
+Universe and sequence composition remain isolated components of the same pipeline;
+they are not alternate wire contracts or Dashboard-side inference paths. New detail
+SQL belongs in the projection reader/component reader layer, reusable response
+construction belongs in a builder, and branching presentation rules belong in a
+policy rather than the public facade.
+
 ## Payload Size
 
 Some page responses include the same cards in shelves and in `catalog`. Web uses `catalog` for browse grids, so it remains included by default for compatibility.

@@ -251,7 +251,7 @@ public sealed class UnifiedDetailComponentTests
     public void HeroActions_ExposeHoverMenusAndCapabilityAwareActions()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/HeroActionRow.razor");
-        var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+        var composer = ReadDetailComposerSource();
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("tl-detail-premium-action", source);
@@ -671,7 +671,7 @@ public sealed class UnifiedDetailComponentTests
     public void TvShowEpisodes_UseSeasonCoveragePlaybackAndShowScopedDetailNavigation()
     {
         var sequence = ReadSource("src/MediaEngine.Web/Components/Details/SequencePlacementPanel.razor");
-        var composer = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+        var composer = ReadDetailComposerSource();
         var navigation = ReadSource("src/MediaEngine.Web/Services/Navigation/MediaNavigation.cs");
         var showPage = ReadSource("src/MediaEngine.Web/Components/Pages/WatchTvShowPage.razor");
         var routeRequest = ReadSource("src/MediaEngine.Web/Components/Details/DetailRouteRequest.cs");
@@ -784,7 +784,7 @@ public sealed class UnifiedDetailComponentTests
     [Fact]
     public void DetailHero_UsesShortProviderCopyAndEpisodeDescriptions()
     {
-        var source = ReadSource("src/MediaEngine.Api/Services/Details/DetailComposerService.cs");
+        var source = ReadDetailComposerSource();
         var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
         var heroContent = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroContent.razor");
         var presentation = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroPresentation.cs");
@@ -1627,6 +1627,27 @@ public sealed class UnifiedDetailComponentTests
     {
         var root = FindRepoRoot();
         return File.ReadAllText(Path.Combine(root, relativePath));
+    }
+
+    private static string ReadDetailComposerSource()
+    {
+        var detailsRoot = Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "Details");
+        var paths = new[]
+            {
+                Path.Combine(detailsRoot, "DetailComposerService.cs"),
+            }
+            .Concat(Directory.EnumerateFiles(
+                Path.Combine(detailsRoot, "Internals"),
+                "*.cs",
+                SearchOption.TopDirectoryOnly))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+
+        return string.Join("\n", paths.Select(File.ReadAllText));
     }
 
     private static string ReadEngineApiClientSources()

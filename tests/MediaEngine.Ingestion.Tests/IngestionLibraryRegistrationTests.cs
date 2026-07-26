@@ -1,5 +1,6 @@
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.DependencyInjection;
+using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
@@ -45,6 +46,11 @@ public sealed class IngestionLibraryRegistrationTests
         Assert.Contains(services, d => d.ServiceType == typeof(IFileWatcher));
         Assert.Contains(services, d => d.ServiceType == typeof(IBackgroundWorker));
         Assert.Contains(services, d => d.ServiceType == typeof(IProcessorRouter));
+        Assert.Contains(services, d => d.ServiceType == typeof(HashDedupeStageDependencies));
+        Assert.Contains(services, d => d.ServiceType == typeof(ScoreIdentifyStageDependencies));
+        Assert.Contains(services, d => d.ServiceType == typeof(OrganizeStageDependencies));
+        Assert.Contains(services, d => d.ServiceType == typeof(WriteBackStageDependencies));
+        Assert.Contains(services, d => d.ServiceType == typeof(IdentityJobStageDependencies));
 
         await using ServiceProvider provider = services.BuildServiceProvider();
         Assert.NotNull(provider.GetRequiredService<IFileWatcher>());

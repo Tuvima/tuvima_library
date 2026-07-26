@@ -5,6 +5,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Providers.Workers;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Providers.Tests;
@@ -46,7 +47,7 @@ public sealed class RetailProviderDecompositionTests
     [Fact]
     public void RetailMatchWorker_GroupedTvPathMapsAggregateCastAndEpisodeCrew()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/RetailMatchWorker.cs"));
+        var source = ReadWorkerSource(nameof(RetailMatchWorker));
 
         Assert.Contains("AddTvAggregateCastClaims(claims, showDetails)", source, StringComparison.Ordinal);
         Assert.Contains("\"aggregate_credits\"", source, StringComparison.Ordinal);
@@ -318,6 +319,21 @@ public sealed class RetailProviderDecompositionTests
         }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+    }
+
+    private static string ReadWorkerSource(string workerName)
+    {
+        var root = FindRepoRoot();
+        var workers = Path.Combine(root, "src", "MediaEngine.Providers", "Workers");
+        return string.Join(
+            Environment.NewLine,
+            new[] { Path.Combine(workers, $"{workerName}.cs") }
+                .Concat(Directory
+                    .GetFiles(
+                        Path.Combine(workers, "Internals"),
+                        $"{workerName}.*.cs")
+                    .Order(StringComparer.Ordinal))
+                .Select(File.ReadAllText));
     }
 
     private sealed class RoutingHttpClientFactory : IHttpClientFactory

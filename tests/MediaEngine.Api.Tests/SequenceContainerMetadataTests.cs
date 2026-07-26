@@ -68,12 +68,15 @@ public sealed class SequenceContainerMetadataTests : IDisposable
             null!,
             null!,
             new DetailRecommendationService(_db));
-        var method = typeof(DetailComposerService).GetMethod(
+        var implementation = typeof(DetailComposerService)
+            .GetField("_composer", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(composer)!;
+        var method = implementation.GetType().GetMethod(
             "LoadSequenceContainerMetadataAsync",
             BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingMethodException(nameof(DetailComposerService), "LoadSequenceContainerMetadataAsync");
 
-        var task = (Task)method.Invoke(composer, [containerId, null, CancellationToken.None])!;
+        var task = (Task)method.Invoke(implementation, [containerId, null, CancellationToken.None])!;
         await task;
         return task.GetType().GetProperty("Result")!.GetValue(task);
     }

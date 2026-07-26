@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Enums;
 using Dapper;
 
 namespace MediaEngine.Storage.Tests;
@@ -352,10 +353,15 @@ public sealed class SeriesManifestRepositoryTests : IDisposable
             DisplayName = name,
             WikidataQid = string.IsNullOrWhiteSpace(qid) ? null : qid,
             RuleHash = ruleHash,
-            CollectionType = "ContentGroup",
-            Resolution = "materialized",
             CreatedAt = DateTimeOffset.UtcNow,
         };
+        collection.RestoreDefinition(
+            CollectionType.ContentGroup,
+            CollectionScope.Library,
+            CollectionResolution.Materialized,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Desc,
+            CollectionUniverseStatus.Unknown);
         return await repo.UpsertAsync(collection);
     }
 

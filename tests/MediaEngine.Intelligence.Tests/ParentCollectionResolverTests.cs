@@ -1,5 +1,7 @@
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -54,7 +56,7 @@ public sealed class ParentCollectionResolverTests : IDisposable
 
         var parent = await _repo.GetByIdAsync(refreshedBooks.ParentCollectionId!.Value);
         Assert.NotNull(parent);
-        Assert.Equal("Universe", parent!.CollectionType);
+        Assert.Equal(CollectionType.Universe, parent!.CollectionType);
         Assert.Equal("Dune", parent.DisplayName);
         Assert.Equal("Q18011049", parent.WikidataQid);
 
@@ -178,16 +180,24 @@ public sealed class ParentCollectionResolverTests : IDisposable
         Assert.Null(parent);
     }
 
-    private static Collection CreateCollection(string name, string type, string qid) => new()
+    private static Collection CreateCollection(string name, string type, string qid)
     {
-        Id = Guid.NewGuid(),
-        DisplayName = name,
-        CollectionType = type,
-        WikidataQid = qid,
-        Resolution = "materialized",
-        UniverseStatus = "Unknown",
-        CreatedAt = DateTimeOffset.UtcNow,
-    };
+        var collection = new Collection
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = name,
+            WikidataQid = qid,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        collection.RestoreDefinition(
+            AggregateStateSerializer.ParseCollectionType(type),
+            CollectionScope.Library,
+            CollectionResolution.Materialized,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Desc,
+            CollectionUniverseStatus.Unknown);
+        return collection;
+    }
 
     private static CollectionRelationship CreateRelationship(Guid collectionId, string relType, string qid, string label) => new()
     {

@@ -171,13 +171,17 @@ public sealed class CollectionAssignmentService
                     Id = Guid.NewGuid(),
                     DisplayName = displayName,
                     WikidataQid = shelf.Qid,
-                    CollectionType = CollectionTypeNames.ContentGroup,
-                    Resolution = CollectionResolutionNames.Materialized,
                     RuleHash = shelf.ProviderKey,
                     GroupByField = GetGroupByField(shelf.MediaType),
-                    UniverseStatus = CollectionUniverseStatusNames.Unknown,
                     CreatedAt = DateTimeOffset.UtcNow,
                 };
+                collection.RestoreDefinition(
+                    CollectionType.ContentGroup,
+                    CollectionScope.Library,
+                    CollectionResolution.Materialized,
+                    CollectionMatchMode.All,
+                    CollectionSortDirection.Desc,
+                    CollectionUniverseStatus.Unknown);
 
                 await _collectionRepo.UpsertAsync(collection, ct);
                 createdCollection = true;

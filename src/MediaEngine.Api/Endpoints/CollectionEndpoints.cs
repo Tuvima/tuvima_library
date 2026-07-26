@@ -12,6 +12,7 @@ using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -123,7 +124,7 @@ public static class CollectionEndpoints
                         Description = h.Description,
                         WikidataQid = h.WikidataQid,
                         ParentCollectionId = null,
-                        UniverseStatus = h.UniverseStatus,
+                        UniverseStatus = h.UniverseStatus.ToStorageValue(),
                         CreatedAt = h.CreatedAt,
                         ChildCollectionCount = children.Count,
                         MediaTypes = string.Join(", ", mediaTypes),
@@ -149,7 +150,7 @@ public static class CollectionEndpoints
                 h.DisplayName,
                 h.ParentCollectionId,
                 h.CreatedAt,
-                h.UniverseStatus)).ToList();
+                h.UniverseStatus.ToStorageValue())).ToList();
 
             return Results.Ok(result);
         })
@@ -179,7 +180,11 @@ public static class CollectionEndpoints
             }
 
             return Results.Ok(new CollectionParentResponse(
-                new ParentCollectionSummary(parent.Id, parent.DisplayName, parent.CreatedAt, parent.UniverseStatus)));
+                new ParentCollectionSummary(
+                    parent.Id,
+                    parent.DisplayName,
+                    parent.CreatedAt,
+                    parent.UniverseStatus.ToStorageValue())));
         })
         .WithName("GetCollectionParent")
         .WithSummary("Returns the Parent Collection of the given Collection, if any.")
@@ -373,20 +378,24 @@ public static class CollectionEndpoints
                     // Derive a display status from wikidata_status / match_level.
                     string status = w.WikidataStatus switch
                     {
-                        "confirmed" => "Verified",
-                        "skipped" => "Unlinked",
+                        WikidataLinkStatus.Confirmed => "Verified",
+                        WikidataLinkStatus.Skipped => "Unlinked",
                         _ => "Provisional",
                     };
 
                     // Pipeline stage stubs — state is derived from match/wikidata status.
                     var stage1 = new LibraryPipelineStageDto
                     {
-                        State = w.MatchLevel is "retail_only" or "work" or "edition" ? "done" : "pending",
+                        State = w.MatchLevel is WorkMatchLevel.RetailOnly
+                            or WorkMatchLevel.Work
+                            or WorkMatchLevel.Edition
+                            ? "done"
+                            : "pending",
                         Label = "Retail",
                     };
                     var stage2 = new LibraryPipelineStageDto
                     {
-                        State = w.WikidataStatus == "confirmed" ? "done" : "pending",
+                        State = w.WikidataStatus == WikidataLinkStatus.Confirmed ? "done" : "pending",
                         Label = "Wikidata",
                     };
                     var stage3 = new LibraryPipelineStageDto
@@ -640,8 +649,8 @@ public static class CollectionEndpoints
                             AppleMusicId = GetCanonical(wDto, BridgeIdKeys.AppleMusicId),
                             Status = w.WikidataStatus switch
                             {
-                                "confirmed" => "Verified",
-                                "skipped" => "Unlinked",
+                                WikidataLinkStatus.Confirmed => "Verified",
+                                WikidataLinkStatus.Skipped => "Unlinked",
                                 _ => "Provisional",
                             },
                             IsOwned = true,
@@ -1352,7 +1361,7 @@ public static class CollectionEndpoints
                         : GetCanonical(firstDto, "director"),
                     Writer = GetCanonical(firstDto, "writer"),
                     ReleaseDate = releaseDate,
-                    UniverseStatus = h.UniverseStatus,
+                    UniverseStatus = h.UniverseStatus.ToStorageValue(),
                     CreatedAt = h.CreatedAt,
                     Network = GetCanonical(firstDto, "network"),
                     Year = GetCanonical(firstDto, "release_year") ?? GetCanonical(firstDto, "year"),
@@ -1464,7 +1473,7 @@ public static class CollectionEndpoints
             var activeProfile = await ResolveActiveProfileAsync(profileId, profileRepo, ct);
             var counts = (await collectionRepo.GetManagedCollectionsAsync(ct))
                 .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
-                .GroupBy(collection => collection.CollectionType)
+                .GroupBy(collection => collection.CollectionType.ToStorageValue())
                 .ToDictionary(grouping => grouping.Key, grouping => grouping.Count());
             return Results.Ok(counts);
         })
@@ -1587,7 +1596,7 @@ public static class CollectionEndpoints
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
-                || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+                || collection.Resolution != CollectionResolution.Materialized)
             {
                 return ApiErrors.BadRequest("Only saved/manual collections support direct item membership.");
             }
@@ -1645,7 +1654,7 @@ public static class CollectionEndpoints
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
-                || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+                || collection.Resolution != CollectionResolution.Materialized)
             {
                 return ApiErrors.BadRequest("Only saved/manual collections support direct item membership.");
             }
@@ -1685,7 +1694,7 @@ public static class CollectionEndpoints
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
-                || !string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+                || collection.Resolution != CollectionResolution.Materialized)
             {
                 return ApiErrors.BadRequest("Only saved/manual collections support direct item ordering.");
             }
@@ -1937,7 +1946,7 @@ public static class CollectionEndpoints
             }
 
             // For materialized collections, return works directly
-            if (collection.Resolution == "materialized")
+            if (collection.Resolution == CollectionResolution.Materialized)
             {
                 var collectionWithWorks = await collectionRepo.GetCollectionWithWorksAsync(id, ct);
                 if (collectionWithWorks is null)
@@ -1973,7 +1982,11 @@ public static class CollectionEndpoints
             }
 
             var entityIds = browseReadService.EvaluateRules(
-                predicates, collection.MatchMode, collection.SortField, collection.SortDirection, limit ?? 0);
+                predicates,
+                collection.MatchMode.ToStorageValue(),
+                collection.SortField,
+                collection.SortDirection.ToStorageValue(),
+                limit ?? 0);
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
@@ -2019,7 +2032,11 @@ public static class CollectionEndpoints
             }
 
             var entityIds = browseReadService.EvaluateRules(
-                predicates, collection.MatchMode, collection.SortField, collection.SortDirection, limit ?? 200);
+                predicates,
+                collection.MatchMode.ToStorageValue(),
+                collection.SortField,
+                collection.SortDirection.ToStorageValue(),
+                limit ?? 200);
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
@@ -2056,7 +2073,7 @@ public static class CollectionEndpoints
                 result.Add(new CollectionLocationPlacementSummary(
                     collection.Id,
                     collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
-                    collection.CollectionType,
+                    collection.CollectionType.ToStorageValue(),
                     collection.IconName,
                     p.Location,
                     p.Position,
@@ -2137,8 +2154,8 @@ public static class CollectionEndpoints
                 : null;
 
             var resolution = body.CollectionType is "Playlist" || body.Rules.Count == 0
-                ? "materialized"
-                : "query";
+                ? CollectionResolution.Materialized
+                : CollectionResolution.Query;
 
             var collection = new Collection
             {
@@ -2146,18 +2163,21 @@ public static class CollectionEndpoints
                 DisplayName = body.Name,
                 Description = body.Description,
                 IconName = body.IconName,
-                CollectionType = body.CollectionType,
                 IsEnabled = true,
                 MinItems = 0,
                 RuleJson = ruleJson,
-                Resolution = resolution,
                 RuleHash = ruleHash,
-                MatchMode = body.MatchMode,
                 SortField = body.SortField,
-                SortDirection = body.SortDirection,
-                LiveUpdating = resolution == "query" && body.LiveUpdating,
+                LiveUpdating = resolution == CollectionResolution.Query && body.LiveUpdating,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
+            collection.RestoreDefinition(
+                AggregateStateSerializer.ParseCollectionType(body.CollectionType),
+                CollectionScope.Library,
+                resolution,
+                AggregateStateSerializer.ParseCollectionMatchMode(body.MatchMode),
+                AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection),
+                CollectionUniverseStatus.Unknown);
             CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile.Id);
 
             await collectionRepo.UpsertAsync(collection, ct);
@@ -2231,7 +2251,9 @@ public static class CollectionEndpoints
 
             if (body.MatchMode is not null)
             {
-                collection.MatchMode = body.MatchMode;
+                collection.ChangeRuleOrdering(
+                    AggregateStateSerializer.ParseCollectionMatchMode(body.MatchMode),
+                    collection.SortDirection);
             }
 
             if (body.SortField is not null)
@@ -2241,7 +2263,9 @@ public static class CollectionEndpoints
 
             if (body.SortDirection is not null)
             {
-                collection.SortDirection = body.SortDirection;
+                collection.ChangeRuleOrdering(
+                    collection.MatchMode,
+                    AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection));
             }
 
             if (body.LiveUpdating.HasValue)
@@ -2278,17 +2302,17 @@ public static class CollectionEndpoints
                     collection.RuleJson = System.Text.Json.JsonSerializer.Serialize(body.Rules);
                     collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(
                         body.Rules.Select(rule => rule.ToDomain()).ToList());
-                    collection.Resolution = "query";
+                    collection.ChangeResolution(CollectionResolution.Query);
                 }
                 else
                 {
                     collection.RuleJson = null;
                     collection.RuleHash = null;
-                    collection.Resolution = "materialized";
+                    collection.ChangeResolution(CollectionResolution.Materialized);
                 }
             }
 
-            if (string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
+            if (collection.Resolution == CollectionResolution.Materialized)
             {
                 collection.LiveUpdating = false;
             }
@@ -2322,7 +2346,7 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest($"Collection type '{collection.CollectionType}' is browse-only and cannot be deleted here.");
             }
 
-            if (collection.CollectionType == "System")
+            if (collection.CollectionType == CollectionType.System)
             {
                 return ApiErrors.BadRequest("System collections cannot be deleted.");
             }

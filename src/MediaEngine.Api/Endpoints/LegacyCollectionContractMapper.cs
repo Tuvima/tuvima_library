@@ -1,5 +1,6 @@
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -11,7 +12,7 @@ internal static class LegacyCollectionContractMapper
         UniverseId = source.UniverseId,
         DisplayName = source.DisplayName,
         ParentCollectionId = source.ParentCollectionId,
-        UniverseStatus = source.UniverseStatus,
+        UniverseStatus = source.UniverseStatus.ToStorageValue(),
         CreatedAt = source.CreatedAt,
         Works = source.Works.Select(ToContract).ToList(),
     };

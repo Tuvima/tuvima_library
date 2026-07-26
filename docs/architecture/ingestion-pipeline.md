@@ -195,6 +195,37 @@ Import mode performs a one-time scan of an existing collection. It follows the s
 
 Every file - regardless of intake mode - goes through the same sequential processing pipeline:
 
+### Code-Level Stage Chain
+
+`IngestionEngine` is the lifecycle facade for watcher startup, pause/resume,
+scanning, shutdown, and dry-run entry points. Per-file work runs through the
+ordered `IIngestionStage` chain:
+
+1. `settle/detect`
+2. `hash/dedupe`
+3. `process`
+4. `score/identify`
+5. `organize`
+6. `write-back`
+7. `identity-job creation`
+
+The hash/dedupe stage acquires the content-hash lock, and the coordinator
+releases it only after the chain terminates. Duplicate resolution, asset
+registration, organization-gate review creation, safe write-back, and identity
+job creation therefore retain the same serialized scope.
+
+The organize stage is deliberately a readiness and review decision during
+initial ingestion. It does not move the file into the final library. The file
+remains in place until the retail-first identity pipeline has enough context for
+`AutoOrganizeService` to promote it. Write-back is likewise deferred for files
+still in a watch folder because changing their bytes would change the content
+hash and trigger re-ingestion.
+
+Nullable integrations are grouped with the stage that consumes them: hash
+cache, capability planning, provisional-review outcomes, managed artwork/export,
+and the identity-pipeline wake signal. This keeps optional behavior from leaking
+into unrelated stages.
+
 ### 1. Settle
 
 The Engine waits briefly after detecting a file to confirm it has finished being written to disk. This prevents reading partially-copied files from network shares or slow storage.

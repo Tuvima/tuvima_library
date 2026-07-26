@@ -1,5 +1,7 @@
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -245,15 +247,23 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         Assert.Contains(episode.CanonicalValues, value => value.EntityId == assetId && value.Key == "duration_seconds" && value.Value == "2700");
     }
 
-    private static Collection CreateCollection(string name, string type = "Universe") => new()
+    private static Collection CreateCollection(string name, string type = "Universe")
     {
-        Id = Guid.NewGuid(),
-        DisplayName = name,
-        CreatedAt = DateTimeOffset.UtcNow,
-        UniverseStatus = "Unknown",
-        CollectionType = type,
-        Resolution = "materialized",
-    };
+        var collection = new Collection
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = name,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        collection.RestoreDefinition(
+            AggregateStateSerializer.ParseCollectionType(type),
+            CollectionScope.Library,
+            CollectionResolution.Materialized,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Desc,
+            CollectionUniverseStatus.Unknown);
+        return collection;
+    }
 
     private static CollectionRelationship CreateRelationship(
         Guid collectionId,

@@ -1,5 +1,6 @@
 using Dapper;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -100,9 +101,6 @@ public sealed class CollectionRepository : ICollectionRepository
     /// </summary>
     private static Collection NormalizeCollection(Collection h)
     {
-        h.UniverseStatus ??= "Unknown";
-        h.CollectionType ??= "Universe";
-        h.Scope ??= "library";
         return h;
     }
 
@@ -139,28 +137,42 @@ public sealed class CollectionRepository : ICollectionRepository
     private static Guid? ReadNullableGuid(SqliteDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : GuidSql.FromDb(reader.GetValue(ordinal));
 
-    private static Collection ReadJoinedCollection(SqliteDataReader reader) => new()
+    private static Collection ReadJoinedCollection(SqliteDataReader reader)
     {
-        Id = ReadGuid(reader, 0),
-        UniverseId = ReadNullableGuid(reader, 1),
-        DisplayName = reader.IsDBNull(2) ? null : reader.GetString(2),
-        CreatedAt = DateTimeOffset.Parse(reader.GetString(3)),
-        UniverseStatus = reader.IsDBNull(4) ? "Unknown" : reader.GetString(4),
-        ParentCollectionId = ReadNullableGuid(reader, 5),
-        WikidataQid = reader.IsDBNull(6) ? null : reader.GetString(6),
-        CollectionType = reader.IsDBNull(7) ? "Universe" : reader.GetString(7),
-        Description = reader.IsDBNull(8) ? null : reader.GetString(8),
-        IconName = reader.IsDBNull(9) ? null : reader.GetString(9),
-        Scope = reader.IsDBNull(10) ? "library" : reader.GetString(10),
-        ProfileId = ReadNullableGuid(reader, 11),
-        IsEnabled = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
-        IsFeatured = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
-        MinItems = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
-        RuleJson = reader.IsDBNull(15) ? null : reader.GetString(15),
-        RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
-        LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
-        ModifiedAt = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
-    };
+        var collection = new Collection
+        {
+            Id = ReadGuid(reader, 0),
+            UniverseId = ReadNullableGuid(reader, 1),
+            DisplayName = reader.IsDBNull(2) ? null : reader.GetString(2),
+            CreatedAt = DateTimeOffset.Parse(reader.GetString(3)),
+            ParentCollectionId = ReadNullableGuid(reader, 5),
+            WikidataQid = reader.IsDBNull(6) ? null : reader.GetString(6),
+            Description = reader.IsDBNull(8) ? null : reader.GetString(8),
+            IconName = reader.IsDBNull(9) ? null : reader.GetString(9),
+            ProfileId = ReadNullableGuid(reader, 11),
+            IsEnabled = !reader.IsDBNull(12) && reader.GetInt32(12) == 1,
+            IsFeatured = !reader.IsDBNull(13) && reader.GetInt32(13) == 1,
+            MinItems = reader.IsDBNull(14) ? 0 : reader.GetInt32(14),
+            RuleJson = reader.IsDBNull(15) ? null : reader.GetString(15),
+            RefreshSchedule = reader.IsDBNull(16) ? null : reader.GetString(16),
+            LastRefreshedAt = reader.IsDBNull(17) ? null : DateTimeOffset.Parse(reader.GetString(17)),
+            ModifiedAt = reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
+        };
+        collection.RestoreDefinition(
+            reader.IsDBNull(7)
+                ? CollectionType.Universe
+                : AggregateStateSerializer.ParseCollectionType(reader.GetString(7)),
+            reader.IsDBNull(10)
+                ? CollectionScope.Library
+                : AggregateStateSerializer.ParseCollectionScope(reader.GetString(10)),
+            CollectionResolution.Query,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Desc,
+            reader.IsDBNull(4)
+                ? CollectionUniverseStatus.Unknown
+                : AggregateStateSerializer.ParseCollectionUniverseStatus(reader.GetString(4)));
+        return collection;
+    }
 
     private static void AddJoinedWork(
         SqliteDataReader reader,
@@ -175,18 +187,31 @@ public sealed class CollectionRepository : ICollectionRepository
         if (works.ContainsKey(workId))
             return;
 
+        var universeMismatch = !reader.IsDBNull(22) && reader.GetInt32(22) == 1;
+        DateTimeOffset? universeMismatchAt = reader.IsDBNull(23)
+            ? null
+            : DateTimeOffset.Parse(reader.GetString(23));
+        var wikidataStatus = reader.IsDBNull(24)
+            ? WikidataLinkStatus.Pending
+            : AggregateStateSerializer.ParseWikidataLinkStatus(reader.GetString(24));
+        DateTimeOffset? wikidataCheckedAt = reader.IsDBNull(25)
+            ? null
+            : DateTimeOffset.Parse(reader.GetString(25));
+        var wikidataQid = reader.IsDBNull(26) ? null : reader.GetString(26);
         var work = new Work
         {
             Id = workId,
             CollectionId = collection.Id,
             MediaType = Enum.Parse<MediaType>(reader.GetString(20), ignoreCase: true),
             Ordinal = reader.IsDBNull(21) ? null : reader.GetInt32(21),
-            UniverseMismatch = !reader.IsDBNull(22) && reader.GetInt32(22) == 1,
-            UniverseMismatchAt = reader.IsDBNull(23) ? null : DateTimeOffset.Parse(reader.GetString(23)),
-            WikidataStatus = reader.IsDBNull(24) ? "pending" : reader.GetString(24),
-            WikidataCheckedAt = reader.IsDBNull(25) ? null : DateTimeOffset.Parse(reader.GetString(25)),
-            WikidataQid = reader.IsDBNull(26) ? null : reader.GetString(26),
         };
+        work.RestoreWikidataState(
+            wikidataQid,
+            wikidataStatus,
+            WorkMatchLevel.Work,
+            wikidataCheckedAt,
+            universeMismatch,
+            universeMismatchAt);
         works[workId] = work;
         collection.AddWork(work);
     }
@@ -594,25 +619,25 @@ public sealed class CollectionRepository : ICollectionRepository
                 phid = collection.ParentCollectionId,
                 dn   = collection.DisplayName,
                 ca   = collection.CreatedAt.ToString("O"),
-                us   = collection.UniverseStatus ?? "Unknown",
+                us   = collection.UniverseStatus.ToStorageValue(),
                 wqid = collection.WikidataQid,
-                ht   = collection.CollectionType ?? "Universe",
+                ht   = collection.CollectionType.ToStorageValue(),
                 desc = collection.Description,
                 icon = collection.IconName,
                 squareArtworkPath = collection.SquareArtworkPath,
                 squareArtworkMimeType = collection.SquareArtworkMimeType,
-                scope = collection.Scope ?? "library",
+                scope = collection.Scope.ToStorageValue(),
                 pid  = collection.ProfileId,
                 enabled = collection.IsEnabled ? 1 : 0,
                 featured = collection.IsFeatured ? 1 : 0,
                 minItems = collection.MinItems,
                 ruleJson = collection.RuleJson,
-                resolution = collection.Resolution ?? "query",
+                resolution = collection.Resolution.ToStorageValue(),
                 ruleHash = collection.RuleHash,
                 groupByField = collection.GroupByField,
-                matchMode = collection.MatchMode ?? "all",
+                matchMode = collection.MatchMode.ToStorageValue(),
                 sortField = collection.SortField,
-                sortDirection = collection.SortDirection ?? "desc",
+                sortDirection = collection.SortDirection.ToStorageValue(),
                 liveUpdating = collection.LiveUpdating ? 1 : 0,
             });
 

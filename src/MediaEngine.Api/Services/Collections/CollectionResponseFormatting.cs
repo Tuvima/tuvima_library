@@ -7,6 +7,7 @@ using MediaEngine.Contracts.Collections;
 using WorkDto = MediaEngine.Contracts.Collections.WorkDto;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
@@ -54,9 +55,9 @@ public static class CollectionResponseFormatting
     }
 
     public static bool IsGeneratedSeriesCollection(Collection collection)
-        => string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "Series", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(collection.CollectionType, "ContentGroup", StringComparison.OrdinalIgnoreCase);
+        => collection.CollectionType is CollectionType.Universe
+            or CollectionType.Series
+            or CollectionType.ContentGroup;
 
     public sealed class CollectionArtworkItemRow
     {

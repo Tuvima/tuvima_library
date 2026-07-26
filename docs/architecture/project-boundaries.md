@@ -36,6 +36,15 @@ those same methods, or an explicitly named hydration helper if bulk loading ever
 requires one. Do not make Domain depend on serialization, Dapper, SQLite, HTTP,
 or UI concerns to support persistence.
 
+Aggregate lifecycle state is typed in Domain. `Work` identity uses
+`WikidataLinkStatus` and `WorkMatchLevel`; collection definition state uses
+`CollectionType`, `CollectionScope`, `CollectionResolution`,
+`CollectionMatchMode`, `CollectionSortDirection`, and
+`CollectionUniverseStatus`. Their setters are private. New identity decisions
+use `Work.LinkToWikidata`, while repositories use the explicitly named restore
+methods. `AggregateStateSerializer` is the only conversion point for the stable
+SQLite/API string values; unknown persisted values fail fast.
+
 Endpoint methods should stay thin: validate route/query/body inputs, call a service or query object, and return HTTP results. SQL, row mapping, and fallback query rules belong in Storage or clearly named API read services.
 
 Concrete persistence types use the `Repository` suffix and live in Storage.

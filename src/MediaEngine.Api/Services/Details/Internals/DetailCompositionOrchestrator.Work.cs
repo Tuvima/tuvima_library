@@ -1,0 +1,354 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using Dapper;
+using MediaEngine.Api.Endpoints;
+using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.Display;
+using MediaEngine.Api.Services.Playback;
+using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Collections;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Persons;
+using MediaEngine.Domain;
+using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
+using MediaEngine.Storage;
+using MediaEngine.Storage.Contracts;
+using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using static MediaEngine.Api.Services.Details.Internals.DetailViewModelBuilder;
+
+namespace MediaEngine.Api.Services.Details.Internals;
+
+internal sealed partial class DetailCompositionOrchestrator
+{
+    private async Task<DetailPageViewModel?> BuildWorkAsync(
+        Guid workId,
+        DetailEntityType requestedType,
+        DetailPresentationContext context,
+        bool isAdminView,
+        string? selectedContainerId,
+        IReadOnlySet<Guid> favoriteWorkIds,
+        Guid? profileId,
+        CancellationToken ct)
+    {
+        var detail = await _libraryItems.GetDetailAsync(workId, ct);
+        if (detail is null)
+        {
+            return null;
+        }
+
+        var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
+        var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
+        var values = await LoadWorkCanonicalMapAsync(workId, detail, ct);
+        var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
+        var multiFormatState = ownedFormats.Count > 1
+            ? MultiFormatState.MultipleFormatsSeparateProgress
+            : MultiFormatState.SingleFormat;
+        var ownedCoverUrls = ownedFormats
+            .Select(f => f.CoverUrl)
+            .Where(url => !string.IsNullOrWhiteSpace(url))
+            .Cast<string>()
+            .ToList();
+        var foregroundArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,
+            ownedCoverUrls.FirstOrDefault(),
+            detail.CoverUrl,
+            GetValue(values, "cover_url"),
+            GetValue(values, "cover"),
+            GetValue(values, "poster_url"),
+            GetValue(values, "poster"),
+            artworkFallback.CoverUrl,
+            artworkFallback.SquareUrl);
+        var backdropUrl = entityType == DetailEntityType.TvEpisode
+            ? StringHelpers.FirstNonBlankOr(string.Empty,
+                artworkFallback.BackgroundUrl,
+                detail.BackgroundUrl,
+                detail.HeroUrl)
+            : StringHelpers.FirstNonBlankOr(string.Empty,
+                detail.BackgroundUrl,
+                detail.HeroUrl,
+                artworkFallback.BackgroundUrl);
+        var bannerUrl = StringHelpers.FirstNonBlankOr(string.Empty, detail.BannerUrl, artworkFallback.BannerUrl);
+
+        var artwork = BuildArtwork(
+            entityType,
+            backdropUrl,
+            bannerUrl,
+            foregroundArtworkUrl,
+            foregroundArtworkUrl,
+            null,
+            values,
+            ownedCoverUrls,
+            ownedFormats.Count,
+            detail.ArtworkSource);
+
+        var contributors = await BuildWorkContributorsAsync(workId, detail, entityType, ct);
+        var characters = BuildCharacterGroupsFromCast(contributors.CastCredits);
+        var contributorGroups = await BuildContributorGroupsAsync(workId, detail, entityType, contributors.CastCredits, values, ct);
+        var managedCurrentArtworkUrl = await _reader.LoadManagedWorkCoverUrlAsync(
+                workId,
+                entityType,
+                foregroundArtworkUrl,
+                ct)
+            ?? ownedCoverUrls.FirstOrDefault(IsManagedArtworkUrl);
+        SequencePlacementViewModel? sequencePlacement = null;
+        if (entityType == DetailEntityType.TvEpisode
+            && Guid.TryParse(selectedContainerId, out var showId))
+        {
+            sequencePlacement = (await BuildCollectionAsync(
+                showId,
+                DetailEntityType.TvShow,
+                context,
+                isAdminView,
+                favoriteWorkIds,
+                ct,
+                workId,
+                profileId))?.SequencePlacement;
+        }
+
+        sequencePlacement ??= await BuildSequencePlacementAsync(
+            workId,
+            detail,
+            entityType,
+            selectedContainerId,
+            managedCurrentArtworkUrl,
+            ct);
+        var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
+        var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
+            ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
+        var descriptionSelection = ResolveLongDescription(detail, values, entityType);
+        var longDescription = descriptionSelection.Text;
+        var heroSummary = BuildHeroSummary(values);
+        var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
+        var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
+        var displayDescription = ResolveDisplayOverride(displayOverrides, "description");
+        var displayTagline = ResolveDisplayOverride(displayOverrides, "tagline");
+        var descriptionAttribution = displayDescription is null
+            ? BuildDescriptionAttribution(descriptionSelection, detail, values)
+            : BuildLocalDescriptionAttribution();
+        var relationships = BuildRelationshipStrip(detail, sequencePlacement);
+
+        return new DetailPageViewModel
+        {
+            Id = workId.ToString("D"),
+            EntityType = entityType,
+            PresentationContext = context,
+            EditorTarget = new DetailEditorTarget
+            {
+                EntityId = workId.ToString("D"),
+                EntityKind = "Work",
+                ContainerMode = IsCanonicalContainerEntity(entityType) ? "Canonical" : "Singular",
+                InitialTab = "details",
+            },
+            Title = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType),
+            Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
+            Tagline = displayTagline ?? heroSummary,
+            Description = displayDescription ?? longDescription,
+            DescriptionAttribution = descriptionAttribution,
+            SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement, values),
+            Facts = BuildWorkFacts(detail, entityType, values, contributorGroups),
+            Artwork = artwork,
+            HeroBrand = BuildHeroBrand(
+                entityType,
+                StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
+            Progress = heroProgress,
+            OwnedFormats = ownedFormats,
+            MultiFormatState = multiFormatState,
+            SyncCapability = BuildSyncCapability(workId, ownedFormats, multiFormatState),
+            SequencePlacement = sequencePlacement,
+            Metadata = BuildMetadataPills(detail, entityType, values, ownedFormats),
+            PrimaryActions = BuildPrimaryActions(
+                workId,
+                entityType,
+                context,
+                ownedFormats,
+                heroProgress,
+                FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)),
+            SecondaryActions = BuildSecondaryActions(workId, entityType, favoriteWorkIds.Contains(workId), ownedFormats),
+            OverflowActions = BuildOverflowActions(workId, entityType, isAdminView),
+            ContributorGroups = contributorGroups,
+            PreviewContributors = BuildPreviewContributors(entityType, contributorGroups),
+            CharacterGroups = characters,
+            PreviewCharacters = characters.SelectMany(g => g.Characters).Take(12).ToList(),
+            RelationshipStrip = relationships,
+            Tabs = BuildTabs(
+                entityType,
+                context,
+                isAdminView,
+                sequencePlacement is not null,
+                HasUniverseRelationship(relationships),
+                HasChapterGroup(mediaGroups)),
+            MediaGroups = mediaGroups,
+            PrimaryModule = BuildPrimaryModule(entityType, sequencePlacement, mediaGroups),
+            IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
+            LibraryStatus = LibraryStatus.Owned,
+            IsAdminView = isAdminView,
+        };
+    }
+
+    private async Task<DetailPageViewModel?> BuildBookSeriesAsync(
+        Guid seriesId,
+        DetailPresentationContext context,
+        bool isAdminView,
+        IReadOnlySet<Guid> favoriteWorkIds,
+        Guid? profileId,
+        CancellationToken ct)
+    {
+        var canonicalSeries = await BuildCollectionAsync(
+            seriesId,
+            DetailEntityType.BookSeries,
+            context,
+            isAdminView,
+            favoriteWorkIds,
+            ct,
+            profileId: profileId);
+        if (canonicalSeries is not null || _collectionBrowse is null)
+        {
+            return canonicalSeries;
+        }
+
+        var groups = await _collectionBrowse.GetSystemViewGroupsAsync("Books", "series", ct).ConfigureAwait(false);
+        var group = groups.FirstOrDefault(candidate =>
+            SystemViewGroupIdentity.CreateId(candidate, "Books", "series") == seriesId);
+        if (group is null || group.PreviewItems.Count == 0)
+        {
+            return null;
+        }
+
+        DetailPageViewModel? seedDetail = null;
+        foreach (var preview in group.PreviewItems)
+        {
+            seedDetail = await BuildWorkAsync(
+                preview.WorkId,
+                DetailEntityType.Book,
+                context,
+                isAdminView,
+                selectedContainerId: null,
+                favoriteWorkIds: favoriteWorkIds,
+                profileId: profileId,
+                ct: ct);
+            if (seedDetail is not null)
+            {
+                break;
+            }
+        }
+
+        if (seedDetail is null)
+        {
+            return null;
+        }
+
+        var placement = seedDetail.SequencePlacement;
+        var seriesTitle = FormatSequenceContainerTitle(placement?.ContainerTitle)
+            ?? FormatSequenceContainerTitle(group.DisplayName)
+            ?? group.DisplayName;
+        var ownedItems = group.PreviewItems
+            .DistinctBy(item => item.WorkId)
+            .Select(item => new MediaGroupingItemViewModel
+            {
+                Id = item.WorkId.ToString("D"),
+                EntityType = DetailEntityType.Book,
+                Title = item.Title,
+                ArtworkUrl = item.ImageUrl,
+                IsOwned = true,
+                Actions =
+                [
+                    new DetailAction
+                    {
+                        Key = "open",
+                        Label = "Open",
+                        Route = $"/book/{item.WorkId:D}?mode=read",
+                    },
+                ],
+            })
+            .ToList();
+        var knownItems = placement?.OrderedItems.Count ?? ownedItems.Count;
+        var hasMissingItems = placement?.OrderedItems.Any(item => !item.IsOwned) == true;
+        var description = placement?.ContainerDescription;
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            description = ownedItems.Count == 1
+                ? $"1 book from {seriesTitle} is in your library."
+                : $"{ownedItems.Count} books from {seriesTitle} are in your library.";
+        }
+
+        return new DetailPageViewModel
+        {
+            Id = seriesId.ToString("D"),
+            EntityType = DetailEntityType.BookSeries,
+            PresentationContext = context,
+            Title = seriesTitle,
+            Subtitle = group.Creator ?? seedDetail.Facts?.Authors.FirstOrDefault(),
+            Tagline = knownItems > ownedItems.Count
+                ? $"{ownedItems.Count} of {knownItems} known entries owned"
+                : $"{ownedItems.Count} owned {(ownedItems.Count == 1 ? "book" : "books")}",
+            Description = description,
+            Facts = new DetailFactsViewModel
+            {
+                MediaKind = "Book Series",
+                Year = group.Year,
+                Genres = seedDetail.Facts?.Genres ?? [],
+                Authors = seedDetail.Facts?.Authors ?? [],
+                Series = seriesTitle,
+            },
+            Artwork = BuildArtwork(
+                DetailEntityType.BookSeries,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Dictionary<string, string>(),
+                ownedItems.Select(item => item.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().ToList(),
+                0,
+                null),
+            SequencePlacement = placement,
+            Metadata =
+            [
+                new MetadataPill
+                {
+                    Label = $"{ownedItems.Count} owned",
+                    Kind = "count",
+                },
+            ],
+            PrimaryActions = BuildCollectionActions(seriesId, DetailEntityType.BookSeries, context, null, []),
+            OverflowActions = BuildOverflowActions(seriesId, DetailEntityType.BookSeries, isAdminView),
+            ContributorGroups = seedDetail.ContributorGroups,
+            PreviewContributors = seedDetail.PreviewContributors,
+            Tabs = BuildTabs(
+                DetailEntityType.BookSeries,
+                context,
+                isAdminView,
+                placement is not null,
+                hasUniverse: false,
+                hasChapters: false),
+            PrimaryModule = BuildPrimaryModule(DetailEntityType.BookSeries, placement, []),
+            MediaGroups =
+            [
+                new MediaGroupingViewModel
+                {
+                    Key = "owned-books",
+                    Title = "Books in your library",
+                    Items = ownedItems,
+                    OwnedCount = ownedItems.Count,
+                    TotalCount = Math.Max(knownItems, ownedItems.Count),
+                    MissingCount = Math.Max(0, knownItems - ownedItems.Count),
+                    CompletionPercent = knownItems <= 0 ? 0 : ownedItems.Count * 100d / knownItems,
+                },
+            ],
+            IdentityStatus = seedDetail.IdentityStatus,
+            LibraryStatus = hasMissingItems ? LibraryStatus.PartiallyOwned : LibraryStatus.Owned,
+            IsAdminView = isAdminView,
+        };
+    }
+
+}

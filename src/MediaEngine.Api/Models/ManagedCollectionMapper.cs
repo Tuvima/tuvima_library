@@ -1,5 +1,6 @@
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Api.Models;
@@ -20,19 +21,19 @@ internal static class ManagedCollectionMapper
             : activeProfile is null
                 ? $"/collections/{collection.Id}/square-artwork"
                 : $"/collections/{collection.Id}/square-artwork?profileId={activeProfile.Id:D}",
-        CollectionType = collection.CollectionType,
-        Scope = collection.Scope,
+        CollectionType = collection.CollectionType.ToStorageValue(),
+        Scope = collection.Scope.ToStorageValue(),
         ProfileId = collection.ProfileId,
         Visibility = CollectionAccessPolicy.ResolveVisibility(collection),
         IsEnabled = collection.IsEnabled,
         IsFeatured = collection.IsFeatured,
         MinItems = collection.MinItems,
         RuleJson = collection.RuleJson,
-        Resolution = collection.Resolution,
+        Resolution = collection.Resolution.ToStorageValue(),
         RuleHash = collection.RuleHash,
-        MatchMode = collection.MatchMode,
+        MatchMode = collection.MatchMode.ToStorageValue(),
         SortField = collection.SortField,
-        SortDirection = collection.SortDirection,
+        SortDirection = collection.SortDirection.ToStorageValue(),
         LiveUpdating = collection.LiveUpdating,
         RefreshSchedule = collection.RefreshSchedule,
         ItemCount = itemCount,

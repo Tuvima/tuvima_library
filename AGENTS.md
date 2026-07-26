@@ -152,7 +152,7 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 - Keep `BoundaryContractGuardrailTests`, `WireContractSnapshotTests`, and
   focused contract shape/round-trip tests as ratchets. New boundary debt and a
   growing frozen exception are build failures.
-- Domain aggregates expose child collections and property bags as read-only views. Mutate them through explicit aggregate methods, and keep repository hydration explicit instead of making aggregate internals public again.
+- Domain aggregates expose child collections, property bags, and lifecycle state as read-only views. Mutate them through explicit aggregate methods (`Work.LinkToWikidata`, `Collection.SetVisibility`, `Collection.ChangeResolution`, and the named child methods), and keep repository hydration explicit instead of making aggregate internals public again. Persisted aggregate enums convert only through `AggregateStateSerializer`; unknown values fail fast.
 - Razor components must not contain direct SQL. API endpoints should move SQL-heavy behavior into repositories/read services when touched.
 - When product concepts, navigation, editing flows, database lifecycle, Docker startup, or CI checks change, update README/docs/AGENTS/CLAUDE and relevant `.agent` guidance in the same change.
 - Every Dashboard code change requires visual validation of each affected surface at a representative desktop viewport (including 1920×1080 when layout scale is involved) in addition to automated tests. Capture the rendered state before and after changes when correcting a visual regression, and verify that responsive or lower-height rules do not override the intended desktop result.

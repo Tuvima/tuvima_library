@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Domain.Aggregates;
 
@@ -71,7 +72,7 @@ public sealed class Collection
     /// Unknown = not yet checked (default for new/pre-existing collections).
     /// Tracked in DB and sidecar XML for filtering and scheduled refresh.
     /// </summary>
-    public string UniverseStatus { get; set; } = "Unknown";
+    public CollectionUniverseStatus UniverseStatus { get; private set; } = CollectionUniverseStatus.Unknown;
 
     /// <summary>
     /// Optional reference to a parent Collection that represents a franchise or creative universe.
@@ -84,7 +85,7 @@ public sealed class Collection
     /// The type of collection container: Universe, Smart, System, Mix, Playlist, Genre, Author, Collection, or Custom.
     /// Defaults to "Universe" for broad story-world rollups.
     /// </summary>
-    public string CollectionType { get; set; } = "Universe";
+    public CollectionType CollectionType { get; private set; } = CollectionType.Universe;
 
     /// <summary>Plain-text description or rule summary for display.</summary>
     public string? Description { get; set; }
@@ -99,7 +100,7 @@ public sealed class Collection
     public string? SquareArtworkMimeType { get; set; }
 
     /// <summary>"library" for library-scoped collections, "user" for per-profile collections.</summary>
-    public string Scope { get; set; } = "library";
+    public CollectionScope Scope { get; private set; } = CollectionScope.Library;
 
     /// <summary>Owner profile. Null = library-scoped (shared).</summary>
     public Guid? ProfileId { get; set; }
@@ -117,7 +118,7 @@ public sealed class Collection
     public string? RuleJson { get; set; }
 
     /// <summary>How items are resolved: "query" (evaluate rules at display time) or "materialized" (pre-assigned).</summary>
-    public string Resolution { get; set; } = "query";
+    public CollectionResolution Resolution { get; private set; } = CollectionResolution.Query;
 
     /// <summary>SHA-256 hash of normalized RuleJson for deduplication.</summary>
     public string? RuleHash { get; set; }
@@ -126,13 +127,13 @@ public sealed class Collection
     public string? GroupByField { get; set; }
 
     /// <summary>Rule match mode: "all" (AND) or "any" (OR).</summary>
-    public string MatchMode { get; set; } = "all";
+    public CollectionMatchMode MatchMode { get; private set; } = CollectionMatchMode.All;
 
     /// <summary>Default sort field for collection results.</summary>
     public string? SortField { get; set; }
 
     /// <summary>Sort direction: "asc" or "desc".</summary>
-    public string SortDirection { get; set; } = "desc";
+    public CollectionSortDirection SortDirection { get; private set; } = CollectionSortDirection.Desc;
 
     /// <summary>Whether query-resolved results auto-refresh when library changes.</summary>
     public bool LiveUpdating { get; set; } = true;
@@ -169,6 +170,50 @@ public sealed class Collection
     /// Not loaded by default — requires explicit query.
     /// </summary>
     public IReadOnlyList<Collection> ChildCollections => _childCollectionsView;
+
+    public void RestoreDefinition(
+        CollectionType collectionType,
+        CollectionScope scope,
+        CollectionResolution resolution,
+        CollectionMatchMode matchMode,
+        CollectionSortDirection sortDirection,
+        CollectionUniverseStatus universeStatus)
+    {
+        CollectionType = collectionType;
+        Scope = scope;
+        Resolution = resolution;
+        MatchMode = matchMode;
+        SortDirection = sortDirection;
+        UniverseStatus = universeStatus;
+    }
+
+    public void ClassifyAs(CollectionType collectionType) =>
+        CollectionType = collectionType;
+
+    public void SetVisibility(CollectionScope scope, Guid? profileId)
+    {
+        if (scope == CollectionScope.User && profileId is null)
+        {
+            throw new ArgumentException("A user-scoped collection requires an owner profile.", nameof(profileId));
+        }
+
+        Scope = scope;
+        ProfileId = scope == CollectionScope.Library ? null : profileId;
+    }
+
+    public void ChangeResolution(CollectionResolution resolution) =>
+        Resolution = resolution;
+
+    public void ChangeRuleOrdering(
+        CollectionMatchMode matchMode,
+        CollectionSortDirection sortDirection)
+    {
+        MatchMode = matchMode;
+        SortDirection = sortDirection;
+    }
+
+    public void RecordUniverseCoverage(CollectionUniverseStatus status) =>
+        UniverseStatus = status;
 
     public void AddWork(Work work)
     {

@@ -85,7 +85,7 @@ public sealed class CollectionEndpointRouteTests
         var browseSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionBrowseReadService.cs"));
         var lookupSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));
         var detailsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\DetailEndpoints.cs"));
-        var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Details\DetailComposerService.cs"));
+        var composerSource = ReadDetailComposerSource();
         var watchPageSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchTvShowPage.razor"));
         var detailRouteRequestSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Details\DetailRouteRequest.cs"));
 
@@ -186,8 +186,8 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("\"reading-list\" => \"Read\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldIncludeInManagementCatalog", source, StringComparison.Ordinal);
         Assert.Contains("IsPlaylistCatalogCollection(collection)", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionTypeNames.PlaylistFolder", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionTypeNames.Smart", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionType.PlaylistFolder", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionType.Smart", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogCandidate", source, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogAggregation(collection)", source, StringComparison.Ordinal);
         Assert.Contains("fictional_universe", source, StringComparison.Ordinal);
@@ -243,4 +243,19 @@ public sealed class CollectionEndpointRouteTests
 
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+
+    private static string ReadDetailComposerSource()
+    {
+        var detailsRoot = Path.GetDirectoryName(
+            GetRepoFilePath(@"src\MediaEngine.Api\Services\Details\DetailComposerService.cs"))!;
+        return string.Join(
+            "\n",
+            new[] { Path.Combine(detailsRoot, "DetailComposerService.cs") }
+                .Concat(Directory.EnumerateFiles(
+                    Path.Combine(detailsRoot, "Internals"),
+                    "*.cs",
+                    SearchOption.TopDirectoryOnly))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(File.ReadAllText));
+    }
 }

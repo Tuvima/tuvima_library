@@ -1,5 +1,7 @@
 using System.Data;
 using Dapper;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Storage;
 
@@ -21,10 +23,42 @@ public static class DapperConfiguration
         SqlMapper.AddTypeHandler(new DateTimeOffsetTypeHandler());
         SqlMapper.AddTypeHandler(new NullableGuidTypeHandler());
         SqlMapper.AddTypeHandler(new NullableDateTimeOffsetTypeHandler());
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<WikidataLinkStatus>(
+            AggregateStateSerializer.ParseWikidataLinkStatus,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<WorkMatchLevel>(
+            AggregateStateSerializer.ParseWorkMatchLevel,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<CollectionType>(
+            AggregateStateSerializer.ParseCollectionType,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<CollectionScope>(
+            AggregateStateSerializer.ParseCollectionScope,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<CollectionResolution>(
+            AggregateStateSerializer.ParseCollectionResolution,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<CollectionMatchMode>(
+            AggregateStateSerializer.ParseCollectionMatchMode,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<CollectionSortDirection>(
+            AggregateStateSerializer.ParseCollectionSortDirection,
+            AggregateStateSerializer.ToStorageValue));
+        SqlMapper.AddTypeHandler(new EnumTextTypeHandler<CollectionUniverseStatus>(
+            AggregateStateSerializer.ParseCollectionUniverseStatus,
+            AggregateStateSerializer.ToStorageValue));
 
         // Force Guid values through the custom BLOB handler.
         SqlMapper.RemoveTypeMap(typeof(Guid));
         SqlMapper.RemoveTypeMap(typeof(Guid?));
+        SqlMapper.RemoveTypeMap(typeof(WikidataLinkStatus));
+        SqlMapper.RemoveTypeMap(typeof(WorkMatchLevel));
+        SqlMapper.RemoveTypeMap(typeof(CollectionType));
+        SqlMapper.RemoveTypeMap(typeof(CollectionScope));
+        SqlMapper.RemoveTypeMap(typeof(CollectionResolution));
+        SqlMapper.RemoveTypeMap(typeof(CollectionMatchMode));
+        SqlMapper.RemoveTypeMap(typeof(CollectionSortDirection));
+        SqlMapper.RemoveTypeMap(typeof(CollectionUniverseStatus));
 
         _configured = true;
     }
@@ -78,6 +112,23 @@ public static class DapperConfiguration
         {
             parameter.DbType = DbType.String;
             parameter.Value  = value.HasValue ? value.Value.ToString("o") : DBNull.Value;
+        }
+    }
+
+    private sealed class EnumTextTypeHandler<TEnum>(
+        Func<string, TEnum> parse,
+        Func<TEnum, string> serialize) : SqlMapper.TypeHandler<TEnum>
+        where TEnum : struct, Enum
+    {
+        public override TEnum Parse(object value) =>
+            parse(value as string
+                ?? throw new InvalidOperationException(
+                    $"Expected TEXT storage for {typeof(TEnum).Name}, received {value.GetType().Name}."));
+
+        public override void SetValue(IDbDataParameter parameter, TEnum value)
+        {
+            parameter.DbType = DbType.String;
+            parameter.Value = serialize(value);
         }
     }
 }

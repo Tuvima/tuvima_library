@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Logging;
@@ -142,11 +143,15 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
             Id = Guid.NewGuid(),
             DisplayName = label,
             CreatedAt = DateTimeOffset.UtcNow,
-            UniverseStatus = CollectionUniverseStatusNames.Unknown,
-            CollectionType = CollectionTypeNames.Universe,
-            Resolution = CollectionResolutionNames.Materialized,
             WikidataQid = qid,
         };
+        parentCollection.RestoreDefinition(
+            CollectionType.Universe,
+            CollectionScope.Library,
+            CollectionResolution.Materialized,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Desc,
+            CollectionUniverseStatus.Unknown);
 
         await _collectionRepo.UpsertAsync(parentCollection, ct).ConfigureAwait(false);
 

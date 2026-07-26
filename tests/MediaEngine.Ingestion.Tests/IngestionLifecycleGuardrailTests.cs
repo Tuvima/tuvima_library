@@ -5,7 +5,7 @@ public sealed class IngestionLifecycleGuardrailTests
     [Fact]
     public void IngestionEngine_ReusesTrackedOperationsBeforeCreatingBatches()
     {
-        var source = ReadRepoSource(@"src\MediaEngine.Ingestion\IngestionEngine.cs");
+        var source = ReadIngestionEngineSource();
         var contract = ReadRepoSource(@"src\MediaEngine.Domain\Contracts\IMediaOperationRepository.cs");
         var watcher = ReadRepoSource(@"src\MediaEngine.Ingestion\FileWatcher.cs");
 
@@ -49,5 +49,30 @@ public sealed class IngestionLifecycleGuardrailTests
 
         var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
         return File.ReadAllText(Path.Combine(root, relativePath));
+    }
+
+    private static string ReadIngestionEngineSource()
+    {
+        var enginePath = FindRepoFile(@"src\MediaEngine.Ingestion\IngestionEngine.cs");
+        return string.Join(
+            Environment.NewLine,
+            Directory.EnumerateFiles(
+                    Path.GetDirectoryName(enginePath)!,
+                    "IngestionEngine*.cs",
+                    SearchOption.TopDirectoryOnly)
+                .OrderBy(file => file, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
+    }
+
+    private static string FindRepoFile(
+        string relativePath,
+        [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")
+    {
+        var directory = new DirectoryInfo(Path.GetDirectoryName(sourceFile)!);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+            directory = directory.Parent;
+
+        var root = directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+        return Path.Combine(root, relativePath);
     }
 }

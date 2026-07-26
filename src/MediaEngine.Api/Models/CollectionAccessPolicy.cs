@@ -14,7 +14,7 @@ public static class CollectionAccessPolicy
             : PrivateVisibility;
 
     public static string ResolveVisibility(Collection collection) =>
-        string.Equals(collection.Scope, "library", StringComparison.OrdinalIgnoreCase)
+        collection.Scope == CollectionScope.Library
             ? SharedVisibility
             : PrivateVisibility;
 
@@ -23,11 +23,11 @@ public static class CollectionAccessPolicy
 
     public static bool CanAccess(Collection collection, Profile? activeProfile)
     {
-        if (string.Equals(collection.Scope, "library", StringComparison.OrdinalIgnoreCase))
+        if (collection.Scope == CollectionScope.Library)
             return true;
 
         return activeProfile is not null
-            && string.Equals(collection.Scope, "user", StringComparison.OrdinalIgnoreCase)
+            && collection.Scope == CollectionScope.User
             && collection.ProfileId == activeProfile.Id;
     }
 
@@ -36,12 +36,18 @@ public static class CollectionAccessPolicy
         if (activeProfile is null)
             return false;
 
-        if (string.Equals(collection.Scope, "library", StringComparison.OrdinalIgnoreCase))
+        if (collection.Scope == CollectionScope.Library)
             return CanManageSharedCollections(activeProfile);
 
-        return string.Equals(collection.Scope, "user", StringComparison.OrdinalIgnoreCase)
+        return collection.Scope == CollectionScope.User
             && collection.ProfileId == activeProfile.Id;
     }
+
+    public static bool IsManagedCollectionType(CollectionType collectionType) =>
+        collectionType is CollectionType.Custom
+            or CollectionType.Playlist
+            or CollectionType.Smart
+            or CollectionType.PlaylistFolder;
 
     public static bool IsManagedCollectionType(string collectionType) =>
         string.Equals(collectionType, "Custom", StringComparison.OrdinalIgnoreCase)
@@ -53,12 +59,10 @@ public static class CollectionAccessPolicy
     {
         if (string.Equals(visibility, SharedVisibility, StringComparison.OrdinalIgnoreCase))
         {
-            collection.Scope = "library";
-            collection.ProfileId = null;
+            collection.SetVisibility(CollectionScope.Library, profileId: null);
             return;
         }
 
-        collection.Scope = "user";
-        collection.ProfileId = activeProfileId;
+        collection.SetVisibility(CollectionScope.User, activeProfileId);
     }
 }

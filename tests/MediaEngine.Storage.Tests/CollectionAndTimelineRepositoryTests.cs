@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Enums;
 using Microsoft.Data.Sqlite;
 
 namespace MediaEngine.Storage.Tests;
@@ -126,15 +127,23 @@ public sealed class CollectionAndTimelineRepositoryTests : IDisposable
             () => timeline.GetEventsByEntityAsync(Guid.NewGuid(), source.Token));
     }
 
-    private static Collection CreateCollection(string displayName) => new()
+    private static Collection CreateCollection(string displayName)
     {
-        Id = Guid.NewGuid(),
-        DisplayName = displayName,
-        CreatedAt = DateTimeOffset.UtcNow,
-        UniverseStatus = "Unknown",
-        CollectionType = "ContentGroup",
-        Resolution = "materialized",
-    };
+        var collection = new Collection
+        {
+            Id = Guid.NewGuid(),
+            DisplayName = displayName,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        collection.RestoreDefinition(
+            CollectionType.ContentGroup,
+            CollectionScope.Library,
+            CollectionResolution.Materialized,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Desc,
+            CollectionUniverseStatus.Unknown);
+        return collection;
+    }
 
     private Guid InsertWork(Guid collectionId, string mediaType, int ordinal)
     {

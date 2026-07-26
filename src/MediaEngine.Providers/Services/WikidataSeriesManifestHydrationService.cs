@@ -766,15 +766,17 @@ public sealed class WikidataSeriesManifestHydrationService
             Id = Guid.NewGuid(),
             DisplayName = string.IsNullOrWhiteSpace(label) ? seriesQid : label,
             WikidataQid = seriesQid,
-            CollectionType = "ContentGroup",
-            Resolution = "materialized",
-            Scope = "library",
-            UniverseStatus = "Unknown",
             IconName = "collections_bookmark",
             CreatedAt = DateTimeOffset.UtcNow,
             SortField = "sort_order",
-            SortDirection = "asc",
         };
+        collection.RestoreDefinition(
+            CollectionType.ContentGroup,
+            CollectionScope.Library,
+            CollectionResolution.Materialized,
+            CollectionMatchMode.All,
+            CollectionSortDirection.Asc,
+            CollectionUniverseStatus.Unknown);
 
         await _collectionRepo.UpsertAsync(collection, ct).ConfigureAwait(false);
         return collection;

@@ -105,7 +105,7 @@ public sealed class CollectionAssignmentServiceTests
     public void CollectionFinalization_IsSharedByQidAndRetainedRetailPaths()
     {
         var quickHydration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));
-        var wikidataBridge = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\WikidataBridgeWorker.cs"));
+        var wikidataBridge = ReadWorkerSource("WikidataBridgeWorker");
         var finalizer = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\CollectionFinalizationService.cs"));
 
         Assert.Contains("CollectionFinalizationService", quickHydration, StringComparison.Ordinal);
@@ -119,7 +119,7 @@ public sealed class CollectionAssignmentServiceTests
     [Fact]
     public void TmdbAdapter_AddsMovieCollectionClaimsForWatchShelves()
     {
-        var adapter = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Adapters\ConfigDrivenAdapter.cs"));
+        var adapter = ReadAdapterSource("ConfigDrivenAdapter");
         var config = File.ReadAllText(GetRepoFilePath(@"config\providers\tmdb.json"));
 
         Assert.Contains("AddTmdbMovieCollectionClaims", adapter, StringComparison.Ordinal);
@@ -414,4 +414,30 @@ public sealed class CollectionAssignmentServiceTests
 
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+
+    private static string ReadAdapterSource(string adapterName)
+    {
+        var facade = GetRepoFilePath($@"src\MediaEngine.Providers\Adapters\{adapterName}.cs");
+        var internals = GetRepoFilePath(@"src\MediaEngine.Providers\Adapters\Internals");
+        return string.Join(
+            Environment.NewLine,
+            new[] { facade }
+                .Concat(Directory
+                    .GetFiles(internals, $"{adapterName}.*.cs")
+                    .Order(StringComparer.Ordinal))
+                .Select(File.ReadAllText));
+    }
+
+    private static string ReadWorkerSource(string workerName)
+    {
+        var facade = GetRepoFilePath($@"src\MediaEngine.Providers\Workers\{workerName}.cs");
+        var internals = GetRepoFilePath(@"src\MediaEngine.Providers\Workers\Internals");
+        return string.Join(
+            Environment.NewLine,
+            new[] { facade }
+                .Concat(Directory
+                    .GetFiles(internals, $"{workerName}.*.cs")
+                    .Order(StringComparer.Ordinal))
+                .Select(File.ReadAllText));
+    }
 }

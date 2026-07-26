@@ -18,7 +18,7 @@ public class AggregateTests
         Assert.Equal(Guid.Empty, collection.Id);
         Assert.Null(collection.UniverseId);
         Assert.Null(collection.DisplayName);
-        Assert.Equal("Unknown", collection.UniverseStatus);
+        Assert.Equal(CollectionUniverseStatus.Unknown, collection.UniverseStatus);
         Assert.Empty(collection.Works);
         Assert.Empty(collection.Relationships);
     }
@@ -75,7 +75,7 @@ public class AggregateTests
         Assert.Empty(work.ExternalIdentifiers);
         Assert.False(work.UniverseMismatch);
         Assert.Null(work.UniverseMismatchAt);
-        Assert.Equal("pending", work.WikidataStatus);
+        Assert.Equal(WikidataLinkStatus.Pending, work.WikidataStatus);
         Assert.Empty(work.Editions);
         Assert.Empty(work.MetadataClaims);
         Assert.Empty(work.CanonicalValues);
@@ -98,16 +98,18 @@ public class AggregateTests
     public void Work_UniverseMismatch_TracksTimestamp()
     {
         var now = DateTimeOffset.UtcNow;
-        var work = new Work
-        {
-            UniverseMismatch = true,
-            UniverseMismatchAt = now,
-            WikidataStatus = "skipped",
-        };
+        var work = new Work();
+        work.RecordWikidataState(
+            qid: null,
+            WikidataLinkStatus.Skipped,
+            WorkMatchLevel.Work,
+            checkedAt: now,
+            universeMismatch: true,
+            universeMismatchAt: now);
 
         Assert.True(work.UniverseMismatch);
         Assert.Equal(now, work.UniverseMismatchAt);
-        Assert.Equal("skipped", work.WikidataStatus);
+        Assert.Equal(WikidataLinkStatus.Skipped, work.WikidataStatus);
     }
 
     // ════════════════════════════════════════════════════════════════════════

@@ -108,22 +108,51 @@ issue-scoped display text and are attributed to Comic Vine with the Comic Vine
 API Terms; they are not Wikipedia or Creative Commons text. Generic comic
 series descriptions remain parent-scoped.
 
-### Sprint 6 Provider Decomposition
+### Provider Decomposition
 
-Sprint 6 began the provider-side decomposition without changing provider outcomes. New provider logic should be added to focused collaborators instead of directly into workers or adapters.
+Provider-side decomposition keeps public adapter and worker contracts stable while
+placing implementation details in focused collaborators or partial-class internals.
+New provider logic should be added to the matching owner below instead of growing
+the public facades.
 
 Current ownership:
 
 | Component | Responsibility |
 |---|---|
-| `ReconciliationAdapter` | Public `IExternalMetadataProvider` adapter and Stage 2 orchestration. |
+| `ReconciliationAdapter` | Construction, capabilities, and the public `IExternalMetadataProvider` fetch/search facade. |
+| `Adapters/Internals/ReconciliationAdapter.Reconciliation` | Manual reconciliation, batch reconciliation, extension, and media-type candidate filtering. |
+| `Adapters/Internals/ReconciliationAdapter.FictionalAndEditions` | Fictional-entity projections, TV manifests, author pseudonyms, audiobook editions, and bridge-request construction. |
+| `Adapters/Internals/ReconciliationAdapter.BridgeResolution` | Library-backed bridge resolution, candidate acceptance, rollup selection, and the public Stage 2 resolution methods. |
+| `Adapters/Internals/ReconciliationAdapter.WorkClaims` | Resolved work claim composition and sequence/child-discovery setup. |
+| `Adapters/Internals/ReconciliationAdapter.EntityEnrichment` | Child entities, people, Wikipedia descriptions, labels, and language normalization. |
+| `Adapters/Internals/ReconciliationAdapter.ClaimMapping` | Data-extension filtering/mapping, value extraction, cache keys, and staleness checks. |
+| `ConfigDrivenAdapter` | Construction, capabilities, and the public config-driven fetch/search facade. |
+| `Adapters/Internals/ConfigDrivenAdapter.SearchExecution` | Strategy execution, response caching, multi-result projection, and search scoring. |
+| `Adapters/Internals/ConfigDrivenAdapter.ComicValidation` | Claim validation plus Comic Vine volume, manifest, creator, and request-alignment rules. |
+| `Adapters/Internals/ConfigDrivenAdapter.TmdbEnrichment` | TMDB detail, collection, cast/crew, content-rating, URL, and response-cache enrichment. |
+| `Adapters/Internals/ConfigDrivenAdapter.ResultSelection` | JSON result navigation and comic, album, year, publisher, and text candidate selection. |
+| `Adapters/Internals/ConfigDrivenAdapter.ClaimExtraction` | Release selection, field mapping/transforms, media scoping, language cloning, and private projection records. |
 | `CommonsImageResolver` | Wikimedia Commons person image URL/download handling through the `headshot_download` named client. |
-| `RetailMatchWorker` | Durable Stage 1 leasing, grouped job coordination, and high-level retail flow. |
+| `RetailMatchWorker` | Stage 1 dependencies, durable leasing, and the public polling facade. |
+| `Workers/Internals/RetailMatchWorker.MusicBatch` | Album-grouped Apple Music matching and track claim application. |
+| `Workers/Internals/RetailMatchWorker.TvBatch` | Show/season-grouped TMDB matching, episode/show claims, and managed still persistence. |
+| `Workers/Internals/RetailMatchWorker.CandidateSelection` | Locale/grouping helpers, structural scoring, candidate ranking, and identity/enrichment selection. |
+| `Workers/Internals/RetailMatchWorker.JobProcessing` | File-hint loading, local music fallback, single-job provider execution, outcome persistence, and provenance. |
+| `WikidataBridgeWorker` | Stage 2 dependencies, durable leasing, and the public polling facade. |
+| `Workers/Internals/WikidataBridgeWorker.BatchResolution` | Batch gates, context loading, grouped QID resolution, and result distribution. |
+| `Workers/Internals/WikidataBridgeWorker.Finalization` | Candidate persistence, sibling/comic rollups, identity merging, and series-manifest hydration. |
+| `Workers/Internals/WikidataBridgeWorker.JobResolution` | Synchronous single-job resolution plus bridge-ID scope, priority, and fallback policies. |
+| `Workers/Internals/WikidataBridgeWorker.Persistence` | Retained-retail organization, property persistence, operation progress, Work routing, and person enrichment. |
 | `RetailRequestBuilder` | Apple iTunes and TMDB request URL construction plus image URL helpers for touched retail paths. |
 | `RetailHttpThrottle` | Cancellation-aware Apple and TMDB pacing. |
 | `AppleRetailClient` | Apple search/lookup HTTP, JSON parsing, matching thresholds, and safe provider fallback. |
 | `TmdbRetailClient` | TMDB TV search/detail/season HTTP, retry/fallback behavior, and safe provider fallback. |
 | `RetailCandidateScorer` | Worker-level retail candidate outcome decisions and score breakdown JSON. |
+
+The provider internals are source-level partial-class boundaries: they do not add
+runtime layers, change dependency-injection registrations, or alter serialized
+provider contracts. Guardrail tests cap each public adapter/worker facade at 500 lines
+and every extracted implementation file at 1,500 lines.
 
 Provider HTTP calls still go through `IHttpClientFactory` and named clients (`apple_api`, `tmdb`, `wikidata_reconciliation`, `headshot_download`). Request construction, throttling, and provider-specific scoring should remain independently testable. Avoid adding new hardcoded provider URLs or threshold logic inside `RetailMatchWorker` or `ReconciliationAdapter`.
 

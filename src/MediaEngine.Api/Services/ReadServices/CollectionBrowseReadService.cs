@@ -5,6 +5,7 @@ using MediaEngine.Application.ReadModels;
 using MediaEngine.Application.Services;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
@@ -96,10 +97,16 @@ public sealed class CollectionBrowseReadService(
                 UniverseId = collection.UniverseId,
                 DisplayName = collection.DisplayName,
                 CreatedAt = collection.CreatedAt,
-                UniverseStatus = collection.UniverseStatus,
                 ParentCollectionId = collection.ParentCollectionId,
                 WikidataQid = collection.WikidataQid,
             };
+            filteredCollection.RestoreDefinition(
+                collection.CollectionType,
+                collection.Scope,
+                collection.Resolution,
+                collection.MatchMode,
+                collection.SortDirection,
+                collection.UniverseStatus);
 
             foreach (var work in libraryWorks)
             {
@@ -486,7 +493,11 @@ public sealed class CollectionBrowseReadService(
                 continue;
             }
 
-            var workIds = EvaluateRules(predicates, collection.MatchMode, collection.SortField, collection.SortDirection);
+            var workIds = EvaluateRules(
+                predicates,
+                collection.MatchMode.ToStorageValue(),
+                collection.SortField,
+                collection.SortDirection.ToStorageValue());
             var primaryMediaType = predicates
                 .FirstOrDefault(predicate => predicate.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase))
                 ?.Value ?? "Unknown";

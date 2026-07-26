@@ -230,7 +230,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_SourceKeepsMovieTabsOnCombinedOverviewAndUsesDirectEdit()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("DetailEntityType.Movie when hasUniverse => [\"overview\", \"cast\", \"universe\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Movie => [\"overview\", \"cast\", \"related\", \"details\"]", source);
@@ -263,7 +263,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_UsesAlbumRootWorksForSharedMusicAlbumDetails()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("LoadMusicAlbumSystemViewGroupAsync(collectionId, ct)", source);
         Assert.Contains("LoadMusicAlbumSystemViewWorksAsync(musicAlbumGroup, ct)", source);
@@ -275,7 +275,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_BuildsTheAlbumCompanionFromExactPrimaryArtistCredits()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("BuildMusicAlbumCompanionAsync(", source);
         Assert.Contains("group.GroupType == CreditGroupType.PrimaryArtists", source);
@@ -299,7 +299,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_MapsTvNetworkIntoHeroBrand()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("HeroBrand = BuildHeroBrand", source);
         Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode", source);
@@ -310,7 +310,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_BuildsTvShowHeroMetadataAndEpisodeAwareActions()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("if (entityType == DetailEntityType.TvShow)", source);
         Assert.Contains("GetValue(values, \"start_year\")", source);
@@ -358,7 +358,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_DetailAndChildListsPreferDisplayOverrides()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("LoadWorkDisplayOverridesAsync(workId", source, StringComparison.Ordinal);
         Assert.Contains("ResolveDisplayTitleOverride(displayOverrides, entityType)", source, StringComparison.Ordinal);
@@ -374,7 +374,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_DrivesHeroProgressFromPlaybackState()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
 
         Assert.Contains("Progress = heroProgress", source);
@@ -392,7 +392,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_UsesAudiobookResumeForContinueActionsAndChapterProgress()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("ResolveAudiobookTotalDurationSeconds(row, chapters)", source);
         Assert.Contains("LoadAudiobookResumeAsync(conn, row.WorkId, row.AssetId, manifest?.Resume, totalDurationSeconds, ct)", source);
@@ -413,7 +413,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_ComputesMediaGroupCompletionFromOwnedAssets()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
 
         Assert.Contains("CASE WHEN MAX(ma.id) IS NULL THEN 0 ELSE 1 END AS HasAsset", source);
@@ -449,7 +449,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_BuildsWatchHeroActionsInMockupOrder()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.DoesNotContain("Key = \"watch-party\"", source);
         Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", source);
@@ -467,7 +467,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_UsesChildArtworkFallbackExceptForTvShows()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("fallbackBackdrop", source);
         Assert.Contains("fallbackCover", source);
@@ -491,7 +491,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_JoinsCollectionItemsWhenLoadingCollectionWorks()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("collectionId = GuidSql.ToBlob(collectionId)", source, StringComparison.Ordinal);
         Assert.Contains("rootWorkId = rootWorkId.HasValue ? GuidSql.ToBlob(rootWorkId.Value) : null", source, StringComparison.Ordinal);
@@ -528,17 +528,17 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_PrefersOwnedFormatArtworkForWorkHero()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("var foregroundArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,", source);
         Assert.Contains("ownedCoverUrls.FirstOrDefault(),", source);
         Assert.Contains("detail.CoverUrl,", source);
-        Assert.Contains("var managedCurrentArtworkUrl = await LoadManagedWorkCoverUrlAsync(", source);
+        Assert.Contains("var managedCurrentArtworkUrl = await _reader.LoadManagedWorkCoverUrlAsync(", source);
         Assert.Contains("entityType,", source);
         Assert.Contains("row.WorkId == workId ? currentArtworkUrl : null", source);
         Assert.Contains("mc.claim_key IN ('cover_url', 'cover', 'poster_url', 'poster')", source);
         Assert.Contains("var detail = await _libraryItems.GetDetailAsync(workId, ct)", source);
-        Assert.Contains("var managedArtworkUrl = await LoadManagedWorkCoverUrlAsync(", source);
+        Assert.Contains("var managedArtworkUrl = await _reader.LoadManagedWorkCoverUrlAsync(", source);
         Assert.Contains("$\"/stream/artwork/{preferred.Id:D}\"", source);
         Assert.Contains("$\"/stream/entity/{ToDetailRouteEntityType(entityType)}/{entityId:D}/cover\"", source);
         Assert.Contains("artworkFallback.CoverUrl", source);
@@ -550,7 +550,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_PopulatesCastCharactersAndRelationshipsForCollectionSurfaces()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"));
 
         Assert.Contains("BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct)", source);
@@ -573,7 +573,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_SequencePlacementUsesWikidataPositionsWithoutRowOrderFallback()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("claim_key = 'series_position' AND provider_id = @wikidataProviderId", source);
         Assert.Contains("WellKnownProviders.Wikidata.ToString()", source);
@@ -585,7 +585,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_SequencePlacementUsesKnownSeriesMembersForMissingSlots()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("series_qid", source);
         Assert.Contains("LoadManifestItemsForSequenceContainerAsync(normalizedContainerId, ct)", source);
@@ -647,12 +647,12 @@ public sealed class DetailComposerServiceTests
             OrderSource = "SeriesOrdinal",
         };
 
-        var sourcePositionMethod = typeof(DetailComposerService).GetMethod(
+        var sourcePositionMethod = DetailComposerImplementationType.GetMethod(
             "ManifestSourcePosition",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         Assert.NotNull(sourcePositionMethod);
         Assert.Null(sourcePositionMethod!.Invoke(null, [unnumbered]));
-        var orderingSortMethod = typeof(DetailComposerService).GetMethod(
+        var orderingSortMethod = DetailComposerImplementationType.GetMethod(
             "ManifestOrderingSort",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         Assert.NotNull(orderingSortMethod);
@@ -702,7 +702,7 @@ public sealed class DetailComposerServiceTests
             },
         };
 
-        var method = typeof(DetailComposerService).GetMethod(
+        var method = DetailComposerImplementationType.GetMethod(
             "DeduplicateManifestMergeItems",
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
         Assert.NotNull(method);
@@ -854,7 +854,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_ExposesWikidataAndSeriesSourceLinks()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
 
         Assert.Contains("SourceLinks = BuildExternalSourceLinks(detail.WikidataQid", source);
@@ -881,7 +881,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_UsesIssueScopedComicDescriptionAndAttribution()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("MetadataFieldConstants.IssueDescription", source);
         Assert.Contains("IsComicIssueDescriptionSourceKey", source);
@@ -901,7 +901,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_SequencePlacementUsesManifestOptionsAndHydratorRejectsMovieFranchiseFallback()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var hydratorSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs"));
 
         Assert.Contains("ResolveSequenceContainerOptions(detail, entityType)", source);
@@ -966,7 +966,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_DropsTitleOnlyFallbackWhenTrustedSeriesIdentityExists()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("hasTrustedSequenceContainer", source);
         Assert.Contains("availableContainers.RemoveAll(IsTitleOnlySequenceContainerOption)", source);
@@ -976,7 +976,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_UsesComicProviderOrderAndKeepsWikidataAsIdentityOnly()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("IsComicSequenceEntity(entityType) && IsWikidataOnlySequenceContainer(option)", source);
         Assert.Contains("!availableContainers.Any(existing => ShouldMergeSequenceContainerOptions(existing, option))", source);
@@ -989,12 +989,11 @@ public sealed class DetailComposerServiceTests
     public void SeriesProjection_DoesNotContainKnownTitleOrQidExceptions()
     {
         var root = FindRepoRoot();
-        var source = string.Join('\n', new[]
-        {
-            "src/MediaEngine.Api/Services/Details/DetailComposerService.cs",
-            "src/MediaEngine.Providers/Services/CollectionAssignmentService.cs",
-            "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs",
-        }.Select(path => File.ReadAllText(Path.Combine(root, path))));
+        var source = string.Join(
+            '\n',
+            ReadDetailComposerSource(),
+            File.ReadAllText(Path.Combine(root, "src/MediaEngine.Providers/Services/CollectionAssignmentService.cs")),
+            File.ReadAllText(Path.Combine(root, "src/MediaEngine.Providers/Services/WikidataSeriesManifestHydrationService.cs")));
 
         foreach (var forbidden in new[]
         {
@@ -1183,7 +1182,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_FormatsRatingsAndUsesCreditImageFallbacks()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
 
         Assert.Contains("FormatRating(detail.Rating)", source);
         Assert.Contains("ToString(\"0.0\"", source);
@@ -1197,7 +1196,7 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_ExposesStructuredFactsOnUnifiedDetails()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
         var client = ReadEngineApiClientSources();
 
@@ -1217,11 +1216,11 @@ public sealed class DetailComposerServiceTests
     [Fact]
     public void DetailComposer_UsesRootShowTitlesAndClaimFallbacksForPeople()
     {
-        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
+        var source = ReadDetailComposerSource();
         var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"));
         var scoringSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Services/ScoringHelper.cs"));
-        var retailWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/RetailMatchWorker.cs"));
-        var bridgeWorker = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Providers/Workers/WikidataBridgeWorker.cs"));
+        var retailWorker = ReadProviderWorkerSource("RetailMatchWorker");
+        var bridgeWorker = ReadProviderWorkerSource("WikidataBridgeWorker");
         var heroSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Components/Details/DetailHero.razor"));
 
         Assert.Contains("ResolveCollectionTitle(entityType, row.DisplayName, rootValues, values)", source);
@@ -1404,9 +1403,42 @@ public sealed class DetailComposerServiceTests
         Assert.Equal(expected, InvokePrivateString("ToTabLabel", key, entityType));
     }
 
+    [Fact]
+    public void DetailComposer_StaysAThinFacadeWithBoundedInternalComponents()
+    {
+        var root = FindRepoRoot();
+        var detailsRoot = Path.Combine(root, "src", "MediaEngine.Api", "Services", "Details");
+        var facade = Path.Combine(detailsRoot, "DetailComposerService.cs");
+        var implementationFiles = Directory
+            .EnumerateFiles(Path.Combine(detailsRoot, "Internals"), "*.cs", SearchOption.TopDirectoryOnly)
+            .ToList();
+
+        Assert.True(File.ReadLines(facade).Count() < 500, "DetailComposerService must remain a thin public facade.");
+        Assert.All(
+            implementationFiles,
+            path => Assert.True(
+                File.ReadLines(path).Count() <= 1500,
+                $"{Path.GetFileName(path)} exceeded the 1,500-line component limit."));
+        Assert.Contains(
+            implementationFiles,
+            path => Path.GetFileName(path) == "DetailCompositionOrchestrator.Readers.cs");
+        Assert.Contains(
+            implementationFiles,
+            path => Path.GetFileName(path) == "DetailProjectionReader.cs");
+        Assert.Contains(
+            implementationFiles,
+            path => Path.GetFileName(path) == "DetailViewModelBuilder.cs");
+        Assert.Contains(
+            implementationFiles,
+            path => Path.GetFileName(path) == "DetailPresentationPolicy.cs");
+        var facadeSource = File.ReadAllText(facade);
+        Assert.DoesNotContain("QueryAsync", facadeSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("CreateConnection", facadeSource, StringComparison.Ordinal);
+    }
+
     private static string? InvokePrivateString(string methodName, params object?[] args)
     {
-        var method = typeof(DetailComposerService).GetMethod(
+        var method = DetailComposerImplementationType.GetMethod(
             methodName,
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
@@ -1416,12 +1448,40 @@ public sealed class DetailComposerServiceTests
 
     private static T InvokePrivate<T>(string methodName, params object?[] args)
     {
-        var method = typeof(DetailComposerService).GetMethod(
+        var method = DetailComposerImplementationType.GetMethod(
             methodName,
             System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
 
         Assert.NotNull(method);
         return Assert.IsType<T>(method!.Invoke(null, args));
+    }
+
+    private static Type DetailComposerImplementationType =>
+        typeof(DetailComposerService).Assembly.GetType(
+            "MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator",
+            throwOnError: true)!;
+
+    private static string ReadDetailComposerSource()
+    {
+        var detailsRoot = Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Api",
+            "Services",
+            "Details");
+        var paths = new[]
+            {
+                Path.Combine(detailsRoot, "DetailComposerService.cs"),
+            }
+            .Concat(Directory.EnumerateFiles(
+                Path.Combine(detailsRoot, "Internals"),
+                "*.cs",
+                SearchOption.TopDirectoryOnly))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+
+        return string.Join(
+            "\n",
+            paths.Select(path => File.ReadAllText(path).Replace("\r\n", "\n", StringComparison.Ordinal)));
     }
 
     private static string FindRepoRoot()
@@ -1446,5 +1506,22 @@ public sealed class DetailComposerServiceTests
             Directory.EnumerateFiles(directory, "EngineApiClient*.cs")
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .Select(File.ReadAllText));
+    }
+
+    private static string ReadProviderWorkerSource(string workerName)
+    {
+        var workersRoot = Path.Combine(
+            FindRepoRoot(),
+            "src",
+            "MediaEngine.Providers",
+            "Workers");
+        var paths = new[] { Path.Combine(workersRoot, $"{workerName}.cs") }
+            .Concat(Directory.EnumerateFiles(
+                Path.Combine(workersRoot, "Internals"),
+                $"{workerName}.*.cs",
+                SearchOption.TopDirectoryOnly))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);
+
+        return string.Join("\n", paths.Select(File.ReadAllText));
     }
 }

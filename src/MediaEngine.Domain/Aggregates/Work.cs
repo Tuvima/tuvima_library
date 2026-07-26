@@ -155,7 +155,7 @@ public sealed class Work
     /// Wikidata lookup status: "confirmed" (QID found, firm link),
     /// "pending" (no QID yet, recheck periodically), "skipped" (user decision).
     /// </summary>
-    public string WikidataStatus { get; set; } = "pending";
+    public WikidataLinkStatus WikidataStatus { get; private set; } = WikidataLinkStatus.Pending;
 
     /// <summary>
     /// Timestamp of the last Wikidata lookup attempt.
@@ -179,7 +179,7 @@ public sealed class Work
     ///     File metadata only. Very rare edge case.</item>
     /// </list>
     /// </summary>
-    public string MatchLevel { get; set; } = "work";
+    public WorkMatchLevel MatchLevel { get; private set; } = WorkMatchLevel.Work;
 
     // -------------------------------------------------------------------------
     // Children
@@ -215,6 +215,86 @@ public sealed class Work
         ArgumentNullException.ThrowIfNull(value);
 
         _externalIdentifiers[key] = value;
+    }
+
+    public void LinkToWikidata(
+        string qid,
+        WorkMatchLevel matchLevel,
+        WikidataLinkStatus status = WikidataLinkStatus.Confirmed,
+        DateTimeOffset? checkedAt = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(qid);
+        if (qid.Length < 2 || (qid[0] is not ('Q' or 'q')) || !qid[1..].All(char.IsDigit))
+        {
+            throw new ArgumentException("A Wikidata identifier must be Q followed by digits.", nameof(qid));
+        }
+
+        if (status is WikidataLinkStatus.Pending
+            or WikidataLinkStatus.Missing
+            or WikidataLinkStatus.Skipped
+            or WikidataLinkStatus.Manual
+            or WikidataLinkStatus.ProviderOnly
+            or WikidataLinkStatus.UserRejected)
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), status, "A linked Work requires a linked status.");
+        }
+
+        WikidataQid = $"Q{qid[1..]}";
+        MatchLevel = matchLevel;
+        WikidataStatus = status;
+        WikidataCheckedAt = checkedAt ?? DateTimeOffset.UtcNow;
+        UniverseMismatch = false;
+        UniverseMismatchAt = null;
+    }
+
+    public void RecordWikidataState(
+        string? qid,
+        WikidataLinkStatus status,
+        WorkMatchLevel matchLevel,
+        DateTimeOffset? checkedAt,
+        bool universeMismatch = false,
+        DateTimeOffset? universeMismatchAt = null)
+    {
+        if (!string.IsNullOrWhiteSpace(qid))
+        {
+            LinkToWikidata(qid, matchLevel, status, checkedAt);
+            return;
+        }
+
+        if (status is WikidataLinkStatus.Confirmed
+            or WikidataLinkStatus.AutoAligned
+            or WikidataLinkStatus.UserConfirmed
+            or WikidataLinkStatus.UserReplaced)
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), status, "A linked status requires a Wikidata identifier.");
+        }
+
+        WikidataQid = null;
+        WikidataStatus = status;
+        MatchLevel = matchLevel;
+        WikidataCheckedAt = checkedAt;
+        UniverseMismatch = universeMismatch;
+        UniverseMismatchAt = universeMismatch ? universeMismatchAt ?? checkedAt ?? DateTimeOffset.UtcNow : null;
+    }
+
+    /// <summary>
+    /// Restores a previously validated identity state from persistence.
+    /// New identity decisions should use <see cref="LinkToWikidata"/>.
+    /// </summary>
+    public void RestoreWikidataState(
+        string? qid,
+        WikidataLinkStatus status,
+        WorkMatchLevel matchLevel,
+        DateTimeOffset? checkedAt,
+        bool universeMismatch,
+        DateTimeOffset? universeMismatchAt)
+    {
+        WikidataQid = qid;
+        WikidataStatus = status;
+        MatchLevel = matchLevel;
+        WikidataCheckedAt = checkedAt;
+        UniverseMismatch = universeMismatch;
+        UniverseMismatchAt = universeMismatchAt;
     }
 
     public void AddEdition(Edition edition)

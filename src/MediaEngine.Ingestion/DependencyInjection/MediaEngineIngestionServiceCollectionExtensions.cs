@@ -1,13 +1,17 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Processors;
 using MediaEngine.Providers.Services;
+using MediaEngine.Providers.Contracts;
+using MediaEngine.Providers.Helpers;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
@@ -59,6 +63,19 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         services.TryAddSingleton<IMediaTypeResolver, MediaTypeResolver>();
         services.TryAddSingleton<IDuplicateResolver, DuplicateResolver>();
         services.TryAddSingleton<IIngestionLogScribe, IngestionLogScribe>();
+        services.TryAddSingleton(sp => new HashDedupeStageDependencies(
+            sp.GetService<IFileHashCacheRepository>()));
+        services.TryAddSingleton(sp => new ScoreIdentifyStageDependencies(
+            sp.GetService<CapabilityPlanner>()));
+        services.TryAddSingleton(sp => new OrganizeStageDependencies(
+            sp.GetService<StageOutcomeFactory>()));
+        services.TryAddSingleton(sp => new WriteBackStageDependencies(
+            sp.GetService<IEntityAssetRepository>(),
+            sp.GetService<AssetPathService>(),
+            sp.GetService<IWorkRepository>(),
+            sp.GetService<IAssetExportService>()));
+        services.TryAddSingleton(sp => new IdentityJobStageDependencies(
+            sp.GetService<IIdentityPipelineSignal>()));
         services.TryAddSingleton<IEnrichmentConcurrencyLimiter>(sp =>
             new EnrichmentConcurrencyLimiter(
                 sp.GetRequiredService<IConfigurationLoader>().LoadHydration(),

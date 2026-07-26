@@ -60,7 +60,15 @@ public sealed class WritebackConfigStateTests : IDisposable
     public void BackgroundWork_DoesNotUseDetachedTaskRun()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        var ingestionSource = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Ingestion", "IngestionEngine.cs"));
+        var ingestionDirectory = Path.Combine(repoRoot, "src", "MediaEngine.Ingestion");
+        var ingestionSource = string.Join(
+            Environment.NewLine,
+            Directory.EnumerateFiles(
+                    ingestionDirectory,
+                    "IngestionEngine*.cs",
+                    SearchOption.TopDirectoryOnly)
+                .OrderBy(file => file, StringComparer.Ordinal)
+                .Select(File.ReadAllText));
         var configSource = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Ingestion", "Services", "WritebackConfigState.cs"));
 
         Assert.DoesNotContain("Task.Run", ingestionSource, StringComparison.Ordinal);
