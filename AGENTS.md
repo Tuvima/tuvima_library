@@ -158,7 +158,9 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 
 - `src/MediaEngine.Api`
   - The main composition root.
-  - Registers nearly all services, repositories, background jobs, health checks, SignalR, and API endpoints.
+  - Focused `DependencyInjection/Tuvima*ServiceCollectionExtensions.cs` modules
+    register services, repositories, background jobs, health checks, SignalR,
+    and API endpoints.
   - If you want to understand what the whole system starts and how parts are wired together, start here.
 
 - `src/MediaEngine.Web`
@@ -168,7 +170,8 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 
 - `src/MediaEngine.Domain`
   - The shared language of the system.
-  - Holds core aggregates, entities, enums, constants, and interfaces.
+  - Holds core aggregates, entities, enums, constants, shared configuration
+    models, and inward-facing interfaces.
   - This project defines things like assets, editions, works, collections, universes, profiles, and the contracts other layers implement.
   - `Services/` also hosts the cross-cutting shared primitives every layer uses instead of re-implementing: `StringHelpers` (FirstNonBlank/FirstNonBlankOr), `MediaTypeParser` (canonical media-type alias table), `Hashing` (Sha256Hex, DeterministicGuid), `MediaMimeTypes`, `MediaEngineJson` (cached JsonSerializerOptions), and `EpisodePatterns` (shared SxxExx regex). Guardrail tests ban private re-declarations.
 
@@ -181,6 +184,8 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
 
 - `src/MediaEngine.Storage`
   - SQLite repositories, embedded schema bootstrap, startup migrations, and config loading.
+  - Every concrete repository belongs here. API services must not hide
+    persistence behind `Store` or `DataService` names.
   - This is where persistent state lives: media records, review queue, activity log, provider cache, search index, reader progress, UI settings cache, and more.
 
 - `src/MediaEngine.Ingestion`
@@ -356,12 +361,13 @@ If you are new to the repo, read these files in roughly this order:
 4. `src/MediaEngine.Web/Components/Details/DetailPage.razor`
 5. `src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor`
 6. `src/MediaEngine.Api/Program.cs`
-7. `src/MediaEngine.Web/Program.cs`
-8. `src/MediaEngine.Ingestion/IngestionEngine.cs`
-9. `src/MediaEngine.Providers/Services/HydrationPipelineService.cs`
-10. `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs`
-11. `src/MediaEngine.Storage/ConfigurationDirectoryLoader.cs`
-12. `src/MediaEngine.Storage/DatabaseConnection.cs`
+7. `src/MediaEngine.Api/DependencyInjection/`
+8. `src/MediaEngine.Web/Program.cs`
+9. `src/MediaEngine.Ingestion/IngestionEngine.cs`
+10. `src/MediaEngine.Providers/Services/HydrationPipelineService.cs`
+11. `src/MediaEngine.Intelligence/PriorityCascadeEngine.cs`
+12. `src/MediaEngine.Storage/ConfigurationDirectoryLoader.cs`
+13. `src/MediaEngine.Storage/DatabaseConnection.cs`
 
 That sequence explains the product, the runtime wiring, the intake flow, the enrichment flow, the decision logic, and the persistence/config layer.
 

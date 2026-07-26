@@ -12,10 +12,15 @@
     <PackageReference Include="xunit.runner.visualstudio" />
     <!-- IHttpClientFactory + named clients for stub handler injection -->
     <PackageReference Include="Microsoft.Extensions.Http" />
+    <!-- Provider integration fixtures issue setup/assertion SQL against their temp databases. -->
+    <PackageReference Include="Dapper" />
+    <PackageReference Include="Microsoft.Data.Sqlite" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\MediaEngine.Providers\MediaEngine.Providers.csproj" />
+    <!-- Integration fixtures exercise the Providers boundary against real SQLite repositories. -->
+    <ProjectReference Include="..\..\src\MediaEngine.Storage\MediaEngine.Storage.csproj" />
   </ItemGroup>
 
   <ItemGroup>

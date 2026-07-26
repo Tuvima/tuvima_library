@@ -102,9 +102,9 @@ public sealed class ItemEndpointRouteTests
     public void ItemEditorEndpoints_ResolveCurrentMediaAssetOrWorkTargets()
     {
         var canonical = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
-        var canonicalData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ItemCanonicalDataService.cs"));
+        var canonicalData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Storage\ItemCanonicalRepository.cs"));
         var libraryItems = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\LibraryItemEndpoints.cs"));
-        var libraryItemData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\LibraryItemCurationStore.cs"));
+        var libraryItemData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Storage\LibraryItemCurationRepository.cs"));
 
         Assert.Contains("ResolveWorkAssetContextAsync", canonical, StringComparison.Ordinal);
         Assert.Contains("No current media asset or work target found", canonical, StringComparison.Ordinal);
@@ -120,7 +120,7 @@ public sealed class ItemEndpointRouteTests
     public void ItemCanonicalEndpoints_RouteManualWritesByLineageScope()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
-        var canonicalData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ItemCanonicalDataService.cs"));
+        var canonicalData = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Storage\ItemCanonicalRepository.cs"));
 
         Assert.Contains("IWorkRepository workRepo", source, StringComparison.Ordinal);
         Assert.Contains("ResolveScopedTarget(context.AssetId, lineage, key)", source, StringComparison.Ordinal);
@@ -142,7 +142,7 @@ public sealed class ItemEndpointRouteTests
         // the extracted service, so it is asserted there instead.
         var candidateBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Canonical\CanonicalCandidateBuilder.cs"));
 
-        Assert.Contains("IItemCanonicalDataService itemCanonicalData", source, StringComparison.Ordinal);
+        Assert.Contains("IItemCanonicalRepository itemCanonicalData", source, StringComparison.Ordinal);
         Assert.Contains("itemCanonicalData.ResolveWorkAssetContextAsync", source, StringComparison.Ordinal);
         Assert.Contains("itemCanonicalData.DeleteIdentityArtifactsAsync", candidateBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("IDatabaseConnection", source, StringComparison.Ordinal);

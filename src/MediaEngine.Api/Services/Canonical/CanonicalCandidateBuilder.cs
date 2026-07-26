@@ -6,6 +6,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using CanonicalTargetPolicy = MediaEngine.Api.Endpoints.ItemCanonicalEndpoints.CanonicalTargetPolicy;
 
 namespace MediaEngine.Api.Services.Canonical;
@@ -32,7 +33,7 @@ namespace MediaEngine.Api.Services.Canonical;
 internal sealed class CanonicalCandidateBuilder(
     ICanonicalValueRepository canonicalRepo,
     IBridgeIdRepository bridgeIdRepo,
-    IItemCanonicalDataService itemCanonicalData)
+    IItemCanonicalRepository itemCanonicalData)
 {
     public async Task<IReadOnlyList<string>> ClearStaleIdsAsync(
         Guid assetId,

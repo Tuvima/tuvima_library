@@ -1,24 +1,24 @@
 using Dapper;
-using MediaEngine.Api.Services;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
-namespace MediaEngine.Api.Tests;
+namespace MediaEngine.Storage.Tests;
 
-public sealed class ItemCanonicalDataServiceTests : IDisposable
+public sealed class ItemCanonicalRepositoryTests : IDisposable
 {
     private readonly string _dbPath;
     private readonly DatabaseConnection _db;
-    private readonly ItemCanonicalDataService _service;
+    private readonly ItemCanonicalRepository _repository;
 
-    public ItemCanonicalDataServiceTests()
+    public ItemCanonicalRepositoryTests()
     {
         DapperConfiguration.Configure();
         _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima_item_canonical_{Guid.NewGuid():N}.db");
         _db = new DatabaseConnection(_dbPath);
         _db.InitializeSchema();
         _db.RunStartupChecks();
-        _service = new ItemCanonicalDataService(_db, NullLogger<ItemCanonicalDataService>.Instance);
+        _repository = new ItemCanonicalRepository(_db, NullLogger<ItemCanonicalRepository>.Instance);
     }
 
     public void Dispose()
@@ -41,8 +41,8 @@ public sealed class ItemCanonicalDataServiceTests : IDisposable
                 """, new { assetId, now = DateTimeOffset.UtcNow.ToString("O") });
         }
 
-        var byAsset = await _service.ResolveWorkAssetContextAsync(assetId);
-        var byWork = await _service.ResolveWorkAssetContextAsync(workId);
+        var byAsset = await _repository.ResolveWorkAssetContextAsync(assetId);
+        var byWork = await _repository.ResolveWorkAssetContextAsync(workId);
 
         Assert.NotNull(byAsset);
         Assert.NotNull(byWork);
@@ -59,14 +59,14 @@ public sealed class ItemCanonicalDataServiceTests : IDisposable
     {
         var (workId, _) = SeedWorkAndAsset();
 
-        var missing = await _service.LoadDisplayOverridesAsync(Guid.NewGuid());
-        var saved = await _service.SaveDisplayOverridesAsync(
+        var missing = await _repository.LoadDisplayOverridesAsync(Guid.NewGuid());
+        var saved = await _repository.SaveDisplayOverridesAsync(
             workId,
             new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["title"] = "Preferred Dune",
             });
-        var loaded = await _service.LoadDisplayOverridesAsync(workId);
+        var loaded = await _repository.LoadDisplayOverridesAsync(workId);
 
         Assert.False(missing.WorkExists);
         Assert.True(saved);
@@ -101,7 +101,7 @@ public sealed class ItemCanonicalDataServiceTests : IDisposable
             });
         }
 
-        await _service.DeleteIdentityArtifactsAsync(
+        await _repository.DeleteIdentityArtifactsAsync(
             [new ItemCanonicalIdentityArtifact(workId, "tmdb_id")]);
 
         using var verify = _db.CreateConnection();
@@ -124,10 +124,10 @@ public sealed class ItemCanonicalDataServiceTests : IDisposable
     {
         var (workId, assetId) = SeedWorkAndAsset();
 
-        await _service.UpdateWorkIdentityAsync(workId, "Q123");
-        var resolvedWorkId = await _service.ResolveWorkIdForAssetAsync(assetId);
-        var state = await _service.LoadWorkWikidataStateAsync(workId);
-        var rejected = await _service.AppendRejectedQidAsync(workId, "Q999");
+        await _repository.UpdateWorkIdentityAsync(workId, "Q123");
+        var resolvedWorkId = await _repository.ResolveWorkIdForAssetAsync(assetId);
+        var state = await _repository.LoadWorkWikidataStateAsync(workId);
+        var rejected = await _repository.AppendRejectedQidAsync(workId, "Q999");
 
         Assert.Equal(workId, resolvedWorkId);
         Assert.NotNull(state);
@@ -143,7 +143,7 @@ public sealed class ItemCanonicalDataServiceTests : IDisposable
         cts.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            _service.ResolveWorkAssetContextAsync(Guid.NewGuid(), cts.Token));
+            _repository.ResolveWorkAssetContextAsync(Guid.NewGuid(), cts.Token));
     }
 
     private (Guid WorkId, Guid AssetId) SeedWorkAndAsset()

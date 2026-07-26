@@ -58,7 +58,7 @@ public sealed class Phase5EditorEndpointRouteTests
     [Fact]
     public void EditorLaunchContext_ResolvesCollectionShelvesToCanonicalContainerWork()
     {
-        var metadataData = ReadSource("src/MediaEngine.Api/Services/MetadataEndpointDataService.cs");
+        var metadataData = ReadSource("src/MediaEngine.Storage/MetadataEditorRepository.cs");
         var navigatorService = ReadSource("src/MediaEngine.Api/Services/ReadServices/MediaEditorNavigationReadService.cs");
 
         Assert.Contains("private sealed record EditorLaunchCollectionRow", metadataData, StringComparison.Ordinal);

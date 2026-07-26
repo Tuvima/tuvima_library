@@ -109,7 +109,7 @@ public static class LibraryItemEndpoints
             IMetadataClaimRepository claimRepo,
             IHydrationPipelineService pipeline,
             ICollectionRepository collectionRepo,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             ISystemActivityRepository activityRepo,
             ILogger<LibraryItemEndpointLog> logger,
             CancellationToken ct) =>
@@ -225,7 +225,7 @@ public static class LibraryItemEndpoints
             CreateManualRequestDto request,
             IMetadataClaimRepository claimRepo,
             ICollectionRepository collectionRepo,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.Title))
@@ -257,7 +257,7 @@ public static class LibraryItemEndpoints
 
         group.MapDelete("/{entityId}", async (
             Guid entityId,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             WorkHierarchyMaintenanceService hierarchyMaintenance,
             ISystemActivityRepository activityRepo,
             ILogger<LibraryItemEndpointLog> logger,
@@ -285,7 +285,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/{entityId}/reject", async (
             Guid entityId,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             ISystemActivityRepository activityRepo,
             IConfigurationLoader configLoader,
             IEventPublisher publisher,
@@ -327,7 +327,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/batch/approve", async (
             BatchLibraryItemRequest request,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             CancellationToken ct) =>
         {
             var entityIds = DistinctEntityIds(request);
@@ -349,7 +349,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/batch/delete", async (
             BatchLibraryItemRequest request,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             WorkHierarchyMaintenanceService hierarchyMaintenance,
             ISystemActivityRepository activityRepo,
             ILogger<LibraryItemEndpointLog> logger,
@@ -397,7 +397,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/batch/reject", async (
             BatchLibraryItemRequest request,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             ISystemActivityRepository activityRepo,
             IConfigurationLoader configLoader,
             IEventPublisher publisher,
@@ -450,7 +450,7 @@ public static class LibraryItemEndpoints
 
         group.MapPost("/{entityId:guid}/recover", async (
             Guid entityId,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             ISystemActivityRepository activityRepo,
             IEventPublisher publisher,
             ILogger<LibraryItemEndpointLog> logger,
@@ -492,7 +492,7 @@ public static class LibraryItemEndpoints
         group.MapPost("/{entityId:guid}/provisional", async (
             Guid entityId,
             ProvisionalMetadataRequestDto body,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             ISystemActivityRepository activityRepo,
             IEventPublisher publisher,
             ILogger<LibraryItemEndpointLog> logger,
@@ -501,7 +501,7 @@ public static class LibraryItemEndpoints
             if (string.IsNullOrWhiteSpace(body.Title))
                 return ApiErrors.BadRequest("Title is required for provisional metadata.");
 
-            var provisional = await store.MarkProvisionalAsync(entityId, new ProvisionalMetadataRequest
+            var provisional = await store.MarkProvisionalAsync(entityId, new LibraryItemProvisionalMetadata
             {
                 MediaType = body.MediaType,
                 Title = body.Title,
@@ -555,7 +555,7 @@ public static class LibraryItemEndpoints
 
         group.MapGet("/{entityId:guid}/history", async (
             Guid entityId,
-            ILibraryItemCurationStore store,
+            ILibraryItemCurationRepository store,
             CancellationToken ct) =>
             Results.Ok((await store.GetHistoryAsync(entityId, ct)).Select(item => item.ToContract()).ToList()))
         .WithName("GetLibraryCatalogItemHistory")
@@ -650,7 +650,7 @@ public static class LibraryItemEndpoints
 
     private static async Task<int> DeleteTargetAsync(
         LibraryItemRemovalTarget target,
-        ILibraryItemCurationStore store,
+        ILibraryItemCurationRepository store,
         WorkHierarchyMaintenanceService hierarchyMaintenance,
         ISystemActivityRepository activityRepo,
         ILogger logger,
@@ -711,7 +711,7 @@ public static class LibraryItemEndpoints
     private static async Task<string> RejectTargetAsync(
         LibraryItemTarget target,
         string rejectedDirectory,
-        ILibraryItemCurationStore store,
+        ILibraryItemCurationRepository store,
         ISystemActivityRepository activityRepo,
         IEventPublisher publisher,
         ILogger logger,

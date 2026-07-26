@@ -25,8 +25,8 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using ArtworkResolutionContext = MediaEngine.Api.Services.MetadataArtworkResolutionContext;
-using EditorLaunchContext = MediaEngine.Api.Services.MetadataEditorLaunchContext;
+using ArtworkResolutionContext = MediaEngine.Domain.Models.MetadataArtworkResolutionContext;
+using EditorLaunchContext = MediaEngine.Domain.Models.MetadataEditorLaunchContext;
 using ClaimDto = MediaEngine.Contracts.Metadata.ClaimDto;
 using ConflictDto = MediaEngine.Contracts.Metadata.ConflictDto;
 using HydrateResponse = MediaEngine.Contracts.Metadata.HydrateResponse;
@@ -425,7 +425,7 @@ public static partial class MetadataEndpoints
             IHydrationPipelineService pipeline,
             IEventPublisher publisher,
             ISystemActivityRepository activityRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(request.MediaType))
@@ -550,7 +550,7 @@ public static partial class MetadataEndpoints
             Guid entityId,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             CancellationToken ct) =>
         {
             var context = await ResolveEditorScopeContextAsync(entityId, canonicalRepo, libraryItemRepo, metadataData, ct);
@@ -611,7 +611,7 @@ public static partial class MetadataEndpoints
             string scopeId,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
         {
@@ -640,7 +640,7 @@ public static partial class MetadataEndpoints
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
             IImageEnrichmentService imageEnrichment,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             CancellationToken ct) =>
         {
@@ -687,7 +687,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             ICanonicalValueRepository canonicalRepo,
             ILibraryItemRepository libraryItemRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             CancellationToken ct) =>
         {
             var context = await metadataData.ResolveArtworkContextAsync(entityId, ct);
@@ -769,7 +769,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ISystemActivityRepository activityRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
             ILoggerFactory loggerFactory,
@@ -866,7 +866,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ILibraryItemRepository libraryItemRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
@@ -966,7 +966,7 @@ public static partial class MetadataEndpoints
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
             ILibraryItemRepository libraryItemRepo,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             IHttpClientFactory httpFactory,
             CancellationToken ct) =>
@@ -1062,7 +1062,7 @@ public static partial class MetadataEndpoints
             string assetType,
             IEntityAssetRepository entityAssetRepo,
             IAssetExportService assetExportService,
-            IMetadataEndpointDataService metadataData,
+            IMetadataEditorRepository metadataData,
             ArtworkScopeService artworkScopeService,
             HttpRequest httpRequest,
             CancellationToken ct) =>
@@ -1773,7 +1773,7 @@ public static partial class MetadataEndpoints
         Guid entityId,
         ICanonicalValueRepository canonicalRepo,
         ILibraryItemRepository libraryItemRepo,
-        IMetadataEndpointDataService metadataData,
+        IMetadataEditorRepository metadataData,
         CancellationToken ct)
     {
         var launch = await metadataData.ResolveEditorLaunchAsync(entityId, ct);

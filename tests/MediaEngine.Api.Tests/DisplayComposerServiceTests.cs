@@ -994,13 +994,13 @@ public sealed class DisplayComposerServiceTests
         };
     }
 
-    private static DisplayComposerService CreateComposer(IDisplayProjectionRepository repository)
+    private static DisplayComposerService CreateComposer(IDisplayProjectionReadService repository)
     {
         var cards = new DisplayCardBuilder();
         return new DisplayComposerService(repository, cards, new DisplayShelfBuilder(cards));
     }
 
-    private sealed class StubDisplayProjectionRepository : IDisplayProjectionRepository
+    private sealed class StubDisplayProjectionRepository : IDisplayProjectionReadService
     {
         private readonly IReadOnlyList<DisplayWorkRow> _works;
         private readonly IReadOnlyList<DisplayJourneyRow> _journey;

@@ -54,6 +54,74 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void ConcreteRepositories_LiveInStorage()
+    {
+        var repoRoot = FindRepoRoot();
+        var sourceRoot = Path.Combine(repoRoot, "src");
+        var storageRoot = Path.Combine(sourceRoot, "MediaEngine.Storage");
+        var repositoryDeclaration = new System.Text.RegularExpressions.Regex(
+            @"\b(?:class|record(?:\s+class)?)\s+\w*Repository\b",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        var offenders = Directory.EnumerateFiles(sourceRoot, "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.StartsWith(storageRoot, StringComparison.OrdinalIgnoreCase))
+            .Where(path => repositoryDeclaration.IsMatch(File.ReadAllText(path)))
+            .Select(path => Path.GetRelativePath(repoRoot, path))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void ApiServiceImplementationFiles_DoNotDeclareInterfaces()
+    {
+        var repoRoot = FindRepoRoot();
+        var serviceRoot = Path.Combine(repoRoot, "src", "MediaEngine.Api", "Services");
+        var serviceImplementation = new System.Text.RegularExpressions.Regex(
+            @"\bclass\s+\w+(?:Service|Repository|Store|DataService|Cache)\b",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+        var interfaceDeclaration = new System.Text.RegularExpressions.Regex(
+            @"\binterface\s+I\w+",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        var offenders = Directory.EnumerateFiles(serviceRoot, "*.cs", SearchOption.AllDirectories)
+            .Select(path => new { Path = path, Text = File.ReadAllText(path) })
+            .Where(file =>
+                serviceImplementation.IsMatch(file.Text)
+                && interfaceDeclaration.IsMatch(file.Text))
+            .Select(file => Path.GetRelativePath(repoRoot, file.Path))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
+    public void ApiPersistenceTypes_UseRepositoryOrServiceTaxonomy()
+    {
+        var repoRoot = FindRepoRoot();
+        var serviceRoot = Path.Combine(repoRoot, "src", "MediaEngine.Api", "Services");
+        var legacyTypeName = new System.Text.RegularExpressions.Regex(
+            @"\bclass\s+(?<name>\w+(?:Store|DataService))\b",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        var offenders = Directory.EnumerateFiles(serviceRoot, "*.cs", SearchOption.AllDirectories)
+            .SelectMany(path => legacyTypeName.Matches(File.ReadAllText(path))
+                .Select(match => new
+                {
+                    Path = Path.GetRelativePath(repoRoot, path),
+                    Name = match.Groups["name"].Value,
+                }))
+            .Where(type => !string.Equals(
+                type.Name,
+                "DataProtectionSecretStore",
+                StringComparison.Ordinal))
+            .Select(type => $"{type.Path}: {type.Name}")
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void ActiveRazorComponents_DoNotImportStorageImplementationModelsOrSql()
     {
         var repoRoot = FindRepoRoot();

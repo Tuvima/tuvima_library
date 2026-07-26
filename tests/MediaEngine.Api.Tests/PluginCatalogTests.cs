@@ -27,7 +27,7 @@ public sealed class PluginCatalogTests
 
             var catalog = new PluginCatalog(
                 [new FandomLorePlugin()],
-                new PluginSettingsStore(loader),
+                new PluginSettingsService(loader),
                 loader,
                 NullLogger<PluginCatalog>.Instance);
 
@@ -62,7 +62,7 @@ public sealed class PluginCatalogTests
             using var loader = new ConfigurationDirectoryLoader(configRoot);
             loader.SaveCore(new CoreConfiguration { LibraryRoot = libraryRoot });
 
-            var settingsStore = new PluginSettingsStore(loader);
+            var settingsService = new PluginSettingsService(loader);
             var pluginRoot = Path.Combine(libraryRoot, ".data", "plugins", "sample-plugin");
             Directory.CreateDirectory(pluginRoot);
 
@@ -82,7 +82,7 @@ public sealed class PluginCatalogTests
                 }
                 """);
 
-            var catalog = new PluginCatalog([], settingsStore, loader, NullLogger<PluginCatalog>.Instance);
+            var catalog = new PluginCatalog([], settingsService, loader, NullLogger<PluginCatalog>.Instance);
             var plugin = Assert.Single(catalog.List());
             Assert.False(plugin.IsBuiltIn);
             Assert.Equal("Dynamic Test", plugin.Manifest.Name);

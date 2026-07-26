@@ -5,7 +5,7 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Plugins;
 
-public sealed class PluginSettingsStore
+public sealed class PluginSettingsService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -16,7 +16,7 @@ public sealed class PluginSettingsStore
 
     private readonly string _configRoot;
 
-    public PluginSettingsStore(IConfigurationLoader configurationLoader)
+    public PluginSettingsService(IConfigurationLoader configurationLoader)
     {
         var core = configurationLoader.LoadCore();
         var root = string.IsNullOrWhiteSpace(core.LibraryRoot)

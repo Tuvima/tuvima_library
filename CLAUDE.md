@@ -153,10 +153,10 @@ The Engine and Dashboard are two independent apps that communicate over HTTP + S
 
 | Folder | What it is | Role |
 |---|---|---|
-| `src/MediaEngine.Domain` | The Rulebook | Aggregates (`Collection`, `Edition`, `MediaAsset`, `Profile`, `Work`), 35+ entities, enums, constants, ~90 contract interfaces. Pure business language with no external package references. |
+| `src/MediaEngine.Domain` | The Rulebook | Aggregates (`Collection`, `Edition`, `MediaAsset`, `Profile`, `Work`), entities, enums, constants, shared configuration shapes, and inward-facing ports. Pure business language with no external package references. |
 | `src/MediaEngine.Contracts` | The Order Form | Serializable DTOs that cross the Engine↔Dashboard boundary — `Details/`, `Display/`, `Paging/`, `Playback/`, `Settings/`. Depends only on Domain. |
 | `src/MediaEngine.Application` | The Office Assistant | Read-model DTOs and service-interface contracts for cross-layer queries (`IJourneyReadService`, `IIngestionBatchReadService`, person/asset read services). Depends on Domain + Contracts only. |
-| `src/MediaEngine.Storage` | The Filing Clerk | SQLite repositories, embedded schema bootstrap, idempotent startup migrations (M-001…current), `DatabaseConnection` lifecycle facade, `ConfigurationDirectoryLoader` (multi-file JSON config with `.bak` fallback and hot reload). |
+| `src/MediaEngine.Storage` | The Filing Clerk | Every concrete repository, SQLite/Dapper execution, embedded schema bootstrap, idempotent startup migrations (M-001…current), `DatabaseConnection` lifecycle facade, and `ConfigurationDirectoryLoader` (multi-file JSON config with `.bak` fallback and hot reload). |
 | `src/MediaEngine.Intelligence` | The Analyst | Priority Cascade engine, scoring, fuzzy matching, identity strategies, `IdentityDecisionService`, `CollectionArbiter`, `ParentCollectionResolver`, `IdentityMatcher`. |
 | `src/MediaEngine.Processors` | The Scanner | Reads EPUB, audio, video, comic, PDF, and generic files for embedded metadata. Six processors plus extractors. |
 | `src/MediaEngine.Providers` | The Research Team | Config-driven and reconciliation adapters, hydration pipeline workers, ~24 enrichment/reconciliation services. The bulk of the runtime payload lives here. |
@@ -166,7 +166,7 @@ The Engine and Dashboard are two independent apps that communicate over HTTP + S
 | `src/MediaEngine.Plugins` | The Plug Socket | Plugin contracts (`ITuvimaPlugin`, `IPluginCapability`, `IPlaybackSegmentDetector`), manifest, models. In-process plugin model. |
 | `src/MediaEngine.Plugin.CommercialSkip` | A Plugin | Detects commercial breaks via Comskip (primary) or FFmpeg (fallback). Produces `playback-segment-detector` segments. |
 | `src/MediaEngine.Plugin.MediaSegments` | A Plugin | Detects opening credits / closing credits / recap segments. |
-| `src/MediaEngine.Api` | The Reception Desk | Composition root: 39 endpoint files, 236+ DI registrations in `Program.cs`, hosted services, SignalR `Intercom` hub, health checks. |
+| `src/MediaEngine.Api` | The Reception Desk | Composition root: thin `Program.cs`, focused `AddTuvima*` registration modules, endpoint files, awaited startup services, SignalR `Intercom` hub, and health checks. |
 | `src/MediaEngine.Web` | The Showroom | Blazor Server dashboard. Uses typed HTTP clients + SignalR; no direct database access. |
 | `tests/` | The Quality Inspector | One test project per source project. Strong guardrail suite (architecture boundary, DB connection, accessibility, smoke). Real SQLite temp DBs for Storage tests; hand-written spies, no Moq/NSubstitute. |
 
@@ -723,6 +723,10 @@ not repeat a Show details action.
 | Blazor host layout wrapper | `Shared/` |
 | Application-layer read-model DTO | `src/MediaEngine.Application/ReadModels/` |
 | Application-layer query service contract | `src/MediaEngine.Application/Services/IReadServices.cs` |
+| Shared configuration shape or inward-facing infrastructure port | `src/MediaEngine.Domain/Configuration/` or `src/MediaEngine.Domain/Contracts/` |
+| Concrete SQLite/Dapper repository | `src/MediaEngine.Storage/`; use the `Repository` suffix |
+| API implementation without persistence ownership | `src/MediaEngine.Api/Services/`; use a purpose-specific `Service` suffix and keep its interface separate |
+| Engine service registration | A focused `src/MediaEngine.Api/DependencyInjection/Tuvima*ServiceCollectionExtensions.cs` module |
 | New plugin | New project `src/MediaEngine.Plugin.<Name>/` implementing `ITuvimaPlugin` from `MediaEngine.Plugins` |
 
 ---

@@ -1,56 +1,21 @@
 using System.Text.Json;
 using Dapper;
-using MediaEngine.Storage;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
-namespace MediaEngine.Api.Services;
-
-public sealed record ItemCanonicalWorkAssetContext(
-    Guid AssetId,
-    string MediaType,
-    string? WorkTitle,
-    string? PrimaryCreator,
-    string? Year);
-
-public sealed record ItemCanonicalWorkWikidataState(
-    string? Qid,
-    string? Status,
-    string? Source,
-    bool Locked,
-    string? RejectedQidsJson);
-
-public sealed record ItemCanonicalDisplayOverrideState(
-    bool WorkExists,
-    Dictionary<string, string> Values);
-
-public sealed record ItemCanonicalIdentityArtifact(Guid EntityId, string Key);
-
-public interface IItemCanonicalDataService
-{
-    Task<ItemCanonicalWorkAssetContext?> ResolveWorkAssetContextAsync(Guid entityId, CancellationToken ct = default);
-    Task<ItemCanonicalDisplayOverrideState> LoadDisplayOverridesAsync(Guid workId, CancellationToken ct = default);
-    Task<bool> SaveDisplayOverridesAsync(Guid workId, IReadOnlyDictionary<string, string> overrides, CancellationToken ct = default);
-    Task<Guid?> ResolveWorkIdForAssetAsync(Guid assetId, CancellationToken ct = default);
-    Task<ItemCanonicalWorkWikidataState?> LoadWorkWikidataStateAsync(Guid workId, CancellationToken ct = default);
-    Task UpdateWorkIdentityAsync(Guid workId, string wikidataQid, CancellationToken ct = default);
-    Task DeleteIdentityArtifactsAsync(IReadOnlyCollection<ItemCanonicalIdentityArtifact> artifacts, CancellationToken ct = default);
-    Task ReplaceExternalIdentifiersAsync(
-        Guid workId,
-        IReadOnlyCollection<string> keysToRemove,
-        IReadOnlyDictionary<string, string> replacements,
-        CancellationToken ct = default);
-    Task<string> AppendRejectedQidAsync(Guid workId, string? rejectedQid, CancellationToken ct = default);
-}
+namespace MediaEngine.Storage;
 
 /// <summary>
 /// Typed persistence boundary for item canonical editing. Endpoints own HTTP and
 /// orchestration concerns; this service owns SQLite shape, GUID BLOB parameters,
 /// transactions, and cancellation-aware commands.
 /// </summary>
-public sealed class ItemCanonicalDataService(
+public sealed class ItemCanonicalRepository(
     IDatabaseConnection db,
-    ILogger<ItemCanonicalDataService> logger) : IItemCanonicalDataService
+    ILogger<ItemCanonicalRepository> logger) : IItemCanonicalRepository
 {
     private sealed record DisplayOverrideRow(string? Json);
     private sealed record WikidataStateRow(

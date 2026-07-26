@@ -1,24 +1,23 @@
 using Dapper;
-using MediaEngine.Api.Services;
 using MediaEngine.Storage;
 using Microsoft.Data.Sqlite;
 
-namespace MediaEngine.Api.Tests;
+namespace MediaEngine.Storage.Tests;
 
-public sealed class MetadataEndpointDataServiceTests : IDisposable
+public sealed class MetadataEditorRepositoryTests : IDisposable
 {
     private readonly string _databasePath;
     private readonly DatabaseConnection _database;
-    private readonly MetadataEndpointDataService _service;
+    private readonly MetadataEditorRepository _repository;
 
-    public MetadataEndpointDataServiceTests()
+    public MetadataEditorRepositoryTests()
     {
         DapperConfiguration.Configure();
         _databasePath = Path.Combine(Path.GetTempPath(), $"tuvima_metadata_endpoint_{Guid.NewGuid():N}.db");
         _database = new DatabaseConnection(_databasePath);
         _database.InitializeSchema();
         _database.RunStartupChecks();
-        _service = new MetadataEndpointDataService(_database);
+        _repository = new MetadataEditorRepository(_database);
     }
 
     [Fact]
@@ -26,10 +25,10 @@ public sealed class MetadataEndpointDataServiceTests : IDisposable
     {
         var hierarchy = await SeedHierarchyAsync();
 
-        var rootLaunch = await _service.ResolveEditorLaunchAsync(hierarchy.RootWorkId);
-        var assetLaunch = await _service.ResolveEditorLaunchAsync(hierarchy.AssetId);
-        var collectionLaunch = await _service.ResolveEditorLaunchAsync(hierarchy.CollectionId);
-        var artwork = await _service.ResolveArtworkContextAsync(hierarchy.ChildWorkId);
+        var rootLaunch = await _repository.ResolveEditorLaunchAsync(hierarchy.RootWorkId);
+        var assetLaunch = await _repository.ResolveEditorLaunchAsync(hierarchy.AssetId);
+        var collectionLaunch = await _repository.ResolveEditorLaunchAsync(hierarchy.CollectionId);
+        var artwork = await _repository.ResolveArtworkContextAsync(hierarchy.ChildWorkId);
 
         Assert.NotNull(rootLaunch);
         Assert.Equal("Work", rootLaunch.LaunchEntityKind);
@@ -79,13 +78,13 @@ public sealed class MetadataEndpointDataServiceTests : IDisposable
             });
         }
 
-        var byWork = await _service.ResolveReclassifyTargetAsync(hierarchy.ChildWorkId);
-        var byAsset = await _service.ResolveReclassifyTargetAsync(hierarchy.AssetId);
-        await _service.UpdateWorkMediaTypeAsync(hierarchy.ChildWorkId, "Movies");
-        var overrides = await _service.GetDisplayOverridesAsync(hierarchy.ChildWorkId);
-        var linkedArtist = await _service.ResolveArtistArtworkOwnerAsync(hierarchy.AssetId, null);
-        var namedArtist = await _service.ResolveArtistArtworkOwnerAsync(null, "the artist");
-        var representative = await _service.ResolveRepresentativeAssetAsync(
+        var byWork = await _repository.ResolveReclassifyTargetAsync(hierarchy.ChildWorkId);
+        var byAsset = await _repository.ResolveReclassifyTargetAsync(hierarchy.AssetId);
+        await _repository.UpdateWorkMediaTypeAsync(hierarchy.ChildWorkId, "Movies");
+        var overrides = await _repository.GetDisplayOverridesAsync(hierarchy.ChildWorkId);
+        var linkedArtist = await _repository.ResolveArtistArtworkOwnerAsync(hierarchy.AssetId, null);
+        var namedArtist = await _repository.ResolveArtistArtworkOwnerAsync(null, "the artist");
+        var representative = await _repository.ResolveRepresentativeAssetAsync(
             [Guid.NewGuid(), hierarchy.RootWorkId]);
 
         Assert.Equal(hierarchy.AssetId, byWork.TargetAssetId);
@@ -107,18 +106,18 @@ public sealed class MetadataEndpointDataServiceTests : IDisposable
     public async Task UnknownEntitiesAndCancellation_DegradePredictably()
     {
         var unknownId = Guid.NewGuid();
-        var reclassify = await _service.ResolveReclassifyTargetAsync(unknownId);
-        var artwork = await _service.ResolveArtworkContextAsync(unknownId);
+        var reclassify = await _repository.ResolveReclassifyTargetAsync(unknownId);
+        var artwork = await _repository.ResolveArtworkContextAsync(unknownId);
 
         Assert.Equal(unknownId, reclassify.TargetAssetId);
         Assert.Null(reclassify.WorkId);
-        Assert.Null(await _service.ResolveEditorLaunchAsync(unknownId));
+        Assert.Null(await _repository.ResolveEditorLaunchAsync(unknownId));
         Assert.Equal([unknownId], artwork.ArtworkEntityIds);
 
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            _service.ResolveEditorLaunchAsync(unknownId, cancellation.Token));
+            _repository.ResolveEditorLaunchAsync(unknownId, cancellation.Token));
     }
 
     private async Task<SeededHierarchy> SeedHierarchyAsync()

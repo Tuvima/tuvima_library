@@ -1,32 +1,17 @@
 using System.Data;
 using System.Text.Json;
 using Dapper;
-using MediaEngine.Storage;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
-namespace MediaEngine.Api.Services;
-
-public interface IMetadataEndpointDataService
-{
-    Task<MetadataReclassifyTarget> ResolveReclassifyTargetAsync(Guid entityId, CancellationToken ct = default);
-    Task UpdateWorkMediaTypeAsync(Guid workId, string mediaType, CancellationToken ct = default);
-    Task<MetadataEditorLaunchContext?> ResolveEditorLaunchAsync(Guid entityId, CancellationToken ct = default);
-    Task<IReadOnlyDictionary<string, string>> GetDisplayOverridesAsync(Guid workId, CancellationToken ct = default);
-    Task<Guid?> ResolveArtistArtworkOwnerAsync(
-        Guid? representativeAssetId,
-        string? artistName,
-        CancellationToken ct = default);
-    Task<Guid?> ResolveRepresentativeAssetAsync(
-        IReadOnlyCollection<Guid> candidateWorkIds,
-        CancellationToken ct = default);
-    Task<MetadataArtworkResolutionContext> ResolveArtworkContextAsync(Guid entityId, CancellationToken ct = default);
-}
+namespace MediaEngine.Storage;
 
 /// <summary>
 /// Typed SQL boundary for the metadata editor. It centralizes entity/work/asset
 /// resolution shared by editor scope and artwork routes.
 /// </summary>
-public sealed class MetadataEndpointDataService(IDatabaseConnection db) : IMetadataEndpointDataService
+public sealed class MetadataEditorRepository(IDatabaseConnection db) : IMetadataEditorRepository
 {
     public async Task<MetadataReclassifyTarget> ResolveReclassifyTargetAsync(
         Guid entityId,
@@ -470,31 +455,3 @@ public sealed class MetadataEndpointDataService(IDatabaseConnection db) : IMetad
         Guid RootWorkId,
         Guid? RootPrimaryAssetId);
 }
-
-public sealed record MetadataReclassifyTarget(Guid TargetAssetId, Guid? WorkId);
-
-public sealed record MetadataEditorAssetSample(
-    Guid AssetId,
-    string? FilePath,
-    string? WritebackStatus);
-
-public sealed record MetadataEditorLaunchContext(
-    Guid LaunchEntityId,
-    string LaunchEntityKind,
-    Guid WorkId,
-    Guid? ParentWorkId,
-    Guid RootWorkId,
-    string MediaType,
-    string WorkKind,
-    Guid? RepresentativeAssetId,
-    string? RepresentativeMediaFilePath,
-    string? RepresentativeWritebackStatus);
-
-public sealed record MetadataArtworkResolutionContext(
-    Guid RequestedEntityId,
-    Guid? WorkId,
-    Guid? RootWorkId,
-    Guid? PrimaryAssetId,
-    Guid? RootPrimaryAssetId,
-    IReadOnlyList<Guid> ArtworkEntityIds,
-    Guid? PreferredArtworkEntityId);

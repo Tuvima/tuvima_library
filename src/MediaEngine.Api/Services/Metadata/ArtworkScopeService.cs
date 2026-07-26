@@ -39,7 +39,7 @@ internal sealed class ArtworkScopeService(
     IEntityAssetRepository entityAssetRepo,
     ILibraryItemRepository libraryItemRepo,
     IWorkRepository workRepo,
-    IMetadataEndpointDataService metadataData,
+    IMetadataEditorRepository metadataData,
     AssetPathService assetPathService)
 {
     public async Task<ArtworkEditorEnvelope> BuildScopedArtworkEnvelopeAsync(

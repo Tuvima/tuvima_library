@@ -8,13 +8,6 @@ using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services;
 
-public interface IIngestionBatchResponseService
-{
-    Task<IReadOnlyList<IngestionBatchResponse>> GetRecentAsync(int limit, CancellationToken ct = default);
-
-    Task<IngestionBatchResponse?> GetByIdAsync(Guid id, CancellationToken ct = default);
-}
-
 public sealed class IngestionBatchResponseService : IIngestionBatchResponseService
 {
     private readonly IIngestionBatchRepository _batchRepository;

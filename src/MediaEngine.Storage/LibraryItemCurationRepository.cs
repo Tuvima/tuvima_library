@@ -1,58 +1,19 @@
 using System.Data;
-using System.Text.Json.Serialization;
 using Dapper;
-using MediaEngine.Api.Models;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
-using MediaEngine.Storage;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
-namespace MediaEngine.Api.Services;
-
-public interface ILibraryItemCurationStore
-{
-    Task<LibraryItemTarget?> ResolveTargetAsync(Guid entityId, CancellationToken ct = default);
-    Task<IReadOnlyDictionary<Guid, LibraryItemTarget>> ResolveWorkTargetsAsync(
-        IReadOnlyCollection<Guid> workIds,
-        CancellationToken ct = default);
-    Task UpsertCanonicalValuesAsync(
-        Guid entityId,
-        IReadOnlyCollection<MetadataClaim> claims,
-        CancellationToken ct = default);
-    Task MarkWorkRegisteredAsync(Guid workId, CancellationToken ct = default);
-    Task CompletePendingReviewsAsync(
-        Guid assetId,
-        Guid workId,
-        string status,
-        string resolvedBy,
-        DateTimeOffset resolvedAt,
-        CancellationToken ct = default);
-    Task<IReadOnlyDictionary<Guid, LibraryItemRemovalTarget>> GetRemovalTargetsAsync(
-        IReadOnlyCollection<Guid> workIds,
-        CancellationToken ct = default);
-    Task DeleteWorkRecordsAsync(LibraryItemRemovalTarget target, CancellationToken ct = default);
-    Task<int> ApproveWorksAsync(IReadOnlyCollection<Guid> workIds, DateTimeOffset now, CancellationToken ct = default);
-    Task MarkRejectedAsync(
-        LibraryItemTarget target,
-        string newFilePath,
-        DateTimeOffset now,
-        CancellationToken ct = default);
-    Task<LibraryItemRecoveryResult?> RecoverAsync(Guid workId, DateTimeOffset now, CancellationToken ct = default);
-    Task<LibraryItemProvisionalResult?> MarkProvisionalAsync(
-        Guid workId,
-        ProvisionalMetadataRequest metadata,
-        DateTimeOffset now,
-        CancellationToken ct = default);
-    Task<IReadOnlyList<LibraryItemHistoryEntry>> GetHistoryAsync(Guid workId, CancellationToken ct = default);
-}
+namespace MediaEngine.Storage;
 
 /// <summary>
 /// Persistence boundary for curator-driven library item operations. All commands use
 /// short-lived connections, explicit transactions for multi-table state changes, and
 /// guid-blob-v1-safe parameters.
 /// </summary>
-public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryItemCurationStore
+public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILibraryItemCurationRepository
 {
     public async Task<LibraryItemTarget?> ResolveTargetAsync(Guid entityId, CancellationToken ct = default)
     {
@@ -383,7 +344,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
 
     public async Task<LibraryItemProvisionalResult?> MarkProvisionalAsync(
         Guid workId,
-        ProvisionalMetadataRequest metadata,
+        LibraryItemProvisionalMetadata metadata,
         DateTimeOffset now,
         CancellationToken ct = default)
     {
@@ -497,7 +458,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
             row.Detail)).ToList();
     }
 
-    private static IReadOnlyDictionary<string, string?> BuildProvisionalFields(ProvisionalMetadataRequest metadata) =>
+    private static IReadOnlyDictionary<string, string?> BuildProvisionalFields(LibraryItemProvisionalMetadata metadata) =>
         new Dictionary<string, string?>
         {
             [MetadataFieldConstants.Title] = metadata.Title,
@@ -599,32 +560,3 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
         public string? Detail { get; init; }
     }
 }
-
-public sealed class LibraryItemTarget
-{
-    public Guid AssetId { get; init; }
-    public Guid WorkId { get; init; }
-    public string? FilePath { get; init; }
-    public string? Title { get; init; }
-    public string? MediaType { get; init; }
-}
-
-public sealed record LibraryItemRemovalTarget(
-    Guid WorkId,
-    Guid? CollectionId,
-    Guid? ParentWorkId,
-    IReadOnlyList<string> FilePaths,
-    IReadOnlyList<string> ManagedAssetPaths,
-    string? Title);
-
-public sealed record LibraryItemRecoveryResult(Guid WorkId, Guid? AssetId, Guid? ReviewId);
-
-public sealed record LibraryItemProvisionalResult(Guid WorkId, Guid? AssetId, int ClaimsWritten);
-
-public sealed record LibraryItemHistoryEntry(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("entity_id")] Guid EntityId,
-    [property: JsonPropertyName("occurred_at")] DateTimeOffset OccurredAt,
-    [property: JsonPropertyName("event_type")] string EventType,
-    [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("detail")] string? Detail);

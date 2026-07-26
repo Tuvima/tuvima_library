@@ -6,18 +6,18 @@ namespace MediaEngine.Api.Services.Display;
 
 public sealed class DisplayComposerService
 {
-    private readonly IDisplayProjectionRepository _repository;
+    private readonly IDisplayProjectionReadService _readService;
     private readonly DisplayCardBuilder _cards;
     private readonly DisplayShelfBuilder _shelves;
     private readonly MusicPlayStatsRepository? _musicStats;
 
     public DisplayComposerService(
-        IDisplayProjectionRepository repository,
+        IDisplayProjectionReadService readService,
         DisplayCardBuilder cards,
         DisplayShelfBuilder shelves,
         MusicPlayStatsRepository? musicStats = null)
     {
-        _repository = repository;
+        _readService = readService;
         _cards = cards;
         _shelves = shelves;
         _musicStats = musicStats;
@@ -25,10 +25,10 @@ public sealed class DisplayComposerService
 
     public async Task<DisplayPageDto> BuildHomeAsync(bool includeCatalog = true, Guid? profileId = null, CancellationToken ct = default, int shelfLimit = 18)
     {
-        var worksTask = _repository.LoadWorksAsync(ct);
-        var journeyTask = _repository.LoadJourneyAsync(null, ct);
-        var homeCollectionsTask = _repository.LoadHomeCollectionsAsync(profileId, ct);
-        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        var worksTask = _readService.LoadWorksAsync(ct);
+        var journeyTask = _readService.LoadJourneyAsync(null, ct);
+        var homeCollectionsTask = _readService.LoadHomeCollectionsAsync(profileId, ct);
+        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
         await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask, hiddenWorkIdsTask);
 
         var hiddenWorkIds = await hiddenWorkIdsTask;
@@ -159,10 +159,10 @@ public sealed class DisplayComposerService
             return await BuildMusicHomeAsync(includeCatalog, profileId, ct);
         }
 
-        var worksTask = _repository.LoadWorksAsync(ct);
-        var journeyTask = _repository.LoadJourneyAsync(null, ct);
-        var favoriteWorkIdsTask = _repository.LoadFavoriteWorkIdsAsync(profileId, ct);
-        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        var worksTask = _readService.LoadWorksAsync(ct);
+        var journeyTask = _readService.LoadJourneyAsync(null, ct);
+        var favoriteWorkIdsTask = _readService.LoadFavoriteWorkIdsAsync(profileId, ct);
+        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
         await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask, hiddenWorkIdsTask);
 
         var hiddenWorkIds = await hiddenWorkIdsTask;
@@ -318,7 +318,7 @@ public sealed class DisplayComposerService
         string? mediaType = null)
     {
         var normalizedLane = DisplayMediaRules.NormalizeLane(lane);
-        var journey = await _repository.LoadJourneyAsync(normalizedLane, ct);
+        var journey = await _readService.LoadJourneyAsync(normalizedLane, ct);
         var cards = journey
             .Where(item => string.IsNullOrWhiteSpace(mediaType)
                            || string.Equals(
@@ -395,8 +395,8 @@ public sealed class DisplayComposerService
         Guid? profileId = null,
         CancellationToken ct = default)
     {
-        var hiddenWorkIds = await _repository.LoadHiddenWorkIdsAsync(profileId, ct);
-        var works = CollapseReadVariantsByQid((await _repository.LoadWorksAsync(ct))
+        var hiddenWorkIds = await _readService.LoadHiddenWorkIdsAsync(profileId, ct);
+        var works = CollapseReadVariantsByQid((await _readService.LoadWorksAsync(ct))
             .Where(work => work.CollectionId == groupId && !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId))
         )
             .OrderBy(work => DisplayMediaRules.ParseDouble(work.SeriesPosition) ?? double.MaxValue)
@@ -450,9 +450,9 @@ public sealed class DisplayComposerService
 
     private async Task<DisplayPageDto> BuildLaneAsync(string lane, bool includeCatalog, Guid? profileId, CancellationToken ct, int shelfLimit = 18)
     {
-        var worksTask = _repository.LoadWorksAsync(ct);
-        var journeyTask = _repository.LoadJourneyAsync(lane, ct);
-        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        var worksTask = _readService.LoadWorksAsync(ct);
+        var journeyTask = _readService.LoadJourneyAsync(lane, ct);
+        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
         await Task.WhenAll(worksTask, journeyTask, hiddenWorkIdsTask);
 
         var hiddenWorkIds = await hiddenWorkIdsTask;
@@ -545,10 +545,10 @@ public sealed class DisplayComposerService
 
     private async Task<DisplayPageDto> BuildMusicHomeAsync(bool includeCatalog, Guid? profileId, CancellationToken ct, int shelfLimit = 18)
     {
-        var worksTask = _repository.LoadWorksAsync(ct);
-        var journeyTask = _repository.LoadJourneyAsync("listen", ct);
-        var favoriteWorkIdsTask = _repository.LoadFavoriteWorkIdsAsync(profileId, ct);
-        var hiddenWorkIdsTask = _repository.LoadHiddenWorkIdsAsync(profileId, ct);
+        var worksTask = _readService.LoadWorksAsync(ct);
+        var journeyTask = _readService.LoadJourneyAsync("listen", ct);
+        var favoriteWorkIdsTask = _readService.LoadFavoriteWorkIdsAsync(profileId, ct);
+        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
         await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask, hiddenWorkIdsTask);
 
         var hiddenWorkIds = await hiddenWorkIdsTask;

@@ -15,7 +15,7 @@ public static class TuvimaPluginServiceCollectionExtensions
             typeof(CommercialSkipPlugin).Assembly,
             typeof(FandomLorePlugin).Assembly,
             typeof(IntroSkipPlugin).Assembly);
-        services.AddSingleton<PluginSettingsStore>();
+        services.AddSingleton<PluginSettingsService>();
         services.AddSingleton<PluginCatalog>();
         services.AddSingleton<ApprovedPluginCatalogService>();
         services.AddSingleton<PluginUniverseLoreService>();

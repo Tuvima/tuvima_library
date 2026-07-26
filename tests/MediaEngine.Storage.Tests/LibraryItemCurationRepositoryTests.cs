@@ -1,28 +1,27 @@
 using Dapper;
-using MediaEngine.Api.Models;
-using MediaEngine.Api.Services;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage;
 using Microsoft.Data.Sqlite;
 
-namespace MediaEngine.Api.Tests;
+namespace MediaEngine.Storage.Tests;
 
-public sealed class LibraryItemCurationStoreTests : IDisposable
+public sealed class LibraryItemCurationRepositoryTests : IDisposable
 {
     private readonly string _databasePath;
     private readonly DatabaseConnection _database;
-    private readonly LibraryItemCurationStore _store;
+    private readonly LibraryItemCurationRepository _repository;
 
-    public LibraryItemCurationStoreTests()
+    public LibraryItemCurationRepositoryTests()
     {
         DapperConfiguration.Configure();
         _databasePath = Path.Combine(Path.GetTempPath(), $"tuvima_library_item_store_{Guid.NewGuid():N}.db");
         _database = new DatabaseConnection(_databasePath);
         _database.InitializeSchema();
         _database.RunStartupChecks();
-        _store = new LibraryItemCurationStore(_database);
+        _repository = new LibraryItemCurationRepository(_database);
     }
 
     [Fact]
@@ -55,9 +54,9 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
             });
         }
 
-        var resolved = await _store.ResolveTargetAsync(first.WorkId);
-        var batch = await _store.ResolveWorkTargetsAsync([first.WorkId, second.WorkId]);
-        var removals = await _store.GetRemovalTargetsAsync([first.WorkId, second.WorkId]);
+        var resolved = await _repository.ResolveTargetAsync(first.WorkId);
+        var batch = await _repository.ResolveWorkTargetsAsync([first.WorkId, second.WorkId]);
+        var removals = await _repository.GetRemovalTargetsAsync([first.WorkId, second.WorkId]);
 
         Assert.NotNull(resolved);
         Assert.Equal(first.AssetId, resolved.AssetId);
@@ -68,7 +67,7 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
         Assert.Equal(2, removal.FilePaths.Count);
         Assert.Contains(managedPath, removal.ManagedAssetPaths);
 
-        await _store.DeleteWorkRecordsAsync(removal);
+        await _repository.DeleteWorkRecordsAsync(removal);
 
         using var verify = _database.CreateConnection();
         Assert.Equal(0, await verify.ExecuteScalarAsync<int>(
@@ -115,9 +114,9 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
             });
         }
 
-        await _store.UpsertCanonicalValuesAsync(seeded.AssetId, claims);
-        await _store.MarkWorkRegisteredAsync(seeded.WorkId);
-        await _store.CompletePendingReviewsAsync(
+        await _repository.UpsertCanonicalValuesAsync(seeded.AssetId, claims);
+        await _repository.MarkWorkRegisteredAsync(seeded.WorkId);
+        await _repository.CompletePendingReviewsAsync(
             seeded.AssetId, seeded.WorkId, "Resolved", "user:test", now);
 
         using var verify = _database.CreateConnection();
@@ -153,10 +152,10 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
             });
         }
 
-        var processed = await _store.ApproveWorksAsync(
+        var processed = await _repository.ApproveWorksAsync(
             [first.WorkId, second.WorkId], DateTimeOffset.UtcNow);
-        var firstTarget = Assert.IsType<LibraryItemTarget>(await _store.ResolveTargetAsync(first.WorkId));
-        await _store.MarkRejectedAsync(
+        var firstTarget = Assert.IsType<LibraryItemTarget>(await _repository.ResolveTargetAsync(first.WorkId));
+        await _repository.MarkRejectedAsync(
             firstTarget, "C:/library/.data/staging/rejected/first.epub", DateTimeOffset.UtcNow);
 
         using var verify = _database.CreateConnection();
@@ -192,12 +191,12 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
             });
         }
 
-        var recovered = await _store.RecoverAsync(seeded.WorkId, DateTimeOffset.UtcNow);
-        var provisional = await _store.MarkProvisionalAsync(
+        var recovered = await _repository.RecoverAsync(seeded.WorkId, DateTimeOffset.UtcNow);
+        var provisional = await _repository.MarkProvisionalAsync(
             seeded.WorkId,
-            new ProvisionalMetadataRequest { Title = "Curated", Creator = "Author" },
+            new LibraryItemProvisionalMetadata { Title = "Curated", Creator = "Author" },
             DateTimeOffset.UtcNow);
-        var history = await _store.GetHistoryAsync(seeded.WorkId);
+        var history = await _repository.GetHistoryAsync(seeded.WorkId);
 
         Assert.NotNull(recovered);
         Assert.Equal(seeded.AssetId, recovered.AssetId);
@@ -211,6 +210,11 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
         using var verify = _database.CreateConnection();
         Assert.Equal("provisional", await verify.ExecuteScalarAsync<string>(
             "SELECT curator_state FROM works WHERE id = @workId", new { workId = seeded.WorkId }));
+        var provisionalJson = await verify.ExecuteScalarAsync<string>(
+            "SELECT provisional_metadata_json FROM works WHERE id = @workId",
+            new { workId = seeded.WorkId });
+        Assert.Contains("\"title\":\"Curated\"", provisionalJson, StringComparison.Ordinal);
+        Assert.Contains("\"creator\":\"Author\"", provisionalJson, StringComparison.Ordinal);
         Assert.Equal("Curated", await verify.ExecuteScalarAsync<string>("""
             SELECT value FROM canonical_values WHERE entity_id = @assetId AND key = 'title'
             """, new { assetId = seeded.AssetId }));
@@ -223,7 +227,7 @@ public sealed class LibraryItemCurationStoreTests : IDisposable
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            _store.ResolveTargetAsync(Guid.NewGuid(), cancellation.Token));
+            _repository.ResolveTargetAsync(Guid.NewGuid(), cancellation.Token));
     }
 
     private async Task<SeededWork> SeedWorkAsync(string title, string filePath, string mediaType)

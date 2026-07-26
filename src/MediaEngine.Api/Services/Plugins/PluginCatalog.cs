@@ -27,7 +27,7 @@ public sealed class PluginCatalog
     };
 
     private readonly IReadOnlyList<ITuvimaPlugin> _builtInPlugins;
-    private readonly PluginSettingsStore _settingsStore;
+    private readonly PluginSettingsService _settingsService;
     private readonly ILogger<PluginCatalog> _logger;
     private readonly string _pluginRoot;
     private readonly object _lock = new();
@@ -36,12 +36,12 @@ public sealed class PluginCatalog
 
     public PluginCatalog(
         IEnumerable<ITuvimaPlugin> builtInPlugins,
-        PluginSettingsStore settingsStore,
+        PluginSettingsService settingsService,
         IConfigurationLoader configurationLoader,
         ILogger<PluginCatalog> logger)
     {
         _builtInPlugins = builtInPlugins.ToList();
-        _settingsStore = settingsStore;
+        _settingsService = settingsService;
         _logger = logger;
 
         var core = configurationLoader.LoadCore();
@@ -70,7 +70,7 @@ public sealed class PluginCatalog
     {
         var registration = Get(pluginId)
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
-        _settingsStore.SetEnabled(registration.Manifest, enabled);
+        _settingsService.SetEnabled(registration.Manifest, enabled);
         Reload();
     }
 
@@ -79,9 +79,9 @@ public sealed class PluginCatalog
         var registration = Get(pluginId)
             ?? throw new InvalidOperationException($"Plugin '{pluginId}' is not registered.");
         ValidateSettings(registration, settings);
-        var config = _settingsStore.Load(registration.Manifest);
+        var config = _settingsService.Load(registration.Manifest);
         config.Settings = settings;
-        _settingsStore.Save(config);
+        _settingsService.Save(config);
         Reload();
     }
 
@@ -139,7 +139,7 @@ public sealed class PluginCatalog
             throw new InvalidOperationException("Plugin directory is outside the configured plugin root.");
 
         Directory.Delete(pluginDirectory, recursive: true);
-        _settingsStore.Delete(registration.Manifest.Id);
+        _settingsService.Delete(registration.Manifest.Id);
         Reload();
     }
 
@@ -192,7 +192,7 @@ public sealed class PluginCatalog
         string? loadError,
         string? manifestPath)
     {
-        var config = _settingsStore.Load(manifest);
+        var config = _settingsService.Load(manifest);
         IReadOnlyList<IPluginCapability> capabilities = [];
         if (loadError is null)
         {

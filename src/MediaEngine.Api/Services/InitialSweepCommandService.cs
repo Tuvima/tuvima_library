@@ -3,16 +3,6 @@ using MediaEngine.Ingestion.Services;
 
 namespace MediaEngine.Api.Services;
 
-public interface IInitialSweepCommandService
-{
-    bool IsPendingOrRunning { get; }
-
-    /// <summary>
-    /// Schedules one sweep when no sweep is already queued or executing.
-    /// </summary>
-    bool TrySchedule();
-}
-
 /// <summary>
 /// Owns manually requested initial sweeps for the lifetime of the Engine host.
 /// A single-flight gate prevents overlapping full-library scans.

@@ -10,23 +10,6 @@ namespace MediaEngine.Api.Services;
 /// <c>ApiKeyMiddleware</c> — which runs this lookup on EVERY authenticated
 /// request — does not open a SQLite connection and run a query per request.
 /// </summary>
-public interface IApiKeyLookupCache
-{
-    /// <summary>
-    /// Returns the <see cref="ApiKey"/> matching <paramref name="hashedKey"/>, using
-    /// the cache when available and falling back to <see cref="IApiKeyRepository"/>
-    /// on a miss. Both hits and "not found" results are cached.
-    /// </summary>
-    Task<ApiKey?> FindByHashedKeyAsync(string hashedKey, CancellationToken ct = default);
-
-    /// <summary>
-    /// Discards every cached lookup. Call this after any key is created or
-    /// revoked so the change is visible immediately rather than waiting out
-    /// the cache TTL.
-    /// </summary>
-    void InvalidateAll();
-}
-
 /// <summary>
 /// In-memory, short-TTL implementation of <see cref="IApiKeyLookupCache"/>.
 ///

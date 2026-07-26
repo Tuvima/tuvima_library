@@ -43,7 +43,7 @@ public static class ItemCanonicalEndpoints
             IWriteBackService writeBack,
             IEventPublisher publisher,
             IWorkRepository workRepo,
-            IItemCanonicalDataService itemCanonicalData,
+            IItemCanonicalRepository itemCanonicalData,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -146,7 +146,7 @@ public static class ItemCanonicalEndpoints
             Guid entityId,
             ItemDisplayOverridesRequest request,
             ISystemActivityRepository activityRepo,
-            IItemCanonicalDataService itemCanonicalData,
+            IItemCanonicalRepository itemCanonicalData,
             CancellationToken ct) =>
         {
             if (request.Fields.Count == 0)
@@ -219,7 +219,7 @@ public static class ItemCanonicalEndpoints
             Guid entityId,
             ItemCanonicalSearchRequestDto request,
             ISearchService searchService,
-            IItemCanonicalDataService itemCanonicalData,
+            IItemCanonicalRepository itemCanonicalData,
             CancellationToken ct) =>
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
@@ -338,7 +338,7 @@ public static class ItemCanonicalEndpoints
             IWorkRepository workRepo,
             IHydrationPipelineService pipeline,
             TimelineRecorder timeline,
-            IItemCanonicalDataService itemCanonicalData,
+            IItemCanonicalRepository itemCanonicalData,
             CanonicalCandidateBuilder candidateBuilder,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -639,7 +639,7 @@ public static class ItemCanonicalEndpoints
             IHydrationPipelineService pipeline,
             CoverArtWorker coverArtWorker,
             TimelineRecorder timeline,
-            IItemCanonicalDataService itemCanonicalData,
+            IItemCanonicalRepository itemCanonicalData,
             CanonicalCandidateBuilder candidateBuilder,
             ILoggerFactory loggerFactory,
             CancellationToken ct) =>
@@ -984,7 +984,7 @@ public static class ItemCanonicalEndpoints
             ICollectionRepository collectionRepo,
             IWorkRepository workRepo,
             IReviewQueueRepository reviewRepo,
-            IItemCanonicalDataService itemCanonicalData,
+            IItemCanonicalRepository itemCanonicalData,
             CancellationToken ct) =>
         {
             var context = await itemCanonicalData.ResolveWorkAssetContextAsync(entityId, ct);
@@ -1284,7 +1284,7 @@ public static class ItemCanonicalEndpoints
         CanonicalTargetPolicy policy,
         IReadOnlyCollection<string> staleKeys,
         IReadOnlyDictionary<string, string> replacements,
-        IItemCanonicalDataService itemCanonicalData,
+        IItemCanonicalRepository itemCanonicalData,
         CancellationToken ct)
     {
         var targetWorkIds = policy.BridgeIdKeys
