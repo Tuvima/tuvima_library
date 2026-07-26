@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using MediaEngine.Domain;
@@ -285,9 +284,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         if (string.IsNullOrWhiteSpace(series) || string.IsNullOrWhiteSpace(issue))
             return false;
 
-        var normalizedTitle = NormalizeComparableText(
+        var normalizedTitle = RetailTextSimilarity.NormalizeComparableText(
             Regex.Replace(title, @"\(\d{4}\)\s*$", string.Empty));
-        var normalizedSeries = NormalizeComparableText(series);
+        var normalizedSeries = RetailTextSimilarity.NormalizeComparableText(series);
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
             return false;
 
@@ -310,35 +309,9 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
     private static bool AreEquivalentComparableText(string left, string right)
     {
         return string.Equals(
-            NormalizeComparableText(left),
-            NormalizeComparableText(right),
+            RetailTextSimilarity.NormalizeComparableText(left),
+            RetailTextSimilarity.NormalizeComparableText(right),
             StringComparison.Ordinal);
-    }
-
-    private static string NormalizeComparableText(string text)
-    {
-        var chars = StripDiacritics(text)
-            .Replace("&", " and ", StringComparison.Ordinal)
-            .ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
-            .ToArray();
-
-        return string.Join(' ', new string(chars)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
-
-    private static string StripDiacritics(string text)
-    {
-        var normalized = text.Normalize(NormalizationForm.FormD);
-        var sb = new StringBuilder(normalized.Length);
-
-        foreach (var c in normalized)
-        {
-            if (CharUnicodeInfo.GetUnicodeCategory(c) != UnicodeCategory.NonSpacingMark)
-                sb.Append(c);
-        }
-
-        return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
     /// <summary>
@@ -531,7 +504,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
     private static HashSet<string> GetCreatorTokens(string value)
     {
-        var words = NormalizeComparableText(value)
+        var words = RetailTextSimilarity.NormalizeComparableText(value)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Where(token => !string.Equals(token, "and", StringComparison.Ordinal))
             .ToList();

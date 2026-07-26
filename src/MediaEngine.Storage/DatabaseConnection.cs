@@ -104,6 +104,38 @@ public sealed class DatabaseConnection : IDatabaseConnection
         => _writeLock.Release();
 
     /// <inheritdoc/>
+    public async Task<T> ExecuteInTransactionAsync<T>(
+        Func<SqliteConnection, SqliteTransaction, CancellationToken, Task<T>> body,
+        CancellationToken ct = default)
+    {
+        await AcquireWriteLockAsync(ct).ConfigureAwait(false);
+        try
+        {
+            using var conn = CreateConnection();
+            using var tx = conn.BeginTransaction();
+            var result = await body(conn, tx, ct).ConfigureAwait(false);
+            tx.Commit();
+            return result;
+        }
+        finally
+        {
+            ReleaseWriteLock();
+        }
+    }
+
+    /// <inheritdoc/>
+    public Task ExecuteInTransactionAsync(
+        Func<SqliteConnection, SqliteTransaction, CancellationToken, Task> body,
+        CancellationToken ct = default)
+        => ExecuteInTransactionAsync<object?>(
+            async (conn, tx, token) =>
+            {
+                await body(conn, tx, token).ConfigureAwait(false);
+                return null;
+            },
+            ct);
+
+    /// <inheritdoc/>
     public void Dispose()
     {
         _connection?.Dispose();

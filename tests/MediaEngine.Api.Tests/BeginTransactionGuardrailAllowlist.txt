@@ -1,0 +1,9 @@
+# Raw BeginTransaction() guardrail allowlist.
+# Format: one repo-relative file path per line. Blank lines and lines starting
+# with # are ignored.
+#
+# Every entry here calls SqliteConnection.BeginTransaction() directly instead
+# of routing through IDatabaseConnection.ExecuteInTransactionAsync, which is
+# the only site (src/MediaEngine.Storage/DatabaseConnection.cs) allowed to call
+# BeginTransaction() directly. This list is EMPTY by design — every legacy site
+# was migrated in stage 2. New entries are forbidden; use the helper instead.

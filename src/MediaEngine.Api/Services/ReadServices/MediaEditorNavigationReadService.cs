@@ -385,12 +385,15 @@ public sealed class MediaEditorNavigationReadService(
             return preview with { Applied = false };
         }
 
-        await db.AcquireWriteLockAsync(ct);
-        try
+        // The Stage 2 pipeline enqueue below must happen after the write lock is
+        // released — IHydrationPipelineService may persist through its own
+        // repository path, which could try to acquire the same non-reentrant write
+        // lock. The media type is captured from inside the transaction body and the
+        // enqueue call is hoisted outside ExecuteInTransactionAsync to avoid that
+        // deadlock risk.
+        string? finalizedMediaType = null;
+        var finalized = await db.ExecuteInTransactionAsync<MembershipPreviewEnvelope?>(async (conn, tx, innerCt) =>
         {
-            using var conn = db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-
             var entityRow = conn.QueryFirstOrDefault<MembershipEntityRow>("""
                 SELECT w.id             AS WorkId,
                        w.media_type     AS MediaType,
@@ -408,25 +411,25 @@ public sealed class MediaEditorNavigationReadService(
 
             if (entityRow is null)
             {
-                tx.Rollback();
                 return null;
             }
 
             var plan = ResolveMembershipPlan(entityRow, request);
-            var finalized = await FinalizeMembershipPlanAsync(conn, tx, plan, request, applyChanges: true, ct);
-            tx.Commit();
+            finalizedMediaType = plan.MediaType;
+            return await FinalizeMembershipPlanAsync(conn, tx, plan, request, applyChanges: true, innerCt);
+        }, ct);
 
-            if (finalized.Stage2TargetEntityId.HasValue)
-            {
-                await QueueRetailParentStage2Async(pipeline, finalized.Stage2TargetEntityId.Value, plan.MediaType, request, ct);
-            }
-
-            return finalized with { Applied = true };
-        }
-        finally
+        if (finalized is null)
         {
-            db.ReleaseWriteLock();
+            return null;
         }
+
+        if (finalized.Stage2TargetEntityId.HasValue)
+        {
+            await QueueRetailParentStage2Async(pipeline, finalized.Stage2TargetEntityId.Value, finalizedMediaType!, request, ct);
+        }
+
+        return finalized with { Applied = true };
     }
 
     private static IReadOnlyList<NavigatorTreeRow> QueryNavigatorTree(SqliteConnection conn, Guid rootWorkId) =>

@@ -17,7 +17,7 @@ public sealed class WorkIdentityReconciliationService
         _logger = logger;
     }
 
-    public Task<int> MergeDuplicateReadWorksByQidAsync(CancellationToken ct = default)
+    public async Task<int> MergeDuplicateReadWorksByQidAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
 
@@ -68,7 +68,12 @@ public sealed class WorkIdentityReconciliationService
             var target = ChooseCanonical(siblings);
             foreach (var source in siblings.Where(row => row.WorkId != target.WorkId))
             {
-                merged += MergeWorkInto(conn, source.WorkId, target.WorkId, target.IdentityQid);
+                // Each merge runs through its own ExecuteInTransactionAsync call so the
+                // (non-reentrant) global write lock is acquired and released once per
+                // merge, sequentially. This method's own connection (`conn`, above) is
+                // read-only and holds no lock, so there is no nesting/deadlock risk here.
+                merged += await MergeWorkIntoAsync(source.WorkId, target.WorkId, target.IdentityQid, ct)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -79,7 +84,7 @@ public sealed class WorkIdentityReconciliationService
                 merged);
         }
 
-        return Task.FromResult(merged);
+        return merged;
     }
 
     private static string NormalizeMediaType(string mediaType) =>
@@ -96,97 +101,96 @@ public sealed class WorkIdentityReconciliationService
             .ThenBy(row => row.CreatedAt ?? string.Empty, StringComparer.Ordinal)
             .First();
 
-    private static int MergeWorkInto(System.Data.IDbConnection conn, Guid sourceWorkId, Guid targetWorkId, string qid)
-    {
-        using var tx = conn.BeginTransaction();
-        var now = DateTimeOffset.UtcNow.ToString("O");
-        var args = new
+    private Task<int> MergeWorkIntoAsync(Guid sourceWorkId, Guid targetWorkId, string qid, CancellationToken ct) =>
+        _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            source = sourceWorkId,
-            target = targetWorkId,
-            qid,
-            now,
-        };
+            var now = DateTimeOffset.UtcNow.ToString("O");
+            var args = new
+            {
+                source = sourceWorkId,
+                target = targetWorkId,
+                qid,
+                now,
+            };
 
-        conn.Execute("""
-            UPDATE works
-            SET wikidata_qid = COALESCE(NULLIF(TRIM(wikidata_qid), ''), @qid)
-            WHERE id = @target;
+            conn.Execute("""
+                UPDATE works
+                SET wikidata_qid = COALESCE(NULLIF(TRIM(wikidata_qid), ''), @qid)
+                WHERE id = @target;
 
-            UPDATE editions
-            SET work_id = @target
-            WHERE work_id = @source;
+                UPDATE editions
+                SET work_id = @target
+                WHERE work_id = @source;
 
-            INSERT OR IGNORE INTO canonical_values
-                (entity_id, key, value, last_scored_at, is_conflicted,
-                 winning_provider_id, needs_review)
-            SELECT @target, key, value, last_scored_at, is_conflicted,
-                   winning_provider_id, needs_review
-            FROM canonical_values
-            WHERE entity_id = @source;
+                INSERT OR IGNORE INTO canonical_values
+                    (entity_id, key, value, last_scored_at, is_conflicted,
+                     winning_provider_id, needs_review)
+                SELECT @target, key, value, last_scored_at, is_conflicted,
+                       winning_provider_id, needs_review
+                FROM canonical_values
+                WHERE entity_id = @source;
 
-            DELETE FROM canonical_values
-            WHERE entity_id = @source;
+                DELETE FROM canonical_values
+                WHERE entity_id = @source;
 
-            INSERT OR IGNORE INTO canonical_value_arrays
-                (entity_id, key, ordinal, value, value_qid)
-            SELECT @target, key, ordinal, value, value_qid
-            FROM canonical_value_arrays
-            WHERE entity_id = @source;
+                INSERT OR IGNORE INTO canonical_value_arrays
+                    (entity_id, key, ordinal, value, value_qid)
+                SELECT @target, key, ordinal, value, value_qid
+                FROM canonical_value_arrays
+                WHERE entity_id = @source;
 
-            DELETE FROM canonical_value_arrays
-            WHERE entity_id = @source;
+                DELETE FROM canonical_value_arrays
+                WHERE entity_id = @source;
 
-            UPDATE metadata_claims
-            SET entity_id = @target
-            WHERE entity_id = @source;
+                UPDATE metadata_claims
+                SET entity_id = @target
+                WHERE entity_id = @source;
 
-            UPDATE OR IGNORE bridge_ids
-            SET entity_id = @target
-            WHERE entity_id = @source;
+                UPDATE OR IGNORE bridge_ids
+                SET entity_id = @target
+                WHERE entity_id = @source;
 
-            DELETE FROM bridge_ids
-            WHERE entity_id = @source;
+                DELETE FROM bridge_ids
+                WHERE entity_id = @source;
 
-            UPDATE entity_assets
-            SET entity_id = @target
-            WHERE entity_type = 'Work'
-              AND entity_id = @source;
+                UPDATE entity_assets
+                SET entity_id = @target
+                WHERE entity_type = 'Work'
+                  AND entity_id = @source;
 
-            UPDATE collection_items
-            SET work_id = @target
-            WHERE work_id = @source;
+                UPDATE collection_items
+                SET work_id = @target
+                WHERE work_id = @source;
 
-            UPDATE series_manifest_items
-            SET linked_work_id = @target
-            WHERE linked_work_id = @source;
+                UPDATE series_manifest_items
+                SET linked_work_id = @target
+                WHERE linked_work_id = @source;
 
-            UPDATE review_queue
-            SET status = 'Resolved',
-                resolved_at = @now,
-                resolved_by = 'system:work-identity-merge'
-            WHERE entity_type = 'Work'
-              AND entity_id = @source
-              AND status = 'Pending';
+                UPDATE review_queue
+                SET status = 'Resolved',
+                    resolved_at = @now,
+                    resolved_by = 'system:work-identity-merge'
+                WHERE entity_type = 'Work'
+                  AND entity_id = @source
+                  AND status = 'Pending';
 
-            UPDATE review_queue
-            SET entity_id = @target
-            WHERE entity_type = 'Work'
-              AND entity_id = @source;
+                UPDATE review_queue
+                SET entity_id = @target
+                WHERE entity_type = 'Work'
+                  AND entity_id = @source;
 
-            DELETE FROM works
-            WHERE id = @source
-              AND NOT EXISTS (
-                  SELECT 1 FROM editions e WHERE e.work_id = @source
-              )
-              AND NOT EXISTS (
-                  SELECT 1 FROM works child WHERE child.parent_work_id = @source
-              );
-            """, args, tx);
+                DELETE FROM works
+                WHERE id = @source
+                  AND NOT EXISTS (
+                      SELECT 1 FROM editions e WHERE e.work_id = @source
+                  )
+                  AND NOT EXISTS (
+                      SELECT 1 FROM works child WHERE child.parent_work_id = @source
+                  );
+                """, args, tx);
 
-        tx.Commit();
-        return 1;
-    }
+            return Task.FromResult(1);
+        }, ct);
 
     private sealed class ReadWorkIdentityRow
     {

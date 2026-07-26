@@ -54,7 +54,17 @@ internal static class RetailTextSimilarity
         return sb.ToString().Normalize(NormalizationForm.FormC);
     }
 
-    private static string NormalizeComparableText(string text)
+    /// <summary>
+    /// THE canonical comparable-text normalization for retail and Wikidata matching.
+    /// Strips diacritics, maps <c>&amp;</c> to " and ", lowercases, and collapses every
+    /// run of non-alphanumeric characters (including whitespace) to a single space.
+    /// Stage 1 retail matching (<see cref="RetailMatchScoringService"/>, <c>RetailMatchWorker</c>)
+    /// and Stage 2 Wikidata bridge resolution (<c>WikidataBridgeWorker</c>) both depend on
+    /// using this exact implementation — if either stage normalizes text differently, the
+    /// same title can compare equal in one stage and unequal in the other, breaking
+    /// pipeline consistency. Do not reintroduce a private copy of this method elsewhere.
+    /// </summary>
+    public static string NormalizeComparableText(string text)
     {
         var chars = StripDiacritics(text)
             .Replace("&", " and ", StringComparison.Ordinal)

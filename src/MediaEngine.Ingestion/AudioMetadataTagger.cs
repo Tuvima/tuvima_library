@@ -7,9 +7,9 @@ namespace MediaEngine.Ingestion;
 /// Writes metadata back into audio files (MP3, M4B, M4A, FLAC, OGG) using TagLibSharp.
 /// Handles ID3v2 (MP3), MP4 atoms (M4B/M4A), Vorbis comments (FLAC/OGG).
 ///
-/// Safety: backup-before-modify pattern — same as <see cref="EpubMetadataTagger"/>.
+/// Safety: backup-before-modify pattern, implemented once by <see cref="BackedUpMetadataTagger"/>.
 /// </summary>
-public sealed class AudioMetadataTagger : IMetadataTagger
+public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
 {
     /// <summary>
     /// Bumped manually whenever this tagger gains a new write or changes the
@@ -63,6 +63,7 @@ public sealed class AudioMetadataTagger : IMetadataTagger
     private readonly ILogger<AudioMetadataTagger> _logger;
 
     public AudioMetadataTagger(ILogger<AudioMetadataTagger> logger)
+        : base(logger, "AudioTagger")
     {
         _logger = logger;
     }
@@ -88,11 +89,10 @@ public sealed class AudioMetadataTagger : IMetadataTagger
             return Task.CompletedTask;
         }
 
-        var backupPath = filePath + ".tuvima.bak";
-        try
+        WithBackup(
+            filePath,
+            () =>
         {
-            File.Copy(filePath, backupPath, overwrite: true);
-
             using var file = TagLib.File.Create(filePath);
 
             if (tags.TryGetValue("title", out var title))
@@ -160,18 +160,14 @@ public sealed class AudioMetadataTagger : IMetadataTagger
             file.Save();
 
             // Backup cleanup — success.
+            var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
                 File.Delete(backupPath);
 
             _logger.LogInformation("AudioTagger: wrote {Count} tags to {Path}",
                 tags.Count, filePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AudioTagger: failed to write tags to {Path} — restoring backup", filePath);
-            RestoreBackup(filePath, backupPath);
-            throw;
-        }
+        },
+            onFailure: ex => _logger.LogError(ex, "AudioTagger: failed to write tags to {Path} — restoring backup", filePath));
 
         return Task.CompletedTask;
     }
@@ -187,11 +183,10 @@ public sealed class AudioMetadataTagger : IMetadataTagger
         if (!File.Exists(filePath) || imageData.Length == 0)
             return Task.CompletedTask;
 
-        var backupPath = filePath + ".tuvima.bak";
-        try
+        WithBackup(
+            filePath,
+            () =>
         {
-            File.Copy(filePath, backupPath, overwrite: true);
-
             using var file = TagLib.File.Create(filePath);
             file.Tag.Pictures =
             [
@@ -204,33 +199,15 @@ public sealed class AudioMetadataTagger : IMetadataTagger
             ];
             file.Save();
 
+            var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
                 File.Delete(backupPath);
 
             _logger.LogInformation("AudioTagger: wrote cover art ({Size} bytes) to {Path}",
                 imageData.Length, filePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "AudioTagger: failed to write cover art to {Path} — restoring backup", filePath);
-            RestoreBackup(filePath, backupPath);
-            throw;
-        }
+        },
+            onFailure: ex => _logger.LogError(ex, "AudioTagger: failed to write cover art to {Path} — restoring backup", filePath));
 
         return Task.CompletedTask;
-    }
-
-    private void RestoreBackup(string filePath, string backupPath)
-    {
-        try
-        {
-            if (File.Exists(backupPath))
-                File.Copy(backupPath, filePath, overwrite: true);
-        }
-        catch (Exception restoreEx)
-        {
-            _logger.LogCritical(restoreEx,
-                "AudioTagger: CRITICAL — backup restore also failed for {Path}", filePath);
-        }
     }
 }

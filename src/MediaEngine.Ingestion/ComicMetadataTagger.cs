@@ -12,9 +12,9 @@ namespace MediaEngine.Ingestion;
 /// CBR (RAR) archives are read-only — this tagger does not support them.
 /// Uses <see cref="System.IO.Compression"/> (BCL) — no new dependency.
 ///
-/// Safety: backup-before-modify pattern — same as <see cref="EpubMetadataTagger"/>.
+/// Safety: backup-before-modify pattern, implemented once by <see cref="BackedUpMetadataTagger"/>.
 /// </summary>
-public sealed class ComicMetadataTagger : IMetadataTagger
+public sealed class ComicMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
 {
     /// <summary>
     /// Bumped manually whenever this tagger gains a new write or changes the
@@ -38,6 +38,7 @@ public sealed class ComicMetadataTagger : IMetadataTagger
     private readonly ILogger<ComicMetadataTagger> _logger;
 
     public ComicMetadataTagger(ILogger<ComicMetadataTagger> logger)
+        : base(logger, "ComicTagger")
     {
         _logger = logger;
     }
@@ -64,11 +65,10 @@ public sealed class ComicMetadataTagger : IMetadataTagger
             return;
         }
 
-        var backupPath = filePath + ".tuvima.bak";
-        try
+        await WithBackupAsync(
+            filePath,
+            async () =>
         {
-            File.Copy(filePath, backupPath, overwrite: true);
-
             using var zip = ZipFile.Open(filePath, ZipArchiveMode.Update);
 
             // Load or create ComicInfo.xml.
@@ -122,18 +122,14 @@ public sealed class ComicMetadataTagger : IMetadataTagger
             }
 
             // Backup cleanup — success.
+            var backupPath = filePath + BackupSuffix;
             if (File.Exists(backupPath))
                 File.Delete(backupPath);
 
             _logger.LogInformation("ComicTagger: wrote ComicInfo.xml with {Count} tags to {Path}",
                 tags.Count, filePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "ComicTagger: failed to write tags to {Path} — restoring backup", filePath);
-            RestoreBackup(filePath, backupPath);
-            throw;
-        }
+        },
+            onFailure: ex => _logger.LogError(ex, "ComicTagger: failed to write tags to {Path} — restoring backup", filePath));
     }
 
     /// <inheritdoc/>
@@ -162,19 +158,5 @@ public sealed class ComicMetadataTagger : IMetadataTagger
             el.Value = value;
         else
             root.Add(new XElement(elementName, value));
-    }
-
-    private void RestoreBackup(string filePath, string backupPath)
-    {
-        try
-        {
-            if (File.Exists(backupPath))
-                File.Copy(backupPath, filePath, overwrite: true);
-        }
-        catch (Exception restoreEx)
-        {
-            _logger.LogCritical(restoreEx,
-                "ComicTagger: CRITICAL — backup restore also failed for {Path}", filePath);
-        }
     }
 }

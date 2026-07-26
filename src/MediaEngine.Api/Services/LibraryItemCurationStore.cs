@@ -97,9 +97,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
         if (claims.Count == 0)
             return;
 
-        using var connection = db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        try
+        await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
             foreach (var claim in claims)
             {
@@ -120,16 +118,9 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                         scoredAt = claim.ClaimedAt.ToString("O"),
                     },
                     transaction,
-                    cancellationToken: ct));
+                    cancellationToken: innerCt));
             }
-
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        }, ct);
     }
 
     public async Task MarkWorkRegisteredAsync(Guid workId, CancellationToken ct = default)
@@ -240,9 +231,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
 
     public async Task DeleteWorkRecordsAsync(LibraryItemRemovalTarget target, CancellationToken ct = default)
     {
-        using var connection = db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        try
+        await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
             await connection.ExecuteAsync(new CommandDefinition("""
                 DELETE FROM review_queue
@@ -252,19 +241,19 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                     INNER JOIN media_assets ma ON ma.edition_id = e.id
                     WHERE e.work_id = @workId
                 );
-                """, new { workId = target.WorkId }, transaction, cancellationToken: ct));
+                """, new { workId = target.WorkId }, transaction, cancellationToken: innerCt));
 
             await connection.ExecuteAsync(new CommandDefinition(
                 "DELETE FROM entity_assets WHERE entity_id = @workId;",
                 new { workId = target.WorkId },
                 transaction,
-                cancellationToken: ct));
+                cancellationToken: innerCt));
 
             await connection.ExecuteAsync(new CommandDefinition(
                 "DELETE FROM works WHERE id = @workId;",
                 new { workId = target.WorkId },
                 transaction,
-                cancellationToken: ct));
+                cancellationToken: innerCt));
 
             if (target.CollectionId.HasValue)
             {
@@ -275,16 +264,9 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                     """,
                     new { collectionId = target.CollectionId.Value },
                     transaction,
-                    cancellationToken: ct));
+                    cancellationToken: innerCt));
             }
-
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        }, ct);
     }
 
     public async Task<int> ApproveWorksAsync(
@@ -295,16 +277,14 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
         if (workIds.Count == 0)
             return 0;
 
-        using var connection = db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
         var parameters = new { workIds = ToBlobArray(workIds), now = now.ToString("O") };
-        try
+        return await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
             var processed = await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE works
                 SET wikidata_status = 'missing', wikidata_checked_at = @now
                 WHERE id IN @workIds;
-                """, parameters, transaction, cancellationToken: ct));
+                """, parameters, transaction, cancellationToken: innerCt));
 
             await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE review_queue
@@ -316,16 +296,10 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                       INNER JOIN media_assets ma ON ma.edition_id = e.id
                       WHERE e.work_id IN @workIds
                   );
-                """, parameters, transaction, cancellationToken: ct));
+                """, parameters, transaction, cancellationToken: innerCt));
 
-            transaction.Commit();
             return processed;
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        }, ct);
     }
 
     public async Task MarkRejectedAsync(
@@ -334,8 +308,6 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        using var connection = db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
         var parameters = new
         {
             target.AssetId,
@@ -343,30 +315,24 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
             path = newFilePath,
             now = now.ToString("O"),
         };
-        try
+        await db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
             await connection.ExecuteAsync(new CommandDefinition(
                 "UPDATE media_assets SET file_path_root = @path WHERE id = @AssetId;",
                 parameters,
                 transaction,
-                cancellationToken: ct));
+                cancellationToken: innerCt));
             await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE review_queue
                 SET status = 'Dismissed', resolved_at = @now, resolved_by = 'user:reject'
                 WHERE entity_id IN (@AssetId, @WorkId) AND status = 'Pending';
-                """, parameters, transaction, cancellationToken: ct));
+                """, parameters, transaction, cancellationToken: innerCt));
             await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE works
                 SET curator_state = 'rejected', rejected_at = @now
                 WHERE id = @WorkId;
-                """, parameters, transaction, cancellationToken: ct));
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+                """, parameters, transaction, cancellationToken: innerCt));
+        }, ct);
     }
 
     public async Task<LibraryItemRecoveryResult?> RecoverAsync(
@@ -374,18 +340,15 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        using var connection = db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        try
+        return await db.ExecuteInTransactionAsync<LibraryItemRecoveryResult?>(async (connection, transaction, innerCt) =>
         {
             var affected = await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE works
                 SET curator_state = NULL, rejected_at = NULL
                 WHERE id = @workId AND curator_state = 'rejected';
-                """, new { workId }, transaction, cancellationToken: ct));
+                """, new { workId }, transaction, cancellationToken: innerCt));
             if (affected == 0)
             {
-                transaction.Rollback();
                 return null;
             }
 
@@ -396,7 +359,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                 WHERE e.work_id = @workId
                 ORDER BY ma.file_path_root
                 LIMIT 1;
-                """, new { workId }, transaction, cancellationToken: ct));
+                """, new { workId }, transaction, cancellationToken: innerCt));
 
             Guid? reviewId = null;
             if (assetId.HasValue)
@@ -411,17 +374,11 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                     """,
                     new { reviewId = reviewId.Value, assetId = assetId.Value, createdAt = now.ToString("O") },
                     transaction,
-                    cancellationToken: ct));
+                    cancellationToken: innerCt));
             }
 
-            transaction.Commit();
             return new LibraryItemRecoveryResult(workId, assetId, reviewId);
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        }, ct);
     }
 
     public async Task<LibraryItemProvisionalResult?> MarkProvisionalAsync(
@@ -430,19 +387,16 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
         DateTimeOffset now,
         CancellationToken ct = default)
     {
-        using var connection = db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-        try
+        return await db.ExecuteInTransactionAsync<LibraryItemProvisionalResult?>(async (connection, transaction, innerCt) =>
         {
             var metadataJson = System.Text.Json.JsonSerializer.Serialize(metadata);
             var affected = await connection.ExecuteAsync(new CommandDefinition("""
                 UPDATE works
                 SET curator_state = 'provisional', provisional_metadata_json = @metadataJson
                 WHERE id = @workId;
-                """, new { workId, metadataJson }, transaction, cancellationToken: ct));
+                """, new { workId, metadataJson }, transaction, cancellationToken: innerCt));
             if (affected == 0)
             {
-                transaction.Rollback();
                 return null;
             }
 
@@ -453,7 +407,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                 WHERE e.work_id = @workId
                 ORDER BY ma.file_path_root
                 LIMIT 1;
-                """, new { workId }, transaction, cancellationToken: ct));
+                """, new { workId }, transaction, cancellationToken: innerCt));
 
             var claimsWritten = 0;
             if (assetId.HasValue)
@@ -465,7 +419,7 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                     """,
                     new { assetId = assetId.Value, now = now.ToString("O") },
                     transaction,
-                    cancellationToken: ct));
+                    cancellationToken: innerCt));
 
                 var fields = BuildProvisionalFields(metadata);
                 foreach (var (key, value) in fields)
@@ -497,19 +451,13 @@ public sealed class LibraryItemCurationStore(IDatabaseConnection db) : ILibraryI
                             is_conflicted = 0,
                             needs_review = 0,
                             last_scored_at = excluded.last_scored_at;
-                        """, parameters, transaction, cancellationToken: ct));
+                        """, parameters, transaction, cancellationToken: innerCt));
                     claimsWritten++;
                 }
             }
 
-            transaction.Commit();
             return new LibraryItemProvisionalResult(workId, assetId, claimsWritten);
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+        }, ct);
     }
 
     public async Task<IReadOnlyList<LibraryItemHistoryEntry>> GetHistoryAsync(

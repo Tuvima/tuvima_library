@@ -21,33 +21,35 @@ public sealed class WorkHierarchyMaintenanceService
     public Task<int> CleanupEmptyParentsAsync(Guid? startingParentId, CancellationToken ct = default)
         => CleanupEmptyParentsAsync(ct);
 
-    public Task<int> CleanupEmptyParentsAsync(CancellationToken ct = default)
+    public async Task<int> CleanupEmptyParentsAsync(CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
 
-        var deleted = 0;
-        while (true)
+        var deleted = await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            var parentIds = conn.Query<Guid>(
-                EmptyParentSql,
-                transaction: tx).ToList();
-            if (parentIds.Count == 0)
-                break;
-
-            foreach (var parentId in parentIds)
+            var count = 0;
+            while (true)
             {
-                DeleteParentDerivedState(conn, tx, parentId);
-                deleted += conn.Execute("DELETE FROM works WHERE id = @parentId;", new { parentId }, tx);
-            }
-        }
+                var parentIds = conn.Query<Guid>(
+                    EmptyParentSql,
+                    transaction: tx).ToList();
+                if (parentIds.Count == 0)
+                    break;
 
-        tx.Commit();
+                foreach (var parentId in parentIds)
+                {
+                    DeleteParentDerivedState(conn, tx, parentId);
+                    count += conn.Execute("DELETE FROM works WHERE id = @parentId;", new { parentId }, tx);
+                }
+            }
+
+            return Task.FromResult(count);
+        }, ct).ConfigureAwait(false);
+
         if (deleted > 0)
             _logger?.LogInformation("Removed {Count} empty parent work rows", deleted);
 
-        return Task.FromResult(deleted);
+        return deleted;
     }
 
     private const string EmptyParentSql = """

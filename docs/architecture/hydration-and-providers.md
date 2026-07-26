@@ -212,6 +212,18 @@ link as "Series on Wikidata" so users can see that the QID identifies the
 series/run source, not the issue itself. This is structural behavior for comic
 metadata gaps, not a title-specific exception.
 
+**Comparable-text normalization:** Title/series equivalence checks across the identity
+pipeline are unified on `RetailTextSimilarity.NormalizeComparableText` — the single
+canonical implementation (diacritic folding, `&` → " and ", lowercasing, and
+punctuation/whitespace collapse) shared by Stage 1 retail matching
+(`RetailMatchScoringService`, `RetailMatchWorker`) and Stage 2 Wikidata bridging
+(`WikidataBridgeWorker`), as well as manual search (`SearchService`). Previously,
+Stage 2 used a divergent private variant that neither stripped diacritics nor mapped
+`&` to "and", so a title such as "Für Elise & Co" compared equal in Stage 1 but not in
+Stage 2. Bridge matching for titles containing diacritics or ampersands may now
+succeed where it previously failed — this is an intentional correctness fix, not a
+config change.
+
 ### Provider Pipeline Assignments (config/pipelines.json)
 
 | Media Type | Primary | Secondary | Tertiary | Bridge to Wikidata |

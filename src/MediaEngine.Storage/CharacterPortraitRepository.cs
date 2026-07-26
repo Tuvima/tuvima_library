@@ -142,42 +142,38 @@ public sealed class CharacterPortraitRepository : ICharacterPortraitRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn = _db.CreateConnection();
-        using var transaction = conn.BeginTransaction();
-
-        // Look up the fictional_entity_id for this portrait.
-        var fictionalEntityId = conn.QueryFirstOrDefault<Guid?>("""
-            SELECT fictional_entity_id
-            FROM   character_portraits
-            WHERE  id = @portraitId
-            LIMIT  1;
-            """, new { portraitId }, transaction);
-
-        if (fictionalEntityId is null)
+        return _db.ExecuteInTransactionAsync((conn, transaction, innerCt) =>
         {
-            transaction.Commit();
+            // Look up the fictional_entity_id for this portrait.
+            var fictionalEntityId = conn.QueryFirstOrDefault<Guid?>("""
+                SELECT fictional_entity_id
+                FROM   character_portraits
+                WHERE  id = @portraitId
+                LIMIT  1;
+                """, new { portraitId }, transaction);
+
+            if (fictionalEntityId is null)
+                return Task.CompletedTask;
+
+            // Clear default on all portraits for this character.
+            conn.Execute("""
+                UPDATE character_portraits
+                SET    is_default = 0,
+                       updated_at = @now
+                WHERE  fictional_entity_id = @fictionalEntityId
+                  AND  is_default = 1;
+                """, new { fictionalEntityId, now = DateTimeOffset.UtcNow }, transaction);
+
+            // Set the target portrait as default.
+            conn.Execute("""
+                UPDATE character_portraits
+                SET    is_default = 1,
+                       updated_at = @now
+                WHERE  id = @portraitId;
+                """, new { portraitId, now = DateTimeOffset.UtcNow }, transaction);
+
             return Task.CompletedTask;
-        }
-
-        // Clear default on all portraits for this character.
-        conn.Execute("""
-            UPDATE character_portraits
-            SET    is_default = 0,
-                   updated_at = @now
-            WHERE  fictional_entity_id = @fictionalEntityId
-              AND  is_default = 1;
-            """, new { fictionalEntityId, now = DateTimeOffset.UtcNow }, transaction);
-
-        // Set the target portrait as default.
-        conn.Execute("""
-            UPDATE character_portraits
-            SET    is_default = 1,
-                   updated_at = @now
-            WHERE  id = @portraitId;
-            """, new { portraitId, now = DateTimeOffset.UtcNow }, transaction);
-
-        transaction.Commit();
-        return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>

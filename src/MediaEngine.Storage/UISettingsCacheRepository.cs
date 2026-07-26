@@ -77,14 +77,11 @@ public sealed class UISettingsCacheRepository
     /// Rebuilds the cache from configuration files.
     /// Called on Engine startup to ensure the cache reflects the current file state.
     /// </summary>
-    public void RebuildFromFiles(IConfigurationLoader configLoader)
+    public Task RebuildFromFilesAsync(IConfigurationLoader configLoader, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(configLoader);
 
-        using var conn = _db.CreateConnection();
-        using var transaction = conn.BeginTransaction();
-
-        try
+        return _db.ExecuteInTransactionAsync((conn, transaction, innerCt) =>
         {
             // Clear existing cache — must use raw command here because the transaction
             // cannot be passed through Dapper's Execute overload for SqliteTransaction
@@ -116,13 +113,8 @@ public sealed class UISettingsCacheRepository
                         System.Text.Json.JsonSerializer.Serialize(device));
             }
 
-            transaction.Commit();
-        }
-        catch
-        {
-            transaction.Rollback();
-            throw;
-        }
+            return Task.CompletedTask;
+        }, ct);
     }
 
     private static void UpsertInTransaction(

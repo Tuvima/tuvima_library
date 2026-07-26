@@ -1721,8 +1721,8 @@ public sealed class WikidataBridgeWorker
 
     private static bool TitleAlreadyIncludesSeries(string title, string series)
     {
-        var normalizedTitle = NormalizeComparableText(title);
-        var normalizedSeries = NormalizeComparableText(series);
+        var normalizedTitle = RetailTextSimilarity.NormalizeComparableText(title);
+        var normalizedSeries = RetailTextSimilarity.NormalizeComparableText(series);
 
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
             return false;
@@ -1731,17 +1731,6 @@ public sealed class WikidataBridgeWorker
             || normalizedTitle.StartsWith(normalizedSeries + " ", StringComparison.Ordinal)
             || normalizedTitle.Contains(" " + normalizedSeries + " ", StringComparison.Ordinal)
             || normalizedTitle.EndsWith(" " + normalizedSeries, StringComparison.Ordinal);
-    }
-
-    private static string NormalizeComparableText(string text)
-    {
-        var chars = text
-            .ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
-            .ToArray();
-
-        return string.Join(' ', new string(chars)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
     }
 
     private async Task TryOrganizeRetainedRetailIdentityAsync(

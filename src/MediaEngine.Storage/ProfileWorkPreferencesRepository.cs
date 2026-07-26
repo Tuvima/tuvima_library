@@ -40,129 +40,124 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
         return row is null ? ProfileWorkPreferences.Empty(profileId, workId) : Map(row);
     }
 
-    public async Task<EditorPreferencesSaveResult> SaveAsync(
+    public Task<EditorPreferencesSaveResult> SaveAsync(
         EditorPreferencesSaveCommand command,
-        CancellationToken ct = default)
-    {
-        using var connection = _db.CreateConnection();
-        using var transaction = connection.BeginTransaction();
-
-        var workExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT COUNT(1) FROM works WHERE id = @workId;",
-            new { workId = command.WorkId }, transaction, cancellationToken: ct)) > 0;
-        var profileExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
-            "SELECT COUNT(1) FROM profiles WHERE id = @profileId;",
-            new { profileId = command.ProfileId }, transaction, cancellationToken: ct)) > 0;
-
-        if (!workExists || !profileExists)
+        CancellationToken ct = default) =>
+        _db.ExecuteInTransactionAsync(async (connection, transaction, innerCt) =>
         {
-            transaction.Rollback();
+            var workExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                "SELECT COUNT(1) FROM works WHERE id = @workId;",
+                new { workId = command.WorkId }, transaction, cancellationToken: innerCt)) > 0;
+            var profileExists = await connection.ExecuteScalarAsync<long>(new CommandDefinition(
+                "SELECT COUNT(1) FROM profiles WHERE id = @profileId;",
+                new { profileId = command.ProfileId }, transaction, cancellationToken: innerCt)) > 0;
+
+            if (!workExists || !profileExists)
+            {
+                return new EditorPreferencesSaveResult(
+                    workExists,
+                    profileExists,
+                    false,
+                    ProfileWorkPreferences.Empty(command.ProfileId, command.WorkId),
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
+            }
+
+            var current = await connection.QuerySingleOrDefaultAsync<PreferenceRow>(new CommandDefinition(
+                """
+                SELECT profile_id AS ProfileId,
+                       work_id AS WorkId,
+                       personal_notes AS PersonalNotes,
+                       local_tags_json AS LocalTagsJson,
+                       is_hidden AS IsHidden,
+                       include_in_recommendations AS IncludeInRecommendations,
+                       revision AS Revision,
+                       updated_at AS UpdatedAt
+                FROM profile_work_preferences
+                WHERE profile_id = @profileId AND work_id = @workId;
+                """,
+                new { profileId = command.ProfileId, workId = command.WorkId }, transaction, cancellationToken: innerCt));
+
+            var currentRevision = current?.Revision ?? 0;
+            var displayOverrides = await LoadDisplayOverridesAsync(connection, transaction, command.WorkId, innerCt);
+            if (currentRevision != command.ExpectedRevision)
+            {
+                return new EditorPreferencesSaveResult(
+                    true,
+                    true,
+                    true,
+                    current is null ? ProfileWorkPreferences.Empty(command.ProfileId, command.WorkId) : Map(current),
+                    displayOverrides);
+            }
+
+            foreach (var (key, value) in command.DisplayOverrideChanges)
+            {
+                var normalizedValue = value?.Trim() ?? string.Empty;
+                if (normalizedValue.Length == 0)
+                    displayOverrides.Remove(key);
+                else
+                    displayOverrides[key] = normalizedValue;
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            var nextRevision = currentRevision + 1;
+            var tags = command.LocalTags
+                .Select(tag => tag.Trim())
+                .Where(tag => tag.Length > 0)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                "UPDATE works SET display_overrides_json = @json WHERE id = @workId;",
+                new
+                {
+                    json = displayOverrides.Count == 0 ? null : JsonSerializer.Serialize(displayOverrides),
+                    workId = command.WorkId,
+                }, transaction, cancellationToken: innerCt));
+
+            await connection.ExecuteAsync(new CommandDefinition(
+                """
+                INSERT INTO profile_work_preferences
+                    (profile_id, work_id, personal_notes, local_tags_json, is_hidden,
+                     include_in_recommendations, revision, updated_at)
+                VALUES
+                    (@profileId, @workId, @personalNotes, @localTagsJson, @isHidden,
+                     @includeInRecommendations, @revision, @updatedAt)
+                ON CONFLICT(profile_id, work_id) DO UPDATE SET
+                    personal_notes = excluded.personal_notes,
+                    local_tags_json = excluded.local_tags_json,
+                    is_hidden = excluded.is_hidden,
+                    include_in_recommendations = excluded.include_in_recommendations,
+                    revision = excluded.revision,
+                    updated_at = excluded.updated_at;
+                """,
+                new
+                {
+                    profileId = command.ProfileId,
+                    workId = command.WorkId,
+                    personalNotes = string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
+                    localTagsJson = tags.Count == 0 ? null : JsonSerializer.Serialize(tags),
+                    isHidden = command.IsHidden ? 1 : 0,
+                    includeInRecommendations = command.IncludeInRecommendations ? 1 : 0,
+                    revision = nextRevision,
+                    updatedAt = now.ToString("O"),
+                }, transaction, cancellationToken: innerCt));
+
             return new EditorPreferencesSaveResult(
-                workExists,
-                profileExists,
+                true,
+                true,
                 false,
-                ProfileWorkPreferences.Empty(command.ProfileId, command.WorkId),
-                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase));
-        }
-
-        var current = await connection.QuerySingleOrDefaultAsync<PreferenceRow>(new CommandDefinition(
-            """
-            SELECT profile_id AS ProfileId,
-                   work_id AS WorkId,
-                   personal_notes AS PersonalNotes,
-                   local_tags_json AS LocalTagsJson,
-                   is_hidden AS IsHidden,
-                   include_in_recommendations AS IncludeInRecommendations,
-                   revision AS Revision,
-                   updated_at AS UpdatedAt
-            FROM profile_work_preferences
-            WHERE profile_id = @profileId AND work_id = @workId;
-            """,
-            new { profileId = command.ProfileId, workId = command.WorkId }, transaction, cancellationToken: ct));
-
-        var currentRevision = current?.Revision ?? 0;
-        var displayOverrides = await LoadDisplayOverridesAsync(connection, transaction, command.WorkId, ct);
-        if (currentRevision != command.ExpectedRevision)
-        {
-            transaction.Rollback();
-            return new EditorPreferencesSaveResult(
-                true,
-                true,
-                true,
-                current is null ? ProfileWorkPreferences.Empty(command.ProfileId, command.WorkId) : Map(current),
+                new ProfileWorkPreferences(
+                    command.ProfileId,
+                    command.WorkId,
+                    string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
+                    tags,
+                    command.IsHidden,
+                    command.IncludeInRecommendations,
+                    nextRevision,
+                    now),
                 displayOverrides);
-        }
-
-        foreach (var (key, value) in command.DisplayOverrideChanges)
-        {
-            var normalizedValue = value?.Trim() ?? string.Empty;
-            if (normalizedValue.Length == 0)
-                displayOverrides.Remove(key);
-            else
-                displayOverrides[key] = normalizedValue;
-        }
-
-        var now = DateTimeOffset.UtcNow;
-        var nextRevision = currentRevision + 1;
-        var tags = command.LocalTags
-            .Select(tag => tag.Trim())
-            .Where(tag => tag.Length > 0)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(tag => tag, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        await connection.ExecuteAsync(new CommandDefinition(
-            "UPDATE works SET display_overrides_json = @json WHERE id = @workId;",
-            new
-            {
-                json = displayOverrides.Count == 0 ? null : JsonSerializer.Serialize(displayOverrides),
-                workId = command.WorkId,
-            }, transaction, cancellationToken: ct));
-
-        await connection.ExecuteAsync(new CommandDefinition(
-            """
-            INSERT INTO profile_work_preferences
-                (profile_id, work_id, personal_notes, local_tags_json, is_hidden,
-                 include_in_recommendations, revision, updated_at)
-            VALUES
-                (@profileId, @workId, @personalNotes, @localTagsJson, @isHidden,
-                 @includeInRecommendations, @revision, @updatedAt)
-            ON CONFLICT(profile_id, work_id) DO UPDATE SET
-                personal_notes = excluded.personal_notes,
-                local_tags_json = excluded.local_tags_json,
-                is_hidden = excluded.is_hidden,
-                include_in_recommendations = excluded.include_in_recommendations,
-                revision = excluded.revision,
-                updated_at = excluded.updated_at;
-            """,
-            new
-            {
-                profileId = command.ProfileId,
-                workId = command.WorkId,
-                personalNotes = string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
-                localTagsJson = tags.Count == 0 ? null : JsonSerializer.Serialize(tags),
-                isHidden = command.IsHidden ? 1 : 0,
-                includeInRecommendations = command.IncludeInRecommendations ? 1 : 0,
-                revision = nextRevision,
-                updatedAt = now.ToString("O"),
-            }, transaction, cancellationToken: ct));
-
-        transaction.Commit();
-        return new EditorPreferencesSaveResult(
-            true,
-            true,
-            false,
-            new ProfileWorkPreferences(
-                command.ProfileId,
-                command.WorkId,
-                string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
-                tags,
-                command.IsHidden,
-                command.IncludeInRecommendations,
-                nextRevision,
-                now),
-            displayOverrides);
-    }
+        }, ct);
 
     private static async Task<Dictionary<string, string>> LoadDisplayOverridesAsync(
         System.Data.IDbConnection connection,

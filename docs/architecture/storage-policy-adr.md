@@ -97,3 +97,7 @@ Local exports are mirrors only. The central asset store remains the source of tr
 - `AssetPathService` is the policy authority for managed asset paths.
 - `entity_assets` records track storage location and export state.
 - DB-referenced legacy image files and local managed artwork are reconciled into `.data/assets` at startup; runtime fallback reads from legacy paths are not allowed.
+
+## Transactional Writes
+
+Transactional writes to the SQLite store go through `IDatabaseConnection.ExecuteInTransactionAsync` (`src/MediaEngine.Storage/Contracts/IDatabaseConnection.cs`), which acquires the global write-serialization lock, opens a fresh pooled connection, begins the transaction, runs the caller's work, commits or rolls back, and always releases the lock in a `finally` block — enforcing the write-lock contract structurally instead of relying on each call site to remember `AcquireWriteLockAsync`/`ReleaseWriteLock`. Calling `SqliteConnection.BeginTransaction()` directly anywhere outside `src/MediaEngine.Storage/DatabaseConnection.cs` is banned by a guardrail test (`tests/MediaEngine.Api.Tests/DatabaseConnectionGuardrailTests.cs`); a seeded allowlist (`BeginTransactionGuardrailAllowlist.txt`) tracks the remaining raw call sites until they are migrated.

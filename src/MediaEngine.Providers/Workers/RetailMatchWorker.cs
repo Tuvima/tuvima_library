@@ -2081,25 +2081,13 @@ public sealed class RetailMatchWorker
             || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string NormalizeComparableText(string text)
-    {
-        var chars = RetailTextSimilarity.StripDiacritics(text)
-            .Replace("&", " and ", StringComparison.Ordinal)
-            .ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
-            .ToArray();
-
-        return string.Join(' ', new string(chars)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
-
     private static bool TitleContainsSeriesAnchor(string? title, string? series)
     {
         if (string.IsNullOrWhiteSpace(title) || string.IsNullOrWhiteSpace(series))
             return false;
 
-        var normalizedTitle = NormalizeComparableText(title);
-        var normalizedSeries = NormalizeComparableText(series);
+        var normalizedTitle = RetailTextSimilarity.NormalizeComparableText(title);
+        var normalizedSeries = RetailTextSimilarity.NormalizeComparableText(series);
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
             return false;
 

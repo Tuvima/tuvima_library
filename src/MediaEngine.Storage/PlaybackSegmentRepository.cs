@@ -58,41 +58,40 @@ public sealed class PlaybackSegmentRepository : IPlaybackSegmentRepository
     {
         if (segments.Count == 0) return;
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        var now = DateTimeOffset.UtcNow;
-
-        foreach (var segment in MergeCandidates(assetId, segments))
+        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            ct.ThrowIfCancellationRequested();
-            var id = segment.Id == Guid.Empty ? Guid.NewGuid() : segment.Id;
-            var createdAt = segment.CreatedAt == default ? now : segment.CreatedAt;
+            var now = DateTimeOffset.UtcNow;
 
-            using var cmd = conn.CreateCommand();
-            cmd.Transaction = tx;
-            cmd.CommandText = """
-                INSERT INTO playback_segments
-                    (id, asset_id, kind, start_seconds, end_seconds, confidence, source,
-                     plugin_id, is_skippable, review_status, created_at, updated_at)
-                VALUES
-                    (@id, @assetId, @kind, @start, @end, @confidence, @source,
-                     @pluginId, @isSkippable, @reviewStatus, @createdAt, @updatedAt)
-                ON CONFLICT(id) DO UPDATE SET
-                    kind = excluded.kind,
-                    start_seconds = excluded.start_seconds,
-                    end_seconds = excluded.end_seconds,
-                    confidence = excluded.confidence,
-                    source = excluded.source,
-                    plugin_id = excluded.plugin_id,
-                    is_skippable = excluded.is_skippable,
-                    review_status = excluded.review_status,
-                    updated_at = excluded.updated_at;
-                """;
-            AddSegmentParameters(cmd, id, assetId, segment, createdAt, now);
-            await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
+            foreach (var segment in MergeCandidates(assetId, segments))
+            {
+                innerCt.ThrowIfCancellationRequested();
+                var id = segment.Id == Guid.Empty ? Guid.NewGuid() : segment.Id;
+                var createdAt = segment.CreatedAt == default ? now : segment.CreatedAt;
 
-        tx.Commit();
+                using var cmd = conn.CreateCommand();
+                cmd.Transaction = tx;
+                cmd.CommandText = """
+                    INSERT INTO playback_segments
+                        (id, asset_id, kind, start_seconds, end_seconds, confidence, source,
+                         plugin_id, is_skippable, review_status, created_at, updated_at)
+                    VALUES
+                        (@id, @assetId, @kind, @start, @end, @confidence, @source,
+                         @pluginId, @isSkippable, @reviewStatus, @createdAt, @updatedAt)
+                    ON CONFLICT(id) DO UPDATE SET
+                        kind = excluded.kind,
+                        start_seconds = excluded.start_seconds,
+                        end_seconds = excluded.end_seconds,
+                        confidence = excluded.confidence,
+                        source = excluded.source,
+                        plugin_id = excluded.plugin_id,
+                        is_skippable = excluded.is_skippable,
+                        review_status = excluded.review_status,
+                        updated_at = excluded.updated_at;
+                    """;
+                AddSegmentParameters(cmd, id, assetId, segment, createdAt, now);
+                await cmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
+            }
+        }, ct).ConfigureAwait(false);
     }
 
     public async Task UpdateAsync(PlaybackSegment segment, CancellationToken ct = default)

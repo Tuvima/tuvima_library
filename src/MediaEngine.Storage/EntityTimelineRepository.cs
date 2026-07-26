@@ -20,20 +20,20 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     public async Task InsertEventAsync(EntityEvent evt, CancellationToken ct = default)
     {
         using var conn = _db.CreateConnection();
-        await InsertEventCoreAsync(conn, evt, ct).ConfigureAwait(false);
+        await InsertEventCoreAsync(conn, tx: null, evt, ct).ConfigureAwait(false);
     }
 
     public async Task InsertEventsAsync(IReadOnlyList<EntityEvent> events, CancellationToken ct = default)
     {
         if (events.Count == 0) return;
-        using var conn = _db.CreateConnection();
-        await using var tx = conn.BeginTransaction();
-        foreach (var evt in events)
-            await InsertEventCoreAsync(conn, evt, ct).ConfigureAwait(false);
-        tx.Commit();
+        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
+        {
+            foreach (var evt in events)
+                await InsertEventCoreAsync(conn, tx, evt, innerCt).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
     }
 
-    private static async Task InsertEventCoreAsync(SqliteConnection conn, EntityEvent evt, CancellationToken ct)
+    private static async Task InsertEventCoreAsync(SqliteConnection conn, SqliteTransaction? tx, EntityEvent evt, CancellationToken ct)
     {
         const string sql = """
             INSERT INTO entity_events (
@@ -54,6 +54,7 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
             """;
 
         await using var cmd = new SqliteCommand(sql, conn);
+        cmd.Transaction = tx;
         cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(evt.Id);
         cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(evt.EntityId);
         cmd.Parameters.AddWithValue("@entity_type", evt.EntityType);
@@ -176,38 +177,38 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     public async Task InsertFieldChangesAsync(IReadOnlyList<EntityFieldChange> changes, CancellationToken ct = default)
     {
         if (changes.Count == 0) return;
-        using var conn = _db.CreateConnection();
-        await using var tx = conn.BeginTransaction();
 
-        const string sql = """
-            INSERT INTO entity_field_changes (
-                id, event_id, entity_id, field,
-                old_value, new_value, old_provider_id, new_provider_id,
-                confidence, is_file_original
-            ) VALUES (
-                @id, @event_id, @entity_id, @field,
-                @old_value, @new_value, @old_provider_id, @new_provider_id,
-                @confidence, @is_file_original
-            )
-            """;
-
-        foreach (var change in changes)
+        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            await using var cmd = new SqliteCommand(sql, conn);
-            cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(change.Id);
-            cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EventId);
-            cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EntityId);
-            cmd.Parameters.AddWithValue("@field", change.Field);
-            cmd.Parameters.AddWithValue("@old_value", (object?)change.OldValue ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@new_value", (object?)change.NewValue ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@old_provider_id", (object?)change.OldProviderId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@new_provider_id", (object?)change.NewProviderId ?? DBNull.Value);
-            cmd.Parameters.AddWithValue("@confidence", change.Confidence.HasValue ? (object)change.Confidence.Value : DBNull.Value);
-            cmd.Parameters.AddWithValue("@is_file_original", change.IsFileOriginal ? 1 : 0);
-            await cmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
+            const string sql = """
+                INSERT INTO entity_field_changes (
+                    id, event_id, entity_id, field,
+                    old_value, new_value, old_provider_id, new_provider_id,
+                    confidence, is_file_original
+                ) VALUES (
+                    @id, @event_id, @entity_id, @field,
+                    @old_value, @new_value, @old_provider_id, @new_provider_id,
+                    @confidence, @is_file_original
+                )
+                """;
 
-        tx.Commit();
+            foreach (var change in changes)
+            {
+                await using var cmd = new SqliteCommand(sql, conn);
+                cmd.Transaction = tx;
+                cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(change.Id);
+                cmd.Parameters.Add("@event_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EventId);
+                cmd.Parameters.Add("@entity_id", SqliteType.Blob).Value = GuidSql.ToBlob(change.EntityId);
+                cmd.Parameters.AddWithValue("@field", change.Field);
+                cmd.Parameters.AddWithValue("@old_value", (object?)change.OldValue ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@new_value", (object?)change.NewValue ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@old_provider_id", (object?)change.OldProviderId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@new_provider_id", (object?)change.NewProviderId ?? DBNull.Value);
+                cmd.Parameters.AddWithValue("@confidence", change.Confidence.HasValue ? (object)change.Confidence.Value : DBNull.Value);
+                cmd.Parameters.AddWithValue("@is_file_original", change.IsFileOriginal ? 1 : 0);
+                await cmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
+            }
+        }, ct).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<EntityFieldChange>> GetFieldChangesByEventAsync(Guid eventId, CancellationToken ct = default)
@@ -288,50 +289,54 @@ public sealed class EntityTimelineRepository : IEntityTimelineRepository
     {
         if (entityIds.Count == 0) return new Dictionary<Guid, EntityEvent>();
 
-        using var conn = _db.CreateConnection();
-
-        // SQLite doesn't support array parameters; use a temp table for efficiency.
-        await using var createCmd = new SqliteCommand(
-            "CREATE TEMP TABLE IF NOT EXISTS _tmp_entity_ids (id BLOB NOT NULL PRIMARY KEY)", conn);
-        await createCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-
-        await using var clearCmd = new SqliteCommand("DELETE FROM _tmp_entity_ids", conn);
-        await clearCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-
-        // Insert entity IDs into temp table.
-        await using var tx = conn.BeginTransaction();
-        foreach (var eid in entityIds)
+        // The whole method runs inside a single ExecuteInTransactionAsync body (rather
+        // than only the temp-table population, as before) because the SQLite TEMP TABLE
+        // used below is scoped to one physical connection: the helper hands out a fresh
+        // pooled connection, so the create/populate/query steps must all share that same
+        // connection instance to see the same temp table.
+        return await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            await using var insertCmd = new SqliteCommand(
-                "INSERT OR IGNORE INTO _tmp_entity_ids (id) VALUES (@id)", conn);
-            insertCmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(eid);
-            await insertCmd.ExecuteNonQueryAsync(ct).ConfigureAwait(false);
-        }
-        tx.Commit();
+            // SQLite doesn't support array parameters; use a temp table for efficiency.
+            await using var createCmd = new SqliteCommand(
+                "CREATE TEMP TABLE IF NOT EXISTS _tmp_entity_ids (id BLOB NOT NULL PRIMARY KEY)", conn, tx);
+            await createCmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
 
-        const string sql = """
-            SELECT e.id, e.entity_id, e.entity_type, e.event_type, e.stage, e.trigger,
-                   e.provider_id, e.provider_name, e.bridge_id_type, e.bridge_id_value,
-                   e.resolved_qid, e.confidence,
-                   e.score_title, e.score_author, e.score_year, e.score_format,
-                   e.score_cross_field, e.score_cover_art, e.score_composite,
-                   e.occurred_at, e.ingestion_run_id, e.detail
-            FROM entity_events e
-            INNER JOIN _tmp_entity_ids t ON t.id = e.entity_id
-            WHERE e.stage = 2
-              AND e.occurred_at = (
-                  SELECT MAX(e2.occurred_at) FROM entity_events e2
-                  WHERE e2.entity_id = e.entity_id AND e2.stage = 2
-              )
-            """;
+            await using var clearCmd = new SqliteCommand("DELETE FROM _tmp_entity_ids", conn, tx);
+            await clearCmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
 
-        await using var cmd = new SqliteCommand(sql, conn);
-        var events = await ReadEventsAsync(cmd, ct).ConfigureAwait(false);
+            // Insert entity IDs into temp table.
+            foreach (var eid in entityIds)
+            {
+                await using var insertCmd = new SqliteCommand(
+                    "INSERT OR IGNORE INTO _tmp_entity_ids (id) VALUES (@id)", conn, tx);
+                insertCmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(eid);
+                await insertCmd.ExecuteNonQueryAsync(innerCt).ConfigureAwait(false);
+            }
 
-        var dict = new Dictionary<Guid, EntityEvent>();
-        foreach (var evt in events)
-            dict.TryAdd(evt.EntityId, evt);
-        return dict;
+            const string sql = """
+                SELECT e.id, e.entity_id, e.entity_type, e.event_type, e.stage, e.trigger,
+                       e.provider_id, e.provider_name, e.bridge_id_type, e.bridge_id_value,
+                       e.resolved_qid, e.confidence,
+                       e.score_title, e.score_author, e.score_year, e.score_format,
+                       e.score_cross_field, e.score_cover_art, e.score_composite,
+                       e.occurred_at, e.ingestion_run_id, e.detail
+                FROM entity_events e
+                INNER JOIN _tmp_entity_ids t ON t.id = e.entity_id
+                WHERE e.stage = 2
+                  AND e.occurred_at = (
+                      SELECT MAX(e2.occurred_at) FROM entity_events e2
+                      WHERE e2.entity_id = e.entity_id AND e2.stage = 2
+                  )
+                """;
+
+            await using var cmd = new SqliteCommand(sql, conn, tx);
+            var events = await ReadEventsAsync(cmd, innerCt).ConfigureAwait(false);
+
+            var dict = new Dictionary<Guid, EntityEvent>();
+            foreach (var evt in events)
+                dict.TryAdd(evt.EntityId, evt);
+            return (IReadOnlyDictionary<Guid, EntityEvent>)dict;
+        }, ct).ConfigureAwait(false);
     }
 
     // ── Maintenance ────────────────────────────────────────────────────

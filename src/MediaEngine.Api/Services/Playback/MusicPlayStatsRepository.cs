@@ -64,48 +64,46 @@ public sealed class MusicPlayStatsRepository
             return Task.CompletedTask;
         }
 
-        using var conn = _db.CreateConnection();
-        EnsureTables(conn);
-        using var transaction = conn.BeginTransaction();
-        var now = DateTimeOffset.UtcNow;
-        var active = conn.QueryFirstOrDefault<ActiveSegmentRow>("""
-            SELECT profile_id AS ProfileId,
-                   work_id AS WorkId,
-                   asset_id AS AssetId,
-                   queue_item_id AS QueueItemId,
-                   started_at AS StartedAt,
-                   last_position_seconds AS LastPositionSeconds,
-                   listened_seconds AS ListenedSeconds,
-                   duration_seconds AS DurationSeconds,
-                   qualified AS Qualified,
-                   last_heartbeat_at AS LastHeartbeatAt
-            FROM music_play_active_segments
-            WHERE profile_id = @profileId
-            LIMIT 1;
-            """, new { profileId }, transaction);
-
-        if (!heartbeat.IsPlaying)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            if (active is not null)
+            EnsureTables(conn, tx);
+            var now = DateTimeOffset.UtcNow;
+            var active = conn.QueryFirstOrDefault<ActiveSegmentRow>("""
+                SELECT profile_id AS ProfileId,
+                       work_id AS WorkId,
+                       asset_id AS AssetId,
+                       queue_item_id AS QueueItemId,
+                       started_at AS StartedAt,
+                       last_position_seconds AS LastPositionSeconds,
+                       listened_seconds AS ListenedSeconds,
+                       duration_seconds AS DurationSeconds,
+                       qualified AS Qualified,
+                       last_heartbeat_at AS LastHeartbeatAt
+                FROM music_play_active_segments
+                WHERE profile_id = @profileId
+                LIMIT 1;
+                """, new { profileId }, tx);
+
+            if (!heartbeat.IsPlaying)
             {
-                UpdateAndQualify(conn, transaction, active, item, heartbeat, now);
-                ClearActive(conn, transaction, profileId);
+                if (active is not null)
+                {
+                    UpdateAndQualify(conn, tx, active, item, heartbeat, now);
+                    ClearActive(conn, tx, profileId);
+                }
+
+                return Task.CompletedTask;
             }
 
-            transaction.Commit();
-            return Task.CompletedTask;
-        }
+            if (active is null || ShouldRestart(active, item, heartbeat, now))
+            {
+                UpsertActive(conn, tx, profileId, item, heartbeat, now);
+                return Task.CompletedTask;
+            }
 
-        if (active is null || ShouldRestart(active, item, heartbeat, now))
-        {
-            UpsertActive(conn, transaction, profileId, item, heartbeat, now);
-            transaction.Commit();
+            UpdateAndQualify(conn, tx, active, item, heartbeat, now);
             return Task.CompletedTask;
-        }
-
-        UpdateAndQualify(conn, transaction, active, item, heartbeat, now);
-        transaction.Commit();
-        return Task.CompletedTask;
+        }, ct);
     }
 
     private static bool ShouldRestart(
@@ -244,7 +242,7 @@ public sealed class MusicPlayStatsRepository
             transaction);
     }
 
-    private static void EnsureTables(System.Data.IDbConnection conn)
+    private static void EnsureTables(System.Data.IDbConnection conn, System.Data.IDbTransaction? tx = null)
     {
         conn.Execute("""
             CREATE TABLE IF NOT EXISTS music_play_active_segments (
@@ -259,7 +257,7 @@ public sealed class MusicPlayStatsRepository
                 qualified              INTEGER NOT NULL DEFAULT 0 CHECK (qualified IN (0, 1)),
                 last_heartbeat_at      TEXT NOT NULL
             );
-            """);
+            """, transaction: tx);
 
         conn.Execute("""
             CREATE TABLE IF NOT EXISTS music_play_stats (
@@ -269,7 +267,7 @@ public sealed class MusicPlayStatsRepository
                 last_played_at         TEXT NOT NULL,
                 PRIMARY KEY (profile_id, work_id)
             );
-            """);
+            """, transaction: tx);
     }
 
     private sealed record ActiveSegmentRow

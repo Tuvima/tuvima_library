@@ -152,34 +152,32 @@ public sealed class TextTrackRepository : ITextTrackRepository
     public Task SetPreferredAsync(Guid id, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-
-        var target = conn.QuerySingleOrDefault<(Guid AssetId, string Kind, string Language)>("""
-            SELECT asset_id AS AssetId, kind AS Kind, language AS Language
-            FROM text_tracks
-            WHERE id = @id;
-            """, new { id }, tx);
-
-        if (target == default)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            tx.Commit();
+            var target = conn.QuerySingleOrDefault<(Guid AssetId, string Kind, string Language)>("""
+                SELECT asset_id AS AssetId, kind AS Kind, language AS Language
+                FROM text_tracks
+                WHERE id = @id;
+                """, new { id }, tx);
+
+            if (target == default)
+            {
+                return Task.CompletedTask;
+            }
+
+            conn.Execute("""
+                UPDATE text_tracks
+                SET is_preferred = 0, updated_at = datetime('now')
+                WHERE asset_id = @AssetId AND kind = @Kind AND language = @Language;
+                """, new { target.AssetId, target.Kind, target.Language }, tx);
+
+            conn.Execute("""
+                UPDATE text_tracks
+                SET is_preferred = 1, updated_at = datetime('now')
+                WHERE id = @id;
+                """, new { id }, tx);
+
             return Task.CompletedTask;
-        }
-
-        conn.Execute("""
-            UPDATE text_tracks
-            SET is_preferred = 0, updated_at = datetime('now')
-            WHERE asset_id = @AssetId AND kind = @Kind AND language = @Language;
-            """, new { target.AssetId, target.Kind, target.Language }, tx);
-
-        conn.Execute("""
-            UPDATE text_tracks
-            SET is_preferred = 1, updated_at = datetime('now')
-            WHERE id = @id;
-            """, new { id }, tx);
-
-        tx.Commit();
-        return Task.CompletedTask;
+        }, ct);
     }
 }

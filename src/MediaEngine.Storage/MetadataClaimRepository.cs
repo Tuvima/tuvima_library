@@ -42,51 +42,36 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
         if (claims.Count == 0)
             return;
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx   = conn.BeginTransaction();
-            try
+            EnsureBuiltInProvidersExist(conn, tx, claims);
+
+            const string sql = """
+                INSERT INTO metadata_claims
+                    (id, entity_id, provider_id, decision_source_provider_id, claim_key, claim_value,
+                     confidence, claimed_at, is_user_locked)
+                VALUES
+                    (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ClaimKey, @ClaimValue,
+                     @Confidence, @ClaimedAt, @IsUserLocked);
+                """;
+
+            // Build the batch parameter list — Dapper executes one INSERT per item.
+            var rows = claims.Select(c => new
             {
-                EnsureBuiltInProvidersExist(conn, tx, claims);
+                c.Id,
+                c.EntityId,
+                c.ProviderId,
+                c.DecisionSourceProviderId,
+                c.ClaimKey,
+                c.ClaimValue,
+                c.Confidence,
+                ClaimedAt    = c.ClaimedAt.ToString("o"),
+                IsUserLocked = c.IsUserLocked ? 1 : 0,
+            });
 
-                const string sql = """
-                    INSERT INTO metadata_claims
-                        (id, entity_id, provider_id, decision_source_provider_id, claim_key, claim_value,
-                         confidence, claimed_at, is_user_locked)
-                    VALUES
-                        (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ClaimKey, @ClaimValue,
-                         @Confidence, @ClaimedAt, @IsUserLocked);
-                    """;
-
-                // Build the batch parameter list — Dapper executes one INSERT per item.
-                var rows = claims.Select(c => new
-                {
-                    c.Id,
-                    c.EntityId,
-                    c.ProviderId,
-                    c.DecisionSourceProviderId,
-                    c.ClaimKey,
-                    c.ClaimValue,
-                    c.Confidence,
-                    ClaimedAt    = c.ClaimedAt.ToString("o"),
-                    IsUserLocked = c.IsUserLocked ? 1 : 0,
-                });
-
-                conn.Execute(sql, rows, transaction: tx);
-                tx.Commit();
-            }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            conn.Execute(sql, rows, transaction: tx);
+            return Task.CompletedTask;
+        }, ct).ConfigureAwait(false);
     }
 
     private static void EnsureBuiltInProvidersExist(

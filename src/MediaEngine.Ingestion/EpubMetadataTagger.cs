@@ -27,14 +27,16 @@ namespace MediaEngine.Ingestion;
 /// ──────────────────────────────────────────────────────────────────
 ///  1. Copy the original file to <c>&lt;path&gt;.tuvima.bak</c>.
 ///  2. Patch the ZIP entry in-place by rewriting the archive.
-///  3. On any exception, restore from backup.
+///  3. On any exception, restore from backup and rethrow.
 ///  4. Delete the backup on success.
+///  Implemented once, shared with every other tagger, by
+///  <see cref="BackedUpMetadataTagger"/>.
 ///  Spec: "If a metadata write-back operation fails, the system MUST attempt
 ///         to restore the file from a temporary backup."
 ///
 /// Spec: Phase 7 – Extension Points § Metadata Taggers § EpubMetadataTagger.
 /// </summary>
-public sealed class EpubMetadataTagger : IMetadataTagger
+public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
 {
     /// <summary>
     /// Bumped manually whenever this tagger gains a new write or changes the
@@ -53,6 +55,7 @@ public sealed class EpubMetadataTagger : IMetadataTagger
     private readonly ILogger<EpubMetadataTagger> _logger;
 
     public EpubMetadataTagger(ILogger<EpubMetadataTagger> logger)
+        : base(logger, "EpubTagger")
     {
         _logger = logger;
     }
@@ -84,31 +87,20 @@ public sealed class EpubMetadataTagger : IMetadataTagger
             return;
         }
 
-        string backup = filePath + ".tuvima.bak";
-
-        try
+        await WithBackupAsync(
+            filePath,
+            async () =>
         {
-            // 1. Back up the original.
-            File.Copy(filePath, backup, overwrite: true);
-
-            // 2. Patch OPF inside the ZIP.
+            // Patch OPF inside the ZIP.
             await PatchOpfAsync(filePath, tags, ct).ConfigureAwait(false);
 
-            // 3. Remove backup on success.
+            // Remove backup on success.
+            var backup = filePath + BackupSuffix;
             File.Delete(backup);
 
             _logger.LogInformation("Wrote {Count} tag(s) to EPUB: {Path}", tags.Count, filePath);
-        }
-        catch (OperationCanceledException)
-        {
-            RestoreBackup(backup, filePath);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "WriteTagsAsync failed for {Path}; restoring backup.", filePath);
-            RestoreBackup(backup, filePath);
-        }
+        },
+            onFailure: ex => _logger.LogError(ex, "WriteTagsAsync failed for {Path}; restoring backup.", filePath));
     }
 
     /// <inheritdoc/>
@@ -126,29 +118,19 @@ public sealed class EpubMetadataTagger : IMetadataTagger
             return;
         }
 
-        string backup = filePath + ".tuvima.bak";
-
-        try
+        await WithBackupAsync(
+            filePath,
+            async () =>
         {
-            File.Copy(filePath, backup, overwrite: true);
-
             await PatchCoverAsync(filePath, imageData, ct).ConfigureAwait(false);
 
+            var backup = filePath + BackupSuffix;
             File.Delete(backup);
 
             _logger.LogInformation("Wrote cover art ({Bytes} bytes) to EPUB: {Path}",
                 imageData.Length, filePath);
-        }
-        catch (OperationCanceledException)
-        {
-            RestoreBackup(backup, filePath);
-            throw;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "WriteCoverArtAsync failed for {Path}; restoring backup.", filePath);
-            RestoreBackup(backup, filePath);
-        }
+        },
+            onFailure: ex => _logger.LogError(ex, "WriteCoverArtAsync failed for {Path}; restoring backup.", filePath));
     }
 
     // -------------------------------------------------------------------------
@@ -443,23 +425,5 @@ public sealed class EpubMetadataTagger : IMetadataTagger
             return "image/gif";
 
         return "image/jpeg"; // safe fallback
-    }
-
-    // -------------------------------------------------------------------------
-    // Backup helpers
-    // -------------------------------------------------------------------------
-
-    private void RestoreBackup(string backup, string original)
-    {
-        if (!File.Exists(backup)) return;
-        try
-        {
-            File.Move(backup, original, overwrite: true);
-            _logger.LogInformation("Restored backup for {Path}.", original);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Could not restore backup {Backup} → {Original}.", backup, original);
-        }
     }
 }

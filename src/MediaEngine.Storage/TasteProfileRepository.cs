@@ -160,7 +160,7 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
         return Task.FromResult<IReadOnlyList<TasteSignal>>(signals);
     }
 
-    public async Task<AiFeatureWriteResult> ReplaceAiProfileAsync(
+    public Task<AiFeatureWriteResult> ReplaceAiProfileAsync(
         TasteProfilePersistenceRequest request,
         CancellationToken ct = default)
     {
@@ -188,133 +188,116 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
             : new Dictionary<string, IReadOnlyList<string>>();
         var now = DateTimeOffset.UtcNow;
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-            try
+            var existing = conn.QueryFirstOrDefault<ArtifactRow>(
+                """
+                SELECT status AS Status,
+                       input_fingerprint AS InputFingerprint,
+                       output_fingerprint AS OutputFingerprint,
+                       attempts AS Attempts
+                FROM ai_feature_artifacts
+                WHERE entity_id = @userId AND feature_key = @featureKey
+                LIMIT 1;
+                """,
+                new { userId = build.UserId, featureKey = request.FeatureKey },
+                transaction: tx);
+            var currentProfileJson = conn.QueryFirstOrDefault<string>(
+                "SELECT profile_json FROM user_taste_profiles WHERE user_id = @userId LIMIT 1;",
+                new { userId = build.UserId },
+                transaction: tx);
+            var expectedProfileMatches = publishes
+                ? string.Equals(currentProfileJson, profileJson, StringComparison.Ordinal)
+                : currentProfileJson is null;
+            if (existing is not null
+                && existing.Attempts == 0
+                && string.Equals(existing.Status, status.ToString(), StringComparison.Ordinal)
+                && string.Equals(existing.InputFingerprint, build.InputFingerprint, StringComparison.Ordinal)
+                && string.Equals(existing.OutputFingerprint, outputFingerprint, StringComparison.Ordinal)
+                && expectedProfileMatches)
             {
-                var existing = conn.QueryFirstOrDefault<ArtifactRow>(
-                    """
-                    SELECT status AS Status,
-                           input_fingerprint AS InputFingerprint,
-                           output_fingerprint AS OutputFingerprint,
-                           attempts AS Attempts
-                    FROM ai_feature_artifacts
-                    WHERE entity_id = @userId AND feature_key = @featureKey
-                    LIMIT 1;
-                    """,
-                    new { userId = build.UserId, featureKey = request.FeatureKey },
-                    transaction: tx);
-                var currentProfileJson = conn.QueryFirstOrDefault<string>(
-                    "SELECT profile_json FROM user_taste_profiles WHERE user_id = @userId LIMIT 1;",
-                    new { userId = build.UserId },
-                    transaction: tx);
-                var expectedProfileMatches = publishes
-                    ? string.Equals(currentProfileJson, profileJson, StringComparison.Ordinal)
-                    : currentProfileJson is null;
-                if (existing is not null
-                    && existing.Attempts == 0
-                    && string.Equals(existing.Status, status.ToString(), StringComparison.Ordinal)
-                    && string.Equals(existing.InputFingerprint, build.InputFingerprint, StringComparison.Ordinal)
-                    && string.Equals(existing.OutputFingerprint, outputFingerprint, StringComparison.Ordinal)
-                    && expectedProfileMatches)
-                {
-                    tx.Commit();
-                    return new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: true);
-                }
+                return Task.FromResult(new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: true));
+            }
 
-                if (publishes)
-                {
-                    conn.Execute(
-                        """
-                        INSERT INTO user_taste_profiles (user_id, profile_json, summary, updated_at)
-                        VALUES (@userId, @profileJson, @summary, @updatedAt)
-                        ON CONFLICT(user_id) DO UPDATE SET
-                            profile_json = excluded.profile_json,
-                            summary = excluded.summary,
-                            updated_at = excluded.updated_at;
-                        """,
-                        new
-                        {
-                            userId = build.UserId,
-                            profileJson,
-                            summary = build.Profile!.Summary,
-                            updatedAt = build.Profile.LastUpdatedAt.ToString("O"),
-                        },
-                        transaction: tx);
-                }
-                else
-                {
-                    conn.Execute(
-                        "DELETE FROM user_taste_profiles WHERE user_id = @userId;",
-                        new { userId = build.UserId },
-                        transaction: tx);
-                }
-
+            if (publishes)
+            {
                 conn.Execute(
                     """
-                    INSERT INTO ai_feature_artifacts
-                        (entity_id, feature_key, source_provider_id, status, confidence,
-                         model_id, prompt_version, input_fingerprint, output_fingerprint,
-                         attempts, next_retry_at, last_error, outcome_reason,
-                         published_fields_json, protected_fields_json, published_values_json, updated_at)
-                    VALUES
-                        (@EntityId, @FeatureKey, @ProviderId, @Status, @Confidence,
-                         @ModelId, @PromptVersion, @InputFingerprint, @OutputFingerprint,
-                         0, NULL, NULL, @OutcomeReason,
-                         @PublishedFieldsJson, '[]', @PublishedValuesJson, @UpdatedAt)
-                    ON CONFLICT(entity_id, feature_key) DO UPDATE SET
-                        source_provider_id = excluded.source_provider_id,
-                        status = excluded.status,
-                        confidence = excluded.confidence,
-                        model_id = excluded.model_id,
-                        prompt_version = excluded.prompt_version,
-                        input_fingerprint = excluded.input_fingerprint,
-                        output_fingerprint = excluded.output_fingerprint,
-                        attempts = 0,
-                        next_retry_at = NULL,
-                        last_error = NULL,
-                        outcome_reason = excluded.outcome_reason,
-                        published_fields_json = excluded.published_fields_json,
-                        protected_fields_json = '[]',
-                        published_values_json = excluded.published_values_json,
+                    INSERT INTO user_taste_profiles (user_id, profile_json, summary, updated_at)
+                    VALUES (@userId, @profileJson, @summary, @updatedAt)
+                    ON CONFLICT(user_id) DO UPDATE SET
+                        profile_json = excluded.profile_json,
+                        summary = excluded.summary,
                         updated_at = excluded.updated_at;
                     """,
                     new
                     {
-                        EntityId = build.UserId,
-                        FeatureKey = request.FeatureKey,
-                        ProviderId = request.ProviderId,
-                        Status = status.ToString(),
-                        Confidence = build.Status == TasteProfileBuildStatus.Generated
-                            ? request.Confidence
-                            : (double?)null,
-                        request.ModelId,
-                        request.PromptVersion,
-                        build.InputFingerprint,
-                        OutputFingerprint = outputFingerprint,
-                        OutcomeReason = build.Reason,
-                        PublishedFieldsJson = JsonSerializer.Serialize(publishedFields),
-                        PublishedValuesJson = JsonSerializer.Serialize(publishedValues),
-                        UpdatedAt = now.ToString("O"),
+                        userId = build.UserId,
+                        profileJson,
+                        summary = build.Profile!.Summary,
+                        updatedAt = build.Profile.LastUpdatedAt.ToString("O"),
                     },
                     transaction: tx);
-
-                tx.Commit();
-                return new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: false);
             }
-            catch
+            else
             {
-                tx.Rollback();
-                throw;
+                conn.Execute(
+                    "DELETE FROM user_taste_profiles WHERE user_id = @userId;",
+                    new { userId = build.UserId },
+                    transaction: tx);
             }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+
+            conn.Execute(
+                """
+                INSERT INTO ai_feature_artifacts
+                    (entity_id, feature_key, source_provider_id, status, confidence,
+                     model_id, prompt_version, input_fingerprint, output_fingerprint,
+                     attempts, next_retry_at, last_error, outcome_reason,
+                     published_fields_json, protected_fields_json, published_values_json, updated_at)
+                VALUES
+                    (@EntityId, @FeatureKey, @ProviderId, @Status, @Confidence,
+                     @ModelId, @PromptVersion, @InputFingerprint, @OutputFingerprint,
+                     0, NULL, NULL, @OutcomeReason,
+                     @PublishedFieldsJson, '[]', @PublishedValuesJson, @UpdatedAt)
+                ON CONFLICT(entity_id, feature_key) DO UPDATE SET
+                    source_provider_id = excluded.source_provider_id,
+                    status = excluded.status,
+                    confidence = excluded.confidence,
+                    model_id = excluded.model_id,
+                    prompt_version = excluded.prompt_version,
+                    input_fingerprint = excluded.input_fingerprint,
+                    output_fingerprint = excluded.output_fingerprint,
+                    attempts = 0,
+                    next_retry_at = NULL,
+                    last_error = NULL,
+                    outcome_reason = excluded.outcome_reason,
+                    published_fields_json = excluded.published_fields_json,
+                    protected_fields_json = '[]',
+                    published_values_json = excluded.published_values_json,
+                    updated_at = excluded.updated_at;
+                """,
+                new
+                {
+                    EntityId = build.UserId,
+                    FeatureKey = request.FeatureKey,
+                    ProviderId = request.ProviderId,
+                    Status = status.ToString(),
+                    Confidence = build.Status == TasteProfileBuildStatus.Generated
+                        ? request.Confidence
+                        : (double?)null,
+                    request.ModelId,
+                    request.PromptVersion,
+                    build.InputFingerprint,
+                    OutputFingerprint = outputFingerprint,
+                    OutcomeReason = build.Reason,
+                    PublishedFieldsJson = JsonSerializer.Serialize(publishedFields),
+                    PublishedValuesJson = JsonSerializer.Serialize(publishedValues),
+                    UpdatedAt = now.ToString("O"),
+                },
+                transaction: tx);
+
+            return Task.FromResult(new AiFeatureWriteResult(status, publishedFields, [], IsUnchanged: false));
+        }, ct);
     }
 
     private static void Validate(TasteProfilePersistenceRequest request)

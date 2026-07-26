@@ -26,110 +26,106 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     {
         ArgumentNullException.ThrowIfNull(entry);
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-
-        var parameters = new
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            id            = entry.Id,
-            entityId      = entry.EntityId,
-            entityType    = entry.EntityType,
-            trigger       = entry.Trigger,
-            status        = entry.Status,
-            proposedCollectionId = entry.ProposedCollectionId,
-            confidence    = entry.ConfidenceScore,
-            candidates    = entry.CandidatesJson,
-            detail        = entry.Detail,
-            createdAt     = entry.CreatedAt.ToString("O"),
-            resolvedAt    = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
-            resolvedBy    = entry.ResolvedBy,
-            sourceOperationId = entry.SourceOperationId,
-            sourceCapabilityId = entry.SourceCapabilityId,
-            sourceCapabilitySubKey = entry.SourceCapabilitySubKey,
-            reviewReadyAt = entry.ReviewReadyAt?.ToString("O"),
-            automationCompletedAt = entry.AutomationCompletedAt?.ToString("O"),
-            pending = ReviewStatus.Pending,
-        };
-
-        var existingId = conn.QueryFirstOrDefault<Guid?>("""
-            SELECT id
-            FROM review_queue
-            WHERE entity_id = @entityId
-              AND trigger = @trigger
-              AND status = @pending
-            ORDER BY created_at ASC
-            LIMIT 1;
-            """, parameters, tx);
-
-        if (existingId.HasValue)
-        {
-            conn.Execute("""
-                UPDATE review_queue
-                SET entity_type = @entityType,
-                    proposed_collection_id = COALESCE(@proposedCollectionId, proposed_collection_id),
-                    confidence_score = COALESCE(@confidence, confidence_score),
-                    candidates_json = COALESCE(@candidates, candidates_json),
-                    detail = COALESCE(@detail, detail),
-                    source_operation_id = COALESCE(@sourceOperationId, source_operation_id),
-                    source_capability_id = COALESCE(@sourceCapabilityId, source_capability_id),
-                    source_capability_sub_key = COALESCE(@sourceCapabilitySubKey, source_capability_sub_key),
-                    review_ready_at = COALESCE(@reviewReadyAt, review_ready_at),
-                    automation_completed_at = COALESCE(@automationCompletedAt, automation_completed_at)
-                WHERE id = @existingId;
-                """, new
+            var parameters = new
             {
-                existingId = existingId.Value,
-                parameters.entityType,
-                parameters.proposedCollectionId,
-                parameters.confidence,
-                parameters.candidates,
-                parameters.detail,
-                parameters.sourceOperationId,
-                parameters.sourceCapabilityId,
-                parameters.sourceCapabilitySubKey,
-                parameters.reviewReadyAt,
-                parameters.automationCompletedAt,
-            }, tx);
+                id            = entry.Id,
+                entityId      = entry.EntityId,
+                entityType    = entry.EntityType,
+                trigger       = entry.Trigger,
+                status        = entry.Status,
+                proposedCollectionId = entry.ProposedCollectionId,
+                confidence    = entry.ConfidenceScore,
+                candidates    = entry.CandidatesJson,
+                detail        = entry.Detail,
+                createdAt     = entry.CreatedAt.ToString("O"),
+                resolvedAt    = entry.ResolvedAt.HasValue ? (object)entry.ResolvedAt.Value.ToString("O") : null,
+                resolvedBy    = entry.ResolvedBy,
+                sourceOperationId = entry.SourceOperationId,
+                sourceCapabilityId = entry.SourceCapabilityId,
+                sourceCapabilitySubKey = entry.SourceCapabilitySubKey,
+                reviewReadyAt = entry.ReviewReadyAt?.ToString("O"),
+                automationCompletedAt = entry.AutomationCompletedAt?.ToString("O"),
+                pending = ReviewStatus.Pending,
+            };
 
-            tx.Commit();
-            return Task.FromResult(existingId.Value);
-        }
+            var existingId = conn.QueryFirstOrDefault<Guid?>("""
+                SELECT id
+                FROM review_queue
+                WHERE entity_id = @entityId
+                  AND trigger = @trigger
+                  AND status = @pending
+                ORDER BY created_at ASC
+                LIMIT 1;
+                """, parameters, tx);
 
-        conn.Execute("""
-            INSERT OR IGNORE INTO review_queue
-                (id, entity_id, entity_type, trigger, status,
-                 proposed_collection_id, confidence_score, candidates_json,
-                 detail, created_at, resolved_at, resolved_by,
-                 source_operation_id, source_capability_id, source_capability_sub_key,
-                 review_ready_at, automation_completed_at)
-            VALUES
-                (@id, @entityId, @entityType, @trigger, @status,
-                 @proposedCollectionId, @confidence, @candidates,
-                 @detail, @createdAt, @resolvedAt, @resolvedBy,
-                 @sourceOperationId, @sourceCapabilityId, @sourceCapabilitySubKey,
-                 @reviewReadyAt, @automationCompletedAt)
-            """, parameters, tx);
+            if (existingId.HasValue)
+            {
+                conn.Execute("""
+                    UPDATE review_queue
+                    SET entity_type = @entityType,
+                        proposed_collection_id = COALESCE(@proposedCollectionId, proposed_collection_id),
+                        confidence_score = COALESCE(@confidence, confidence_score),
+                        candidates_json = COALESCE(@candidates, candidates_json),
+                        detail = COALESCE(@detail, detail),
+                        source_operation_id = COALESCE(@sourceOperationId, source_operation_id),
+                        source_capability_id = COALESCE(@sourceCapabilityId, source_capability_id),
+                        source_capability_sub_key = COALESCE(@sourceCapabilitySubKey, source_capability_sub_key),
+                        review_ready_at = COALESCE(@reviewReadyAt, review_ready_at),
+                        automation_completed_at = COALESCE(@automationCompletedAt, automation_completed_at)
+                    WHERE id = @existingId;
+                    """, new
+                {
+                    existingId = existingId.Value,
+                    parameters.entityType,
+                    parameters.proposedCollectionId,
+                    parameters.confidence,
+                    parameters.candidates,
+                    parameters.detail,
+                    parameters.sourceOperationId,
+                    parameters.sourceCapabilityId,
+                    parameters.sourceCapabilitySubKey,
+                    parameters.reviewReadyAt,
+                    parameters.automationCompletedAt,
+                }, tx);
 
-        var inserted = conn.ExecuteScalar<long>("SELECT changes();", transaction: tx) > 0;
-        if (inserted)
-        {
-            tx.Commit();
-            return Task.FromResult(entry.Id);
-        }
+                return Task.FromResult(existingId.Value);
+            }
 
-        existingId = conn.QueryFirstOrDefault<Guid?>("""
-            SELECT id
-            FROM review_queue
-            WHERE entity_id = @entityId
-              AND trigger = @trigger
-              AND status = @pending
-            ORDER BY created_at ASC
-            LIMIT 1;
-            """, parameters, tx);
+            conn.Execute("""
+                INSERT OR IGNORE INTO review_queue
+                    (id, entity_id, entity_type, trigger, status,
+                     proposed_collection_id, confidence_score, candidates_json,
+                     detail, created_at, resolved_at, resolved_by,
+                     source_operation_id, source_capability_id, source_capability_sub_key,
+                     review_ready_at, automation_completed_at)
+                VALUES
+                    (@id, @entityId, @entityType, @trigger, @status,
+                     @proposedCollectionId, @confidence, @candidates,
+                     @detail, @createdAt, @resolvedAt, @resolvedBy,
+                     @sourceOperationId, @sourceCapabilityId, @sourceCapabilitySubKey,
+                     @reviewReadyAt, @automationCompletedAt)
+                """, parameters, tx);
 
-        tx.Commit();
+            var inserted = conn.ExecuteScalar<long>("SELECT changes();", transaction: tx) > 0;
+            if (inserted)
+            {
+                return Task.FromResult(entry.Id);
+            }
 
-        return Task.FromResult(existingId ?? entry.Id);
+            existingId = conn.QueryFirstOrDefault<Guid?>("""
+                SELECT id
+                FROM review_queue
+                WHERE entity_id = @entityId
+                  AND trigger = @trigger
+                  AND status = @pending
+                ORDER BY created_at ASC
+                LIMIT 1;
+                """, parameters, tx);
+
+            return Task.FromResult(existingId ?? entry.Id);
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -277,73 +273,70 @@ public sealed class ReviewQueueRepository : IReviewQueueRepository
     /// <inheritdoc/>
     public Task<IReadOnlyList<ReviewQueueEntry>> PromotePendingReadyByEntityAsync(
         Guid entityId,
-        CancellationToken ct = default)
-    {
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        var now = DateTimeOffset.UtcNow.ToString("O");
-
-        var ids = conn.Query<Guid>("""
-            SELECT id
-            FROM review_queue
-            WHERE entity_id = @entityId
-              AND status = @status
-              AND review_ready_at IS NULL
-            ORDER BY created_at ASC;
-            """, new
+        CancellationToken ct = default) =>
+        _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            entityId,
-            status = ReviewStatus.Pending,
-        }, tx).AsList();
+            var now = DateTimeOffset.UtcNow.ToString("O");
 
-        if (ids.Count == 0)
-        {
-            tx.Commit();
-            return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
-        }
+            var ids = conn.Query<Guid>("""
+                SELECT id
+                FROM review_queue
+                WHERE entity_id = @entityId
+                  AND status = @status
+                  AND review_ready_at IS NULL
+                ORDER BY created_at ASC;
+                """, new
+            {
+                entityId,
+                status = ReviewStatus.Pending,
+            }, tx).AsList();
 
-        conn.Execute("""
-            UPDATE review_queue
-            SET    review_ready_at = @now,
-                   automation_completed_at = COALESCE(automation_completed_at, @now)
-            WHERE  entity_id = @entityId
-              AND  status = @status
-              AND  review_ready_at IS NULL;
-            """, new
-        {
-            now,
-            entityId,
-            status = ReviewStatus.Pending,
-        }, tx);
+            if (ids.Count == 0)
+            {
+                return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>([]);
+            }
 
-        var rows = conn.Query<ReviewQueueRow>("""
-            SELECT id AS Id, entity_id AS EntityId, entity_type AS EntityType,
-                   trigger AS Trigger, status AS Status,
-                   proposed_collection_id AS ProposedCollectionId,
-                   confidence_score AS ConfidenceScore,
-                   candidates_json AS CandidatesJson, detail AS Detail,
-                   created_at AS CreatedAt, resolved_at AS ResolvedAt,
-                   resolved_by AS ResolvedBy,
-                   source_operation_id AS SourceOperationId,
-                   source_capability_id AS SourceCapabilityId,
-                   source_capability_sub_key AS SourceCapabilitySubKey,
-                   review_ready_at AS ReviewReadyAt,
-                   automation_completed_at AS AutomationCompletedAt
-            FROM review_queue
-            WHERE entity_id = @entityId
-              AND status = @status
-              AND review_ready_at = @now
-            ORDER BY created_at ASC;
-            """, new
-        {
-            entityId,
-            status = ReviewStatus.Pending,
-            now,
-        }, tx).AsList();
+            conn.Execute("""
+                UPDATE review_queue
+                SET    review_ready_at = @now,
+                       automation_completed_at = COALESCE(automation_completed_at, @now)
+                WHERE  entity_id = @entityId
+                  AND  status = @status
+                  AND  review_ready_at IS NULL;
+                """, new
+            {
+                now,
+                entityId,
+                status = ReviewStatus.Pending,
+            }, tx);
 
-        tx.Commit();
-        return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
-    }
+            var rows = conn.Query<ReviewQueueRow>("""
+                SELECT id AS Id, entity_id AS EntityId, entity_type AS EntityType,
+                       trigger AS Trigger, status AS Status,
+                       proposed_collection_id AS ProposedCollectionId,
+                       confidence_score AS ConfidenceScore,
+                       candidates_json AS CandidatesJson, detail AS Detail,
+                       created_at AS CreatedAt, resolved_at AS ResolvedAt,
+                       resolved_by AS ResolvedBy,
+                       source_operation_id AS SourceOperationId,
+                       source_capability_id AS SourceCapabilityId,
+                       source_capability_sub_key AS SourceCapabilitySubKey,
+                       review_ready_at AS ReviewReadyAt,
+                       automation_completed_at AS AutomationCompletedAt
+                FROM review_queue
+                WHERE entity_id = @entityId
+                  AND status = @status
+                  AND review_ready_at = @now
+                ORDER BY created_at ASC;
+                """, new
+            {
+                entityId,
+                status = ReviewStatus.Pending,
+                now,
+            }, tx).AsList();
+
+            return Task.FromResult<IReadOnlyList<ReviewQueueEntry>>(rows.Select(MapRow).ToList());
+        }, ct);
 
     /// <inheritdoc/>
     public Task<int> GetPendingCountAsync(CancellationToken ct = default)

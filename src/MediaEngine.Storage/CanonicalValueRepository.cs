@@ -50,55 +50,39 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         if (scalarValues.Count == 0)
             return;
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        // Single transaction: atomicity + significant write-performance gain.
+        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
+            innerCt.ThrowIfCancellationRequested();
 
-            // Single transaction: atomicity + significant write-performance gain.
-            using var tx = conn.BeginTransaction();
-            try
-            {
-                ct.ThrowIfCancellationRequested();
+            // Update in place so the winner changes atomically without the
+            // delete/reinsert side effects of INSERT OR REPLACE.
+            conn.Execute("""
+                INSERT INTO canonical_values
+                    (entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review)
+                VALUES
+                    (@EntityId, @Key, @Value, @LastScoredAt, @IsConflicted, @WinningProviderId, @NeedsReview)
+                ON CONFLICT(entity_id, key) DO UPDATE SET
+                    value = excluded.value,
+                    last_scored_at = excluded.last_scored_at,
+                    is_conflicted = excluded.is_conflicted,
+                    winning_provider_id = excluded.winning_provider_id,
+                    needs_review = excluded.needs_review;
+                """,
+                scalarValues.Select(cv => new
+                {
+                    cv.EntityId,
+                    cv.Key,
+                    cv.Value,
+                    LastScoredAt      = cv.LastScoredAt.ToString("o"),
+                    IsConflicted      = cv.IsConflicted ? 1 : 0,
+                    cv.WinningProviderId,
+                    NeedsReview       = cv.NeedsReview ? 1 : 0,
+                }),
+                transaction: tx);
 
-                // Update in place so the winner changes atomically without the
-                // delete/reinsert side effects of INSERT OR REPLACE.
-                conn.Execute("""
-                    INSERT INTO canonical_values
-                        (entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review)
-                    VALUES
-                        (@EntityId, @Key, @Value, @LastScoredAt, @IsConflicted, @WinningProviderId, @NeedsReview)
-                    ON CONFLICT(entity_id, key) DO UPDATE SET
-                        value = excluded.value,
-                        last_scored_at = excluded.last_scored_at,
-                        is_conflicted = excluded.is_conflicted,
-                        winning_provider_id = excluded.winning_provider_id,
-                        needs_review = excluded.needs_review;
-                    """,
-                    scalarValues.Select(cv => new
-                    {
-                        cv.EntityId,
-                        cv.Key,
-                        cv.Value,
-                        LastScoredAt      = cv.LastScoredAt.ToString("o"),
-                        IsConflicted      = cv.IsConflicted ? 1 : 0,
-                        cv.WinningProviderId,
-                        NeedsReview       = cv.NeedsReview ? 1 : 0,
-                    }),
-                    transaction: tx);
-
-                tx.Commit();
-            }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            return Task.CompletedTask;
+        }, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>
@@ -356,200 +340,183 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
         var outputFingerprint = ComputeOutputFingerprint(normalizedArrays, normalizedScalars);
         var now = DateTimeOffset.UtcNow;
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        return await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-            try
+            var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
+            if (previous is not null
+                && previous.Attempts == 0
+                && previous.Status is AiFeatureStatus.Published or AiFeatureStatus.ReviewRequired or AiFeatureStatus.Protected
+                && string.Equals(previous.InputFingerprint, request.InputFingerprint, StringComparison.Ordinal)
+                && string.Equals(previous.OutputFingerprint, outputFingerprint, StringComparison.Ordinal)
+                && ArePublishedValuesCurrent(conn, tx, request.EntityId, previous))
             {
-                var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
-                if (previous is not null
-                    && previous.Attempts == 0
-                    && previous.Status is AiFeatureStatus.Published or AiFeatureStatus.ReviewRequired or AiFeatureStatus.Protected
-                    && string.Equals(previous.InputFingerprint, request.InputFingerprint, StringComparison.Ordinal)
-                    && string.Equals(previous.OutputFingerprint, outputFingerprint, StringComparison.Ordinal)
-                    && ArePublishedValuesCurrent(conn, tx, request.EntityId, previous))
+                return Task.FromResult(new AiFeatureWriteResult(
+                    previous.Status,
+                    previous.PublishedFields,
+                    previous.ProtectedFields,
+                    IsUnchanged: true));
+            }
+
+            var published = new List<string>();
+            var protectedFields = new List<string>();
+            var publishedValues = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
+            if (request.Confidence >= request.PublishThreshold)
+            {
+                foreach (var (key, values) in normalizedArrays)
                 {
-                    tx.Commit();
-                    return new AiFeatureWriteResult(
-                        previous.Status,
-                        previous.PublishedFields,
-                        previous.ProtectedFields,
-                        IsUnchanged: true);
+                    innerCt.ThrowIfCancellationRequested();
+                    var existing = conn.Query<ExistingArrayValueRow>(
+                        """
+                        SELECT value AS Value, value_qid AS ValueQid
+                        FROM canonical_value_arrays
+                        WHERE entity_id = @entityId AND key = @key
+                        ORDER BY ordinal;
+                        """,
+                        new { entityId = request.EntityId, key },
+                        transaction: tx).ToList();
+
+                    IReadOnlyList<string>? priorValues = null;
+                    var hasPriorOutput = previous is not null
+                        && previous.PublishedValues.TryGetValue(key, out priorValues);
+                    var stillAiOwned = hasPriorOutput
+                        && existing.All(row => row.ValueQid is null)
+                        && existing.Select(row => row.Value).SequenceEqual(priorValues!, StringComparer.Ordinal);
+                    if ((existing.Count > 0 && !stillAiOwned)
+                        || (hasPriorOutput && !stillAiOwned))
+                    {
+                        protectedFields.Add(key);
+                        continue;
+                    }
+
+                    conn.Execute(
+                        "DELETE FROM canonical_value_arrays WHERE entity_id = @entityId AND key = @key;",
+                        new { entityId = request.EntityId, key },
+                        transaction: tx);
+
+                    if (values.Count > 0)
+                    {
+                        conn.Execute(
+                            """
+                            INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                            VALUES (@EntityId, @Key, @Ordinal, @Value, NULL);
+                            """,
+                            values.Select((value, ordinal) => new
+                            {
+                                EntityId = request.EntityId,
+                                Key = key,
+                                Ordinal = ordinal,
+                                Value = value,
+                            }),
+                            transaction: tx);
+                    }
+                    published.Add(key);
+                    publishedValues[key] = values;
                 }
 
-                var published = new List<string>();
-                var protectedFields = new List<string>();
-                var publishedValues = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
-                if (request.Confidence >= request.PublishThreshold)
+                var scalarNeedsReview = request.Confidence < request.ReviewThreshold;
+                foreach (var (key, value) in normalizedScalars)
                 {
-                    foreach (var (key, values) in normalizedArrays)
+                    innerCt.ThrowIfCancellationRequested();
+                    var existing = conn.QueryFirstOrDefault<ExistingCanonicalOwnerRow>(
+                        """
+                        SELECT value AS Value, winning_provider_id AS WinningProviderId
+                        FROM canonical_values
+                        WHERE entity_id = @entityId AND key = @key
+                        LIMIT 1;
+                        """,
+                        new { entityId = request.EntityId, key },
+                        transaction: tx);
+
+                    IReadOnlyList<string>? priorValues = null;
+                    var hasPriorOutput = previous is not null
+                        && previous.PublishedValues.TryGetValue(key, out priorValues);
+                    var expectedPrior = hasPriorOutput && priorValues!.Count == 1 ? priorValues[0] : null;
+                    var stillAiOwned = hasPriorOutput
+                        && (existing is null
+                            ? priorValues!.Count == 0
+                            : existing.WinningProviderId == request.ProviderId
+                              && priorValues!.Count == 1
+                              && string.Equals(existing.Value, expectedPrior, StringComparison.Ordinal));
+                    if ((existing is not null && !stillAiOwned)
+                        || (hasPriorOutput && !stillAiOwned))
                     {
-                        ct.ThrowIfCancellationRequested();
-                        var existing = conn.Query<ExistingArrayValueRow>(
-                            """
-                            SELECT value AS Value, value_qid AS ValueQid
-                            FROM canonical_value_arrays
-                            WHERE entity_id = @entityId AND key = @key
-                            ORDER BY ordinal;
-                            """,
-                            new { entityId = request.EntityId, key },
-                            transaction: tx).ToList();
+                        protectedFields.Add(key);
+                        continue;
+                    }
 
-                        IReadOnlyList<string>? priorValues = null;
-                        var hasPriorOutput = previous is not null
-                            && previous.PublishedValues.TryGetValue(key, out priorValues);
-                        var stillAiOwned = hasPriorOutput
-                            && existing.All(row => row.ValueQid is null)
-                            && existing.Select(row => row.Value).SequenceEqual(priorValues!, StringComparer.Ordinal);
-                        if ((existing.Count > 0 && !stillAiOwned)
-                            || (hasPriorOutput && !stillAiOwned))
-                        {
-                            protectedFields.Add(key);
-                            continue;
-                        }
-
-                        conn.Execute(
-                            "DELETE FROM canonical_value_arrays WHERE entity_id = @entityId AND key = @key;",
-                            new { entityId = request.EntityId, key },
-                            transaction: tx);
-
-                        if (values.Count > 0)
+                    if (value is null)
+                    {
+                        if (existing is not null)
                         {
                             conn.Execute(
-                                """
-                                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
-                                VALUES (@EntityId, @Key, @Ordinal, @Value, NULL);
-                                """,
-                                values.Select((value, ordinal) => new
-                                {
-                                    EntityId = request.EntityId,
-                                    Key = key,
-                                    Ordinal = ordinal,
-                                    Value = value,
-                                }),
+                                "DELETE FROM canonical_values WHERE entity_id = @entityId AND key = @key;",
+                                new { entityId = request.EntityId, key },
                                 transaction: tx);
                         }
                         published.Add(key);
-                        publishedValues[key] = values;
+                        publishedValues[key] = [];
+                        continue;
                     }
 
-                    var scalarNeedsReview = request.Confidence < request.ReviewThreshold;
-                    foreach (var (key, value) in normalizedScalars)
-                    {
-                        ct.ThrowIfCancellationRequested();
-                        var existing = conn.QueryFirstOrDefault<ExistingCanonicalOwnerRow>(
-                            """
-                            SELECT value AS Value, winning_provider_id AS WinningProviderId
-                            FROM canonical_values
-                            WHERE entity_id = @entityId AND key = @key
-                            LIMIT 1;
-                            """,
-                            new { entityId = request.EntityId, key },
-                            transaction: tx);
-
-                        IReadOnlyList<string>? priorValues = null;
-                        var hasPriorOutput = previous is not null
-                            && previous.PublishedValues.TryGetValue(key, out priorValues);
-                        var expectedPrior = hasPriorOutput && priorValues!.Count == 1 ? priorValues[0] : null;
-                        var stillAiOwned = hasPriorOutput
-                            && (existing is null
-                                ? priorValues!.Count == 0
-                                : existing.WinningProviderId == request.ProviderId
-                                  && priorValues!.Count == 1
-                                  && string.Equals(existing.Value, expectedPrior, StringComparison.Ordinal));
-                        if ((existing is not null && !stillAiOwned)
-                            || (hasPriorOutput && !stillAiOwned))
+                    conn.Execute(
+                        """
+                        INSERT INTO canonical_values
+                            (entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review)
+                        VALUES
+                            (@EntityId, @Key, @Value, @LastScoredAt, 0, @WinningProviderId, @NeedsReview)
+                        ON CONFLICT(entity_id, key) DO UPDATE SET
+                            value = excluded.value,
+                            last_scored_at = excluded.last_scored_at,
+                            is_conflicted = 0,
+                            winning_provider_id = excluded.winning_provider_id,
+                            needs_review = excluded.needs_review;
+                        """,
+                        new
                         {
-                            protectedFields.Add(key);
-                            continue;
-                        }
-
-                        if (value is null)
-                        {
-                            if (existing is not null)
-                            {
-                                conn.Execute(
-                                    "DELETE FROM canonical_values WHERE entity_id = @entityId AND key = @key;",
-                                    new { entityId = request.EntityId, key },
-                                    transaction: tx);
-                            }
-                            published.Add(key);
-                            publishedValues[key] = [];
-                            continue;
-                        }
-
-                        conn.Execute(
-                            """
-                            INSERT INTO canonical_values
-                                (entity_id, key, value, last_scored_at, is_conflicted, winning_provider_id, needs_review)
-                            VALUES
-                                (@EntityId, @Key, @Value, @LastScoredAt, 0, @WinningProviderId, @NeedsReview)
-                            ON CONFLICT(entity_id, key) DO UPDATE SET
-                                value = excluded.value,
-                                last_scored_at = excluded.last_scored_at,
-                                is_conflicted = 0,
-                                winning_provider_id = excluded.winning_provider_id,
-                                needs_review = excluded.needs_review;
-                            """,
-                            new
-                            {
-                                request.EntityId,
-                                Key = key,
-                                Value = value,
-                                LastScoredAt = now.ToString("O"),
-                                WinningProviderId = request.ProviderId,
-                                NeedsReview = scalarNeedsReview ? 1 : 0,
-                            },
-                            transaction: tx);
-                        published.Add(key);
-                        publishedValues[key] = [value];
-                    }
+                            request.EntityId,
+                            Key = key,
+                            Value = value,
+                            LastScoredAt = now.ToString("O"),
+                            WinningProviderId = request.ProviderId,
+                            NeedsReview = scalarNeedsReview ? 1 : 0,
+                        },
+                        transaction: tx);
+                    published.Add(key);
+                    publishedValues[key] = [value];
                 }
-
-                var status = request.Confidence < request.PublishThreshold
-                    ? AiFeatureStatus.ReviewRequired
-                    : published.Count == 0 && protectedFields.Count > 0
-                        ? AiFeatureStatus.Protected
-                        : request.Confidence < request.ReviewThreshold || protectedFields.Count > 0
-                            ? AiFeatureStatus.ReviewRequired
-                            : AiFeatureStatus.Published;
-
-                UpsertAiFeatureState(
-                    conn,
-                    tx,
-                    request.EntityId,
-                    request.FeatureKey,
-                    request.ProviderId,
-                    status,
-                    request.Confidence,
-                    request.ModelId,
-                    request.PromptVersion,
-                    request.InputFingerprint,
-                    outputFingerprint,
-                    attempts: 0,
-                    nextRetryAt: null,
-                    lastError: null,
-                    outcomeReason: null,
-                    published,
-                    protectedFields,
-                    publishedValues,
-                    now);
-
-                tx.Commit();
-                return new AiFeatureWriteResult(status, published, protectedFields, IsUnchanged: false);
             }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+
+            var status = request.Confidence < request.PublishThreshold
+                ? AiFeatureStatus.ReviewRequired
+                : published.Count == 0 && protectedFields.Count > 0
+                    ? AiFeatureStatus.Protected
+                    : request.Confidence < request.ReviewThreshold || protectedFields.Count > 0
+                        ? AiFeatureStatus.ReviewRequired
+                        : AiFeatureStatus.Published;
+
+            UpsertAiFeatureState(
+                conn,
+                tx,
+                request.EntityId,
+                request.FeatureKey,
+                request.ProviderId,
+                status,
+                request.Confidence,
+                request.ModelId,
+                request.PromptVersion,
+                request.InputFingerprint,
+                outputFingerprint,
+                attempts: 0,
+                nextRetryAt: null,
+                lastError: null,
+                outcomeReason: null,
+                published,
+                protectedFields,
+                publishedValues,
+                now);
+
+            return Task.FromResult(new AiFeatureWriteResult(status, published, protectedFields, IsUnchanged: false));
+        }, ct).ConfigureAwait(false);
     }
 
     public Task<AiFeatureState?> GetAiFeatureStateAsync(
@@ -577,77 +544,61 @@ public sealed class CanonicalValueRepository : ICanonicalValueRepository, IAiFea
             throw new ArgumentOutOfRangeException(nameof(request), "Maximum attempts must be positive.");
 
         ct.ThrowIfCancellationRequested();
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        return await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-            try
-            {
-                var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
-                var attempts = checked((previous?.Attempts ?? 0) + 1);
-                var status = attempts >= request.MaxAttempts
-                    ? AiFeatureStatus.Poisoned
-                    : AiFeatureStatus.RetryPending;
-                var retryDelay = request.InitialRetryDelay ?? TimeSpan.FromMinutes(5);
-                var nextRetry = status == AiFeatureStatus.RetryPending
-                    ? DateTimeOffset.UtcNow.Add(TimeSpan.FromTicks(Math.Min(
-                        retryDelay.Ticks * (long)Math.Pow(2, attempts - 1),
-                        TimeSpan.FromHours(6).Ticks)))
-                    : (DateTimeOffset?)null;
-                var now = DateTimeOffset.UtcNow;
+            var previous = LoadAiFeatureState(conn, tx, request.EntityId, request.FeatureKey);
+            var attempts = checked((previous?.Attempts ?? 0) + 1);
+            var status = attempts >= request.MaxAttempts
+                ? AiFeatureStatus.Poisoned
+                : AiFeatureStatus.RetryPending;
+            var retryDelay = request.InitialRetryDelay ?? TimeSpan.FromMinutes(5);
+            var nextRetry = status == AiFeatureStatus.RetryPending
+                ? DateTimeOffset.UtcNow.Add(TimeSpan.FromTicks(Math.Min(
+                    retryDelay.Ticks * (long)Math.Pow(2, attempts - 1),
+                    TimeSpan.FromHours(6).Ticks)))
+                : (DateTimeOffset?)null;
+            var now = DateTimeOffset.UtcNow;
 
-                UpsertAiFeatureState(
-                    conn,
-                    tx,
-                    request.EntityId,
-                    request.FeatureKey,
-                    request.ProviderId,
-                    status,
-                    previous?.Confidence,
-                    request.ModelId,
-                    request.PromptVersion,
-                    request.InputFingerprint,
-                    previous?.OutputFingerprint,
-                    attempts,
-                    nextRetry,
-                    request.Error.Length > 2000 ? request.Error[..2000] : request.Error,
-                    outcomeReason: null,
-                    previous?.PublishedFields ?? [],
-                    previous?.ProtectedFields ?? [],
-                    previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
-                    now);
+            UpsertAiFeatureState(
+                conn,
+                tx,
+                request.EntityId,
+                request.FeatureKey,
+                request.ProviderId,
+                status,
+                previous?.Confidence,
+                request.ModelId,
+                request.PromptVersion,
+                request.InputFingerprint,
+                previous?.OutputFingerprint,
+                attempts,
+                nextRetry,
+                request.Error.Length > 2000 ? request.Error[..2000] : request.Error,
+                outcomeReason: null,
+                previous?.PublishedFields ?? [],
+                previous?.ProtectedFields ?? [],
+                previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
+                now);
 
-                tx.Commit();
-                return new AiFeatureState(
-                    request.EntityId,
-                    request.FeatureKey,
-                    request.ProviderId,
-                    status,
-                    previous?.Confidence,
-                    request.ModelId,
-                    request.PromptVersion,
-                    request.InputFingerprint,
-                    previous?.OutputFingerprint,
-                    attempts,
-                    nextRetry,
-                    request.Error,
-                    OutcomeReason: null,
-                    previous?.PublishedFields ?? [],
-                    previous?.ProtectedFields ?? [],
-                    previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
-                    now);
-            }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            return Task.FromResult(new AiFeatureState(
+                request.EntityId,
+                request.FeatureKey,
+                request.ProviderId,
+                status,
+                previous?.Confidence,
+                request.ModelId,
+                request.PromptVersion,
+                request.InputFingerprint,
+                previous?.OutputFingerprint,
+                attempts,
+                nextRetry,
+                request.Error,
+                OutcomeReason: null,
+                previous?.PublishedFields ?? [],
+                previous?.ProtectedFields ?? [],
+                previous?.PublishedValues ?? new Dictionary<string, IReadOnlyList<string>>(),
+                now));
+        }, ct).ConfigureAwait(false);
     }
 
     private static void ValidateAiFeatureWrite(AiFeatureWriteRequest request)

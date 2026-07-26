@@ -171,18 +171,14 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<Guid>>>(result);
     }
 
-    public async Task UpsertManifestAsync(
+    public Task UpsertManifestAsync(
         SeriesManifestHydration hydration,
         IReadOnlyList<SeriesManifestItemRecord> items,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-
             conn.Execute(
                 """
                 INSERT INTO series_manifest_hydrations
@@ -274,26 +270,18 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     tx);
             }
 
-            tx.Commit();
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            return Task.CompletedTask;
+        }, ct);
     }
 
-    public async Task LinkOwnedWorksAsync(
+    public Task LinkOwnedWorksAsync(
         Guid collectionId,
         IReadOnlyList<SeriesManifestItemRecord> items,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-
             foreach (var item in items.Where(i =>
                          i.OwnershipState == "Owned"
                          && !i.IsCollection
@@ -361,12 +349,8 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
                     tx);
             }
 
-            tx.Commit();
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            return Task.CompletedTask;
+        }, ct);
     }
 
     public Task<SeriesManifestViewDto?> GetViewByCollectionIdAsync(Guid collectionId, CancellationToken ct = default)

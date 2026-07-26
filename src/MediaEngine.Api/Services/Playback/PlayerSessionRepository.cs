@@ -104,56 +104,55 @@ public sealed class PlayerSessionRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        {
+            EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
+            var now = DateTimeOffset.UtcNow;
+            conn.Execute("""
+                INSERT INTO player_sessions
+                    (profile_id, session_id, device_id, client, playback_state, created_at, updated_at)
+                VALUES
+                    (@profileId, @sessionId, @deviceId, @client, 'stopped', @now, @now)
+                ON CONFLICT(profile_id) DO NOTHING;
+                """, new { profileId, sessionId, deviceId, client, now }, tx);
 
-        EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
-        var now = DateTimeOffset.UtcNow;
-        conn.Execute("""
-            INSERT INTO player_sessions
-                (profile_id, session_id, device_id, client, playback_state, created_at, updated_at)
-            VALUES
-                (@profileId, @sessionId, @deviceId, @client, 'stopped', @now, @now)
-            ON CONFLICT(profile_id) DO NOTHING;
-            """, new { profileId, sessionId, deviceId, client, now }, tx);
+            conn.Execute("DELETE FROM player_queue_items WHERE profile_id = @profileId;", new { profileId }, tx);
 
-        conn.Execute("DELETE FROM player_queue_items WHERE profile_id = @profileId;", new { profileId }, tx);
+            InsertItems(conn, tx, profileId, items, 0, sourceLabel);
+            var current = currentQueueItemId ?? items.FirstOrDefault()?.QueueItemId;
+            var currentItem = current.HasValue ? items.FirstOrDefault(item => item.QueueItemId == current.Value) : null;
+            conn.Execute("""
+                UPDATE player_sessions
+                SET session_id = @sessionId,
+                    device_id = @deviceId,
+                    client = @client,
+                    playback_state = CASE WHEN @currentQueueItemId IS NULL THEN 'stopped' ELSE 'playing' END,
+                    current_queue_item_id = @currentQueueItemId,
+                    position_seconds = @positionSeconds,
+                    duration_seconds = @durationSeconds,
+                    progress_pct = @progressPct,
+                    shuffle_enabled = @shuffleEnabled,
+                    source_label = @sourceLabel,
+                    state_version = state_version + 1,
+                    updated_at = @now
+                WHERE profile_id = @profileId;
+                """, new
+                {
+                    profileId,
+                    sessionId,
+                    deviceId,
+                    client,
+                    currentQueueItemId = current,
+                    positionSeconds = currentItem?.PositionSeconds ?? 0,
+                    durationSeconds = currentItem?.DurationSeconds,
+                    progressPct = CalculateProgress(currentItem?.PositionSeconds, currentItem?.DurationSeconds),
+                    shuffleEnabled = shuffle ? 1 : 0,
+                    sourceLabel,
+                    now,
+                }, tx);
 
-        InsertItems(conn, tx, profileId, items, 0, sourceLabel);
-        var current = currentQueueItemId ?? items.FirstOrDefault()?.QueueItemId;
-        var currentItem = current.HasValue ? items.FirstOrDefault(item => item.QueueItemId == current.Value) : null;
-        conn.Execute("""
-            UPDATE player_sessions
-            SET session_id = @sessionId,
-                device_id = @deviceId,
-                client = @client,
-                playback_state = CASE WHEN @currentQueueItemId IS NULL THEN 'stopped' ELSE 'playing' END,
-                current_queue_item_id = @currentQueueItemId,
-                position_seconds = @positionSeconds,
-                duration_seconds = @durationSeconds,
-                progress_pct = @progressPct,
-                shuffle_enabled = @shuffleEnabled,
-                source_label = @sourceLabel,
-                state_version = state_version + 1,
-                updated_at = @now
-            WHERE profile_id = @profileId;
-            """, new
-            {
-                profileId,
-                sessionId,
-                deviceId,
-                client,
-                currentQueueItemId = current,
-                positionSeconds = currentItem?.PositionSeconds ?? 0,
-                durationSeconds = currentItem?.DurationSeconds,
-                progressPct = CalculateProgress(currentItem?.PositionSeconds, currentItem?.DurationSeconds),
-                shuffleEnabled = shuffle ? 1 : 0,
-                sourceLabel,
-                now,
-            }, tx);
-
-        tx.Commit();
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }, ct);
     }
 
     public Task AddQueueItemsAsync(
@@ -173,75 +172,75 @@ public sealed class PlayerSessionRepository
             return Task.CompletedTask;
         }
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        {
+            EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
-        var now = DateTimeOffset.UtcNow;
-        conn.Execute("""
-            INSERT INTO player_sessions
-                (profile_id, session_id, device_id, client, playback_state, created_at, updated_at)
-            VALUES
-                (@profileId, @sessionId, @deviceId, @client, 'stopped', @now, @now)
-            ON CONFLICT(profile_id) DO NOTHING;
-            """, new { profileId, sessionId, deviceId, client, now }, tx);
+            var now = DateTimeOffset.UtcNow;
+            conn.Execute("""
+                INSERT INTO player_sessions
+                    (profile_id, session_id, device_id, client, playback_state, created_at, updated_at)
+                VALUES
+                    (@profileId, @sessionId, @deviceId, @client, 'stopped', @now, @now)
+                ON CONFLICT(profile_id) DO NOTHING;
+                """, new { profileId, sessionId, deviceId, client, now }, tx);
 
-        var insertPosition = conn.ExecuteScalar<int?>("""
-            SELECT CASE
-                     WHEN @insertNext = 1 AND current_queue_item_id IS NOT NULL THEN
-                       COALESCE((SELECT position + 1 FROM player_queue_items WHERE id = current_queue_item_id), 0)
-                     ELSE
-                       COALESCE((SELECT MAX(position) + 1 FROM player_queue_items WHERE profile_id = @profileId), 0)
-                   END
-            FROM player_sessions
-            WHERE profile_id = @profileId;
-            """, new { profileId, insertNext = insertNext ? 1 : 0 }, tx) ?? 0;
+            var insertPosition = conn.ExecuteScalar<int?>("""
+                SELECT CASE
+                         WHEN @insertNext = 1 AND current_queue_item_id IS NOT NULL THEN
+                           COALESCE((SELECT position + 1 FROM player_queue_items WHERE id = current_queue_item_id), 0)
+                         ELSE
+                           COALESCE((SELECT MAX(position) + 1 FROM player_queue_items WHERE profile_id = @profileId), 0)
+                       END
+                FROM player_sessions
+                WHERE profile_id = @profileId;
+                """, new { profileId, insertNext = insertNext ? 1 : 0 }, tx) ?? 0;
 
-        conn.Execute("""
-            UPDATE player_queue_items
-            SET position = position + @count
-            WHERE profile_id = @profileId
-              AND position >= @insertPosition;
-            """, new { profileId, count = items.Count, insertPosition }, tx);
+            conn.Execute("""
+                UPDATE player_queue_items
+                SET position = position + @count
+                WHERE profile_id = @profileId
+                  AND position >= @insertPosition;
+                """, new { profileId, count = items.Count, insertPosition }, tx);
 
-        InsertItems(conn, tx, profileId, items, insertPosition, null);
+            InsertItems(conn, tx, profileId, items, insertPosition, null);
 
-        var hasCurrent = conn.ExecuteScalar<int>("""
-            SELECT COUNT(1)
-            FROM player_sessions
-            WHERE profile_id = @profileId
-              AND current_queue_item_id IS NOT NULL;
-            """, new { profileId }, tx) > 0;
+            var hasCurrent = conn.ExecuteScalar<int>("""
+                SELECT COUNT(1)
+                FROM player_sessions
+                WHERE profile_id = @profileId
+                  AND current_queue_item_id IS NOT NULL;
+                """, new { profileId }, tx) > 0;
 
-        conn.Execute("""
-            UPDATE player_sessions
-            SET session_id = @sessionId,
-                device_id = @deviceId,
-                client = @client,
-                current_queue_item_id = CASE WHEN @hasCurrent = 1 THEN current_queue_item_id ELSE @firstQueueItemId END,
-                playback_state = CASE WHEN @hasCurrent = 1 THEN playback_state ELSE 'playing' END,
-                position_seconds = CASE WHEN @hasCurrent = 1 THEN position_seconds ELSE @positionSeconds END,
-                duration_seconds = CASE WHEN @hasCurrent = 1 THEN duration_seconds ELSE @durationSeconds END,
-                progress_pct = CASE WHEN @hasCurrent = 1 THEN progress_pct ELSE @progressPct END,
-                state_version = state_version + 1,
-                updated_at = @now
-            WHERE profile_id = @profileId;
-            """, new
-            {
-                profileId,
-                sessionId,
-                deviceId,
-                client,
-                hasCurrent = hasCurrent ? 1 : 0,
-                firstQueueItemId = items[0].QueueItemId,
-                positionSeconds = items[0].PositionSeconds ?? 0,
-                durationSeconds = items[0].DurationSeconds,
-                progressPct = CalculateProgress(items[0].PositionSeconds, items[0].DurationSeconds),
-                now,
-            }, tx);
+            conn.Execute("""
+                UPDATE player_sessions
+                SET session_id = @sessionId,
+                    device_id = @deviceId,
+                    client = @client,
+                    current_queue_item_id = CASE WHEN @hasCurrent = 1 THEN current_queue_item_id ELSE @firstQueueItemId END,
+                    playback_state = CASE WHEN @hasCurrent = 1 THEN playback_state ELSE 'playing' END,
+                    position_seconds = CASE WHEN @hasCurrent = 1 THEN position_seconds ELSE @positionSeconds END,
+                    duration_seconds = CASE WHEN @hasCurrent = 1 THEN duration_seconds ELSE @durationSeconds END,
+                    progress_pct = CASE WHEN @hasCurrent = 1 THEN progress_pct ELSE @progressPct END,
+                    state_version = state_version + 1,
+                    updated_at = @now
+                WHERE profile_id = @profileId;
+                """, new
+                {
+                    profileId,
+                    sessionId,
+                    deviceId,
+                    client,
+                    hasCurrent = hasCurrent ? 1 : 0,
+                    firstQueueItemId = items[0].QueueItemId,
+                    positionSeconds = items[0].PositionSeconds ?? 0,
+                    durationSeconds = items[0].DurationSeconds,
+                    progressPct = CalculateProgress(items[0].PositionSeconds, items[0].DurationSeconds),
+                    now,
+                }, tx);
 
-        tx.Commit();
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }, ct);
     }
 
     public Task ReorderQueueAsync(
@@ -252,130 +251,130 @@ public sealed class PlayerSessionRepository
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
-
-        for (var i = 0; i < queueItemIds.Count; i++)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
+            EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
+
+            for (var i = 0; i < queueItemIds.Count; i++)
+            {
+                conn.Execute("""
+                    UPDATE player_queue_items
+                    SET position = @position
+                    WHERE profile_id = @profileId
+                      AND id = @queueItemId;
+                    """, new { profileId, queueItemId = queueItemIds[i], position = i }, tx);
+            }
+
             conn.Execute("""
-                UPDATE player_queue_items
-                SET position = @position
-                WHERE profile_id = @profileId
-                  AND id = @queueItemId;
-                """, new { profileId, queueItemId = queueItemIds[i], position = i }, tx);
-        }
+                UPDATE player_sessions
+                SET state_version = state_version + 1,
+                    updated_at = @now
+                WHERE profile_id = @profileId;
+                """, new { profileId, now = DateTimeOffset.UtcNow }, tx);
 
-        conn.Execute("""
-            UPDATE player_sessions
-            SET state_version = state_version + 1,
-                updated_at = @now
-            WHERE profile_id = @profileId;
-            """, new { profileId, now = DateTimeOffset.UtcNow }, tx);
-
-        tx.Commit();
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }, ct);
     }
 
     public Task RemoveQueueItemAsync(Guid profileId, Guid queueItemId, long? expectedStateVersion, bool force, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
-
-        var removedPosition = conn.ExecuteScalar<int?>("""
-            SELECT position
-            FROM player_queue_items
-            WHERE profile_id = @profileId
-              AND id = @queueItemId;
-            """, new { profileId, queueItemId }, tx);
-
-        var wasCurrent = conn.ExecuteScalar<int>("""
-            SELECT COUNT(1)
-            FROM player_sessions
-            WHERE profile_id = @profileId
-              AND current_queue_item_id = @queueItemId;
-            """, new { profileId, queueItemId }, tx) > 0;
-
-        conn.Execute("""
-            DELETE FROM player_queue_items
-            WHERE profile_id = @profileId
-              AND id = @queueItemId;
-            """, new { profileId, queueItemId }, tx);
-
-        if (removedPosition.HasValue)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            conn.Execute("""
-                UPDATE player_queue_items
-                SET position = position - 1
-                WHERE profile_id = @profileId
-                  AND position > @removedPosition;
-                """, new { profileId, removedPosition }, tx);
-        }
+            EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
-        Guid? nextCurrent = null;
-        double? nextDuration = null;
-        if (wasCurrent)
-        {
-            var next = conn.QueryFirstOrDefault<CurrentCandidateRow>("""
-                SELECT id AS QueueItemId,
-                       duration_seconds AS DurationSeconds
+            var removedPosition = conn.ExecuteScalar<int?>("""
+                SELECT position
                 FROM player_queue_items
                 WHERE profile_id = @profileId
-                ORDER BY position
-                LIMIT 1;
-                """, new { profileId }, tx);
-            nextCurrent = next?.QueueItemId;
-            nextDuration = next?.DurationSeconds;
-        }
+                  AND id = @queueItemId;
+                """, new { profileId, queueItemId }, tx);
 
-        conn.Execute("""
-            UPDATE player_sessions
-            SET current_queue_item_id = CASE WHEN @wasCurrent = 1 THEN @nextCurrent ELSE current_queue_item_id END,
-                playback_state = CASE WHEN @wasCurrent = 1 AND @nextCurrent IS NULL THEN 'stopped' ELSE playback_state END,
-                position_seconds = CASE WHEN @wasCurrent = 1 THEN 0 ELSE position_seconds END,
-                duration_seconds = CASE WHEN @wasCurrent = 1 THEN @nextDuration ELSE duration_seconds END,
-                progress_pct = CASE WHEN @wasCurrent = 1 THEN 0 ELSE progress_pct END,
-                state_version = state_version + 1,
-                updated_at = @now
-            WHERE profile_id = @profileId;
-            """, new
+            var wasCurrent = conn.ExecuteScalar<int>("""
+                SELECT COUNT(1)
+                FROM player_sessions
+                WHERE profile_id = @profileId
+                  AND current_queue_item_id = @queueItemId;
+                """, new { profileId, queueItemId }, tx) > 0;
+
+            conn.Execute("""
+                DELETE FROM player_queue_items
+                WHERE profile_id = @profileId
+                  AND id = @queueItemId;
+                """, new { profileId, queueItemId }, tx);
+
+            if (removedPosition.HasValue)
             {
-                profileId,
-                wasCurrent = wasCurrent ? 1 : 0,
-                nextCurrent,
-                nextDuration,
-                now = DateTimeOffset.UtcNow,
-            }, tx);
+                conn.Execute("""
+                    UPDATE player_queue_items
+                    SET position = position - 1
+                    WHERE profile_id = @profileId
+                      AND position > @removedPosition;
+                    """, new { profileId, removedPosition }, tx);
+            }
 
-        tx.Commit();
-        return Task.CompletedTask;
+            Guid? nextCurrent = null;
+            double? nextDuration = null;
+            if (wasCurrent)
+            {
+                var next = conn.QueryFirstOrDefault<CurrentCandidateRow>("""
+                    SELECT id AS QueueItemId,
+                           duration_seconds AS DurationSeconds
+                    FROM player_queue_items
+                    WHERE profile_id = @profileId
+                    ORDER BY position
+                    LIMIT 1;
+                    """, new { profileId }, tx);
+                nextCurrent = next?.QueueItemId;
+                nextDuration = next?.DurationSeconds;
+            }
+
+            conn.Execute("""
+                UPDATE player_sessions
+                SET current_queue_item_id = CASE WHEN @wasCurrent = 1 THEN @nextCurrent ELSE current_queue_item_id END,
+                    playback_state = CASE WHEN @wasCurrent = 1 AND @nextCurrent IS NULL THEN 'stopped' ELSE playback_state END,
+                    position_seconds = CASE WHEN @wasCurrent = 1 THEN 0 ELSE position_seconds END,
+                    duration_seconds = CASE WHEN @wasCurrent = 1 THEN @nextDuration ELSE duration_seconds END,
+                    progress_pct = CASE WHEN @wasCurrent = 1 THEN 0 ELSE progress_pct END,
+                    state_version = state_version + 1,
+                    updated_at = @now
+                WHERE profile_id = @profileId;
+                """, new
+                {
+                    profileId,
+                    wasCurrent = wasCurrent ? 1 : 0,
+                    nextCurrent,
+                    nextDuration,
+                    now = DateTimeOffset.UtcNow,
+                }, tx);
+
+            return Task.CompletedTask;
+        }, ct);
     }
 
     public Task ClearQueueAsync(Guid profileId, long? expectedStateVersion, bool force, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        {
+            EnsureExpectedVersion(conn, tx, profileId, expectedStateVersion, force);
 
-        conn.Execute("DELETE FROM player_queue_items WHERE profile_id = @profileId;", new { profileId }, tx);
-        conn.Execute("""
-            UPDATE player_sessions
-            SET playback_state = 'stopped',
-                current_queue_item_id = NULL,
-                position_seconds = 0,
-                duration_seconds = NULL,
-                progress_pct = 0,
-                source_label = NULL,
-                state_version = state_version + 1,
-                updated_at = @now
-            WHERE profile_id = @profileId;
-            """, new { profileId, now = DateTimeOffset.UtcNow }, tx);
+            conn.Execute("DELETE FROM player_queue_items WHERE profile_id = @profileId;", new { profileId }, tx);
+            conn.Execute("""
+                UPDATE player_sessions
+                SET playback_state = 'stopped',
+                    current_queue_item_id = NULL,
+                    position_seconds = 0,
+                    duration_seconds = NULL,
+                    progress_pct = 0,
+                    source_label = NULL,
+                    state_version = state_version + 1,
+                    updated_at = @now
+                WHERE profile_id = @profileId;
+                """, new { profileId, now = DateTimeOffset.UtcNow }, tx);
 
-        tx.Commit();
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }, ct);
     }
 
     public Task UpdateTransportAsync(
@@ -436,57 +435,56 @@ public sealed class PlayerSessionRepository
     public Task TakeoverAsync(Guid profileId, Guid sessionId, string deviceId, string client, bool force, TimeSpan staleAfter, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-
-        var state = conn.QueryFirstOrDefault<PlayerSessionRow>("""
-            SELECT profile_id AS ProfileId,
-                   session_id AS SessionId,
-                   device_id AS DeviceId,
-                   client AS Client,
-                   playback_state AS PlaybackState,
-                   current_queue_item_id AS CurrentQueueItemId,
-                   position_seconds AS PositionSeconds,
-                   duration_seconds AS DurationSeconds,
-                   progress_pct AS ProgressPct,
-                   volume AS Volume,
-                   is_muted AS IsMuted,
-                   playback_rate AS PlaybackRate,
-                   shuffle_enabled AS ShuffleEnabled,
-                   repeat_mode AS RepeatMode,
-                   source_label AS SourceLabel,
-                   state_version AS StateVersion,
-                   created_at AS CreatedAt,
-                   updated_at AS UpdatedAt,
-                   last_heartbeat_at AS LastHeartbeatAt
-            FROM player_sessions
-            WHERE profile_id = @profileId
-            LIMIT 1;
-            """, new { profileId }, tx);
-
-        if (state is not null && !force && !IsStale(state.LastHeartbeatAt, staleAfter))
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            throw new PlayerSessionConflictException("An active player session is still sending heartbeats. Retry takeover with force=true.");
-        }
+            var state = conn.QueryFirstOrDefault<PlayerSessionRow>("""
+                SELECT profile_id AS ProfileId,
+                       session_id AS SessionId,
+                       device_id AS DeviceId,
+                       client AS Client,
+                       playback_state AS PlaybackState,
+                       current_queue_item_id AS CurrentQueueItemId,
+                       position_seconds AS PositionSeconds,
+                       duration_seconds AS DurationSeconds,
+                       progress_pct AS ProgressPct,
+                       volume AS Volume,
+                       is_muted AS IsMuted,
+                       playback_rate AS PlaybackRate,
+                       shuffle_enabled AS ShuffleEnabled,
+                       repeat_mode AS RepeatMode,
+                       source_label AS SourceLabel,
+                       state_version AS StateVersion,
+                       created_at AS CreatedAt,
+                       updated_at AS UpdatedAt,
+                       last_heartbeat_at AS LastHeartbeatAt
+                FROM player_sessions
+                WHERE profile_id = @profileId
+                LIMIT 1;
+                """, new { profileId }, tx);
 
-        var now = DateTimeOffset.UtcNow;
-        conn.Execute("""
-            INSERT INTO player_sessions
-                (profile_id, session_id, device_id, client, playback_state, created_at, updated_at, last_heartbeat_at)
-            VALUES
-                (@profileId, @sessionId, @deviceId, @client, 'paused', @now, @now, @now)
-            ON CONFLICT(profile_id) DO UPDATE SET
-                session_id = excluded.session_id,
-                device_id = excluded.device_id,
-                client = excluded.client,
-                playback_state = CASE WHEN player_sessions.current_queue_item_id IS NULL THEN 'stopped' ELSE 'paused' END,
-                state_version = player_sessions.state_version + 1,
-                updated_at = excluded.updated_at,
-                last_heartbeat_at = excluded.last_heartbeat_at;
-            """, new { profileId, sessionId, deviceId, client, now }, tx);
+            if (state is not null && !force && !IsStale(state.LastHeartbeatAt, staleAfter))
+            {
+                throw new PlayerSessionConflictException("An active player session is still sending heartbeats. Retry takeover with force=true.");
+            }
 
-        tx.Commit();
-        return Task.CompletedTask;
+            var now = DateTimeOffset.UtcNow;
+            conn.Execute("""
+                INSERT INTO player_sessions
+                    (profile_id, session_id, device_id, client, playback_state, created_at, updated_at, last_heartbeat_at)
+                VALUES
+                    (@profileId, @sessionId, @deviceId, @client, 'paused', @now, @now, @now)
+                ON CONFLICT(profile_id) DO UPDATE SET
+                    session_id = excluded.session_id,
+                    device_id = excluded.device_id,
+                    client = excluded.client,
+                    playback_state = CASE WHEN player_sessions.current_queue_item_id IS NULL THEN 'stopped' ELSE 'paused' END,
+                    state_version = player_sessions.state_version + 1,
+                    updated_at = excluded.updated_at,
+                    last_heartbeat_at = excluded.last_heartbeat_at;
+                """, new { profileId, sessionId, deviceId, client, now }, tx);
+
+            return Task.CompletedTask;
+        }, ct);
     }
 
     private static void InsertItems(

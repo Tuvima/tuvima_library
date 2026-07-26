@@ -218,99 +218,98 @@ public sealed class PluginLoreRepository : IPluginLoreRepository
     {
         ct.ThrowIfCancellationRequested();
         var now = DateTimeOffset.UtcNow;
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
 
-        foreach (var entity in entities.Where(e => !string.IsNullOrWhiteSpace(e.ExternalKey) && !string.IsNullOrWhiteSpace(e.Label)))
+        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
+            foreach (var entity in entities.Where(e => !string.IsNullOrWhiteSpace(e.ExternalKey) && !string.IsNullOrWhiteSpace(e.Label)))
+            {
+                await conn.ExecuteAsync("""
+                    INSERT INTO plugin_lore_entities
+                        (id, source_id, universe_qid, plugin_id, external_key, wikidata_qid,
+                         label, description, entity_type, aliases_json, source_url, confidence,
+                         evidence_json, created_at, updated_at)
+                    VALUES
+                        (@Id, @SourceId, @UniverseQid, @PluginId, @ExternalKey, @WikidataQid,
+                         @Label, @Description, @EntityType, @AliasesJson, @SourceUrl, @Confidence,
+                         @EvidenceJson, @Now, @Now)
+                    ON CONFLICT(source_id, external_key) DO UPDATE SET
+                        wikidata_qid = excluded.wikidata_qid,
+                        label = excluded.label,
+                        description = excluded.description,
+                        entity_type = excluded.entity_type,
+                        aliases_json = excluded.aliases_json,
+                        source_url = excluded.source_url,
+                        confidence = excluded.confidence,
+                        evidence_json = excluded.evidence_json,
+                        updated_at = excluded.updated_at;
+                    """,
+                    new
+                    {
+                        Id = entity.Id == Guid.Empty ? Guid.NewGuid() : entity.Id,
+                        SourceId = source.Id,
+                        UniverseQid = source.UniverseQid,
+                        PluginId = source.PluginId,
+                        entity.ExternalKey,
+                        entity.WikidataQid,
+                        entity.Label,
+                        entity.Description,
+                        EntityType = NormalizeEntityType(entity.EntityType),
+                        AliasesJson = string.IsNullOrWhiteSpace(entity.AliasesJson) ? "[]" : entity.AliasesJson,
+                        entity.SourceUrl,
+                        entity.Confidence,
+                        EvidenceJson = string.IsNullOrWhiteSpace(entity.EvidenceJson) ? "{}" : entity.EvidenceJson,
+                        Now = now,
+                    },
+                    tx);
+            }
+
+            foreach (var relationship in relationships.Where(r => !string.IsNullOrWhiteSpace(r.SubjectExternalKey)
+                                                                  && !string.IsNullOrWhiteSpace(r.ObjectExternalKey)
+                                                                  && !string.IsNullOrWhiteSpace(r.RelationshipType)))
+            {
+                await conn.ExecuteAsync("""
+                    INSERT INTO plugin_lore_relationships
+                        (id, source_id, universe_qid, plugin_id, subject_external_key, subject_qid,
+                         object_external_key, object_qid, relationship_type, source_url, confidence,
+                         evidence_json, created_at, updated_at)
+                    VALUES
+                        (@Id, @SourceId, @UniverseQid, @PluginId, @SubjectExternalKey, @SubjectQid,
+                         @ObjectExternalKey, @ObjectQid, @RelationshipType, @SourceUrl, @Confidence,
+                         @EvidenceJson, @Now, @Now)
+                    ON CONFLICT(source_id, subject_external_key, relationship_type, object_external_key) DO UPDATE SET
+                        subject_qid = excluded.subject_qid,
+                        object_qid = excluded.object_qid,
+                        source_url = excluded.source_url,
+                        confidence = excluded.confidence,
+                        evidence_json = excluded.evidence_json,
+                        updated_at = excluded.updated_at;
+                    """,
+                    new
+                    {
+                        Id = relationship.Id == Guid.Empty ? Guid.NewGuid() : relationship.Id,
+                        SourceId = source.Id,
+                        UniverseQid = source.UniverseQid,
+                        PluginId = source.PluginId,
+                        relationship.SubjectExternalKey,
+                        relationship.SubjectQid,
+                        relationship.ObjectExternalKey,
+                        relationship.ObjectQid,
+                        relationship.RelationshipType,
+                        relationship.SourceUrl,
+                        relationship.Confidence,
+                        EvidenceJson = string.IsNullOrWhiteSpace(relationship.EvidenceJson) ? "{}" : relationship.EvidenceJson,
+                        Now = now,
+                    },
+                    tx);
+            }
+
             await conn.ExecuteAsync("""
-                INSERT INTO plugin_lore_entities
-                    (id, source_id, universe_qid, plugin_id, external_key, wikidata_qid,
-                     label, description, entity_type, aliases_json, source_url, confidence,
-                     evidence_json, created_at, updated_at)
-                VALUES
-                    (@Id, @SourceId, @UniverseQid, @PluginId, @ExternalKey, @WikidataQid,
-                     @Label, @Description, @EntityType, @AliasesJson, @SourceUrl, @Confidence,
-                     @EvidenceJson, @Now, @Now)
-                ON CONFLICT(source_id, external_key) DO UPDATE SET
-                    wikidata_qid = excluded.wikidata_qid,
-                    label = excluded.label,
-                    description = excluded.description,
-                    entity_type = excluded.entity_type,
-                    aliases_json = excluded.aliases_json,
-                    source_url = excluded.source_url,
-                    confidence = excluded.confidence,
-                    evidence_json = excluded.evidence_json,
-                    updated_at = excluded.updated_at;
-                """,
-                new
-                {
-                    Id = entity.Id == Guid.Empty ? Guid.NewGuid() : entity.Id,
-                    SourceId = source.Id,
-                    UniverseQid = source.UniverseQid,
-                    PluginId = source.PluginId,
-                    entity.ExternalKey,
-                    entity.WikidataQid,
-                    entity.Label,
-                    entity.Description,
-                    EntityType = NormalizeEntityType(entity.EntityType),
-                    AliasesJson = string.IsNullOrWhiteSpace(entity.AliasesJson) ? "[]" : entity.AliasesJson,
-                    entity.SourceUrl,
-                    entity.Confidence,
-                    EvidenceJson = string.IsNullOrWhiteSpace(entity.EvidenceJson) ? "{}" : entity.EvidenceJson,
-                    Now = now,
-                },
-                tx);
-        }
-
-        foreach (var relationship in relationships.Where(r => !string.IsNullOrWhiteSpace(r.SubjectExternalKey)
-                                                              && !string.IsNullOrWhiteSpace(r.ObjectExternalKey)
-                                                              && !string.IsNullOrWhiteSpace(r.RelationshipType)))
-        {
-            await conn.ExecuteAsync("""
-                INSERT INTO plugin_lore_relationships
-                    (id, source_id, universe_qid, plugin_id, subject_external_key, subject_qid,
-                     object_external_key, object_qid, relationship_type, source_url, confidence,
-                     evidence_json, created_at, updated_at)
-                VALUES
-                    (@Id, @SourceId, @UniverseQid, @PluginId, @SubjectExternalKey, @SubjectQid,
-                     @ObjectExternalKey, @ObjectQid, @RelationshipType, @SourceUrl, @Confidence,
-                     @EvidenceJson, @Now, @Now)
-                ON CONFLICT(source_id, subject_external_key, relationship_type, object_external_key) DO UPDATE SET
-                    subject_qid = excluded.subject_qid,
-                    object_qid = excluded.object_qid,
-                    source_url = excluded.source_url,
-                    confidence = excluded.confidence,
-                    evidence_json = excluded.evidence_json,
-                    updated_at = excluded.updated_at;
-                """,
-                new
-                {
-                    Id = relationship.Id == Guid.Empty ? Guid.NewGuid() : relationship.Id,
-                    SourceId = source.Id,
-                    UniverseQid = source.UniverseQid,
-                    PluginId = source.PluginId,
-                    relationship.SubjectExternalKey,
-                    relationship.SubjectQid,
-                    relationship.ObjectExternalKey,
-                    relationship.ObjectQid,
-                    relationship.RelationshipType,
-                    relationship.SourceUrl,
-                    relationship.Confidence,
-                    EvidenceJson = string.IsNullOrWhiteSpace(relationship.EvidenceJson) ? "{}" : relationship.EvidenceJson,
-                    Now = now,
-                },
-                tx);
-        }
-
-        await conn.ExecuteAsync("""
-            UPDATE plugin_lore_sources
-            SET last_enriched_at = @now,
-                updated_at = @now
-            WHERE id = @sourceId;
-            """, new { sourceId = source.Id, now }, tx);
-
-        tx.Commit();
+                UPDATE plugin_lore_sources
+                SET last_enriched_at = @now,
+                    updated_at = @now
+                WHERE id = @sourceId;
+                """, new { sourceId = source.Id, now }, tx);
+        }, ct).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<PluginLoreEntityRecord>> GetEntitiesAsync(

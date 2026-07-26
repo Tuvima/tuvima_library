@@ -48,6 +48,25 @@ public sealed class DatabaseConnectionGuardrailTests
     }
 
     [Fact]
+    public void ActiveSourceFiles_DoNotCallRawBeginTransactionOutsideDatabaseConnection()
+    {
+        var repoRoot = FindRepoRoot();
+        var allowlist = ReadBeginTransactionAllowlist(repoRoot);
+        const string ownerFile = "src/MediaEngine.Storage/DatabaseConnection.cs";
+
+        var offenders = Directory.EnumerateFiles(Path.Combine(repoRoot, "src"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => IsActiveSourcePath(repoRoot, path))
+            .Select(path => ToRelativePath(repoRoot, path))
+            .Where(relative => !relative.Equals(ownerFile, StringComparison.OrdinalIgnoreCase))
+            .Where(relative => !allowlist.Contains(relative))
+            .Where(relative => File.ReadAllText(Path.Combine(repoRoot, relative))
+                .Contains(".BeginTransaction()", StringComparison.Ordinal))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void SilentCatchBlocks_AreLimitedToDocumentedBestEffortLocations()
     {
         var repoRoot = FindRepoRoot();
@@ -103,4 +122,21 @@ public sealed class DatabaseConnectionGuardrailTests
 
     private static readonly Regex SilentCatchRegex =
         new(@"catch\s*\{\s*\}", RegexOptions.Compiled);
+
+    /// <summary>
+    /// Reads the seeded list of files still calling <c>SqliteConnection.BeginTransaction()</c>
+    /// directly. See <c>BeginTransactionGuardrailAllowlist.txt</c> for the migration note —
+    /// entries are removed as wave 2 of stage 2 converts each call site to
+    /// <c>IDatabaseConnection.ExecuteInTransactionAsync</c>; new entries are forbidden.
+    /// </summary>
+    private static HashSet<string> ReadBeginTransactionAllowlist(string repoRoot)
+    {
+        var path = Path.Combine(repoRoot, "tests", "MediaEngine.Api.Tests", "BeginTransactionGuardrailAllowlist.txt");
+        Assert.True(File.Exists(path), "Missing BeginTransaction guardrail allowlist.");
+
+        return File.ReadAllLines(path)
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0 && !line.StartsWith("#", StringComparison.Ordinal))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
 }

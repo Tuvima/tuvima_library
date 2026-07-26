@@ -405,12 +405,8 @@ public sealed class CollectionRepository : ICollectionRepository
         if (relationships.Count == 0) return;
         ct.ThrowIfCancellationRequested();
 
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx   = conn.BeginTransaction();
-
             const string sql = """
                 INSERT OR IGNORE INTO collection_relationships (id, collection_id, rel_type, rel_qid, rel_label, confidence, discovered_at)
                 VALUES (@Id, @CollectionId, @RelType, @RelQid, @RelLabel, @Confidence, @DiscoveredAt);
@@ -424,14 +420,9 @@ public sealed class CollectionRepository : ICollectionRepository
                     sql,
                     relationship,
                     transaction: tx,
-                    cancellationToken: ct));
+                    cancellationToken: innerCt));
             }
-            tx.Commit();
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -524,15 +515,11 @@ public sealed class CollectionRepository : ICollectionRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        await _db.AcquireWriteLockAsync(ct);
-        try
+        var keep  = keepCollectionId;
+        var merge = mergeCollectionId;
+
+        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            var keep  = keepCollectionId;
-            var merge = mergeCollectionId;
-
-            using var conn = _db.CreateConnection();
-            using var tx   = conn.BeginTransaction();
-
             // Re-assign all Works from mergeCollection to keepCollection.
             conn.Execute(
                 "UPDATE works SET collection_id = @keep WHERE collection_id = @merge;",
@@ -553,12 +540,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 "DELETE FROM collections WHERE id = @merge;",
                 new { merge }, transaction: tx);
 
-            tx.Commit();
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -1203,27 +1186,26 @@ public sealed class CollectionRepository : ICollectionRepository
     public async Task ReorderCollectionItemsAsync(Guid collectionId, IReadOnlyList<Guid> itemIds, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
 
-        for (var index = 0; index < itemIds.Count; index++)
+        await _db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            await conn.ExecuteAsync(
-                """
-                UPDATE collection_items
-                SET sort_order = @SortOrder
-                WHERE id = @Id AND collection_id = @CollectionId
-                """,
-                new
-                {
-                    Id = itemIds[index],
-                    CollectionId = collectionId,
-                    SortOrder = index + 1,
-                },
-                tx);
-        }
-
-        tx.Commit();
+            for (var index = 0; index < itemIds.Count; index++)
+            {
+                await conn.ExecuteAsync(
+                    """
+                    UPDATE collection_items
+                    SET sort_order = @SortOrder
+                    WHERE id = @Id AND collection_id = @CollectionId
+                    """,
+                    new
+                    {
+                        Id = itemIds[index],
+                        CollectionId = collectionId,
+                        SortOrder = index + 1,
+                    },
+                    tx);
+            }
+        }, ct);
     }
 
     // -------------------------------------------------------------------------

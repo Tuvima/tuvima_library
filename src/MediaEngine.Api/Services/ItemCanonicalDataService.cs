@@ -164,24 +164,19 @@ public sealed class ItemCanonicalDataService(
         ArgumentNullException.ThrowIfNull(overrides);
         ct.ThrowIfCancellationRequested();
 
-        await db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        var affected = await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            using var conn = db.CreateConnection();
-            var affected = await conn.ExecuteAsync(new CommandDefinition(
+            return await conn.ExecuteAsync(new CommandDefinition(
                 "UPDATE works SET display_overrides_json = @json WHERE id = @workId;",
                 new
                 {
                     json = overrides.Count == 0 ? null : JsonSerializer.Serialize(overrides),
                     workId = GuidSql.ToBlob(workId),
                 },
-                cancellationToken: ct)).ConfigureAwait(false);
-            return affected > 0;
-        }
-        finally
-        {
-            db.ReleaseWriteLock();
-        }
+                tx,
+                cancellationToken: innerCt)).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
+        return affected > 0;
     }
 
     public async Task<Guid?> ResolveWorkIdForAssetAsync(Guid assetId, CancellationToken ct = default)
@@ -239,10 +234,8 @@ public sealed class ItemCanonicalDataService(
         ArgumentException.ThrowIfNullOrWhiteSpace(wikidataQid);
         ct.ThrowIfCancellationRequested();
 
-        await db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            using var conn = db.CreateConnection();
             await conn.ExecuteAsync(new CommandDefinition(
                 """
                 UPDATE works
@@ -252,12 +245,9 @@ public sealed class ItemCanonicalDataService(
                 WHERE id = @workId;
                 """,
                 new { wikidataQid, workId = GuidSql.ToBlob(workId) },
-                cancellationToken: ct)).ConfigureAwait(false);
-        }
-        finally
-        {
-            db.ReleaseWriteLock();
-        }
+                tx,
+                cancellationToken: innerCt)).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
     }
 
     public async Task DeleteIdentityArtifactsAsync(
@@ -274,50 +264,33 @@ public sealed class ItemCanonicalDataService(
         if (distinct.Count == 0)
             return;
 
-        await db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            using var conn = db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-            try
+            foreach (var artifact in distinct)
             {
-                foreach (var artifact in distinct)
+                innerCt.ThrowIfCancellationRequested();
+                var parameters = new
                 {
-                    ct.ThrowIfCancellationRequested();
-                    var parameters = new
-                    {
-                        entityId = GuidSql.ToBlob(artifact.EntityId),
-                        key = artifact.Key,
-                    };
-                    await conn.ExecuteAsync(new CommandDefinition(
-                        "DELETE FROM canonical_values WHERE entity_id = @entityId AND key = @key;",
-                        parameters,
-                        tx,
-                        cancellationToken: ct)).ConfigureAwait(false);
-                    await conn.ExecuteAsync(new CommandDefinition(
-                        "DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key;",
-                        parameters,
-                        tx,
-                        cancellationToken: ct)).ConfigureAwait(false);
-                    await conn.ExecuteAsync(new CommandDefinition(
-                        "DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key;",
-                        parameters,
-                        tx,
-                        cancellationToken: ct)).ConfigureAwait(false);
-                }
-
-                tx.Commit();
+                    entityId = GuidSql.ToBlob(artifact.EntityId),
+                    key = artifact.Key,
+                };
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM canonical_values WHERE entity_id = @entityId AND key = @key;",
+                    parameters,
+                    tx,
+                    cancellationToken: innerCt)).ConfigureAwait(false);
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM metadata_claims WHERE entity_id = @entityId AND claim_key = @key;",
+                    parameters,
+                    tx,
+                    cancellationToken: innerCt)).ConfigureAwait(false);
+                await conn.ExecuteAsync(new CommandDefinition(
+                    "DELETE FROM bridge_ids WHERE entity_id = @entityId AND id_type = @key;",
+                    parameters,
+                    tx,
+                    cancellationToken: innerCt)).ConfigureAwait(false);
             }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            db.ReleaseWriteLock();
-        }
+        }, ct).ConfigureAwait(false);
     }
 
     public async Task ReplaceExternalIdentifiersAsync(
@@ -330,14 +303,13 @@ public sealed class ItemCanonicalDataService(
         ArgumentNullException.ThrowIfNull(replacements);
         ct.ThrowIfCancellationRequested();
 
-        await db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        await db.ExecuteInTransactionAsync(async (conn, tx, innerCt) =>
         {
-            using var conn = db.CreateConnection();
             var json = await conn.QueryFirstOrDefaultAsync<string?>(new CommandDefinition(
                 "SELECT external_identifiers FROM works WHERE id = @workId LIMIT 1;",
                 new { workId = GuidSql.ToBlob(workId) },
-                cancellationToken: ct)).ConfigureAwait(false);
+                tx,
+                cancellationToken: innerCt)).ConfigureAwait(false);
 
             Dictionary<string, string> identifiers;
             try
@@ -371,12 +343,9 @@ public sealed class ItemCanonicalDataService(
                     json = identifiers.Count == 0 ? null : JsonSerializer.Serialize(identifiers),
                     workId = GuidSql.ToBlob(workId),
                 },
-                cancellationToken: ct)).ConfigureAwait(false);
-        }
-        finally
-        {
-            db.ReleaseWriteLock();
-        }
+                tx,
+                cancellationToken: innerCt)).ConfigureAwait(false);
+        }, ct).ConfigureAwait(false);
     }
 
     public async Task<string> AppendRejectedQidAsync(

@@ -7,9 +7,9 @@ namespace MediaEngine.Ingestion;
 /// Writes metadata back into video files (MKV, MP4, AVI, WebM) using TagLibSharp.
 /// Handles Matroska tags (MKV) and MP4 atoms.
 ///
-/// Safety: backup-before-modify pattern — same as <see cref="EpubMetadataTagger"/>.
+/// Safety: backup-before-modify pattern, implemented once by <see cref="BackedUpMetadataTagger"/>.
 /// </summary>
-public sealed class VideoMetadataTagger : IMetadataTagger
+public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
 {
     /// <summary>
     /// Bumped manually whenever this tagger gains a new write or changes the
@@ -45,6 +45,7 @@ public sealed class VideoMetadataTagger : IMetadataTagger
     private readonly ILogger<VideoMetadataTagger> _logger;
 
     public VideoMetadataTagger(ILogger<VideoMetadataTagger> logger)
+        : base(logger, "VideoTagger")
     {
         _logger = logger;
     }
@@ -70,24 +71,18 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             return Task.CompletedTask;
         }
 
-        var backupPath = filePath + ".tuvima.bak";
-        try
+        WithBackup(
+            filePath,
+            () =>
         {
-            // For large video files, we skip backup to avoid doubling disk usage.
-            // TagLibSharp modifies in-place; risk is low for metadata-only writes.
-            var fileSize = new FileInfo(filePath).Length;
-            var shouldBackup = fileSize < 500 * 1024 * 1024; // 500 MB threshold
-
-            if (shouldBackup)
-                File.Copy(filePath, backupPath, overwrite: true);
-
             using var file = CreateTagFileOrSkip(filePath);
             if (file is null)
             {
-                if (shouldBackup && File.Exists(backupPath))
-                    File.Delete(backupPath);
+                var skipBackupPath = filePath + BackupSuffix;
+                if (File.Exists(skipBackupPath))
+                    File.Delete(skipBackupPath);
 
-                return Task.CompletedTask;
+                return;
             }
 
             if (tags.TryGetValue("title", out var title))
@@ -136,21 +131,20 @@ public sealed class VideoMetadataTagger : IMetadataTagger
             catch (ArgumentException argEx) when (IsNanDurationMetadata(argEx))
             {
                 _logger.LogWarning("VideoTagger: skipping save for {Path} — file contains NaN duration metadata", filePath);
-                return Task.CompletedTask;
+                return;
             }
 
-            if (shouldBackup && File.Exists(backupPath))
+            var backupPath = filePath + BackupSuffix;
+            if (File.Exists(backupPath))
                 File.Delete(backupPath);
 
             _logger.LogInformation("VideoTagger: wrote {Count} tags to {Path}",
                 tags.Count, filePath);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "VideoTagger: failed to write tags to {Path} — restoring backup", filePath);
-            RestoreBackup(filePath, backupPath);
-            throw;
-        }
+        },
+            onFailure: ex => _logger.LogError(ex, "VideoTagger: failed to write tags to {Path} — restoring backup", filePath),
+            // For large video files, we skip backup to avoid doubling disk usage.
+            // TagLibSharp modifies in-place; risk is low for metadata-only writes.
+            shouldCreateBackup: () => new FileInfo(filePath).Length < 500 * 1024 * 1024); // 500 MB threshold
 
         return Task.CompletedTask;
     }
@@ -210,18 +204,4 @@ public sealed class VideoMetadataTagger : IMetadataTagger
     private static bool IsNanDurationMetadata(ArgumentException ex)
         => ex.Message.Contains("Not-a-Number", StringComparison.OrdinalIgnoreCase)
            || ex.Message.Contains("NaN", StringComparison.OrdinalIgnoreCase);
-
-    private void RestoreBackup(string filePath, string backupPath)
-    {
-        try
-        {
-            if (File.Exists(backupPath))
-                File.Copy(backupPath, filePath, overwrite: true);
-        }
-        catch (Exception restoreEx)
-        {
-            _logger.LogCritical(restoreEx,
-                "VideoTagger: CRITICAL — backup restore also failed for {Path}", filePath);
-        }
-    }
 }

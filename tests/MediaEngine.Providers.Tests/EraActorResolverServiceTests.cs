@@ -174,6 +174,14 @@ public sealed class EraActorResolverServiceTests : IDisposable
         public void RunStartupChecks() => inner.RunStartupChecks();
         public Task AcquireWriteLockAsync(CancellationToken ct = default) => inner.AcquireWriteLockAsync(ct);
         public void ReleaseWriteLock() => inner.ReleaseWriteLock();
+
+        public Task<T> ExecuteInTransactionAsync<T>(
+            Func<SqliteConnection, SqliteTransaction, CancellationToken, Task<T>> body,
+            CancellationToken ct = default) => inner.ExecuteInTransactionAsync(body, ct);
+
+        public Task ExecuteInTransactionAsync(
+            Func<SqliteConnection, SqliteTransaction, CancellationToken, Task> body,
+            CancellationToken ct = default) => inner.ExecuteInTransactionAsync(body, ct);
         public void ResetCount() => Interlocked.Exchange(ref _createConnectionCount, 0);
         public void Dispose() => inner.Dispose();
     }

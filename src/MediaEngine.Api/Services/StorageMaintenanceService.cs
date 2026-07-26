@@ -74,13 +74,17 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
             steps.Add(CompactDuplicateClaims(
                 Math.Max(1, claimBatchSize),
                 request.DryRun));
-
-            steps.Add(RebuildUiSettingsCache(request.DryRun));
         }
         finally
         {
             _db.ReleaseWriteLock();
         }
+
+        // Runs AFTER the write lock is released: the rebuild goes through
+        // ExecuteInTransactionAsync, which acquires the same non-reentrant
+        // write lock itself — calling it inside the locked region above
+        // would deadlock.
+        steps.Add(await RebuildUiSettingsCacheAsync(request.DryRun, ct).ConfigureAwait(false));
 
         var result = new StorageMaintenanceResult(
             startedAt,
@@ -253,7 +257,7 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
             dryRun ? "exact duplicate non-user-locked claims counted" : "exact duplicate non-user-locked claims compacted");
     }
 
-    private StorageMaintenanceStepResult RebuildUiSettingsCache(bool dryRun)
+    private async Task<StorageMaintenanceStepResult> RebuildUiSettingsCacheAsync(bool dryRun, CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
         if (!TableExists(conn, "ui_settings_cache"))
@@ -261,7 +265,7 @@ public sealed class StorageMaintenanceService : IStorageMaintenanceService
 
         var before = conn.ExecuteScalar<int>("SELECT COUNT(*) FROM ui_settings_cache;");
         if (!dryRun)
-            _uiSettingsCache.RebuildFromFiles(_configLoader);
+            await _uiSettingsCache.RebuildFromFilesAsync(_configLoader, ct).ConfigureAwait(false);
 
         return new StorageMaintenanceStepResult(
             "UI settings cache",

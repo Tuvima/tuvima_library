@@ -54,31 +54,32 @@ public sealed class PendingPersonSignalRepository : IPendingPersonSignalReposito
         if (signals.Count == 0)
             return Task.CompletedTask;
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-        foreach (var s in signals)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            conn.Execute("""
-                INSERT OR IGNORE INTO pending_person_signals
-                    (id, entity_id, name, role, source, pattern, media_type, created_at)
-                VALUES
-                    (@Id, @EntityId, @Name, @Role, @Source, @Pattern, @MediaType, @CreatedAt);
-                """,
-                new
-                {
-                    Id       = s.Id,
-                    EntityId = s.EntityId,
-                    s.Name,
-                    s.Role,
-                    s.Source,
-                    s.Pattern,
-                    s.MediaType,
-                    s.CreatedAt,
-                },
-                tx);
-        }
-        tx.Commit();
-        return Task.CompletedTask;
+            foreach (var s in signals)
+            {
+                conn.Execute("""
+                    INSERT OR IGNORE INTO pending_person_signals
+                        (id, entity_id, name, role, source, pattern, media_type, created_at)
+                    VALUES
+                        (@Id, @EntityId, @Name, @Role, @Source, @Pattern, @MediaType, @CreatedAt);
+                    """,
+                    new
+                    {
+                        Id       = s.Id,
+                        EntityId = s.EntityId,
+                        s.Name,
+                        s.Role,
+                        s.Source,
+                        s.Pattern,
+                        s.MediaType,
+                        s.CreatedAt,
+                    },
+                    tx);
+            }
+
+            return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>

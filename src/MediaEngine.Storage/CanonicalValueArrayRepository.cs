@@ -46,53 +46,38 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         if (entries.Select(entry => entry.Ordinal).Distinct().Count() != entries.Count)
             throw new ArgumentException("Canonical array ordinals must be unique within an entity and key.", nameof(entries));
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-            try
+            // Delete existing entries for this (entity, key) pair.
+            conn.Execute("""
+                DELETE FROM canonical_value_arrays
+                WHERE entity_id = @entityId AND key = @key;
+                """,
+                new { entityId, key },
+                transaction: tx);
+
+            if (entries.Count > 0)
             {
-                // Delete existing entries for this (entity, key) pair.
+                innerCt.ThrowIfCancellationRequested();
                 conn.Execute("""
-                    DELETE FROM canonical_value_arrays
-                    WHERE entity_id = @entityId AND key = @key;
+                    INSERT INTO canonical_value_arrays
+                        (entity_id, key, ordinal, value, value_qid)
+                    VALUES
+                        (@EntityId, @Key, @Ordinal, @Value, @ValueQid);
                     """,
-                    new { entityId, key },
+                    entries.Select(e => new
+                    {
+                        EntityId = entityId,
+                        Key      = key,
+                        e.Ordinal,
+                        e.Value,
+                        ValueQid = e.ValueQid,
+                    }),
                     transaction: tx);
-
-                if (entries.Count > 0)
-                {
-                    ct.ThrowIfCancellationRequested();
-                    conn.Execute("""
-                        INSERT INTO canonical_value_arrays
-                            (entity_id, key, ordinal, value, value_qid)
-                        VALUES
-                            (@EntityId, @Key, @Ordinal, @Value, @ValueQid);
-                        """,
-                        entries.Select(e => new
-                        {
-                            EntityId = entityId,
-                            Key      = key,
-                            e.Ordinal,
-                            e.Value,
-                            ValueQid = e.ValueQid,
-                        }),
-                        transaction: tx);
-                }
-
-                tx.Commit();
             }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+
+            return Task.CompletedTask;
+        }, ct).ConfigureAwait(false);
     }
 
     /// <inheritdoc/>

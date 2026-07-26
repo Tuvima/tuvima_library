@@ -116,56 +116,41 @@ public sealed class QidLabelRepository : IQidLabelRepository
     }
 
     /// <inheritdoc/>
-    public async Task UpsertBatchAsync(
+    public Task UpsertBatchAsync(
         IReadOnlyList<QidLabel> labels,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        if (labels.Count == 0) return;
+        if (labels.Count == 0) return Task.CompletedTask;
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx   = conn.BeginTransaction();
-            try
-            {
-                const string sql = """
-                    INSERT INTO qid_labels (qid, label, description, entity_type, fetched_at, updated_at)
-                    VALUES (@qid, @label, @description, @entityType, @fetchedAt, @updatedAt)
-                    ON CONFLICT(qid) DO UPDATE SET
-                        label       = excluded.label,
-                        description = excluded.description,
-                        entity_type = COALESCE(excluded.entity_type, qid_labels.entity_type),
-                        updated_at  = excluded.updated_at;
-                    """;
+            const string sql = """
+                INSERT INTO qid_labels (qid, label, description, entity_type, fetched_at, updated_at)
+                VALUES (@qid, @label, @description, @entityType, @fetchedAt, @updatedAt)
+                ON CONFLICT(qid) DO UPDATE SET
+                    label       = excluded.label,
+                    description = excluded.description,
+                    entity_type = COALESCE(excluded.entity_type, qid_labels.entity_type),
+                    updated_at  = excluded.updated_at;
+                """;
 
-                foreach (var entry in labels)
+            foreach (var entry in labels)
+            {
+                innerCt.ThrowIfCancellationRequested();
+                conn.Execute(sql, new
                 {
-                    ct.ThrowIfCancellationRequested();
-                    conn.Execute(sql, new
-                    {
-                        qid         = entry.Qid,
-                        label       = entry.Label,
-                        description = entry.Description,
-                        entityType  = entry.EntityType,
-                        fetchedAt   = entry.FetchedAt.ToString("o"),
-                        updatedAt   = entry.UpdatedAt.ToString("o"),
-                    }, tx);
-                }
+                    qid         = entry.Qid,
+                    label       = entry.Label,
+                    description = entry.Description,
+                    entityType  = entry.EntityType,
+                    fetchedAt   = entry.FetchedAt.ToString("o"),
+                    updatedAt   = entry.UpdatedAt.ToString("o"),
+                }, tx);
+            }
 
-                tx.Commit();
-            }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+            return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>

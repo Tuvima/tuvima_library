@@ -649,19 +649,10 @@ public sealed class SearchService : ISearchService
     }
 
     private static bool AreEquivalentSearchText(string left, string right)
-        => string.Equals(NormalizeSearchText(left), NormalizeSearchText(right), StringComparison.Ordinal);
-
-    private static string NormalizeSearchText(string value)
-    {
-        var chars = value
-            .Replace("&", " and ", StringComparison.Ordinal)
-            .ToLowerInvariant()
-            .Select(c => char.IsLetterOrDigit(c) ? c : ' ')
-            .ToArray();
-
-        return string.Join(' ', new string(chars)
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries));
-    }
+        => string.Equals(
+            RetailTextSimilarity.NormalizeComparableText(left),
+            RetailTextSimilarity.NormalizeComparableText(right),
+            StringComparison.Ordinal);
 
     private static bool AreEquivalentOrdinals(string left, string right)
     {

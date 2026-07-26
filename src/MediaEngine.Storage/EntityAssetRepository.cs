@@ -191,42 +191,38 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
-
-        // Find the target asset's entity_id and asset_type.
-        var target = conn.QuerySingleOrDefault<EntityAssetTargetRow>($"""
-            SELECT {EntityIdProjection} AS EntityId, asset_type AS AssetType
-            FROM   entity_assets
-            WHERE  id = @assetId;
-            """, new { assetId }, tx);
-
-        if (target is null)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            tx.Commit();
+            // Find the target asset's entity_id and asset_type.
+            var target = conn.QuerySingleOrDefault<EntityAssetTargetRow>($"""
+                SELECT {EntityIdProjection} AS EntityId, asset_type AS AssetType
+                FROM   entity_assets
+                WHERE  id = @assetId;
+                """, new { assetId }, tx);
+
+            if (target is null)
+                return Task.CompletedTask;
+
+            // Clear preferred flag on all assets with the same entity + asset type.
+            conn.Execute("""
+                UPDATE entity_assets
+                SET    is_preferred = 0,
+                       updated_at  = datetime('now')
+                WHERE  entity_id  = @entityId
+                AND    asset_type = @assetType
+                AND    is_preferred = 1;
+                """, new { entityId = ToEntityIdParameter(target.EntityId), assetType = target.AssetType }, tx);
+
+            // Set the target as preferred.
+            conn.Execute("""
+                UPDATE entity_assets
+                SET    is_preferred = 1,
+                       updated_at  = datetime('now')
+                WHERE  id = @assetId;
+                """, new { assetId }, tx);
+
             return Task.CompletedTask;
-        }
-
-        // Clear preferred flag on all assets with the same entity + asset type.
-        conn.Execute("""
-            UPDATE entity_assets
-            SET    is_preferred = 0,
-                   updated_at  = datetime('now')
-            WHERE  entity_id  = @entityId
-            AND    asset_type = @assetType
-            AND    is_preferred = 1;
-            """, new { entityId = ToEntityIdParameter(target.EntityId), assetType = target.AssetType }, tx);
-
-        // Set the target as preferred.
-        conn.Execute("""
-            UPDATE entity_assets
-            SET    is_preferred = 1,
-                   updated_at  = datetime('now')
-            WHERE  id = @assetId;
-            """, new { assetId }, tx);
-
-        tx.Commit();
-        return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>

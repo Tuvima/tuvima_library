@@ -981,7 +981,7 @@ WebApplication app = builder.Build();
 try
 {
     UISettingsCacheRepository uiCache = app.Services.GetRequiredService<UISettingsCacheRepository>();
-    uiCache.RebuildFromFiles(configLoader);
+    await uiCache.RebuildFromFilesAsync(configLoader);
 }
 catch (Exception ex)
 {

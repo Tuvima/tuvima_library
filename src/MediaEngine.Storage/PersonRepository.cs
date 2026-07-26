@@ -134,63 +134,48 @@ public sealed class PersonRepository : IPersonRepository
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(person);
 
-        await _db.AcquireWriteLockAsync(ct).ConfigureAwait(false);
-        try
+        await _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            using var conn = _db.CreateConnection();
-            using var tx = conn.BeginTransaction();
-            try
+            var p = new DynamicParameters();
+            p.Add("id",          person.Id);
+            p.Add("name",        person.Name);
+            p.Add("wikidataQid", person.WikidataQid);
+            p.Add("headshotUrl", person.HeadshotUrl);
+            p.Add("biography",   person.Biography);
+            p.Add("createdAt",   person.CreatedAt.ToString("o"));
+            p.Add("enrichedAt",  person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
+            p.Add("dateOfBirth",  person.DateOfBirth);
+            p.Add("dateOfDeath",  person.DateOfDeath);
+            p.Add("placeOfBirth", person.PlaceOfBirth);
+            p.Add("placeOfDeath", person.PlaceOfDeath);
+            p.Add("nationality",  person.Nationality);
+            p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
+            conn.Execute("""
+                INSERT INTO persons
+                    (id, name, wikidata_qid, headshot_url, biography,
+                     created_at, enriched_at, date_of_birth, date_of_death,
+                     place_of_birth, place_of_death, nationality, is_pseudonym)
+                VALUES
+                    (@id, @name, @wikidataQid, @headshotUrl, @biography,
+                     @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
+                     @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
+                """, p, tx);
+
+            // Insert each role into person_roles junction table in the same transaction.
+            foreach (var role in person.Roles)
             {
-                var p = new DynamicParameters();
-                p.Add("id",          person.Id);
-                p.Add("name",        person.Name);
-                p.Add("wikidataQid", person.WikidataQid);
-                p.Add("headshotUrl", person.HeadshotUrl);
-                p.Add("biography",   person.Biography);
-                p.Add("createdAt",   person.CreatedAt.ToString("o"));
-                p.Add("enrichedAt",  person.EnrichedAt.HasValue ? person.EnrichedAt.Value.ToString("o") : null);
-                p.Add("dateOfBirth",  person.DateOfBirth);
-                p.Add("dateOfDeath",  person.DateOfDeath);
-                p.Add("placeOfBirth", person.PlaceOfBirth);
-                p.Add("placeOfDeath", person.PlaceOfDeath);
-                p.Add("nationality",  person.Nationality);
-                p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
+                if (string.IsNullOrWhiteSpace(role)) continue;
+                var rp = new DynamicParameters();
+                rp.Add("personId", person.Id);
+                rp.Add("role", role);
                 conn.Execute("""
-                    INSERT INTO persons
-                        (id, name, wikidata_qid, headshot_url, biography,
-                         created_at, enriched_at, date_of_birth, date_of_death,
-                         place_of_birth, place_of_death, nationality, is_pseudonym)
-                    VALUES
-                        (@id, @name, @wikidataQid, @headshotUrl, @biography,
-                         @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
-                         @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
-                    """, p, tx);
-
-                // Insert each role into person_roles junction table in the same transaction.
-                foreach (var role in person.Roles)
-                {
-                    if (string.IsNullOrWhiteSpace(role)) continue;
-                    var rp = new DynamicParameters();
-                    rp.Add("personId", person.Id);
-                    rp.Add("role", role);
-                    conn.Execute("""
-                        INSERT OR IGNORE INTO person_roles (person_id, role)
-                        VALUES (@personId, @role);
-                        """, rp, tx);
-                }
-
-                tx.Commit();
+                    INSERT OR IGNORE INTO person_roles (person_id, role)
+                    VALUES (@personId, @role);
+                    """, rp, tx);
             }
-            catch
-            {
-                tx.Rollback();
-                throw;
-            }
-        }
-        finally
-        {
-            _db.ReleaseWriteLock();
-        }
+
+            return Task.CompletedTask;
+        }, ct).ConfigureAwait(false);
 
         return person;
     }
@@ -981,53 +966,52 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn = _db.CreateConnection();
-        using var tx   = conn.BeginTransaction();
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
+        {
+            // 1. Reassign media links (OR IGNORE handles PK conflicts)
+            var pToFrom = new DynamicParameters();
+            pToFrom.Add("to",   toPersonId);
+            pToFrom.Add("from", fromPersonId);
 
-        // 1. Reassign media links (OR IGNORE handles PK conflicts)
-        var pToFrom = new DynamicParameters();
-        pToFrom.Add("to",   toPersonId);
-        pToFrom.Add("from", fromPersonId);
+            var pFrom = new DynamicParameters();
+            pFrom.Add("from", fromPersonId);
 
-        var pFrom = new DynamicParameters();
-        pFrom.Add("from", fromPersonId);
+            conn.Execute(
+                "UPDATE OR IGNORE person_media_links SET person_id = @to WHERE person_id = @from;",
+                pToFrom, transaction: tx);
+            conn.Execute(
+                "DELETE FROM person_media_links WHERE person_id = @from;",
+                pFrom, transaction: tx);
 
-        conn.Execute(
-            "UPDATE OR IGNORE person_media_links SET person_id = @to WHERE person_id = @from;",
-            pToFrom, transaction: tx);
-        conn.Execute(
-            "DELETE FROM person_media_links WHERE person_id = @from;",
-            pFrom, transaction: tx);
+            // 2. Reassign person_roles (merge roles from source into target)
+            conn.Execute(
+                "INSERT OR IGNORE INTO person_roles (person_id, role) SELECT @to, role FROM person_roles WHERE person_id = @from;",
+                pToFrom, transaction: tx);
+            conn.Execute(
+                "DELETE FROM person_roles WHERE person_id = @from;",
+                pFrom, transaction: tx);
 
-        // 2. Reassign person_roles (merge roles from source into target)
-        conn.Execute(
-            "INSERT OR IGNORE INTO person_roles (person_id, role) SELECT @to, role FROM person_roles WHERE person_id = @from;",
-            pToFrom, transaction: tx);
-        conn.Execute(
-            "DELETE FROM person_roles WHERE person_id = @from;",
-            pFrom, transaction: tx);
+            // 3. Reassign character-performer links
+            conn.Execute(
+                "UPDATE OR IGNORE character_performer_links SET person_id = @to WHERE person_id = @from;",
+                pToFrom, transaction: tx);
+            conn.Execute(
+                "DELETE FROM character_performer_links WHERE person_id = @from;",
+                pFrom, transaction: tx);
 
-        // 3. Reassign character-performer links
-        conn.Execute(
-            "UPDATE OR IGNORE character_performer_links SET person_id = @to WHERE person_id = @from;",
-            pToFrom, transaction: tx);
-        conn.Execute(
-            "DELETE FROM character_performer_links WHERE person_id = @from;",
-            pFrom, transaction: tx);
+            // 4. Reassign alias links (both directions)
+            conn.Execute(
+                "UPDATE OR IGNORE person_aliases SET pseudonym_person_id = @to WHERE pseudonym_person_id = @from;",
+                pToFrom, transaction: tx);
+            conn.Execute(
+                "UPDATE OR IGNORE person_aliases SET real_person_id = @to WHERE real_person_id = @from;",
+                pToFrom, transaction: tx);
+            conn.Execute(
+                "DELETE FROM person_aliases WHERE pseudonym_person_id = @from OR real_person_id = @from;",
+                pFrom, transaction: tx);
 
-        // 4. Reassign alias links (both directions)
-        conn.Execute(
-            "UPDATE OR IGNORE person_aliases SET pseudonym_person_id = @to WHERE pseudonym_person_id = @from;",
-            pToFrom, transaction: tx);
-        conn.Execute(
-            "UPDATE OR IGNORE person_aliases SET real_person_id = @to WHERE real_person_id = @from;",
-            pToFrom, transaction: tx);
-        conn.Execute(
-            "DELETE FROM person_aliases WHERE pseudonym_person_id = @from OR real_person_id = @from;",
-            pFrom, transaction: tx);
-
-        tx.Commit();
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>

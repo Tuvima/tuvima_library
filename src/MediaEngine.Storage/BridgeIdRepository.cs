@@ -174,36 +174,35 @@ public sealed class BridgeIdRepository : IBridgeIdRepository
         if (entries.Count == 0)
             return Task.CompletedTask;
 
-        using var conn = _db.CreateConnection();
-        using var tx   = conn.BeginTransaction();
-
-        foreach (var entry in entries)
+        return _db.ExecuteInTransactionAsync((conn, tx, innerCt) =>
         {
-            conn.Execute("""
-                INSERT INTO bridge_ids
-                    (id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at)
-                VALUES
-                    (@id, @entityId, @idType, @idValue, @wikidataProperty, @providerId, @createdAt)
-                ON CONFLICT(entity_id, id_type) DO UPDATE SET
-                    id_value          = excluded.id_value,
-                    wikidata_property = excluded.wikidata_property,
-                    provider_id       = excluded.provider_id;
-                """,
-                new
-                {
-                    id               = entry.Id,
-                    entityId         = entry.EntityId,
-                    idType           = entry.IdType,
-                    idValue          = entry.IdValue,
-                    wikidataProperty = entry.WikidataProperty,
-                    providerId       = entry.ProviderId,
-                    createdAt        = entry.CreatedAt.ToString("O"),
-                },
-                transaction: tx);
-        }
+            foreach (var entry in entries)
+            {
+                conn.Execute("""
+                    INSERT INTO bridge_ids
+                        (id, entity_id, id_type, id_value, wikidata_property, provider_id, created_at)
+                    VALUES
+                        (@id, @entityId, @idType, @idValue, @wikidataProperty, @providerId, @createdAt)
+                    ON CONFLICT(entity_id, id_type) DO UPDATE SET
+                        id_value          = excluded.id_value,
+                        wikidata_property = excluded.wikidata_property,
+                        provider_id       = excluded.provider_id;
+                    """,
+                    new
+                    {
+                        id               = entry.Id,
+                        entityId         = entry.EntityId,
+                        idType           = entry.IdType,
+                        idValue          = entry.IdValue,
+                        wikidataProperty = entry.WikidataProperty,
+                        providerId       = entry.ProviderId,
+                        createdAt        = entry.CreatedAt.ToString("O"),
+                    },
+                    transaction: tx);
+            }
 
-        tx.Commit();
-        return Task.CompletedTask;
+            return Task.CompletedTask;
+        }, ct);
     }
 
     /// <inheritdoc/>
