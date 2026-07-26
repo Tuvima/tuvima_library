@@ -679,10 +679,7 @@
                 author    = string.IsNullOrWhiteSpace(_author) ? (string?)null : _author.Trim(),
             };
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-            };
+            var options = MediaEngineJson.CaseInsensitive;
 
             using var response = await client.PostAsJsonAsync("/debug/search", request);
 
@@ -739,10 +736,7 @@
                 Author:    string.IsNullOrWhiteSpace(_author) ? null : _author.Trim()
             );
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-            };
+            var options = MediaEngineJson.CaseInsensitive;
 
             using var response = await client.PostAsJsonAsync("/debug/enrich", request);
 
@@ -802,10 +796,7 @@
                 Author:    string.IsNullOrWhiteSpace(_author) ? null : _author.Trim()
             );
 
-            var options = new JsonSerializerOptions
-            {
-                PropertyNameCaseInsensitive = true,
-            };
+            var options = MediaEngineJson.CaseInsensitive;
 
             using var response = await client.PostAsJsonAsync("/debug/enrich-universe", request);
 

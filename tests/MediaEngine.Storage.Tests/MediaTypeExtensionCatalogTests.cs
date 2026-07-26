@@ -26,6 +26,71 @@ public sealed class MediaTypeExtensionCatalogTests
         Assert.Equal(MediaType.Comics, catalog.ResolveMediaTypeFromExtension(".cbz"));
     }
 
+    /// <summary>
+    /// Pins the extension superset the catalog was extended to cover: formats that other
+    /// bypass sites across the Engine (AssetPathService, VideoMetadataTagger,
+    /// AudioMetadataTagger, the plugin segment detectors, PlaybackCapabilitiesService, etc.)
+    /// recognized via their own private lists, but which the shared, config-backed catalog
+    /// used to be missing. Sourced from <c>config/media_types.json</c>.
+    /// </summary>
+    [Theory]
+    [InlineData(".cb7", MediaType.Comics)]
+    [InlineData(".ts", MediaType.Movies)]
+    [InlineData(".mpg", MediaType.Movies)]
+    [InlineData(".mpeg", MediaType.Movies)]
+    [InlineData(".m2ts", MediaType.Movies)]
+    [InlineData(".mov", MediaType.Movies)]
+    [InlineData(".wmv", MediaType.Movies)]
+    [InlineData(".opus", MediaType.Music)]
+    [InlineData(".wma", MediaType.Music)]
+    public void Catalog_RecognizesFormatsPreviouslyOnlyHandledByBypassSites(string extension, MediaType expectedMediaType)
+    {
+        using var loader = new ConfigurationDirectoryLoader(FindRepoDir("config"));
+        var catalog = new MediaTypeExtensionCatalog(loader);
+
+        Assert.True(catalog.IsKnownMediaExtension(extension));
+        Assert.Equal(expectedMediaType, catalog.ResolveMediaTypeFromExtension(extension));
+    }
+
+    [Theory]
+    [InlineData(".ts")]
+    [InlineData(".mpg")]
+    [InlineData(".mpeg")]
+    [InlineData(".m2ts")]
+    [InlineData(".mov")]
+    [InlineData(".wmv")]
+    public void Catalog_TreatsNewVideoFormatsAsVideoExtensions(string extension)
+    {
+        using var loader = new ConfigurationDirectoryLoader(FindRepoDir("config"));
+        var catalog = new MediaTypeExtensionCatalog(loader);
+
+        Assert.True(catalog.IsVideoExtension(extension));
+    }
+
+    /// <summary>
+    /// The hardcoded <see cref="MediaEngine.Storage.Models.MediaTypeConfiguration.DefaultTypes"/>
+    /// fallback (used when <c>config/media_types.json</c> can't be loaded, e.g. first run) must
+    /// carry the same extension superset as the JSON config, or a config-less catalog would
+    /// silently lose recognition for these formats.
+    /// </summary>
+    [Theory]
+    [InlineData(".cb7", MediaType.Comics)]
+    [InlineData(".ts", MediaType.Movies)]
+    [InlineData(".mpg", MediaType.Movies)]
+    [InlineData(".mpeg", MediaType.Movies)]
+    [InlineData(".m2ts", MediaType.Movies)]
+    [InlineData(".mov", MediaType.Movies)]
+    [InlineData(".wmv", MediaType.Movies)]
+    [InlineData(".opus", MediaType.Music)]
+    [InlineData(".wma", MediaType.Music)]
+    public void Catalog_HardcodedFallback_MatchesConfigSuperset(string extension, MediaType expectedMediaType)
+    {
+        var catalog = new MediaTypeExtensionCatalog();
+
+        Assert.True(catalog.IsKnownMediaExtension(extension));
+        Assert.Equal(expectedMediaType, catalog.ResolveMediaTypeFromExtension(extension));
+    }
+
     private static string FindRepoDir(params string[] parts)
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

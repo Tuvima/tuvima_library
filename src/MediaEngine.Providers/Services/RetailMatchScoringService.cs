@@ -93,7 +93,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         double authorScore = 0.0;
         // For music files, "artist" is the primary creator field, not "author".
         // For video/comics, "director" or "writer" may be the primary creator.
-        var fileAuthor = GetCreatorHint(fileHints, mediaType);
+        var fileAuthor = RetailHints.GetCreatorHint(fileHints, mediaType);
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
             authorScore = ComputeCreatorScore(fileAuthor, candidateAuthor);
@@ -110,8 +110,8 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
 
         // ── Year score ───────────────────────────────────────────────────
         double yearScore = 0.0; // Penalised when missing
-        var fileYear = GetYearHint(fileHints);
-        candidateYear = NormalizeYear(candidateYear);
+        var fileYear = RetailHints.GetYearHint(fileHints);
+        candidateYear = RetailHints.NormalizeYear(candidateYear);
         if (!string.IsNullOrWhiteSpace(fileYear) && !string.IsNullOrWhiteSpace(candidateYear))
         {
             if (fileYear == candidateYear)
@@ -186,54 +186,6 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         };
     }
 
-    private static string? GetCreatorHint(IReadOnlyDictionary<string, string> fileHints, MediaType mediaType)
-    {
-        return mediaType switch
-        {
-            MediaType.Music => fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Author),
-
-            MediaType.TV => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
-                ?? fileHints.GetValueOrDefault("writer"),
-
-            MediaType.Movies => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
-                ?? fileHints.GetValueOrDefault("writer"),
-
-            MediaType.Comics => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
-                ?? fileHints.GetValueOrDefault("writer")
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Illustrator),
-
-            _ => fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
-                ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
-                ?? fileHints.GetValueOrDefault("writer"),
-        };
-    }
-
-    private static string? GetYearHint(IReadOnlyDictionary<string, string> fileHints)
-    {
-        return NormalizeYear(
-            fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
-            ?? fileHints.GetValueOrDefault("release_year")
-            ?? fileHints.GetValueOrDefault("date")
-            ?? fileHints.GetValueOrDefault("release_date"));
-    }
-
-    private static string? NormalizeYear(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var match = System.Text.RegularExpressions.Regex.Match(value, @"\b\d{4}\b");
-        return match.Success ? match.Value : null;
-    }
-
     private static bool IsExactComicIssueIdentity(
         IReadOnlyDictionary<string, string> fileHints,
         CandidateExtendedMetadata? extendedMetadata)
@@ -252,25 +204,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             return false;
 
         return AreEquivalentComparableText(fileSeries, candidateSeries)
-            && AreEquivalentOrdinals(fileIssue, candidateIssue);
+            && RetailHints.AreEquivalentOrdinals(fileIssue, candidateIssue);
     }
 
     private static string? GetComicIssueHint(IReadOnlyDictionary<string, string> fileHints)
         => fileHints.GetValueOrDefault("issue_number")
             ?? fileHints.GetValueOrDefault(MetadataFieldConstants.SeriesPosition)
             ?? fileHints.GetValueOrDefault("issue");
-
-    private static bool AreEquivalentOrdinals(string left, string right)
-    {
-        if (int.TryParse(ExtractLeadingDigits(left), out var leftNumber)
-            && int.TryParse(ExtractLeadingDigits(right), out var rightNumber))
-        {
-            return leftNumber == rightNumber;
-        }
-
-        return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
 
     private static bool IsGeneratedComicIssueLabel(
         string? title,
@@ -290,20 +230,11 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         if (string.IsNullOrWhiteSpace(normalizedTitle) || string.IsNullOrWhiteSpace(normalizedSeries))
             return false;
 
-        if (!int.TryParse(ExtractLeadingDigits(issue), out var issueNumber))
+        if (!int.TryParse(RetailHints.ExtractLeadingDigits(issue), out var issueNumber))
             return false;
 
         var pattern = $"^{Regex.Escape(normalizedSeries)}\\s+(?:issue\\s+|no\\s+|number\\s+)?0*{issueNumber}$";
         return Regex.IsMatch(normalizedTitle, pattern, RegexOptions.IgnoreCase);
-    }
-
-    private static string ExtractLeadingDigits(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
-        return match.Success ? match.Groups[1].Value : string.Empty;
     }
 
     private static bool AreEquivalentComparableText(string left, string right)
@@ -431,32 +362,13 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         return boost;
     }
 
-    /// <summary>
-    /// Splits a multi-author string on common separators: " &amp; ", " and ", ", ".
-    /// Returns individual author names, trimmed and non-empty.
-    /// Single-author strings return a list with one element.
-    /// </summary>
-    private static List<string> SplitAuthors(string authors)
-    {
-        // Split on " & ", " and " (case-insensitive), and ", "
-        var parts = System.Text.RegularExpressions.Regex.Split(
-            authors,
-            @"\s+&\s+|\s+and\s+|,\s*",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        return parts
-            .Select(p => p.Trim())
-            .Where(p => p.Length > 0)
-            .ToList();
-    }
-
     private double ComputeCreatorScore(string fileCreator, string candidateCreator)
     {
         if (HaveSameCreatorTokens(fileCreator, candidateCreator))
             return 1.0;
 
-        var fileCreators = SplitAuthors(fileCreator);
-        var candidateCreators = SplitAuthors(candidateCreator);
+        var fileCreators = RetailHints.SplitAuthors(fileCreator);
+        var candidateCreators = RetailHints.SplitAuthors(candidateCreator);
         if (fileCreators.Count == 1 && candidateCreators.Count == 1)
             return _fuzzy.ComputeTokenSetRatio(fileCreator, candidateCreator);
 

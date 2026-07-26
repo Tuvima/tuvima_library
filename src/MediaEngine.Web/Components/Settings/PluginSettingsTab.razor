@@ -397,7 +397,7 @@ else
 }
 
 @code {
-    private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
+    private readonly JsonSerializerOptions _json = MediaEngineJson.Web;
     private readonly Dictionary<string, PluginHealthViewModel> _health = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IReadOnlyList<PluginJobViewModel>> _jobs = new(StringComparer.OrdinalIgnoreCase);
     private List<PluginViewModel> _plugins = [];

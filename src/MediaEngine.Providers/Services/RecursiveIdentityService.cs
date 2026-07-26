@@ -121,7 +121,7 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         // Normalize "Last, First" → "First Last" for consistent storage and search.
         var normalizedName = string.IsNullOrWhiteSpace(reference.Name)
             ? reference.WikidataQid!
-            : NormalizePersonName(reference.Name);
+            : RetailHints.NormalizeBibliographicPersonName(reference.Name);
 
         // QID is guaranteed non-null by EnrichAsync's guard above.
         // Serialize on QID to prevent concurrent threads from both missing
@@ -203,30 +203,4 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    /// <summary>
-    /// Normalizes author names from "Last, First" to "First Last" format.
-    /// If the name contains exactly one comma followed by a space, it's assumed
-    /// to be in "Last, First" bibliographic format and is reversed.
-    /// Names with multiple commas, no comma, or no space after the comma are returned as-is.
-    /// </summary>
-    internal static string NormalizePersonName(string name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-            return name;
-
-        var trimmed = name.Trim();
-
-        // Only normalize if there's exactly one comma.
-        var commaIndex = trimmed.IndexOf(',');
-        if (commaIndex < 0 || commaIndex != trimmed.LastIndexOf(','))
-            return trimmed;
-
-        var last  = trimmed[..commaIndex].Trim();
-        var first = trimmed[(commaIndex + 1)..].Trim();
-
-        if (string.IsNullOrWhiteSpace(first) || string.IsNullOrWhiteSpace(last))
-            return trimmed;
-
-        return $"{first} {last}";
-    }
 }

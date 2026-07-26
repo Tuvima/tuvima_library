@@ -264,11 +264,11 @@
             </div>
             <div class="reader-stat-row">
                 <span class="reader-stat-label">Session</span>
-                <span class="reader-stat-value">@FormatDuration(_sessionSeconds)</span>
+                <span class="reader-stat-value">@DisplayFormat.FormatDurationHoursMinutesTruncated(_sessionSeconds)</span>
             </div>
             <div class="reader-stat-row">
                 <span class="reader-stat-label">Total</span>
-                <span class="reader-stat-value">@FormatDuration(_totalReadingTimeSecs)</span>
+                <span class="reader-stat-value">@DisplayFormat.FormatDurationHoursMinutesTruncated(_totalReadingTimeSecs)</span>
             </div>
         </div>
     }
@@ -793,15 +793,6 @@
             ? $"/details/collection/{ReturnCollectionId.Value}?lastAssetId={AssetId}"
             : "/";
         Nav.NavigateTo(returnUrl, replace: true);
-    }
-
-    private static string FormatDuration(long totalSeconds)
-    {
-        var hours = totalSeconds / 3600;
-        var minutes = (totalSeconds % 3600) / 60;
-
-        if (hours > 0) return $"{hours}h {minutes}m";
-        return $"{minutes}m";
     }
 
     public async ValueTask DisposeAsync()

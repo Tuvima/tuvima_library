@@ -20,15 +20,23 @@ public sealed class MediaTypeConfiguration
     [JsonPropertyName("types")]
     public List<MediaTypeDefinition> Types { get; set; } = DefaultTypes();
 
-    /// <summary>Returns the default set of built-in media types.</summary>
+    /// <summary>
+    /// Returns the default set of built-in media types. This is the authoritative extension
+    /// superset — video, comics, and audio bypass sites across the Engine (AssetPathService,
+    /// taggers, plugin segment detectors, playback capability detection, etc.) each declared
+    /// their own narrower or divergent hardcoded extension list; this catalog now covers the
+    /// union of what any of them recognized, so callers migrated onto
+    /// <see cref="Services.MediaTypeExtensionCatalog"/> instead of a private list won't lose
+    /// recognition for a format another part of the Engine already handled.
+    /// </summary>
     public static List<MediaTypeDefinition> DefaultTypes() =>
     [
         new() { Key = "books",      DisplayName = "Books",      Icon = "MenuBook",    Extensions = [".epub", ".pdf"],                              CategoryFolder = "Books",    BuiltIn = true },
         new() { Key = "audiobooks", DisplayName = "Audiobooks", Icon = "Headphones",  Extensions = [".m4b", ".mp3", ".m4a"],                       CategoryFolder = "Audio",    BuiltIn = true },
-        new() { Key = "comics",     DisplayName = "Comics",     Icon = "AutoStories", Extensions = [".cbz", ".cbr"],                               CategoryFolder = "Comics",   BuiltIn = true },
-        new() { Key = "movies",     DisplayName = "Movies",     Icon = "Movie",       Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v"],      CategoryFolder = "Videos",   BuiltIn = true },
-        new() { Key = "tv_shows",   DisplayName = "TV Shows",   Icon = "Tv",          Extensions = [".mp4", ".mkv"],                               CategoryFolder = "TV Shows", BuiltIn = true },
-        new() { Key = "music",      DisplayName = "Music",      Icon = "MusicNote",   Extensions = [".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wav"], CategoryFolder = "Music", BuiltIn = true },
+        new() { Key = "comics",     DisplayName = "Comics",     Icon = "AutoStories", Extensions = [".cbz", ".cbr", ".cb7"],                       CategoryFolder = "Comics",   BuiltIn = true },
+        new() { Key = "movies",     DisplayName = "Movies",     Icon = "Movie",       Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts"], CategoryFolder = "Videos",   BuiltIn = true },
+        new() { Key = "tv_shows",   DisplayName = "TV Shows",   Icon = "Tv",          Extensions = [".mp4", ".mkv", ".webm", ".avi", ".m4v", ".mov", ".wmv", ".ts", ".mpeg", ".mpg", ".m2ts"], CategoryFolder = "TV Shows", BuiltIn = true },
+        new() { Key = "music",      DisplayName = "Music",      Icon = "MusicNote",   Extensions = [".mp3", ".flac", ".ogg", ".m4a", ".aac", ".wav", ".opus", ".wma"], CategoryFolder = "Music", BuiltIn = true },
     ];
 }
 

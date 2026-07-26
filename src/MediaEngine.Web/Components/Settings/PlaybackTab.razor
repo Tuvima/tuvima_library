@@ -49,8 +49,8 @@ else if (_settings is not null)
                             </MudStack>
                         </MudStack>
                         @SummaryMetric(Icons.Material.Outlined.History, "Resume", OnOff(_settings.General.ResumePlayback), Color.Success)
-                        @SummaryMetric(Icons.Material.Outlined.Speed, "Video Speed", FormatSpeed(_settings.Watching.DefaultPlaybackSpeed), Color.Secondary)
-                        @SummaryMetric(Icons.Material.Outlined.Headphones, "Audiobook Speed", FormatSpeed(_settings.Listening.AudiobookDefaultSpeed), Color.Secondary)
+                        @SummaryMetric(Icons.Material.Outlined.Speed, "Video Speed", DisplayFormat.FormatSpeedSetting(_settings.Watching.DefaultPlaybackSpeed), Color.Secondary)
+                        @SummaryMetric(Icons.Material.Outlined.Headphones, "Audiobook Speed", DisplayFormat.FormatSpeedSetting(_settings.Listening.AudiobookDefaultSpeed), Color.Secondary)
                         @SummaryMetric(Icons.Material.Outlined.ClosedCaption, "Subtitle Language", _settings.Subtitles.DefaultSubtitleLanguage, Color.Warning)
                         @SummaryMetric(Icons.Material.Outlined.MenuBook, "Reading Theme", Display(_settings.Reading.Theme), Color.Warning)
                     </MudStack>
@@ -77,8 +77,8 @@ else if (_settings is not null)
                     <MudItem xs="12">
                         <SettingsSectionPanel Title="Defaults at a Glance" Icon="@Icons.Material.Outlined.Visibility">
                             <MudGrid Spacing="3">
-                                <MudItem xs="12" md="4">@Glance("Watching", Icons.Material.Outlined.LiveTv, $"Default speed {FormatSpeed(_settings.Watching.DefaultPlaybackSpeed)} - Skip forward {_settings.Watching.SkipForwardSeconds}s - Skip back {_settings.Watching.SkipBackSeconds}s")</MudItem>
-                                <MudItem xs="12" md="4">@Glance("Listening", Icons.Material.Outlined.Headphones, $"Default speed {FormatSpeed(_settings.Listening.AudiobookDefaultSpeed)} - Sleep timer {SleepLabel(_settings.Listening.DefaultSleepTimer)}")</MudItem>
+                                <MudItem xs="12" md="4">@Glance("Watching", Icons.Material.Outlined.LiveTv, $"Default speed {DisplayFormat.FormatSpeedSetting(_settings.Watching.DefaultPlaybackSpeed)} - Skip forward {_settings.Watching.SkipForwardSeconds}s - Skip back {_settings.Watching.SkipBackSeconds}s")</MudItem>
+                                <MudItem xs="12" md="4">@Glance("Listening", Icons.Material.Outlined.Headphones, $"Default speed {DisplayFormat.FormatSpeedSetting(_settings.Listening.AudiobookDefaultSpeed)} - Sleep timer {SleepLabel(_settings.Listening.DefaultSleepTimer)}")</MudItem>
                                 <MudItem xs="12" md="4">@Glance("Reading", Icons.Material.Outlined.MenuBook, $"Theme {Display(_settings.Reading.Theme)} - Font size {_settings.Reading.FontSizePercent}% - Margins {Display(_settings.Reading.Margins)}")</MudItem>
                             </MudGrid>
                         </SettingsSectionPanel>
@@ -92,7 +92,7 @@ else if (_settings is not null)
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Video Speed" Icon="@Icons.Material.Outlined.Speed">
                             <div class="settings-slider-block">
-                                @SliderHeader("Default playback speed", FormatSpeed(_settings.Watching.DefaultPlaybackSpeed))
+                                @SliderHeader("Default playback speed", DisplayFormat.FormatSpeedSetting(_settings.Watching.DefaultPlaybackSpeed))
                                 <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Watching.DefaultPlaybackSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Watching.DefaultPlaybackSpeed = (decimal)v))" Min="0.5" Max="2.0" Step="0.05" Color="Color.Primary" />
                                 @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x"])
                             </div>
@@ -127,7 +127,7 @@ else if (_settings is not null)
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Audiobook Speed" Icon="@Icons.Material.Outlined.Speed">
                             <div class="settings-slider-block">
-                                @SliderHeader("Audiobook default speed", FormatSpeed(_settings.Listening.AudiobookDefaultSpeed))
+                                @SliderHeader("Audiobook default speed", DisplayFormat.FormatSpeedSetting(_settings.Listening.AudiobookDefaultSpeed))
                                 <MudSlider T="double" Class="settings-slider" Value="@((double)_settings.Listening.AudiobookDefaultSpeed)" ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.AudiobookDefaultSpeed = (decimal)v))" Min="0.5" Max="3.0" Step="0.05" Color="Color.Primary" />
                                 @SliderLabels(["0.5x", "1.0x", "1.5x", "2.0x", "3.0x"])
                             </div>
@@ -260,7 +260,7 @@ else if (_settings is not null)
     </MudStack>
 }
 @code {
-    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly JsonSerializerOptions _jsonOptions = MediaEngineJson.Web;
     private UserPlaybackSettingsDto? _settings;
     private UserPlaybackSettingsDto? _savedSettings;
     private ProfileViewModel? _activeProfile;
@@ -449,7 +449,6 @@ else if (_settings is not null)
             JsonSerializer.Serialize(source, _jsonOptions),
             _jsonOptions) ?? UserPlaybackSettingsDto.CreateDefaults(source.ProfileId);
 
-    private static string FormatSpeed(decimal value) => $"{value:0.##}x";
     private static string OnOff(bool value) => value ? "On" : "Off";
     private static string NormalizeIntroLabel(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "Intro" : value.Trim();

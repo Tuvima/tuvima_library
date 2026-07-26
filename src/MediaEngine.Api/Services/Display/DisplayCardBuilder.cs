@@ -1,6 +1,7 @@
 using System.Globalization;
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.Services.Display;
 
@@ -34,7 +35,7 @@ public sealed class DisplayCardBuilder
         {
             Description = row.Description,
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
-            Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
+            Badges = BuildBadges(mediaKind, row.Quality, StringHelpers.FirstNonBlank(row.Network, row.Source)),
             SortYear = ParseSortYear(row.Year),
             ListMetadata = new DisplayCardListMetadataDto(
                 row.Author,
@@ -44,7 +45,7 @@ public sealed class DisplayCardBuilder
                 row.Album,
                 row.Series,
                 row.Genre,
-                FirstNonBlank(row.Duration, row.Runtime),
+                StringHelpers.FirstNonBlank(row.Duration, row.Runtime),
                 row.TrackNumber,
                 row.Year,
                 row.ShowName,
@@ -72,8 +73,8 @@ public sealed class DisplayCardBuilder
             Title: title,
             Subtitle: mediaKind == "TV"
                 ? ContinueEpisodeSubtitle(row.SeasonNumber, row.EpisodeNumber)
-                    ?? SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber)
-                : SubtitleFor(mediaKind, FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
+                    ?? SubtitleFor(mediaKind, StringHelpers.FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber)
+                : SubtitleFor(mediaKind, StringHelpers.FirstNonBlank(row.Author, row.Artist, row.Narrator), row.Series, row.SeriesPosition, row.ShowName, row.SeasonNumber, row.EpisodeNumber),
             Facts: BuildFacts(mediaKind, title, row.Year, row.Author, row.Artist, row.ContentRating, row.Runtime, row.Duration, row.PageCount, row.Rating, row.Narrator),
             Artwork: ArtworkFor(row, row.AssetId),
             PreferredShape: PreferredShape(row.MediaType, row.BackgroundUrl, row.BannerUrl, row.SquareUrl),
@@ -87,7 +88,7 @@ public sealed class DisplayCardBuilder
         {
             Description = row.Description,
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
-            Badges = BuildBadges(mediaKind, row.Quality, FirstNonBlank(row.Network, row.Source)),
+            Badges = BuildBadges(mediaKind, row.Quality, StringHelpers.FirstNonBlank(row.Network, row.Source)),
             SortYear = ParseSortYear(row.Year),
             ListMetadata = new DisplayCardListMetadataDto(
                 row.Author,
@@ -97,7 +98,7 @@ public sealed class DisplayCardBuilder
                 row.Album,
                 row.Series,
                 row.Genre,
-                FirstNonBlank(row.Duration, row.Runtime),
+                StringHelpers.FirstNonBlank(row.Duration, row.Runtime),
                 row.TrackNumber,
                 row.Year,
                 row.ShowName,
@@ -218,7 +219,7 @@ public sealed class DisplayCardBuilder
             return null;
         }
 
-        var rawTitle = FirstNonBlank(representative.CollectionTitle, representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
+        var rawTitle = StringHelpers.FirstNonBlank(representative.CollectionTitle, representative.ShowName, representative.Series, representative.Album, representative.Artist, representative.Title) ?? "Collection";
         var title = mediaKind is "Movie" or "Book" or "Comic" or "Audiobook"
             ? SeriesDisplayFormatter.NormalizeContainerTitle(rawTitle, isStructuralSeries: true) ?? rawTitle
             : rawTitle;
@@ -277,7 +278,7 @@ public sealed class DisplayCardBuilder
             .ThenByDescending(work => work.CreatedAt)
             .First();
         var artwork = RootArtworkFor(representative);
-        var title = FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
+        var title = StringHelpers.FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
         var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/watch/tv/show/{showRootWorkId:D}");
         var previewItems = BuildSeriesPreviewItems("TV", works, tvShowRootId: showRootWorkId, progressByWork: progressByWork);
 
@@ -303,7 +304,7 @@ public sealed class DisplayCardBuilder
         {
             Description = representative.Description,
             Genres = DisplayMediaRules.SplitValues(representative.Genre).ToList(),
-            Badges = BuildBadges("TV", representative.Quality, FirstNonBlank(representative.Network, representative.Source)),
+            Badges = BuildBadges("TV", representative.Quality, StringHelpers.FirstNonBlank(representative.Network, representative.Source)),
             PreviewItems = previewItems,
             PreviewTotalCount = works.Select(work => work.WorkId).Distinct().Count(),
         };
@@ -421,7 +422,7 @@ public sealed class DisplayCardBuilder
             : null;
 
         return new DisplayArtworkDto(
-            FirstNonBlank(row.CoverUrl, managedCoverFallback),
+            StringHelpers.FirstNonBlank(row.CoverUrl, managedCoverFallback),
             row.CoverSmallUrl,
             row.CoverMediumUrl,
             row.CoverLargeUrl,
@@ -459,23 +460,23 @@ public sealed class DisplayCardBuilder
 
         var row = new ArtworkProjection
         {
-            CoverUrl = FirstNonBlank(collectionCover, representative.RootCoverUrl, representative.CoverUrl),
-            CoverSmallUrl = FirstNonBlank(collectionCover, representative.RootCoverSmallUrl, representative.CoverSmallUrl),
-            CoverMediumUrl = FirstNonBlank(collectionCover, representative.RootCoverMediumUrl, representative.CoverMediumUrl),
-            CoverLargeUrl = FirstNonBlank(collectionCover, representative.RootCoverLargeUrl, representative.CoverLargeUrl),
-            SquareUrl = FirstNonBlank(collectionSquare, representative.RootSquareUrl, representative.SquareUrl),
-            SquareSmallUrl = FirstNonBlank(collectionSquare, representative.RootSquareSmallUrl, representative.SquareSmallUrl),
-            SquareMediumUrl = FirstNonBlank(collectionSquare, representative.RootSquareMediumUrl, representative.SquareMediumUrl),
-            SquareLargeUrl = FirstNonBlank(collectionSquare, representative.RootSquareLargeUrl, representative.SquareLargeUrl),
-            BannerUrl = FirstNonBlank(collectionBanner, representative.RootBannerUrl, collectionBackground, representative.RootBackgroundUrl, representative.BannerUrl),
-            BannerSmallUrl = FirstNonBlank(collectionBanner, representative.RootBannerSmallUrl, collectionBackground, representative.RootBackgroundSmallUrl, representative.BannerSmallUrl),
-            BannerMediumUrl = FirstNonBlank(collectionBanner, representative.RootBannerMediumUrl, collectionBackground, representative.RootBackgroundMediumUrl, representative.BannerMediumUrl),
-            BannerLargeUrl = FirstNonBlank(collectionBanner, representative.RootBannerLargeUrl, collectionBackground, representative.RootBackgroundLargeUrl, representative.BannerLargeUrl),
-            BackgroundUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundUrl, collectionBanner, representative.RootBannerUrl, representative.BackgroundUrl),
-            BackgroundSmallUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundSmallUrl, collectionBanner, representative.RootBannerSmallUrl, representative.BackgroundSmallUrl),
-            BackgroundMediumUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundMediumUrl, collectionBanner, representative.RootBannerMediumUrl, representative.BackgroundMediumUrl),
-            BackgroundLargeUrl = FirstNonBlank(collectionBackground, representative.RootBackgroundLargeUrl, collectionBanner, representative.RootBannerLargeUrl, representative.BackgroundLargeUrl),
-            LogoUrl = FirstNonBlank(collectionLogo, representative.RootLogoUrl, representative.LogoUrl),
+            CoverUrl = StringHelpers.FirstNonBlank(collectionCover, representative.RootCoverUrl, representative.CoverUrl),
+            CoverSmallUrl = StringHelpers.FirstNonBlank(collectionCover, representative.RootCoverSmallUrl, representative.CoverSmallUrl),
+            CoverMediumUrl = StringHelpers.FirstNonBlank(collectionCover, representative.RootCoverMediumUrl, representative.CoverMediumUrl),
+            CoverLargeUrl = StringHelpers.FirstNonBlank(collectionCover, representative.RootCoverLargeUrl, representative.CoverLargeUrl),
+            SquareUrl = StringHelpers.FirstNonBlank(collectionSquare, representative.RootSquareUrl, representative.SquareUrl),
+            SquareSmallUrl = StringHelpers.FirstNonBlank(collectionSquare, representative.RootSquareSmallUrl, representative.SquareSmallUrl),
+            SquareMediumUrl = StringHelpers.FirstNonBlank(collectionSquare, representative.RootSquareMediumUrl, representative.SquareMediumUrl),
+            SquareLargeUrl = StringHelpers.FirstNonBlank(collectionSquare, representative.RootSquareLargeUrl, representative.SquareLargeUrl),
+            BannerUrl = StringHelpers.FirstNonBlank(collectionBanner, representative.RootBannerUrl, collectionBackground, representative.RootBackgroundUrl, representative.BannerUrl),
+            BannerSmallUrl = StringHelpers.FirstNonBlank(collectionBanner, representative.RootBannerSmallUrl, collectionBackground, representative.RootBackgroundSmallUrl, representative.BannerSmallUrl),
+            BannerMediumUrl = StringHelpers.FirstNonBlank(collectionBanner, representative.RootBannerMediumUrl, collectionBackground, representative.RootBackgroundMediumUrl, representative.BannerMediumUrl),
+            BannerLargeUrl = StringHelpers.FirstNonBlank(collectionBanner, representative.RootBannerLargeUrl, collectionBackground, representative.RootBackgroundLargeUrl, representative.BannerLargeUrl),
+            BackgroundUrl = StringHelpers.FirstNonBlank(collectionBackground, representative.RootBackgroundUrl, collectionBanner, representative.RootBannerUrl, representative.BackgroundUrl),
+            BackgroundSmallUrl = StringHelpers.FirstNonBlank(collectionBackground, representative.RootBackgroundSmallUrl, collectionBanner, representative.RootBannerSmallUrl, representative.BackgroundSmallUrl),
+            BackgroundMediumUrl = StringHelpers.FirstNonBlank(collectionBackground, representative.RootBackgroundMediumUrl, collectionBanner, representative.RootBannerMediumUrl, representative.BackgroundMediumUrl),
+            BackgroundLargeUrl = StringHelpers.FirstNonBlank(collectionBackground, representative.RootBackgroundLargeUrl, collectionBanner, representative.RootBannerLargeUrl, representative.BackgroundLargeUrl),
+            LogoUrl = StringHelpers.FirstNonBlank(collectionLogo, representative.RootLogoUrl, representative.LogoUrl),
             CoverWidthPx = representative.RootCoverWidthPx ?? representative.CoverWidthPx,
             CoverHeightPx = representative.RootCoverHeightPx ?? representative.CoverHeightPx,
             SquareWidthPx = representative.RootSquareWidthPx ?? representative.SquareWidthPx,
@@ -484,7 +485,7 @@ public sealed class DisplayCardBuilder
             BannerHeightPx = representative.RootBannerHeightPx ?? representative.BannerHeightPx,
             BackgroundWidthPx = representative.RootBackgroundWidthPx ?? representative.BackgroundWidthPx,
             BackgroundHeightPx = representative.RootBackgroundHeightPx ?? representative.BackgroundHeightPx,
-            AccentColor = FirstNonBlank(representative.CollectionAccentColor, representative.RootAccentColor, representative.AccentColor),
+            AccentColor = StringHelpers.FirstNonBlank(representative.CollectionAccentColor, representative.RootAccentColor, representative.AccentColor),
         };
 
         return ArtworkFor(row, representative.AssetId);
@@ -504,14 +505,14 @@ public sealed class DisplayCardBuilder
             SquareSmallUrl = representative.RootSquareSmallUrl,
             SquareMediumUrl = representative.RootSquareMediumUrl,
             SquareLargeUrl = representative.RootSquareLargeUrl,
-            BannerUrl = FirstNonBlank(representative.RootBannerUrl, representative.RootBackgroundUrl),
-            BannerSmallUrl = FirstNonBlank(representative.RootBannerSmallUrl, representative.RootBackgroundSmallUrl),
-            BannerMediumUrl = FirstNonBlank(representative.RootBannerMediumUrl, representative.RootBackgroundMediumUrl),
-            BannerLargeUrl = FirstNonBlank(representative.RootBannerLargeUrl, representative.RootBackgroundLargeUrl),
-            BackgroundUrl = FirstNonBlank(representative.RootBackgroundUrl, representative.RootBannerUrl),
-            BackgroundSmallUrl = FirstNonBlank(representative.RootBackgroundSmallUrl, representative.RootBannerSmallUrl),
-            BackgroundMediumUrl = FirstNonBlank(representative.RootBackgroundMediumUrl, representative.RootBannerMediumUrl),
-            BackgroundLargeUrl = FirstNonBlank(representative.RootBackgroundLargeUrl, representative.RootBannerLargeUrl),
+            BannerUrl = StringHelpers.FirstNonBlank(representative.RootBannerUrl, representative.RootBackgroundUrl),
+            BannerSmallUrl = StringHelpers.FirstNonBlank(representative.RootBannerSmallUrl, representative.RootBackgroundSmallUrl),
+            BannerMediumUrl = StringHelpers.FirstNonBlank(representative.RootBannerMediumUrl, representative.RootBackgroundMediumUrl),
+            BannerLargeUrl = StringHelpers.FirstNonBlank(representative.RootBannerLargeUrl, representative.RootBackgroundLargeUrl),
+            BackgroundUrl = StringHelpers.FirstNonBlank(representative.RootBackgroundUrl, representative.RootBannerUrl),
+            BackgroundSmallUrl = StringHelpers.FirstNonBlank(representative.RootBackgroundSmallUrl, representative.RootBannerSmallUrl),
+            BackgroundMediumUrl = StringHelpers.FirstNonBlank(representative.RootBackgroundMediumUrl, representative.RootBannerMediumUrl),
+            BackgroundLargeUrl = StringHelpers.FirstNonBlank(representative.RootBackgroundLargeUrl, representative.RootBannerLargeUrl),
             LogoUrl = representative.RootLogoUrl,
             CoverWidthPx = representative.RootCoverWidthPx,
             CoverHeightPx = representative.RootCoverHeightPx,
@@ -521,7 +522,7 @@ public sealed class DisplayCardBuilder
             BannerHeightPx = representative.RootBannerHeightPx,
             BackgroundWidthPx = representative.RootBackgroundWidthPx,
             BackgroundHeightPx = representative.RootBackgroundHeightPx,
-            AccentColor = FirstNonBlank(representative.RootAccentColor, representative.AccentColor),
+            AccentColor = StringHelpers.FirstNonBlank(representative.RootAccentColor, representative.AccentColor),
         };
 
         return ArtworkFor(row);
@@ -705,7 +706,7 @@ public sealed class DisplayCardBuilder
     {
         var members = works
             .GroupBy(
-                work => NormalizeSeriesMemberKey(FirstNonBlank(work.IdentityQid, work.Title)),
+                work => NormalizeSeriesMemberKey(StringHelpers.FirstNonBlank(work.IdentityQid, work.Title)),
                 StringComparer.OrdinalIgnoreCase)
             .Where(group => !string.IsNullOrWhiteSpace(group.Key))
             .ToList();
@@ -985,7 +986,7 @@ public sealed class DisplayCardBuilder
         string? DisplayPosition);
 
     private static string? SeriesPreviewImage(DisplayWorkRow work) =>
-        FirstNonBlank(
+        StringHelpers.FirstNonBlank(
             work.CoverSmallUrl,
             work.CoverMediumUrl,
             work.CoverLargeUrl,
@@ -1176,7 +1177,7 @@ public sealed class DisplayCardBuilder
 
     private static int DistinctOwnedSeriesMemberCount(IReadOnlyList<DisplayWorkRow> works) =>
         works
-            .Select(work => FirstNonBlank(work.IdentityQid, work.Title))
+            .Select(work => StringHelpers.FirstNonBlank(work.IdentityQid, work.Title))
             .Select(NormalizeSeriesMemberKey)
             .Where(key => !string.IsNullOrWhiteSpace(key))
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1373,7 +1374,7 @@ public sealed class DisplayCardBuilder
     }
 
     private static string? CreatorFor(DisplayWorkRow row) =>
-        FirstNonBlank(row.Author, row.Artist, row.Director, row.Narrator);
+        StringHelpers.FirstNonBlank(row.Author, row.Artist, row.Director, row.Narrator);
 
     private static string? SubtitleFor(
         string mediaKind,
@@ -1399,7 +1400,7 @@ public sealed class DisplayCardBuilder
             return SeriesSubtitle(series, seriesPosition, "Movie");
         }
 
-        return FirstNonBlank(creator, series);
+        return StringHelpers.FirstNonBlank(creator, series);
     }
 
     private static string? SeriesSubtitle(string? series, string? position, string memberLabel)
@@ -1456,8 +1457,6 @@ public sealed class DisplayCardBuilder
         return chars.Length == 0 ? null : new string(chars);
     }
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static int ParseSortYear(string? value)
     {

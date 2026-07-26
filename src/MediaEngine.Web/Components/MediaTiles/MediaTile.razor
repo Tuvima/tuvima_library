@@ -339,7 +339,7 @@
     }
 
     private string? ComicIdentityContext =>
-        FirstNonBlank(
+        StringHelpers.FirstNonBlank(
             ExtractSeriesName(DisplaySubtitle),
             Item.ContextLines.FirstOrDefault(value => IsMeaningfulIdentityFact(value)),
             IsMeaningfulIdentityFact(DisplaySubtitle) ? DisplaySubtitle : null,
@@ -470,7 +470,7 @@
         ? string.Empty
         : $"--media-tile-hover-image: url(\"{EscapeCssString(HoverAtmosphereImageUrl)}\");";
 
-    private string? HoverAtmosphereImageUrl => FirstNonBlank(
+    private string? HoverAtmosphereImageUrl => StringHelpers.FirstNonBlank(
         Item.HeroBackgroundImageUrl,
         Item.HoverImageUrl,
         Item.TileImageUrl,
@@ -1034,8 +1034,6 @@
     }
 
     private static string GetStackImageClass(int index) => $"media-tile-stack-image media-tile-stack-image-{Math.Min(index, 2)}";
-
-    private static string? FirstNonBlank(params string?[] values) => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private void HandleHoverImageError()
     {

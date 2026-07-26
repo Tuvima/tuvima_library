@@ -1,5 +1,6 @@
 using Dapper;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Playback;
@@ -152,7 +153,7 @@ public sealed class AudiobookListenHistoryRepository
             profileId,
             positionSeconds = Math.Max(0, heartbeat.PositionSeconds),
             durationSeconds = heartbeat.DurationSeconds,
-            chapterTitle = FirstNonBlank(heartbeat.ChapterTitle, chapter?.Title),
+            chapterTitle = StringHelpers.FirstNonBlank(heartbeat.ChapterTitle, chapter?.Title),
             chapterIndex = heartbeat.ChapterIndex ?? chapter?.Index,
             now,
             deviceId,
@@ -233,7 +234,7 @@ public sealed class AudiobookListenHistoryRepository
             assetId,
             queueItemId = heartbeat.QueueItemId ?? item.QueueItemId,
             title = item.Title,
-            chapterTitle = FirstNonBlank(heartbeat.ChapterTitle, chapter?.Title),
+            chapterTitle = StringHelpers.FirstNonBlank(heartbeat.ChapterTitle, chapter?.Title),
             chapterIndex = heartbeat.ChapterIndex ?? chapter?.Index,
             now,
             positionSeconds = Math.Max(0, heartbeat.PositionSeconds),
@@ -434,8 +435,6 @@ public sealed class AudiobookListenHistoryRepository
             .ToList();
     }
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private sealed record ActiveSegmentRow
     {

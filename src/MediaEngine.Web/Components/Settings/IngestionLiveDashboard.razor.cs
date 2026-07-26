@@ -1,6 +1,7 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Formatting;
 using MediaEngine.Web.Services.Integration;
 using MudBlazor;
 
@@ -201,10 +202,10 @@ public partial class IngestionLiveDashboard
             var remaining = Math.Max(0, Model.TotalFiles - Model.ProcessedFiles);
             var remainderText = ResolveMainRemainderText(Model.PageState, remaining);
             builder.OpenElement(0, "span");
-            builder.AddContent(1, FormatCount(Model.ProcessedFiles));
+            builder.AddContent(1, DisplayFormat.FormatCount(Model.ProcessedFiles));
             builder.CloseElement();
             builder.AddContent(2, " of ");
-            builder.AddContent(3, FormatCount(Model.TotalFiles));
+            builder.AddContent(3, DisplayFormat.FormatCount(Model.TotalFiles));
             builder.AddContent(4, " files finished");
             builder.AddContent(5, " - ");
             builder.OpenElement(6, "span");
@@ -224,12 +225,12 @@ public partial class IngestionLiveDashboard
         if (pageState == LibraryUpdatePageState.Running)
         {
             if (remainingFiles > 0)
-                return $"{FormatCount(remainingFiles)} still in pipeline";
+                return $"{DisplayFormat.FormatCount(remainingFiles)} still in pipeline";
             return "waiting for latest worker status";
         }
 
         return remainingFiles > 0
-            ? $"{FormatCount(remainingFiles)} still in pipeline"
+            ? $"{DisplayFormat.FormatCount(remainingFiles)} still in pipeline"
             : "all file work complete";
     }
 
@@ -302,7 +303,7 @@ public partial class IngestionLiveDashboard
         if (stage.StatusKey == "Ingestion_StatusActive" || stage.ActiveCount > 0)
             return $"{label} is running now.";
         if (stage.QueuedCount > 0)
-            return $"{FormatCount(stage.QueuedCount)} items are waiting for {label}.";
+            return $"{DisplayFormat.FormatCount(stage.QueuedCount)} items are waiting for {label}.";
         if (stage.Percent > 0)
             return $"{label} has started but is not finished.";
         return $"{label} has not started yet.";
@@ -509,7 +510,7 @@ public partial class IngestionLiveDashboard
         new()
         {
             Label = label,
-            Value = FormatCount(value),
+            Value = DisplayFormat.FormatCount(value),
             Tone = tone,
         };
 
@@ -530,16 +531,16 @@ public partial class IngestionLiveDashboard
     {
         if (stage.Total <= 0)
             return stage.Count > 0
-                ? $"{FormatCount(stage.Count)} files"
+                ? $"{DisplayFormat.FormatCount(stage.Count)} files"
                 : "Waiting for files";
 
-        return $"{FormatCount(stage.Count)} / {FormatCount(stage.Total)} files";
+        return $"{DisplayFormat.FormatCount(stage.Count)} / {DisplayFormat.FormatCount(stage.Total)} files";
     }
 
     private static string FormatArtifact(IngestionDashboardStage stage)
     {
         var count = Math.Max(0, stage.ArtifactCount ?? 0);
-        return $"{FormatCount(count)} {stage.ArtifactLabel}";
+        return $"{DisplayFormat.FormatCount(count)} {stage.ArtifactLabel}";
     }
 
     private static string? StageArtifactChip(IngestionDashboardStage stage) =>
@@ -691,7 +692,7 @@ public partial class IngestionLiveDashboard
     }
 
     private static StageDetailLine Metric(string label, int value, string tone, string icon) =>
-        new(label, FormatCount(value), tone, icon);
+        new(label, DisplayFormat.FormatCount(value), tone, icon);
 
     private static int DetailCount(IReadOnlyList<IngestionStageDetailItemViewModel> details, string label)
     {
@@ -804,14 +805,14 @@ public partial class IngestionLiveDashboard
         if (IsActiveBatchStatus(batch.Status))
         {
             var elapsed = DateTimeOffset.UtcNow - batch.StartedAt.ToUniversalTime();
-            return $"Active - started {started} - {FormatDuration(elapsed)} elapsed - {FormatCount(batch.ProcessedFiles)} / {FormatCount(batch.TotalFiles)} through pipeline";
+            return $"Active - started {started} - {DisplayFormat.FormatDurationCompact(elapsed)} elapsed - {DisplayFormat.FormatCount(batch.ProcessedFiles)} / {DisplayFormat.FormatCount(batch.TotalFiles)} through pipeline";
         }
 
         if (IsFailedBatchStatus(batch.Status) || IsInterruptedBatchStatus(batch.Status))
         {
             var failedWhen = (batch.CompletedAt ?? batch.StartedAt).ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
             var failedDuration = batch.DurationSeconds is > 0
-                ? FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))
+                ? DisplayFormat.FormatDurationCompact(TimeSpan.FromSeconds(batch.DurationSeconds.Value))
                 : FormatRelative(batch.CompletedAt ?? batch.StartedAt);
             return $"{BatchStatusLabel(batch)} - {started} to {failedWhen} - {failedDuration}";
         }
@@ -819,7 +820,7 @@ public partial class IngestionLiveDashboard
         if (batch.DurationSeconds is > 0)
         {
             var completed = (batch.CompletedAt ?? batch.StartedAt).ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
-            return $"Complete - {started} to {completed} - {FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))}";
+            return $"Complete - {started} to {completed} - {DisplayFormat.FormatDurationCompact(TimeSpan.FromSeconds(batch.DurationSeconds.Value))}";
         }
 
         return $"Complete - started {started}";
@@ -852,14 +853,14 @@ public partial class IngestionLiveDashboard
             : "Select this batch to show its stage details above.";
 
     private static string BatchMediaTooltip(BatchChip chip) =>
-        $"{chip.Label}: {FormatCount(chip.Count)} files in this batch.";
+        $"{chip.Label}: {DisplayFormat.FormatCount(chip.Count)} files in this batch.";
 
     private static string BatchArtifactTooltip(BatchChip chip) =>
         chip.Label.ToLowerInvariant() switch
         {
-            "matched" => $"{FormatCount(chip.Count)} files were confidently matched and added.",
-            "review" => $"{FormatCount(chip.Count)} files need review before they are fully added.",
-            _ => $"{chip.Label}: {FormatCount(chip.Count)} items in this batch.",
+            "matched" => $"{DisplayFormat.FormatCount(chip.Count)} files were confidently matched and added.",
+            "review" => $"{DisplayFormat.FormatCount(chip.Count)} files need review before they are fully added.",
+            _ => $"{chip.Label}: {DisplayFormat.FormatCount(chip.Count)} items in this batch.",
         };
 
     private static string BatchActivityTooltip(IngestionOperationsBatchViewModel batch) =>
@@ -873,8 +874,8 @@ public partial class IngestionLiveDashboard
 
     private static string FormatExpectedReview(LibraryUpdateStatusViewModel model) =>
         model.UnexpectedReviewItems > 0
-            ? $"{FormatCount(model.UnexpectedReviewItems)} unexpected"
-            : $"{FormatCount(model.ExpectedReviewItems)} expected";
+            ? $"{DisplayFormat.FormatCount(model.UnexpectedReviewItems)} unexpected"
+            : $"{DisplayFormat.FormatCount(model.ExpectedReviewItems)} expected";
 
     private static string FormatPercent(double percent) =>
         $"{Math.Clamp(percent, 0, 100).ToString("0", CultureInfo.CurrentCulture)}%";
@@ -915,20 +916,6 @@ public partial class IngestionLiveDashboard
         return value.ToLocalTime().ToString("MMM d, h:mm tt", CultureInfo.CurrentCulture);
     }
 
-    private static string FormatDuration(TimeSpan value)
-    {
-        if (value.TotalSeconds < 60)
-            return $"{Math.Max(1, (int)Math.Round(value.TotalSeconds))}s";
-        if (value.TotalMinutes < 60)
-            return $"{(int)value.TotalMinutes}m {value.Seconds}s";
-        return $"{(int)value.TotalHours}h {value.Minutes}m";
-    }
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
-
-    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
-    private static string FormatCount(long value) => value.ToString("N0", CultureInfo.CurrentCulture);
 
     private static string ProviderLabel(string providerName) =>
         string.IsNullOrWhiteSpace(providerName)
@@ -945,7 +932,7 @@ public partial class IngestionLiveDashboard
             : provider.LastRequestAt is null
                 ? "no requests yet"
                 : $"last request {FormatRelative(provider.LastRequestAt.Value)}";
-        return $"{FormatCount(provider.RequestsLastMinute)} requests/min, {FormatCount(provider.RequestsTotal)} total, {recentWait} recent wait, {averageWait}, {latency}, {last}";
+        return $"{DisplayFormat.FormatCount(provider.RequestsLastMinute)} requests/min, {DisplayFormat.FormatCount(provider.RequestsTotal)} total, {recentWait} recent wait, {averageWait}, {latency}, {last}";
     }
 
     private static string ProviderActivityTooltip(IngestionProviderActivityViewModel provider) =>
@@ -975,13 +962,13 @@ public partial class IngestionLiveDashboard
 
     private static string ProviderStatusValue(IngestionProviderActivityViewModel provider) =>
         provider.WaitingRequests > 0
-            ? FormatCount(provider.WaitingRequests)
+            ? DisplayFormat.FormatCount(provider.WaitingRequests)
             : provider.ActiveRequests > 0
-                ? FormatCount(provider.ActiveRequests)
+                ? DisplayFormat.FormatCount(provider.ActiveRequests)
                 : provider.RequestsLastMinute > 0
-                    ? FormatCount(provider.RequestsLastMinute)
+                    ? DisplayFormat.FormatCount(provider.RequestsLastMinute)
                     : provider.MaxActiveLastMinute > 0
-                        ? FormatCount(provider.MaxActiveLastMinute)
+                        ? DisplayFormat.FormatCount(provider.MaxActiveLastMinute)
                         : "Healthy";
 
     private static string ProviderStatusLabel(IngestionProviderActivityViewModel provider) =>
@@ -1035,7 +1022,7 @@ public partial class IngestionLiveDashboard
         !string.IsNullOrWhiteSpace(provider.LastError) && provider.LastSuccessAt is null;
 
     private static string ProviderErrorValue(IngestionProviderActivityViewModel provider) =>
-        ProviderHasRecentErrors(provider) ? FormatCount(provider.ErrorsLastMinute) : "Last";
+        ProviderHasRecentErrors(provider) ? DisplayFormat.FormatCount(provider.ErrorsLastMinute) : "Last";
 
     private static string ProviderErrorLabel(IngestionProviderActivityViewModel provider) =>
         ProviderHasRecentErrors(provider) ? "errors/min" : "error";

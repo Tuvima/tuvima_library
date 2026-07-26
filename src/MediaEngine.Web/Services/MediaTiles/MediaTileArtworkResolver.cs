@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.MediaTiles;
@@ -26,16 +27,14 @@ public sealed record MediaTileArtworkVariant(
         || !string.IsNullOrWhiteSpace(MediumUrl)
         || !string.IsNullOrWhiteSpace(LargeUrl);
 
-    public string? TileUrl => FirstNonBlank(SmallUrl, MediumUrl);
+    public string? TileUrl => StringHelpers.FirstNonBlank(SmallUrl, MediumUrl);
 
-    public string? HoverUrl => FirstNonBlank(MediumUrl, LargeUrl, SmallUrl);
+    public string? HoverUrl => StringHelpers.FirstNonBlank(MediumUrl, LargeUrl, SmallUrl);
 
-    public string? HeroUrl => FirstNonBlank(LargeUrl, MediumUrl, SmallUrl);
+    public string? HeroUrl => StringHelpers.FirstNonBlank(LargeUrl, MediumUrl, SmallUrl);
 
     public MediaTileShape Shape => MediaTileArtworkResolver.ShapeFor(this);
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }
 
 public sealed record MediaTileSurfaceSelection(

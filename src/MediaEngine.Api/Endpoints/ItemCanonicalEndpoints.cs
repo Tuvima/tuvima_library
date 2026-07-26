@@ -449,7 +449,7 @@ public static class ItemCanonicalEndpoints
                 {
                     EntityId = context.AssetId,
                     EntityType = EntityType.MediaAsset,
-                    MediaType = ToMediaType(context.MediaType),
+                    MediaType = MediaTypeParser.Parse(context.MediaType),
                     Hints = selectedFields,
                     PreResolvedQid = globalQid,
                     IsUserResolution = true,
@@ -477,7 +477,7 @@ public static class ItemCanonicalEndpoints
                     {
                         EntityId = context.AssetId,
                         EntityType = EntityType.MediaAsset,
-                        MediaType = ToMediaType(context.MediaType),
+                        MediaType = MediaTypeParser.Parse(context.MediaType),
                         Hints = selectedFields,
                         SkipRetailStage = true,
                         IsUserResolution = true,
@@ -879,7 +879,7 @@ public static class ItemCanonicalEndpoints
             {
                 EntityId = context.AssetId,
                 EntityType = EntityType.MediaAsset,
-                MediaType = ToMediaType(context.MediaType),
+                MediaType = MediaTypeParser.Parse(context.MediaType),
                 Hints = selectedFields
                     .Append(new KeyValuePair<string, string>(MetadataFieldConstants.IdentityProvider, request.ProviderName))
                     .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
@@ -1039,7 +1039,7 @@ public static class ItemCanonicalEndpoints
                     {
                         EntityId = context.AssetId,
                         EntityType = EntityType.MediaAsset,
-                        MediaType = ToMediaType(context.MediaType),
+                        MediaType = MediaTypeParser.Parse(context.MediaType),
                         Hints = hints,
                         PreResolvedQid = qid,
                         SuppressReviewCreation = true,
@@ -1131,11 +1131,6 @@ public static class ItemCanonicalEndpoints
         !string.IsNullOrWhiteSpace(requestedMediaType)
             ? requestedMediaType
             : (string.IsNullOrWhiteSpace(fallbackMediaType) ? MediaType.Unknown.ToString() : fallbackMediaType);
-
-    private static MediaType ToMediaType(string? mediaType) =>
-        Enum.TryParse<MediaType>(mediaType, true, out var parsed)
-            ? parsed
-            : MediaType.Unknown;
 
     private static CanonicalTargetPolicy? ResolveTargetPolicy(string mediaType, string targetKind, string targetFieldGroup) =>
         (mediaType.Trim(), targetFieldGroup.Trim().ToLowerInvariant()) switch

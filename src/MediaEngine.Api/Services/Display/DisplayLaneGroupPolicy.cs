@@ -1,3 +1,4 @@
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -45,10 +46,10 @@ public sealed class DisplayLaneGroupPolicy
         }
 
         return new DisplayLaneGroupShelfPolicy(
-            Key: FirstNonBlank(settings.ShelfKey, fallback.Key)!,
-            Title: FirstNonBlank(settings.Title, fallback.Title)!,
-            Subtitle: FirstNonBlank(settings.Subtitle, fallback.Subtitle)!,
-            SeeAllRoute: FirstNonBlank(settings.SeeAllRoute, fallback.SeeAllRoute),
+            Key: StringHelpers.FirstNonBlank(settings.ShelfKey, fallback.Key)!,
+            Title: StringHelpers.FirstNonBlank(settings.Title, fallback.Title)!,
+            Subtitle: StringHelpers.FirstNonBlank(settings.Subtitle, fallback.Subtitle)!,
+            SeeAllRoute: StringHelpers.FirstNonBlank(settings.SeeAllRoute, fallback.SeeAllRoute),
             Enabled: settings.Enabled ?? fallback.Enabled,
             MinimumSeriesItems: Math.Max(1, settings.MinimumSeriesItems ?? fallback.MinimumSeriesItems));
     }
@@ -72,8 +73,6 @@ public sealed class DisplayLaneGroupPolicy
         }
     }
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }
 
 public sealed record DisplayLaneGroupShelfPolicy(

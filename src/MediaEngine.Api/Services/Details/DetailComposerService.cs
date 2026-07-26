@@ -183,7 +183,7 @@ public sealed class DetailComposerService
             .Where(url => !string.IsNullOrWhiteSpace(url))
             .Cast<string>()
             .ToList();
-        var foregroundArtworkUrl = FirstNonBlank(
+        var foregroundArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,
             ownedCoverUrls.FirstOrDefault(),
             detail.CoverUrl,
             GetValue(values, "cover_url"),
@@ -193,15 +193,15 @@ public sealed class DetailComposerService
             artworkFallback.CoverUrl,
             artworkFallback.SquareUrl);
         var backdropUrl = entityType == DetailEntityType.TvEpisode
-            ? FirstNonBlank(
+            ? StringHelpers.FirstNonBlankOr(string.Empty,
                 artworkFallback.BackgroundUrl,
                 detail.BackgroundUrl,
                 detail.HeroUrl)
-            : FirstNonBlank(
+            : StringHelpers.FirstNonBlankOr(string.Empty,
                 detail.BackgroundUrl,
                 detail.HeroUrl,
                 artworkFallback.BackgroundUrl);
-        var bannerUrl = FirstNonBlank(detail.BannerUrl, artworkFallback.BannerUrl);
+        var bannerUrl = StringHelpers.FirstNonBlankOr(string.Empty, detail.BannerUrl, artworkFallback.BannerUrl);
 
         var artwork = BuildArtwork(
             entityType,
@@ -283,8 +283,8 @@ public sealed class DetailComposerService
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
-                FirstNonBlank(GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
-                FirstNonBlank(GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             Progress = heroProgress,
             OwnedFormats = ownedFormats,
             MultiFormatState = multiFormatState,
@@ -636,7 +636,7 @@ public sealed class DetailComposerService
             : null;
         var collectionBackdrop = IsStructuralContainer(entityType)
             ? null
-            : FirstNonBlank(
+            : StringHelpers.FirstNonBlankOr(string.Empty,
                 tvInProgressEpisode?.BackgroundUrl,
                 row.BackgroundUrl,
                 GetValue(values, "background_url"),
@@ -644,20 +644,20 @@ public sealed class DetailComposerService
                 GetValue(values, "hero_url"),
                 GetValue(values, "hero"),
                 fallbackBackdrop);
-        var collectionBanner = FirstNonBlank(
+        var collectionBanner = StringHelpers.FirstNonBlankOr(string.Empty,
             row.BannerUrl,
             GetValue(values, "banner_url"),
             GetValue(values, "banner"));
         var collectionCover = IsStructuralContainer(entityType)
             ? null
-            : FirstNonBlank(
+            : StringHelpers.FirstNonBlankOr(string.Empty,
                 row.CoverUrl,
                 GetValue(values, "cover_url"),
                 GetValue(values, "cover"),
                 GetValue(values, "poster_url"),
                 GetValue(values, "poster"),
                 fallbackCover);
-        var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
+        var collectionLogo = StringHelpers.FirstNonBlankOr(string.Empty, row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         IReadOnlyList<CreditGroupViewModel> contributorGroups = entityType == DetailEntityType.Collection
             ? []
             : await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
@@ -718,8 +718,8 @@ public sealed class DetailComposerService
             Artwork = artwork,
             HeroBrand = BuildHeroBrand(
                 entityType,
-                FirstNonBlank(row.HeroBrandLabel, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
-                FirstNonBlank(row.HeroBrandImageUrl, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
+                StringHelpers.FirstNonBlankOr(string.Empty, row.HeroBrandLabel, GetValue(values, "network"), GetValue(values, "studio"), GetValue(values, "broadcaster")),
+                StringHelpers.FirstNonBlankOr(string.Empty, row.HeroBrandImageUrl, GetValue(values, "network_logo_url"), GetValue(values, "network_logo"), GetValue(values, "studio_logo_url"), GetValue(values, "broadcaster_logo_url"))),
             Progress = heroProgress,
             Metadata = BuildCollectionMetadata(entityType, displayWorks, values, tvPlaybackEpisode, tvPlaybackValues),
             PrimaryActions = BuildCollectionActions(collectionId, entityType, context, heroProgress, displayWorks),
@@ -773,7 +773,7 @@ public sealed class DetailComposerService
             ct);
         return SortMusicAlbumTracks(rows.Select((row, index) =>
         {
-            var durationSource = FirstNonBlank(row.DurationSecondsValue, row.Duration, row.Runtime);
+            var durationSource = StringHelpers.FirstNonBlankOr(string.Empty, row.DurationSecondsValue, row.Duration, row.Runtime);
             var duration = FormatSecondsDuration(ParseDurationSeconds(durationSource))
                 ?? FormatTrackDuration(durationSource);
             var assetId = row.AssetId?.ToString("D");
@@ -781,15 +781,15 @@ public sealed class DetailComposerService
                 row.WorkId.ToString("D"),
                 "Music",
                 ResolveOwnedTrackOrdinal(row.TrackNumber, index),
-                FirstNonBlank(row.EpisodeTitle, row.Title, $"Track {index + 1}"),
+                StringHelpers.FirstNonBlankOr(string.Empty, row.EpisodeTitle, row.Title, $"Track {index + 1}"),
                 null,
                 null,
                 null,
                 row.TrackNumber,
                 TryParseInt(row.DiscNumber),
                 duration,
-                FirstNonBlank(row.ReleaseYear, row.YearValue),
-                FormatContributorList(FirstNonBlank(row.Artist, row.Author)),
+                StringHelpers.FirstNonBlankOr(string.Empty, row.ReleaseYear, row.YearValue),
+                FormatContributorList(StringHelpers.FirstNonBlankOr(string.Empty, row.Artist, row.Author)),
                 false,
                 null,
                 null,
@@ -849,17 +849,17 @@ public sealed class DetailComposerService
                 .OrderByDescending(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
                 .ThenByDescending(item => item.WorkCount)
                 .First())
-            .OrderByDescending(group => TryParseInt(FirstNonBlank(
+            .OrderByDescending(group => TryParseInt(StringHelpers.FirstNonBlankOr(string.Empty,
                 group.Year,
                 group.LatestYear?.ToString(CultureInfo.InvariantCulture))))
             .ThenBy(group => group.DisplayName, StringComparer.OrdinalIgnoreCase)
             .Select(group =>
             {
                 var rootWorkId = group.RootWorkId!.Value;
-                var artworkUrl = FirstNonBlank(
+                var artworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,
                     group.CoverUrl,
                     group.PreviewItems.FirstOrDefault()?.ImageUrl);
-                var year = FirstNonBlank(
+                var year = StringHelpers.FirstNonBlankOr(string.Empty,
                     group.Year,
                     group.EarliestYear?.ToString(CultureInfo.InvariantCulture));
                 return new MusicAlbumPreviewViewModel
@@ -1098,7 +1098,7 @@ public sealed class DetailComposerService
             EntityType = DetailEntityType.Character,
             PresentationContext = context,
             Title = row.Label,
-            Subtitle = FirstNonBlank(row.EntitySubType, "Character") + (string.IsNullOrWhiteSpace(row.UniverseLabel) ? "" : $" • {row.UniverseLabel}"),
+            Subtitle = StringHelpers.FirstNonBlankOr(string.Empty, row.EntitySubType, "Character") + (string.IsNullOrWhiteSpace(row.UniverseLabel) ? "" : $" • {row.UniverseLabel}"),
             SourceLinks = BuildExternalSourceLinks(row.WikidataQid, null, null),
             Artwork = artwork,
             Metadata = [new MetadataPill { Label = "Character" }, .. MaybePill(row.UniverseLabel)],
@@ -1226,7 +1226,7 @@ public sealed class DetailComposerService
                 Id = row.EditionId.ToString("D"),
                 FormatType = format,
                 DisplayName = ToFormatDisplay(detail.MediaType, row.FormatLabel),
-                CoverUrl = FirstNonBlank(row.AssetCoverUrl, row.EditionCoverUrl, detail.CoverUrl),
+                CoverUrl = StringHelpers.FirstNonBlankOr(string.Empty, row.AssetCoverUrl, row.EditionCoverUrl, detail.CoverUrl),
                 PrimaryContributor = row.Narrator ?? detail.Narrator ?? detail.Author ?? detail.Director,
                 FileFormat = Path.GetExtension(row.FilePathRoot)?.TrimStart('.').ToUpperInvariant(),
                 Runtime = row.Runtime ?? detail.Runtime,
@@ -1271,7 +1271,7 @@ public sealed class DetailComposerService
                 var person = string.IsNullOrWhiteSpace(qid) ? null : await _persons.FindByQidAsync(qid, ct);
                 person ??= await _persons.FindByNameAsync(name, ct);
                 var imageUrl = person is null
-                    ? FirstNonBlank(
+                    ? StringHelpers.FirstNonBlankOr(string.Empty,
                         GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_profile_url"),
@@ -1646,7 +1646,7 @@ public sealed class DetailComposerService
         {
             foreach (var parsed in qidClaims)
             {
-                var name = FirstNonBlank(parsed.Label, parsed.Qid);
+                var name = StringHelpers.FirstNonBlankOr(string.Empty, parsed.Label, parsed.Qid);
                 if (!string.IsNullOrWhiteSpace(name))
                 {
                     entries.Add(new ContributorEntry(name, parsed.Qid, entries.Count));
@@ -1684,7 +1684,7 @@ public sealed class DetailComposerService
 
         foreach (var parsed in qidClaims)
         {
-            var name = FirstNonBlank(parsed.Label, parsed.Qid);
+            var name = StringHelpers.FirstNonBlankOr(string.Empty, parsed.Label, parsed.Qid);
             if (!string.IsNullOrWhiteSpace(name))
             {
                 entries.Add(new ContributorEntry(name, parsed.Qid, entries.Count));
@@ -1945,7 +1945,7 @@ public sealed class DetailComposerService
                 Id = row.WorkId.ToString("D"),
                 EntityType = entityType,
                 Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
-                ArtworkUrl = FirstNonBlank(
+                ArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,
                     ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), artworkKind, row.ArtworkState),
                     row.WorkId == workId ? currentArtworkUrl : null),
                 Description = row.Description,
@@ -1985,15 +1985,15 @@ public sealed class DetailComposerService
                 EntityType = entityType,
                 Title = detail.Title,
                 ArtworkUrl = entityType == DetailEntityType.TvEpisode
-                    ? FirstNonBlank(
+                    ? StringHelpers.FirstNonBlankOr(string.Empty,
                         GetDetailCanonicalValue(detail, "episode_still_url"),
                         GetDetailCanonicalValue(detail, "episode_still"),
                         detail.BackgroundUrl,
                         detail.CoverUrl)
-                    : FirstNonBlank(currentArtworkUrl, detail.CoverUrl),
+                    : StringHelpers.FirstNonBlankOr(string.Empty, currentArtworkUrl, detail.CoverUrl),
                 Description = detail.Description,
                 Duration = FormatTrackDuration(detail.Runtime),
-                PublicationDate = FirstNonBlank(detail.ReleaseDate, detail.Year),
+                PublicationDate = StringHelpers.FirstNonBlankOr(string.Empty, detail.ReleaseDate, detail.Year),
                 PositionLabel = fallbackPositionLabel,
                 PositionNumber = fallbackPositionNumber,
                 PositionSort = fallbackPositionSort,
@@ -3166,11 +3166,11 @@ public sealed class DetailComposerService
             }
             var position = ToDisplayPositionNumber(sourcePosition);
             var positionLabel = sourcePosition.HasValue
-                ? FirstNonBlank(
+                ? StringHelpers.FirstNonBlankOr(string.Empty,
                     StringValue(GetDapperValue(rowObject, "RawOrdinal")),
                     FormatSequenceSort(sourcePosition))
                 : null;
-            var membershipScope = FirstNonBlank(
+            var membershipScope = StringHelpers.FirstNonBlankOr(string.Empty,
                 StringValue(GetDapperValue(rowObject, "MembershipScope")),
                 SeriesMembershipScopeNames.MainSequence)!;
             var group = ManifestScopeGroup(membershipScope);
@@ -3429,7 +3429,7 @@ public sealed class DetailComposerService
             var positionSort = ManifestOrderingSort(manifestItem);
             var position = ToDisplayPositionNumber(sourcePosition);
             var positionLabel = sourcePosition.HasValue
-                ? FirstNonBlank(manifestItem.RawOrdinal, FormatSequenceSort(sourcePosition))
+                ? StringHelpers.FirstNonBlankOr(string.Empty, manifestItem.RawOrdinal, FormatSequenceSort(sourcePosition))
                 : null;
             var isLinkedOwned = manifestItem.LinkedWorkId.HasValue;
             var isCurrentManifestItem = string.Equals(
@@ -3476,7 +3476,7 @@ public sealed class DetailComposerService
             {
                 Id = $"missing-{manifestItem.ItemQid}",
                 EntityType = entityType,
-                Title = FirstNonBlank(manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
+                Title = StringHelpers.FirstNonBlankOr(string.Empty, manifestItem.ItemLabel, manifestItem.ItemQid) ?? "Missing from library",
                 Description = manifestItem.ItemDescription,
                 Duration = manifestItem.Duration,
                 PublicationDate = manifestItem.PublicationDate,
@@ -3584,7 +3584,7 @@ public sealed class DetailComposerService
         var item = items[index];
         var position = ToDisplayPositionNumber(sourcePosition);
         var manifestPositionLabel = sourcePosition.HasValue
-            ? FirstNonBlank(manifestItem.RawOrdinal, FormatSequenceSort(sourcePosition))
+            ? StringHelpers.FirstNonBlankOr(string.Empty, manifestItem.RawOrdinal, FormatSequenceSort(sourcePosition))
             : null;
         var group = ManifestScopeGroup(manifestItem.MembershipScope);
 
@@ -3597,7 +3597,7 @@ public sealed class DetailComposerService
             Route = item.Route,
             Description = item.Description,
             Duration = item.Duration,
-            PublicationDate = FirstNonBlank(manifestItem.PublicationDate, item.PublicationDate),
+            PublicationDate = StringHelpers.FirstNonBlankOr(string.Empty, manifestItem.PublicationDate, item.PublicationDate),
             PositionNumber = position ?? item.PositionNumber,
             PositionSort = positionSort ?? item.PositionSort,
             PositionLabel = manifestPositionLabel ?? item.PositionLabel,
@@ -3634,7 +3634,7 @@ public sealed class DetailComposerService
         var item = items[index];
         var position = ToDisplayPositionNumber(sourcePosition);
         var manifestPositionLabel = sourcePosition.HasValue
-            ? FirstNonBlank(manifestItem.RawOrdinal, FormatSequenceSort(sourcePosition))
+            ? StringHelpers.FirstNonBlankOr(string.Empty, manifestItem.RawOrdinal, FormatSequenceSort(sourcePosition))
             : null;
         var group = ManifestScopeGroup(manifestItem.MembershipScope);
 
@@ -3647,7 +3647,7 @@ public sealed class DetailComposerService
             Route = item.Route,
             Description = item.Description,
             Duration = item.Duration,
-            PublicationDate = FirstNonBlank(manifestItem.PublicationDate, item.PublicationDate),
+            PublicationDate = StringHelpers.FirstNonBlankOr(string.Empty, manifestItem.PublicationDate, item.PublicationDate),
             PositionNumber = position ?? item.PositionNumber,
             PositionSort = positionSort ?? item.PositionSort,
             PositionLabel = manifestPositionLabel ?? item.PositionLabel,
@@ -3771,7 +3771,7 @@ public sealed class DetailComposerService
             {
                 Id = $"missing-{seriesQid}-{positionKey}",
                 EntityType = entityType,
-                Title = FirstNonBlank(StringValue(member.WorkLabel), $"Book {FormatSequenceSort(positionSort)}"),
+                Title = StringHelpers.FirstNonBlankOr(string.Empty, StringValue(member.WorkLabel), $"Book {FormatSequenceSort(positionSort)}"),
                 PositionNumber = position,
                 PositionSort = positionSort,
                 PositionLabel = FormatSequenceSort(positionSort),
@@ -4046,7 +4046,7 @@ public sealed class DetailComposerService
             StringValue(row.Id) ?? string.Empty,
             StringValue(row.MediaType) ?? string.Empty,
             IntValue(row.Ordinal),
-            FirstNonBlank(
+            StringHelpers.FirstNonBlankOr(string.Empty,
                 ResolveDisplayTitleOverride(
                     (string?)StringValue(row.WorkDisplayOverridesJson),
                     InferMediaItemEntityType(StringValue(row.MediaType) ?? string.Empty, StringValue(row.Episode))),
@@ -4097,7 +4097,7 @@ public sealed class DetailComposerService
             var managedArtworkUrl = await LoadManagedWorkCoverUrlAsync(
                 workId,
                 InferWorkEntityType(detail.MediaType, detail),
-                FirstNonBlank(
+                StringHelpers.FirstNonBlankOr(string.Empty,
                     detail.CoverUrl,
                     GetValue(workValues, "cover_url"),
                     GetValue(workValues, "cover"),
@@ -4108,10 +4108,10 @@ public sealed class DetailComposerService
                 ct);
             works[index] = work with
             {
-                Title = FirstNonBlank(detail.Title, work.Title) ?? work.Title,
-                Description = FirstNonBlank(work.Description, detail.Description),
-                Year = FirstNonBlank(work.Year, detail.Year),
-                ArtworkUrl = FirstNonBlank(
+                Title = StringHelpers.FirstNonBlankOr(string.Empty, detail.Title, work.Title) ?? work.Title,
+                Description = StringHelpers.FirstNonBlankOr(string.Empty, work.Description, detail.Description),
+                Year = StringHelpers.FirstNonBlankOr(string.Empty, work.Year, detail.Year),
+                ArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,
                     managedArtworkUrl,
                     artworkFallback.CoverUrl,
                     artworkFallback.SquareUrl),
@@ -4390,22 +4390,22 @@ public sealed class DetailComposerService
         LibraryItemDetail detail,
         IReadOnlyDictionary<string, string> values)
     {
-        var issueNumber = FirstNonBlank(
+        var issueNumber = StringHelpers.FirstNonBlankOr(string.Empty,
             GetValue(values, MetadataFieldConstants.IssueNumber),
             detail.SeriesPosition,
             GetValue(values, MetadataFieldConstants.SeriesPosition));
-        var series = FirstNonBlank(detail.Series, GetValue(values, MetadataFieldConstants.Series));
+        var series = StringHelpers.FirstNonBlankOr(string.Empty, detail.Series, GetValue(values, MetadataFieldConstants.Series));
 
         if (!string.IsNullOrWhiteSpace(issueNumber) && !string.IsNullOrWhiteSpace(series))
         {
             return $"{FormatIssue(issueNumber)} in {series}";
         }
 
-        return FirstNonBlank(FormatIssue(issueNumber), string.IsNullOrWhiteSpace(series) ? null : $"Issue in {series}");
+        return StringHelpers.FirstNonBlankOr(string.Empty, FormatIssue(issueNumber), string.IsNullOrWhiteSpace(series) ? null : $"Issue in {series}");
     }
 
     private static string? BuildHeroSummary(IReadOnlyDictionary<string, string> canonicalValues)
-        => NormalizeHeroSummary(FirstNonBlank(
+        => NormalizeHeroSummary(StringHelpers.FirstNonBlankOr(string.Empty,
             GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
             GetValue(canonicalValues, "tldr")));
 
@@ -4503,15 +4503,15 @@ public sealed class DetailComposerService
         string? artworkSource,
         string? logoUrl = null)
     {
-        var primary = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkPrimaryHex), GetValue(values, "primary_color"), "#C9922E");
-        var secondary = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkSecondaryHex), GetValue(values, "secondary_color"), "#271A3A");
-        var accent = FirstNonBlank(GetValue(values, MetadataFieldConstants.ArtworkAccentHex), GetValue(values, "accent_color"), "#4F7DBA");
+        var primary = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, MetadataFieldConstants.ArtworkPrimaryHex), GetValue(values, "primary_color"), "#C9922E");
+        var secondary = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, MetadataFieldConstants.ArtworkSecondaryHex), GetValue(values, "secondary_color"), "#271A3A");
+        var accent = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, MetadataFieldConstants.ArtworkAccentHex), GetValue(values, "accent_color"), "#4F7DBA");
         var backdropTop = !string.IsNullOrWhiteSpace(backdropUrl) ? GetValue(values, "background_primary_hex") : null;
         var backdropMiddle = !string.IsNullOrWhiteSpace(backdropUrl) ? GetValue(values, "background_secondary_hex") : null;
         var backdropBottom = !string.IsNullOrWhiteSpace(backdropUrl) ? GetValue(values, "background_accent_hex") : null;
         var mode = ResolveArtworkPresentationMode(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, relatedArtwork.Count, ownedFormatCount);
         var characterImageUrl = entityType == DetailEntityType.Character ? portraitUrl : null;
-        var resolvedLogoUrl = FirstNonBlank(logoUrl, GetValue(values, "clear_logo_url"), GetValue(values, "clear_logo"), GetValue(values, "logo_url"), GetValue(values, "logo"));
+        var resolvedLogoUrl = StringHelpers.FirstNonBlankOr(string.Empty, logoUrl, GetValue(values, "clear_logo_url"), GetValue(values, "clear_logo"), GetValue(values, "logo_url"), GetValue(values, "logo"));
         var heroArtwork = HeroArtworkResolver.Resolve(entityType, backdropUrl, bannerUrl, coverUrl, posterUrl, portraitUrl, characterImageUrl, relatedArtwork, resolvedLogoUrl);
 
         return new ArtworkSet
@@ -4555,14 +4555,14 @@ public sealed class DetailComposerService
         return new DetailFactsViewModel
         {
             MediaKind = FormatEntityType(entityType),
-            Year = FirstNonBlank(detail.Year, GetValue(canonicalValues, MetadataFieldConstants.Year), ReleaseYear(GetValue(canonicalValues, "release_date"))),
-            ReleaseDate = FirstNonBlank(detail.ReleaseDate, GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
-            Rating = FirstNonBlank(FormatRating(detail.Rating), detail.Rating, GetValue(canonicalValues, MetadataFieldConstants.Rating)),
-            ContentRating = FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
+            Year = StringHelpers.FirstNonBlankOr(string.Empty, detail.Year, GetValue(canonicalValues, MetadataFieldConstants.Year), ReleaseYear(GetValue(canonicalValues, "release_date"))),
+            ReleaseDate = StringHelpers.FirstNonBlankOr(string.Empty, detail.ReleaseDate, GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
+            Rating = StringHelpers.FirstNonBlankOr(string.Empty, FormatRating(detail.Rating), detail.Rating, GetValue(canonicalValues, MetadataFieldConstants.Rating)),
+            ContentRating = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
             Runtime = FormatRuntime(detail.Runtime),
-            Duration = FirstNonBlank(FormatRuntime(detail.Runtime), FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), GetValue(canonicalValues, MetadataFieldConstants.DurationField)),
-            Language = FirstNonBlank(detail.Language, GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
-            Genres = SplitMetadataValues(FirstNonBlank(detail.Genre, GetValue(canonicalValues, MetadataFieldConstants.Genre))).ToList(),
+            Duration = StringHelpers.FirstNonBlankOr(string.Empty, FormatRuntime(detail.Runtime), FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), GetValue(canonicalValues, MetadataFieldConstants.DurationField)),
+            Language = StringHelpers.FirstNonBlankOr(string.Empty, detail.Language, GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
+            Genres = SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty, detail.Genre, GetValue(canonicalValues, MetadataFieldConstants.Genre))).ToList(),
             Identifiers = identifiers,
 
             Authors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Authors), SplitMetadataValues(detail.Author)),
@@ -4576,27 +4576,27 @@ public sealed class DetailComposerService
             Illustrators = MergeNames(CreditNames(contributorGroups, CreditGroupType.Illustrators), SplitMetadataValues(detail.Illustrator)),
             Producers = MergeNames(CreditNames(contributorGroups, CreditGroupType.Producers), SplitMetadataValues(GetValue(canonicalValues, "producer"))),
 
-            ShowName = FirstNonBlank(detail.ShowName, GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Series)),
-            SeasonNumber = FirstNonBlank(detail.SeasonNumber, GetValue(canonicalValues, MetadataFieldConstants.SeasonNumber), GetValue(canonicalValues, "season")),
-            EpisodeNumber = FirstNonBlank(detail.EpisodeNumber, GetValue(canonicalValues, MetadataFieldConstants.EpisodeNumber), GetValue(canonicalValues, "episode")),
-            EpisodeTitle = FirstNonBlank(detail.EpisodeTitle, GetValue(canonicalValues, MetadataFieldConstants.EpisodeTitle)),
-            Network = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
+            ShowName = StringHelpers.FirstNonBlankOr(string.Empty, detail.ShowName, GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Series)),
+            SeasonNumber = StringHelpers.FirstNonBlankOr(string.Empty, detail.SeasonNumber, GetValue(canonicalValues, MetadataFieldConstants.SeasonNumber), GetValue(canonicalValues, "season")),
+            EpisodeNumber = StringHelpers.FirstNonBlankOr(string.Empty, detail.EpisodeNumber, GetValue(canonicalValues, MetadataFieldConstants.EpisodeNumber), GetValue(canonicalValues, "episode")),
+            EpisodeTitle = StringHelpers.FirstNonBlankOr(string.Empty, detail.EpisodeTitle, GetValue(canonicalValues, MetadataFieldConstants.EpisodeTitle)),
+            Network = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
             SeasonCount = GetValue(canonicalValues, MetadataFieldConstants.SeasonCount),
             EpisodeCount = GetValue(canonicalValues, MetadataFieldConstants.EpisodeCount),
 
-            Album = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Album), detail.Series),
-            AlbumArtist = FirstNonBlank(albumArtists.FirstOrDefault(), detail.Artist),
-            TrackNumber = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.TrackNumber), detail.SeriesPosition),
+            Album = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Album), detail.Series),
+            AlbumArtist = StringHelpers.FirstNonBlankOr(string.Empty, albumArtists.FirstOrDefault(), detail.Artist),
+            TrackNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.TrackNumber), detail.SeriesPosition),
             TrackCount = GetValue(canonicalValues, MetadataFieldConstants.TrackCount),
             DiscNumber = GetValue(canonicalValues, MetadataFieldConstants.DiscNumber),
             DiscCount = GetValue(canonicalValues, MetadataFieldConstants.DiscCount),
             Isrc = GetValue(canonicalValues, "isrc"),
-            Label = FirstNonBlank(GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
+            Label = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
             IsExplicit = ParseNullableBool(GetValue(canonicalValues, "explicit"), GetValue(canonicalValues, "is_explicit")),
 
-            Series = FirstNonBlank(detail.Series, GetValue(canonicalValues, MetadataFieldConstants.Series)),
-            SeriesPosition = FirstNonBlank(detail.SeriesPosition, GetValue(canonicalValues, MetadataFieldConstants.SeriesPosition)),
-            IssueNumber = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.IssueNumber), detail.SeriesPosition),
+            Series = StringHelpers.FirstNonBlankOr(string.Empty, detail.Series, GetValue(canonicalValues, MetadataFieldConstants.Series)),
+            SeriesPosition = StringHelpers.FirstNonBlankOr(string.Empty, detail.SeriesPosition, GetValue(canonicalValues, MetadataFieldConstants.SeriesPosition)),
+            IssueNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.IssueNumber), detail.SeriesPosition),
             IssueTitle = GetValue(canonicalValues, MetadataFieldConstants.IssueTitle),
             Publisher = GetValue(canonicalValues, MetadataFieldConstants.PublisherField),
             PageCount = GetValue(canonicalValues, MetadataFieldConstants.PageCount),
@@ -4623,7 +4623,7 @@ public sealed class DetailComposerService
             SplitMetadataValues(GetValue(canonicalValues, "album_artist")),
             SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author)),
             artists.Take(1));
-        var seasonCount = FirstNonBlank(
+        var seasonCount = StringHelpers.FirstNonBlankOr(string.Empty,
             GetValue(canonicalValues, MetadataFieldConstants.SeasonCount),
             entityType is DetailEntityType.TvShow
                 ? works.Select(work => work.Season).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString(CultureInfo.InvariantCulture)
@@ -4632,13 +4632,13 @@ public sealed class DetailComposerService
         return new DetailFactsViewModel
         {
             MediaKind = FormatEntityType(entityType),
-            Year = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Year), GetValue(canonicalValues, "release_year"), years.FirstOrDefault()),
-            ReleaseDate = FirstNonBlank(GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
-            Rating = FirstNonBlank(FormatRating(GetValue(canonicalValues, MetadataFieldConstants.Rating)), GetValue(canonicalValues, MetadataFieldConstants.Rating)),
-            ContentRating = FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
+            Year = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Year), GetValue(canonicalValues, "release_year"), years.FirstOrDefault()),
+            ReleaseDate = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
+            Rating = StringHelpers.FirstNonBlankOr(string.Empty, FormatRating(GetValue(canonicalValues, MetadataFieldConstants.Rating)), GetValue(canonicalValues, MetadataFieldConstants.Rating)),
+            ContentRating = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
             Runtime = FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.Runtime)),
-            Duration = FirstNonBlank(FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), FormatCollectionDuration(works)),
-            Language = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
+            Duration = StringHelpers.FirstNonBlankOr(string.Empty, FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), FormatCollectionDuration(works)),
+            Language = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
             Genres = genres,
             Identifiers = identifiers,
 
@@ -4653,22 +4653,22 @@ public sealed class DetailComposerService
             Illustrators = CreditNames(contributorGroups, CreditGroupType.Illustrators),
             Producers = MergeNames(CreditNames(contributorGroups, CreditGroupType.Producers), SplitMetadataValues(GetValue(canonicalValues, "producer"))),
 
-            ShowName = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Title)),
-            Network = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
+            ShowName = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Title)),
+            Network = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
             SeasonCount = seasonCount,
-            EpisodeCount = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.EpisodeCount), entityType is DetailEntityType.TvShow ? works.Count.ToString(CultureInfo.InvariantCulture) : null),
+            EpisodeCount = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.EpisodeCount), entityType is DetailEntityType.TvShow ? works.Count.ToString(CultureInfo.InvariantCulture) : null),
 
-            Album = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Album), GetValue(canonicalValues, MetadataFieldConstants.Title)),
+            Album = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Album), GetValue(canonicalValues, MetadataFieldConstants.Title)),
             AlbumArtist = albumArtists.FirstOrDefault(),
             TrackCount = entityType is DetailEntityType.MusicAlbum
                 ? works.Count.ToString(CultureInfo.InvariantCulture)
                 : GetValue(canonicalValues, MetadataFieldConstants.TrackCount),
             DiscCount = GetValue(canonicalValues, MetadataFieldConstants.DiscCount),
             Isrc = GetValue(canonicalValues, "isrc"),
-            Label = FirstNonBlank(GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
+            Label = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "label"), GetValue(canonicalValues, "record_label")),
             IsExplicit = ParseNullableBool(GetValue(canonicalValues, "explicit"), GetValue(canonicalValues, "is_explicit")),
 
-            Series = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.Series), GetValue(canonicalValues, MetadataFieldConstants.Title)),
+            Series = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Series), GetValue(canonicalValues, MetadataFieldConstants.Title)),
             SeriesPosition = GetValue(canonicalValues, MetadataFieldConstants.SeriesPosition),
             Publisher = GetValue(canonicalValues, MetadataFieldConstants.PublisherField),
             PageCount = GetValue(canonicalValues, MetadataFieldConstants.PageCount),
@@ -4840,10 +4840,10 @@ public sealed class DetailComposerService
         IReadOnlyList<OwnedFormatViewModel> formats)
     {
         var pills = new List<MetadataPill>();
-        AddPlain(pills, FirstNonBlank(GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")), "content_rating");
+        AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")), "content_rating");
         AddPlain(pills, FormatRating(detail.Rating), "rating");
 
-        foreach (var genre in SplitMetadataValues(FirstNonBlank(
+        foreach (var genre in SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty,
                      detail.Genre,
                      GetValue(canonicalValues, MetadataFieldConstants.Genre))).Take(2))
         {
@@ -4917,7 +4917,7 @@ public sealed class DetailComposerService
         }
 
         var percent = Math.Clamp(progress.Percent, 0, 100);
-        var runtimeSource = FirstNonBlank(formats.Select(format => format.Runtime).Prepend(runtime).ToArray());
+        var runtimeSource = StringHelpers.FirstNonBlankOr(string.Empty, formats.Select(format => format.Runtime).Prepend(runtime).ToArray());
         return new ProgressViewModel
         {
             Percent = percent,
@@ -4971,7 +4971,7 @@ public sealed class DetailComposerService
             return null;
         }
 
-        var runtimeSource = FirstNonBlank(FormatSecondsDuration(totalSeconds > 0 ? totalSeconds : null), runtime);
+        var runtimeSource = StringHelpers.FirstNonBlankOr(string.Empty, FormatSecondsDuration(totalSeconds > 0 ? totalSeconds : null), runtime);
         var clampedPercent = Math.Clamp(percent, 0, 100);
         var roundedPercent = Math.Clamp((int)Math.Round(clampedPercent, MidpointRounding.AwayFromZero), 1, 99);
         var timeLeft = FormatTimeLeft(runtimeSource, clampedPercent);
@@ -5450,7 +5450,7 @@ public sealed class DetailComposerService
         IReadOnlyDictionary<string, string> canonicalValues,
         PlaybackTechnicalSummary? playbackSummary)
     {
-        var explicitQuality = FirstNonBlank(GetValue(canonicalValues, "quality"), GetValue(canonicalValues, "video_quality"));
+        var explicitQuality = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "quality"), GetValue(canonicalValues, "video_quality"));
         if (!string.IsNullOrWhiteSpace(explicitQuality))
         {
             return NormalizeWatchQualityLabel(explicitQuality);
@@ -5856,34 +5856,34 @@ public sealed class DetailComposerService
     {
         if (entityType == DetailEntityType.TvEpisode)
         {
-            return FirstNonBlank(displayTitle, detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled");
+            return StringHelpers.FirstNonBlankOr(string.Empty, displayTitle, detail.EpisodeTitle, GetValue(values, MetadataFieldConstants.EpisodeTitle), detail.Title, detail.FileName, "Untitled");
         }
 
         if (entityType == DetailEntityType.ComicIssue)
         {
-            var issueTitle = FirstNonBlank(GetValue(values, MetadataFieldConstants.IssueTitle), displayTitle);
+            var issueTitle = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, MetadataFieldConstants.IssueTitle), displayTitle);
             if (!string.IsNullOrWhiteSpace(issueTitle)
                 && !IsGeneratedComicIssueTitle(issueTitle, detail, values))
             {
-                return FirstNonBlank(issueTitle, detail.Title, detail.FileName, "Untitled");
+                return StringHelpers.FirstNonBlankOr(string.Empty, issueTitle, detail.Title, detail.FileName, "Untitled");
             }
 
             if (!IsGeneratedComicIssueTitle(detail.Title, detail, values))
             {
-                return FirstNonBlank(detail.Title, detail.FileName, "Untitled");
+                return StringHelpers.FirstNonBlankOr(string.Empty, detail.Title, detail.FileName, "Untitled");
             }
 
-            var issueNumber = FirstNonBlank(GetValue(values, MetadataFieldConstants.IssueNumber), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
-            return FirstNonBlank(FormatIssue(issueNumber), detail.FileName, "Untitled");
+            var issueNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, MetadataFieldConstants.IssueNumber), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
+            return StringHelpers.FirstNonBlankOr(string.Empty, FormatIssue(issueNumber), detail.FileName, "Untitled");
         }
 
-        return FirstNonBlank(displayTitle, detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled");
+        return StringHelpers.FirstNonBlankOr(string.Empty, displayTitle, detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled");
     }
 
     private static bool IsGeneratedComicIssueTitle(string? title, LibraryItemDetail detail, IReadOnlyDictionary<string, string> values)
     {
-        var series = FirstNonBlank(detail.Series, GetValue(values, MetadataFieldConstants.Series));
-        var issueNumber = FirstNonBlank(GetValue(values, "issue_number"), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
+        var series = StringHelpers.FirstNonBlankOr(string.Empty, detail.Series, GetValue(values, MetadataFieldConstants.Series));
+        var issueNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "issue_number"), detail.SeriesPosition, GetValue(values, MetadataFieldConstants.SeriesPosition));
         return IsGeneratedComicIssueTitle(title, series, issueNumber);
     }
 
@@ -5909,7 +5909,7 @@ public sealed class DetailComposerService
     {
         if (entityType == DetailEntityType.ComicIssue && IsGeneratedComicIssueTitle(title, containerTitle, positionLabel))
         {
-            return FirstNonBlank(FormatIssue(positionLabel), title);
+            return StringHelpers.FirstNonBlankOr(string.Empty, FormatIssue(positionLabel), title);
         }
 
         return title;
@@ -5932,11 +5932,11 @@ public sealed class DetailComposerService
         return entityType switch
         {
             DetailEntityType.Book => detail.Author,
-            DetailEntityType.Audiobook => FirstNonBlank(detail.Narrator, detail.Author),
-            DetailEntityType.Movie => FirstNonBlank(detail.Director, GetValue(values, "studio"), detail.Year, "Movie"),
+            DetailEntityType.Audiobook => StringHelpers.FirstNonBlankOr(string.Empty, detail.Narrator, detail.Author),
+            DetailEntityType.Movie => StringHelpers.FirstNonBlankOr(string.Empty, detail.Director, GetValue(values, "studio"), detail.Year, "Movie"),
             DetailEntityType.Work when detail.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
                 => string.Join(" · ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
-            DetailEntityType.ComicIssue => string.Join(" - ", new[] { detail.Series, FormatIssue(detail.SeriesPosition), FirstNonBlank(detail.Writer, detail.Illustrator, detail.Author) }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            DetailEntityType.ComicIssue => string.Join(" - ", new[] { detail.Series, FormatIssue(detail.SeriesPosition), StringHelpers.FirstNonBlankOr(string.Empty, detail.Writer, detail.Illustrator, detail.Author) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             DetailEntityType.TvEpisode => string.Join(" • ", new[] { detail.ShowName, FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             _ => FormatEntityType(entityType),
         };
@@ -6145,11 +6145,11 @@ public sealed class DetailComposerService
                     merged.Add(match with
                     {
                         Ordinal = match.Ordinal ?? ordinal,
-                        TrackNumber = FirstNonBlank(
+                        TrackNumber = StringHelpers.FirstNonBlankOr(string.Empty,
                             match.TrackNumber,
                             trackNumber?.ToString(CultureInfo.InvariantCulture)),
                         DiscNumber = match.DiscNumber ?? discNumber,
-                        Duration = FirstNonBlank(match.Duration, FormatManifestTrackDuration(element)),
+                        Duration = StringHelpers.FirstNonBlankOr(string.Empty, match.Duration, FormatManifestTrackDuration(element)),
                     });
                     continue;
                 }
@@ -6166,12 +6166,12 @@ public sealed class DetailComposerService
                     (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture),
                     discNumber,
                     FormatManifestTrackDuration(element),
-                    FirstNonBlank(
+                    StringHelpers.FirstNonBlankOr(string.Empty,
                         ReadDetailJsonString(element, "release_date", "releaseDate", "year"),
                         GetValue(canonicalValues, "release_date"),
                         GetValue(canonicalValues, "release_year"),
                         GetValue(canonicalValues, "year")),
-                    FormatContributorList(FirstNonBlank(
+                    FormatContributorList(StringHelpers.FirstNonBlankOr(string.Empty,
                         ReadDetailJsonString(element, "artist", "artist_name", "artistName"),
                         GetValue(canonicalValues, "artist"),
                         GetValue(canonicalValues, "album_artist"))),
@@ -6351,9 +6351,9 @@ public sealed class DetailComposerService
         return work with
         {
             SequenceSort = sequenceSort,
-            SequenceLabel = FirstNonBlank(item.RawOrdinal, sequenceSort.HasValue ? FormatSequenceSort(sequenceSort) : null),
+            SequenceLabel = StringHelpers.FirstNonBlankOr(string.Empty, item.RawOrdinal, sequenceSort.HasValue ? FormatSequenceSort(sequenceSort) : null),
             MembershipScope = item.MembershipScope,
-            Year = FirstNonBlank(work.Year, item.PublicationDate),
+            Year = StringHelpers.FirstNonBlankOr(string.Empty, work.Year, item.PublicationDate),
         };
     }
 
@@ -6367,7 +6367,7 @@ public sealed class DetailComposerService
             $"missing-{qid}",
             ManifestPlaceholderMediaType(entityType, item.MediaType),
             item.SortOrder is { } sortOrder ? (int)Math.Round(sortOrder, MidpointRounding.AwayFromZero) : null,
-            FirstNonBlank(item.ItemLabel, item.ItemQid, "Missing from library"),
+            StringHelpers.FirstNonBlankOr(string.Empty, item.ItemLabel, item.ItemQid, "Missing from library"),
             item.ItemDescription,
             season,
             entityType == DetailEntityType.TvShow ? item.RawOrdinal : null,
@@ -6387,13 +6387,13 @@ public sealed class DetailComposerService
             null)
         {
             SequenceSort = item.ParsedOrdinal ?? item.SortOrder,
-            SequenceLabel = FirstNonBlank(item.RawOrdinal, FormatSequenceSort(item.ParsedOrdinal ?? item.SortOrder)),
+            SequenceLabel = StringHelpers.FirstNonBlankOr(string.Empty, item.RawOrdinal, FormatSequenceSort(item.ParsedOrdinal ?? item.SortOrder)),
             MembershipScope = item.MembershipScope,
         };
     }
 
     private static string ManifestPlaceholderMediaType(DetailEntityType entityType, string? mediaType) =>
-        FirstNonBlank(mediaType, entityType switch
+        StringHelpers.FirstNonBlankOr(string.Empty, mediaType, entityType switch
         {
             DetailEntityType.ComicSeries => "Comic",
             DetailEntityType.MovieSeries => "Movie",
@@ -6450,12 +6450,12 @@ public sealed class DetailComposerService
         {
             var itemType = InferMediaItemEntityType(work);
             var positionLabel = entityType == DetailEntityType.TvShow
-                ? FirstNonBlank(work.Episode, work.SequenceLabel, work.Ordinal?.ToString(CultureInfo.InvariantCulture))
-                : FirstNonBlank(work.SequenceLabel, work.Ordinal?.ToString(CultureInfo.InvariantCulture));
+                ? StringHelpers.FirstNonBlankOr(string.Empty, work.Episode, work.SequenceLabel, work.Ordinal?.ToString(CultureInfo.InvariantCulture))
+                : StringHelpers.FirstNonBlankOr(string.Empty, work.SequenceLabel, work.Ordinal?.ToString(CultureInfo.InvariantCulture));
             var positionSort = work.SequenceSort ?? TryParseSeriesPositionSort(positionLabel) ?? work.Ordinal;
             var positionNumber = ToDisplayPositionNumber(positionSort) ?? TryParseInt(positionLabel);
             var season = entityType == DetailEntityType.TvShow
-                ? FirstNonBlank(NormalizeEpisodeKey(work.Season), "1")
+                ? StringHelpers.FirstNonBlankOr(string.Empty, NormalizeEpisodeKey(work.Season), "1")
                 : null;
             var scopeGroup = ManifestScopeGroup(work.MembershipScope);
             var groupKey = season is null ? scopeGroup.Key : $"season-{season}";
@@ -6469,7 +6469,7 @@ public sealed class DetailComposerService
                 Description = work.Description,
                 Duration = FormatTrackDuration(work.Duration),
                 ArtworkUrl = entityType == DetailEntityType.TvShow
-                    ? FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl)
+                    ? StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl)
                     : work.ArtworkUrl,
                 Route = work.IsOwned ? BuildWorkRoute(work) : null,
                 PublicationDate = work.Year,
@@ -6481,7 +6481,7 @@ public sealed class DetailComposerService
                     : positionLabel,
                 GroupKey = groupKey,
                 GroupTitle = groupTitle,
-                MembershipScope = FirstNonBlank(work.MembershipScope, SeriesMembershipScopeNames.MainSequence),
+                MembershipScope = StringHelpers.FirstNonBlankOr(string.Empty, work.MembershipScope, SeriesMembershipScopeNames.MainSequence),
                 IsCurrent = currentWorkId.HasValue
                     && string.Equals(work.Id, currentWorkId.Value.ToString("D"), StringComparison.OrdinalIgnoreCase),
                 IsOwned = work.IsOwned,
@@ -6712,12 +6712,12 @@ public sealed class DetailComposerService
             EntityType = entityType,
             Title = work.Title,
             Subtitle = work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
-                ? FirstNonBlank(work.Artist, work.Year, FormatTrackDuration(work.Duration))
-                : FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
+                ? StringHelpers.FirstNonBlankOr(string.Empty, work.Artist, work.Year, FormatTrackDuration(work.Duration))
+                : StringHelpers.FirstNonBlankOr(string.Empty, FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
             Description = work.Description,
             ArtworkUrl = entityType == DetailEntityType.TvEpisode
-                ? FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl)
-                : FirstNonBlank(work.ArtworkUrl, work.BackgroundUrl),
+                ? StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl)
+                : StringHelpers.FirstNonBlankOr(string.Empty, work.ArtworkUrl, work.BackgroundUrl),
             TrackNumber = work.TrackNumber,
             Duration = FormatTrackDuration(work.Duration),
             Artist = work.Artist,
@@ -6822,12 +6822,12 @@ public sealed class DetailComposerService
             var ownedEpisodeCount = works.Count(work => work.IsOwned && InferMediaItemEntityType(work) == DetailEntityType.TvEpisode);
 
             tvPlaybackValues ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            AddPlain(pills, FirstNonBlank(
+            AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty,
                 GetValue(tvPlaybackValues, "content_rating"),
                 GetValue(tvPlaybackValues, "certification"),
                 GetValue(values, "content_rating"),
                 GetValue(values, "certification")), "content_rating");
-            AddPlain(pills, FirstNonBlank(
+            AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty,
                 ReleaseYear(tvPlaybackEpisode?.Year),
                 ReleaseYear(GetValue(tvPlaybackValues, "release_date")),
                 GetValue(tvPlaybackValues, MetadataFieldConstants.Year),
@@ -6839,15 +6839,15 @@ public sealed class DetailComposerService
             AddPlain(pills, ownedEpisodeCount > 0
                 ? $"{ownedEpisodeCount.ToString(CultureInfo.InvariantCulture)} {(ownedEpisodeCount == 1 ? "episode" : "episodes")}"
                 : null, "episode_count");
-            AddPlain(pills, FirstNonBlank(
-                FormatTrackDuration(FirstNonBlank(
+            AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty,
+                FormatTrackDuration(StringHelpers.FirstNonBlankOr(string.Empty,
                     tvPlaybackEpisode?.Duration,
                     GetValue(tvPlaybackValues, MetadataFieldConstants.Runtime),
                     GetValue(tvPlaybackValues, "duration"))),
-                FormatSecondsDuration(ParseDurationSeconds(FirstNonBlank(
+                FormatSecondsDuration(ParseDurationSeconds(StringHelpers.FirstNonBlankOr(string.Empty,
                     GetValue(tvPlaybackValues, "duration_sec"),
                     GetValue(tvPlaybackValues, "duration_seconds"))))), "duration");
-            AddPlain(pills, FirstNonBlank(
+            AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty,
                 tvPlaybackEpisode?.Quality,
                 GetValue(tvPlaybackValues, "quality"),
                 GetValue(tvPlaybackValues, "video_quality"),
@@ -6857,11 +6857,11 @@ public sealed class DetailComposerService
                 GetValue(values, "resolution"),
                 GetValue(values, "video_resolution_label"),
                 works.Where(work => work.IsOwned).Select(work => work.Quality).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))), "quality");
-            AddPlain(pills, FormatRating(FirstNonBlank(
+            AddPlain(pills, FormatRating(StringHelpers.FirstNonBlankOr(string.Empty,
                 GetValue(tvPlaybackValues, MetadataFieldConstants.Rating),
                 GetValue(values, MetadataFieldConstants.Rating))), "rating");
 
-            var playbackGenres = FirstNonBlank(
+            var playbackGenres = StringHelpers.FirstNonBlankOr(string.Empty,
                 GetValue(tvPlaybackValues, MetadataFieldConstants.Genre),
                 GetValue(values, MetadataFieldConstants.Genre));
             foreach (var genre in SplitMetadataValues(playbackGenres).Take(2))
@@ -6885,11 +6885,11 @@ public sealed class DetailComposerService
         {
             var pills = new List<MetadataPill>();
             AddPlain(pills, FormatEntityType(entityType), "type");
-            AddPlain(pills, FirstNonBlank(GetValue(values, "year"), GetValue(values, "release_year"), works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y))), "year");
+            AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "year"), GetValue(values, "release_year"), works.Select(w => w.Year).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y))), "year");
             AddPlain(pills, FormatCountLabel(works.Count.ToString(CultureInfo.InvariantCulture), "track"), "track_count");
             AddPlain(pills, FormatAlbumDuration(works), "duration");
             AddPlain(pills, GetValue(values, "genre"), "genre");
-            AddPlain(pills, FirstNonBlank(GetValue(values, "quality"), GetValue(values, "audio_quality"), works.Select(w => w.Quality).FirstOrDefault(q => !string.IsNullOrWhiteSpace(q))), "quality");
+            AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "quality"), GetValue(values, "audio_quality"), works.Select(w => w.Quality).FirstOrDefault(q => !string.IsNullOrWhiteSpace(q))), "quality");
             return pills
                 .Where(value => !string.IsNullOrWhiteSpace(value.Label))
                 .DistinctBy(value => $"{value.Kind}:{value.Label}", StringComparer.OrdinalIgnoreCase)
@@ -6995,7 +6995,7 @@ public sealed class DetailComposerService
         return BuildWatchActions(
             $"/watch/player/resolve?workId={episodeId:D}",
             heroProgress,
-            FormatSeasonEpisode(FirstNonBlank(episode.Season, "1"), FirstNonBlank(episode.Episode, "1")));
+            FormatSeasonEpisode(StringHelpers.FirstNonBlankOr(string.Empty, episode.Season, "1"), StringHelpers.FirstNonBlankOr(string.Empty, episode.Episode, "1")));
     }
 
     private static CollectionWorkSummary? SelectInProgressTvEpisode(IReadOnlyList<CollectionWorkSummary> works)
@@ -7148,7 +7148,7 @@ public sealed class DetailComposerService
                 var person = string.IsNullOrWhiteSpace(qid) ? null : await _persons.FindByQidAsync(qid, ct);
                 person ??= await _persons.FindByNameAsync(entry.Name, ct);
                 var imageUrl = person is null
-                    ? FirstNonBlank(
+                    ? StringHelpers.FirstNonBlankOr(string.Empty,
                         GetValue(canonicalValues, $"{canonicalArrayKey}_headshot_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_image_url"),
                         GetValue(canonicalValues, $"{canonicalArrayKey}_profile_url"),
@@ -7549,7 +7549,7 @@ public sealed class DetailComposerService
     {
         if (entityType == DetailEntityType.MusicAlbum)
         {
-            return FormatContributorList(FirstNonBlank(
+            return FormatContributorList(StringHelpers.FirstNonBlankOr(string.Empty,
                 GetValue(values, "album_artist"),
                 GetValue(values, "artist"),
                 works.Select(w => w.Artist).FirstOrDefault(a => !string.IsNullOrWhiteSpace(a))))
@@ -7680,7 +7680,7 @@ public sealed class DetailComposerService
             Id = CreditDisplayId(representative),
             EntityType = entityType,
             Title = representative.Title,
-            Subtitle = string.Join(" · ", new[] { trackSummary, FirstNonBlank(characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
+            Subtitle = string.Join(" · ", new[] { trackSummary, StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
             ArtworkUrl = representative.CoverUrl,
             Lane = DetailLane(entityType),
             Roles = roles,
@@ -8002,7 +8002,7 @@ public sealed class DetailComposerService
             links,
             "musicbrainz-release",
             "MusicBrainz Release",
-            BuildMusicBrainzUrl("release", FirstNonBlank(GetOptionalValue(values, "musicbrainz_release_id"), GetOptionalValue(values, BridgeIdKeys.MusicBrainzId))),
+            BuildMusicBrainzUrl("release", StringHelpers.FirstNonBlankOr(string.Empty, GetOptionalValue(values, "musicbrainz_release_id"), GetOptionalValue(values, BridgeIdKeys.MusicBrainzId))),
             "MusicBrainz",
             "Music release identity source");
 
@@ -8046,13 +8046,13 @@ public sealed class DetailComposerService
             return null;
         }
 
-        var tvId = FirstNonBlank(GetValue(values, "tmdb_tv_id"), !string.IsNullOrWhiteSpace(GetValue(values, MetadataFieldConstants.ShowName)) ? GetValue(values, BridgeIdKeys.TmdbId) : null);
+        var tvId = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "tmdb_tv_id"), !string.IsNullOrWhiteSpace(GetValue(values, MetadataFieldConstants.ShowName)) ? GetValue(values, BridgeIdKeys.TmdbId) : null);
         if (!string.IsNullOrWhiteSpace(tvId))
         {
             return $"https://www.themoviedb.org/tv/{Uri.EscapeDataString(tvId)}";
         }
 
-        var movieId = FirstNonBlank(GetValue(values, "tmdb_movie_id"), GetValue(values, BridgeIdKeys.TmdbId));
+        var movieId = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "tmdb_movie_id"), GetValue(values, BridgeIdKeys.TmdbId));
         return string.IsNullOrWhiteSpace(movieId)
             ? null
             : $"https://www.themoviedb.org/movie/{Uri.EscapeDataString(movieId)}";
@@ -8540,7 +8540,7 @@ public sealed class DetailComposerService
             return "Music";
         }
 
-        return FirstNonBlank(mediaType, "Works");
+        return StringHelpers.FirstNonBlankOr(string.Empty, mediaType, "Works");
     }
 
     private static int PersonMediaGroupPriority(string key, DetailPresentationContext context)
@@ -8616,8 +8616,6 @@ public sealed class DetailComposerService
         return normalized.Length <= 260 ? normalized : normalized[..260].TrimEnd() + "...";
     }
 
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private static IReadOnlyList<MetadataPill> MaybePill(string? value)
         => string.IsNullOrWhiteSpace(value) ? [] : [new MetadataPill { Label = value }];
@@ -8635,7 +8633,7 @@ public sealed class DetailComposerService
     {
         if (entityType == DetailEntityType.TvShow)
         {
-            return FirstNonBlank(
+            return StringHelpers.FirstNonBlankOr(string.Empty,
                 GetValue(rootValues, MetadataFieldConstants.Title),
                 GetValue(rootValues, MetadataFieldConstants.ShowName),
                 GetValue(values, MetadataFieldConstants.Title),
@@ -8647,7 +8645,7 @@ public sealed class DetailComposerService
 
         if (entityType is DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries)
         {
-            var structuralTitle = FirstNonBlank(
+            var structuralTitle = StringHelpers.FirstNonBlankOr(string.Empty,
                 GetValue(rootValues, MetadataFieldConstants.Series),
                 GetValue(values, MetadataFieldConstants.Series),
                 displayName,
@@ -8658,7 +8656,7 @@ public sealed class DetailComposerService
         }
 
         var containerTitle = SeriesDisplayFormatter.NormalizeContainerTitle(
-                FirstNonBlank(displayName, GetValue(values, MetadataFieldConstants.Title), "Collection"),
+                StringHelpers.FirstNonBlankOr(string.Empty, displayName, GetValue(values, MetadataFieldConstants.Title), "Collection"),
                 isStructuralSeries: false)
             ?? "Collection";
         return entityType == DetailEntityType.MusicAlbum
@@ -8764,7 +8762,7 @@ public sealed class DetailComposerService
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
         {
-            return (NormalizeQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+            return (NormalizeQid(trimmed[..delimiter]), StringHelpers.FirstNonBlankOr(string.Empty, trimmed[(delimiter + 2)..], null));
         }
 
         return (NormalizeQid(trimmed), null);

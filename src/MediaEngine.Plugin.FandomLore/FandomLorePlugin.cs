@@ -24,7 +24,7 @@ public sealed class FandomLorePlugin : ITuvimaPlugin
             },
             new PluginCapabilityDescriptor
             {
-                Kind = "plugin-health-check",
+                Kind = PluginCapabilityKinds.HealthCheckKind,
                 Name = "Fandom API health",
                 Description = "Reports whether Fandom lore settings are ready for structured extraction.",
             },

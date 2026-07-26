@@ -3,6 +3,7 @@ using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -11,7 +12,7 @@ public sealed class SeriesManifestRepository : ISeriesManifestRepository
 {
     private readonly IDatabaseConnection _db;
 
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = MediaEngineJson.Web;
 
     public SeriesManifestRepository(IDatabaseConnection db)
     {

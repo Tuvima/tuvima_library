@@ -1,4 +1,5 @@
 ﻿using MediaEngine.Contracts.Details;
+using MediaEngine.Domain.Services;
 
 using System.Text.RegularExpressions;
 
@@ -62,10 +63,10 @@ public sealed class DetailHeroPresentation
         var copySource = model.EntityType switch
         {
             DetailEntityType.TvShow => model.Tagline,
-            DetailEntityType.TvEpisode => FirstNonBlank(model.Description, model.Tagline),
-            DetailEntityType.Movie => FirstNonBlank(model.Tagline, model.Description),
-            _ when isWatchHero => FirstNonBlank(model.Tagline, model.Description),
-            _ => FirstNonBlank(model.Tagline, model.Description),
+            DetailEntityType.TvEpisode => StringHelpers.FirstNonBlank(model.Description, model.Tagline),
+            DetailEntityType.Movie => StringHelpers.FirstNonBlank(model.Tagline, model.Description),
+            _ when isWatchHero => StringHelpers.FirstNonBlank(model.Tagline, model.Description),
+            _ => StringHelpers.FirstNonBlank(model.Tagline, model.Description),
         };
         var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
         var usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero;
@@ -227,9 +228,6 @@ public sealed class DetailHeroPresentation
 
     private static bool IsWatchEntity(DetailEntityType entityType)
         => entityType is DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string BuildGradientStyle(ArtworkSet artwork)
     {

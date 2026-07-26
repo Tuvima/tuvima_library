@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -1830,7 +1829,7 @@ public sealed class RetailMatchWorker
             return;
         }
 
-        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var hash = Hashing.Sha256Hex(bytes);
         var cachedPath = await _imageCache.FindByHashAsync(hash, ct);
         if (!string.IsNullOrWhiteSpace(cachedPath) && File.Exists(cachedPath))
         {
@@ -1882,22 +1881,11 @@ public sealed class RetailMatchWorker
     }
 
     private static string? GetMusicCreatorHint(IReadOnlyDictionary<string, string> hints) =>
-        FirstNonBlank(
+        StringHelpers.FirstNonBlank(
             hints.GetValueOrDefault(MetadataFieldConstants.Artist),
             hints.GetValueOrDefault("album_artist"),
             hints.GetValueOrDefault(MetadataFieldConstants.Author),
             hints.GetValueOrDefault(MetadataFieldConstants.Composer));
-
-    private static string? FirstNonBlank(params string?[] values)
-    {
-        foreach (var value in values)
-        {
-            if (!string.IsNullOrWhiteSpace(value))
-                return value;
-        }
-
-        return null;
-    }
 
     private static string BuildShowSeasonKey(Dictionary<string, string> hints)
     {
@@ -1925,37 +1913,6 @@ public sealed class RetailMatchWorker
             ? "US"
             : core.Country.Trim().ToUpperInvariant();
         return (language, regionCountry.ToLowerInvariant(), regionCountry);
-    }
-
-    // ── Per-item fallback (Books, Audiobooks, Movies, Comics) ──────
-
-    private static string? GetPrimaryCreatorHint(IReadOnlyDictionary<string, string> fileHints)
-    {
-        return fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
-            ?? fileHints.GetValueOrDefault("writer")
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
-    }
-
-    private static string? GetPrimaryYearHint(IReadOnlyDictionary<string, string> fileHints)
-    {
-        return NormalizeYearValue(
-            fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
-            ?? fileHints.GetValueOrDefault("release_year")
-            ?? fileHints.GetValueOrDefault("date")
-            ?? fileHints.GetValueOrDefault("release_date"));
-    }
-
-    private static string? NormalizeYearValue(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var match = System.Text.RegularExpressions.Regex.Match(value, @"\b\d{4}\b");
-        return match.Success ? match.Value : null;
     }
 
     private static CandidateExtendedMetadata BuildCandidateExtendedMetadata(
@@ -2496,7 +2453,7 @@ public sealed class RetailMatchWorker
         {
             var musicCreatorHint = GetMusicCreatorHint(hints);
             artistHint = musicCreatorHint;
-            authorHint = FirstNonBlank(authorHint, musicCreatorHint);
+            authorHint = StringHelpers.FirstNonBlank(authorHint, musicCreatorHint);
         }
 
         var allCandidates = new List<RetailMatchCandidate>();

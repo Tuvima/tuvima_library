@@ -86,7 +86,7 @@
                                     </div>
                                 </td>
                                 <td>@ActivityDisplay.ProviderName(item.Provider)</td>
-                                <td>@FirstNonBlank(item.WikidataQid, "-")</td>
+                                <td>@StringHelpers.FirstNonBlankOr("", item.WikidataQid, "-")</td>
                                 <td>
                                     <span class="activity-media-group__signal">
                                         <AppMaterialIcon Icon="@Icons.Material.Outlined.People" Size="MudBlazor.Size.Small" />
@@ -138,9 +138,6 @@
     [Parameter] public EventCallback<ActivityBatchItemViewModel> OnToggleItem { get; set; }
     [Parameter] public EventCallback<string> SortRequested { get; set; }
     [Parameter] public EventCallback<int> OffsetChanged { get; set; }
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
     private static int IssueCount(ActivityMediaTypeGroupViewModel group) =>
         Math.Max(group.ReviewCount, 0) + Math.Max(group.AlertCount - group.ReviewCount, 0);

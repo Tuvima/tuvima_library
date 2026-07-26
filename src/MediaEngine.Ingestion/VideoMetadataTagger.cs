@@ -19,6 +19,12 @@ public sealed class VideoMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
     /// </summary>
     public const int Version = 1;
 
+    // Deliberately narrower than IMediaTypeExtensionCatalog: this tagger only writes
+    // formats TagLib supports. The catalog's Movies/TV extension set also includes
+    // .m4v, .wmv, .ts, .mpeg, .mpg, and .m2ts — MPEG transport/program-stream
+    // containers (.ts/.mpeg/.mpg/.m2ts) have no TagLibSharp-recognized tag format,
+    // so TagLib.File.Create would fail for them. Widen this set only after
+    // confirming TagLibSharp can open and save each additional extension.
     private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
     {
         ".mkv", ".mp4", ".avi", ".webm", ".mov",

@@ -1,11 +1,16 @@
 using System.Text.Json;
 using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.AI.Infrastructure;
 
 public sealed class AiBenchmarkHarness
 {
+    // Kept as a local cached static rather than MediaEngine.Domain.Services.MediaEngineJson:
+    // this combination (case-insensitive + trailing commas + comment-skip, used for lenient
+    // parsing of benchmark fixture/report JSON) isn't one of the three shapes MediaEngineJson
+    // offers. See tests/MediaEngine.Domain.Tests/JsonSerializerOptionsGuardrailAllowlist.txt.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -159,7 +164,7 @@ public sealed class AiBenchmarkHarness
             DateTimeOffset.UtcNow, failures.Count == 0, jsonRate, taskRate, hallucinationRate, worstWer, worstDrift, worstLatency, missing, failures);
     }
 
-    public string SerializeReport(AiBenchmarkReport report) => JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
+    public string SerializeReport(AiBenchmarkReport report) => JsonSerializer.Serialize(report, MediaEngineJson.Indented);
 
     public async Task<AiBenchmarkReport> RunAsync(
         string suiteKey,

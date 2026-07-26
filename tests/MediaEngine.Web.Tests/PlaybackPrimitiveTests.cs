@@ -258,7 +258,7 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains("ValueChanged.InvokeAsync", rangeSlider + speedControl, StringComparison.Ordinal);
         Assert.Contains("Quick presets", speedControl, StringComparison.Ordinal);
         Assert.Contains("Fine adjustment", speedControl, StringComparison.Ordinal);
-        Assert.Contains("Reset to @FormatSpeed(ResetValue)", speedControl, StringComparison.Ordinal);
+        Assert.Contains("Reset to @DisplayFormat.FormatSpeedSlider(ResetValue)", speedControl, StringComparison.Ordinal);
         Assert.Contains("Quick presets", sleepTimerControl, StringComparison.Ordinal);
         Assert.Contains("Current timer", sleepTimerControl, StringComparison.Ordinal);
         Assert.Contains("Step=\"@SliderStepMinutes\"", sleepTimerControl, StringComparison.Ordinal);

@@ -1,6 +1,5 @@
-using System.Security.Cryptography;
-using System.Text;
 using MediaEngine.Api.Models;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.Services.ReadServices;
 
@@ -9,8 +8,7 @@ public static class SystemViewGroupIdentity
     public static Guid CreateId(ContentGroupDto group, string? mediaType, string? groupField)
     {
         var identity = BuildIdentity(group, mediaType, groupField);
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes($"{Normalize(mediaType)}|{Normalize(groupField)}|{identity}"));
-        return new Guid(bytes);
+        return Hashing.DeterministicGuid($"{Normalize(mediaType)}|{Normalize(groupField)}|{identity}");
     }
 
     private static string BuildIdentity(ContentGroupDto group, string? mediaType, string? groupField)

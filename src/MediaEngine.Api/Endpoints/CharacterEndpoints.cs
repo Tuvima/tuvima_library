@@ -44,7 +44,7 @@ public static class CharacterEndpoints
             if (!string.IsNullOrWhiteSpace(portrait.LocalImagePath) && File.Exists(portrait.LocalImagePath))
             {
                 var bytes = await File.ReadAllBytesAsync(portrait.LocalImagePath, ct);
-                return Results.File(bytes, GetImageMimeType(portrait.LocalImagePath), Path.GetFileName(portrait.LocalImagePath));
+                return Results.File(bytes, GetImageMimeTypeOrJpeg(portrait.LocalImagePath), Path.GetFileName(portrait.LocalImagePath));
             }
 
             if (string.IsNullOrWhiteSpace(portrait.ImageUrl)
@@ -71,7 +71,7 @@ public static class CharacterEndpoints
                 ? assetPaths.GetCharacterPortraitPath(
                     portrait.PersonId,
                     portrait.FictionalEntityId,
-                    InferImageExtension(portrait.ImageUrl))
+                    MediaMimeTypes.InferImageExtension(portrait.ImageUrl) ?? ".jpg")
                 : portrait.LocalImagePath;
 
             AssetPathService.EnsureDirectory(localPath);
@@ -81,7 +81,7 @@ public static class CharacterEndpoints
             portrait.UpdatedAt = DateTimeOffset.UtcNow;
             await portraitRepo.UpsertAsync(portrait, ct);
 
-            var contentType = response.Content.Headers.ContentType?.MediaType ?? GetImageMimeType(localPath);
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? GetImageMimeTypeOrJpeg(localPath);
             return Results.File(bytesFromSource, contentType, Path.GetFileName(localPath));
         });
 
@@ -254,27 +254,15 @@ public static class CharacterEndpoints
         return app;
     }
 
-    private static string InferImageExtension(string imageUrl)
+    /// <summary>
+    /// <see cref="MediaMimeTypes.GetImageMimeType"/> defaults unrecognized extensions to
+    /// <c>application/octet-stream</c>; this call site previously defaulted to
+    /// <c>image/jpeg</c>, so that fallback is preserved here explicitly.
+    /// </summary>
+    private static string GetImageMimeTypeOrJpeg(string path)
     {
-        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
-        {
-            var uriExtension = Path.GetExtension(imageUri.AbsolutePath);
-            if (!string.IsNullOrWhiteSpace(uriExtension))
-            {
-                return uriExtension;
-            }
-        }
-
-        var directExtension = Path.GetExtension(imageUrl);
-        return string.IsNullOrWhiteSpace(directExtension) ? ".jpg" : directExtension;
+        var mime = MediaMimeTypes.GetImageMimeType(path);
+        return mime == "application/octet-stream" ? "image/jpeg" : mime;
     }
-
-    private static string GetImageMimeType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
-    {
-        ".png" => "image/png",
-        ".webp" => "image/webp",
-        ".gif" => "image/gif",
-        _ => "image/jpeg",
-    };
 }
 

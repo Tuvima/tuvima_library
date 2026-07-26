@@ -1,12 +1,11 @@
 using System.Collections.Concurrent;
-using System.Security.Cryptography;
-using System.Text;
 using System.Text.Json;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
@@ -23,11 +22,6 @@ public sealed class WikidataSeriesManifestHydrationService
     private readonly ILogger<WikidataSeriesManifestHydrationService> _logger;
 
     private readonly ConcurrentDictionary<string, Lazy<Task>> _inFlight = new(StringComparer.OrdinalIgnoreCase);
-
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = false,
-    };
 
     private const int ManifestMaxDepth = 2;
     private const int ManifestMaxItems = 500;
@@ -153,7 +147,7 @@ public sealed class WikidataSeriesManifestHydrationService
 
             var collection = await UpsertCollectionAsync(
                 manifest.SeriesQid,
-                FirstNonBlank(manifest.SeriesLabel, seriesLabel, context.SeriesHint, manifest.SeriesQid),
+                StringHelpers.FirstNonBlankOr("Unknown series", manifest.SeriesLabel, seriesLabel, context.SeriesHint, manifest.SeriesQid),
                 ct).ConfigureAwait(false);
 
             var scopedItems = FilterManifestItems(manifest.Items, context, manifest.SeriesQid).ToList();
@@ -182,21 +176,21 @@ public sealed class WikidataSeriesManifestHydrationService
 
             var warningsJson = JsonSerializer.Serialize(
                 warningDtos,
-                JsonOptions);
+                MediaEngineJson.Web);
 
             var itemQids = itemRecords
                 .Select(i => i.ItemQid)
                 .OrderBy(q => q, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-            var manifestJson = JsonSerializer.Serialize(manifest, JsonOptions);
+            var manifestJson = JsonSerializer.Serialize(manifest, MediaEngineJson.Web);
             var hydration = new SeriesManifestHydration
             {
                 SeriesQid = manifest.SeriesQid,
                 CollectionId = collection.Id,
                 SeriesLabel = manifest.SeriesLabel ?? seriesLabel,
                 ManifestVersion = typeof(SeriesManifestRequest).Assembly.GetName().Version?.ToString(),
-                ManifestHash = Hash(manifestJson),
-                KnownItemQidsHash = Hash(string.Join('\n', itemQids)),
+                ManifestHash = Hashing.Sha256Hex(manifestJson),
+                KnownItemQidsHash = Hashing.Sha256Hex(string.Join('\n', itemQids)),
                 WarningsJson = warningsJson,
                 ApiMetadataJson = BuildApiMetadataJson(language, manifest),
                 LastHydratedAt = now,
@@ -318,7 +312,7 @@ public sealed class WikidataSeriesManifestHydrationService
 
         var collection = await UpsertCollectionAsync(
             manifest.SeriesQid,
-            FirstNonBlank(manifest.SeriesLabel, parent.Label, manifest.SeriesQid),
+            StringHelpers.FirstNonBlankOr("Unknown series", manifest.SeriesLabel, parent.Label, manifest.SeriesQid),
             ct).ConfigureAwait(false);
 
         var scopedItems = FilterManifestItems(manifest.Items, context, manifest.SeriesQid).ToList();
@@ -340,16 +334,16 @@ public sealed class WikidataSeriesManifestHydrationService
             .Select(i => i.ItemQid)
             .OrderBy(q => q, StringComparer.OrdinalIgnoreCase)
             .ToArray();
-        var manifestJson = JsonSerializer.Serialize(manifest, JsonOptions);
+        var manifestJson = JsonSerializer.Serialize(manifest, MediaEngineJson.Web);
         var hydration = new SeriesManifestHydration
         {
             SeriesQid = manifest.SeriesQid,
             CollectionId = collection.Id,
             SeriesLabel = manifest.SeriesLabel ?? parent.Label,
             ManifestVersion = typeof(SeriesManifestRequest).Assembly.GetName().Version?.ToString(),
-            ManifestHash = Hash(manifestJson),
-            KnownItemQidsHash = Hash(string.Join('\n', itemQids)),
-            WarningsJson = JsonSerializer.Serialize(warningDtos, JsonOptions),
+            ManifestHash = Hashing.Sha256Hex(manifestJson),
+            KnownItemQidsHash = Hashing.Sha256Hex(string.Join('\n', itemQids)),
+            WarningsJson = JsonSerializer.Serialize(warningDtos, MediaEngineJson.Web),
             ApiMetadataJson = BuildApiMetadataJson(
                 language,
                 manifest,
@@ -527,7 +521,7 @@ public sealed class WikidataSeriesManifestHydrationService
             expectedTotalSource = expectedTotal?.Source,
             expectedTotalConfidence = expectedTotal?.Confidence,
             expectedCounts,
-        }, JsonOptions);
+        }, MediaEngineJson.Web);
     }
 
     private static ManifestCountFact? SelectExpectedTotalFact(IReadOnlyList<ManifestCountFact> expectedCounts)
@@ -858,7 +852,7 @@ public sealed class WikidataSeriesManifestHydrationService
             ItemDescription = item.Description,
             MediaType = contextMediaType.ToString(),
             MediaKind = item.MediaKind.ToString(),
-            InstanceOfQidsJson = JsonSerializer.Serialize(item.InstanceOfQids, JsonOptions),
+            InstanceOfQidsJson = JsonSerializer.Serialize(item.InstanceOfQids, MediaEngineJson.Web),
             RawOrdinal = item.RawSeriesOrdinal,
             ParsedOrdinal = item.ParsedSeriesOrdinal.HasValue ? (double)item.ParsedSeriesOrdinal.Value : null,
             OrdinalScopeQid = item.OrdinalScopeQid,
@@ -871,8 +865,8 @@ public sealed class WikidataSeriesManifestHydrationService
             IsCollection = item.IsCollection,
             IsExpandedFromCollection = item.IsExpandedFromCollection,
             MembershipScope = item.MembershipScope.ToString(),
-            SourcePropertiesJson = JsonSerializer.Serialize(item.SourceProperties, JsonOptions),
-            RelationshipsJson = JsonSerializer.Serialize(item.Relationships, JsonOptions),
+            SourcePropertiesJson = JsonSerializer.Serialize(item.SourceProperties, MediaEngineJson.Web),
+            RelationshipsJson = JsonSerializer.Serialize(item.Relationships, MediaEngineJson.Web),
             OrderSource = item.OrderSource.ToString(),
             OwnershipState = "Missing",
             LastHydratedAt = now,
@@ -886,12 +880,6 @@ public sealed class WikidataSeriesManifestHydrationService
 
     private static string NormalizeLanguage(string? value)
         => string.IsNullOrWhiteSpace(value) ? "en" : value.Split('-', '_')[0].ToLowerInvariant();
-
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "Unknown series";
-
-    private static string Hash(string value)
-        => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();
 
     internal sealed record OrderedSeriesManifestItem(SeriesManifestItem Item, int SortOrder);
 

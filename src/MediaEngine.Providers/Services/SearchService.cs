@@ -7,7 +7,6 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
-using System.Text.RegularExpressions;
 
 namespace MediaEngine.Providers.Services;
 
@@ -79,7 +78,7 @@ public sealed class SearchService : ISearchService
         if (string.IsNullOrWhiteSpace(request.Query))
             return new SearchUniverseResult([], request.Query, request.MediaType);
 
-        var mediaType = ParseMediaType(request.MediaType);
+        var mediaType = MediaTypeParser.Parse(request.MediaType);
 
         var provConfigs = _configLoader.LoadAllProviders();
 
@@ -203,7 +202,7 @@ public sealed class SearchService : ISearchService
         if (string.IsNullOrWhiteSpace(request.Query))
             return new SearchRetailResult([], request.Query, request.MediaType);
 
-        var mediaType      = ParseMediaType(request.MediaType);
+        var mediaType      = MediaTypeParser.Parse(request.MediaType);
         var retailProviders = GetRetailProviders(mediaType);
 
         if (retailProviders.Count == 0)
@@ -519,19 +518,6 @@ public sealed class SearchService : ISearchService
         return string.Empty;
     }
 
-    private static MediaType ParseMediaType(string? mediaTypeStr)
-    {
-        if (string.IsNullOrWhiteSpace(mediaTypeStr)) return MediaType.Unknown;
-        var normalized = mediaTypeStr.Trim() switch
-        {
-            "Epub"      => "Books",
-            "Audiobook" => "Audiobooks",
-            "Comics"    => "Comics",
-            _           => mediaTypeStr.Trim(),
-        };
-        return Enum.TryParse<MediaType>(normalized, ignoreCase: true, out var mt) ? mt : MediaType.Unknown;
-    }
-
     private static bool IsExactWikidataQid(string value) =>
         System.Text.RegularExpressions.Regex.IsMatch(
             value.Trim(),
@@ -643,7 +629,7 @@ public sealed class SearchService : ISearchService
         }
 
         return AreEquivalentSearchText(fileSeries, candidate.Series)
-            && AreEquivalentOrdinals(fileIssue, candidate.IssueNumber)
+            && RetailHints.AreEquivalentOrdinals(fileIssue, candidate.IssueNumber)
             ? 0.35
             : 0.0;
     }
@@ -653,27 +639,6 @@ public sealed class SearchService : ISearchService
             RetailTextSimilarity.NormalizeComparableText(left),
             RetailTextSimilarity.NormalizeComparableText(right),
             StringComparison.Ordinal);
-
-    private static bool AreEquivalentOrdinals(string left, string right)
-    {
-        if (int.TryParse(ExtractLeadingDigits(left), out var leftNumber)
-            && int.TryParse(ExtractLeadingDigits(right), out var rightNumber))
-        {
-            return leftNumber == rightNumber;
-        }
-
-        return string.Equals(left.TrimStart('0'), right.TrimStart('0'), StringComparison.OrdinalIgnoreCase)
-            || string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string ExtractLeadingDigits(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return string.Empty;
-
-        var match = Regex.Match(value.Trim(), @"^\D*0*(\d+)");
-        return match.Success ? match.Groups[1].Value : string.Empty;
-    }
 
     private (string Language, string Country) GetConfiguredLocale()
     {

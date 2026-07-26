@@ -157,10 +157,10 @@
     private static string CountLabel(int count) => count == 1 ? "1 item" : $"{count} items";
 
     private static string ItemNavigationUrl(MediaTileViewModel item) =>
-        FirstNonBlank(item.DetailsNavigationUrl, item.NavigationUrl, item.PrimaryNavigationUrl) ?? "/";
+        StringHelpers.FirstNonBlank(item.DetailsNavigationUrl, item.NavigationUrl, item.PrimaryNavigationUrl) ?? "/";
 
     private static string? ItemArtworkUrl(MediaTileViewModel item) =>
-        FirstNonBlank(item.TileImageUrl, item.CoverUrl, item.PreviewImageUrl);
+        StringHelpers.FirstNonBlank(item.TileImageUrl, item.CoverUrl, item.PreviewImageUrl);
 
     private static string ArtworkShapeClass(MediaTileShape shape) => shape switch
     {
@@ -168,9 +168,6 @@
         MediaTileShape.Square => "is-square",
         _ => "is-portrait",
     };
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private sealed record TimelineDecade(int StartYear, IReadOnlyList<int> Years);
 }

@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Api.Models;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
@@ -166,7 +167,7 @@ public sealed class UniversalSearchReadService(
         {
             "title" => Score(result.Title, query, 1.0),
             "creator" => Score(result.Author, query, 0.92),
-            "series" => Score(FirstNonBlank(result.Series, result.ShowName, result.CollectionDisplayName), query, 0.90),
+            "series" => Score(StringHelpers.FirstNonBlank(result.Series, result.ShowName, result.CollectionDisplayName), query, 0.90),
             _ => 0.72,
         };
 
@@ -311,9 +312,6 @@ public sealed class UniversalSearchReadService(
             : value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string? FirstDifferent(string title, params string?[] values) =>
         values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value) && !SameText(value, title));

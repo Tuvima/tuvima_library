@@ -12,7 +12,7 @@ else
             <div class="app-evidence-list__row" @key="@($"{item.Kind}-{item.Label}-{item.OccurredAt:O}")">
                 <div>
                     <strong>@FriendlyValue(item)</strong>
-                    <span>@FriendlySource(FirstNonBlank(item.Source, item.ProviderId, item.Kind))</span>
+                    <span>@FriendlySource(StringHelpers.FirstNonBlankOr("", item.Source, item.ProviderId, item.Kind))</span>
                 </div>
                 <span class="app-evidence-list__kind" title="@SplitPascal(item.Kind)">
                     <AppMaterialIcon Icon="@KindIcon(item.Kind)" Size="MudBlazor.Size.Small" />
@@ -32,12 +32,9 @@ else
     private string RootClass =>
         string.Join(" ", new[] { "app-evidence-list", Class }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
-
     private static string FriendlyValue(ActivityEvidenceViewModel item)
     {
-        var value = FirstNonBlank(item.Value, item.Label, item.Kind).Trim();
+        var value = StringHelpers.FirstNonBlankOr("", item.Value, item.Label, item.Kind).Trim();
         var normalized = value.Replace('_', ' ').Replace('-', ' ').ToLowerInvariant();
         if (normalized.Contains("apple", StringComparison.Ordinal) &&
             (normalized.Contains("api", StringComparison.Ordinal) || normalized.Contains("book", StringComparison.Ordinal) || normalized.Contains("music", StringComparison.Ordinal)))

@@ -146,7 +146,7 @@
             EventType = entry.ActionType,
             Label = ActionLabel(entry.ActionType),
             Detail = entry.Detail,
-            Source = FirstNonBlank(entry.CollectionName, entry.EntityType),
+            Source = StringHelpers.FirstNonBlankOr("", entry.CollectionName, entry.EntityType),
             Tone = ActionTone(entry.ActionType),
         };
 
@@ -156,9 +156,6 @@
         && haystack.Contains(needle, StringComparison.OrdinalIgnoreCase);
 
     private static string ShortId(Guid id) => id.ToString("N")[..6];
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
     private static string ActionTone(string actionType) => actionType switch
     {

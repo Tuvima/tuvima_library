@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Details;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.Services.Details;
 
@@ -15,7 +16,7 @@ public static class HeroArtworkResolver
         IReadOnlyList<string> relatedArtworkUrls,
         string? logoUrl = null)
     {
-        var background = FirstNonBlank(backdropUrl, bannerUrl);
+        var background = StringHelpers.FirstNonBlank(backdropUrl, bannerUrl);
         if (!string.IsNullOrWhiteSpace(background))
         {
             return new HeroArtworkViewModel
@@ -31,7 +32,7 @@ public static class HeroArtworkResolver
             };
         }
 
-        var cover = FirstNonBlank(
+        var cover = StringHelpers.FirstNonBlank(
             posterUrl,
             coverUrl,
             portraitUrl,
@@ -68,6 +69,4 @@ public static class HeroArtworkResolver
         _ => 2d / 3d,
     };
 
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

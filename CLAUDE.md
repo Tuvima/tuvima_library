@@ -594,6 +594,7 @@ Non-UI logic the Dashboard needs, organised by concern.
 | `MediaTiles/` | `MediaTileComposerService.cs`, `MediaTileArtworkResolver.cs` | Builds shared browse tile shelves and resolves sized artwork for Home, Read, Watch, Listen, and Collections |
 | `Editing/` | `MediaEditorLauncherService.cs`, `CollectionEditorLauncherService.cs`, `*Models.cs` | Editor open/close state and DTOs |
 | `Integration/` | `EngineApiClient.cs` + `IEngineApiClient.cs`, `UIOrchestratorService.cs`, `UniverseStateContainer.cs`, `UniverseMapper.cs`, `ProviderCatalogueService.cs`, `IntercomEvents.cs` | All HTTP + SignalR communication with the Engine |
+| `Formatting/` | `DisplayFormat.cs` | Single home for UI duration/count/speed formatting and word-splitting helpers (each divergent output format is a distinct method) |
 | `Narration/` | `PhraseTemplateService.cs` + interface | Narrated-copy phrase templates |
 | `Navigation/` | `MediaNavigation.cs`, `ListenNavigation.cs` | Route-building helpers |
 | `Playback/` | `PlaybackSessionController.cs`, `PlaybackModels.cs`, `MediaKindClassifier.cs`, `PlaybackQueue.cs`, `PlaybackStateMachine.cs`, `ReadingProgressService.cs`, `ReaderSettingsService.cs`, `MediaReactionService.cs`, `WatchlistService.cs` | Playback session state, typed commands, queue/session primitives |

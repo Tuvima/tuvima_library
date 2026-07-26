@@ -3,6 +3,7 @@ using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Features;
@@ -70,7 +71,7 @@ public sealed class MediaTypeAdvisor : IMediaTypeAdvisor
                 };
             }
 
-            var mediaType = ParseMediaType(result.Type);
+            var mediaType = MediaTypeParser.Parse(result.Type);
             var confidence = Math.Clamp(result.Confidence, 0.0, 1.0);
 
             _logger.LogInformation(
@@ -95,17 +96,6 @@ public sealed class MediaTypeAdvisor : IMediaTypeAdvisor
             };
         }
     }
-
-    private static MediaType ParseMediaType(string type) => type.Trim().ToLowerInvariant() switch
-    {
-        "book" or "books" => MediaType.Books,
-        "audiobook" or "audiobooks" => MediaType.Audiobooks,
-        "movie" or "movies" => MediaType.Movies,
-        "tv" => MediaType.TV,
-        "music" => MediaType.Music,
-        "comic" or "comics" => MediaType.Comics,
-        _ => MediaType.Unknown,
-    };
 
     /// <summary>Internal DTO matching the GBNF grammar output.</summary>
     private sealed class MediaTypeResponse

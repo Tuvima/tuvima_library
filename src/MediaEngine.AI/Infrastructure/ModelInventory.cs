@@ -1,7 +1,7 @@
-using System.Security.Cryptography;
 using MediaEngine.AI.Configuration;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;
@@ -210,7 +210,7 @@ public sealed class ModelInventory
             }
 
             using var stream = File.OpenRead(modelPath);
-            var actual = Convert.ToHexStringLower(SHA256.HashData(stream));
+            var actual = Hashing.Sha256Hex(stream);
             if (actual.Equals(checksums[0], StringComparison.OrdinalIgnoreCase))
             {
                 return true;

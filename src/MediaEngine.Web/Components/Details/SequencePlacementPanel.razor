@@ -603,7 +603,7 @@ else
     private int TotalItems => ShowGroupSelector
         ? Math.Max(GroupItems.Count, ActiveGroup?.TotalKnownItems ?? GroupItems.Count)
         : Math.Max(GroupItems.Count, Placement.TotalKnownItems ?? GroupItems.Count);
-    private bool HasCurrentPosition => FirstNonBlank(
+    private bool HasCurrentPosition => StringHelpers.FirstNonBlank(
         Placement.PositionText,
         Placement.CurrentItem.PositionText,
         Placement.PositionLabel,
@@ -611,7 +611,7 @@ else
         Placement.PositionNumber?.ToString(CultureInfo.InvariantCulture),
         Placement.CurrentItem.PositionNumber?.ToString(CultureInfo.InvariantCulture),
         SequenceNumberOrNull(Placement.CurrentItem)) is not null;
-    private string CurrentPositionText => FirstNonBlank(
+    private string CurrentPositionText => StringHelpers.FirstNonBlank(
         Placement.PositionText,
         Placement.CurrentItem.PositionText,
         Placement.PositionLabel,
@@ -621,12 +621,12 @@ else
         SequenceNumberOrNull(Placement.CurrentItem),
         !HasCurrentPosition && TotalItems > 0 ? OwnedCount.ToString(CultureInfo.InvariantCulture) : null,
         "?")!;
-    private string PositionSummary => FirstNonBlank(
+    private string PositionSummary => StringHelpers.FirstNonBlank(
         Placement.PositionSummary,
         !HasCurrentPosition && OwnedCount > 0 ? $"{OwnedSummary} in {LowerContainerLabel}" : null,
         HasCurrentPosition ? $"{ItemNoun} {CurrentPositionText} in {Placement.ContainerTitle}" : null,
         ContainerTitleDisplay)!;
-    private string ContainerTitleDisplay => FirstNonBlank(Placement.ContainerTitle, Placement.ContainerLabel, "Series")!;
+    private string ContainerTitleDisplay => StringHelpers.FirstNonBlank(Placement.ContainerTitle, Placement.ContainerLabel, "Series")!;
     private string ContainerIcon => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Tv,
@@ -636,7 +636,7 @@ else
         DetailEntityType.Audiobook => Icons.Material.Outlined.Headphones,
         _ => Icons.Material.Outlined.AccountTree,
     };
-    private string LowerContainerLabel => FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
+    private string LowerContainerLabel => StringHelpers.FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
     private string SequenceGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
     private int VisibleCount => ActiveItems.Count <= WindowSize ? ActiveItems.Count : WindowSize;
     private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, ActiveItems.Count - VisibleCount));
@@ -701,7 +701,7 @@ else
         DetailEntityType.MusicAlbum => Icons.Material.Outlined.Album,
         _ => Icons.Material.Outlined.MenuBook,
     };
-    private string ItemNoun => FirstNonBlank(Placement.ItemLabel, "Item")!;
+    private string ItemNoun => StringHelpers.FirstNonBlank(Placement.ItemLabel, "Item")!;
     private string? SeriesDateRange
     {
         get
@@ -940,7 +940,7 @@ else
     {
         var selected = DistinctAvailableContainers.FirstOrDefault(option => option.IsSelected)
             ?? DistinctAvailableContainers.FirstOrDefault(option => ContainerOptionMatches(option, Placement.SelectedContainerId));
-        return FirstNonBlank(
+        return StringHelpers.FirstNonBlank(
             selected?.ContainerId,
             Placement.SelectedContainerId,
             Placement.ContainerId,
@@ -1002,7 +1002,7 @@ else
     }
 
     private string SequenceItemTitle(SequenceItemViewModel item)
-        => FirstNonBlank(item.Title, $"{ItemNoun} {SequenceNumber(item)}")!;
+        => StringHelpers.FirstNonBlank(item.Title, $"{ItemNoun} {SequenceNumber(item)}")!;
 
     private string SequenceItemClass(SequenceItemViewModel item)
         => $"tl-series-item{(item.IsCurrent ? " is-current" : string.Empty)}{(item.IsOwned ? " is-owned" : " is-missing")}{(SequenceItemRoute(item) is not null ? " is-clickable" : string.Empty)}{(IsSeasonContainer ? " is-season-episode" : string.Empty)}";
@@ -1234,7 +1234,7 @@ else
 
     private static string? SequenceItemDate(SequenceItemViewModel item)
         => SequenceYear(item.PublicationDate)?.ToString()
-           ?? FirstNonBlank(item.PublicationDate);
+           ?? StringHelpers.FirstNonBlank(item.PublicationDate);
 
     private static string? SequenceItemAirDate(SequenceItemViewModel item)
     {
@@ -1258,20 +1258,17 @@ else
     }
 
     private static string SequenceNumber(SequenceItemViewModel item)
-        => FirstNonBlank(
+        => StringHelpers.FirstNonBlank(
             item.PositionText,
             item.PositionLabel,
             item.PositionNumber?.ToString(CultureInfo.InvariantCulture),
             "?")!;
 
     private static string? SequenceNumberOrNull(SequenceItemViewModel item)
-        => FirstNonBlank(
+        => StringHelpers.FirstNonBlank(
             item.PositionText,
             item.PositionLabel,
             item.PositionNumber?.ToString(CultureInfo.InvariantCulture));
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
 
     private static string TitleCaseDisplay(string? value, string fallback)
     {
@@ -1338,11 +1335,11 @@ else
         => new()
         {
             ContainerId = PreferRoutableContainerId(existing.ContainerId, candidate.ContainerId),
-            SourceContainerId = FirstNonBlank(existing.SourceContainerId, candidate.SourceContainerId),
+            SourceContainerId = StringHelpers.FirstNonBlank(existing.SourceContainerId, candidate.SourceContainerId),
             ContainerTitle = PreferContainerTitle(existing.ContainerTitle, candidate.ContainerTitle),
             IsSelected = existing.IsSelected || candidate.IsSelected,
             IsDefault = existing.IsDefault || candidate.IsDefault,
-            MediaScope = FirstNonBlank(existing.MediaScope, candidate.MediaScope),
+            MediaScope = StringHelpers.FirstNonBlank(existing.MediaScope, candidate.MediaScope),
             EquivalentContainerIds = BuildContainerAliases(existing, candidate),
         };
 

@@ -334,14 +334,14 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("entityType == DetailEntityType.TvShow ? heroSummary : longDescription", source);
         Assert.Contains("GetValue(values, \"wikipedia_extract\")", source);
         Assert.Contains("currentWorkId ?? tvPlaybackEpisodeId", source);
-        Assert.Contains("FormatTrackDuration(FirstNonBlank(", source);
+        Assert.Contains("FormatTrackDuration(StringHelpers.FirstNonBlankOr(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
         Assert.Contains("LoadWorkAndAssetCanonicalMapAsync(tvPlaybackEpisodeId.Value, ct)", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Runtime)", source);
         Assert.Contains("GetValue(tvPlaybackValues, \"duration\")", source);
         Assert.Contains("AddTechnicalClaimFallbacksAsync(conn, assetId, values, ct)", source);
         Assert.Contains("claim_key IN ('duration_sec', 'duration_seconds', 'genre')", source);
-        Assert.Contains("FormatSecondsDuration(ParseDurationSeconds(FirstNonBlank(", source);
+        Assert.Contains("FormatSecondsDuration(ParseDurationSeconds(StringHelpers.FirstNonBlankOr(", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Genre)", source);
         Assert.Contains("SplitMetadataValues(playbackGenres).Take(2)", source);
         Assert.Contains("FROM canonical_value_arrays WHERE entity_id = @entityId ORDER BY key, ordinal", source);
@@ -351,7 +351,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("entityType == DetailEntityType.TvEpisode ? \"background\" : \"cover\"", source);
         Assert.Contains("useEpisodeArtwork = entityType == DetailEntityType.TvEpisode ? 1 : 0", source);
         Assert.Contains("entityType == DetailEntityType.TvShow", source);
-        Assert.Contains("? FirstNonBlank(work.BackgroundUrl, work.ArtworkUrl)", source);
+        Assert.Contains("? StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl)", source);
         Assert.Contains(": work.ArtworkUrl", source);
     }
 
@@ -423,7 +423,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal)", source);
         Assert.Contains("BuildCollectionSequencePlacement", source);
         Assert.Contains("ApplyManifestPlacement(linkedWork, item)", source);
-        Assert.Contains("SequenceLabel = FirstNonBlank(item.RawOrdinal", source);
+        Assert.Contains("SequenceLabel = StringHelpers.FirstNonBlankOr(string.Empty, item.RawOrdinal", source);
         Assert.Contains("PositionSort = positionSort", source);
         Assert.DoesNotContain("?? index + 1", source);
         Assert.Contains("Guid.TryParse(selectedContainerId, out var showId)", source);
@@ -530,7 +530,7 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("var foregroundArtworkUrl = FirstNonBlank(", source);
+        Assert.Contains("var foregroundArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,", source);
         Assert.Contains("ownedCoverUrls.FirstOrDefault(),", source);
         Assert.Contains("detail.CoverUrl,", source);
         Assert.Contains("var managedCurrentArtworkUrl = await LoadManagedWorkCoverUrlAsync(", source);
@@ -1209,8 +1209,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("Facts = BuildPersonFacts(person, displayRoles)", source);
         Assert.Contains("Actors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Cast)", source);
         Assert.Contains("AlbumArtists = albumArtists", source);
-        Assert.Contains("ShowName = FirstNonBlank(detail.ShowName", source);
-        Assert.Contains("TrackNumber = FirstNonBlank(GetValue(canonicalValues, MetadataFieldConstants.TrackNumber)", source);
+        Assert.Contains("ShowName = StringHelpers.FirstNonBlankOr(string.Empty, detail.ShowName", source);
+        Assert.Contains("TrackNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.TrackNumber)", source);
         Assert.Contains("Facts = detail.Facts", client);
     }
 
@@ -1238,7 +1238,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildPersonMediaItem(creditGroup.ToList(), context)", source);
         Assert.Contains("Roles = roles", source);
         Assert.Contains("Lane = DetailLane(entityType)", source);
-        Assert.Contains("FirstNonBlank(characterSummary, roleSummary)", source);
+        Assert.Contains("StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary)", source);
         Assert.Contains("ShouldShowContributorGroup(entityType, group)", source);
         Assert.Contains("return group.GroupType is CreditGroupType.Directors or CreditGroupType.Cast;", source);
         Assert.Contains("textCredits.Concat(SplitCastGroups(credits))", source);
@@ -1284,8 +1284,8 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("IsLikelyImageFile", source);
         Assert.Contains("IsLikelyImageBytes", source);
-        Assert.Contains("InferImageExtension(person.HeadshotUrl, contentType)", source);
-        Assert.Contains("return Results.File(bytes, contentType ?? GetImageMimeType(localPath), Path.GetFileName(localPath))", source);
+        Assert.Contains("MediaMimeTypes.InferImageExtension(contentType)", source);
+        Assert.Contains("return Results.File(bytes, contentType ?? GetImageMimeTypeOrJpeg(localPath), Path.GetFileName(localPath))", source);
         Assert.DoesNotContain("Results.Redirect(remoteUri.ToString())", source);
     }
 

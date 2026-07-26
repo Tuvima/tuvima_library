@@ -628,11 +628,6 @@ public static class StreamEndpoints
     private static IResult CreateArtworkPlaceholderResult() =>
         Results.Text(ArtworkPlaceholderSvg, "image/svg+xml");
 
-    private static string GetImageMimeType(string path) =>
-        string.Equals(Path.GetExtension(path), ".png", StringComparison.OrdinalIgnoreCase)
-            ? "image/png"
-            : "image/jpeg";
-
     private readonly record struct ArtworkFile(byte[] Bytes, string ContentType);
 
     private sealed record TextTrackDto(

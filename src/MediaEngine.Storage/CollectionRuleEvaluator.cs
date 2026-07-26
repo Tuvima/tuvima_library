@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -155,7 +156,7 @@ public sealed class CollectionRuleEvaluator
         try
         {
             return JsonSerializer.Deserialize<List<CollectionRulePredicate>>(ruleJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true })
+                MediaEngineJson.CaseInsensitive)
                 ?? [];
         }
         catch (JsonException ex)

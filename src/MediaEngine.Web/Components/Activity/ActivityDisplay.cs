@@ -1,5 +1,6 @@
 using MudBlazor;
 using MediaEngine.Web.Components.Shared;
+using MediaEngine.Web.Services.Formatting;
 
 namespace MediaEngine.Web.Components.Activity;
 
@@ -47,7 +48,7 @@ public static class ActivityDisplay
             "book" or "books" or "ebook" or "ebooks" or "epub" or "pdf" => "Books",
             "comic" or "comics" or "cbz" or "cbr" => "Comics",
             { } value when value.Contains("audio") && value.Contains("book") => "Audiobooks",
-            { Length: > 0 } => SplitWords(mediaType!),
+            { Length: > 0 } => DisplayFormat.SplitWords(mediaType!),
             _ => "Unknown",
         };
     }
@@ -81,7 +82,7 @@ public static class ActivityDisplay
         if (normalized.Contains("queued", StringComparison.Ordinal))
             return "Queued";
 
-        return string.IsNullOrWhiteSpace(raw) ? "Unknown" : SplitWords(raw);
+        return string.IsNullOrWhiteSpace(raw) ? "Unknown" : DisplayFormat.SplitWords(raw);
     }
 
     public static string StatusTone(string? status, string? auditStatus = null)
@@ -97,23 +98,4 @@ public static class ActivityDisplay
         };
     }
 
-    public static string SplitWords(string value)
-    {
-        var normalized = value.Replace('_', ' ').Replace('-', ' ');
-        var builder = new System.Text.StringBuilder(normalized.Length + 8);
-        for (var i = 0; i < normalized.Length; i++)
-        {
-            if (i > 0 && char.IsUpper(normalized[i]) && !char.IsWhiteSpace(normalized[i - 1]))
-                builder.Append(' ');
-            else if (i > 0 && char.IsDigit(normalized[i]) && char.IsLetter(normalized[i - 1]))
-                builder.Append(' ');
-
-            builder.Append(normalized[i]);
-        }
-
-        return System.Globalization.CultureInfo.CurrentCulture.TextInfo.ToTitleCase(builder.ToString().Trim())
-            .Replace(" Api", " API", StringComparison.Ordinal)
-            .Replace(" Qid", " QID", StringComparison.Ordinal)
-            .Replace(" Tmdb", " TMDB", StringComparison.Ordinal);
-    }
 }

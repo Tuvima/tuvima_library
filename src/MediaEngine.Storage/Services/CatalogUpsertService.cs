@@ -4,6 +4,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Storage.Services;
@@ -14,10 +15,7 @@ namespace MediaEngine.Storage.Services;
 /// </summary>
 public sealed class CatalogUpsertService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
+    private static readonly JsonSerializerOptions JsonOptions = MediaEngineJson.CaseInsensitive;
 
     private readonly IWorkRepository _works;
     private readonly ILogger<CatalogUpsertService>? _logger;

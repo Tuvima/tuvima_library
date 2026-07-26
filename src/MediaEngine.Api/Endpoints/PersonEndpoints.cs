@@ -107,14 +107,14 @@ public static class PersonEndpoints
                 && File.Exists(person.LocalHeadshotPath)
                 && IsLikelyImageFile(person.LocalHeadshotPath))
             {
-                return Results.File(person.LocalHeadshotPath, GetImageMimeType(person.LocalHeadshotPath));
+                return Results.File(person.LocalHeadshotPath, GetImageMimeTypeOrJpeg(person.LocalHeadshotPath));
             }
 
             var canonicalPath = assetPaths.GetPersonHeadshotPath(id);
             if (File.Exists(canonicalPath) && IsLikelyImageFile(canonicalPath))
             {
                 await personRepo.UpdateLocalHeadshotPathAsync(id, canonicalPath, ct);
-                return Results.File(canonicalPath, GetImageMimeType(canonicalPath));
+                return Results.File(canonicalPath, GetImageMimeTypeOrJpeg(canonicalPath));
             }
 
             // No local file â€” download from Wikimedia and cache locally using AssetPathService.
@@ -130,11 +130,13 @@ public static class PersonEndpoints
                         var contentType = response.Content.Headers.ContentType?.MediaType;
                         if (bytes.Length > 0 && IsLikelyImageBytes(bytes, contentType))
                         {
-                            var localPath = assetPaths.GetPersonHeadshotPath(id, InferImageExtension(person.HeadshotUrl, contentType));
+                            var localPath = assetPaths.GetPersonHeadshotPath(
+                                id,
+                                MediaMimeTypes.InferImageExtension(contentType) ?? MediaMimeTypes.InferImageExtension(person.HeadshotUrl) ?? ".jpg");
                             AssetPathService.EnsureDirectory(localPath);
                             await File.WriteAllBytesAsync(localPath, bytes, ct);
                             await personRepo.UpdateLocalHeadshotPathAsync(id, localPath, ct);
-                            return Results.File(bytes, contentType ?? GetImageMimeType(localPath), Path.GetFileName(localPath));
+                            return Results.File(bytes, contentType ?? GetImageMimeTypeOrJpeg(localPath), Path.GetFileName(localPath));
                         }
 
                         logger.LogDebug(
@@ -344,43 +346,15 @@ public static class PersonEndpoints
         return app;
     }
 
-    private static string GetImageMimeType(string fileName)
-        => Path.GetExtension(fileName).ToLowerInvariant() switch
-        {
-            ".png" => "image/png",
-            ".gif" => "image/gif",
-            ".webp" => "image/webp",
-            ".svg" => "image/svg+xml",
-            _ => "image/jpeg",
-        };
-
-    private static string InferImageExtension(string imageUrl, string? contentType)
+    /// <summary>
+    /// <see cref="MediaMimeTypes.GetImageMimeType"/> defaults unrecognized extensions to
+    /// <c>application/octet-stream</c>; this call site previously defaulted to
+    /// <c>image/jpeg</c>, so that fallback is preserved here explicitly.
+    /// </summary>
+    private static string GetImageMimeTypeOrJpeg(string path)
     {
-        var extension = contentType?.ToLowerInvariant() switch
-        {
-            "image/png" => ".png",
-            "image/gif" => ".gif",
-            "image/webp" => ".webp",
-            "image/svg+xml" => ".svg",
-            "image/jpeg" or "image/jpg" => ".jpg",
-            _ => null,
-        };
-
-        if (!string.IsNullOrWhiteSpace(extension))
-        {
-            return extension;
-        }
-
-        if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var uri))
-        {
-            extension = Path.GetExtension(uri.AbsolutePath);
-            if (!string.IsNullOrWhiteSpace(extension))
-            {
-                return extension.ToLowerInvariant();
-            }
-        }
-
-        return ".jpg";
+        var mime = MediaMimeTypes.GetImageMimeType(path);
+        return mime == "application/octet-stream" ? "image/jpeg" : mime;
     }
 
     private static bool IsLikelyImageFile(string path)

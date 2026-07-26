@@ -16,22 +16,10 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
 {
     private readonly IDatabaseConnection _db;
 
-    private const string EntityIdProjection = """
-        CASE
-            WHEN typeof(entity_id) = 'blob' THEN lower(
-                substr(hex(entity_id), 1, 8) || '-' ||
-                substr(hex(entity_id), 9, 4) || '-' ||
-                substr(hex(entity_id), 13, 4) || '-' ||
-                substr(hex(entity_id), 17, 4) || '-' ||
-                substr(hex(entity_id), 21, 12))
-            ELSE CAST(entity_id AS TEXT)
-        END
-        """;
-
     // Reusable SELECT list with aliases matching EntityAsset property names.
     private const string SelectColumns = """
         id               AS Id,
-        """ + EntityIdProjection + """
+        """ + GuidSql.EntityIdProjection + """
                          AS EntityId,
         entity_type      AS EntityType,
         asset_type       AS AssetTypeValue,
@@ -195,7 +183,7 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
         {
             // Find the target asset's entity_id and asset_type.
             var target = conn.QuerySingleOrDefault<EntityAssetTargetRow>($"""
-                SELECT {EntityIdProjection} AS EntityId, asset_type AS AssetType
+                SELECT {GuidSql.EntityIdProjection} AS EntityId, asset_type AS AssetType
                 FROM   entity_assets
                 WHERE  id = @assetId;
                 """, new { assetId }, tx);

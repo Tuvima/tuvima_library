@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
@@ -2162,8 +2163,8 @@ public partial class SharedMediaEditorShell
         var summary = IdentityTargetSummary;
         var provider = GetRetailMatchDisplayName(summary);
         var providerId = summary?.ProviderItemId;
-        var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
-        var universe = FirstNonBlank(summary?.UniverseName, _detail?.UniverseSummary?.UniverseName, GetBaselineValue("series"));
+        var qid = StringHelpers.FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"))?.Trim();
+        var universe = StringHelpers.FirstNonBlank(summary?.UniverseName, _detail?.UniverseSummary?.UniverseName, GetBaselineValue("series"))?.Trim();
         var hasProvider = !string.IsNullOrWhiteSpace(provider) || !string.IsNullOrWhiteSpace(providerId);
         var hasQid = !string.IsNullOrWhiteSpace(qid);
 
@@ -2185,11 +2186,11 @@ public partial class SharedMediaEditorShell
     {
         var summary = IdentityTargetSummary;
         var provider = GetRetailMatchDisplayName(summary);
-        var providerId = FirstNonBlank(summary?.ProviderItemId, GetBaselineValue("tmdb_id"), GetBaselineValue("imdb_id"), GetBaselineValue("comicvine_id"), GetBaselineValue("musicbrainz_id"), GetBaselineValue("asin"), GetBaselineValue("isbn"));
-        provider = FirstNonBlank(provider, InferProviderNameFromIdentifierFields()) ?? provider;
-        var title = FirstNonBlank(CurrentTargetTitle, _detail?.Title, GetBaselineValue("title"), "Untitled item")!;
-        var creator = FirstNonBlank(_detail?.Author, _detail?.Director, GetBaselineValue("author"), GetBaselineValue("director"), GetBaselineValue("artist"), GetBaselineValue("narrator"));
-        var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
+        var providerId = StringHelpers.FirstNonBlank(summary?.ProviderItemId, GetBaselineValue("tmdb_id"), GetBaselineValue("imdb_id"), GetBaselineValue("comicvine_id"), GetBaselineValue("musicbrainz_id"), GetBaselineValue("asin"), GetBaselineValue("isbn"))?.Trim();
+        provider = StringHelpers.FirstNonBlank(provider, InferProviderNameFromIdentifierFields())?.Trim() ?? provider;
+        var title = StringHelpers.FirstNonBlank(CurrentTargetTitle, _detail?.Title, GetBaselineValue("title"), "Untitled item")?.Trim()!;
+        var creator = StringHelpers.FirstNonBlank(_detail?.Author, _detail?.Director, GetBaselineValue("author"), GetBaselineValue("director"), GetBaselineValue("artist"), GetBaselineValue("narrator"))?.Trim();
+        var year = StringHelpers.FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"))?.Trim();
         var chips = new List<string>();
         var links = BuildRetailIdentityLinks(provider, providerId);
 
@@ -2216,10 +2217,10 @@ public partial class SharedMediaEditorShell
     protected MatchCardDisplay BuildCurrentWikidataMatchCard()
     {
         var summary = IdentityTargetSummary;
-        var qid = FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"));
-        var title = FirstNonBlank(CurrentTargetTitle, GetBaselineValue("title"), _detail?.Title, "No Wikidata identity")!;
-        var type = FirstNonBlank(GetBaselineValue("instance_of"), summary?.MatchLevel, _detail?.MediaType);
-        var year = FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"));
+        var qid = StringHelpers.FirstNonBlank(summary?.WikidataQid, _detail?.WikidataQid, GetBaselineValue("wikidata_qid"))?.Trim();
+        var title = StringHelpers.FirstNonBlank(CurrentTargetTitle, GetBaselineValue("title"), _detail?.Title, "No Wikidata identity")?.Trim()!;
+        var type = StringHelpers.FirstNonBlank(GetBaselineValue("instance_of"), summary?.MatchLevel, _detail?.MediaType)?.Trim();
+        var year = StringHelpers.FirstNonBlank(_detail?.Year, GetBaselineValue("year"), GetBaselineValue("release_date"))?.Trim();
         var chips = new List<string>();
         var links = BuildWikidataIdentityLinks(qid);
 
@@ -2731,9 +2732,6 @@ public partial class SharedMediaEditorShell
 
     private static string GetValue(IReadOnlyDictionary<string, string> values, string key) =>
         values.TryGetValue(key, out var value) ? value : string.Empty;
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 
     private static void AddCandidateChips(List<string> chips, IReadOnlyDictionary<string, string> values)
     {

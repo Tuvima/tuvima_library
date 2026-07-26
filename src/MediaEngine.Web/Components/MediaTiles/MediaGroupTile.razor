@@ -125,7 +125,7 @@
         or MediaTilePresentation.AudiobookSeries;
 
     private string GroupNavigationUrl =>
-        FirstNonBlank(Item.DetailsNavigationUrl, Item.NavigationUrl, Item.PrimaryNavigationUrl) ?? "/";
+        StringHelpers.FirstNonBlank(Item.DetailsNavigationUrl, Item.NavigationUrl, Item.PrimaryNavigationUrl) ?? "/";
 
     private string AccessibleLabel
     {
@@ -163,7 +163,7 @@
     {
         get
         {
-            var atmosphere = FirstNonBlank(
+            var atmosphere = StringHelpers.FirstNonBlank(
                 RepresentativeItems.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.ImageUrl))?.ImageUrl,
                 Item.HeroBackgroundImageUrl,
                 Item.BackgroundUrl,
@@ -301,6 +301,4 @@
     private static string EscapeCssString(string value) =>
         value.Replace("\\", "\\\\", StringComparison.Ordinal).Replace("\"", "\\\"", StringComparison.Ordinal);
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

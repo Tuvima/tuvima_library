@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MediaEngine.Domain;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 
@@ -39,9 +38,9 @@ public sealed class RetailCandidateScorer
 
         _ = candidateTitle;
 
-        var fileCreator = fileCreatorOverride ?? GetPrimaryCreatorHint(fileHints);
-        var fileYear = GetPrimaryYearHint(fileHints);
-        candidateYear = NormalizeYearValue(candidateYear);
+        var fileCreator = fileCreatorOverride ?? RetailHints.GetCreatorHint(fileHints);
+        var fileYear = RetailHints.GetYearHint(fileHints);
+        candidateYear = RetailHints.NormalizeYear(candidateYear);
 
         var creatorPresentOnBothSides = !string.IsNullOrWhiteSpace(fileCreator)
             && !string.IsNullOrWhiteSpace(candidateCreator);
@@ -243,32 +242,4 @@ public sealed class RetailCandidateScorer
             : Math.Round(weightedScore / totalWeight, 4);
     }
 
-    private static string? GetPrimaryCreatorHint(IReadOnlyDictionary<string, string> fileHints)
-    {
-        return fileHints.GetValueOrDefault(MetadataFieldConstants.Author)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Artist)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Composer)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Director)
-            ?? fileHints.GetValueOrDefault("writer")
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
-            ?? fileHints.GetValueOrDefault(MetadataFieldConstants.Series);
-    }
-
-    private static string? GetPrimaryYearHint(IReadOnlyDictionary<string, string> fileHints)
-    {
-        return NormalizeYearValue(
-            fileHints.GetValueOrDefault(MetadataFieldConstants.Year)
-            ?? fileHints.GetValueOrDefault("release_year")
-            ?? fileHints.GetValueOrDefault("date")
-            ?? fileHints.GetValueOrDefault("release_date"));
-    }
-
-    private static string? NormalizeYearValue(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var match = System.Text.RegularExpressions.Regex.Match(value, @"\b\d{4}\b");
-        return match.Success ? match.Value : null;
-    }
 }

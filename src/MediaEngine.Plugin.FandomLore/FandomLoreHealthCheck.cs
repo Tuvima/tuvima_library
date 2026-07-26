@@ -4,7 +4,7 @@ namespace MediaEngine.Plugin.FandomLore;
 
 public sealed class FandomLoreHealthCheck : IPluginHealthCheck
 {
-    public string Kind => "plugin-health-check";
+    public string Kind => PluginCapabilityKinds.HealthCheckKind;
 
     public Task<PluginHealthResult> GetHealthAsync(
         IPluginExecutionContext context,

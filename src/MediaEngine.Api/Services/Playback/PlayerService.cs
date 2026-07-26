@@ -3,6 +3,7 @@ using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Playback;
@@ -395,7 +396,7 @@ public sealed class PlayerService
             {
                 QueueItemId = Guid.NewGuid(),
                 AddedAt = DateTimeOffset.UtcNow,
-                Subtitle = FirstNonBlank(resolved.Subtitle, resolved.Artist, resolved.Author, resolved.Narrator, request.SourceLabel),
+                Subtitle = StringHelpers.FirstNonBlank(resolved.Subtitle, resolved.Artist, resolved.Author, resolved.Narrator, request.SourceLabel),
             });
         }
 
@@ -414,19 +415,19 @@ public sealed class PlayerService
             AddedAt = DateTimeOffset.UtcNow,
             AssetId = assetId,
             CollectionId = requested.CollectionId ?? resolved.CollectionId,
-            MediaType = FirstNonBlank(requested.MediaType, resolved.MediaType) ?? resolved.MediaType,
-            Title = FirstNonBlank(requested.Title, resolved.Title) ?? resolved.Title,
-            Subtitle = FirstNonBlank(requested.Subtitle, resolved.Subtitle, requested.Artist, resolved.Artist, requested.Author, resolved.Author, requested.Narrator, resolved.Narrator, sourceLabel),
-            Album = FirstNonBlank(requested.Album, resolved.Album),
-            Author = FirstNonBlank(requested.Author, resolved.Author),
-            Artist = FirstNonBlank(requested.Artist, resolved.Artist),
-            Narrator = FirstNonBlank(requested.Narrator, resolved.Narrator),
-            Series = FirstNonBlank(requested.Series, resolved.Series),
-            CoverUrl = FirstNonBlank(requested.CoverUrl, resolved.CoverUrl, assetId.HasValue ? $"/stream/{assetId.Value}/cover" : null),
+            MediaType = StringHelpers.FirstNonBlank(requested.MediaType, resolved.MediaType) ?? resolved.MediaType,
+            Title = StringHelpers.FirstNonBlank(requested.Title, resolved.Title) ?? resolved.Title,
+            Subtitle = StringHelpers.FirstNonBlank(requested.Subtitle, resolved.Subtitle, requested.Artist, resolved.Artist, requested.Author, resolved.Author, requested.Narrator, resolved.Narrator, sourceLabel),
+            Album = StringHelpers.FirstNonBlank(requested.Album, resolved.Album),
+            Author = StringHelpers.FirstNonBlank(requested.Author, resolved.Author),
+            Artist = StringHelpers.FirstNonBlank(requested.Artist, resolved.Artist),
+            Narrator = StringHelpers.FirstNonBlank(requested.Narrator, resolved.Narrator),
+            Series = StringHelpers.FirstNonBlank(requested.Series, resolved.Series),
+            CoverUrl = StringHelpers.FirstNonBlank(requested.CoverUrl, resolved.CoverUrl, assetId.HasValue ? $"/stream/{assetId.Value}/cover" : null),
             DurationSeconds = requested.DurationSeconds ?? resolved.DurationSeconds,
             PositionSeconds = requested.PositionSeconds.HasValue ? Math.Max(0, requested.PositionSeconds.Value) : resolved.PositionSeconds,
-            StreamUrl = FirstNonBlank(requested.StreamUrl, resolved.StreamUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
-            DownloadUrl = FirstNonBlank(requested.DownloadUrl, resolved.DownloadUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
+            StreamUrl = StringHelpers.FirstNonBlank(requested.StreamUrl, resolved.StreamUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
+            DownloadUrl = StringHelpers.FirstNonBlank(requested.DownloadUrl, resolved.DownloadUrl, assetId.HasValue ? $"/stream/{assetId.Value}" : null),
         };
     }
 
@@ -930,9 +931,6 @@ public sealed class PlayerService
 
         return null;
     }
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private sealed record PlayableWorkRow
     {

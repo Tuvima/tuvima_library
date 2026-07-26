@@ -14,6 +14,7 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Models;
 
 namespace MediaEngine.Providers.Adapters;
@@ -1069,7 +1070,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 {
                     ExternalId = id,
                     Ordinal = ordinal,
-                    Title = FirstNonBlank(
+                    Title = StringHelpers.FirstNonBlank(
                         ExtractFirstString(issue!, ["name"]),
                         !string.IsNullOrWhiteSpace(seriesLabel) ? $"{seriesLabel} #{ordinal}" : null,
                         $"Issue #{ordinal}")!,
@@ -1357,7 +1358,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
             return false;
         }
 
-        var preferredLanguage = FirstNonBlank(request.FileLanguage, request.Language);
+        var preferredLanguage = StringHelpers.FirstNonBlank(request.FileLanguage, request.Language);
         var expectsEnglish = string.IsNullOrWhiteSpace(preferredLanguage)
             || preferredLanguage.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         return !expectsEnglish || !LooksNonEnglishDescription(claim.Value);
@@ -1634,7 +1635,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 .Where(part => part is not null)
                 .Select(part => new TmdbCollectionPart(
                     Id: part?["id"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture) ?? part?["id"]?.GetValue<string>() ?? string.Empty,
-                    Title: FirstNonBlank(part?["title"]?.GetValue<string>(), part?["name"]?.GetValue<string>()) ?? string.Empty,
+                    Title: StringHelpers.FirstNonBlank(part?["title"]?.GetValue<string>(), part?["name"]?.GetValue<string>()) ?? string.Empty,
                     ReleaseDate: ParseTmdbReleaseDate(part?["release_date"]?.GetValue<string>())))
                 .Where(part => !string.IsNullOrWhiteSpace(part.Id))
                 .OrderBy(part => part.ReleaseDate ?? DateOnly.MaxValue)
@@ -2303,7 +2304,7 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
                 {
                     VolumeStartYear = candidate.VolumeStartYear ?? facts?.StartYear,
                     VolumeIssueCount = facts?.IssueCount,
-                    Publisher = FirstNonBlank(candidate.Publisher, facts?.Publisher)
+                    Publisher = StringHelpers.FirstNonBlank(candidate.Publisher, facts?.Publisher)
                 });
             }
 
@@ -2726,9 +2727,6 @@ public sealed class ConfigDrivenAdapter : IExternalMetadataProvider
         }
         return null;
     }
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     /// <summary>
     /// Word-overlap similarity (0.0–1.0). Compares normalized word sets,

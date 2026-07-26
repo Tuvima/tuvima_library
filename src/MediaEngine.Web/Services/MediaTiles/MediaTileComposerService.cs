@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Display;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration;
@@ -71,10 +72,10 @@ public sealed class MediaTileComposerService
             Title = hero.Title,
             Subtitle = hero.Subtitle,
             Description = hero.Description,
-            BackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundUrl, hero.Artwork.BackgroundLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
-            HeroBackgroundImageUrl = FirstNonBlank(hero.Artwork.BackgroundUrl, hero.Artwork.BackgroundLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
-            BannerImageUrl = FirstNonBlank(hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
-            PreviewImageUrl = FirstNonBlank(hero.Artwork.CoverUrl, hero.Artwork.CoverLargeUrl, hero.Artwork.CoverMediumUrl, hero.Artwork.SquareUrl, hero.Artwork.SquareLargeUrl, hero.Artwork.SquareMediumUrl),
+            BackgroundImageUrl = StringHelpers.FirstNonBlank(hero.Artwork.BackgroundUrl, hero.Artwork.BackgroundLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            HeroBackgroundImageUrl = StringHelpers.FirstNonBlank(hero.Artwork.BackgroundUrl, hero.Artwork.BackgroundLargeUrl, hero.Artwork.BackgroundMediumUrl, hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            BannerImageUrl = StringHelpers.FirstNonBlank(hero.Artwork.BannerUrl, hero.Artwork.BannerLargeUrl, hero.Artwork.BannerMediumUrl),
+            PreviewImageUrl = StringHelpers.FirstNonBlank(hero.Artwork.CoverUrl, hero.Artwork.CoverLargeUrl, hero.Artwork.CoverMediumUrl, hero.Artwork.SquareUrl, hero.Artwork.SquareLargeUrl, hero.Artwork.SquareMediumUrl),
             SurfaceKind = heroSurfaceKind,
             PreviewSurfaceKind = heroPreviewSurfaceKind,
             LogoUrl = hero.Artwork.LogoUrl,
@@ -224,10 +225,10 @@ public sealed class MediaTileComposerService
             bucket,
             presentation,
             [
-                new MediaTileArtworkVariant(ArtworkRole.Background, FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BackgroundUrl), card.Artwork.BackgroundMediumUrl, card.Artwork.BackgroundLargeUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
-                new MediaTileArtworkVariant(ArtworkRole.Banner, FirstNonBlank(card.Artwork.BannerSmallUrl, card.Artwork.BannerUrl), card.Artwork.BannerMediumUrl, card.Artwork.BannerLargeUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
-                new MediaTileArtworkVariant(ArtworkRole.Square, FirstNonBlank(card.Artwork.SquareSmallUrl, card.Artwork.SquareUrl), card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
-                new MediaTileArtworkVariant(ArtworkRole.Cover, FirstNonBlank(card.Artwork.CoverSmallUrl, card.Artwork.CoverUrl), card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Background, StringHelpers.FirstNonBlank(card.Artwork.BackgroundSmallUrl, card.Artwork.BackgroundUrl), card.Artwork.BackgroundMediumUrl, card.Artwork.BackgroundLargeUrl, card.Artwork.BackgroundWidthPx, card.Artwork.BackgroundHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Banner, StringHelpers.FirstNonBlank(card.Artwork.BannerSmallUrl, card.Artwork.BannerUrl), card.Artwork.BannerMediumUrl, card.Artwork.BannerLargeUrl, card.Artwork.BannerWidthPx, card.Artwork.BannerHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Square, StringHelpers.FirstNonBlank(card.Artwork.SquareSmallUrl, card.Artwork.SquareUrl), card.Artwork.SquareMediumUrl, card.Artwork.SquareLargeUrl, card.Artwork.SquareWidthPx, card.Artwork.SquareHeightPx),
+                new MediaTileArtworkVariant(ArtworkRole.Cover, StringHelpers.FirstNonBlank(card.Artwork.CoverSmallUrl, card.Artwork.CoverUrl), card.Artwork.CoverMediumUrl, card.Artwork.CoverLargeUrl, card.Artwork.CoverWidthPx, card.Artwork.CoverHeightPx),
             ],
             preferLandscapeTile: isTvEpisode);
         var artworkStackItems = BuildArtworkStackItems(card);
@@ -491,9 +492,6 @@ public sealed class MediaTileComposerService
         && width is > 0
         && height is > 0
         && width.Value / (double)height.Value >= 1.45;
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static IReadOnlyList<ArtworkStackItem> BuildArtworkStackItems(DisplayCardDto card) =>
         card.PreviewItems

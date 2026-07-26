@@ -64,6 +64,10 @@ public sealed class EpubMetadataTagger : BackedUpMetadataTagger, IMetadataTagger
     // IMetadataTagger
     // -------------------------------------------------------------------------
 
+    // Deliberately narrower than IMediaTypeExtensionCatalog: this tagger patches the
+    // EPUB-specific OPF/ZIP structure directly (see PatchOpfAsync/PatchCoverAsync
+    // below). The catalog's Books extension set also includes .pdf, which is a
+    // completely different binary/metadata format this tagger cannot write.
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {

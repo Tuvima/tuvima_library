@@ -22,7 +22,7 @@
                     <div class="library-update-overall-progress__top">
                         <div>
                             <strong>Overall progress</strong>
-                            <span>@FormatCount(OverallProgress.ProcessedFiles) of @FormatCount(OverallProgress.TotalFiles) files</span>
+                            <span>@DisplayFormat.FormatCount(OverallProgress.ProcessedFiles) of @DisplayFormat.FormatCount(OverallProgress.TotalFiles) files</span>
                         </div>
                         <em>@FormatPercent(OverallProgress.Percent)</em>
                         <AppActionBar Align="AppHorizontalAlignment.End" Class="library-update__actions">
@@ -192,7 +192,7 @@
                                             <MudTooltip Text="@artifactTooltip" Placement="Placement.Top">
                                                 <MudIcon Icon="@chip.Icon" />
                                             </MudTooltip>
-                                            <strong>@FormatCount(chip.Count)</strong>
+                                            <strong>@DisplayFormat.FormatCount(chip.Count)</strong>
                                             <span>@chip.Label</span>
                                         </span>
                                     }

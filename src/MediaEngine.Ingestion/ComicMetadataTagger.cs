@@ -43,6 +43,10 @@ public sealed class ComicMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
         _logger = logger;
     }
 
+    // Deliberately narrower than IMediaTypeExtensionCatalog: this tagger writes
+    // ComicInfo.xml via System.IO.Compression.ZipFile, so it only works on true ZIP
+    // containers. The catalog's Comics extension set also includes .cbr (RAR) and
+    // .cb7 (7-Zip), neither of which ZipFile can open or update.
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {

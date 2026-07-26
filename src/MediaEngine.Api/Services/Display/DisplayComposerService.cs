@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.Services.Display;
 
@@ -742,7 +743,7 @@ public sealed class DisplayComposerService
 
     private IReadOnlyList<DisplayCardDto> BuildMusicArtistCards(IReadOnlyList<DisplayWorkRow> works) =>
         works
-            .Select(work => new { Artist = FirstNonBlank(work.Artist, work.Author), Work = work })
+            .Select(work => new { Artist = StringHelpers.FirstNonBlank(work.Artist, work.Author), Work = work })
             .Where(item => !string.IsNullOrWhiteSpace(item.Artist))
             .GroupBy(item => item.Artist!, StringComparer.OrdinalIgnoreCase)
             .Select(group => ToMusicArtistCard(group.Key, group.Select(item => item.Work).ToList()))
@@ -792,7 +793,7 @@ public sealed class DisplayComposerService
             .ThenByDescending(work => work.CreatedAt)
             .First();
         var title = representative.Album ?? representative.Title;
-        var artist = FirstNonBlank(representative.Artist, representative.Author);
+        var artist = StringHelpers.FirstNonBlank(representative.Artist, representative.Author);
         // Album grouping is a system view rooted at the canonical album work.
         // A track's collection can be a broader/shared container and must not
         // become the album identity.
@@ -835,7 +836,7 @@ public sealed class DisplayComposerService
                     work.WorkId,
                     work.AssetId,
                     work.Title,
-                    FirstNonBlank(work.SquareSmallUrl, work.CoverSmallUrl, work.SquareUrl, work.CoverUrl) ?? string.Empty,
+                    StringHelpers.FirstNonBlank(work.SquareSmallUrl, work.CoverSmallUrl, work.SquareUrl, work.CoverUrl) ?? string.Empty,
                     "square",
                     work.TrackNumber,
                     "Music",
@@ -903,20 +904,20 @@ public sealed class DisplayComposerService
         sort?.Trim().ToLowerInvariant() switch
         {
             "title" => works
-                .OrderBy(work => FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(work => StringHelpers.FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase)
                 .ThenByDescending(work => work.CreatedAt),
             "oldest" => works
                 .OrderBy(work => work.CreatedAt)
-                .ThenBy(work => FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
+                .ThenBy(work => StringHelpers.FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
             "creator" => works
-                .OrderBy(work => FirstNonBlank(work.Artist, work.Author, work.Director, work.Narrator), StringComparer.OrdinalIgnoreCase)
-                .ThenBy(work => FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
+                .OrderBy(work => StringHelpers.FirstNonBlank(work.Artist, work.Author, work.Director, work.Narrator), StringComparer.OrdinalIgnoreCase)
+                .ThenBy(work => StringHelpers.FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
             "year" => works
                 .OrderByDescending(work => DisplayMediaRules.ParseDouble(work.Year) ?? 0)
-                .ThenBy(work => FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
+                .ThenBy(work => StringHelpers.FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
             _ => works
                 .OrderByDescending(work => work.CreatedAt)
-                .ThenBy(work => FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
+                .ThenBy(work => StringHelpers.FirstNonBlank(work.SortTitle, work.Title), StringComparer.OrdinalIgnoreCase),
         };
 
     private static DisplayBrowseFacetsDto BuildBrowseFacets(IEnumerable<DisplayWorkRow> works)
@@ -1029,10 +1030,10 @@ public sealed class DisplayComposerService
     }
 
     private static string AlbumGroupKey(DisplayWorkRow work) =>
-        AlbumGroupKey(work.WorkId, work.RootWorkId, work.Album, FirstNonBlank(work.Artist, work.Author));
+        AlbumGroupKey(work.WorkId, work.RootWorkId, work.Album, StringHelpers.FirstNonBlank(work.Artist, work.Author));
 
     private static string AlbumGroupKey(DisplayJourneyRow item) =>
-        AlbumGroupKey(item.WorkId, item.RootWorkId, item.Album, FirstNonBlank(item.Artist, item.Author));
+        AlbumGroupKey(item.WorkId, item.RootWorkId, item.Album, StringHelpers.FirstNonBlank(item.Artist, item.Author));
 
     private static string AlbumGroupKey(Guid workId, Guid rootWorkId, string? album, string? artist) =>
         rootWorkId != Guid.Empty && rootWorkId != workId
@@ -1054,7 +1055,7 @@ public sealed class DisplayComposerService
             : null;
 
         return new DisplayArtworkDto(
-            FirstNonBlank(row.CoverUrl, managedCoverFallback),
+            StringHelpers.FirstNonBlank(row.CoverUrl, managedCoverFallback),
             row.CoverSmallUrl,
             row.CoverMediumUrl,
             row.CoverLargeUrl,
@@ -1167,8 +1168,6 @@ public sealed class DisplayComposerService
         hiddenWorkIds.Contains(workId)
         || (rootWorkId != Guid.Empty && hiddenWorkIds.Contains(rootWorkId));
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static int? ParseInt(string? value) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;

@@ -24,7 +24,10 @@ public sealed class IntroSkipPlugin : ITuvimaPlugin
     public IReadOnlyList<IPluginCapability> CreateCapabilities() =>
     [
         new IntroSkipSegmentDetector(Manifest),
-        new FfmpegToolHealthCheck(Manifest),
+        new ToolRequirementHealthCheck(
+            Manifest,
+            healthyMessage: "Required media tools are available.",
+            degradedMessage: "Some media tools are unavailable."),
     ];
 }
 
@@ -48,7 +51,10 @@ public sealed class CreditsDetectionPlugin : ITuvimaPlugin
     public IReadOnlyList<IPluginCapability> CreateCapabilities() =>
     [
         new CreditsSegmentDetector(Manifest),
-        new FfmpegToolHealthCheck(Manifest),
+        new ToolRequirementHealthCheck(
+            Manifest,
+            healthyMessage: "Required media tools are available.",
+            degradedMessage: "Some media tools are unavailable."),
     ];
 }
 

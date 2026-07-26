@@ -154,6 +154,7 @@ Treat stale references to old all-in-one workspace components, retired CSS prefi
   - The shared language of the system.
   - Holds core aggregates, entities, enums, constants, and interfaces.
   - This project defines things like assets, editions, works, collections, universes, profiles, and the contracts other layers implement.
+  - `Services/` also hosts the cross-cutting shared primitives every layer uses instead of re-implementing: `StringHelpers` (FirstNonBlank/FirstNonBlankOr), `MediaTypeParser` (canonical media-type alias table), `Hashing` (Sha256Hex, DeterministicGuid), `MediaMimeTypes`, `MediaEngineJson` (cached JsonSerializerOptions), and `EpisodePatterns` (shared SxxExx regex). Guardrail tests ban private re-declarations.
 
 - `src/MediaEngine.Storage`
   - SQLite repositories, embedded schema bootstrap, startup migrations, and config loading.

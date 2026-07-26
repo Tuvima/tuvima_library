@@ -240,8 +240,8 @@
         var heroSmall = MediaTileArtworkUrl.Sized(heroArtwork, "s");
         var heroMedium = MediaTileArtworkUrl.Sized(heroArtwork, "m");
         var paletteArtwork = PaletteArtwork(collection);
-        var accentColor = FirstNonBlank(paletteArtwork?.PrimaryColor, paletteArtwork?.AccentColor, "var(--tl-accent-primary)")!;
-        var secondaryAccentColor = FirstNonBlank(paletteArtwork?.SecondaryColor, paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "#111827")!;
+        var accentColor = StringHelpers.FirstNonBlank(paletteArtwork?.PrimaryColor, paletteArtwork?.AccentColor, "var(--tl-accent-primary)")!;
+        var secondaryAccentColor = StringHelpers.FirstNonBlank(paletteArtwork?.SecondaryColor, paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "#111827")!;
 
         return new MediaTileViewModel
         {
@@ -457,10 +457,10 @@
         string.Join(" / ", BuildMediaCountLabels(collection));
 
     private static string? PrimaryArtwork(CollectionManagementCatalogViewModel collection) =>
-        FirstNonBlank(collection.SquareArtworkUrl, collection.ArtworkItems.FirstOrDefault()?.CoverUrl);
+        StringHelpers.FirstNonBlank(collection.SquareArtworkUrl, collection.ArtworkItems.FirstOrDefault()?.CoverUrl);
 
     private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
-        FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
+        StringHelpers.FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
 
     private static string? BuildMediumSrcSet(string? url) =>
         string.IsNullOrWhiteSpace(url) ? null : $"{url} 960w";
@@ -534,6 +534,4 @@
         }
     }
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

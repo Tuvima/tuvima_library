@@ -1,11 +1,14 @@
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Ingestion;
 
 /// <summary>
-/// Writes metadata back into audio files (MP3, M4B, M4A, FLAC, OGG) using TagLibSharp.
-/// Handles ID3v2 (MP3), MP4 atoms (M4B/M4A), Vorbis comments (FLAC/OGG).
+/// Writes metadata back into audio files (MP3, M4B, M4A, FLAC, OGG, AAC, WAV, Opus,
+/// WMA) using TagLibSharp. Handles ID3v2 (MP3), MP4 atoms (M4B/M4A), Vorbis comments
+/// (FLAC/OGG/Opus), RIFF/ID3v2 (WAV), and ASF (WMA).
 ///
 /// Safety: backup-before-modify pattern, implemented once by <see cref="BackedUpMetadataTagger"/>.
 /// </summary>
@@ -19,10 +22,17 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
     /// </summary>
     public const int Version = 1;
 
-    private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp3", ".m4b", ".m4a", ".flac", ".ogg", ".opus", ".wma",
-    };
+    /// <summary>
+    /// Union of <see cref="MediaType.Music"/> and <see cref="MediaType.Audiobooks"/>
+    /// extensions from the config-backed <see cref="IMediaTypeExtensionCatalog"/> —
+    /// this tagger writes both music and audiobook fields (album/artist and
+    /// narrator/series respectively). Every format in the catalog's audio sets
+    /// (including AAC and WAV, which the previous hardcoded list omitted) is
+    /// already round-tripped through TagLibSharp elsewhere in ingestion (see
+    /// <c>AudioProcessor</c>'s container detection), so widening to the catalog
+    /// is safe.
+    /// </summary>
+    private readonly IReadOnlySet<string> _supportedExtensions;
 
     /// <summary>
     /// Identifier claim keys written as custom tag fields. For ID3v2 these become
@@ -62,17 +72,23 @@ public sealed class AudioMetadataTagger : BackedUpMetadataTagger, IMetadataTagge
 
     private readonly ILogger<AudioMetadataTagger> _logger;
 
-    public AudioMetadataTagger(ILogger<AudioMetadataTagger> logger)
+    public AudioMetadataTagger(ILogger<AudioMetadataTagger> logger, IMediaTypeExtensionCatalog extensionCatalog)
         : base(logger, "AudioTagger")
     {
         _logger = logger;
+
+        ArgumentNullException.ThrowIfNull(extensionCatalog);
+        var extensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        extensions.UnionWith(extensionCatalog.GetExtensionsFor(MediaType.Music));
+        extensions.UnionWith(extensionCatalog.GetExtensionsFor(MediaType.Audiobooks));
+        _supportedExtensions = extensions;
     }
 
     /// <inheritdoc/>
     public bool CanHandle(string filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return false;
-        return SupportedExtensions.Contains(Path.GetExtension(filePath));
+        return _supportedExtensions.Contains(Path.GetExtension(filePath));
     }
 
     /// <inheritdoc/>

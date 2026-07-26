@@ -95,13 +95,13 @@
                         <span class="listen-song-table__time" role="cell">@GetTrackDuration(track)</span>
                         break;
                     case "artist":
-                        <span class="listen-song-table__meta" role="cell">@FirstNonBlank(track.Artist, track.Author)</span>
+                        <span class="listen-song-table__meta" role="cell">@StringHelpers.FirstNonBlankOr("-", track.Artist, track.Author)</span>
                         break;
                     case "album":
-                        <span class="listen-song-table__meta" role="cell">@FirstNonBlank(track.Album)</span>
+                        <span class="listen-song-table__meta" role="cell">@StringHelpers.FirstNonBlankOr("-", track.Album)</span>
                         break;
                     case "genre":
-                        <span class="listen-song-table__meta" role="cell">@FirstNonBlank(track.Genres.FirstOrDefault(), track.Genre)</span>
+                        <span class="listen-song-table__meta" role="cell">@StringHelpers.FirstNonBlankOr("-", track.Genres.FirstOrDefault(), track.Genre)</span>
                         break;
                     case "plays":
                         <span class="listen-song-table__time" role="cell">@GetPlayCountDisplay(track)</span>
@@ -364,7 +364,7 @@
         => EnableDrag ? OnDragEnded?.Invoke() ?? Task.CompletedTask : Task.CompletedTask;
 
     private static string DisplayTrackTitle(WorkViewModel work)
-        => FirstNonBlankOrNull(
+        => StringHelpers.FirstNonBlank(
                IsUntitled(work.Title) ? null : work.Title,
                GetCanonicalValue(work, "track_title"),
                GetCanonicalValue(work, "track_name"),
@@ -403,12 +403,6 @@
 
         return null;
     }
-
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
-
-    private static string? FirstNonBlankOrNull(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static bool IsUntitled(string? value)
         => string.IsNullOrWhiteSpace(value)

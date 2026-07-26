@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Models;
 
 namespace MediaEngine.Providers.Helpers;
@@ -179,7 +180,7 @@ public static class PersonReferenceExtractor
                     qid = segment.Trim();
             }
 
-            var displayName = FirstNonBlank(qidLabel, name, qid);
+            var displayName = StringHelpers.FirstNonBlank(qidLabel, name, qid)?.Trim();
             if (string.IsNullOrWhiteSpace(displayName))
                 continue;
 
@@ -212,7 +213,7 @@ public static class PersonReferenceExtractor
 
             if (qidEntries is not null && i < qidEntries.Count)
             {
-                var segment = FirstNonBlank(qidEntries[i].ValueQid, qidEntries[i].Value);
+                var segment = StringHelpers.FirstNonBlank(qidEntries[i].ValueQid, qidEntries[i].Value)?.Trim();
                 if (!string.IsNullOrWhiteSpace(segment))
                 {
                     var colonIdx = segment.IndexOf("::", StringComparison.Ordinal);
@@ -228,23 +229,12 @@ public static class PersonReferenceExtractor
                 }
             }
 
-            var displayName = FirstNonBlank(qidLabel, name, qid);
+            var displayName = StringHelpers.FirstNonBlank(qidLabel, name, qid)?.Trim();
             if (string.IsNullOrWhiteSpace(displayName))
                 continue;
 
             refs.Add(new PersonReference(role, displayName, string.IsNullOrEmpty(qid) ? null : qid));
         }
-    }
-
-    private static string? FirstNonBlank(params string?[] values)
-    {
-        foreach (var value in values)
-        {
-            if (!string.IsNullOrWhiteSpace(value))
-                return value.Trim();
-        }
-
-        return null;
     }
 
     private static IReadOnlyList<PersonReference> CollapseEquivalentRoles(IReadOnlyList<PersonReference> refs)

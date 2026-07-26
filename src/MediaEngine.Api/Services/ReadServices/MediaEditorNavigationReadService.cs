@@ -7,6 +7,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
 
@@ -175,9 +176,6 @@ public sealed class MediaEditorNavigationReadService(
             LIMIT 1;
             """, new { workId });
 
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
-
     private static string NormalizeEditorMediaType(string? mediaType) =>
         (mediaType ?? string.Empty).Trim() switch
         {
@@ -303,8 +301,8 @@ public sealed class MediaEditorNavigationReadService(
                 mediaType,
                 normalizedQuery,
                 suggestionKind: "show",
-                titleSelector: row => FirstNonBlank(row.WorkShowName, row.WorkTitle, FormatParentKeyFallback(row.ParentKey)),
-                subtitleSelector: row => FirstNonBlank(row.WorkYear, row.WorkNetwork)),
+                titleSelector: row => StringHelpers.FirstNonBlankOr(string.Empty, row.WorkShowName, row.WorkTitle, FormatParentKeyFallback(row.ParentKey)),
+                subtitleSelector: row => StringHelpers.FirstNonBlankOr(string.Empty, row.WorkYear, row.WorkNetwork)),
 
             "season" when mediaType == "TV" && parentEntityId.HasValue => QuerySeasonSuggestions(conn, parentEntityId.Value, normalizedQuery),
 
@@ -321,8 +319,8 @@ public sealed class MediaEditorNavigationReadService(
                 mediaType,
                 normalizedQuery,
                 suggestionKind: "album",
-                titleSelector: row => FirstNonBlank(row.WorkAlbum, row.WorkTitle, FormatParentKeyFallback(row.ParentKey)),
-                subtitleSelector: row => BuildDelimitedLabel(FirstNonBlank(row.WorkArtist), FirstNonBlank(row.WorkYear)),
+                titleSelector: row => StringHelpers.FirstNonBlankOr(string.Empty, row.WorkAlbum, row.WorkTitle, FormatParentKeyFallback(row.ParentKey)),
+                subtitleSelector: row => BuildDelimitedLabel(StringHelpers.FirstNonBlankOr(string.Empty, row.WorkArtist), StringHelpers.FirstNonBlankOr(string.Empty, row.WorkYear)),
                 additionalFilter: row => string.IsNullOrWhiteSpace(parentValue)
                     || (!string.IsNullOrWhiteSpace(row.WorkArtist)
                         && row.WorkArtist.Contains(parentValue, StringComparison.OrdinalIgnoreCase))),
@@ -603,7 +601,7 @@ public sealed class MediaEditorNavigationReadService(
                     return row.WorkId.ToString("D");
                 }
 
-                return FirstNonBlank(
+                return StringHelpers.FirstNonBlankOr(string.Empty,
                     GetDisplayOverrideValue(value, "title"),
                     value.AssetEpisodeTitle,
                     value.AssetTitle,
@@ -730,19 +728,19 @@ public sealed class MediaEditorNavigationReadService(
     private static string ResolveNavigatorTitle(string mediaType, NavigatorTreeRow row, NavigatorValueRow? value) =>
         mediaType switch
         {
-            "TV" when row.Depth == 0 => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            "TV" when row.Depth == 0 => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.WorkShowName, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
             "TV" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
                 $"Season {ParseNavigatorOrdinal(value?.AssetSeasonNumber ?? value?.WorkSeasonNumber, ToInt(row.Ordinal))?.ToString(CultureInfo.InvariantCulture) ?? "?"}",
-            "TV" => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+            "TV" => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetEpisodeTitle, value?.AssetTitle, value?.WorkTitle, $"Episode {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Music" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
-            "Music" => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.WorkAlbum, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Album"),
+            "Music" => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Track {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Comics" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
-            "Comics" => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Issue {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            "Comics" => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, $"Issue {row.Ordinal?.ToString(CultureInfo.InvariantCulture) ?? "?"}"),
             "Books" or "Audiobooks" when string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase) =>
-                FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
-            _ => FirstNonBlank(GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, "Item"),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.WorkSeries, value?.WorkTitle, FormatParentKeyFallback(row.ParentKey), "Series"),
+            _ => StringHelpers.FirstNonBlankOr(string.Empty, GetDisplayOverrideValue(value, "title"), value?.AssetTitle, value?.WorkTitle, "Item"),
         };
 
     private static string? GetDisplayOverrideValue(NavigatorValueRow? value, params string[] keys)
@@ -787,9 +785,9 @@ public sealed class MediaEditorNavigationReadService(
         {
             return mediaType switch
             {
-                "TV" => BuildDelimitedLabel(FirstNonBlank(value?.WorkYear), FirstNonBlank(value?.WorkNetwork)),
-                "Music" => BuildDelimitedLabel(FirstNonBlank(value?.WorkArtist), FirstNonBlank(value?.WorkYear)),
-                "Comics" or "Books" or "Audiobooks" => BuildDelimitedLabel(FirstNonBlank(value?.WorkAuthor), FirstNonBlank(value?.WorkYear)),
+                "TV" => BuildDelimitedLabel(StringHelpers.FirstNonBlankOr(string.Empty, value?.WorkYear), StringHelpers.FirstNonBlankOr(string.Empty, value?.WorkNetwork)),
+                "Music" => BuildDelimitedLabel(StringHelpers.FirstNonBlankOr(string.Empty, value?.WorkArtist), StringHelpers.FirstNonBlankOr(string.Empty, value?.WorkYear)),
+                "Comics" or "Books" or "Audiobooks" => BuildDelimitedLabel(StringHelpers.FirstNonBlankOr(string.Empty, value?.WorkAuthor), StringHelpers.FirstNonBlankOr(string.Empty, value?.WorkYear)),
                 _ => value?.WorkYear,
             };
         }
@@ -799,7 +797,7 @@ public sealed class MediaEditorNavigationReadService(
             "TV" => value?.WorkYear,
             "Music" => value?.WorkArtist,
             "Books" or "Audiobooks" => value?.WorkAuthor,
-            "Comics" => FirstNonBlank(value?.AssetVolume, value?.WorkYear),
+            "Comics" => StringHelpers.FirstNonBlankOr(string.Empty, value?.AssetVolume, value?.WorkYear),
             _ => null,
         };
     }
@@ -872,24 +870,24 @@ public sealed class MediaEditorNavigationReadService(
         if (mediaType == "TV")
         {
             AddIfPresent(badges, FormatResolutionBadge(value.AssetVideoWidth, value.AssetVideoHeight));
-            AddIfPresent(badges, FirstNonBlank(value.InspectionContainer, value.AssetContainer, Path.GetExtension(value.AssetFilePath)?.TrimStart('.'), value.AssetFormatLabel)?.ToUpperInvariant());
+            AddIfPresent(badges, StringHelpers.FirstNonBlankOr(string.Empty, value.InspectionContainer, value.AssetContainer, Path.GetExtension(value.AssetFilePath)?.TrimStart('.'), value.AssetFormatLabel)?.ToUpperInvariant());
             if (badges.Count < 2)
             {
                 AddIfPresent(badges, value.AssetVideoCodec?.ToUpperInvariant());
             }
 
-            AddIfPresent(badges, FormatFileSizeBadge(FirstNonBlank(value.InspectionFileSize, value.AssetFileSizeBytes)));
+            AddIfPresent(badges, FormatFileSizeBadge(StringHelpers.FirstNonBlankOr(string.Empty, value.InspectionFileSize, value.AssetFileSizeBytes)));
         }
         else if (mediaType == "Music")
         {
-            AddIfPresent(badges, FirstNonBlank(value.AssetAudioCodec, value.InspectionContainer, value.AssetContainer, Path.GetExtension(value.AssetFilePath)?.TrimStart('.'), value.AssetFormatLabel)?.ToUpperInvariant());
+            AddIfPresent(badges, StringHelpers.FirstNonBlankOr(string.Empty, value.AssetAudioCodec, value.InspectionContainer, value.AssetContainer, Path.GetExtension(value.AssetFilePath)?.TrimStart('.'), value.AssetFormatLabel)?.ToUpperInvariant());
             AddIfPresent(badges, FormatBitrateBadge(value.AssetBitrateKbps));
             if (badges.Count < 2)
             {
                 AddIfPresent(badges, FormatSampleRateBadge(value.AssetSampleRate));
             }
 
-            AddIfPresent(badges, FormatFileSizeBadge(FirstNonBlank(value.InspectionFileSize, value.AssetFileSizeBytes)));
+            AddIfPresent(badges, FormatFileSizeBadge(StringHelpers.FirstNonBlankOr(string.Empty, value.InspectionFileSize, value.AssetFileSizeBytes)));
         }
 
         return badges
@@ -1335,7 +1333,7 @@ public sealed class MediaEditorNavigationReadService(
         {
             if (string.Equals(workKind, "child", StringComparison.OrdinalIgnoreCase))
             {
-                var showName = FirstNonBlank(GetRequestValue(fields, "show_name"));
+                var showName = StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "show_name"));
                 var seasonNumber = ParseNavigatorOrdinal(GetRequestValue(fields, "season_number"), null);
                 var episodeNumber = ParseNavigatorOrdinal(GetRequestValue(fields, "episode_number"), entityRow.Ordinal);
                 return new MembershipPlan(
@@ -1345,7 +1343,7 @@ public sealed class MediaEditorNavigationReadService(
                     CurrentParentEntityId: entityRow.ParentWorkId,
                     CurrentRootEntityId: entityRow.RootWorkId,
                     CurrentOrdinal: entityRow.Ordinal,
-                    RequestedTitle: FirstNonBlank(GetRequestValue(fields, "episode_title")),
+                    RequestedTitle: StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "episode_title")),
                     RequestedParentLabel: showName,
                     RequestedSecondaryLabel: seasonNumber?.ToString(CultureInfo.InvariantCulture),
                     RequestedParentKey: BuildHierarchyParentKey(showName),
@@ -1373,7 +1371,7 @@ public sealed class MediaEditorNavigationReadService(
                     SelectedSecondaryTargetId: null);
             }
 
-            var renamedShowName = FirstNonBlank(GetRequestValue(fields, "show_name"));
+            var renamedShowName = StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "show_name"));
             return new MembershipPlan(
                 Action: "rename_container",
                 MediaType: mediaType,
@@ -1394,8 +1392,8 @@ public sealed class MediaEditorNavigationReadService(
         {
             if (string.Equals(workKind, "child", StringComparison.OrdinalIgnoreCase))
             {
-                var artist = FirstNonBlank(GetRequestValue(fields, "artist"), GetRequestValue(fields, "album_artist"));
-                var album = FirstNonBlank(GetRequestValue(fields, "album"));
+                var artist = StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "artist"), GetRequestValue(fields, "album_artist"));
+                var album = StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "album"));
                 var trackNumber = ParseNavigatorOrdinal(GetRequestValue(fields, "track_number"), entityRow.Ordinal);
                 return new MembershipPlan(
                     Action: "move_child",
@@ -1404,7 +1402,7 @@ public sealed class MediaEditorNavigationReadService(
                     CurrentParentEntityId: entityRow.ParentWorkId,
                     CurrentRootEntityId: entityRow.RootWorkId,
                     CurrentOrdinal: entityRow.Ordinal,
-                    RequestedTitle: FirstNonBlank(GetRequestValue(fields, "title")),
+                    RequestedTitle: StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "title")),
                     RequestedParentLabel: album,
                     RequestedSecondaryLabel: artist,
                     RequestedParentKey: BuildHierarchyParentKey(artist, album),
@@ -1413,8 +1411,8 @@ public sealed class MediaEditorNavigationReadService(
                     SelectedSecondaryTargetId: null);
             }
 
-            var renamedArtist = FirstNonBlank(GetRequestValue(fields, "artist"), GetRequestValue(fields, "album_artist"));
-            var renamedAlbum = FirstNonBlank(GetRequestValue(fields, "album"));
+            var renamedArtist = StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "artist"), GetRequestValue(fields, "album_artist"));
+            var renamedAlbum = StringHelpers.FirstNonBlankOr(string.Empty, GetRequestValue(fields, "album"));
             return new MembershipPlan(
                 Action: "rename_container",
                 MediaType: mediaType,

@@ -1,4 +1,5 @@
 using System.Globalization;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.Services.Display;
 
@@ -34,7 +35,7 @@ public static class DisplayFactBuilder
             case "TV":
                 AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
-                AddFact(facts, FormatDuration(FirstNonBlank(runtime, duration), mediaKind), title);
+                AddFact(facts, FormatDuration(StringHelpers.FirstNonBlank(runtime, duration), mediaKind), title);
                 AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             case "Book":
@@ -54,21 +55,21 @@ public static class DisplayFactBuilder
                 AddFact(facts, string.IsNullOrWhiteSpace(narrator) ? null : $"Narrated by {narrator.Trim()}", title);
                 AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
-                AddFact(facts, FormatDuration(FirstNonBlank(duration, runtime), mediaKind), title);
+                AddFact(facts, FormatDuration(StringHelpers.FirstNonBlank(duration, runtime), mediaKind), title);
                 AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             case "Music":
                 AddFact(facts, artist ?? author, title);
                 AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
-                AddFact(facts, FormatDuration(FirstNonBlank(duration, runtime), mediaKind), title);
+                AddFact(facts, FormatDuration(StringHelpers.FirstNonBlank(duration, runtime), mediaKind), title);
                 AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
             default:
                 AddFact(facts, author ?? artist, title);
                 AddFact(facts, NormalizeContentRating(contentRating), title);
                 AddFact(facts, year, title);
-                AddFact(facts, FormatDuration(FirstNonBlank(runtime, duration), mediaKind), title);
+                AddFact(facts, FormatDuration(StringHelpers.FirstNonBlank(runtime, duration), mediaKind), title);
                 AddFact(facts, FormatStarRating(starRating ?? rating), title);
                 break;
         }
@@ -177,6 +178,4 @@ public static class DisplayFactBuilder
         return $"{Math.Max(0, (int)elapsed.TotalMinutes)}:{elapsed.Seconds:00}";
     }
 
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

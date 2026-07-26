@@ -4,6 +4,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
@@ -231,7 +232,7 @@ public static class ScoringHelper
             .Where(c => c.ClaimKey.Equals(MetadataFieldConstants.MediaTypeField, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(c => c.Confidence)
             .ThenByDescending(c => c.ClaimedAt)
-            .Select(c => ParseMediaType(c.ClaimValue))
+            .Select(c => MediaTypeParser.Parse(c.ClaimValue))
             .FirstOrDefault(mt => mt != MediaType.Unknown);
         if (claimMediaType != MediaType.Unknown)
             return claimMediaType;
@@ -239,18 +240,13 @@ public static class ScoringHelper
         var canonicals = await canonicalRepo.GetByEntityAsync(entityId, ct).ConfigureAwait(false);
         var canonicalMediaType = canonicals
             .Where(c => c.Key.Equals(MetadataFieldConstants.MediaTypeField, StringComparison.OrdinalIgnoreCase))
-            .Select(c => ParseMediaType(c.Value))
+            .Select(c => MediaTypeParser.Parse(c.Value))
             .FirstOrDefault(mt => mt != MediaType.Unknown);
         if (canonicalMediaType != MediaType.Unknown)
             return canonicalMediaType;
 
         return InferMediaTypeFromClaimKeys(claims);
     }
-
-    private static MediaType ParseMediaType(string? value)
-        => Enum.TryParse<MediaType>(value, ignoreCase: true, out var mediaType)
-            ? mediaType
-            : MediaType.Unknown;
 
     private static MediaType InferMediaTypeFromClaimKeys(IReadOnlyList<MetadataClaim> claims)
     {
@@ -331,7 +327,7 @@ public static class ScoringHelper
 
             foreach (var parsed in qidEntries)
             {
-                var value = FirstNonBlank(parsed.Label, parsed.Qid);
+                var value = StringHelpers.FirstNonBlank(parsed.Label, parsed.Qid);
                 if (string.IsNullOrWhiteSpace(value))
                     continue;
 
@@ -400,13 +396,10 @@ public static class ScoringHelper
         var trimmed = value.Trim();
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
-            return (ExtractQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+            return (ExtractQid(trimmed[..delimiter]), StringHelpers.FirstNonBlank(trimmed[(delimiter + 2)..], null));
 
         return (ExtractQid(trimmed), null);
     }
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static bool LooksLikeAggregateContributorName(string value)
         => value.Contains(" & ", StringComparison.Ordinal)

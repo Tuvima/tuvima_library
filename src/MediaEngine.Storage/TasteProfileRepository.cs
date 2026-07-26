@@ -4,6 +4,7 @@ using System.Text.Json;
 using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -14,7 +15,7 @@ namespace MediaEngine.Storage;
 /// </summary>
 public sealed class TasteProfileRepository : ITasteProfileRepository
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = MediaEngineJson.Web;
     private readonly IDatabaseConnection _db;
 
     public TasteProfileRepository(IDatabaseConnection db)

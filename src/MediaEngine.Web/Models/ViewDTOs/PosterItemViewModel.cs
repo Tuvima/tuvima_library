@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Display;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Services.Navigation;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
@@ -94,7 +95,7 @@ public sealed record PosterItemViewModel
             MediaType: work.MediaType,
             GroupingType: "work",
             Title: work.Title,
-            Subtitle: FirstNonBlank(work.Author, work.Artist, work.Narrator),
+            Subtitle: StringHelpers.FirstNonBlank(work.Author, work.Artist, work.Narrator),
             Facts: CompactFacts(work),
             Artwork: new DisplayArtworkDto(
                 CoverUrl: work.CoverUrl ?? fallbackCoverUrl,
@@ -137,7 +138,7 @@ public sealed record PosterItemViewModel
     {
         var facts = new List<string>();
         AddFact(facts, work.Year);
-        AddFact(facts, FirstNonBlank(work.Genre, work.Genres.FirstOrDefault()));
+        AddFact(facts, StringHelpers.FirstNonBlank(work.Genre, work.Genres.FirstOrDefault()));
         AddFact(facts, work.Album);
         AddFact(facts, work.Series);
         return facts;
@@ -156,9 +157,6 @@ public sealed record PosterItemViewModel
             facts.Add(cleaned);
         }
     }
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string FallbackNavigation(DisplayCardDto card)
     {

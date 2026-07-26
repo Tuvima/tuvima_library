@@ -1,5 +1,7 @@
 using System.Globalization;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.Formatting;
 using MudBlazor;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -24,8 +26,8 @@ public sealed partial class IngestionLiveDashboardState
                 JobType = "Ingestion batch",
                 MediaType = "Mixed",
                 SourceFolder = "Watch folders",
-                CurrentStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage, "Processing"),
-                CurrentItem = FirstNonBlank(batch.CurrentFileTitle, batch.RecentTitles?.FirstOrDefault()),
+                CurrentStage = StringHelpers.FirstNonBlankOr("", batch.CurrentStage, batch.LifecycleStage, "Processing"),
+                CurrentItem = StringHelpers.FirstNonBlankOr("", batch.CurrentFileTitle, batch.RecentTitles?.FirstOrDefault()),
                 ProcessedCount = batch.FilesProcessed,
                 TotalCount = batch.FilesTotal,
                 PercentComplete = batch.ProgressPercent,
@@ -120,7 +122,7 @@ public sealed partial class IngestionLiveDashboardState
         {
             JobId = batchId,
             JobType = "Reading files",
-            MediaType = FirstNonBlank(latest.Event.MediaType, "Mixed"),
+            MediaType = StringHelpers.FirstNonBlankOr("", latest.Event.MediaType, "Mixed"),
             SourceFolder = "Watch folders",
             CurrentStage = stage,
             CurrentItem = CleanDisplayTitle(ResolveItemTitle(latest.Event)),
@@ -298,8 +300,8 @@ public sealed partial class IngestionLiveDashboardState
                 JobType = "Ingestion batch",
                 MediaType = "Mixed",
                 SourceFolder = "Watch folders",
-                CurrentStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage, "Processing"),
-                CurrentItem = FirstNonBlank(batch.CurrentFileTitle, batch.RecentTitles?.FirstOrDefault()),
+                CurrentStage = StringHelpers.FirstNonBlankOr("", batch.CurrentStage, batch.LifecycleStage, "Processing"),
+                CurrentItem = StringHelpers.FirstNonBlankOr("", batch.CurrentFileTitle, batch.RecentTitles?.FirstOrDefault()),
                 ProcessedCount = batch.FilesProcessed,
                 TotalCount = batch.FilesTotal,
                 PercentComplete = batch.ProgressPercent,
@@ -309,26 +311,26 @@ public sealed partial class IngestionLiveDashboardState
 
         var activity = ToCurrentActivity(job, stages);
         if (activity.StageKey.Equals("retail", StringComparison.OrdinalIgnoreCase)
-            && IsQuickMetadataStage(FirstNonBlank(batch.CurrentStage, batch.LifecycleStage)))
+            && IsQuickMetadataStage(StringHelpers.FirstNonBlankOr("", batch.CurrentStage, batch.LifecycleStage)))
         {
             activity.Message = "Retail Match";
             activity.Detail = "Adding retail metadata and primary artwork";
         }
         else if (activity.StageKey.Equals("enrichment", StringComparison.OrdinalIgnoreCase))
         {
-            var batchStage = FirstNonBlank(batch.CurrentStage, batch.LifecycleStage);
+            var batchStage = StringHelpers.FirstNonBlankOr("", batch.CurrentStage, batch.LifecycleStage);
             var friendlyStage = ToFriendlyStepLabel(batchStage);
             if (IsQuickMetadataStage(batchStage))
             {
                 activity.StageKey = "retail";
                 activity.Message = "Retail Match";
-                activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Adding retail metadata and primary artwork");
+                activity.Detail = StringHelpers.FirstNonBlankOr("", friendlyStage, activity.Detail, "Adding retail metadata and primary artwork");
             }
             else
             {
                 activity.StageKey = "relationships";
                 activity.Message = "Relationships";
-                activity.Detail = FirstNonBlank(friendlyStage, activity.Detail, "Stage 3 enrichment");
+                activity.Detail = StringHelpers.FirstNonBlankOr("", friendlyStage, activity.Detail, "Stage 3 enrichment");
             }
 
             activity.CountUnit = "items";
@@ -376,7 +378,7 @@ public sealed partial class IngestionLiveDashboardState
             Message = progress.CurrentStep.Contains("enhancer", StringComparison.OrdinalIgnoreCase)
                 ? "Artwork, people, and relationship enhancers"
                 : "Relationships",
-            Detail = FirstNonBlank(stepLabel, "Stage 3 enrichment"),
+            Detail = StringHelpers.FirstNonBlankOr("", stepLabel, "Stage 3 enrichment"),
             CurrentItem = progress.WorkTitle,
             Source = "Wikidata",
             ProcessedCount = completed,
@@ -388,7 +390,7 @@ public sealed partial class IngestionLiveDashboardState
             ActiveCount = active,
             SampleItems = [progress.WorkTitle],
             MetricLabel = "Current step",
-            MetricValue = FirstNonBlank(stepLabel, "Stage 3"),
+            MetricValue = StringHelpers.FirstNonBlankOr("", stepLabel, "Stage 3"),
             MetricTone = "success",
             CurrentBatch = total > 0
                 ? new IngestionActivityBatchViewModel
@@ -926,7 +928,7 @@ public sealed partial class IngestionLiveDashboardState
         var showProgress = pageState is LibraryUpdatePageState.Running or LibraryUpdatePageState.Complete or LibraryUpdatePageState.Failed or LibraryUpdatePageState.Interrupted;
         var isIndeterminate = pageState == LibraryUpdatePageState.Running && totalFiles == 0;
         var primaryActivity = SelectPrimaryActivity(activeJobs, currentActivities, activeStep);
-        var currentItem = CleanDisplayTitle(FirstNonBlank(
+        var currentItem = CleanDisplayTitle(StringHelpers.FirstNonBlankOr("",
             primaryActivity?.CurrentItem,
             primaryActivity?.CurrentBatch?.ActiveItems.FirstOrDefault(),
             activeJobs.Select(job => job.CurrentItem).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))));
@@ -991,7 +993,7 @@ public sealed partial class IngestionLiveDashboardState
             return string.Empty;
 
         var stage = activeJobs
-            .Select(job => FirstNonBlank(job.CurrentStage, job.JobType))
+            .Select(job => StringHelpers.FirstNonBlankOr("", job.CurrentStage, job.JobType))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))
             ?.ToLowerInvariant() ?? string.Empty;
 
@@ -1023,7 +1025,7 @@ public sealed partial class IngestionLiveDashboardState
             "enrichment" => "Enriching relationships",
             _ => "Scanning files",
         };
-        var item = FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running");
+        var item = StringHelpers.FirstNonBlankOr("", job.CurrentItem, job.CurrentStage, "Ingestion is running");
 
         return new IngestionCurrentActivityViewModel
         {
@@ -1126,7 +1128,7 @@ public sealed partial class IngestionLiveDashboardState
     }
 
     private static string ResolveItemTitle(IngestionItemProgressEvent ev) =>
-        FirstNonBlank(ev.Title, ev.FileName, Path.GetFileName(ev.FilePath), "Library item");
+        StringHelpers.FirstNonBlankOr("", ev.Title, ev.FileName, Path.GetFileName(ev.FilePath), "Library item");
 
     private static string ResolveItemStageKey(string? stage) =>
         (stage ?? string.Empty).Trim().ToLowerInvariant() switch
@@ -1529,8 +1531,8 @@ public sealed partial class IngestionLiveDashboardState
         IReadOnlyList<IngestionOperationsJobViewModel> activeJobs,
         IReadOnlyList<IngestionCurrentActivityViewModel> currentActivities)
     {
-        var value = FirstNonBlank(
-            activeJobs.Select(job => FirstNonBlank(job.CurrentStage, job.JobType)).FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)),
+        var value = StringHelpers.FirstNonBlankOr("",
+            activeJobs.Select(job => StringHelpers.FirstNonBlankOr("", job.CurrentStage, job.JobType)).FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate)),
             currentActivities.FirstOrDefault(activity => activity.ActiveCount > 0)?.StageKey,
             currentActivities.FirstOrDefault(activity => activity.ActiveCount > 0)?.Message,
             currentActivities.FirstOrDefault(activity => activity.PercentComplete < 100)?.StageKey,
@@ -1618,7 +1620,7 @@ public sealed partial class IngestionLiveDashboardState
         IngestionCurrentActivityViewModel? primaryActivity,
         int activeStep)
     {
-        var explicitStep = FirstNonBlank(
+        var explicitStep = StringHelpers.FirstNonBlankOr("",
             ResolveSpecificActivityStep(primaryActivity),
             activeJobs.Select(job => job.CurrentStage).FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)));
         if (!string.IsNullOrWhiteSpace(explicitStep))
@@ -1650,7 +1652,7 @@ public sealed partial class IngestionLiveDashboardState
             return detail;
         }
 
-        return FirstNonBlank(activity.Message, detail);
+        return StringHelpers.FirstNonBlankOr("", activity.Message, detail);
     }
 
     private static string ResolveCurrentSource(IngestionCurrentActivityViewModel? primaryActivity)
@@ -1946,7 +1948,7 @@ public sealed partial class IngestionLiveDashboardState
                     0,
                     active,
                     queued,
-                    activities.Select(activity => CleanDisplayTitle(FirstNonBlank(activity.CurrentItem, activity.SampleItems.FirstOrDefault())))
+                    activities.Select(activity => CleanDisplayTitle(StringHelpers.FirstNonBlankOr("", activity.CurrentItem, activity.SampleItems.FirstOrDefault())))
                         .Where(value => !string.IsNullOrWhiteSpace(value))
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .Take(3)
@@ -1982,7 +1984,7 @@ public sealed partial class IngestionLiveDashboardState
 
     private static bool IsEnrichmentActivity(IngestionCurrentActivityViewModel activity)
     {
-        var value = FirstNonBlank(activity.StageKey, activity.Message);
+        var value = StringHelpers.FirstNonBlankOr("", activity.StageKey, activity.Message);
         return value.Contains("art", StringComparison.OrdinalIgnoreCase)
             || value.Contains("cover", StringComparison.OrdinalIgnoreCase)
             || value.Contains("people", StringComparison.OrdinalIgnoreCase)
@@ -1996,7 +1998,7 @@ public sealed partial class IngestionLiveDashboardState
 
     private static string NormalizeEnrichmentKey(IngestionCurrentActivityViewModel activity)
     {
-        var value = FirstNonBlank(activity.StageKey, activity.Message).ToLowerInvariant();
+        var value = StringHelpers.FirstNonBlankOr("", activity.StageKey, activity.Message).ToLowerInvariant();
         if (value.Contains("art") || value.Contains("cover"))
             return "artwork";
         if (value.Contains("people") || value.Contains("cast"))
@@ -2106,9 +2108,9 @@ public sealed partial class IngestionLiveDashboardState
                 var title = string.IsNullOrWhiteSpace(batch.Source)
                     ? "Library update"
                     : $"{batch.Source} update";
-                var statusText = $"{FormatCount(processed)} of {FormatCount(batch.TotalFiles)} files finished";
+                var statusText = $"{DisplayFormat.FormatCountClamped(processed)} of {DisplayFormat.FormatCountClamped(batch.TotalFiles)} files finished";
                 var durationText = batch.DurationSeconds is > 0
-                    ? FormatDuration(TimeSpan.FromSeconds(batch.DurationSeconds.Value))
+                    ? DisplayFormat.FormatDurationCompactFloor(TimeSpan.FromSeconds(batch.DurationSeconds.Value))
                     : IsActiveBatchStatus(batch.Status) ? "In progress" : "Duration unknown";
 
                 return new LibraryUpdateRunSummaryViewModel(
@@ -2145,7 +2147,7 @@ public sealed partial class IngestionLiveDashboardState
     {
         var rich = activity.RichData;
         var review = activity.ReviewData;
-        var title = CleanDisplayTitle(FirstNonBlank(
+        var title = CleanDisplayTitle(StringHelpers.FirstNonBlankOr("",
             rich?.Title,
             review?.Title,
             activity.CollectionName,
@@ -2189,11 +2191,11 @@ public sealed partial class IngestionLiveDashboardState
 
     private static string? ResolveDetailHref(ActivityEntryViewModel activity)
     {
-        var id = FirstNonBlank(activity.EntityId, activity.RichData?.EntityId, activity.ReviewData?.EntityId);
+        var id = StringHelpers.FirstNonBlankOr("", activity.EntityId, activity.RichData?.EntityId, activity.ReviewData?.EntityId);
         if (!Guid.TryParse(id, out var entityId))
             return null;
 
-        var entityType = FirstNonBlank(activity.EntityType, "work").ToLowerInvariant() switch
+        var entityType = StringHelpers.FirstNonBlankOr("", activity.EntityType, "work").ToLowerInvariant() switch
         {
             "movie" or "film" => "movie",
             "tvshow" or "tv_show" or "show" or "series" => "tv-show",
@@ -2361,21 +2363,7 @@ public sealed partial class IngestionLiveDashboardState
         };
     }
 
-    private static string FormatCount(int value) =>
-        Math.Max(0, value).ToString("N0", CultureInfo.CurrentCulture);
 
-    private static string FormatDuration(TimeSpan duration)
-    {
-        duration = duration.Duration();
-        if (duration.TotalHours >= 1)
-            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
-        if (duration.TotalMinutes >= 1)
-            return $"{duration.Minutes}m {duration.Seconds}s";
-        return $"{Math.Max(1, duration.Seconds)}s";
-    }
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 }
 
 public enum IngestionLiveMode

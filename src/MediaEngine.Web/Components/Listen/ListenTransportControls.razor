@@ -31,7 +31,7 @@
     {
         @if (ShowSpeedButton)
         {
-            <AppNativeButton Type="button" Class="@MiniButtonClass" OnClick="OnSpeed" AriaLabel="Playback speed" title="Playback speed">@FormatSpeed(PlaybackRate)</AppNativeButton>
+            <AppNativeButton Type="button" Class="@MiniButtonClass" OnClick="OnSpeed" AriaLabel="Playback speed" title="Playback speed">@DisplayFormat.FormatSpeedListen(PlaybackRate)</AppNativeButton>
         }
         <AppNativeButton Type="button" Class="@IconButtonClass" OnClick="OnPreviousTrack" Disabled="@(!CanPreviousTrack)" AriaLabel="Previous track" title="Previous track">
             <MudIcon Icon="@Icons.Material.Outlined.SkipPrevious" Class="@TrackIconClass" />
@@ -139,6 +139,4 @@
         _ => "listen-player__skip listen-player__skip--forward",
     };
 
-    private static string FormatSpeed(double rate) =>
-        $"{Math.Clamp(rate, 0.5d, 32d).ToString("0.##", CultureInfo.InvariantCulture)}x";
 }

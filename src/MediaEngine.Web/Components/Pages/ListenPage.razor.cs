@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
 using MediaEngine.Web.Components.Browse;
@@ -286,7 +287,7 @@ public partial class ListenPage
         .OrderBy(genre => genre, StringComparer.OrdinalIgnoreCase)
         .ToList();
     private IReadOnlyList<string> SongArtists => _musicWorks
-        .Select(work => FirstNonBlank(work.Artist, work.Author, null))
+        .Select(work => StringHelpers.FirstNonBlankOr("-", work.Artist, work.Author, null))
         .Where(name => !string.IsNullOrWhiteSpace(name) && !string.Equals(name, "-", StringComparison.Ordinal))
         .Cast<string>()
         .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -1253,10 +1254,10 @@ public partial class ListenPage
         }
 
         var id = detail.RootWorkId ?? detail.CollectionId;
-        var artworkUrl = FirstNonBlankOrNull(detail.CoverUrl, detail.HeroUrl, detail.BackgroundUrl);
-        var artist = FirstNonBlankOrNull(detail.Creator, detail.Writer, detail.Director);
+        var artworkUrl = StringHelpers.FirstNonBlank(detail.CoverUrl, detail.HeroUrl, detail.BackgroundUrl);
+        var artist = StringHelpers.FirstNonBlank(detail.Creator, detail.Writer, detail.Director);
         var tracks = detail.Works
-            .OrderBy(work => ParseTrackNumber(FirstNonBlankOrNull(work.TrackNumber, work.Ordinal?.ToString(CultureInfo.InvariantCulture))))
+            .OrderBy(work => ParseTrackNumber(StringHelpers.FirstNonBlank(work.TrackNumber, work.Ordinal?.ToString(CultureInfo.InvariantCulture))))
             .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
             .Select(work => new MediaGroupingItemViewModel
             {
@@ -1264,8 +1265,8 @@ public partial class ListenPage
                 EntityType = DetailEntityType.Work,
                 Title = string.IsNullOrWhiteSpace(work.Title) ? "Untitled track" : work.Title,
                 Subtitle = artist,
-                ArtworkUrl = FirstNonBlankOrNull(work.CoverUrl, artworkUrl),
-                TrackNumber = FirstNonBlankOrNull(work.TrackNumber, work.Ordinal?.ToString(CultureInfo.InvariantCulture)),
+                ArtworkUrl = StringHelpers.FirstNonBlank(work.CoverUrl, artworkUrl),
+                TrackNumber = StringHelpers.FirstNonBlank(work.TrackNumber, work.Ordinal?.ToString(CultureInfo.InvariantCulture)),
                 Duration = work.Duration,
                 DurationSeconds = work.DurationSeconds,
                 Artist = artist,
@@ -1321,7 +1322,7 @@ public partial class ListenPage
             {
                 CoverUrl = artworkUrl,
                 PosterUrl = artworkUrl,
-                BackdropUrl = FirstNonBlankOrNull(detail.BackgroundUrl, detail.HeroUrl, detail.BannerUrl),
+                BackdropUrl = StringHelpers.FirstNonBlank(detail.BackgroundUrl, detail.HeroUrl, detail.BannerUrl),
                 BannerUrl = detail.BannerUrl,
                 LogoUrl = detail.LogoUrl,
                 DominantColors = detail.DominantColors,
@@ -1330,9 +1331,9 @@ public partial class ListenPage
                 AccentColor = detail.AccentColor,
                 HeroArtwork = new HeroArtworkViewModel
                 {
-                    Url = FirstNonBlankOrNull(detail.BackgroundUrl, detail.HeroUrl, artworkUrl),
+                    Url = StringHelpers.FirstNonBlank(detail.BackgroundUrl, detail.HeroUrl, artworkUrl),
                     Mode = HeroArtworkMode.ArtworkFallback,
-                    HasImage = !string.IsNullOrWhiteSpace(FirstNonBlankOrNull(detail.BackgroundUrl, detail.HeroUrl, artworkUrl)),
+                    HasImage = !string.IsNullOrWhiteSpace(StringHelpers.FirstNonBlank(detail.BackgroundUrl, detail.HeroUrl, artworkUrl)),
                 },
                 PresentationMode = ArtworkPresentationMode.ColorGradientFromArtwork,
             },
@@ -1404,7 +1405,7 @@ public partial class ListenPage
     {
         var values = new List<MetadataPill>();
 
-        AddMetadata(values, FirstNonBlankOrNull(detail.YearRange, detail.ReleaseDate), "year");
+        AddMetadata(values, StringHelpers.FirstNonBlank(detail.YearRange, detail.ReleaseDate), "year");
         AddMetadata(values, Pluralize(trackCount > 0 ? trackCount : detail.TotalItems, "track"), "track_count");
         AddMetadata(values, detail.TotalDuration, "duration");
         AddMetadata(values, detail.Genre, "genre");
@@ -1548,7 +1549,7 @@ public partial class ListenPage
             Mode = SharedMediaEditorMode.Normal,
             MediaType = work.MediaType,
             HeaderTitle = DisplayTrackTitle(work),
-            HeaderSubtitle = FirstNonBlank(work.Artist, work.Author, work.Album, work.Series),
+            HeaderSubtitle = StringHelpers.FirstNonBlankOr("-", work.Artist, work.Author, work.Album, work.Series),
             CoverUrl = work.CoverUrl,
             PreviewItems =
             [
@@ -1586,7 +1587,7 @@ public partial class ListenPage
             return null;
         }
 
-        return BuildAlbumDetailRoute(work.Album, FirstNonBlankOrNull(work.Artist, work.Author), work.Id, edit);
+        return BuildAlbumDetailRoute(work.Album, StringHelpers.FirstNonBlank(work.Artist, work.Author), work.Id, edit);
     }
 
     private async Task AddToPlaylistAsync(WorkViewModel work, ManagedCollectionViewModel collection)
@@ -1709,7 +1710,7 @@ public partial class ListenPage
             return true;
         }
 
-        var workCreator = FirstNonBlankOrNull(work.Artist, work.Author);
+        var workCreator = StringHelpers.FirstNonBlank(work.Artist, work.Author);
         return string.Equals(workCreator, album.Creator, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1726,7 +1727,7 @@ public partial class ListenPage
     private LibraryItemViewModel MapTrackToLibraryItem(WorkViewModel work)
     {
         var durationSeconds = GetTrackDurationSeconds(work);
-        var artist = FirstNonBlank(work.Artist, work.Author, null);
+        var artist = StringHelpers.FirstNonBlankOr("-", work.Artist, work.Author, null);
         var comments = GetCanonicalValue(work, "comment", "comments", "description");
         var releaseDate = ParseCanonicalDate(GetCanonicalValue(work, "release_date", "date_released"));
         var lastPlayedAt = ParseCanonicalDate(GetCanonicalValue(work, "last_played", "played_at"));
@@ -2245,7 +2246,7 @@ public partial class ListenPage
         => LibraryHelpers.FormatDuration(GetTrackDurationSeconds(work), fallback: "0:00");
 
     private static string DisplayTrackTitle(WorkViewModel work)
-        => FirstNonBlankOrNull(
+        => StringHelpers.FirstNonBlank(
                IsUntitled(work.Title) ? null : work.Title,
                GetCanonicalValue(work, "track_title"),
                GetCanonicalValue(work, "track_name"),
@@ -2290,15 +2291,9 @@ public partial class ListenPage
         return null;
     }
 
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "-";
-
     private static bool IsUntitled(string? value)
         => string.IsNullOrWhiteSpace(value)
            || value.Trim().StartsWith("Untitled", StringComparison.OrdinalIgnoreCase);
-
-    private static string? FirstNonBlankOrNull(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string FormatDateAdded(DateTimeOffset createdAt)
         => createdAt == default ? "-" : createdAt.LocalDateTime.ToString("M/d/yyyy", CultureInfo.CurrentCulture);
@@ -2333,8 +2328,8 @@ public partial class ListenPage
             {
                 Work = work,
                 Key = normalizedGroupField == "artist"
-                    ? FirstNonBlankOrNull(work.Artist, work.Author)
-                    : FirstNonBlankOrNull(work.Album),
+                    ? StringHelpers.FirstNonBlank(work.Artist, work.Author)
+                    : StringHelpers.FirstNonBlank(work.Album),
             })
             .Where(item => !string.IsNullOrWhiteSpace(item.Key))
             .GroupBy(item => item.Key!, StringComparer.OrdinalIgnoreCase)
@@ -2343,7 +2338,7 @@ public partial class ListenPage
                 var groupWorks = group.Select(item => item.Work).ToList();
                 var first = groupWorks.First();
                 var creator = normalizedGroupField == "album"
-                    ? FirstNonBlankOrNull(first.Artist, first.Author)
+                    ? StringHelpers.FirstNonBlank(first.Artist, first.Author)
                     : null;
 
                 return new ContentGroupViewModel
@@ -2352,11 +2347,11 @@ public partial class ListenPage
                     DisplayName = group.Key,
                     PrimaryMediaType = "Music",
                     WorkCount = groupWorks.Count,
-                    CoverUrl = FirstNonBlankOrNull(first.SquareUrl, first.CoverUrl),
+                    CoverUrl = StringHelpers.FirstNonBlank(first.SquareUrl, first.CoverUrl),
                     BackgroundUrl = first.BackgroundUrl,
                     BannerUrl = first.BannerUrl,
                     Creator = creator,
-                    ArtistPhotoUrl = normalizedGroupField == "artist" ? FirstNonBlankOrNull(first.SquareUrl, first.CoverUrl) : null,
+                    ArtistPhotoUrl = normalizedGroupField == "artist" ? StringHelpers.FirstNonBlank(first.SquareUrl, first.CoverUrl) : null,
                     CreatedAt = groupWorks.Max(work => work.CreatedAt),
                 };
             })
@@ -2637,10 +2632,10 @@ public partial class ListenPage
         => item.Card?.WorkId ?? item.Work?.Id;
 
     private static string AudiobookTitle(AudiobookDisplayItem item)
-        => FirstNonBlankOrNull(item.Card?.Title, item.Work?.Title, "Audiobook") ?? "Audiobook";
+        => StringHelpers.FirstNonBlank(item.Card?.Title, item.Work?.Title, "Audiobook") ?? "Audiobook";
 
     private static string? AudiobookCoverUrl(AudiobookDisplayItem item)
-        => FirstNonBlankOrNull(
+        => StringHelpers.FirstNonBlank(
             item.Card?.Artwork.CoverUrl,
             item.Card?.Artwork.CoverMediumUrl,
             item.Card?.Artwork.CoverSmallUrl,
@@ -2749,7 +2744,7 @@ public partial class ListenPage
     }
 
     private static string AudiobookCreatorLine(AudiobookDisplayItem item)
-        => FirstNonBlankOrNull(item.Card?.Subtitle, item.Work?.Author, item.Work?.Artist, "Unknown Author") ?? "Unknown Author";
+        => StringHelpers.FirstNonBlank(item.Card?.Subtitle, item.Work?.Author, item.Work?.Artist, "Unknown Author") ?? "Unknown Author";
 
     private static string AudiobookSecondaryLine(AudiobookDisplayItem item)
     {
@@ -2788,7 +2783,7 @@ public partial class ListenPage
     }
 
     private static string AudiobookSeriesDescription(ContentGroupViewModel series)
-        => FirstNonBlankOrNull(series.Description, series.Tagline)
+        => StringHelpers.FirstNonBlank(series.Description, series.Tagline)
            ?? $"{series.DisplayName} includes {Pluralize(series.WorkCount, "audiobook")} in your library.";
 
     private static string AudiobookAuthorMeta(AudiobookAuthorGroup author)
@@ -3199,7 +3194,7 @@ public partial class ListenPage
         SquareTile(
             id: album.CollectionId,
             title: album.DisplayName,
-            subtitle: FirstNonBlank(album.Creator, album.Year, Pluralize(album.WorkCount, "track")),
+            subtitle: StringHelpers.FirstNonBlankOr("-", album.Creator, album.Year, Pluralize(album.WorkCount, "track")),
             imageUrl: album.CoverUrl ?? album.ArtistPhotoUrl,
             backgroundUrl: album.BackgroundUrl ?? album.HeroUrl,
             bannerUrl: album.BannerUrl,
@@ -3221,7 +3216,7 @@ public partial class ListenPage
         return SquareTile(
             id: album.AlbumCollectionId ?? GenerateDeterministicGuid($"{_artistDetail?.DisplayName}:{title}"),
             title: title,
-            subtitle: FirstNonBlank(album.Year, Pluralize(album.Episodes.Count, "track")),
+            subtitle: StringHelpers.FirstNonBlankOr("-", album.Year, Pluralize(album.Episodes.Count, "track")),
             imageUrl: album.CoverUrl,
             route: route,
             presentation: MediaTilePresentation.Album,
@@ -3249,7 +3244,7 @@ public partial class ListenPage
         var backgroundLarge = MediaTileArtworkUrl.Sized(backgroundUrl, "l");
         var bannerMedium = MediaTileArtworkUrl.Sized(bannerUrl, "m");
         var bannerLarge = MediaTileArtworkUrl.Sized(bannerUrl, "l");
-        var hoverImage = FirstNonBlankOrNull(backgroundMedium, bannerMedium, medium);
+        var hoverImage = StringHelpers.FirstNonBlank(backgroundMedium, bannerMedium, medium);
         return new MediaTileViewModel
         {
             Id = id,
@@ -3276,7 +3271,7 @@ public partial class ListenPage
             TileImageUrl = small,
             TileImageSrcSet = MediaTileArtworkUrl.SrcSet(small, medium),
             HoverImageUrl = hoverImage,
-            HoverImageSrcSet = MediaTileArtworkUrl.SrcSet(hoverImage, FirstNonBlankOrNull(backgroundLarge, bannerLarge, medium)),
+            HoverImageSrcSet = MediaTileArtworkUrl.SrcSet(hoverImage, StringHelpers.FirstNonBlank(backgroundLarge, bannerLarge, medium)),
             TileImageFitMode = MediaTileImageFitMode.Contain,
             HoverImageFitMode = !string.IsNullOrWhiteSpace(backgroundMedium) || !string.IsNullOrWhiteSpace(bannerMedium)
                 ? MediaTileImageFitMode.Fill

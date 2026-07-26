@@ -3,6 +3,7 @@ using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Display;
@@ -65,7 +66,7 @@ public sealed class DisplayHomeCollectionProjectionReader
     private static DisplayHomeCollectionRow ToRow(CollectionManagementCatalogDto collection)
     {
         var artwork = collection.ArtworkItems.FirstOrDefault();
-        var primaryArtwork = FirstNonBlank(collection.SquareArtworkUrl, artwork?.CoverUrl);
+        var primaryArtwork = StringHelpers.FirstNonBlank(collection.SquareArtworkUrl, artwork?.CoverUrl);
         return new DisplayHomeCollectionRow
         {
             CollectionId = collection.Id,
@@ -103,6 +104,4 @@ public sealed class DisplayHomeCollectionProjectionReader
         };
     }
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 }

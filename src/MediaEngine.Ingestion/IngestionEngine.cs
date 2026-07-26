@@ -1212,7 +1212,7 @@ public sealed class IngestionEngine : BackgroundService, IIngestionEngine
                     confidence = c.Confidence,
                     reason     = c.Reason,
                 }),
-                new JsonSerializerOptions { WriteIndented = false });
+                JsonSerializerOptions.Default);
 
             await CreateAmbiguousMediaTypeReviewItemAsync(
                 assetId,

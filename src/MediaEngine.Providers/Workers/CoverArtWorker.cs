@@ -1,4 +1,3 @@
-using System.Security.Cryptography;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -371,7 +370,7 @@ public sealed class CoverArtWorker
         if (_coverArtHash is not null && File.Exists(coverPath))
         {
             var existingBytes = await File.ReadAllBytesAsync(coverPath, ct);
-            var existingHash = Convert.ToHexStringLower(SHA256.HashData(existingBytes));
+            var existingHash = Hashing.Sha256Hex(existingBytes);
             embeddedPhash = await _imageCache.GetPerceptualHashAsync(existingHash, ct);
         }
 
@@ -396,7 +395,7 @@ public sealed class CoverArtWorker
         }
 
         // Content-hash dedup
-        var hash = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        var hash = Hashing.Sha256Hex(bytes);
         var cached = await _imageCache.FindByHashAsync(hash, ct);
         if (cached is not null && File.Exists(cached))
         {
@@ -809,14 +808,7 @@ public sealed class CoverArtWorker
         if (string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase))
             return ".png";
 
-        if (Uri.TryCreate(sourceUrl, UriKind.Absolute, out var imageUri))
-        {
-            var extension = Path.GetExtension(imageUri.AbsolutePath);
-            if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
-                return ".png";
-        }
-
-        return ".jpg";
+        return MediaMimeTypes.InferImageExtension(sourceUrl) ?? ".jpg";
     }
 
     private static IReadOnlyList<CanonicalValue> BuildCoverCanonicals(

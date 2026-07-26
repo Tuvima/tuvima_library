@@ -14,6 +14,11 @@ namespace MediaEngine.AI.Llama;
 /// </summary>
 public sealed class LlamaInferenceService : ILlamaInferenceService, IAsyncDisposable
 {
+    // Kept as a local cached static rather than MediaEngine.Domain.Services.MediaEngineJson:
+    // this combination (case-insensitive + trailing commas + comment-skip, used for lenient
+    // parsing of model JSON output under GBNF grammar constraints) isn't one of the three
+    // shapes MediaEngineJson offers. See
+    // tests/MediaEngine.Domain.Tests/JsonSerializerOptionsGuardrailAllowlist.txt.
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true,

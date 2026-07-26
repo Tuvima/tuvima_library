@@ -4,6 +4,7 @@ using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Features;
@@ -118,11 +119,6 @@ public sealed class SmartLabeler : ISmartLabeler
     // Used when AI Smart Labeling is disabled — provides basic structured
     // extraction for common TV filename patterns.
 
-    /// <summary>S01E01, S01E01E02 (multi-episode), case-insensitive.</summary>
-    private static readonly Regex SxxExxRegex = new(
-        @"^(?<series>.+?)\s*[.\-_ ]*[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?",
-        RegexOptions.Compiled);
-
     /// <summary>1x01 format.</summary>
     private static readonly Regex NxNNRegex = new(
         @"^(?<series>.+?)\s*[.\-_ ]+(?<season>\d{1,2})[Xx](?<ep1>\d{1,4})",
@@ -140,7 +136,7 @@ public sealed class SmartLabeler : ISmartLabeler
     /// </summary>
     private static (string? SeriesTitle, int? Season, int? Episode) ExtractSeasonEpisode(string text)
     {
-        var m = SxxExxRegex.Match(text);
+        var m = EpisodePatterns.SeasonEpisode().Match(text);
         if (m.Success)
             return (m.Groups["series"].Value.TrimEnd('.', '-', '_', ' '),
                     int.Parse(m.Groups["season"].Value),

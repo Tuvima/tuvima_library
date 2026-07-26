@@ -583,7 +583,7 @@
 
         yield return new StatItem("In Progress", _overview.Stats.InProgress.ToString("N0"), "Across all media", Icons.Material.Outlined.Bookmarks, Color.Info);
         yield return new StatItem("Completed", _overview.Stats.Completed.ToString("N0"), "Books, shows & more", Icons.Material.Outlined.CheckCircle, Color.Success);
-        yield return new StatItem("Time Tracked", FormatDuration(_overview.Stats.ConsumedSeconds), "From saved progress", Icons.Material.Outlined.Schedule, Color.Warning);
+        yield return new StatItem("Time Tracked", DisplayFormat.FormatDurationHoursMinutesRounded(_overview.Stats.ConsumedSeconds), "From saved progress", Icons.Material.Outlined.Schedule, Color.Warning);
         yield return new StatItem("Recent Activity", RecentActivityValue(), "Recently watched, read, or played", Icons.Material.Outlined.History, Color.Warning);
     }
 
@@ -625,17 +625,6 @@
             return Math.Clamp(value, 0, 100);
 
         return Math.Clamp(value * 100d / max, 6d, 100d);
-    }
-
-    private static string FormatDuration(double seconds)
-    {
-        if (seconds <= 0)
-            return "0m";
-
-        var totalMinutes = (int)Math.Round(seconds / 60);
-        var hours = totalMinutes / 60;
-        var minutes = totalMinutes % 60;
-        return hours > 0 ? $"{hours}h {minutes}m" : $"{minutes}m";
     }
 
     private static string RelativeTime(DateTimeOffset timestamp)

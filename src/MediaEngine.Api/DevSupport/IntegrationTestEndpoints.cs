@@ -1680,16 +1680,16 @@ public static class IntegrationTestEndpoints
             // Determine creator based on media type
             string? creator = item.MediaType.ToUpperInvariant() switch
             {
-                "BOOKS" or "AUDIOBOOKS" => FirstNonBlank(detail?.Author, FirstCanonicalValue(detail, "author"), FirstClaimValue(detail, "author")),
-                "MOVIES" => FirstNonBlank(detail?.Director, FirstCanonicalValue(detail, "director"), FirstClaimValue(detail, "director")),
-                "TV" => FirstNonBlank(detail?.Director, FirstCanonicalValue(detail, "director"), FirstClaimValue(detail, "director")),
-                "MUSIC" => FirstNonBlank(
+                "BOOKS" or "AUDIOBOOKS" => StringHelpers.FirstNonBlank(detail?.Author, FirstCanonicalValue(detail, "author"), FirstClaimValue(detail, "author")),
+                "MOVIES" => StringHelpers.FirstNonBlank(detail?.Director, FirstCanonicalValue(detail, "director"), FirstClaimValue(detail, "director")),
+                "TV" => StringHelpers.FirstNonBlank(detail?.Director, FirstCanonicalValue(detail, "director"), FirstClaimValue(detail, "director")),
+                "MUSIC" => StringHelpers.FirstNonBlank(
                     detail?.Artist,
                     detail?.Author,
                     FirstCanonicalValue(detail, "artist", "album_artist", "author"),
                     FirstClaimValue(detail, "artist", "album_artist", "author"),
                     item.Author),
-                _ => FirstNonBlank(detail?.Author, item.Author),
+                _ => StringHelpers.FirstNonBlank(detail?.Author, item.Author),
             };
 
             var validStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -2517,7 +2517,7 @@ public static class IntegrationTestEndpoints
 
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<CrossMediaHarnessRow>(new CommandDefinition(
-            """
+            $"""
             WITH leaf AS (
                 SELECT DISTINCT w.id AS work_id,
                        COALESCE(gp.id, p.id, w.id) AS root_work_id,
@@ -2544,8 +2544,8 @@ public static class IntegrationTestEndpoints
                     (SELECT cv.value FROM canonical_values cv WHERE cv.entity_id = l.root_work_id AND cv.key IN ('series', 'show_name', 'album', 'title') LIMIT 1),
                     c.display_name
                 ) AS SeriesName,
-                NULLIF(lower(hex(l.collection_id)), '') AS CollectionId,
-                NULLIF(lower(hex(c.parent_collection_id)), '') AS ParentCollectionId,
+                {GuidSql.TextProjection("l.collection_id")} AS CollectionId,
+                {GuidSql.TextProjection("c.parent_collection_id")} AS ParentCollectionId,
                 c.wikidata_qid AS CollectionQid,
                 pc.wikidata_qid AS ParentCollectionQid,
                 COALESCE(
@@ -4794,8 +4794,6 @@ public static class IntegrationTestEndpoints
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
     }
 
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static bool ContainsNormalized(string text, string fragment)
     {

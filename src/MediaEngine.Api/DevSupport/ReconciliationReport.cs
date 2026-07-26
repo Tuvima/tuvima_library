@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Api.DevSupport;
 
@@ -121,7 +122,7 @@ public sealed class ReconciliationReport
                 classification   = i.Classification,
                 reason           = i.Reason,
             }),
-    }, new JsonSerializerOptions { WriteIndented = true });
+    }, MediaEngineJson.Indented);
 
     private static void AppendGroup(StringBuilder sb, string title, IEnumerable<ReconciliationReportItem> items)
     {

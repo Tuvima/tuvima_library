@@ -1,10 +1,9 @@
-using System.Security.Cryptography;
-using System.Text;
 using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
@@ -473,7 +472,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
         foreach (var parsed in qidClaims)
         {
-            var name = FirstNonBlank(parsed.Label, parsed.Qid);
+            var name = StringHelpers.FirstNonBlank(parsed.Label, parsed.Qid);
             if (string.IsNullOrWhiteSpace(name))
             {
                 continue;
@@ -509,10 +508,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             : value.Split(" / ", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private static Guid CreateDeterministicCharacterId(Guid workId, string actorName, string characterName)
-    {
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes($"{workId:D}|{actorName}|{characterName}"));
-        return new Guid(bytes);
-    }
+        => Hashing.DeterministicGuid($"{workId:D}|{actorName}|{characterName}");
 
     private static (string? Qid, string? Label) ParseQidLabel(string? value)
     {
@@ -525,7 +521,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         var delimiter = trimmed.IndexOf("::", StringComparison.Ordinal);
         if (delimiter > 0)
         {
-            return (ExtractQid(trimmed[..delimiter]), FirstNonBlank(trimmed[(delimiter + 2)..], null));
+            return (ExtractQid(trimmed[..delimiter]), StringHelpers.FirstNonBlank(trimmed[(delimiter + 2)..], null));
         }
 
         return (ExtractQid(trimmed), null);
@@ -547,9 +543,6 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
         return string.IsNullOrWhiteSpace(trimmed) ? null : trimmed;
     }
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string? BuildHeadshotUrl(Guid? personId, string? localHeadshotPath, string? remoteHeadshotUrl)
         => personId.HasValue
@@ -998,10 +991,10 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                         CollectionId = representative.CollectionId,
                         MediaType = representative.MediaType,
                         Title = isTvSeriesCredit
-                            ? FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
+                            ? StringHelpers.FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
                             : isMusicAlbumCredit
-                                ? FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!
-                            : FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!,
+                                ? StringHelpers.FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!
+                            : StringHelpers.FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!,
                         CoverUrl = orderedRows.Select(row => row.FirstAssetId).FirstOrDefault(assetId => assetId.HasValue) is Guid assetId
                             ? $"/stream/{assetId}/cover-thumb"
                             : null,

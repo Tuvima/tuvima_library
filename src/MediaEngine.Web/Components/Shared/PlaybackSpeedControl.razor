@@ -4,7 +4,7 @@
 @using Microsoft.AspNetCore.Components.Web
 
 <section class="@RootClass" aria-label="Playback speed" @attributes="AdditionalAttributes">
-    <div class="playback-speed-control__value">@FormatSpeed(CurrentValue)</div>
+    <div class="playback-speed-control__value">@DisplayFormat.FormatSpeedSlider(CurrentValue)</div>
 
     <PlaybackRangeSlider Value="@CurrentValue"
                          Min="@Min"
@@ -13,7 +13,7 @@
                          InputStep="@Step"
                          TickStep="0.5"
                          AriaLabel="Playback speed"
-                         ValueFormatter="FormatSpeed"
+                         ValueFormatter="DisplayFormat.FormatSpeedSlider"
                          TickFormatter="FormatSpeedTick"
                          ValueChanged="SetValueAsync"
                          Class="playback-speed-control__slider" />
@@ -27,9 +27,9 @@
                 <AppNativeButton Type="button"
                                  Class="@PresetClass(isActive)"
                                  OnClick="@(() => SetValueAsync(preset))"
-                                 AriaLabel="@($"Set speed to {FormatSpeed(preset)}")"
+                                 AriaLabel="@($"Set speed to {DisplayFormat.FormatSpeedSlider(preset)}")"
                                  aria-pressed="@(isActive ? "true" : null)">
-                    @FormatSpeed(preset)
+                    @DisplayFormat.FormatSpeedSlider(preset)
                 </AppNativeButton>
             }
         </div>
@@ -38,19 +38,19 @@
     <section class="playback-speed-control__section playback-speed-control__fine" aria-label="Fine adjustment">
         <h3>Fine adjustment</h3>
         <div class="playback-speed-control__stepper">
-            <AppNativeButton Type="button" Class="playback-speed-control__step" Disabled="@(CurrentValue <= Min + 0.001d)" OnClick="@(() => AdjustAsync(-Step))" AriaLabel="@($"Decrease speed by {FormatSpeed(Step)}")">
+            <AppNativeButton Type="button" Class="playback-speed-control__step" Disabled="@(CurrentValue <= Min + 0.001d)" OnClick="@(() => AdjustAsync(-Step))" AriaLabel="@($"Decrease speed by {DisplayFormat.FormatSpeedSlider(Step)}")">
                 <span aria-hidden="true">-</span>
             </AppNativeButton>
-            <span class="playback-speed-control__step-label">@FormatSpeed(Step) steps</span>
-            <AppNativeButton Type="button" Class="playback-speed-control__step" Disabled="@(CurrentValue >= Max - 0.001d)" OnClick="@(() => AdjustAsync(Step))" AriaLabel="@($"Increase speed by {FormatSpeed(Step)}")">
+            <span class="playback-speed-control__step-label">@DisplayFormat.FormatSpeedSlider(Step) steps</span>
+            <AppNativeButton Type="button" Class="playback-speed-control__step" Disabled="@(CurrentValue >= Max - 0.001d)" OnClick="@(() => AdjustAsync(Step))" AriaLabel="@($"Increase speed by {DisplayFormat.FormatSpeedSlider(Step)}")">
                 <span aria-hidden="true">+</span>
             </AppNativeButton>
         </div>
     </section>
 
-    <AppNativeButton Type="button" Class="playback-speed-control__reset" Disabled="@(Math.Abs(CurrentValue - ResetValue) < 0.01d)" OnClick="@(() => SetValueAsync(ResetValue))" AriaLabel="@($"Reset speed to {FormatSpeed(ResetValue)}")">
+    <AppNativeButton Type="button" Class="playback-speed-control__reset" Disabled="@(Math.Abs(CurrentValue - ResetValue) < 0.01d)" OnClick="@(() => SetValueAsync(ResetValue))" AriaLabel="@($"Reset speed to {DisplayFormat.FormatSpeedSlider(ResetValue)}")">
         <MudIcon Icon="@Icons.Material.Outlined.RestartAlt" Class="playback-speed-control__reset-icon" />
-        <span>Reset to @FormatSpeed(ResetValue)</span>
+        <span>Reset to @DisplayFormat.FormatSpeedSlider(ResetValue)</span>
     </AppNativeButton>
 </section>
 
@@ -138,13 +138,10 @@
         isActive ? "is-active" : null,
     }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
-    private static string FormatSpeed(double rate) =>
-        $"{Math.Clamp(rate, 0.1d, 32d).ToString("0.0", CultureInfo.InvariantCulture)}x";
-
     private static string FormatSpeedTick(double rate)
     {
         var rounded = Math.Round(rate, 1);
         var tenths = (int)Math.Round(rounded * 10d);
-        return tenths % 5 == 0 ? FormatSpeed(rounded) : string.Empty;
+        return tenths % 5 == 0 ? DisplayFormat.FormatSpeedSlider(rounded) : string.Empty;
     }
 }

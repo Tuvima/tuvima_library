@@ -88,7 +88,7 @@
                             </div>
                         </td>
                         <td>@batch.ItemCount.ToString("N0")</td>
-                        <td>@FirstNonBlank(batch.DurationLabel, FormatDuration(batch.DurationSeconds), "-")</td>
+                        <td>@StringHelpers.FirstNonBlankOr("", batch.DurationLabel, DisplayFormat.FormatDurationHoursMinutesOrNull(batch.DurationSeconds), "-")</td>
                         <td><AppStatusChip Text="@ActivityDisplay.StatusText(batch.Status)" Tone="@ActivityDisplay.StatusTone(batch.Status)" /></td>
                     </tr>
 
@@ -426,20 +426,6 @@
 
     private static string FormatDate(DateTimeOffset? value) =>
         value?.ToLocalTime().ToString("MMM d, yyyy h:mm tt") ?? "-";
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
-
-    private static string? FormatDuration(double? seconds)
-    {
-        if (seconds is not > 0)
-            return null;
-
-        var duration = TimeSpan.FromSeconds(seconds.Value);
-        return duration.TotalHours >= 1
-            ? $"{(int)duration.TotalHours}h {duration.Minutes}m"
-            : $"{duration.Minutes}m {duration.Seconds}s";
-    }
 
     private sealed class GroupTableState
     {

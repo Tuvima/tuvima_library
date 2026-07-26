@@ -1,3 +1,4 @@
+using MediaEngine.Web.Services.Formatting;
 using MediaEngine.Web.Services.Playback;
 using MudBlazor;
 
@@ -157,14 +158,14 @@ public static class PlaybackControlCatalog
                 controls.Add(new(PlaybackControlKey.Repeat, "Repeat", "Repeat", Icons.Material.Outlined.Repeat, PlaybackControlPlacement.ToolStrip, "repeat"));
                 break;
             case PlaybackExperience.Audiobook:
-                controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: FormatSpeed(state.PlaybackRate)));
+                controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: DisplayFormat.FormatSpeedControl(state.PlaybackRate)));
                 controls.Add(Tool(PlaybackControlKey.Chapters, "Chapters", Icons.Material.Outlined.FormatListBulleted, "chapters", state, IsDisabled: !state.HasChapters));
                 controls.Add(Tool(PlaybackControlKey.History, "History", Icons.Material.Outlined.History, "history", state));
                 controls.Add(Tool(PlaybackControlKey.Bookmarks, "Bookmark", Icons.Material.Outlined.BookmarkBorder, "bookmarks", state));
                 controls.Add(Tool(PlaybackControlKey.SleepTimer, "Sleep", Icons.Material.Outlined.Timer, "sleep", state, BadgeText: state.SleepTimerValueText, IsActive: state.IsSleepTimerActive));
                 break;
             case PlaybackExperience.Video:
-                controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: FormatSpeed(state.PlaybackRate)));
+                controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: DisplayFormat.FormatSpeedControl(state.PlaybackRate)));
                 controls.Add(Tool(PlaybackControlKey.Chapters, "Chapters", Icons.Material.Outlined.FormatListBulleted, "chapters", state, IsDisabled: !state.HasChapters));
                 controls.Add(new(PlaybackControlKey.Queue, "Queue", "Queue", Icons.Material.Outlined.QueuePlayNext, PlaybackControlPlacement.ToolStrip, "queue", IsDisabled: !state.HasQueue));
                 controls.Add(new(PlaybackControlKey.History, "History", "History", Icons.Material.Outlined.History, PlaybackControlPlacement.ToolStrip, "history"));
@@ -211,5 +212,4 @@ public static class PlaybackControlCatalog
             string.Equals(state.ActiveSheet, sheet, StringComparison.Ordinal));
     }
 
-    private static string FormatSpeed(double rate) => $"{Math.Clamp(rate, 0.5d, 3d):0.#}x";
 }

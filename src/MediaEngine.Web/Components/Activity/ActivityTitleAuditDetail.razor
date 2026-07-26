@@ -116,7 +116,7 @@ else
     private string? RetailProvider =>
         Detail?.Evidence
             .Where(evidence => ContainsAny($"{evidence.Kind} {evidence.Label} {evidence.Source}", "retail", "provider", "match"))
-            .Select(evidence => ActivityDisplay.ProviderName(FirstNonBlank(evidence.ProviderId, evidence.Source)))
+            .Select(evidence => ActivityDisplay.ProviderName(StringHelpers.FirstNonBlankOr("", evidence.ProviderId, evidence.Source)))
             .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value) && value != "-");
 
     private IReadOnlyList<RolePeopleGroup> PeopleGroups =>
@@ -127,9 +127,6 @@ else
             .Select(group => new RolePeopleGroup(RoleLabel(group.Key), group.Key, group.OrderBy(person => person.PersonName).ToList()))
             .ToList()
         ?? [];
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
     private IReadOnlyList<ActivityTimelineEventViewModel> BuildMajorTimeline(
         IReadOnlyList<ActivityTimelineEventViewModel> events)
@@ -190,7 +187,7 @@ else
     }
 
     private static ActivityTimelineEventViewModel ToReadableEvent(ActivityTimelineEventViewModel item) =>
-        ReadableCopy(item, item.EventType, ActivityDisplay.SplitWords(FirstNonBlank(item.Label, item.EventType, "Activity")), FriendlyDetail(item), item.Tone);
+        ReadableCopy(item, item.EventType, DisplayFormat.SplitWords(StringHelpers.FirstNonBlankOr("", item.Label, item.EventType, "Activity")), FriendlyDetail(item), item.Tone);
 
     private static ActivityTimelineEventViewModel ReadableCopy(
         ActivityTimelineEventViewModel item,
@@ -253,10 +250,10 @@ else
         };
 
     private static string FriendlyDetail(ActivityTimelineEventViewModel item) =>
-        FriendlyDetail(FirstNonBlank(item.Detail, item.Label, item.EventType));
+        FriendlyDetail(StringHelpers.FirstNonBlankOr("", item.Detail, item.Label, item.EventType));
 
     private static string FriendlyDetail(string value) =>
-        string.IsNullOrWhiteSpace(value) ? "" : ActivityDisplay.SplitWords(value);
+        string.IsNullOrWhiteSpace(value) ? "" : DisplayFormat.SplitWords(value);
 
     private static string FriendlySource(string? source) => ActivityDisplay.ProviderName(source) switch
     {
@@ -302,7 +299,7 @@ else
         "characters" => "Characters",
         "artists" => "Artists",
         "linked" => "Linked People",
-        _ => ActivityDisplay.SplitWords(key),
+        _ => DisplayFormat.SplitWords(key),
     };
 
     private static string Initials(string name)

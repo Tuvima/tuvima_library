@@ -269,7 +269,7 @@ else
                         <div class="listen-kicker">Album</div>
                         <h2>@_albumDetail.DisplayName</h2>
                         <div class="listen-detail__meta">
-                            <span>@FirstNonBlank(_albumDetail.Creator, _albumDetail.YearRange, _albumDetail.ReleaseDate)</span>
+                            <span>@StringHelpers.FirstNonBlankOr("-", _albumDetail.Creator, _albumDetail.YearRange, _albumDetail.ReleaseDate)</span>
                             <span>@Pluralize(_albumDetail.TotalItems, "track")</span>
                             @if (!string.IsNullOrWhiteSpace(_albumDetail.TotalDuration))
                             {
@@ -756,11 +756,11 @@ else
                                     }
                                     @if (IsPlaylistColumnVisible("artist"))
                                     {
-                                        <span class="listen-playlist-track-row__meta" role="cell">@FirstNonBlank(track.Artist, track.Author)</span>
+                                        <span class="listen-playlist-track-row__meta" role="cell">@StringHelpers.FirstNonBlankOr("-", track.Artist, track.Author)</span>
                                     }
                                     @if (IsPlaylistColumnVisible("album"))
                                     {
-                                        <span class="listen-playlist-track-row__meta" role="cell">@FirstNonBlank(track.Album)</span>
+                                        <span class="listen-playlist-track-row__meta" role="cell">@StringHelpers.FirstNonBlankOr("-", track.Album)</span>
                                     }
                                     @if (IsPlaylistColumnVisible("time"))
                                     {

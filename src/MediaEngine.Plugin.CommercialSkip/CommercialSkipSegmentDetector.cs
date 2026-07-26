@@ -6,11 +6,6 @@ namespace MediaEngine.Plugin.CommercialSkip;
 
 public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
 {
-    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp4", ".m4v", ".mkv", ".webm", ".avi", ".ts", ".mpeg", ".mpg",
-    };
-
     private static readonly Regex EdlLineRegex = new(
         @"^\s*(?<start>\d+(?:\.\d+)?)\s+(?<end>\d+(?:\.\d+)?)\s+(?<type>\d+)",
         RegexOptions.Compiled);
@@ -29,7 +24,7 @@ public sealed class CommercialSkipSegmentDetector : IPlaybackSegmentDetector
 
     public bool CanAnalyze(PluginMediaAssetContext asset)
     {
-        return File.Exists(asset.FilePath) && VideoExtensions.Contains(Path.GetExtension(asset.FilePath));
+        return File.Exists(asset.FilePath) && PluginMediaExtensions.Video.Contains(Path.GetExtension(asset.FilePath));
     }
 
     public async Task<IReadOnlyList<PluginPlaybackSegment>> AnalyzeAsync(

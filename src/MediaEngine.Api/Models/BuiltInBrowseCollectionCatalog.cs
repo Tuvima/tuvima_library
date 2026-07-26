@@ -1,7 +1,6 @@
-using System.Security.Cryptography;
-using System.Text;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 
 namespace MediaEngine.Api.Models;
@@ -38,11 +37,7 @@ public sealed record BuiltInBrowseCollectionDefinition(
         CreatedAt = DateTimeOffset.UnixEpoch,
     };
 
-    private static Guid CreateDeterministicGuid(string value)
-    {
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
-        return new Guid(bytes);
-    }
+    private static Guid CreateDeterministicGuid(string value) => Hashing.DeterministicGuid(value);
 }
 
 public static class BuiltInBrowseCollectionCatalog

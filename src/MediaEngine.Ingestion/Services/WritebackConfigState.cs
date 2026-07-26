@@ -1,6 +1,5 @@
-using System.Security.Cryptography;
-using System.Text;
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Models;
 
@@ -178,8 +177,10 @@ public sealed class WritebackConfigState : IDisposable
         var sorted = slice.OrderBy(f => f, StringComparer.Ordinal).ToArray();
         var payload = $"{version}|{string.Join(",", sorted)}";
 
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(payload));
-        return Convert.ToHexString(bytes).ToLowerInvariant();
+        // The prior hand-rolled implementation already produced lowercase hex
+        // (Convert.ToHexString(...).ToLowerInvariant()), matching Hashing.Sha256Hex
+        // byte-for-byte — safe to redirect without rotating any stored hash.
+        return Hashing.Sha256Hex(payload);
     }
 
     /// <summary>

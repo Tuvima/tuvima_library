@@ -489,7 +489,7 @@ public static class CollectionEndpoints
                 collectionChildJson = await EnsureAppleAlbumTrackManifestAsync(
                     rootParentWorkId,
                     collectionCreator,
-                    FirstNonBlank(ParentCv(MetadataFieldConstants.Album), ParentCv(MetadataFieldConstants.Title), collection.DisplayName),
+                    StringHelpers.FirstNonBlank(ParentCv(MetadataFieldConstants.Album), ParentCv(MetadataFieldConstants.Title), collection.DisplayName),
                     collectionChildJson,
                     parentCvs,
                     canonicalRepo,
@@ -2402,7 +2402,7 @@ public static class CollectionEndpoints
 
         aggregation = new CollectionCatalogAggregation(
             $"{relationshipType}:{NormalizeCatalogQid(relationship.RelQid)}",
-            FirstNonBlank(relationship.RelLabel, collection.DisplayName));
+            StringHelpers.FirstNonBlank(relationship.RelLabel, collection.DisplayName));
         return true;
     }
 
@@ -2416,9 +2416,6 @@ public static class CollectionEndpoints
 
         return value.Trim();
     }
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static bool IsGeneratedSeriesCollection(Collection collection)
         => string.Equals(collection.CollectionType, "Universe", StringComparison.OrdinalIgnoreCase)
@@ -2839,16 +2836,16 @@ public static class CollectionEndpoints
                         Title = owned.Title,
                         Ordinal = owned.Ordinal ?? ordinal,
                         Year = owned.Year,
-                        Duration = FirstNonBlank(owned.Duration, FormatAudioDuration(durationSeconds, null)),
+                        Duration = StringHelpers.FirstNonBlank(owned.Duration, FormatAudioDuration(durationSeconds, null)),
                         DurationSeconds = owned.DurationSeconds ?? durationSeconds,
                         CoverUrl = owned.CoverUrl ?? albumCover,
                         BackgroundUrl = owned.BackgroundUrl,
                         BannerUrl = owned.BannerUrl,
                         HeroUrl = owned.HeroUrl,
                         WikidataQid = owned.WikidataQid,
-                        TrackNumber = FirstNonBlank(owned.TrackNumber, (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture)),
+                        TrackNumber = StringHelpers.FirstNonBlank(owned.TrackNumber, (trackNumber ?? ordinal).ToString(CultureInfo.InvariantCulture)),
                         DiscNumber = owned.DiscNumber ?? discNumber,
-                        AppleMusicId = FirstNonBlank(owned.AppleMusicId, appleMusicId),
+                        AppleMusicId = StringHelpers.FirstNonBlank(owned.AppleMusicId, appleMusicId),
                         Status = owned.Status,
                         Description = owned.Description,
                         Director = owned.Director,
@@ -3767,11 +3764,7 @@ public static class CollectionEndpoints
         return score + group.WorkCount;
     }
 
-    private static Guid CreateDeterministicSystemViewGroupId(string value)
-    {
-        var bytes = MD5.HashData(Encoding.UTF8.GetBytes(value));
-        return new Guid(bytes);
-    }
+    private static Guid CreateDeterministicSystemViewGroupId(string value) => Hashing.DeterministicGuid(value);
 
     /// <summary>
     /// Lineage-aware variant of <see cref="ResolveEntityMetadata"/> used by the

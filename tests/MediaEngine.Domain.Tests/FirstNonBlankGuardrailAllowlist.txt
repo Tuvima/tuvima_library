@@ -1,0 +1,15 @@
+# FirstNonBlank guardrail allowlist.
+# Format: one repo-relative file path per line. Blank lines and lines starting
+# with # are ignored.
+#
+# Every entry here still declares its own private "FirstNonBlank" (or
+# "FirstNonBlankOrNull") helper instead of calling
+# MediaEngine.Domain.Services.StringHelpers.FirstNonBlank /
+# StringHelpers.FirstNonBlankOr. Seeded from the stage-4 shared-primitives
+# audit (2026-07). Wave 2 of stage 4 migrates each call site onto the shared
+# helper and removes its entry — this list shrinks to empty, it does not grow.
+# New entries are forbidden; new code must call StringHelpers directly.
+
+
+# EMPTY by design: every legacy private FirstNonBlank was migrated onto
+# StringHelpers in stage 4 wave 2. New entries are forbidden.

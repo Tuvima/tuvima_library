@@ -235,7 +235,7 @@
         DetailEntityType.Audiobook when !IsOpenAction => "Listen",
         _ => ActiveHero.PrimaryActionLabel,
     };
-    private string ActiveDetailsUrl => FirstNonBlank(ActiveHero.SecondaryNavigationUrl, ActiveHero.PrimaryNavigationUrl) ?? "/";
+    private string ActiveDetailsUrl => StringHelpers.FirstNonBlank(ActiveHero.SecondaryNavigationUrl, ActiveHero.PrimaryNavigationUrl) ?? "/";
     private string PrimaryActionKey => ActiveEntityType switch
     {
         DetailEntityType.Book or DetailEntityType.ComicIssue => "read",
@@ -267,8 +267,8 @@
     {
         get
         {
-            var backdrop = FirstNonBlank(ActiveHero.HeroBackgroundImageUrl, ActiveHero.BackgroundImageUrl, ActiveHero.BannerImageUrl);
-            var fallback = FirstNonBlank(ActiveHero.PreviewImageUrl, backdrop);
+            var backdrop = StringHelpers.FirstNonBlank(ActiveHero.HeroBackgroundImageUrl, ActiveHero.BackgroundImageUrl, ActiveHero.BannerImageUrl);
+            var fallback = StringHelpers.FirstNonBlank(ActiveHero.PreviewImageUrl, backdrop);
             var hasBackdrop = !string.IsNullOrWhiteSpace(backdrop) && UsesLandscapeArtwork;
             var url = hasBackdrop ? backdrop : fallback;
             return new ArtworkSet
@@ -435,7 +435,7 @@
                 Title = item.Title,
                 Subtitle = ActiveHero.Subtitle,
                 Album = ActiveHero.Title,
-                CoverUrl = FirstNonBlank(item.ImageUrl, ActiveHero.PreviewImageUrl),
+                CoverUrl = StringHelpers.FirstNonBlank(item.ImageUrl, ActiveHero.PreviewImageUrl),
             })
             .ToList();
         if (tracks.Count == 0)
@@ -461,7 +461,7 @@
             Title = ActiveHero.Title,
             Subtitle = ActiveHero.Subtitle,
             Album = ActiveHero.Title,
-            CoverUrl = FirstNonBlank(preview?.ImageUrl, ActiveHero.PreviewImageUrl),
+            CoverUrl = StringHelpers.FirstNonBlank(preview?.ImageUrl, ActiveHero.PreviewImageUrl),
         };
         await Playback.PlayAudiobookAsync(item, ActiveHero.Title);
         return true;
@@ -485,9 +485,6 @@
     private void ResumeFromHover() => _hoverPaused = false;
     private void PauseForFocus() => _focusPaused = true;
     private void ResumeFromFocus() => _focusPaused = false;
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static double TrackPosition(string? value)
         => double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var position)

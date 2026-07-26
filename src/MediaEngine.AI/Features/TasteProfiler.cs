@@ -1,9 +1,9 @@
-using System.Security.Cryptography;
 using System.Text;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Features;
@@ -146,7 +146,10 @@ public sealed class TasteProfiler : ITasteProfiler
                 .AppendJoin(',', signal.Moods.Order(StringComparer.OrdinalIgnoreCase)).Append('\n');
         }
 
-        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(payload.ToString())));
+        // Casing contract is lowercase hex via the shared helper (previously uppercase
+        // Convert.ToHexString) — this is a deliberate one-time change; it invalidates
+        // previously stored fingerprints and triggers a one-time taste-profile rebuild.
+        return Hashing.Sha256Hex(payload.ToString());
     }
 
     private static void Increment(Dictionary<string, double> values, string key, double weight) =>

@@ -53,7 +53,7 @@
                 </div>
                 <div>
                     <MudText Typo="Typo.h4" Class="admin-library-banner__title">
-                        <span>@FormatCount(_libraryTotal)</span> items in your library
+                        <span>@DisplayFormat.FormatCount(_libraryTotal)</span> items in your library
                     </MudText>
                     <MudText Typo="Typo.body2" Class="admin-library-banner__subtitle">
                         Books, movies, TV, music, audiobooks, and comics
@@ -69,7 +69,7 @@
                             <MudIcon Icon="@media.Icon" />
                         </span>
                         <span class="admin-library-media__label">@media.Label</span>
-                        <span class="admin-library-media__count">@FormatCount(media.Count)</span>
+                        <span class="admin-library-media__count">@DisplayFormat.FormatCount(media.Count)</span>
                         <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
                     </AppCssElement>
                 }
@@ -114,7 +114,7 @@
             {
                 <div class="admin-run-progress">
                     <div class="admin-run-progress__copy">
-                        <span>@FormatCount(_currentRun.Processed) / @FormatCount(_currentRun.Total) processed</span>
+                        <span>@DisplayFormat.FormatCount(_currentRun.Processed) / @DisplayFormat.FormatCount(_currentRun.Total) processed</span>
                         <span>@_currentRun.Progress.ToString("0")%</span>
                     </div>
                     <div class="admin-progress-track">
@@ -143,9 +143,9 @@
             }
 
             <div class="admin-chip-row">
-                <span class="admin-chip admin-chip--info">@FormatCount(_currentRun.Queued) queued</span>
-                <span class="admin-chip @(_currentRun.Failed > 0 ? "admin-chip--danger" : "")">@FormatCount(_currentRun.Failed) failed</span>
-                <span class="admin-chip @(_pendingReviewCount > 0 ? "admin-chip--warning" : "admin-chip--success")">@FormatCount(_pendingReviewCount) needs review</span>
+                <span class="admin-chip admin-chip--info">@DisplayFormat.FormatCount(_currentRun.Queued) queued</span>
+                <span class="admin-chip @(_currentRun.Failed > 0 ? "admin-chip--danger" : "")">@DisplayFormat.FormatCount(_currentRun.Failed) failed</span>
+                <span class="admin-chip @(_pendingReviewCount > 0 ? "admin-chip--warning" : "admin-chip--success")">@DisplayFormat.FormatCount(_pendingReviewCount) needs review</span>
             </div>
 
             <div class="admin-card-actions">
@@ -160,14 +160,14 @@
                     <MudText Typo="Typo.h6">Review Queue</MudText>
                 </div>
                 <span class="@(_pendingReviewCount > 0 ? "admin-status admin-status--warning" : "admin-status admin-status--success")">
-                    @(_pendingReviewCount > 0 ? $"{FormatCount(_pendingReviewCount)} pending" : "Clear")
+                    @(_pendingReviewCount > 0 ? $"{DisplayFormat.FormatCount(_pendingReviewCount)} pending" : "Clear")
                 </span>
             </div>
 
             <div class="admin-review-stats">
-                @Metric("High priority", FormatCount(_highPriorityReviewCount), Icons.Material.Outlined.PriorityHigh)
+                @Metric("High priority", DisplayFormat.FormatCount(_highPriorityReviewCount), Icons.Material.Outlined.PriorityHigh)
                 @Metric("Oldest", _oldestReviewAge, Icons.Material.Outlined.Schedule)
-                @Metric("New today", FormatCount(_newReviewTodayCount), Icons.Material.Outlined.Today)
+                @Metric("New today", DisplayFormat.FormatCount(_newReviewTodayCount), Icons.Material.Outlined.Today)
             </div>
 
             @if (_reviewItems.Count == 0)
@@ -189,7 +189,7 @@
                             <MudIcon Icon="@MediaIcon(item.MediaType ?? item.EntityType)" />
                             <div class="admin-compact-row__body">
                                 <span>@ReviewTitle(item)</span>
-                                <small>@FirstNonBlank(item.MediaType, item.EntityType, "Unknown")</small>
+                                <small>@StringHelpers.FirstNonBlankOr("", item.MediaType, item.EntityType, "Unknown")</small>
                             </div>
                             <span class="admin-reason-badge">@FormatTrigger(item.Trigger)</span>
                         </div>
@@ -214,9 +214,9 @@
             </div>
 
             <div class="admin-stream-stats">
-                @Metric("Active streams", FormatCount(_activeStreams), Icons.Material.Outlined.LiveTv)
-                @Metric("Transcodes", FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
-                @Metric("Direct play", FormatCount(_directPlayStreams), Icons.Material.Outlined.PlayCircle)
+                @Metric("Active streams", DisplayFormat.FormatCount(_activeStreams), Icons.Material.Outlined.LiveTv)
+                @Metric("Transcodes", DisplayFormat.FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
+                @Metric("Direct play", DisplayFormat.FormatCount(_directPlayStreams), Icons.Material.Outlined.PlayCircle)
             </div>
 
             <div class="admin-split-bar" aria-label="Playback mode split">
@@ -309,10 +309,10 @@
             </div>
 
             <div class="admin-snapshot-grid">
-                @Metric("Added today", FormatCount(_overview?.Added24h ?? 0), Icons.Material.Outlined.AddCircle)
-                @Metric("Processed today", FormatCount(_processedToday), Icons.Material.Outlined.TaskAlt)
-                @Metric("Active transcodes", FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
-                @Metric("Recent imports", FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
+                @Metric("Added today", DisplayFormat.FormatCount(_overview?.Added24h ?? 0), Icons.Material.Outlined.AddCircle)
+                @Metric("Processed today", DisplayFormat.FormatCount(_processedToday), Icons.Material.Outlined.TaskAlt)
+                @Metric("Active transcodes", DisplayFormat.FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
+                @Metric("Recent imports", DisplayFormat.FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
             </div>
         </AppPanel>
     </div>
@@ -499,12 +499,12 @@
                 Processed: batchProgress.FilesProcessed,
                 Total: batchProgress.FilesTotal,
                 Library: "Current batch",
-                CurrentItem: FirstNonBlank(batchProgress.CurrentFileTitle, batchProgress.RecentTitles?.FirstOrDefault(), "Processing item"),
-                Stage: FirstNonBlank(batchProgress.CurrentStage, batchProgress.LifecycleStage, "Processing"),
+                CurrentItem: StringHelpers.FirstNonBlankOr("", batchProgress.CurrentFileTitle, batchProgress.RecentTitles?.FirstOrDefault(), "Processing item"),
+                Stage: StringHelpers.FirstNonBlankOr("", batchProgress.CurrentStage, batchProgress.LifecycleStage, "Processing"),
                 StartedBy: "Engine",
                 Elapsed: "In progress",
                 Remaining: batchProgress.EstimatedSecondsRemaining.HasValue
-                    ? FormatDuration(TimeSpan.FromSeconds(batchProgress.EstimatedSecondsRemaining.Value))
+                    ? DisplayFormat.FormatDurationHoursMinutes(TimeSpan.FromSeconds(batchProgress.EstimatedSecondsRemaining.Value))
                     : "Calculating",
                 Queued: batchProgress.FilesQueued,
                 Failed: batchProgress.FilesFailed,
@@ -525,7 +525,7 @@
                 Processed: signalProgress.ProcessedCount,
                 Total: signalProgress.TotalCount,
                 Library: "Watch folder",
-                CurrentItem: FirstNonBlank(signalProgress.CurrentFile, "Scanning"),
+                CurrentItem: StringHelpers.FirstNonBlankOr("", signalProgress.CurrentFile, "Scanning"),
                 Stage: signalProgress.Stage,
                 StartedBy: "Engine",
                 Elapsed: "In progress",
@@ -552,7 +552,7 @@
                 CurrentItem: "Current item unavailable",
                 Stage: RunStage(activeRun),
                 StartedBy: "Engine",
-                Elapsed: FormatDuration(DateTimeOffset.UtcNow - activeRun.StartedAt.ToUniversalTime()),
+                Elapsed: DisplayFormat.FormatDurationHoursMinutes(DateTimeOffset.UtcNow - activeRun.StartedAt.ToUniversalTime()),
                 Remaining: "Calculating",
                 Queued: Math.Max(0, activeRun.FilesTotal - activeRun.FilesProcessed),
                 Failed: activeRun.FilesFailed,
@@ -619,24 +619,11 @@
     private static string ProgressStyle(double percent) =>
         $"width: {Math.Clamp(percent, 0, 100).ToString("0.###", CultureInfo.InvariantCulture)}%;";
 
-    private static string FormatCount(int value) => value.ToString("N0", CultureInfo.CurrentCulture);
-
     private static string FormatPercent(double value) =>
         value <= 0 ? "0%" : $"{Math.Round(value):0}%";
 
     private static string FormatClock(DateTimeOffset? value) =>
         value.HasValue ? value.Value.ToLocalTime().ToString("h:mm tt", CultureInfo.CurrentCulture) : "not yet";
-
-    private static string FormatDuration(TimeSpan duration)
-    {
-        duration = duration.Duration();
-        if (duration.TotalHours >= 1)
-        {
-            return $"{(int)duration.TotalHours}h {duration.Minutes}m";
-        }
-
-        return $"{duration.Minutes}m {duration.Seconds}s";
-    }
 
     private static string FormatRelative(string value) =>
         DateTimeOffset.TryParse(value, out var parsed) ? FormatRelative(parsed) : "recently";
@@ -659,7 +646,7 @@
         DateTimeOffset.TryParse(value, out var parsed) && IsToday(parsed);
 
     private static string ReviewTitle(ReviewItemViewModel item) =>
-        FirstNonBlank(item.EntityTitle, item.Detail, item.EntityId.ToString());
+        StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
 
     private static string FormatTrigger(string trigger)
     {
@@ -728,7 +715,7 @@
         || status.Equals(EncodeJobStatuses.Scheduled, StringComparison.OrdinalIgnoreCase);
 
     private static string RunLibrary(IngestionBatchViewModel run) =>
-        FirstNonBlank(run.Category, ShortPath(run.SourcePath), "Library");
+        StringHelpers.FirstNonBlankOr("", run.Category, ShortPath(run.SourcePath), "Library");
 
     private static string RunStage(IngestionBatchViewModel run)
     {
@@ -776,9 +763,6 @@
 
         return FormatStatus(job.Status);
     }
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private sealed record MediaBreakdownItem(string Label, string Icon, int Count, double Percent)
     {

@@ -5,6 +5,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
@@ -847,7 +848,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private IngestionOrganizationRulesDto BuildOrganizationRules()
     {
         var options = _ingestionOptions.Value;
-        var folderTemplate = FirstNonBlank(options.OrganizationTemplate, _configLoader.LoadCore().OrganizationTemplate, "Not configured");
+        var folderTemplate = StringHelpers.FirstNonBlankOr(string.Empty, options.OrganizationTemplate, _configLoader.LoadCore().OrganizationTemplate, "Not configured");
         var filenameTemplate = Path.GetFileName(folderTemplate.Replace('/', Path.DirectorySeparatorChar));
         if (string.IsNullOrWhiteSpace(filenameTemplate))
         {
@@ -1669,7 +1670,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         if (activity is null || activeCount != 1)
             return null;
 
-        return FirstNonBlank(
+        return StringHelpers.FirstNonBlankOr(string.Empty,
             activity.CurrentItem,
             activity.CurrentBatch?.ActiveItems.FirstOrDefault(),
             activity.SampleItems.FirstOrDefault());
@@ -2642,8 +2643,8 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             LeaseOwner = row.LeaseOwner,
             LeaseExpiresAt = row.LeaseExpiresAt,
             UpdatedAt = row.UpdatedAt,
-            SourcePath = FirstNonBlank(row.ProviderId, row.SourcePath),
-            Title = FirstNonBlank(row.Title, row.ResultSummary, row.OperationType),
+            SourcePath = StringHelpers.FirstNonBlankOr(string.Empty, row.ProviderId, row.SourcePath),
+            Title = StringHelpers.FirstNonBlankOr(string.Empty, row.Title, row.ResultSummary, row.OperationType),
         };
     }
 
@@ -2920,7 +2921,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static string CleanWorkerItemTitle(string? title, string? detail)
     {
-        var value = FirstNonBlank(title, ExtractQuotedTitle(detail), detail);
+        var value = StringHelpers.FirstNonBlankOr(string.Empty, title, ExtractQuotedTitle(detail), detail);
         if (string.IsNullOrWhiteSpace(value))
         {
             return string.Empty;
@@ -3026,7 +3027,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             Message = message,
             Detail = detail,
             CurrentItem = currentItem,
-            Source = FirstNonBlank(active.Select(row => ShortPath(row.SourcePath)).FirstOrDefault(), relevant.Select(row => ShortPath(row.SourcePath)).FirstOrDefault()),
+            Source = StringHelpers.FirstNonBlankOr(string.Empty, active.Select(row => ShortPath(row.SourcePath)).FirstOrDefault(), relevant.Select(row => ShortPath(row.SourcePath)).FirstOrDefault()),
             ProcessedCount = processed,
             TotalCount = total,
             CountUnit = progressOverride?.CountUnit ?? countUnit,
@@ -3176,7 +3177,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static string DisplayActivityItem(CurrentActivityRow row) =>
         FormatArtworkAssetCount(
-            FirstNonBlank(row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file"),
+            StringHelpers.FirstNonBlankOr(string.Empty, row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file"),
             row.ArtworkAssetCount);
 
     private static string FormatArtworkAssetCount(string title, int? artworkAssetCount) =>
@@ -3505,7 +3506,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         var stageKey = ResolveActivityStageKey(row.State);
         var progress = ResolveActivityProgress(stageKey, stages);
-        var currentItem = FirstNonBlank(row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file");
+        var currentItem = StringHelpers.FirstNonBlankOr(string.Empty, row.Title, ShortPath(row.SourcePath), row.MediaType, "Current file");
         var total = Math.Max(0, progress.Total);
         var processed = Math.Clamp(Math.Max(0, progress.Count), 0, Math.Max(0, total));
 
@@ -3541,7 +3542,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var progress = ResolveActivityProgress(stageKey, stages);
         var total = Math.Max(0, progress.Total > 0 ? progress.Total : job.TotalCount);
         var processed = Math.Clamp(Math.Max(0, progress.Total > 0 ? progress.Count : job.ProcessedCount), 0, Math.Max(0, total));
-        var item = FirstNonBlank(job.CurrentItem, job.CurrentStage, "Ingestion is running");
+        var item = StringHelpers.FirstNonBlankOr(string.Empty, job.CurrentItem, job.CurrentStage, "Ingestion is running");
 
         return new IngestionCurrentActivityDto
         {
@@ -3818,7 +3819,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         BatchActivityStats? stats,
         List<IngestionStageProgressDto>? stageProgress = null)
     {
-        var source = FirstNonBlank(batch.Category, ShortPath(batch.SourcePath), "Library scan");
+        var source = StringHelpers.FirstNonBlankOr(string.Empty, batch.Category, ShortPath(batch.SourcePath), "Library scan");
         var reviewCount = Math.Max(0, stats?.PendingReviewCount ?? batch.FilesReview);
         var hasActiveStageWork = HasActiveStageWork(stageProgress);
         var status = hasActiveStageWork ? "running" : batch.Status;
@@ -4208,8 +4209,6 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         return index >= 0 ? trimmed[(index + 1)..] : trimmed;
     }
 
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private sealed class StageCountRow
     {

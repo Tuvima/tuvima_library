@@ -1,0 +1,17 @@
+# JsonSerializerOptions allocation guardrail allowlist.
+# Format: one repo-relative file path per line. Blank lines and lines starting
+# with # are ignored.
+#
+# Every entry here still allocates its own "new JsonSerializerOptions(...)"
+# instead of using a cached instance from
+# MediaEngine.Domain.Services.MediaEngineJson (Web / Indented / CaseInsensitive).
+# Seeded from the stage-4 shared-primitives audit (2026-07). Wave 2 of stage 4
+# migrates each site either onto MediaEngineJson (for the three configurations
+# it offers) or to a documented local cached static (for configurations it does
+# not offer) and removes the entry from this list — this list shrinks toward
+# only the documented-local-static survivors, it does not grow. New entries are
+# forbidden; new code must use MediaEngineJson or a documented cached static.
+
+# Documented local-static survivor: WriteIndented=false one-off with no
+# MediaEngineJson equivalent worth adding.
+src/MediaEngine.Web/Services/Navigation/ListenPlaylistOrderState.cs

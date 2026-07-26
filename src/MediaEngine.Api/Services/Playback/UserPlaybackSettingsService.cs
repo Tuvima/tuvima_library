@@ -2,16 +2,17 @@ using System.Text.Json;
 using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Playback;
 
 public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
-    {
-        WriteIndented = false,
-    };
+    // WriteIndented = false is the JsonSerializerOptions default, so the previous
+    // `new(JsonSerializerDefaults.Web) { WriteIndented = false }` local instance was
+    // functionally identical to plain Web defaults.
+    private static readonly JsonSerializerOptions JsonOptions = MediaEngineJson.Web;
 
     private static readonly HashSet<int> WatchingSkipBackValues = [5, 10, 15, 30];
     private static readonly HashSet<int> WatchingSkipForwardValues = [10, 30, 60, 90];

@@ -66,7 +66,7 @@
                                 </div>
                                 <div>
                                     <strong>@DisplayTitle(item)</strong>
-                                    <span class="settings-muted">@FirstNonBlank(item.MediaType, item.EntityType, "Unknown")</span>
+                                    <span class="settings-muted">@StringHelpers.FirstNonBlankOr("", item.MediaType, item.EntityType, "Unknown")</span>
                                 </div>
                             </div>
                         </td>
@@ -171,7 +171,7 @@
             {
                 EntityIds = [item.EntityId],
                 LaunchEntityId = item.EntityId,
-                LaunchEntityKind = FirstNonBlank(item.EntityType, "review"),
+                LaunchEntityKind = StringHelpers.FirstNonBlankOr("", item.EntityType, "review"),
                 Mode = SharedMediaEditorMode.Review,
                 IdentityIntent = target.Intent,
                 InitialTab = target.InitialTab,
@@ -232,7 +232,7 @@
     }
 
     private static string DisplayTitle(ReviewItemViewModel item) =>
-        FirstNonBlank(item.EntityTitle, item.Detail, item.EntityId.ToString());
+        StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
 
     private static string FormatTrigger(string trigger) =>
         string.IsNullOrWhiteSpace(trigger)
@@ -267,6 +267,4 @@
         };
     }
 
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 }

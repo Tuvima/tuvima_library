@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 
@@ -176,11 +177,6 @@ public sealed class VideoProcessor : IMediaProcessor
     /// <summary>Trailing organizer tokens such as {imdb-tt1160419} or [tmdb-438631].</summary>
     private static readonly Regex TrailingOrganizerTokenRegex = new(
         @"\s*(?:\{[^{}]+\}|\[[^\[\]]+\])\s*$", RegexOptions.Compiled);
-
-    /// <summary>S01E01, S01E01E02 (multi-episode), case-insensitive.</summary>
-    private static readonly Regex SxxExxRegex = new(
-        @"^(?<series>.+?)\s*[.\-_ ]*[Ss](?<season>\d{1,2})\s*[Ee](?<ep1>\d{1,4})(?:\s*[Ee](?<ep2>\d{1,4}))?",
-        RegexOptions.Compiled);
 
     /// <summary>1x01 format.</summary>
     private static readonly Regex NxNNRegex = new(
@@ -361,7 +357,7 @@ public sealed class VideoProcessor : IMediaProcessor
     private static (string? SeriesTitle, int? Season, int? Episode, string? EpisodeTitle) ExtractSeasonEpisode(string text)
     {
         // Try S01E01 / S01E01E02 first (most common): "Show Name S01E01 - Episode Title"
-        var m = SxxExxRegex.Match(text);
+        var m = EpisodePatterns.SeasonEpisode().Match(text);
         if (m.Success)
         {
             var series = CleanSeriesTitle(m.Groups["series"].Value);

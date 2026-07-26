@@ -59,6 +59,9 @@ public sealed class CommercialSkipPlugin : ITuvimaPlugin
     public IReadOnlyList<IPluginCapability> CreateCapabilities() =>
     [
         new CommercialSkipSegmentDetector(Manifest),
-        new CommercialSkipHealthCheck(Manifest),
+        new ToolRequirementHealthCheck(
+            Manifest,
+            healthyMessage: "Comskip/FFmpeg tools are available.",
+            degradedMessage: "One or more commercial detection tools are unavailable."),
     ];
 }

@@ -57,16 +57,16 @@
                                 }
                             </div>
                         </td>
-                        <td>@FirstNonBlank(person.Role, "-")</td>
+                        <td>@StringHelpers.FirstNonBlankOr("", person.Role, "-")</td>
                         <td>
                             <div class="activity-people__source">
-                                <strong>@FirstNonBlank(person.ProviderId, "inferred")</strong>
+                                <strong>@StringHelpers.FirstNonBlankOr("", person.ProviderId, "inferred")</strong>
                                 <span>@person.Source</span>
                             </div>
                         </td>
-                        <td>@FirstNonBlank(person.Title, "-")</td>
+                        <td>@StringHelpers.FirstNonBlankOr("", person.Title, "-")</td>
                         <td>
-                            <span class="activity-people__media" title='@FirstNonBlank(person.MediaType, "Unknown")'>
+                            <span class="activity-people__media" title='@StringHelpers.FirstNonBlankOr("", person.MediaType, "Unknown")'>
                                 <AppMaterialIcon Icon="@MediaIcon(person.MediaType)" Size="MudBlazor.Size.Small" />
                                 @ShortMediaLabel(person.MediaType)
                             </span>
@@ -161,9 +161,6 @@
 
     private static string HeadshotTone(string status) =>
         string.Equals(status, "Missing", StringComparison.OrdinalIgnoreCase) ? "warning" : "success";
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "";
 
     private static string MediaIcon(string? mediaType) => mediaType?.Trim().ToLowerInvariant() switch
     {

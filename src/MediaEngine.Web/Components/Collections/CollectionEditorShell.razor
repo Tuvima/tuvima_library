@@ -235,7 +235,7 @@
         {
             var parsed = JsonSerializer.Deserialize<List<CollectionRulePredicateViewModel>>(
                 EditingCollection.RuleJson,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                MediaEngineJson.CaseInsensitive);
 
             if (parsed is { Count: > 0 })
             {

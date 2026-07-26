@@ -3,12 +3,13 @@ using MediaEngine.Domain;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Storage;
 
 public sealed class MediaOperationTracker : IMediaOperationTracker
 {
-    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions JsonOptions = MediaEngineJson.Web;
 
     private readonly IMediaOperationRepository _operations;
     private readonly IMediaOperationEventRepository _events;

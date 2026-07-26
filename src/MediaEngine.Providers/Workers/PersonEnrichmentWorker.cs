@@ -4,6 +4,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
@@ -360,7 +361,7 @@ public sealed class PersonEnrichmentWorker
             if (!personId.HasValue && string.IsNullOrWhiteSpace(profileUrl))
                 continue;
 
-            hints[$"{role}::{NormalizePersonName(name)}"] = new TmdbPersonImageHint(personId, profileUrl);
+            hints[$"{role}::{RetailHints.NormalizePersonNameKey(name)}"] = new TmdbPersonImageHint(personId, profileUrl);
         }
     }
 
@@ -372,7 +373,7 @@ public sealed class PersonEnrichmentWorker
         if (string.IsNullOrWhiteSpace(name) || hints.Count == 0)
             return null;
 
-        var normalizedName = NormalizePersonName(name);
+        var normalizedName = RetailHints.NormalizePersonNameKey(name);
         if (!string.IsNullOrWhiteSpace(role)
             && hints.TryGetValue($"{role}::{normalizedName}", out var exact))
         {
@@ -390,9 +391,6 @@ public sealed class PersonEnrichmentWorker
             .Select(claim => claim.Value)
             .ToList();
 
-    private static string NormalizePersonName(string name)
-        => string.Join(' ', name.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)).ToUpperInvariant();
-
     private static string? ResolvePersonWorkTitleHint(
         IReadOnlyList<CanonicalValue> canonicals,
         MediaType mediaType)
@@ -403,14 +401,14 @@ public sealed class PersonEnrichmentWorker
 
         return mediaType switch
         {
-            MediaType.TV => FirstNonBlank(
+            MediaType.TV => StringHelpers.FirstNonBlank(
                 Value(MetadataFieldConstants.ShowName),
                 Value(MetadataFieldConstants.Series),
-                Value(MetadataFieldConstants.Title)),
-            MediaType.Music => FirstNonBlank(
+                Value(MetadataFieldConstants.Title))?.Trim(),
+            MediaType.Music => StringHelpers.FirstNonBlank(
                 Value(MetadataFieldConstants.Album),
-                Value(MetadataFieldConstants.Title)),
-            _ => FirstNonBlank(Value(MetadataFieldConstants.Title), Value(MetadataFieldConstants.Series)),
+                Value(MetadataFieldConstants.Title))?.Trim(),
+            _ => StringHelpers.FirstNonBlank(Value(MetadataFieldConstants.Title), Value(MetadataFieldConstants.Series))?.Trim(),
         };
     }
 
@@ -627,22 +625,22 @@ public sealed class PersonEnrichmentWorker
             }
 
             var charactersByOrdinal = characters
-                .Where(entry => NormalizeEntityQid(entry.ValueQid) is not null)
+                .Where(entry => RetailHints.NormalizeQid(entry.ValueQid) is not null)
                 .GroupBy(entry => entry.Ordinal)
                 .ToDictionary(group => group.Key, group => group.First());
 
             var singleCharacter = characters.Count == 1
-                ? characters.FirstOrDefault(entry => NormalizeEntityQid(entry.ValueQid) is not null)
+                ? characters.FirstOrDefault(entry => RetailHints.NormalizeQid(entry.ValueQid) is not null)
                 : null;
 
             foreach (var castMember in castMembers)
             {
-                var personQid = NormalizeEntityQid(castMember.ValueQid);
+                var personQid = RetailHints.NormalizeQid(castMember.ValueQid);
                 if (personQid is null)
                     continue;
 
                 var character = charactersByOrdinal.GetValueOrDefault(castMember.Ordinal) ?? singleCharacter;
-                var characterQid = NormalizeEntityQid(character?.ValueQid);
+                var characterQid = RetailHints.NormalizeQid(character?.ValueQid);
                 if (character is null || characterQid is null)
                     continue;
 
@@ -724,8 +722,8 @@ public sealed class PersonEnrichmentWorker
             var arrays = await _canonicalArrayRepo.GetAllByEntityAsync(candidateEntityId, ct).ConfigureAwait(false);
             if (arrays.TryGetValue(MetadataFieldConstants.CastMember, out var castMembers)
                 && arrays.TryGetValue(MetadataFieldConstants.Characters, out var characters)
-                && castMembers.Any(entry => NormalizeEntityQid(entry.ValueQid) is not null)
-                && characters.Any(entry => NormalizeEntityQid(entry.ValueQid) is not null))
+                && castMembers.Any(entry => RetailHints.NormalizeQid(entry.ValueQid) is not null)
+                && characters.Any(entry => RetailHints.NormalizeQid(entry.ValueQid) is not null))
             {
                 return true;
             }
@@ -755,7 +753,7 @@ public sealed class PersonEnrichmentWorker
     }
 
     private static string ResolveCharacterLabel(WikidataValue value)
-        => FirstNonBlank(value.EntityLabel, value.RawValue, value.EntityId) ?? "Character";
+        => StringHelpers.FirstNonBlank(value.EntityLabel, value.RawValue, value.EntityId)?.Trim() ?? "Character";
 
     private async Task EnqueueCharacterHarvestIfNeededAsync(FictionalEntity entity, CancellationToken ct)
     {
@@ -802,16 +800,6 @@ public sealed class PersonEnrichmentWorker
         return qid.StartsWith('Q') ? qid : null;
     }
 
-    private static string? NormalizeEntityQid(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-            return null;
-
-        var value = raw.Contains('/') ? raw.Split('/')[^1] : raw;
-        value = value.Split("::", 2)[0].Trim();
-        return value.StartsWith('Q') ? value : null;
-    }
-
     private static string? ResolveCanonicalLabel(
         IReadOnlyList<CanonicalValue> canonicals,
         string key)
@@ -829,7 +817,4 @@ public sealed class PersonEnrichmentWorker
             ? segments[1].Trim()
             : first;
     }
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
 }

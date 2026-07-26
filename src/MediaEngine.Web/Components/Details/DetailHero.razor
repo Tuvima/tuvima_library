@@ -256,7 +256,7 @@
 
     private Task OpenOverviewAsync() => OnTabRequested.InvokeAsync("overview");
 
-    private string? PersonEyebrow => FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
+    private string? PersonEyebrow => StringHelpers.FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
 
     private string? PersonRoleLabel => Model.PersonDetails?.Roles.Count > 0
         ? string.Join(" / ", Model.PersonDetails.Roles.Take(3))
@@ -311,7 +311,7 @@
 
         var containerTitle = placement.ContainerTitle.Trim();
 
-        var position = FirstNonBlank(
+        var position = StringHelpers.FirstNonBlank(
             placement.PositionText,
             placement.CurrentItem.PositionText,
             placement.PositionLabel,
@@ -321,15 +321,12 @@
         if (string.IsNullOrWhiteSpace(position))
             return containerTitle;
 
-        var itemLabel = FirstNonBlank(placement.ItemLabel, "Item")!;
+        var itemLabel = StringHelpers.FirstNonBlank(placement.ItemLabel, "Item")!;
         var positionedItem = position.StartsWith(itemLabel, StringComparison.OrdinalIgnoreCase)
             ? position
             : $"{itemLabel} {position}";
         return $"{containerTitle} · {positionedItem}";
     }
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string ResolveTitleDensityClass(string title, bool useLogo)
     {

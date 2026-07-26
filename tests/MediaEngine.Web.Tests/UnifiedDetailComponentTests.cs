@@ -515,7 +515,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-series-placement--compact", source);
         Assert.DoesNotContain("IsNextSequenceItem", source);
         Assert.DoesNotContain("Part of", source);
-        Assert.Contains("FirstNonBlank(Placement.ContainerTitle, Placement.ContainerLabel, \"Series\")", source);
+        Assert.Contains("StringHelpers.FirstNonBlank(Placement.ContainerTitle, Placement.ContainerLabel, \"Series\")!", source);
         Assert.Contains("tl-series-detail__identity", source);
         Assert.Contains("@if (HasTopControls)", source);
         Assert.Contains("SelectWidthStyle(ContainerSelectOptions)", source);
@@ -780,8 +780,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("data-ai-summary-slot=\"tldr\"", heroContent);
         Assert.Contains("tl-detail-hero__tagline--ai", heroContent);
         Assert.Contains("DetailEntityType.TvShow => model.Tagline", presentation);
-        Assert.Contains("FirstNonBlank(model.Description, model.Tagline)", presentation);
-        Assert.Contains("DetailEntityType.Movie => FirstNonBlank(model.Tagline, model.Description)", presentation);
+        Assert.Contains("StringHelpers.FirstNonBlank(model.Description, model.Tagline)", presentation);
+        Assert.Contains("DetailEntityType.Movie => StringHelpers.FirstNonBlank(model.Tagline, model.Description)", presentation);
         Assert.Contains("tl-detail-hero__synopsis", heroContent);
         Assert.Contains("WatchEpisodeHeading", hero);
         Assert.Contains("EpisodePositionFromWatchAction", hero);
@@ -1137,7 +1137,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<div class=\"@RootClass\" style=\"@TrackStyle\">", playbackRangeSlider);
         Assert.Contains("Quick presets", playbackSpeedControl);
         Assert.Contains("Fine adjustment", playbackSpeedControl);
-        Assert.Contains("Reset to @FormatSpeed(ResetValue)", playbackSpeedControl);
+        Assert.Contains("Reset to @DisplayFormat.FormatSpeedSlider(ResetValue)", playbackSpeedControl);
         Assert.Contains("Current timer", playbackSleepTimerControl);
         Assert.Contains("Step=\"@SliderStepMinutes\"", playbackSleepTimerControl);
         Assert.Contains("InputStep=\"@SliderStepMinutes\"", playbackSleepTimerControl);
@@ -1345,7 +1345,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("overflow: hidden;", positionListCss);
         Assert.Contains("Quick presets", speedControl);
         Assert.Contains("Fine adjustment", speedControl);
-        Assert.Contains("Reset to @FormatSpeed(ResetValue)", speedControl);
+        Assert.Contains("Reset to @DisplayFormat.FormatSpeedSlider(ResetValue)", speedControl);
         Assert.Contains("Current timer", sleepTimerControl);
         Assert.Contains("Step=\"@SliderStepMinutes\"", sleepTimerControl);
         Assert.Contains("InputStep=\"@SliderStepMinutes\"", sleepTimerControl);

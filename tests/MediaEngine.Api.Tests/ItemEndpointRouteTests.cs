@@ -163,7 +163,7 @@ public sealed class ItemEndpointRouteTests
         Assert.DoesNotContain("pipeline.RunSynchronousAsync(new HarvestRequest", source, StringComparison.Ordinal);
         Assert.Contains("await pipeline.EnqueueAsync(new HarvestRequest", source, StringComparison.Ordinal);
         Assert.Contains("EntityId = context.AssetId", source, StringComparison.Ordinal);
-        Assert.Contains("MediaType = ToMediaType(context.MediaType)", source, StringComparison.Ordinal);
+        Assert.Contains("MediaType = MediaTypeParser.Parse(context.MediaType)", source, StringComparison.Ordinal);
         Assert.Contains("IsUserResolution = true", source, StringComparison.Ordinal);
         Assert.Contains("Wikidata identity replaced; enrichment queued.", source, StringComparison.Ordinal);
     }

@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
@@ -144,7 +145,7 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                         {
                             SourcePaths = paths,
                             MediaTypes = l.MediaTypes
-                                .Select(ParseMediaTypeFromConfig)
+                                .Select(MediaTypeParser.Parse)
                                 .Where(mt => mt != MediaType.Unknown)
                                 .ToList(),
                             ReadOnly = l.ReadOnly,
@@ -215,22 +216,6 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         {
             // LibraryRoot not yet configured or directory creation failed - non-fatal.
         }
-    }
-
-    private static MediaType ParseMediaTypeFromConfig(string configValue)
-    {
-        if (Enum.TryParse<MediaType>(configValue, ignoreCase: true, out var mt))
-            return mt;
-
-        return configValue.ToLowerInvariant() switch
-        {
-            "epub" => MediaType.Books,
-            "ebook" => MediaType.Books,
-            "audiobook" => MediaType.Audiobooks,
-            "comics" => MediaType.Comics,
-            "movie" => MediaType.Movies,
-            _ => MediaType.Unknown,
-        };
     }
 }
 

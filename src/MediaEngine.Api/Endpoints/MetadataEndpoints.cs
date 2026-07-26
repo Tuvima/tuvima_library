@@ -1789,7 +1789,7 @@ public static partial class MetadataEndpoints
         var artistOwnerId = string.Equals(launch.MediaType, "Music", StringComparison.OrdinalIgnoreCase)
             ? await metadataData.ResolveArtistArtworkOwnerAsync(
                 launch.RepresentativeAssetId,
-                FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "artist"), GetCanonicalValue(canonicalMap, "artist")),
+                StringHelpers.FirstNonBlankOr(string.Empty, GetCanonicalValue(rootCanonicalMap, "artist"), GetCanonicalValue(canonicalMap, "artist")),
                 ct)
             : null;
 
@@ -1954,32 +1954,32 @@ public static partial class MetadataEndpoints
     {
         var scopes = new List<EditorScopeResolution>();
         var mediaType = NormalizeEditorMediaType(launch.MediaType);
-        var itemTitle = FirstNonBlank(detail?.Title, GetCanonicalValue(canonicalMap, "title"), "Item");
-        var rootTitle = FirstNonBlank(rootDetail?.Title, GetCanonicalValue(rootCanonicalMap, "title"), itemTitle);
-        var itemYear = FirstNonBlank(detail?.Year, GetCanonicalValue(canonicalMap, "year"));
-        var rootYear = FirstNonBlank(rootDetail?.Year, GetCanonicalValue(rootCanonicalMap, "year"), itemYear);
-        var showName = FirstNonBlank(GetCanonicalValue(rootCanonicalMap, "title"), GetCanonicalValue(canonicalMap, "show_name"), detail?.ShowName, rootTitle, itemTitle);
-        var seasonNumber = FirstNonBlank(GetCanonicalValue(canonicalMap, "season_number"), detail?.SeasonNumber);
-        var episodeNumber = FirstNonBlank(GetCanonicalValue(canonicalMap, "episode_number"), detail?.EpisodeNumber);
-        var episodeTitle = FirstNonBlank(
+        var itemTitle = StringHelpers.FirstNonBlankOr(string.Empty, detail?.Title, GetCanonicalValue(canonicalMap, "title"), "Item");
+        var rootTitle = StringHelpers.FirstNonBlankOr(string.Empty, rootDetail?.Title, GetCanonicalValue(rootCanonicalMap, "title"), itemTitle);
+        var itemYear = StringHelpers.FirstNonBlankOr(string.Empty, detail?.Year, GetCanonicalValue(canonicalMap, "year"));
+        var rootYear = StringHelpers.FirstNonBlankOr(string.Empty, rootDetail?.Year, GetCanonicalValue(rootCanonicalMap, "year"), itemYear);
+        var showName = StringHelpers.FirstNonBlankOr(string.Empty, GetCanonicalValue(rootCanonicalMap, "title"), GetCanonicalValue(canonicalMap, "show_name"), detail?.ShowName, rootTitle, itemTitle);
+        var seasonNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetCanonicalValue(canonicalMap, "season_number"), detail?.SeasonNumber);
+        var episodeNumber = StringHelpers.FirstNonBlankOr(string.Empty, GetCanonicalValue(canonicalMap, "episode_number"), detail?.EpisodeNumber);
+        var episodeTitle = StringHelpers.FirstNonBlankOr(string.Empty,
             detail?.EpisodeTitle,
             GetCanonicalValue(canonicalMap, "episode_title"),
             GetCanonicalValue(canonicalMap, "title"),
             itemTitle,
             "Episode");
-        var artistName = FirstNonBlank(
+        var artistName = StringHelpers.FirstNonBlankOr(string.Empty,
             GetCanonicalValue(rootCanonicalMap, "artist"),
             GetCanonicalValue(canonicalMap, "artist"),
             rootDetail?.Author,
             detail?.Author,
             itemTitle);
-        var albumName = FirstNonBlank(
+        var albumName = StringHelpers.FirstNonBlankOr(string.Empty,
             GetCanonicalValue(canonicalMap, "album"),
             GetCanonicalValue(rootCanonicalMap, "album"),
             rootTitle,
             itemTitle,
             "Album");
-        var seriesName = FirstNonBlank(GetCanonicalValue(canonicalMap, "series"), rootTitle, detail?.Series);
+        var seriesName = StringHelpers.FirstNonBlankOr(string.Empty, GetCanonicalValue(canonicalMap, "series"), rootTitle, detail?.Series);
         var seasonLabel = string.IsNullOrWhiteSpace(seasonNumber) ? "Season" : $"Season {seasonNumber}";
         var episodeLabel = !string.IsNullOrWhiteSpace(episodeNumber)
             ? $"Episode {episodeNumber}"
@@ -2129,7 +2129,7 @@ public static partial class MetadataEndpoints
                     launch.WorkId,
                     "Work",
                     itemTitle,
-                    FirstNonBlank(detail?.Director, itemYear),
+                    StringHelpers.FirstNonBlankOr(string.Empty, detail?.Director, itemYear),
                     itemTitle,
                     "movie_identity",
                     "Movie metadata and artwork live here.",
@@ -2159,7 +2159,7 @@ public static partial class MetadataEndpoints
                     launch.WorkId,
                     "Work",
                     itemTitle,
-                    FirstNonBlank(seriesName, itemYear),
+                    StringHelpers.FirstNonBlankOr(string.Empty, seriesName, itemYear),
                     itemTitle,
                     mediaType switch
                     {
@@ -2396,7 +2396,7 @@ public static partial class MetadataEndpoints
         var normalized = NormalizeEditorMediaType(mediaType);
         if (normalized == "Movies")
         {
-            var tmdb = FirstNonBlank(
+            var tmdb = StringHelpers.FirstNonBlankOr(string.Empty,
                 GetCanonicalValue(canonicals, "tmdb_movie_id"),
                 GetCanonicalValue(canonicals, BridgeIdKeys.TmdbId));
             return string.IsNullOrWhiteSpace(tmdb) ? null : ("tmdb_movie_id", tmdb);
@@ -2557,9 +2557,6 @@ public static partial class MetadataEndpoints
         values.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value)
             ? value
             : null;
-
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? string.Empty;
 
     private static string NormalizeEditorMediaType(string? mediaType) =>
         (mediaType ?? string.Empty).Trim() switch

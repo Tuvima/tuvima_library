@@ -350,7 +350,7 @@
 </PlaybackPopoutShell>
 
 @code {
-    private readonly JsonSerializerOptions _jsonOptions = new(JsonSerializerDefaults.Web);
+    private readonly JsonSerializerOptions _jsonOptions = MediaEngineJson.Web;
     private ListenPlaybackSnapshot _snapshot = new();
     private DotNetObjectReference<ListenPlayerPopupPage>? _selfReference;
     private string? _activeSheet;
@@ -718,7 +718,7 @@
             return FirstDistinctFrom(item.Title, item.Subtitle, item.Album, _snapshot.SourceLabel, "Audiobook");
         }
 
-        return FirstNonBlank(item.Subtitle, item.Album, _snapshot.SourceLabel, "Library audio");
+        return StringHelpers.FirstNonBlankOr("Library audio", item.Subtitle, item.Album, _snapshot.SourceLabel);
     }
 
     private static string ChapterDuration(PlaybackChapterDto chapter) =>
@@ -727,7 +727,7 @@
             : string.Empty;
 
     private static string HistoryTitle(AudiobookListenHistoryItemDto item)
-        => FirstNonBlank(item.ChapterTitle, $"Position {FormatTimestamp(item.PositionSeconds)}");
+        => StringHelpers.FirstNonBlankOr("Library audio", item.ChapterTitle, $"Position {FormatTimestamp(item.PositionSeconds)}");
 
     private static string HistoryPositionText(AudiobookListenHistoryItemDto item) =>
         $"Left off at {FormatTimestamp(item.PositionSeconds)}";
@@ -736,7 +736,7 @@
         $"{item.EndedAt.LocalDateTime.ToString("MMM d, yyyy", CultureInfo.CurrentCulture)} - {item.EndedAt.LocalDateTime.ToString("h:mm tt", CultureInfo.CurrentCulture)}";
 
     private static string BookmarkTitle(AudiobookBookmarkDto item) =>
-        FirstNonBlank(item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");
+        StringHelpers.FirstNonBlankOr("Library audio", item.Label, item.ChapterTitle, $"Bookmark at {FormatTimestamp(item.PositionSeconds)}");
 
     private static string BookmarkPositionText(AudiobookBookmarkDto item) =>
         $"Position {FormatTimestamp(item.PositionSeconds)}";
@@ -752,9 +752,6 @@
             ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
             : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
     }
-
-    private static string FormatSpeed(double rate) =>
-        $"{Math.Clamp(rate, 0.5d, 3d).ToString("0.0", CultureInfo.InvariantCulture)}x";
 
     private static double? TryParseDurationSeconds(string? value)
     {
@@ -784,9 +781,6 @@
 
         return total;
     }
-
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? "Library audio";
 
     private static string FirstDistinctFrom(string? primary, params string?[] values)
         => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)

@@ -84,11 +84,6 @@ public sealed class RecapSegmentDetector : IPlaybackSegmentDetector
 
 public abstract class FfmpegSegmentDetector : IPlaybackSegmentDetector
 {
-    private static readonly HashSet<string> VideoExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ".mp4", ".m4v", ".mkv", ".webm", ".avi", ".ts", ".mpeg", ".mpg",
-    };
-
     private readonly PluginManifest _manifest;
     public string Kind => "playback-segment-detector";
 
@@ -100,7 +95,7 @@ public abstract class FfmpegSegmentDetector : IPlaybackSegmentDetector
     public bool CanAnalyze(PluginMediaAssetContext asset) => IsVideo(asset.FilePath);
     public abstract Task<IReadOnlyList<PluginPlaybackSegment>> AnalyzeAsync(PluginMediaAssetContext asset, IPluginExecutionContext context, CancellationToken cancellationToken = default);
 
-    public static bool IsVideo(string path) => File.Exists(path) && VideoExtensions.Contains(Path.GetExtension(path));
+    public static bool IsVideo(string path) => File.Exists(path) && PluginMediaExtensions.Video.Contains(Path.GetExtension(path));
 
     protected async Task<double?> ProbeDurationAsync(PluginMediaAssetContext asset, IPluginExecutionContext context, CancellationToken ct)
     {

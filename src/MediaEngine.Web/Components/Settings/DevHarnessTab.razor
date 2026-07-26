@@ -409,7 +409,7 @@
                 using var doc = JsonDocument.Parse(result.Body);
                 return JsonSerializer.Serialize(
                     doc.RootElement,
-                    new JsonSerializerOptions { WriteIndented = true });
+                    MediaEngineJson.Indented);
             }
             catch (JsonException)
             {

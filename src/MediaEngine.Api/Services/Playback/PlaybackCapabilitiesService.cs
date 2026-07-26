@@ -5,6 +5,7 @@ using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using MediaInfo;
 
@@ -441,9 +442,9 @@ public sealed class PlaybackCapabilitiesService
             {
                 Index = index,
                 Kind = "audio",
-                Language = FirstNonBlank(stream.LanguageIetf, stream.Language),
+                Language = StringHelpers.FirstNonBlankOr(string.Empty, stream.LanguageIetf, stream.Language),
                 Codec = NormalizeCodecName(stream.Codec.ToString()),
-                DisplayName = FirstNonBlank(stream.Name, stream.LanguageIetf, stream.Language, $"Audio {index + 1}"),
+                DisplayName = StringHelpers.FirstNonBlankOr(string.Empty, stream.Name, stream.LanguageIetf, stream.Language, $"Audio {index + 1}"),
                 IsDefault = stream.Default || index == 0,
                 Channels = stream.Channel > 0 ? stream.Channel : null,
                 BitrateKbps = stream.Bitrate > 0 ? (int)Math.Round(stream.Bitrate / 1000d) : null,
@@ -478,9 +479,9 @@ public sealed class PlaybackCapabilitiesService
             return mediaInfo.Subtitles.Select((stream, index) => new PlaybackSubtitleTrackDto
             {
                 Index = index,
-                Language = FirstNonBlank(stream.LanguageIetf, stream.Language),
+                Language = StringHelpers.FirstNonBlankOr(string.Empty, stream.LanguageIetf, stream.Language),
                 Codec = NormalizeCodecName(stream.Codec.ToString()),
-                DisplayName = FirstNonBlank(stream.Name, stream.LanguageIetf, stream.Language, $"Subtitles {index + 1}"),
+                DisplayName = StringHelpers.FirstNonBlankOr(string.Empty, stream.Name, stream.LanguageIetf, stream.Language, $"Subtitles {index + 1}"),
                 IsDefault = stream.Default,
                 IsForced = stream.Forced,
             }).ToList();
@@ -549,7 +550,7 @@ public sealed class PlaybackCapabilitiesService
                 probe.Chapters.Select(chapter => new PlaybackChapterDto
                 {
                     Index = chapter.Index,
-                    Title = FirstNonBlank(chapter.Title, $"Chapter {chapter.Index + 1}"),
+                    Title = StringHelpers.FirstNonBlankOr(string.Empty, chapter.Title, $"Chapter {chapter.Index + 1}"),
                     OriginalTitle = chapter.Title,
                     StartSeconds = chapter.StartSeconds,
                     EndSeconds = chapter.EndSeconds,
@@ -572,7 +573,7 @@ public sealed class PlaybackCapabilitiesService
                     return new PlaybackChapterDto
                     {
                         Index = index,
-                        Title = FirstNonBlank(chapter.Name, $"Chapter {index + 1}"),
+                        Title = StringHelpers.FirstNonBlankOr(string.Empty, chapter.Name, $"Chapter {index + 1}"),
                         OriginalTitle = chapter.Name,
                         StartSeconds = Math.Max(0, startSeconds.Value),
                         EndSeconds = endSeconds,
@@ -702,8 +703,6 @@ public sealed class PlaybackCapabilitiesService
         };
     }
 
-    private static string FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
 
     private static bool TryGetMediaInfoVersion(out string? version)
     {

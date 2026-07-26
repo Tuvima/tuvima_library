@@ -11,6 +11,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Models;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
@@ -265,7 +266,7 @@ public sealed class CollectionAssignmentService
         Dictionary<string, string> lookup,
         CancellationToken ct)
     {
-        var total = FirstNonBlank(
+        var total = StringHelpers.FirstNonBlank(
             ValueOrNull(lookup, MetadataFieldConstants.SequenceTotal),
             mediaType switch
             {
@@ -273,14 +274,14 @@ public sealed class CollectionAssignmentService
                 MediaType.TV => ValueOrNull(lookup, MetadataFieldConstants.EpisodeCount),
                 MediaType.Comics => ValueOrNull(lookup, MetadataFieldConstants.IssueCount),
                 _ => null
-            });
+            })?.Trim();
 
         if (string.IsNullOrWhiteSpace(total) || !int.TryParse(total, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) || parsed <= 0)
             return;
 
-        var scope = FirstNonBlank(
+        var scope = StringHelpers.FirstNonBlank(
             ValueOrNull(lookup, MetadataFieldConstants.SequenceTotalScope),
-            SequenceCountScope.MainSequence.ToString())!;
+            SequenceCountScope.MainSequence.ToString())!.Trim();
 
         var providerId = mediaType switch
         {
@@ -480,13 +481,13 @@ public sealed class CollectionAssignmentService
 
         if (mediaType is MediaType.Comics
             && TryGetValue(lookup, "wikidata_qid", out var rawComicSeriesQid)
-            && IsQidLike(NormalizeQid(rawComicSeriesQid)))
+            && IsQidLike(RetailHints.NormalizeQid(rawComicSeriesQid)))
         {
-            var comicSeriesQid = NormalizeQid(rawComicSeriesQid);
-            var comicSeriesLabel = FirstNonBlank(
+            var comicSeriesQid = RetailHints.NormalizeQid(rawComicSeriesQid);
+            var comicSeriesLabel = StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, MetadataFieldConstants.Series),
                 ValueOrNull(lookup, MetadataFieldConstants.Title),
-                comicSeriesQid);
+                comicSeriesQid)?.Trim();
 
             return new ShelfIdentity(
                 mediaType,
@@ -533,16 +534,16 @@ public sealed class CollectionAssignmentService
     {
         return mediaType switch
         {
-            MediaType.Movies => FirstNonBlank(
+            MediaType.Movies => StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, "tmdb_collection_name"),
-                ValueOrNull(lookup, MetadataFieldConstants.Series)),
-            MediaType.TV => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Series))?.Trim(),
+            MediaType.TV => StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, MetadataFieldConstants.ShowName),
                 ValueOrNull(lookup, MetadataFieldConstants.Title),
-                ValueOrNull(lookup, MetadataFieldConstants.Series)),
-            MediaType.Music => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Series))?.Trim(),
+            MediaType.Music => StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, MetadataFieldConstants.Album),
-                ValueOrNull(lookup, MetadataFieldConstants.Title)),
+                ValueOrNull(lookup, MetadataFieldConstants.Title))?.Trim(),
             MediaType.Comics => ValueOrNull(lookup, MetadataFieldConstants.Series),
             _ => null,
         };
@@ -552,12 +553,12 @@ public sealed class CollectionAssignmentService
     {
         return mediaType switch
         {
-            MediaType.TV => FirstNonBlank(
+            MediaType.TV => StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, MetadataFieldConstants.ShowName),
-                ValueOrNull(lookup, MetadataFieldConstants.Series)),
-            MediaType.Music => FirstNonBlank(
+                ValueOrNull(lookup, MetadataFieldConstants.Series))?.Trim(),
+            MediaType.Music => StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, MetadataFieldConstants.Album),
-                ValueOrNull(lookup, MetadataFieldConstants.Title)),
+                ValueOrNull(lookup, MetadataFieldConstants.Title))?.Trim(),
             MediaType.Books or MediaType.Audiobooks or MediaType.Comics => ValueOrNull(lookup, MetadataFieldConstants.Series),
             _ => null,
         };
@@ -582,7 +583,7 @@ public sealed class CollectionAssignmentService
 
     private static string SanitizeShelfLabel(string label, string? qid, string? providerKey)
         => string.IsNullOrWhiteSpace(label) || IsQidLike(label)
-            ? FirstNonBlank(qid, providerKey, "Untitled shelf")!
+            ? StringHelpers.FirstNonBlank(qid, providerKey, "Untitled shelf")!.Trim()
             : label.Trim();
 
     private static string? GetGroupByField(MediaType mediaType) => mediaType switch
@@ -606,20 +607,11 @@ public sealed class CollectionAssignmentService
     private static string? ValueOrNull(Dictionary<string, string> lookup, string key)
         => TryGetValue(lookup, key, out var value) ? value : null;
 
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim();
-
     private static bool IsQidLike(string? value)
         => !string.IsNullOrWhiteSpace(value)
            && value.Length > 1
            && value[0] is 'Q'
            && char.IsDigit(value[1]);
-
-    private static string NormalizeQid(string value)
-    {
-        var qid = value.Contains('/') ? value.Split('/')[^1] : value;
-        return qid.Contains("::") ? qid.Split("::", 2)[0] : qid;
-    }
 
     private static string NormalizeKey(string value)
     {
@@ -784,10 +776,10 @@ public sealed class CollectionAssignmentService
 
         if (arrays.TryGetValue(MetadataFieldConstants.Characters, out var characterEntries))
         {
-            var shelfLabel = FirstNonBlank(
+            var shelfLabel = StringHelpers.FirstNonBlank(
                 ValueOrNull(lookup, MetadataFieldConstants.Series),
                 ValueOrNull(lookup, MetadataFieldConstants.ShowName),
-                ValueOrNull(lookup, MetadataFieldConstants.Title));
+                ValueOrNull(lookup, MetadataFieldConstants.Title))?.Trim();
 
             if (!string.IsNullOrWhiteSpace(shelfLabel))
             {

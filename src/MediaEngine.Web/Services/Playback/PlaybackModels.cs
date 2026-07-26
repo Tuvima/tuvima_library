@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Playback;
@@ -402,8 +403,8 @@ public static class ListenQueueItemFactory
         CollectionId = work.CollectionId,
         MediaType = work.MediaType,
         Title = GetDisplayTitle(work),
-        Subtitle = FirstNonBlank(work.Artist, work.Author, work.Album, work.Series, work.Year),
-        Album = FirstNonBlank(work.Album, work.Series),
+        Subtitle = StringHelpers.FirstNonBlank(work.Artist, work.Author, work.Album, work.Series, work.Year),
+        Album = StringHelpers.FirstNonBlank(work.Album, work.Series),
         CoverUrl = work.CoverUrl,
         Duration = GetDuration(work),
         AssetId = work.AssetId,
@@ -413,7 +414,7 @@ public static class ListenQueueItemFactory
     };
 
     private static string GetDisplayTitle(WorkViewModel work)
-        => FirstNonBlank(
+        => StringHelpers.FirstNonBlank(
                CleanUntitled(work.Title) ? null : work.Title,
                Canonical(work, "track_title"),
                Canonical(work, "track_name"),
@@ -426,9 +427,6 @@ public static class ListenQueueItemFactory
     private static string? Canonical(WorkViewModel work, string key)
         => work.CanonicalValues.FirstOrDefault(value =>
             string.Equals(value.Key, key, StringComparison.OrdinalIgnoreCase))?.Value;
-
-    private static string? FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static bool CleanUntitled(string? value)
         => string.IsNullOrWhiteSpace(value)

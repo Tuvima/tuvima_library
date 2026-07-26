@@ -919,7 +919,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
         try
         {
-            var headshotPath = _assetPathService.GetPersonHeadshotPath(personId, InferImageExtension(headshotUrl));
+            var headshotPath = _assetPathService.GetPersonHeadshotPath(personId, MediaMimeTypes.InferImageExtension(headshotUrl) ?? ".jpg");
 
             // Download headshot if URL is available and file doesn't exist.
             if (File.Exists(headshotPath))
@@ -981,18 +981,6 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 "Person storage persistence failed for person {Id}; continuing",
                 personId);
         }
-    }
-
-    private static string InferImageExtension(string imageUrl)
-    {
-        var extension = Path.GetExtension(imageUrl.Split('?', '#')[0]);
-        return extension.ToLowerInvariant() switch
-        {
-            ".png" => ".png",
-            ".webp" => ".webp",
-            ".gif" => ".gif",
-            _ => ".jpg",
-        };
     }
 
     /// <summary>Returns the stored display string for optional multi-value presentation.</summary>

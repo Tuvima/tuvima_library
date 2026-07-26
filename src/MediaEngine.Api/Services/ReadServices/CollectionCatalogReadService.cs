@@ -528,7 +528,7 @@ public sealed class CollectionCatalogReadService(
 
         aggregation = new CollectionCatalogAggregation(
             $"{relationshipType}:{NormalizeCatalogQid(relationship.RelQid)}",
-            FirstNonBlank(relationship.RelLabel, collection.DisplayName));
+            StringHelpers.FirstNonBlank(relationship.RelLabel, collection.DisplayName));
         return true;
     }
 
@@ -542,9 +542,6 @@ public sealed class CollectionCatalogReadService(
 
         return value.Trim();
     }
-
-    private static string? FirstNonBlank(params string?[] values) =>
-        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
     private static string? ToNullableText(object? value) =>
         value switch
@@ -954,6 +951,14 @@ public sealed class CollectionCatalogReadService(
             }).ToList();
     }
 
+    /// <summary>
+    /// Intentionally NOT migrated to <see cref="MediaEngine.Domain.Services.Hashing.DeterministicGuid(string)"/>.
+    /// That helper hashes a UTF-8 encoded string; this method hashes the raw concatenated
+    /// GUID bytes of <paramref name="collectionId"/> and <paramref name="workId"/> directly.
+    /// The two are different algorithms that produce different output for the same logical
+    /// inputs, and this method's output is persisted/compared as a stored identifier, so
+    /// switching it would change previously generated IDs.
+    /// </summary>
     private static Guid DeterministicCollectionItemId(Guid collectionId, Guid workId)
     {
         var bytes = collectionId.ToByteArray().Concat(workId.ToByteArray()).ToArray();
@@ -1169,18 +1174,12 @@ public sealed class CollectionCatalogReadService(
             .ToList();
     }
 
+    // Widens slightly versus the old hand-rolled alias set: MediaTypeParser's shared alias
+    // table also recognizes "ebook"/"epub" (-> Books) and "tv show"/"tv shows" (-> TV), which
+    // this method's previous local switch did not. Nullability is preserved deliberately (via
+    // TryParse rather than Parse) since callers here rely on null meaning "unparseable".
     private static MediaType? TryParseMediaType(string? mediaType) =>
-        Enum.TryParse<MediaType>(mediaType, ignoreCase: true, out var parsed)
-            ? parsed
-            : mediaType switch
-            {
-                "Movie" => MediaType.Movies,
-                "Book" => MediaType.Books,
-                "Audiobook" => MediaType.Audiobooks,
-                "Comic" => MediaType.Comics,
-                "Shows" or "Show" => MediaType.TV,
-                _ => null,
-            };
+        MediaTypeParser.TryParse(mediaType, out var parsed) ? parsed : null;
 
     private static ArtworkShape? TryParseArtworkShape(string? shape) => shape?.Trim().ToLowerInvariant() switch
     {

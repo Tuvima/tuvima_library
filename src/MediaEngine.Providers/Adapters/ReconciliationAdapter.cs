@@ -777,7 +777,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             if (!string.IsNullOrWhiteSpace(authorHint) && cProps is not null)
             {
                 // Split file author into individual names
-                var fileAuthors = SplitAuthors(authorHint);
+                var fileAuthors = RetailHints.SplitAuthors(authorHint);
 
                 // Collect all Wikidata author/performer/composer labels.
                 // Entity references store the QID in RawValue; the resolved
@@ -1241,7 +1241,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
 
             if (resolved.RealAuthors is { Count: > 0 })
             {
-                var penName = FirstNonBlank(resolved.CanonicalName, resolved.OriginalName, resolved.Qid);
+                var penName = StringHelpers.FirstNonBlankOr(string.Empty, resolved.CanonicalName, resolved.OriginalName, resolved.Qid);
                 claims.Add(new ProviderClaim("author_qid", $"{resolved.Qid}::{penName}", ClaimConfidence.PenName));
                 claims.Add(new ProviderClaim("author_is_collective_pseudonym", "true", ClaimConfidence.CollectivePseudonym));
 
@@ -1250,7 +1250,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
                     if (string.IsNullOrWhiteSpace(realAuthor.Qid))
                         continue;
 
-                    var realName = FirstNonBlank(realAuthor.CanonicalName, realAuthor.Qid);
+                    var realName = StringHelpers.FirstNonBlankOr(string.Empty, realAuthor.CanonicalName, realAuthor.Qid);
                     claims.Add(new ProviderClaim(
                         "collective_members_qid",
                         $"{realAuthor.Qid}::{realName}",
@@ -1260,17 +1260,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
         }
 
         return claims;
-    }
-
-    private static string FirstNonBlank(params string?[] values)
-    {
-        foreach (var value in values)
-        {
-            if (!string.IsNullOrWhiteSpace(value))
-                return value;
-        }
-
-        return string.Empty;
     }
 
     /// <summary>
@@ -2338,7 +2327,7 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             List<PropertyConstraint>? multiValueConstraints = null;
             if (!string.IsNullOrWhiteSpace(request.Author))
             {
-                var authors = SplitAuthors(request.Author);
+                var authors = RetailHints.SplitAuthors(request.Author);
                 if (authors.Count > 1)
                 {
                     multiValueConstraints =
@@ -3557,23 +3546,6 @@ public sealed class ReconciliationAdapter : IExternalMetadataProvider
             value.Trim(),
             @"^Q[1-9]\d*$",
             System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-    /// <summary>
-    /// Splits a multi-author/creator string on common separators: " &amp; ", " and ", ", ".
-    /// Returns individual names, trimmed and non-empty.
-    /// </summary>
-    private static List<string> SplitAuthors(string authors)
-    {
-        var parts = System.Text.RegularExpressions.Regex.Split(
-            authors,
-            @"\s+&\s+|\s+and\s+|,\s*",
-            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-
-        return parts
-            .Select(p => p.Trim())
-            .Where(p => p.Length > 0)
-            .ToList();
-    }
 
     private Dictionary<string, string>? BuildPersonConstraints(ProviderLookupRequest request)
     {
