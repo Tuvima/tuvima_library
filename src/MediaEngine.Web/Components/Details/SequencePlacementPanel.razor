@@ -490,7 +490,7 @@ else
     private string MediaShapeClass => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "tl-series-panel--landscape",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "tl-series-panel--square",
+        DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => "tl-series-panel--square",
         _ => "tl-series-panel--portrait",
     };
 
@@ -632,7 +632,7 @@ else
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Tv,
         DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => Icons.Material.Outlined.AutoStories,
         DetailEntityType.Movie or DetailEntityType.MovieSeries => Icons.Material.Outlined.LocalMovies,
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => Icons.Material.Outlined.Album,
+        DetailEntityType.MusicAlbum => Icons.Material.Outlined.Album,
         DetailEntityType.Audiobook => Icons.Material.Outlined.Headphones,
         _ => Icons.Material.Outlined.AccountTree,
     };
@@ -698,7 +698,7 @@ else
     private string MissingIcon => Placement.CurrentItem.EntityType switch
     {
         DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Movie,
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => Icons.Material.Outlined.Album,
+        DetailEntityType.MusicAlbum => Icons.Material.Outlined.Album,
         _ => Icons.Material.Outlined.MenuBook,
     };
     private string ItemNoun => FirstNonBlank(Placement.ItemLabel, "Item")!;
@@ -931,7 +931,7 @@ else
         DetailEntityType.ComicSeries or DetailEntityType.ComicIssue => "comics",
         DetailEntityType.BookSeries or DetailEntityType.Book => "books",
         DetailEntityType.MovieSeries or DetailEntityType.Movie => "movies",
-        DetailEntityType.MusicArtist or DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "music",
+        DetailEntityType.MusicAlbum => "music",
         DetailEntityType.Audiobook => "audiobooks",
         _ => string.Empty,
     };
@@ -1218,7 +1218,7 @@ else
     private static string ContextKey(DetailEntityType entityType) => entityType switch
     {
         DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => "listen",
         DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries or DetailEntityType.Work => "read",
         _ => "default",
     };

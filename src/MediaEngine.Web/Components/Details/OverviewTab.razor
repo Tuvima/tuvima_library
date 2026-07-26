@@ -80,7 +80,7 @@
         <aside class="tl-overview-section tl-overview-section--secondary tl-overview-section--credits">
             <header class="tl-overview-section__heading">
                 <span>@CreditPanelTitle</span>
-                @if (OverviewCreditRows.Count > 0)
+                @if (OverviewCreditRows.Count > 0 && HasCreditTab)
                 {
                     <AppNativeButton Type="button"
                                      Class="tl-overview-section__credits-link"
@@ -161,6 +161,8 @@
     };
 
     private string CreditTabKey => IsVideo ? "cast" : "credits";
+    private bool HasCreditTab => Model.Tabs.Any(tab =>
+        string.Equals(tab.Key, CreditTabKey, StringComparison.OrdinalIgnoreCase));
 
     private IReadOnlyList<OverviewCreditGroup> DisplayedOverviewCreditGroups
     {
@@ -206,7 +208,7 @@
 
             var facts = new List<(string Label, string Value)>();
             AddFact(facts, "Born", JoinLines(FormatBirthDateWithAge(person.DateOfBirth, person.DateOfDeath, PersonOverviewDescription), person.PlaceOfBirth));
-            AddFact(facts, "Died", JoinLines(FormatDateLabel(person.DateOfDeath), person.PlaceOfDeath));
+            AddFact(facts, "Died", JoinLines(FormatDeathDateWithAge(person.DateOfBirth, person.DateOfDeath, PersonOverviewDescription), person.PlaceOfDeath));
             AddFact(facts, "Occupation", person.Occupation);
             AddFact(facts, "Roles", person.Roles.Count == 0 ? null : string.Join(", ", person.Roles));
             AddFact(facts, "Nationality", person.Nationality);
@@ -237,7 +239,7 @@
             EntityType = RelatedEntityType.Person,
             DisplayName = person.Name,
             ImageUrl = person.ImageUrl,
-            PrimaryRole = person.Subtitle ?? "Related identity",
+            PrimaryRole = string.Empty,
             IsPrimary = true,
             IsCanonical = true,
         };
@@ -427,13 +429,27 @@
         if (string.IsNullOrWhiteSpace(label))
             return null;
 
+        if (!string.IsNullOrWhiteSpace(died))
+            return label;
+
+        var age = CalculateAge(born, died, biography);
+        return age.HasValue ? $"{label} (Age {age.Value})" : label;
+    }
+
+    private static string? FormatDeathDateWithAge(string? born, string? died, string? biography)
+    {
+        var label = FormatDateLabel(died);
+        if (string.IsNullOrWhiteSpace(label))
+            return null;
+
         var age = CalculateAge(born, died, biography);
         return age.HasValue ? $"{label} (Age {age.Value})" : label;
     }
 
     private static int? CalculateAge(string? born, string? died, string? biography)
     {
-        if (TryExtractBiographyLifeDates(biography, out var biographyBirth, out var biographyDeath))
+        if (string.IsNullOrWhiteSpace(born)
+            && TryExtractBiographyLifeDates(biography, out var biographyBirth, out var biographyDeath))
         {
             return CalculateAge(biographyBirth, biographyDeath, null);
         }

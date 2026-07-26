@@ -20,14 +20,13 @@ internal static class ListenBrowseConfiguration
                 MediaType = "Music",
                 GroupingOptions =
                 [
+                    new("songs", "Songs", Icons.Material.Outlined.MusicNote),
                     new("albums", "Albums", Icons.Material.Outlined.Album),
                     new("artists", "Artists", Icons.Material.Outlined.PersonOutline),
-                    new("songs", "Songs", Icons.Material.Outlined.MusicNote),
-                    new("playlists", "Playlists", Icons.Material.Outlined.QueueMusic),
                     new("timeline", "Timeline", Icons.Material.Outlined.Timeline),
                 ],
-                DefaultGrouping = "albums",
-                DefaultLayout = LibraryLayoutMode.Card,
+                DefaultGrouping = "songs",
+                DefaultLayout = LibraryLayoutMode.List,
                 YearSemantic = "Original album release year",
             },
             new BrowseTabPreset
@@ -47,6 +46,19 @@ internal static class ListenBrowseConfiguration
                 DefaultLayout = LibraryLayoutMode.Card,
                 YearSemantic = "Original publication year",
             },
+            new BrowseTabPreset
+            {
+                Id = "playlists",
+                Label = "Playlists",
+                MediaType = "Music",
+                GroupingOptions =
+                [
+                    new("playlists", "Playlists", Icons.Material.Outlined.QueueMusic),
+                ],
+                DefaultGrouping = "playlists",
+                DefaultLayout = LibraryLayoutMode.Card,
+                YearSemantic = "Playlist update year",
+            },
         ],
     };
 
@@ -55,5 +67,6 @@ internal static class ListenBrowseConfiguration
         new("all", "Discover", "/listen"),
         new("music", "Music", "/listen/music"),
         new("audiobooks", "Audiobooks", "/listen/audiobooks"),
+        new("playlists", "Playlists", "/listen/playlists"),
     ];
 }

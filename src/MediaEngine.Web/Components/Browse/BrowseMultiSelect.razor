@@ -36,11 +36,12 @@
                 }
 
                 <div class="browse-multi-select__options">
-                    <label class="@OptionClass(SelectedValues.Count == 0)">
-                        <AppNativeInput Type="checkbox"
-                                        Checked="@(SelectedValues.Count == 0)"
-                                        AriaLabel="@AllLabel"
-                                        OnChange="ClearAsync" />
+                    <AppNativeButton Type="button"
+                                     Class="@OptionClass(SelectedValues.Count == 0)"
+                                     role="menuitemcheckbox"
+                                     aria-checked="@(SelectedValues.Count == 0)"
+                                     OnClick="ClearAsync">
+                        <MudIcon Icon="@(SelectedValues.Count == 0 ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)" />
                         <span>
                             <strong>@AllLabel</strong>
                             @if (!string.IsNullOrWhiteSpace(AllHelpText))
@@ -48,18 +49,20 @@
                                 <small>@AllHelpText</small>
                             }
                         </span>
-                    </label>
+                    </AppNativeButton>
 
                     @foreach (var option in FilteredOptions)
                     {
                         var selected = SelectedValues.Contains(option, StringComparer.OrdinalIgnoreCase);
-                        <label class="@OptionClass(selected)" @key="option">
-                            <AppNativeInput Type="checkbox"
-                                            Checked="@selected"
-                                            AriaLabel="@option"
-                                            OnChange="@(_ => ToggleAsync(option))" />
+                        <AppNativeButton Type="button"
+                                         Class="@OptionClass(selected)"
+                                         role="menuitemcheckbox"
+                                         aria-checked="@selected"
+                                         @key="option"
+                                         OnClick="@(() => ToggleAsync(option))">
+                            <MudIcon Icon="@(selected ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)" />
                             <span><strong>@option</strong></span>
-                        </label>
+                        </AppNativeButton>
                     }
 
                     @if (FilteredOptions.Count == 0)
@@ -133,7 +136,7 @@
         await SelectedValuesChanged.InvokeAsync(selected
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToList());
-        _open = false;
+        _open = true;
     }
 
     private async Task ClearAsync()
@@ -143,6 +146,6 @@
             await SelectedValuesChanged.InvokeAsync([]);
         }
 
-        _open = false;
+        _open = true;
     }
 }

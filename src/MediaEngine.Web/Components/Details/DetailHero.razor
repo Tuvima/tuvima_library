@@ -10,7 +10,7 @@
                       ShowTitleBar="Presentation.ShowTitleBar"
                       Class="@($"cinematic-hero-surface--detail {Presentation.HeroClass} {TitleDensityClass}")"
                       Css="Presentation.GradientStyle">
-    @if (Model.EntityType == DetailEntityType.Collection && CollectionHeroArtwork.Count > 0)
+    @if (IsStructuralContainer && CollectionHeroArtwork.Count > 0)
     {
         <div class="tl-detail-collection-artwork" aria-hidden="true">
             <MediaArtworkGroupPreview Items="CollectionHeroArtwork"
@@ -178,6 +178,10 @@
     private string HeroSummaryClass => $"tl-detail-hero__tagline tl-detail-hero__tagline--ai{(string.IsNullOrWhiteSpace(Presentation.HeroCopy) ? " is-empty" : string.Empty)}";
     private string TitleDensityClass => ResolveTitleDensityClass(Presentation.Title, Presentation.UseLogo);
     private IReadOnlyList<(string Label, string Value)> HeroCreditLines => BuildHeroCreditLines();
+    private bool IsStructuralContainer => Model.EntityType is DetailEntityType.Collection
+        or DetailEntityType.BookSeries
+        or DetailEntityType.ComicSeries
+        or DetailEntityType.MovieSeries;
     private IReadOnlyList<ArtworkStackItem> CollectionHeroArtwork => BuildCollectionHeroArtwork();
     private int CollectionHeroArtworkTotal => Model.MediaGroups
         .SelectMany(group => group.Items)
@@ -199,8 +203,6 @@
         or DetailEntityType.ComicIssue
         or DetailEntityType.ComicSeries
         or DetailEntityType.MusicAlbum
-        or DetailEntityType.MusicArtist
-        or DetailEntityType.MusicTrack
         or DetailEntityType.Collection;
     private DetailAction? InlineEditAction => CanInlineEdit
         ? new DetailAction
@@ -369,11 +371,6 @@
                 // Album identity presents the artist as the subtitle, matching the
                 // compact Listen hierarchy without duplicating the same credit.
                 break;
-            case DetailEntityType.MusicTrack:
-                AddCreditLine(lines, "Artist", CreditGroupType.PrimaryArtists);
-                if (!string.IsNullOrWhiteSpace(Model.Subtitle))
-                    lines.Add(("Album", Model.Subtitle!));
-                break;
         }
 
         return lines
@@ -422,7 +419,7 @@
 
     private IReadOnlyList<ArtworkStackItem> BuildCollectionHeroArtwork()
     {
-        if (Model.EntityType != DetailEntityType.Collection)
+        if (!IsStructuralContainer)
             return [];
 
         return Model.MediaGroups
@@ -454,7 +451,7 @@
 
     private static ArtworkShape ArtworkShapeFor(DetailEntityType entityType) => entityType switch
     {
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => ArtworkShape.Square,
+        DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => ArtworkShape.Square,
         DetailEntityType.TvEpisode => ArtworkShape.Wide,
         _ => ArtworkShape.Portrait,
     };

@@ -133,8 +133,6 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         DetailEntityType.ComicIssue,
         DetailEntityType.ComicSeries,
         DetailEntityType.MusicAlbum,
-        DetailEntityType.MusicArtist,
-        DetailEntityType.MusicTrack,
     ];
 
     public static IEnumerable<object[]> EditableMediaTypeData
@@ -294,7 +292,7 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         => entityType switch
         {
             DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => DetailPresentationContext.Watch,
-            DetailEntityType.Audiobook or DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => DetailPresentationContext.Listen,
+            DetailEntityType.Audiobook or DetailEntityType.MusicAlbum => DetailPresentationContext.Listen,
             DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => DetailPresentationContext.Comics,
             _ => DetailPresentationContext.Read,
         };

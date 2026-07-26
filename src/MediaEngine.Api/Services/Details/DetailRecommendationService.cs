@@ -322,7 +322,7 @@ public sealed class DetailRecommendationService
 
         if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true)
         {
-            return DetailEntityType.MusicTrack;
+            return DetailEntityType.Work;
         }
 
         if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true)
@@ -348,7 +348,8 @@ public sealed class DetailRecommendationService
             DetailEntityType.TvShow when !string.IsNullOrWhiteSpace(collectionId) => $"/watch/tv/show/{collectionId}",
             DetailEntityType.Movie when !string.IsNullOrWhiteSpace(collectionId) => $"/watch/movie/{workId}?collectionId={collectionId}",
             DetailEntityType.Movie => $"/watch/movie/{workId}",
-            DetailEntityType.MusicTrack => $"/details/musictrack/{workId}?context=listen",
+            DetailEntityType.Work when row.MediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true
+                => $"/listen/music?browse=songs&track={workId}",
             DetailEntityType.Audiobook => $"/details/audiobook/{workId}?context=listen",
             DetailEntityType.ComicIssue => $"/book/{workId}?mode=read",
             _ => $"/book/{workId}?mode=read",
@@ -460,7 +461,7 @@ public sealed class DetailRecommendationService
     private static string FormatEntityType(DetailEntityType entityType) => entityType switch
     {
         DetailEntityType.TvShow => "TV Show",
-        DetailEntityType.MusicTrack => "Music",
+        DetailEntityType.Work => "Music",
         DetailEntityType.ComicIssue => "Comic",
         _ => entityType.ToString(),
     };

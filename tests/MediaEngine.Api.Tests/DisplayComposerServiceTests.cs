@@ -289,8 +289,7 @@ public sealed class DisplayComposerServiceTests
         Assert.EndsWith("?context=listen", albumCard.Actions[0].WebUrl, StringComparison.Ordinal);
         Assert.All(albumCard.PreviewItems, item =>
         {
-            Assert.StartsWith("/details/musictrack/", item.WebUrl, StringComparison.Ordinal);
-            Assert.EndsWith("?context=listen", item.WebUrl, StringComparison.Ordinal);
+            Assert.StartsWith("/listen/music?browse=songs&track=", item.WebUrl, StringComparison.Ordinal);
         });
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Items.Any(card => card.GroupingType == "item" && card.MediaType == "Music"));
 
@@ -630,8 +629,8 @@ public sealed class DisplayComposerServiceTests
         var repository = new StubDisplayProjectionRepository(
             [
                 Work(Guid.Parse("77777777-1111-cccc-9999-777777777777"), "Book", "Spirited Away", collectionId: singleCollectionId, series: "Studio Ghibli Feature Films", collectionTitle: "Studio Ghibli Feature Films"),
-                Work(Guid.Parse("77777777-1111-dddd-9999-777777777777"), "Book", "Leviathan Wakes", collectionId: multiCollectionId, series: "The Expanse", seriesPosition: "1", collectionTitle: "The Expanse"),
-                Work(Guid.Parse("77777777-2222-dddd-9999-777777777777"), "Book", "Caliban's War", collectionId: multiCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
+                Work(Guid.Parse("77777777-1111-dddd-9999-777777777777"), "Book", "Leviathan Wakes", author: "James S. A. Corey", collectionId: multiCollectionId, series: "The Expanse", seriesPosition: "1", collectionTitle: "The Expanse"),
+                Work(Guid.Parse("77777777-2222-dddd-9999-777777777777"), "Book", "Caliban's War", author: "James S. A. Corey", collectionId: multiCollectionId, series: "The Expanse", collectionTitle: "The Expanse"),
             ],
             []);
         var composer = CreateComposer(repository);
@@ -641,7 +640,7 @@ public sealed class DisplayComposerServiceTests
         Assert.DoesNotContain(page.Shelves, shelf => shelf.Key == "series-and-reading-lists");
         var recentlyAdded = page.Shelves.Single(shelf => shelf.Key == "recently-added").Items;
         var leviathanWakes = Assert.Single(recentlyAdded, card => card.Title == "Leviathan Wakes");
-        Assert.Equal("Book 1 in The Expanse", leviathanWakes.Subtitle);
+        Assert.Equal("James S. A. Corey", leviathanWakes.Subtitle);
         Assert.Contains(recentlyAdded, card => card.Title == "Caliban's War");
         Assert.Contains(recentlyAdded, card => card.Title == "Spirited Away");
     }
@@ -869,7 +868,7 @@ public sealed class DisplayComposerServiceTests
         Assert.EndsWith("/cover", albumCard.Artwork.CoverUrl, StringComparison.Ordinal);
         Assert.Equal($"/details/musicalbum/{firstTrack:D}?context=listen", albumCard.Actions[0].WebUrl);
         Assert.All(albumCard.PreviewItems, item =>
-            Assert.Equal($"/details/musictrack/{item.WorkId:D}?context=listen", item.WebUrl));
+            Assert.Equal($"/listen/music?browse=songs&track={item.WorkId:D}", item.WebUrl));
 
         Assert.NotNull(page.Hero);
         Assert.Equal("album", page.Hero.Presentation);

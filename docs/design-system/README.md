@@ -59,7 +59,7 @@ The voice is **warm, literary, and a little reverent** - it treats a media colle
 
 **Concrete examples**
 - Empty state: *"Your library is empty. Drop files into your watched folder to begin."*
-- CTA: *"Continue Reading"*, *"Open Collection"*, *"Seed Library"* - verb + specific object.
+- CTA: *"Continue Reading"*, *"Shuffle"*, *"Seed Library"* - use a direct, truthful action label.
 - Hero subtitle: *"You've read 38% of Dune - pick up where you left off."* (resolved from phrase templates)
 - Toast: *"Library seeded."* / *"Could not reach the Engine."*
 - Section labels (small caps): *"IN PROGRESS"*, *"RECENTLY ADDED"*, *"YOU MIGHT LIKE"*.

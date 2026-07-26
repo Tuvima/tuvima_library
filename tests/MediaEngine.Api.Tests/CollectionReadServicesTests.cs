@@ -304,6 +304,92 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task TvNetworkAndTimelineGroups_CountEachShowOnceInsteadOfEachEpisode()
+    {
+        var showWorkId = Guid.NewGuid();
+        var seasonWorkId = Guid.NewGuid();
+        var firstEpisodeId = Guid.NewGuid();
+        var secondEpisodeId = Guid.NewGuid();
+        var firstEditionId = Guid.NewGuid();
+        var secondEditionId = Guid.NewGuid();
+        var firstAssetId = Guid.NewGuid();
+        var secondAssetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@ShowWorkId, 'TV', 'parent');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id)
+                VALUES (@SeasonWorkId, 'TV', 'parent', @ShowWorkId);
+                INSERT INTO works (id, media_type, work_kind, parent_work_id)
+                VALUES
+                    (@FirstEpisodeId, 'TV', 'child', @SeasonWorkId),
+                    (@SecondEpisodeId, 'TV', 'child', @SeasonWorkId);
+
+                INSERT INTO editions (id, work_id)
+                VALUES
+                    (@FirstEditionId, @FirstEpisodeId),
+                    (@SecondEditionId, @SecondEpisodeId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES
+                    (@FirstAssetId, @FirstEditionId, 'tv-network-first', 'C:/library/Test Show/S01E01.mkv'),
+                    (@SecondAssetId, @SecondEditionId, 'tv-network-second', 'C:/library/Test Show/S01E02.mkv');
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES
+                    (@ShowWorkId, 'title', 'Test Show', @Now),
+                    (@ShowWorkId, 'network', 'HBO', @Now),
+                    (@ShowWorkId, 'release_year', '2020', @Now),
+                    (@FirstAssetId, 'show_name', 'Test Show', @Now),
+                    (@FirstAssetId, 'network', 'HBO', @Now),
+                    (@FirstAssetId, 'air_date', '2020-01-05', @Now),
+                    (@FirstAssetId, 'season_number', '1', @Now),
+                    (@SecondAssetId, 'show_name', 'Test Show', @Now),
+                    (@SecondAssetId, 'network', 'HBO', @Now),
+                    (@SecondAssetId, 'air_date', '2023-06-12', @Now),
+                    (@SecondAssetId, 'season_number', '1', @Now);
+                """,
+                new
+                {
+                    ShowWorkId = showWorkId,
+                    SeasonWorkId = seasonWorkId,
+                    FirstEpisodeId = firstEpisodeId,
+                    SecondEpisodeId = secondEpisodeId,
+                    FirstEditionId = firstEditionId,
+                    SecondEditionId = secondEditionId,
+                    FirstAssetId = firstAssetId,
+                    SecondAssetId = secondAssetId,
+                    Now = now,
+                });
+        }
+
+        var network = Assert.Single(await _browse.GetSystemViewGroupsAsync(
+            "TV",
+            "network",
+            CancellationToken.None));
+        var timeline = Assert.Single(await _browse.GetSystemViewGroupsAsync(
+            "TV",
+            "show_name",
+            CancellationToken.None));
+
+        Assert.Equal("HBO", network.DisplayName);
+        Assert.Equal(1, network.WorkCount);
+        Assert.Null(network.SeasonCount);
+        Assert.Equal(showWorkId, Assert.Single(network.PreviewItems).WorkId);
+
+        Assert.Equal("Test Show", timeline.DisplayName);
+        Assert.Equal(showWorkId, timeline.RootWorkId);
+        Assert.Equal(1, timeline.WorkCount);
+        Assert.Equal(1, timeline.SeasonCount);
+        Assert.Equal(2020, timeline.EarliestYear);
+        Assert.Equal(2023, timeline.LatestYear);
+        Assert.Equal(showWorkId, Assert.Single(timeline.PreviewItems).WorkId);
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();

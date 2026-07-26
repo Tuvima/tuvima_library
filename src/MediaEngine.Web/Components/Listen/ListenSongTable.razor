@@ -48,10 +48,12 @@
              @key="track.Id"
              Css="@($"grid-template-columns: {GridTemplate}")"
              role="row"
+             tabindex="0"
              draggable="@EnableDrag"
              @ondragstart="@(() => StartDragAsync(track.Id))"
              @ondragend="EndDragAsync"
-             @ondblclick="@(() => PlayAsync(track.Id, false))">
+             @onclick="@(() => PlayAsync(track.Id, false))"
+             @onkeydown="@((args) => HandleRowKeyDownAsync(args, track.Id))">
             <div class="listen-song-table__song @(ShowArtwork ? null : "listen-song-table__song--play-only")" role="cell">
                 @if (ShowArtwork)
                 {
@@ -124,6 +126,16 @@
                             </AppNativeButton>
                         </div>
                         break;
+                    case "options":
+                        <div class="listen-song-table__options" role="cell" @onclick:stopPropagation="true">
+                            <AppOverflowMenu Size="AppControlSize.Compact" Class="listen-song-table__overflow">
+                                <AppMenuItem Label="Open album"
+                                             Icon="@Icons.Material.Outlined.Album"
+                                             Disabled="@(track.RootWorkId is null || track.RootWorkId == Guid.Empty)"
+                                             OnClick="@(() => OpenAlbumAsync(track))" />
+                            </AppOverflowMenu>
+                        </div>
+                        break;
                 }
             }
         </AppCssElement>
@@ -152,6 +164,7 @@
     [Parameter] public Func<IReadOnlyList<WorkViewModel>, Guid?, string?, bool, Task>? OnPlayRequested { get; set; }
     [Parameter] public Func<WorkViewModel, Task>? OnFavoriteToggled { get; set; }
     [Parameter] public Func<WorkViewModel, Task>? OnQueueRequested { get; set; }
+    [Parameter] public Func<WorkViewModel, Task>? OnAlbumRequested { get; set; }
     [Parameter] public Func<WorkViewModel, Task>? OnEditRequested { get; set; }
     [Parameter] public Func<WorkViewModel, Task>? OnDeleteRequested { get; set; }
     [Parameter] public Func<Guid, Task>? OnDragStarted { get; set; }
@@ -169,6 +182,7 @@
         new("dateAdded", "Date Added", 88, 78),
         new("queue", "Queue", 46, 42),
         new("editDelete", "Edit / Delete", 64, 56),
+        new("options", string.Empty, 42, 40),
     ];
 
     private string? _resizingColumnKey;
@@ -328,6 +342,14 @@
 
     private Task QueueAsync(WorkViewModel track)
         => OnQueueRequested?.Invoke(track) ?? Task.CompletedTask;
+
+    private Task OpenAlbumAsync(WorkViewModel track)
+        => OnAlbumRequested?.Invoke(track) ?? Task.CompletedTask;
+
+    private Task HandleRowKeyDownAsync(KeyboardEventArgs args, Guid trackId)
+        => args.Key is "Enter" or " "
+            ? PlayAsync(trackId, false)
+            : Task.CompletedTask;
 
     private Task EditAsync(WorkViewModel track)
         => OnEditRequested?.Invoke(track) ?? Task.CompletedTask;

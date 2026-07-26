@@ -51,7 +51,7 @@ public static class MediaNavigation
             MediaBucket.Television when collectionId.HasValue => $"/watch/tv/show/{collectionId.Value}",
             MediaBucket.Television => "/watch",
             MediaBucket.Movie => $"/details/movie/{workId}?context=watch",
-            MediaBucket.Music => $"/details/musictrack/{workId}?context=listen",
+            MediaBucket.Music => $"/listen/music?browse=songs&track={workId}",
             MediaBucket.Audiobook => $"/details/audiobook/{workId}?context=listen",
             MediaBucket.Read => $"/details/{ResolveReadEntity(mediaType)}/{workId}?context=read",
             _ => $"/details/work/{workId}",

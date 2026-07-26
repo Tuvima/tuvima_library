@@ -126,6 +126,7 @@ public sealed class CollectionSystemViewPreviewReadModel
 {
     public string GroupName { get; init; } = string.Empty;
     public Guid WorkId { get; init; }
+    public Guid RootWorkId { get; init; }
     public Guid? AssetId { get; init; }
     public string? Title { get; init; }
     public string? Position { get; init; }
@@ -625,6 +626,11 @@ public sealed class CollectionBrowseReadService(
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+        var isTvShowGroup = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "show_name", StringComparison.OrdinalIgnoreCase);
+        var isTvNetworkGroup = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "network", StringComparison.OrdinalIgnoreCase);
+        var isTvAggregateGroup = isTvShowGroup || isTvNetworkGroup;
         var isPersonGroup = ResolvePersonRole(groupField) is not null;
         var hierarchyRootSql = isMusicAlbumGroup
             ? "COALESCE(p.id, w.id)"
@@ -655,6 +661,11 @@ public sealed class CollectionBrowseReadService(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1))
+                       WHEN @IsTvShowGroup = 1 THEN COALESCE(
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key IN ('show_name', 'series_title') ORDER BY CASE key WHEN 'show_name' THEN 1 ELSE 2 END LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'show_name' LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'show_name' LIMIT 1))
                        WHEN wa.LinkedPersonName IS NOT NULL THEN wa.LinkedPersonName
                        ELSE COALESCE(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = @GroupField LIMIT 1),
@@ -662,18 +673,24 @@ public sealed class CollectionBrowseReadService(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = @GroupField LIMIT 1))
                        END AS GroupName,
                        COALESCE(
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'title' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'title' LIMIT 1)) AS WorkTitle,
                        COALESCE(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1)) AS AlbumName,
-                       COALESCE(
+                       CASE WHEN @IsTvShowGroup = 1 THEN COALESCE(
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('air_date', 'release_date', 'year') ORDER BY CASE key WHEN 'air_date' THEN 1 WHEN 'release_date' THEN 2 ELSE 3 END LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key IN ('air_date', 'release_date', 'year') ORDER BY CASE key WHEN 'air_date' THEN 1 WHEN 'release_date' THEN 2 ELSE 3 END LIMIT 1),
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key IN ('release_year', 'year') ORDER BY CASE key WHEN 'release_year' THEN 1 ELSE 2 END LIMIT 1))
+                       ELSE COALESCE(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'release_year' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'year' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'release_year' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'year' LIMIT 1),
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'release_year' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'year' LIMIT 1)) AS WorkYear,
+                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'year' LIMIT 1))
+                       END AS WorkYear,
                        COALESCE(
                            (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.RootWorkId AND key IN ('artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
                            (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.WorkId AND key IN ('artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
@@ -688,8 +705,11 @@ public sealed class CollectionBrowseReadService(
             ),
             grouped AS (
                 SELECT GroupName,
-                       COUNT(DISTINCT WorkId) AS WorkCount,
-                       COUNT(DISTINCT COALESCE(NULLIF(WorkTitle, ''), hex(WorkId))) AS DistinctTitleCount,
+                       COUNT(DISTINCT CASE WHEN @IsTvAggregateGroup = 1 THEN RootWorkId ELSE WorkId END) AS WorkCount,
+                       COUNT(DISTINCT CASE
+                           WHEN @IsTvAggregateGroup = 1 THEN COALESCE(NULLIF(WorkTitle, ''), hex(RootWorkId))
+                           ELSE COALESCE(NULLIF(WorkTitle, ''), hex(WorkId))
+                       END) AS DistinctTitleCount,
                        COUNT(DISTINCT COALESCE(NULLIF(AlbumName, ''), hex(WorkId))) AS AlbumCount,
                        MIN(CASE
                            WHEN CAST(SUBSTR(WorkYear, 1, 4) AS INTEGER) BETWEEN 1000 AND 9999
@@ -755,10 +775,10 @@ public sealed class CollectionBrowseReadService(
                    COALESCE(root.BackgroundHeightPx, asset.BackgroundHeightPx) AS BackgroundHeightPx,
                    COALESCE(root.BannerWidthPx, asset.BannerWidthPx) AS BannerWidthPx,
                    COALESCE(root.BannerHeightPx, asset.BannerHeightPx) AS BannerHeightPx,
-                   (SELECT COUNT(DISTINCT season.value)
-                    FROM resolved r2
-                    INNER JOIN canonical_values season ON season.entity_id = r2.AssetId AND season.key = 'season_number'
-                    WHERE r2.RootWorkId = g.RootWorkId) AS SeasonCount
+                   CASE WHEN @IsTvShowGroup = 1 THEN (SELECT COUNT(DISTINCT season.value)
+                     FROM resolved r2
+                     INNER JOIN canonical_values season ON season.entity_id = r2.AssetId AND season.key = 'season_number'
+                     WHERE r2.RootWorkId = g.RootWorkId) ELSE NULL END AS SeasonCount
             FROM grouped g
             LEFT JOIN metadata root ON root.EntityId = g.RootWorkId
             LEFT JOIN metadata asset ON asset.EntityId = g.FirstAssetId
@@ -769,6 +789,8 @@ public sealed class CollectionBrowseReadService(
                 WorkIds = workIds.Select(GuidSql.ToBlob).ToArray(),
                 GroupField = groupField,
                 IsMusicAlbumGroup = isMusicAlbumGroup ? 1 : 0,
+                IsTvShowGroup = isTvShowGroup ? 1 : 0,
+                IsTvAggregateGroup = isTvAggregateGroup ? 1 : 0,
                 IsPersonGroup = isPersonGroup ? 1 : 0,
             },
             cancellationToken: ct)).ConfigureAwait(false);
@@ -789,6 +811,11 @@ public sealed class CollectionBrowseReadService(
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
         var isMusicAlbumGroup = string.Equals(primaryMediaType, "Music", StringComparison.OrdinalIgnoreCase)
             && string.Equals(groupField, "album", StringComparison.OrdinalIgnoreCase);
+        var isTvShowGroup = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "show_name", StringComparison.OrdinalIgnoreCase);
+        var isTvNetworkGroup = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(groupField, "network", StringComparison.OrdinalIgnoreCase);
+        var isTvAggregateGroup = isTvShowGroup || isTvNetworkGroup;
         var isPersonGroup = ResolvePersonRole(groupField) is not null;
         var hierarchyRootSql = isMusicAlbumGroup
             ? "COALESCE(p.id, w.id)"
@@ -818,6 +845,11 @@ public sealed class CollectionBrowseReadService(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'album' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'album' LIMIT 1))
+                   WHEN @IsTvShowGroup = 1 THEN COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key IN ('show_name', 'series_title') ORDER BY CASE key WHEN 'show_name' THEN 1 ELSE 2 END LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'show_name' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'show_name' LIMIT 1))
                    WHEN wa.LinkedPersonName IS NOT NULL THEN wa.LinkedPersonName
                    ELSE COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = @GroupField LIMIT 1),
@@ -825,11 +857,17 @@ public sealed class CollectionBrowseReadService(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = @GroupField LIMIT 1))
                    END AS GroupName,
                    wa.WorkId,
+                   wa.RootWorkId,
                    wa.AssetId,
-                   COALESCE(
+                   CASE WHEN @IsTvAggregateGroup = 1 THEN COALESCE(
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'title' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'show_name' LIMIT 1),
+                       (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'show_name' LIMIT 1),
+                       'Untitled')
+                   ELSE COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('episode_title', 'title') ORDER BY key = 'episode_title' DESC LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'title' LIMIT 1),
-                       'Untitled') AS Title,
+                       'Untitled') END AS Title,
                    COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key IN ('series_index', 'episode_number', 'track_number') ORDER BY CASE key WHEN 'series_index' THEN 1 WHEN 'episode_number' THEN 2 ELSE 3 END LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'series_index' LIMIT 1)) AS Position
@@ -840,6 +878,8 @@ public sealed class CollectionBrowseReadService(
                 WorkIds = workIds.Select(GuidSql.ToBlob).ToArray(),
                 GroupField = groupField,
                 IsMusicAlbumGroup = isMusicAlbumGroup ? 1 : 0,
+                IsTvShowGroup = isTvShowGroup ? 1 : 0,
+                IsTvAggregateGroup = isTvAggregateGroup ? 1 : 0,
                 IsPersonGroup = isPersonGroup ? 1 : 0,
             },
             cancellationToken: ct)).ConfigureAwait(false);
@@ -852,11 +892,13 @@ public sealed class CollectionBrowseReadService(
             .GroupBy(row => row.GroupName, StringComparer.OrdinalIgnoreCase)
             .ToDictionary(
                 group => group.Key,
-                group => (IReadOnlyList<ContentGroupPreviewItemDto>)group
+                group => (IReadOnlyList<ContentGroupPreviewItemDto>)(isTvAggregateGroup
+                    ? group.GroupBy(row => row.RootWorkId).Select(show => show.First())
+                    : group)
                     .OrderBy(row => ParseSequencePosition(row.Position))
                     .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
                     .Select(row => new ContentGroupPreviewItemDto(
-                        row.WorkId,
+                        isTvAggregateGroup ? row.RootWorkId : row.WorkId,
                         row.Title ?? "Untitled",
                         $"/stream/{row.AssetId!.Value:D}/cover",
                         previewShape,

@@ -102,7 +102,7 @@ public sealed class DetailTabNavigationTests
         var albumId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
 
         Assert.Equal(
-            $"/details/musictrack/{trackId:D}?context=listen",
+            $"/listen/music?browse=songs&track={trackId:D}",
             MediaNavigation.ForMedia("Music", trackId, albumId));
         Assert.Equal(
             $"/details/musicalbum/{albumId:D}?context=listen",

@@ -1,0 +1,56 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-music-album-overview">
+    <section class="tl-music-album-overview__tracks" aria-labelledby="music-album-tracks-heading">
+        <header class="tl-music-album-overview__heading">
+            <h2 id="music-album-tracks-heading">Tracks</h2>
+            <span>@TrackSummary</span>
+        </header>
+
+        <MusicTrackList Groups="TrackGroups"
+                        AlbumTitle="@Model.Title"
+                        AlbumArtworkUrl="@ArtworkUrl"
+                        Compact="true" />
+    </section>
+
+    <aside class="tl-music-album-overview__credits" aria-labelledby="music-album-credits-heading">
+        <header class="tl-music-album-overview__heading">
+            <h2 id="music-album-credits-heading">Credits</h2>
+        </header>
+
+        @if (Model.ContributorGroups.Count > 0)
+        {
+            <ContributorsSection Groups="Model.ContributorGroups" Embedded="true" />
+        }
+        else
+        {
+            <p class="tl-music-album-overview__empty">No linked artists are available yet.</p>
+        }
+    </aside>
+
+    <MusicAlbumSeriesRail Model="Model" />
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private IReadOnlyList<MediaGroupingViewModel> TrackGroups =>
+        Model.PrimaryModule.GroupKeys.Count == 0
+            ? Model.MediaGroups
+            : Model.MediaGroups
+                .Where(group => Model.PrimaryModule.GroupKeys.Contains(group.Key, StringComparer.OrdinalIgnoreCase))
+                .ToList();
+
+    private int TrackCount => TrackGroups
+        .SelectMany(group => group.Items)
+        .Count();
+
+    private string TrackSummary =>
+        $"{TrackCount} {(TrackCount == 1 ? "track" : "tracks")}";
+
+    private string? ArtworkUrl =>
+        Model.Artwork.CoverUrl
+        ?? Model.Artwork.PosterUrl
+        ?? Model.Artwork.HeroArtwork.Url;
+}

@@ -431,7 +431,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
 
         if (row.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/details/musictrack/{row.WorkId:D}?context=listen";
+            return $"/listen/music?browse=songs&track={row.WorkId:D}";
         }
 
         if (row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))

@@ -77,6 +77,9 @@ public sealed class PersonLibraryCreditDto
     [JsonPropertyName("role")]
     public string Role { get; init; } = string.Empty;
 
+    [JsonPropertyName("track_count")]
+    public int? TrackCount { get; init; }
+
     [JsonPropertyName("characters")]
     public List<CharacterPortrayalDto> Characters { get; init; } = [];
 }

@@ -1,0 +1,47 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Model.MusicAlbumCompanion is { MoreByAlbums.Count: > 0 } companion)
+{
+    <section class="tl-music-album-series-rail" aria-labelledby="music-album-series-heading">
+        <header>
+            <h2 id="music-album-series-heading">@MoreByTitle(companion)</h2>
+            @if (!string.IsNullOrWhiteSpace(companion.PrimaryArtistRoute))
+            {
+                <a href="@companion.PrimaryArtistRoute">View profile</a>
+            }
+        </header>
+
+        <div class="tl-music-album-series-rail__items">
+            @foreach (var album in companion.MoreByAlbums)
+            {
+                <a class="tl-music-album-series-rail__album" href="@album.Route">
+                    <span class="tl-music-album-series-rail__art">
+                        @if (!string.IsNullOrWhiteSpace(album.ArtworkUrl))
+                        {
+                            <img src="@album.ArtworkUrl" alt="" loading="lazy" />
+                        }
+                        else
+                        {
+                            <GeneratedIdentity Name="@album.Title" />
+                        }
+                    </span>
+                    <strong>@album.Title</strong>
+                    @if (!string.IsNullOrWhiteSpace(album.Year))
+                    {
+                        <small>@album.Year</small>
+                    }
+                </a>
+            }
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private static string MoreByTitle(MusicAlbumCompanionViewModel companion)
+        => string.IsNullOrWhiteSpace(companion.PrimaryArtistName)
+            ? "More from this artist"
+            : $"More by {companion.PrimaryArtistName}";
+}

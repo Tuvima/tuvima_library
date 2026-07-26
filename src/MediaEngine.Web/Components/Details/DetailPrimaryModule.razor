@@ -72,13 +72,6 @@
                                         DetailSurface="true"
                                         OnContainerSelected="OnContainerSelected" />
             }
-            else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Tracks)
-            {
-                <MusicTrackList Groups="PrimaryGroups"
-                                AlbumTitle="@Model.Title"
-                                AlbumArtworkUrl="@ArtworkUrl"
-                                Compact="Embedded" />
-            }
             else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters)
             {
                 <AudiobookChapterList Groups="PrimaryGroups"
@@ -220,18 +213,17 @@
     }
 
     private bool HasMultipleOwnedLanes => LaneOptions.Count(option => option.Key != "all") > 1;
-    private bool IsPersonSurface => Model.EntityType is DetailEntityType.Person or DetailEntityType.MusicArtist;
+    private bool IsPersonSurface => Model.EntityType == DetailEntityType.Person;
     private bool ShowRoleFilter => Model.PrimaryModule.SupportsRoleFilter && RoleOptions.Count > 1;
     private bool ShowLaneFilters => Model.PrimaryModule.SupportsLaneFilter
         && (HasMultipleOwnedLanes || (IsPersonSurface && AllItems.Count > 0));
     private bool ShowModuleControls => ShowRoleFilter || ShowLaneFilters;
 
-    private bool ShowHeader => Model.PrimaryModule.Kind is not DetailPrimaryModuleKind.Tracks
-        and not DetailPrimaryModuleKind.Chapters
+    private bool ShowHeader => Model.PrimaryModule.Kind is not DetailPrimaryModuleKind.Chapters
         and not DetailPrimaryModuleKind.Sequence
         and not DetailPrimaryModuleKind.Episodes;
 
-    private string ModuleIcon => Model.EntityType is DetailEntityType.Person or DetailEntityType.MusicArtist
+    private string ModuleIcon => Model.EntityType == DetailEntityType.Person
         ? Icons.Material.Outlined.Workspaces
         : Model.EntityType == DetailEntityType.Collection
             ? Icons.Material.Outlined.CollectionsBookmark
@@ -254,7 +246,7 @@
     private string ArtworkShape(DetailEntityType entityType)
         => entityType switch
         {
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "square",
+            DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => "square",
             DetailEntityType.TvEpisode => "wide",
             _ => "portrait",
         };
@@ -269,7 +261,6 @@
         DetailEntityType.TvSeason => "Season",
         DetailEntityType.TvEpisode => "Episode",
         DetailEntityType.MusicAlbum => "Album",
-        DetailEntityType.MusicTrack => "Track",
         DetailEntityType.Audiobook => "Audiobook",
         DetailEntityType.ComicIssue => "Comic",
         DetailEntityType.ComicSeries => "Comics",
@@ -281,7 +272,7 @@
     {
         DetailEntityType.Movie => Icons.Material.Outlined.LocalMovies,
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => Icons.Material.Outlined.Tv,
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => Icons.Material.Outlined.Album,
+        DetailEntityType.MusicAlbum => Icons.Material.Outlined.Album,
         DetailEntityType.Audiobook => Icons.Material.Outlined.Headphones,
         DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => Icons.Material.Outlined.AutoStories,
         _ => Icons.Material.Outlined.MenuBook,
@@ -295,7 +286,7 @@
         => !string.IsNullOrWhiteSpace(item.Lane) ? item.Lane : item.EntityType switch
         {
             DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+            DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => "listen",
             DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "read",
             _ => "other",
         };

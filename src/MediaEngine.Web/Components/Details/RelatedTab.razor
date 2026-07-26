@@ -79,7 +79,7 @@
 
     private static string ArtworkShape(DetailEntityType entityType) => entityType switch
     {
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "square",
+        DetailEntityType.MusicAlbum => "square",
         DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "wide",
         _ => "portrait",
     };

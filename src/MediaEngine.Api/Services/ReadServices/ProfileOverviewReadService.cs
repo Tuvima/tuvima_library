@@ -286,7 +286,7 @@ public sealed class ProfileOverviewReadService(
 
         if (normalized.Contains("music"))
         {
-            return $"/details/musictrack/{workId}?context=listen";
+            return $"/listen/music?browse=songs&track={workId}";
         }
 
         if (normalized.Contains("movie") || normalized.Contains("show") || normalized.Contains("tv") || normalized.Contains("episode") || normalized.Contains("video"))

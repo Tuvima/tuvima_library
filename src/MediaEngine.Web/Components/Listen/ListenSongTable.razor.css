@@ -73,7 +73,7 @@
     min-height: 56px;
     padding: 6px 8px;
     color: var(--tl-text-secondary);
-    cursor: grab;
+    cursor: pointer;
 }
 
 .listen-song-table__row:nth-of-type(odd) {
@@ -165,7 +165,8 @@
 
 .listen-song-table__time,
 .listen-song-table__queue,
-.listen-song-table__edit-delete {
+.listen-song-table__edit-delete,
+.listen-song-table__options {
     justify-self: end;
 }
 
@@ -174,7 +175,8 @@
 }
 
 .listen-song-table__queue,
-.listen-song-table__edit-delete {
+.listen-song-table__edit-delete,
+.listen-song-table__options {
     display: inline-flex;
     align-items: center;
     justify-content: flex-end;
@@ -231,7 +233,7 @@
     min-height: 56px;
     padding: 6px 8px;
     color: var(--tl-text-secondary);
-    cursor: grab;
+    cursor: pointer;
 }
 
 ::deep .listen-song-table__row:nth-of-type(odd) {

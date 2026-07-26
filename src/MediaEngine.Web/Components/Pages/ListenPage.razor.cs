@@ -1261,7 +1261,7 @@ public partial class ListenPage
             .Select(work => new MediaGroupingItemViewModel
             {
                 Id = work.WorkId.ToString("D"),
-                EntityType = DetailEntityType.MusicTrack,
+                EntityType = DetailEntityType.Work,
                 Title = string.IsNullOrWhiteSpace(work.Title) ? "Untitled track" : work.Title,
                 Subtitle = artist,
                 ArtworkUrl = FirstNonBlankOrNull(work.CoverUrl, artworkUrl),
@@ -1289,7 +1289,7 @@ public partial class ListenPage
                     [
                         new EntityCreditViewModel
                         {
-                            EntityType = RelatedEntityType.MusicArtist,
+                            EntityType = RelatedEntityType.Person,
                             DisplayName = artist!,
                             FallbackInitials = Initials(artist!),
                             PrimaryRole = "Artist",
@@ -1439,7 +1439,7 @@ public partial class ListenPage
         }
 
         return trackId.HasValue
-            ? $"/details/musictrack/{trackId.Value:D}?context=listen"
+            ? $"/listen/music?browse=songs&track={trackId.Value:D}"
             : AlbumsRoute;
     }
 

@@ -72,11 +72,15 @@
 
     private bool ShouldRenderHeroBrand => !string.IsNullOrWhiteSpace(HeroBrand?.ImageUrl);
     private HeroArtworkViewModel HeroArtwork => Artwork.HeroArtwork;
-    // A collection has no single truthful backdrop. Its shared representative
-    // artwork cluster is rendered by DetailHero over the neutral cinematic wash.
+    // Structural containers have no single truthful backdrop. Their shared
+    // representative artwork cluster is rendered by DetailHero over a neutral wash.
+    private bool IsStructuralContainer => EntityType is DetailEntityType.Collection
+        or DetailEntityType.BookSeries
+        or DetailEntityType.ComicSeries
+        or DetailEntityType.MovieSeries;
     private bool IsMusicAlbumBackdrop => EntityType == DetailEntityType.MusicAlbum
         && !string.IsNullOrWhiteSpace(Artwork.CoverUrl ?? Artwork.PosterUrl);
-    private string? HeroImageCandidate => EntityType != DetailEntityType.Collection
+    private string? HeroImageCandidate => !IsStructuralContainer
         ? IsMusicAlbumBackdrop
             ? Artwork.CoverUrl ?? Artwork.PosterUrl
             : HeroArtwork.HasImage && !string.IsNullOrWhiteSpace(HeroArtwork.Url)
@@ -100,7 +104,7 @@
         DetailEntityType.Book or DetailEntityType.Work => HeroForegroundTreatment.Book,
         DetailEntityType.Audiobook => HeroForegroundTreatment.Cover,
         DetailEntityType.MusicAlbum => HeroForegroundTreatment.Album,
-        DetailEntityType.MusicArtist or DetailEntityType.Person or DetailEntityType.Character => HeroForegroundTreatment.Portrait,
+        DetailEntityType.Person or DetailEntityType.Character => HeroForegroundTreatment.Portrait,
         _ => HeroForegroundTreatment.Poster,
     };
     private string ForegroundClass => $"tl-detail-media-stage__foreground tl-detail-media-stage__foreground--{ForegroundTreatment.ToString().ToLowerInvariant()}";
@@ -124,7 +128,7 @@
                 DetailEntityType.MusicAlbum => "tl-detail-media-stage--square",
                 DetailEntityType.Book or DetailEntityType.Work or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "tl-detail-media-stage--book",
                 DetailEntityType.Audiobook => "tl-detail-media-stage--audiobook",
-                DetailEntityType.Person or DetailEntityType.MusicArtist or DetailEntityType.Character => "tl-detail-media-stage--portrait",
+                DetailEntityType.Person or DetailEntityType.Character => "tl-detail-media-stage--portrait",
                 _ => "tl-detail-media-stage--poster",
             };
 

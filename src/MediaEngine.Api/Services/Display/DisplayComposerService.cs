@@ -216,9 +216,7 @@ public sealed class DisplayComposerService
         {
             filtered = filtered.Where(work =>
                 requestedCreators.Any(requested =>
-                    string.Equals(work.Author, requested, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(work.Artist, requested, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(work.Director, requested, StringComparison.OrdinalIgnoreCase)));
+                    ContributorValues(work).Contains(requested, StringComparer.OrdinalIgnoreCase)));
         }
 
         var requestedYears = DisplayMediaRules.SplitValues(year);
@@ -841,7 +839,7 @@ public sealed class DisplayComposerService
                     "square",
                     work.TrackNumber,
                     "Music",
-                    $"/details/musictrack/{work.WorkId:D}?context=listen",
+                    $"/listen/music?browse=songs&track={work.WorkId:D}",
                     work.Description,
                     [.. AlbumFacts([work], artist, work.Year, work.Genre, work.Rating)]))
                 .ToList(),
@@ -932,9 +930,7 @@ public sealed class DisplayComposerService
             .Select(group => group.Key)
             .ToList();
         var creators = source
-            .SelectMany(work => new[] { work.Author, work.Artist, work.Director })
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Cast<string>()
+            .SelectMany(ContributorValues)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -948,6 +944,12 @@ public sealed class DisplayComposerService
 
         return new DisplayBrowseFacetsDto(genres, creators, years);
     }
+
+    private static IReadOnlyList<string> ContributorValues(DisplayWorkRow work)
+        => new[] { work.Author, work.Artist, work.Director }
+            .SelectMany(DisplayMediaRules.SplitValues)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
 
     private static IReadOnlyDictionary<Guid, DisplayJourneyRow> LatestProgressByWork(IReadOnlyList<DisplayJourneyRow> journey) =>
         journey

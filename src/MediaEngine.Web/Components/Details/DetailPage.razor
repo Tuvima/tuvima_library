@@ -70,18 +70,19 @@
             </section>
         }
 
-        @if (!IsEmbeddedPrimaryModuleTab)
-        {
         <section id="@CurrentActiveTab" class="tl-detail-body">
-            @if (CurrentActiveTab is "tracks" && Model.EntityType == DetailEntityType.MusicAlbum)
+            @if (CurrentActiveTab is "overview")
             {
-                <MusicAlbumTrackSurface Model="Model" />
-            }
-            else if (CurrentActiveTab is "overview" && Model.EntityType != DetailEntityType.Collection)
-            {
-                <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
-                                                                 OnTabRequested="SetActiveTabAsync"
-                                                                 OnContainerSelected="HandleContainerSelectedAsync" />
+                @if (IsMusicAlbumDetail)
+                {
+                    <MusicAlbumOverviewContent Model="Model" />
+                }
+                else
+                {
+                    <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
+                                                                     OnTabRequested="SetActiveTabAsync"
+                                                                     OnContainerSelected="HandleContainerSelectedAsync" />
+                }
             }
             else if (CurrentActiveTab is "episodes")
             {
@@ -109,7 +110,7 @@
                     <ChildrenListTab Groups="Model.MediaGroups" />
                 }
             }
-            else if (CurrentActiveTab is "tracks" or "items" or "issues" or "media" or "works" or "albums")
+            else if (CurrentActiveTab is "items" or "issues" or "media" or "works" or "albums")
             {
                 @if (Model.SequencePlacement is not null && CurrentActiveTab is "issues" or "media" or "works")
                 {
@@ -157,7 +158,6 @@
                 <DetailsTab Model="Model" />
             }
         </section>
-        }
     </article>
 }
 
@@ -194,8 +194,7 @@
     private bool ShowDetailNavigation => Model?.EntityType != DetailEntityType.Person;
 
     private bool HasPrimaryModuleBeforeNavigation =>
-        Model?.PrimaryModule.Kind is
-            (DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters);
+        Model?.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters;
 
     private bool HasPrimaryModuleAfterNavigation => Model?.PrimaryModule.Kind is not
         (DetailPrimaryModuleKind.None or DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters);
@@ -203,10 +202,6 @@
     private bool ShowPrimaryModuleAfterNavigation =>
         HasPrimaryModuleAfterNavigation
         && CurrentActiveTab == "overview";
-
-    private bool IsEmbeddedPrimaryModuleTab =>
-        HasPrimaryModuleBeforeNavigation
-        && CurrentActiveTab is ("tracks" or "chapters");
 
     private string DetailStageClass =>
         $"tl-detail-stage{(HasPrimaryModuleBeforeNavigation || HasPrimaryModuleAfterNavigation ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}" +
@@ -284,6 +279,12 @@
         if (Model?.EntityType == DetailEntityType.MusicAlbum && action.Key is "play-album" or "shuffle")
         {
             await PlayAlbumAsync(shuffle: action.Key == "shuffle");
+            return;
+        }
+
+        if (action.Key == "shuffle-collection")
+        {
+            await ShuffleStructuralContainerAsync();
             return;
         }
 
@@ -638,7 +639,7 @@
 
         var tracks = Model.MediaGroups
             .SelectMany(group => group.Items)
-            .Where(item => item.EntityType == DetailEntityType.MusicTrack)
+            .Where(item => item.EntityType == DetailEntityType.Work)
             .OrderBy(TrackSortKey)
             .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
             .Select(ToQueueItem)
@@ -646,6 +647,59 @@
             .ToList();
 
         await Playback.ReplaceQueueItemsAsync(tracks, 0, Model.Title, shuffle);
+    }
+
+    private async Task ShuffleStructuralContainerAsync()
+    {
+        if (Model is null)
+            return;
+
+        var candidates = Model.MediaGroups
+            .Where(group => group.Key is not ("related" or "recommendations" or "more-like-this"))
+            .SelectMany(group => group.Items)
+            .Where(item => item.IsOwned && Guid.TryParse(item.Id, out _))
+            .DistinctBy(item => $"{item.EntityType}:{item.Id}", StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (candidates.Count == 0)
+        {
+            Snackbar.Add("This collection has no owned items to shuffle.", Severity.Info);
+            return;
+        }
+
+        var item = candidates[Random.Shared.Next(candidates.Count)];
+        var workId = Guid.Parse(item.Id);
+        if (item.EntityType is DetailEntityType.Movie or DetailEntityType.TvEpisode)
+        {
+            Nav.NavigateTo($"/watch/player/resolve?workId={workId:D}");
+            return;
+        }
+
+        if (item.EntityType is DetailEntityType.Book or DetailEntityType.ComicIssue)
+        {
+            var assetId = Guid.TryParse(item.AssetId, out var parsedAssetId)
+                ? parsedAssetId
+                : await ApiClient.ResolveWorkToAssetAsync(workId);
+            if (assetId.HasValue)
+            {
+                Nav.NavigateTo($"/read/{assetId.Value:D}");
+                return;
+            }
+        }
+
+        if (item.EntityType == DetailEntityType.Work)
+        {
+            await Playback.ReplaceQueueItemsAsync([ToQueueItem(item)], 0, Model.Title, shuffle: false);
+            return;
+        }
+
+        var route = item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route;
+        if (!string.IsNullOrWhiteSpace(route))
+        {
+            Nav.NavigateTo(route);
+            return;
+        }
+
+        Snackbar.Add("The selected item cannot be opened yet.", Severity.Warning);
     }
 
     private ListenQueueItem ToQueueItem(MediaGroupingItemViewModel item)
@@ -1022,7 +1076,7 @@
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "TV",
             DetailEntityType.Audiobook => "Audiobooks",
             DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "Comics",
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "Music",
+            DetailEntityType.MusicAlbum => "Music",
             DetailEntityType.Book or DetailEntityType.BookSeries => "Books",
             _ when context == DetailPresentationContext.Watch => "Movies",
             _ when context == DetailPresentationContext.Listen => "Music",

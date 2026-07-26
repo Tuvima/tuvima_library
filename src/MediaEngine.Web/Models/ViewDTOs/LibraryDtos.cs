@@ -19,6 +19,7 @@ public sealed class LibraryItemViewModel
     public Guid EntityId { get; init; }
     public Guid? AssetId { get; init; }
     public Guid? CollectionId { get; init; }
+    public Guid? RootWorkId { get; init; }
     public string Title { get; init; } = "";
     public string? OriginalTitle { get; init; }
     public string? Author { get; init; }

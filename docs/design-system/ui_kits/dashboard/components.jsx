@@ -244,29 +244,14 @@ function CollectionDetail({ slug, onBack }) {
           </div>
 
           <div className="detail-tabs">
-            <button className="detail-tab active">Editions ({c.editions.length})</button>
-            <button className="detail-tab">Related</button>
-            <button className="detail-tab">Metadata</button>
-            <button className="detail-tab">Files</button>
+            <button className="detail-tab active">Overview</button>
+            <button className="detail-tab">Details</button>
           </div>
 
-          <div className="editions">
-            {c.editions.map((e,i) => (
-              <div key={i} className="edition">
-                <div className="thumb"><Icon name={e.icon.replace('.svg','')} size={18} /></div>
-                <div className="edition-info">
-                  <div className="edition-title">{e.title}</div>
-                  <div className="edition-meta">
-                    <span style={{ color: typeColor(e.type), fontWeight:700, fontSize:10, letterSpacing:'.1em', textTransform:'uppercase' }}>{e.type}</span>
-                    <span className="dot"></span>
-                    <span>{e.meta}</span>
-                    {e.progress != null && <><span className="dot"></span><span style={{ color:'#FCD34D' }}>{e.progress}%</span></>}
-                  </div>
-                </div>
-                <button className="open-btn">Open</button>
-              </div>
-            ))}
-          </div>
+          <section className="detail-overview">
+            <h2>Overview</h2>
+            <p>{c.description}</p>
+          </section>
         </div>
       </div>
     </>

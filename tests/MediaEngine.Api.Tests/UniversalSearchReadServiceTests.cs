@@ -125,7 +125,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task SearchAsync_MusicTrackUsesCanonicalDetailRoute()
+    public async Task SearchAsync_MusicTrackUsesDirectSongPlaybackRoute()
     {
         var workId = Guid.NewGuid();
         var service = new UniversalSearchReadService(_db, new StubWorkSearch(
@@ -142,7 +142,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
 
         var response = await service.SearchAsync("Heroes", 12, CancellationToken.None);
 
-        Assert.Equal($"/details/musictrack/{workId:D}?context=listen", response.TopResult?.DetailRoute);
+        Assert.Equal($"/listen/music?browse=songs&track={workId:D}", response.TopResult?.DetailRoute);
     }
 
     [Fact]

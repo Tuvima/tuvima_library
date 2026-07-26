@@ -811,6 +811,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         var baseRows = (await conn.QueryAsync<PersonLibraryCreditRow>(
             """
             SELECT w.id                                   AS WorkId,
+                   COALESCE(gp.id, p.id, w.id)             AS RootWorkId,
                    w.collection_id                        AS CollectionId,
                    w.media_type                           AS MediaType,
                    c.display_name                         AS CollectionTitle,
@@ -848,6 +849,12 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                        c.display_name,
                        'Untitled'
                    )                                      AS Title,
+                   (SELECT root_title.value
+                    FROM canonical_values root_title
+                    WHERE root_title.entity_id = COALESCE(gp.id, p.id, w.id)
+                      AND root_title.key = 'title'
+                    ORDER BY root_title.last_scored_at DESC
+                    LIMIT 1)                              AS RootTitle,
                    COALESCE(
                        MAX(CASE WHEN cv.key = 'year' THEN cv.value END),
                        (SELECT asset_year.value
@@ -870,13 +877,17 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 ON e.id = ma.edition_id
             INNER JOIN works w
                 ON w.id = e.work_id
+            LEFT JOIN works p
+                ON p.id = w.parent_work_id
+            LEFT JOIN works gp
+                ON gp.id = p.parent_work_id
             LEFT JOIN collections c
                 ON c.id = w.collection_id
             LEFT JOIN canonical_values cv
                 ON cv.entity_id = w.id
                AND cv.key IN ('title', 'year')
             WHERE primary_credit.person_id = @personId
-            GROUP BY w.id, w.collection_id, w.media_type, w.wikidata_qid, c.display_name, primary_credit.role
+            GROUP BY w.id, COALESCE(gp.id, p.id, w.id), w.collection_id, w.media_type, w.wikidata_qid, c.display_name, primary_credit.role
             ORDER BY MAX(CASE WHEN cv.key = 'year' THEN cv.value END) DESC, Title, primary_credit.role;
             """,
             new { personId })).ToList();
@@ -960,6 +971,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
                 var representative = orderedRows.First();
                 var isTvSeriesCredit = IsTvMediaType(representative.MediaType) && representative.CollectionId.HasValue;
+                var isMusicAlbumCredit = IsMusicMediaType(representative.MediaType);
                 var roles = ResolveLibraryCreditRoles(orderedRows, charactersByWorkQid);
                 var characterQids = orderedRows
                     .SelectMany(row => new[] { row.CollectionQid, row.WorkQid })
@@ -982,17 +994,22 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
                     return new PersonLibraryCreditDto
                     {
-                        WorkId = representative.WorkId,
+                        WorkId = isMusicAlbumCredit ? representative.RootWorkId : representative.WorkId,
                         CollectionId = representative.CollectionId,
                         MediaType = representative.MediaType,
                         Title = isTvSeriesCredit
                             ? FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
-                            : FirstNonBlank(representative.Title, "Untitled")!,
-                        CoverUrl = representative.FirstAssetId.HasValue
-                            ? $"/stream/{representative.FirstAssetId.Value}/cover-thumb"
+                            : isMusicAlbumCredit
+                                ? FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!
+                            : FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!,
+                        CoverUrl = orderedRows.Select(row => row.FirstAssetId).FirstOrDefault(assetId => assetId.HasValue) is Guid assetId
+                            ? $"/stream/{assetId}/cover-thumb"
                             : null,
                         Year = representative.Year,
                         Role = role,
+                        TrackCount = isMusicAlbumCredit
+                            ? orderedRows.Select(row => row.WorkId).Distinct().Count()
+                            : null,
                         Characters = includeCharacters ? characters : [],
                     };
                 });
@@ -1005,7 +1022,12 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     private static string LibraryCreditGroupKey(PersonLibraryCreditRow row)
         => IsTvMediaType(row.MediaType) && row.CollectionId.HasValue
             ? $"tv::{row.CollectionId.Value:D}"
+            : IsMusicMediaType(row.MediaType)
+                ? $"music::{row.RootWorkId:D}"
             : $"work::{row.WorkId:D}";
+
+    private static bool IsMusicMediaType(string? mediaType)
+        => mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true;
 
     private static IReadOnlyList<string> ResolveLibraryCreditRoles(
         IReadOnlyList<PersonLibraryCreditRow> rows,
@@ -1163,12 +1185,14 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     private sealed class PersonLibraryCreditRow
     {
         public Guid WorkId { get; init; }
+        public Guid RootWorkId { get; init; }
         public Guid? CollectionId { get; init; }
         public string? MediaType { get; init; }
         public string? CollectionTitle { get; init; }
         public string? CollectionQid { get; init; }
         public string? WorkQid { get; init; }
         public string? Title { get; init; }
+        public string? RootTitle { get; init; }
         public string? Year { get; init; }
         public string Role { get; init; } = string.Empty;
         public Guid? FirstAssetId { get; init; }

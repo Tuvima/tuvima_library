@@ -81,6 +81,7 @@
     {
         "music" => "music",
         "audiobooks" => "audiobooks",
+        "playlists" => "playlists",
         _ => "all",
     };
 
@@ -97,7 +98,7 @@
             var playlistItems = new List<MediaSectionNavigationItem>
             {
                 new("Favorites", "/listen/music/playlists/system/favorite-songs", Icons.Material.Outlined.FavoriteBorder),
-                new("All Playlists", "/listen/music?browse=playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
+                new("All Playlists", "/listen/playlists", Icons.Material.Outlined.QueueMusic, Exact: true),
             };
             playlistItems.AddRange(_playlists
                 .Where(playlist => string.Equals(playlist.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase))
@@ -152,7 +153,7 @@
                 Title = "Your Playlists",
                 Subtitle = "Manual and smart playlists from your library",
                 Items = playlistTiles,
-                SeeAllRoute = "/listen/music?browse=playlists",
+                SeeAllRoute = "/listen/playlists",
                 ShapeOverride = MediaTileShape.Square,
             };
             var seriesIndex = shelves.FindIndex(
@@ -172,13 +173,6 @@
 
     protected override async Task OnParametersSetAsync()
     {
-        if (string.Equals(NormalizedTab, "music", StringComparison.OrdinalIgnoreCase)
-            && RequestedTrackId is Guid trackId)
-        {
-            Nav.NavigateTo($"/details/musictrack/{trackId:D}?context=listen", replace: true);
-            return;
-        }
-
         await EnsurePlaylistNavigationAsync();
 
         if (!string.IsNullOrWhiteSpace(Tab) || _landingPage is not null)
@@ -214,15 +208,6 @@
         finally
         {
             _playlistsLoaded = true;
-        }
-    }
-
-    private Guid? RequestedTrackId
-    {
-        get
-        {
-            var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
-            return Guid.TryParse(query["track"], out var trackId) ? trackId : null;
         }
     }
 

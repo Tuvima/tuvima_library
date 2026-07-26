@@ -921,7 +921,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             TileImageUrl = "/art/song.jpg",
             HoverImageUrl = "/art/song.jpg",
             NavigationUrl = "/listen/music/songs",
-            DetailsNavigationUrl = "/details/musictrack",
+            DetailsNavigationUrl = "/listen/music?browse=songs&track=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
             PrimaryNavigationUrl = "/listen/music/songs",
             PrimaryActionLabel = "Play",
         };
@@ -931,7 +931,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         cut.Find(".media-tile-media").Click();
 
         var playback = Services.GetRequiredService<PlaybackSessionController>();
-        Assert.EndsWith("/details/musictrack", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
+        Assert.Contains("/listen/music?browse=songs&track=", Services.GetRequiredService<NavigationManager>().Uri, StringComparison.Ordinal);
         Assert.Null(playback.CurrentItem);
     }
 

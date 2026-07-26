@@ -119,12 +119,15 @@
     align-items: center;
     gap: 10px;
     padding: 6px 5px;
+    border: 0;
     border-radius: 6px;
+    background: transparent;
     color: rgba(232, 237, 247, 0.92);
     font: inherit;
     font-size: 0.94rem;
     line-height: 1.2;
     cursor: pointer;
+    text-align: left;
 }
 
 .browse-multi-select__option:hover,
@@ -132,12 +135,9 @@
     background: rgba(255, 255, 255, 0.045);
 }
 
-.browse-multi-select__option ::deep input[type="checkbox"] {
-    width: 17px;
-    height: 17px;
-    margin: 0;
-    accent-color: var(--tl-accent-primary);
-    cursor: pointer;
+.browse-multi-select__option ::deep .mud-icon-root {
+    color: var(--tl-accent-primary);
+    font-size: 1.15rem;
 }
 
 .browse-multi-select__option strong {

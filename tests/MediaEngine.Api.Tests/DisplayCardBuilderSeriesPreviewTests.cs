@@ -183,7 +183,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(["First Track", "Second Track", "Third Track"], card.PreviewItems.Select(item => item.Title));
         Assert.Equal(["1", "2", "3"], card.PreviewItems.Select(item => item.Position));
         Assert.Equal(
-            works.OrderBy(work => work.TrackNumber).Select(work => $"/details/musictrack/{work.WorkId:D}?context=listen"),
+            works.OrderBy(work => work.TrackNumber).Select(work => $"/listen/music?browse=songs&track={work.WorkId:D}"),
             card.PreviewItems.Select(item => item.WebUrl));
         Assert.Equal($"/details/musicalbum/{albumRootWorkId:D}?context=listen", card.Actions[0].WebUrl);
     }
@@ -270,17 +270,34 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal($"/stream/{row.AssetId:D}/cover", card.Artwork.CoverUrl);
     }
 
-    [Theory]
-    [InlineData("Music", "musictrack")]
-    [InlineData("Audiobook", "audiobook")]
-    public void FromWork_UsesCanonicalListenDetailRoute(string mediaType, string detailType)
+    [Fact]
+    public void FromWork_MusicUsesDirectSongPlaybackRoute()
     {
         var row = new DisplayWorkRow
         {
             WorkId = Guid.NewGuid(),
             AssetId = Guid.NewGuid(),
             RootWorkId = Guid.NewGuid(),
-            MediaType = mediaType,
+            MediaType = "Music",
+            Title = "Listen item",
+            CreatedAt = DateTimeOffset.Parse("2026-07-14T12:00:00Z"),
+        };
+
+        var card = new DisplayCardBuilder().FromWork(row, "listen", progress: null);
+
+        Assert.Single(card.Actions);
+        Assert.Equal($"/listen/music?browse=songs&track={row.WorkId:D}", card.Actions[0].WebUrl);
+    }
+
+    [Fact]
+    public void FromWork_AudiobookUsesCanonicalListenDetailRoute()
+    {
+        var row = new DisplayWorkRow
+        {
+            WorkId = Guid.NewGuid(),
+            AssetId = Guid.NewGuid(),
+            RootWorkId = Guid.NewGuid(),
+            MediaType = "Audiobook",
             Title = "Listen item",
             CreatedAt = DateTimeOffset.Parse("2026-07-14T12:00:00Z"),
         };
@@ -288,7 +305,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         var card = new DisplayCardBuilder().FromWork(row, "listen", progress: null);
 
         Assert.All(card.Actions, action =>
-            Assert.Equal($"/details/{detailType}/{row.WorkId:D}?context=listen", action.WebUrl));
+            Assert.Equal($"/details/audiobook/{row.WorkId:D}?context=listen", action.WebUrl));
     }
 
     [Fact]

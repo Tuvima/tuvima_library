@@ -167,13 +167,13 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"editions\"", source);
         Assert.Contains("DetailEntityType.Person => [\"overview\"]", source);
-        Assert.Contains("DetailEntityType.Collection => []", source);
+        Assert.Contains("DetailEntityType.Collection => [\"overview\", \"details\"]", source);
         Assert.Contains("BuildStandardCollectionMetadata(works)", source);
         Assert.Contains("Kind = $\"{lane}_count\"", source);
         Assert.DoesNotContain("BuildCollectionLaneActions", source);
         Assert.DoesNotContain("Key = $\"collection-{lane}\"", source);
-        Assert.Contains("DetailEntityType.MusicAlbum => [\"tracks\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.MusicTrack => [\"overview\", \"credits\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.MusicAlbum => [\"overview\", \"details\"]", source);
+        Assert.DoesNotContain("DetailEntityType.MusicTrack", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
         Assert.Contains("BuildOverflowActions(workId, entityType, isAdminView)", source);
@@ -192,11 +192,11 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void DetailComposer_BuildsTheAlbumTrackSurfaceFromExactPrimaryArtistCredits()
+    public void DetailComposer_BuildsTheAlbumCompanionFromExactPrimaryArtistCredits()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
 
-        Assert.Contains("BuildMusicAlbumTrackSurfaceAsync(", source);
+        Assert.Contains("BuildMusicAlbumCompanionAsync(", source);
         Assert.Contains("group.GroupType == CreditGroupType.PrimaryArtists", source);
         Assert.Contains("Guid.TryParse(primaryArtist.EntityId, out primaryArtistId)", source);
         Assert.Contains("FROM primary_person_media_credits credit", source);
@@ -205,11 +205,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("SELECT DISTINCT COALESCE(p.id, w.id)", source);
         Assert.DoesNotContain("SELECT DISTINCT COALESCE(gp.id, p.id, w.id)", source);
         Assert.Contains("ownedAlbumRootIds.Remove(currentAlbumRootWorkId)", source);
-        var trackSurfaceComposer = source[
-            source.IndexOf("BuildMusicAlbumTrackSurfaceAsync(", StringComparison.Ordinal)..
+        var companionComposer = source[
+            source.IndexOf("BuildMusicAlbumCompanionAsync(", StringComparison.Ordinal)..
             source.IndexOf("LoadOwnedMusicAlbumRootIdsForArtistAsync(", StringComparison.Ordinal)];
-        Assert.DoesNotContain(".Take(3)", trackSurfaceComposer);
-        Assert.Contains("MusicAlbumTrackSurface = musicAlbumTrackSurface", source);
+        Assert.DoesNotContain(".Take(3)", companionComposer);
+        Assert.Contains("MusicAlbumCompanion = musicAlbumCompanion", source);
         Assert.Contains("DetailEntityType.MusicAlbum => BuildMusicAlbumActions()", source);
         Assert.Contains("Key = \"play-album\"", source);
         Assert.Contains("Key = \"shuffle\"", source);
@@ -392,8 +392,8 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("fallbackCover", source);
         Assert.Contains("var allowChildArtworkFallback = entityType != DetailEntityType.TvShow", source);
         Assert.Contains("allowChildArtworkFallback ? relatedArt : []", source);
-        Assert.Contains("collectionBackdrop = FirstNonBlank", source);
-        Assert.Contains("collectionCover = FirstNonBlank", source);
+        Assert.Contains("var collectionBackdrop = IsStructuralContainer(entityType)", source);
+        Assert.Contains("var collectionCover = IsStructuralContainer(entityType)", source);
         Assert.Contains("'hero_url', 'hero'", source);
         Assert.Contains("SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })", source);
         Assert.Contains("cv.entity_id = ma.id AND cv.key IN ('cover_url', 'cover')", source);
@@ -1230,7 +1230,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void BuildTabs_MusicAlbumSeparatesTracksFromDetails()
+    public void BuildTabs_MusicAlbumUsesOverviewForTracksAndCredits()
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1241,7 +1241,9 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal(["tracks", "details"], tabs.Select(tab => tab.Key));
+        Assert.Equal(["overview", "details"], tabs.Select(tab => tab.Key));
+        Assert.DoesNotContain(tabs, tab => tab.Key == "tracks");
+        Assert.DoesNotContain(tabs, tab => tab.Key == "credits");
     }
 
     [Fact]
@@ -1265,7 +1267,6 @@ public sealed class DetailComposerServiceTests
     [Theory]
     [InlineData(DetailEntityType.MusicAlbum, DetailPrimaryModuleKind.None)]
     [InlineData(DetailEntityType.Person, DetailPrimaryModuleKind.Works)]
-    [InlineData(DetailEntityType.MusicArtist, DetailPrimaryModuleKind.Works)]
     [InlineData(DetailEntityType.Collection, DetailPrimaryModuleKind.CollectionItems)]
     [InlineData(DetailEntityType.Universe, DetailPrimaryModuleKind.CollectionItems)]
     public void BuildPrimaryModule_UsesTheEntitySpecificOwnedContentPresentation(
@@ -1307,7 +1308,7 @@ public sealed class DetailComposerServiceTests
 
         var module = InvokePrivate<DetailPrimaryModuleViewModel>(
             "BuildPrimaryModule",
-            DetailEntityType.MusicTrack,
+            DetailEntityType.Work,
             null,
             groups);
 

@@ -236,15 +236,21 @@
     };
 
     private static string StatClass(MetadataPill item)
-        => KindEquals(item, "rating")
-            ? "tl-detail-metadata-item tl-detail-metadata-item--rating"
-            : "tl-detail-metadata-item";
+        => item.Kind?.ToLowerInvariant() switch
+        {
+            "rating" => "tl-detail-metadata-item tl-detail-metadata-item--rating",
+            "read_count" or "watch_count" or "listen_count"
+                => "tl-detail-metadata-item tl-detail-metadata-item--lane-count",
+            _ => "tl-detail-metadata-item",
+        };
 
     private static string WatchStatClass(MetadataPill item)
         => item.Kind?.ToLowerInvariant() switch
         {
             "rating" => "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--rating",
             "certification" or "content_rating" => "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--classification",
+            "read_count" or "watch_count" or "listen_count"
+                => "tl-detail-watch-metadata-item tl-detail-watch-metadata-item--lane-count",
             _ => "tl-detail-watch-metadata-item",
         };
 
@@ -297,6 +303,23 @@
         builder.OpenElement(sequence++, "span");
         builder.AddContent(sequence++, item.Label);
         builder.CloseElement();
+
+        var laneLabel = LaneLabelFor(item);
+        if (!string.IsNullOrWhiteSpace(laneLabel))
+        {
+            builder.OpenElement(sequence++, "span");
+            builder.AddAttribute(sequence++, "class", "tl-detail-watch-metadata-item__lane-label");
+            builder.AddContent(sequence++, laneLabel);
+            builder.CloseElement();
+        }
+    };
+
+    private static string? LaneLabelFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
+    {
+        "read_count" => "Read",
+        "watch_count" => "Watch",
+        "listen_count" => "Listen",
+        _ => null,
     };
 
     private static string IconFor(MetadataPill item) => item.Kind?.ToLowerInvariant() switch

@@ -745,7 +745,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void ListenBrowsePage_MusicEntryUsesSharedAlbumFirstBrowse()
+    public void ListenBrowsePage_MusicEntryUsesSharedSongFirstBrowse()
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/listen/music");
@@ -754,14 +754,14 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Search albums or artists", cut.Markup);
+            Assert.Contains("Search songs, artists, or albums", cut.Markup);
             Assert.Single(cut.FindAll(".browse-shell__filter-surface"));
             Assert.Single(cut.FindAll(".browse-shell__search"));
             Assert.Contains(">Albums<", cut.Markup);
             Assert.Contains(">Artists<", cut.Markup);
             Assert.Contains(">Songs<", cut.Markup);
             Assert.Contains(">Playlists<", cut.Markup);
-            Assert.Contains("Tile size", cut.Markup);
+            Assert.DoesNotContain("Tile size", cut.Markup);
             Assert.Empty(cut.FindAll(".listen-now-panel"));
         });
 

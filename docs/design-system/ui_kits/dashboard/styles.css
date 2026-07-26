@@ -287,28 +287,9 @@ body {
 }
 .detail-tab:hover { color: rgba(248,248,248,.88); }
 .detail-tab.active { color:#fff; border-bottom-color:#8B5CF6; }
-
-/* Editions list */
-.editions { display:flex; flex-direction:column; gap:10px; max-width: 920px; }
-.edition {
-  display:flex; align-items:center; gap:16px;
-  padding:14px 18px; border-radius:12px;
-  background: rgba(255,255,255,.02); border:1px solid rgba(255,255,255,.06);
-  cursor:pointer; transition: background .15s;
-}
-.edition:hover { background: rgba(255,255,255,.05); }
-.edition .thumb { width:44px; height:66px; border-radius:6px; background:#1E293B; flex-shrink:0; overflow:hidden; display:flex; align-items:center; justify-content:center; }
-.edition .thumb img { width:18px; height:18px; filter: invert(1); opacity:.7; }
-.edition-info { flex:1; min-width:0; }
-.edition-title { font-size:14px; font-weight:600; color: rgba(248,248,248,.92); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.edition-meta { font-size:12px; color: rgba(248,248,248,.5); margin-top:3px; display:flex; gap:8px; align-items:center; }
-.edition-meta .dot { width:3px; height:3px; border-radius:50%; background: rgba(248,248,248,.3); }
-.edition .open-btn {
-  font-size:12px; font-weight:700; color:#8B5CF6;
-  background: rgba(234,179,8,.1); border:1px solid rgba(234,179,8,.3);
-  border-radius:6px; padding:7px 14px; cursor:pointer;
-}
-.edition .open-btn:hover { background: rgba(234,179,8,.2); }
+.detail-overview { max-width: 920px; color: rgba(248,248,248,.72); }
+.detail-overview h2 { margin:0 0 10px; color:#fff; font-size:22px; }
+.detail-overview p { margin:0; font-size:14px; line-height:1.6; }
 
 /* ── Generic helpers ──────────────────────────────────────────────────── */
 .back-btn {

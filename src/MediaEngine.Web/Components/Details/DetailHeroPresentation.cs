@@ -118,14 +118,14 @@ public sealed class DetailHeroPresentation
         if (entityType == DetailEntityType.Person)
             return $"{modeClass} tl-detail-hero--person";
 
-        if (entityType == DetailEntityType.Collection)
+        if (IsStructuralContainer(entityType))
             return $"{modeClass} tl-detail-hero--collection";
 
         var surfaceClass = entityType switch
         {
             DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => "tl-detail-hero--read",
             DetailEntityType.Audiobook => "tl-detail-hero--listen",
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-detail-hero--music",
+            DetailEntityType.MusicAlbum => "tl-detail-hero--music",
             _ => "tl-detail-hero--fallback-surface",
         };
 
@@ -166,9 +166,13 @@ public sealed class DetailHeroPresentation
             or DetailEntityType.Audiobook
             or DetailEntityType.Work
             or DetailEntityType.MusicAlbum
-            or DetailEntityType.MusicArtist
-            or DetailEntityType.MusicTrack
-            or DetailEntityType.Collection;
+            || IsStructuralContainer(entityType);
+
+    private static bool IsStructuralContainer(DetailEntityType entityType)
+        => entityType is DetailEntityType.Collection
+            or DetailEntityType.BookSeries
+            or DetailEntityType.ComicSeries
+            or DetailEntityType.MovieSeries;
 
     private static bool UsesReadOverviewCopy(DetailEntityType entityType)
         => entityType is DetailEntityType.Book
@@ -305,8 +309,6 @@ public sealed class DetailHeroPresentation
         DetailEntityType.ComicIssue => "Comic",
         DetailEntityType.ComicSeries => "Comic Volume",
         DetailEntityType.MusicAlbum => "Album",
-        DetailEntityType.MusicArtist => "Artist",
-        DetailEntityType.MusicTrack => "Track",
         _ => entityType.ToString(),
     };
 

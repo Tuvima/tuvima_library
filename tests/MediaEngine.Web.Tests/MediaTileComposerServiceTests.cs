@@ -161,8 +161,7 @@ public sealed class MediaTileComposerServiceTests
             Progress: null,
             Actions:
             [
-                new DisplayActionDto("playAsset", "Resume", trackId, WebUrl: $"/details/musictrack/{trackId:D}?context=listen"),
-                new DisplayActionDto("openWork", "Track details", trackId, WebUrl: $"/details/musictrack/{trackId:D}?context=listen"),
+                new DisplayActionDto("playAsset", "Resume", trackId, WebUrl: $"/listen/music?browse=songs&track={trackId:D}"),
                 new DisplayActionDto("playAlbum", "Play Album", trackId, CollectionId: albumId, WebUrl: albumRoute),
             ],
             Flags: new DisplayCardFlagsDto(true, false, false, true, false),

@@ -28,7 +28,7 @@ public sealed class DisplayCardBuilder
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
             PreviewPlacement: "smart",
             Progress: progressDto,
-            Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind, row.RootWorkId)],
+            Actions: WorkActions(action, row.WorkId, row.CollectionId, mediaKind, row.RootWorkId),
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.CreatedAt)
         {
@@ -49,7 +49,10 @@ public sealed class DisplayCardBuilder
                 row.Year,
                 row.ShowName,
                 row.SeasonNumber,
-                row.EpisodeNumber),
+                row.EpisodeNumber)
+            {
+                RootWorkId = row.RootWorkId == Guid.Empty ? null : row.RootWorkId,
+            },
         };
     }
 
@@ -78,7 +81,7 @@ public sealed class DisplayCardBuilder
             TileTextMode: string.Equals(context, "home", StringComparison.OrdinalIgnoreCase) ? "coverOnly" : "caption",
             PreviewPlacement: "smart",
             Progress: ToProgress(row, action),
-            Actions: [action, DetailsAction(row.WorkId, row.CollectionId, mediaKind, row.RootWorkId)],
+            Actions: WorkActions(action, row.WorkId, row.CollectionId, mediaKind, row.RootWorkId),
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.LastAccessed)
         {
@@ -99,7 +102,10 @@ public sealed class DisplayCardBuilder
                 row.Year,
                 row.ShowName,
                 row.SeasonNumber,
-                row.EpisodeNumber),
+                row.EpisodeNumber)
+            {
+                RootWorkId = row.RootWorkId == Guid.Empty ? null : row.RootWorkId,
+            },
         };
     }
 
@@ -347,6 +353,16 @@ public sealed class DisplayCardBuilder
             ? $"/watch/tv/show/{(rootWorkId == Guid.Empty ? workId : rootWorkId):D}?episode={workId:D}"
             : WebUrlFor(workId, collectionId, mediaKind));
 
+    private static IReadOnlyList<DisplayActionDto> WorkActions(
+        DisplayActionDto primaryAction,
+        Guid workId,
+        Guid? collectionId,
+        string mediaKind,
+        Guid rootWorkId) =>
+        mediaKind == "Music"
+            ? [primaryAction]
+            : [primaryAction, DetailsAction(workId, collectionId, mediaKind, rootWorkId)];
+
     private static string WebUrlFor(Guid workId, Guid? collectionId, string mediaKind)
     {
         if (collectionId.HasValue)
@@ -355,7 +371,7 @@ public sealed class DisplayCardBuilder
             {
                 "Movie" => $"/watch/movie/{workId}?collectionId={collectionId.Value}",
                 "TV" => $"/watch/tv/show/{collectionId.Value}",
-                "Music" => $"/details/musictrack/{workId:D}?context=listen",
+                "Music" => SongPlaybackUrl(workId),
                 "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
                 "Comic" => $"/book/{workId}?mode=read",
                 "Book" => $"/book/{workId}?mode=read",
@@ -367,7 +383,7 @@ public sealed class DisplayCardBuilder
         {
             "Movie" => $"/watch/movie/{workId}",
             "TV" => $"/watch/player/resolve?workId={workId:D}",
-            "Music" => $"/details/musictrack/{workId:D}?context=listen",
+            "Music" => SongPlaybackUrl(workId),
             "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
             "Comic" => $"/book/{workId}?mode=read",
             "Book" => $"/book/{workId}?mode=read",
@@ -1062,12 +1078,15 @@ public sealed class DisplayCardBuilder
             "Movie" => collectionId.HasValue
                 ? $"/watch/movie/{workId:D}?collectionId={collectionId.Value:D}"
                 : $"/watch/movie/{workId:D}",
-            "Music" => $"/details/musictrack/{workId:D}?context=listen",
+            "Music" => SongPlaybackUrl(workId),
             "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
             "Book" or "Comic" => $"/book/{workId:D}?mode=read",
             _ => $"/details/work/{workId:D}",
         };
     }
+
+    private static string SongPlaybackUrl(Guid workId) =>
+        $"/listen/music?browse=songs&track={workId:D}";
 
     private static double? ParseSeriesPosition(string? value)
     {
@@ -1370,14 +1389,9 @@ public sealed class DisplayCardBuilder
             return SeriesDisplayFormatter.FormatEpisodePosition(season, episode, showName);
         }
 
-        if (mediaKind == "Comic")
+        if (mediaKind is "Book" or "Comic" or "Audiobook")
         {
-            return SeriesSubtitle(series, seriesPosition, "Issue") ?? creator;
-        }
-
-        if (mediaKind is "Book" or "Audiobook")
-        {
-            return SeriesSubtitle(series, seriesPosition, mediaKind == "Audiobook" ? "Audiobook" : "Book") ?? creator;
+            return creator;
         }
 
         if (mediaKind == "Movie")

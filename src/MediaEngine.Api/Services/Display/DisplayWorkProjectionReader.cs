@@ -101,14 +101,17 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = AssetId AND key = 'short_description' LIMIT 1)
                 ) AS Description,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('author', 'creator') LIMIT 1),
-                    (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator') LIMIT 1),
-                    (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('author', 'creator') LIMIT 1),
-                    (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1)
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('author', 'creator', 'writer') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('author', 'creator', 'writer') LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('author', 'creator', 'writer') LIMIT 1)
                 ) AS Author,
                 COALESCE(
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'artist' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'artist' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'artist' LIMIT 1)
@@ -204,7 +207,14 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('publisher', 'imprint') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('publisher', 'imprint') LIMIT 1)
                 ) AS Publisher,
-                (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1) AS Director,
+                COALESCE(
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key = 'director' ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key = 'director' ORDER BY ordinal)),
+                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key = 'director' ORDER BY ordinal)),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'director' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'director' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'director' LIMIT 1)
+                ) AS Director,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),

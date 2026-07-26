@@ -155,6 +155,69 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLibraryCreditsAsync_CollapsesMusicTracksToOneAlbumWithTrackCount()
+    {
+        var personId = Guid.NewGuid();
+        var albumId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var setup = conn.CreateCommand();
+            setup.CommandText = """
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'Album Artist', $now);
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($albumId, 'Music', 'parent');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($albumId, 'title', 'The Complete Album', $now);
+                """;
+            AddGuid(setup, "$personId", personId);
+            AddGuid(setup, "$albumId", albumId);
+            setup.Parameters.AddWithValue("$now", now);
+            setup.ExecuteNonQuery();
+
+            for (var track = 1; track <= 2; track++)
+            {
+                var trackId = Guid.NewGuid();
+                var editionId = Guid.NewGuid();
+                var assetId = Guid.NewGuid();
+                using var trackCommand = conn.CreateCommand();
+                trackCommand.CommandText = """
+                    INSERT INTO works (id, parent_work_id, media_type, work_kind, ordinal)
+                        VALUES ($trackId, $albumId, 'Music', 'child', $track);
+                    INSERT INTO editions (id, work_id)
+                        VALUES ($editionId, $trackId);
+                    INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                        VALUES ($assetId, $editionId, $hash, $path);
+                    INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                        VALUES ($trackId, 'title', $title, $now);
+                    INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                        VALUES ($trackId, 'artist', 0, 'Album Artist');
+                    """;
+                AddGuid(trackCommand, "$trackId", trackId);
+                AddGuid(trackCommand, "$albumId", albumId);
+                trackCommand.Parameters.AddWithValue("$track", track);
+                AddGuid(trackCommand, "$editionId", editionId);
+                AddGuid(trackCommand, "$assetId", assetId);
+                trackCommand.Parameters.AddWithValue("$hash", $"album-track-{track}");
+                trackCommand.Parameters.AddWithValue("$path", $"C:/library/The Complete Album/{track:00}.flac");
+                trackCommand.Parameters.AddWithValue("$title", $"Track {track}");
+                trackCommand.Parameters.AddWithValue("$now", now);
+                trackCommand.ExecuteNonQuery();
+            }
+        }
+
+        var service = CreateService();
+        var credit = Assert.Single(await service.GetLibraryCreditsAsync(personId, CancellationToken.None));
+
+        Assert.Equal(albumId, credit.WorkId);
+        Assert.Equal("The Complete Album", credit.Title);
+        Assert.Equal("Artist", credit.Role);
+        Assert.Equal(2, credit.TrackCount);
+    }
+
+    [Fact]
     public async Task GetLibraryCreditsAsync_UsesOwnedAssetTitleBeforeCollectionTitle()
     {
         var personId = Guid.NewGuid();

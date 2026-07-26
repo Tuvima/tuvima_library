@@ -40,14 +40,14 @@ public sealed class DetailPageViewModel
     public IReadOnlyList<DetailTab> Tabs { get; init; } = [];
     public IReadOnlyList<MediaGroupingViewModel> MediaGroups { get; init; } = [];
     public DetailPrimaryModuleViewModel PrimaryModule { get; init; } = new();
-    public MusicAlbumTrackSurfaceViewModel? MusicAlbumTrackSurface { get; init; }
+    public MusicAlbumCompanionViewModel? MusicAlbumCompanion { get; init; }
 
     public CanonicalIdentityStatus IdentityStatus { get; init; } = CanonicalIdentityStatus.Unknown;
     public LibraryStatus LibraryStatus { get; init; } = LibraryStatus.Unknown;
     public bool IsAdminView { get; init; }
 }
 
-public sealed class MusicAlbumTrackSurfaceViewModel
+public sealed class MusicAlbumCompanionViewModel
 {
     public string? PrimaryArtistId { get; init; }
     public string? PrimaryArtistName { get; init; }
@@ -158,8 +158,6 @@ public enum DetailEntityType
     ComicIssue,
     ComicSeries,
     MusicAlbum,
-    MusicArtist,
-    MusicTrack,
     Person,
     Character,
     Universe,
@@ -559,7 +557,6 @@ public enum RelatedEntityType
     Character,
     Organization,
     Group,
-    MusicArtist,
     Publisher,
     Label,
     Universe,

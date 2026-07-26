@@ -98,6 +98,7 @@ public sealed record DisplayCardListMetadataDto(
 {
     public int? PlayCount { get; init; }
     public DateTimeOffset? LastPlayedAt { get; init; }
+    public Guid? RootWorkId { get; init; }
 }
 
 public sealed record DisplayCardBadgeDto(

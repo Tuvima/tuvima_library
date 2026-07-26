@@ -12,11 +12,7 @@
     <div class="tl-credit-grid">
         @foreach (var credit in VisibleCredits)
         {
-            @if (credit.EntityType == RelatedEntityType.MusicArtist)
-            {
-                <MusicArtistCreditCard Credit="credit" />
-            }
-            else if (!string.IsNullOrWhiteSpace(credit.CharacterName))
+            @if (!string.IsNullOrWhiteSpace(credit.CharacterName))
             {
                 <CastCharacterPairCard Credit="credit" />
             }

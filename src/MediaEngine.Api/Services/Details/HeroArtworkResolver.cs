@@ -64,7 +64,7 @@ public static class HeroArtworkResolver
     {
         DetailEntityType.MusicAlbum => 1d,
         DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => 2d / 3d,
-        DetailEntityType.Person or DetailEntityType.MusicArtist or DetailEntityType.Character => 3d / 4d,
+        DetailEntityType.Person or DetailEntityType.Character => 3d / 4d,
         _ => 2d / 3d,
     };
 

@@ -236,7 +236,7 @@ public sealed class UniversalSearchReadService(
             ? $"/watch/movie/{result.WorkId:D}?collectionId={result.CollectionId.Value:D}"
             : $"/watch/movie/{result.WorkId:D}",
         "TV" => result.CollectionId.HasValue ? $"/watch/tv/show/{result.CollectionId.Value:D}" : "/watch/tv",
-        "Music" => $"/details/musictrack/{result.WorkId:D}?context=listen",
+        "Music" => $"/listen/music?browse=songs&track={result.WorkId:D}",
         "Audiobook" => $"/details/audiobook/{result.WorkId:D}?context=listen",
         _ => $"/book/{result.WorkId:D}?mode=read",
     };

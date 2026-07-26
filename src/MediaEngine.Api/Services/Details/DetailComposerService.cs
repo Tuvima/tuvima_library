@@ -83,7 +83,7 @@ public sealed class DetailComposerService
 
         return entityType switch
         {
-            DetailEntityType.Person or DetailEntityType.MusicArtist => await BuildPersonAsync(id, entityType, context, isAdminView, ct),
+            DetailEntityType.Person => await BuildPersonAsync(id, entityType, context, isAdminView, ct),
             DetailEntityType.BookSeries => await BuildBookSeriesAsync(id, context, isAdminView, favoriteWorkIds, profileId, ct),
             DetailEntityType.Collection or DetailEntityType.TvShow or DetailEntityType.MovieSeries
                 or DetailEntityType.ComicSeries or DetailEntityType.MusicAlbum => await BuildCollectionAsync(
@@ -137,7 +137,7 @@ public sealed class DetailComposerService
             return ArtworkPresentationMode.CinematicBackdrop;
         }
 
-        if (entityType is DetailEntityType.Person or DetailEntityType.MusicArtist && !string.IsNullOrWhiteSpace(portraitUrl))
+        if (entityType == DetailEntityType.Person && !string.IsNullOrWhiteSpace(portraitUrl))
         {
             return ArtworkPresentationMode.PortraitEcho;
         }
@@ -425,8 +425,17 @@ public sealed class DetailComposerService
                 Authors = seedDetail.Facts?.Authors ?? [],
                 Series = seriesTitle,
             },
-            Artwork = seedDetail.Artwork,
-            HeroBrand = seedDetail.HeroBrand,
+            Artwork = BuildArtwork(
+                DetailEntityType.BookSeries,
+                null,
+                null,
+                null,
+                null,
+                null,
+                new Dictionary<string, string>(),
+                ownedItems.Select(item => item.ArtworkUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().ToList(),
+                0,
+                null),
             SequencePlacement = placement,
             Metadata =
             [
@@ -436,7 +445,8 @@ public sealed class DetailComposerService
                     Kind = "count",
                 },
             ],
-            PrimaryActions = seedDetail.PrimaryActions,
+            PrimaryActions = BuildCollectionActions(seriesId, DetailEntityType.BookSeries, context, null, []),
+            OverflowActions = BuildOverflowActions(seriesId, DetailEntityType.BookSeries, isAdminView),
             ContributorGroups = seedDetail.ContributorGroups,
             PreviewContributors = seedDetail.PreviewContributors,
             Tabs = BuildTabs(
@@ -624,29 +634,33 @@ public sealed class DetailComposerService
         var fallbackCover = allowChildArtworkFallback
             ? works.Select(w => w.ArtworkUrl).FirstOrDefault(url => !string.IsNullOrWhiteSpace(url))
             : null;
-        var collectionBackdrop = FirstNonBlank(
-            tvInProgressEpisode?.BackgroundUrl,
-            row.BackgroundUrl,
-            GetValue(values, "background_url"),
-            GetValue(values, "background"),
-            GetValue(values, "hero_url"),
-            GetValue(values, "hero"),
-            fallbackBackdrop);
+        var collectionBackdrop = IsStructuralContainer(entityType)
+            ? null
+            : FirstNonBlank(
+                tvInProgressEpisode?.BackgroundUrl,
+                row.BackgroundUrl,
+                GetValue(values, "background_url"),
+                GetValue(values, "background"),
+                GetValue(values, "hero_url"),
+                GetValue(values, "hero"),
+                fallbackBackdrop);
         var collectionBanner = FirstNonBlank(
             row.BannerUrl,
             GetValue(values, "banner_url"),
             GetValue(values, "banner"));
-        var collectionCover = FirstNonBlank(
-            row.CoverUrl,
-            GetValue(values, "cover_url"),
-            GetValue(values, "cover"),
-            GetValue(values, "poster_url"),
-            GetValue(values, "poster"),
-            fallbackCover);
+        var collectionCover = IsStructuralContainer(entityType)
+            ? null
+            : FirstNonBlank(
+                row.CoverUrl,
+                GetValue(values, "cover_url"),
+                GetValue(values, "cover"),
+                GetValue(values, "poster_url"),
+                GetValue(values, "poster"),
+                fallbackCover);
         var collectionLogo = FirstNonBlank(row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
         var contributorGroups = await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
-        var musicAlbumTrackSurface = entityType == DetailEntityType.MusicAlbum
-            ? await BuildMusicAlbumTrackSurfaceAsync(
+        var musicAlbumCompanion = entityType == DetailEntityType.MusicAlbum
+            ? await BuildMusicAlbumCompanionAsync(
                 rootWorkId ?? collectionId,
                 contributorGroups,
                 ct)
@@ -718,7 +732,7 @@ public sealed class DetailComposerService
             Tabs = BuildTabs(entityType, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
             MediaGroups = mediaGroups,
             PrimaryModule = BuildPrimaryModule(entityType, sequencePlacement, mediaGroups),
-            MusicAlbumTrackSurface = musicAlbumTrackSurface,
+            MusicAlbumCompanion = musicAlbumCompanion,
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
@@ -786,7 +800,7 @@ public sealed class DetailComposerService
         }));
     }
 
-    private async Task<MusicAlbumTrackSurfaceViewModel> BuildMusicAlbumTrackSurfaceAsync(
+    private async Task<MusicAlbumCompanionViewModel> BuildMusicAlbumCompanionAsync(
         Guid currentAlbumRootWorkId,
         IReadOnlyList<CreditGroupViewModel> contributorGroups,
         CancellationToken ct)
@@ -801,25 +815,25 @@ public sealed class DetailComposerService
         var primaryArtistId = Guid.Empty;
         var hasResolvedArtist = primaryArtist is not null
             && Guid.TryParse(primaryArtist.EntityId, out primaryArtistId);
-        var trackSurface = new MusicAlbumTrackSurfaceViewModel
+        var companion = new MusicAlbumCompanionViewModel
         {
             PrimaryArtistId = hasResolvedArtist ? primaryArtistId.ToString("D") : null,
             PrimaryArtistName = primaryArtist?.DisplayName,
             PrimaryArtistRoute = hasResolvedArtist
-                ? $"/details/musicartist/{primaryArtistId:D}?context=listen"
+                ? $"/details/person/{primaryArtistId:D}?context=listen"
                 : null,
         };
 
         if (!hasResolvedArtist || _collectionBrowse is null)
         {
-            return trackSurface;
+            return companion;
         }
 
         var ownedAlbumRootIds = await LoadOwnedMusicAlbumRootIdsForArtistAsync(primaryArtistId, ct);
         ownedAlbumRootIds.Remove(currentAlbumRootWorkId);
         if (ownedAlbumRootIds.Count == 0)
         {
-            return trackSurface;
+            return companion;
         }
 
         var albumGroups = await _collectionBrowse
@@ -857,11 +871,11 @@ public sealed class DetailComposerService
             })
             .ToList();
 
-        return new MusicAlbumTrackSurfaceViewModel
+        return new MusicAlbumCompanionViewModel
         {
-            PrimaryArtistId = trackSurface.PrimaryArtistId,
-            PrimaryArtistName = trackSurface.PrimaryArtistName,
-            PrimaryArtistRoute = trackSurface.PrimaryArtistRoute,
+            PrimaryArtistId = companion.PrimaryArtistId,
+            PrimaryArtistName = companion.PrimaryArtistName,
+            PrimaryArtistRoute = companion.PrimaryArtistRoute,
             MoreByAlbums = moreByAlbums,
         };
     }
@@ -1428,7 +1442,7 @@ public sealed class DetailComposerService
             };
         }
 
-        if (entityType is DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.MusicArtist)
+        if (entityType == DetailEntityType.MusicAlbum)
         {
             return group.GroupType switch
             {
@@ -2645,7 +2659,7 @@ public sealed class DetailComposerService
                  || mediaType.Equals("Comics", StringComparison.OrdinalIgnoreCase) => "Read",
              DetailEntityType.Audiobook => "Listen",
              DetailEntityType.Movie or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Watch",
-             DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => "Music",
+             DetailEntityType.MusicAlbum => "Music",
              _ when mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase) => "Listen",
              _ when mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase) || mediaType.Equals("TV", StringComparison.OrdinalIgnoreCase) => "Watch",
              _ => "Other",
@@ -3676,7 +3690,7 @@ public sealed class DetailComposerService
                 DetailEntityType.Audiobook => item.MediaKind.Equals("Audiobook", StringComparison.OrdinalIgnoreCase)
                     || item.MediaKind.Equals("LiteraryWork", StringComparison.OrdinalIgnoreCase),
                 DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.Work => item.MediaKind.Equals("LiteraryWork", StringComparison.OrdinalIgnoreCase),
-                DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.MusicArtist => item.MediaKind.Equals("Music", StringComparison.OrdinalIgnoreCase),
+                DetailEntityType.MusicAlbum => item.MediaKind.Equals("Music", StringComparison.OrdinalIgnoreCase),
                 _ => !item.MediaKind.Equals("StageWork", StringComparison.OrdinalIgnoreCase),
             };
         }
@@ -3704,7 +3718,7 @@ public sealed class DetailComposerService
             DetailEntityType.Audiobook => ContainsAny(text, "audiobook", "audio book", "book", "novel"),
             DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.Work => ContainsAny(text, "book", "novel", "literary", "written work")
                 && !ContainsAny(text, "comic", "film", "movie", "television", "video game"),
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack or DetailEntityType.MusicArtist => ContainsAny(text, "album", "song", "single", "music"),
+            DetailEntityType.MusicAlbum => ContainsAny(text, "album", "song", "single", "music"),
             _ => true,
         };
     }
@@ -5065,7 +5079,6 @@ public sealed class DetailComposerService
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
             DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", Route = $"/details/audiobook/{id}?context=listen", IsPrimary = true }],
             DetailEntityType.MusicAlbum => BuildMusicAlbumActions(),
-            DetailEntityType.MusicArtist => [new DetailAction { Key = "play-artist", Label = "Listen", Icon = "headphones", IsPrimary = true }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
     }
@@ -5224,8 +5237,6 @@ public sealed class DetailComposerService
         => IsReadableEntity(entityType)
            || IsWatchEntity(entityType)
            || entityType is DetailEntityType.MusicAlbum
-               or DetailEntityType.MusicArtist
-               or DetailEntityType.MusicTrack
                or DetailEntityType.MovieSeries
                or DetailEntityType.TvShow
                or DetailEntityType.TvSeason
@@ -5330,9 +5341,7 @@ public sealed class DetailComposerService
             DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicAlbum => ["tracks", "details"],
-            DetailEntityType.MusicTrack => ["overview", "credits", "related", "details"],
-            DetailEntityType.MusicArtist => ["overview", "related", "details"],
+            DetailEntityType.MusicAlbum => ["overview", "details"],
             DetailEntityType.Person => ["overview"],
             DetailEntityType.Collection => ["overview", "details"],
             DetailEntityType.Character when hasUniverse => ["overview", "portrayals", "relationships", "universe", "details"],
@@ -5358,13 +5367,13 @@ public sealed class DetailComposerService
     {
         var kind = entityType switch
         {
-            DetailEntityType.MusicTrack when mediaGroups.Any(group =>
+            DetailEntityType.MusicAlbum when mediaGroups.Any(group =>
                 string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
                 => DetailPrimaryModuleKind.Tracks,
             DetailEntityType.Audiobook when HasChapterGroup(mediaGroups) => DetailPrimaryModuleKind.Chapters,
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode when sequencePlacement is not null
                 => DetailPrimaryModuleKind.Episodes,
-            DetailEntityType.Person or DetailEntityType.MusicArtist when mediaGroups.Count > 0
+            DetailEntityType.Person when mediaGroups.Count > 0
                 => DetailPrimaryModuleKind.Works,
             DetailEntityType.Character when mediaGroups.Count > 0 => DetailPrimaryModuleKind.Appearances,
             DetailEntityType.Collection when mediaGroups.Count > 0 => DetailPrimaryModuleKind.CollectionItems,
@@ -5748,7 +5757,7 @@ public sealed class DetailComposerService
 
         if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
         {
-            return DetailEntityType.MusicTrack;
+            return DetailEntityType.Work;
         }
 
         return DetailEntityType.Book;
@@ -5921,7 +5930,8 @@ public sealed class DetailComposerService
             DetailEntityType.Book => detail.Author,
             DetailEntityType.Audiobook => FirstNonBlank(detail.Narrator, detail.Author),
             DetailEntityType.Movie => FirstNonBlank(detail.Director, GetValue(values, "studio"), detail.Year, "Movie"),
-            DetailEntityType.MusicTrack => string.Join(" â€¢ ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            DetailEntityType.Work when detail.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
+                => string.Join(" · ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
             DetailEntityType.ComicIssue => string.Join(" - ", new[] { detail.Series, FormatIssue(detail.SeriesPosition), FirstNonBlank(detail.Writer, detail.Illustrator, detail.Author) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             DetailEntityType.TvEpisode => string.Join(" • ", new[] { detail.ShowName, FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             _ => FormatEntityType(entityType),
@@ -5998,7 +6008,7 @@ public sealed class DetailComposerService
     private static string DetailContextKey(DetailEntityType entityType) => entityType switch
     {
         DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => "listen",
         DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries or DetailEntityType.Work => "read",
         _ => "default",
     };
@@ -6662,7 +6672,7 @@ public sealed class DetailComposerService
             Id = work.Id,
             EntityType = entityType,
             Title = work.Title,
-            Subtitle = entityType == DetailEntityType.MusicTrack
+            Subtitle = work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
                 ? FirstNonBlank(work.Artist, work.Year, FormatTrackDuration(work.Duration))
                 : FirstNonBlank(FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
             Description = work.Description,
@@ -6727,7 +6737,7 @@ public sealed class DetailComposerService
 
         if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
         {
-            return DetailEntityType.MusicTrack;
+            return DetailEntityType.Work;
         }
 
         if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
@@ -6748,7 +6758,8 @@ public sealed class DetailComposerService
         DetailEntityType.Movie => $"/details/movie/{work.Id}?context=watch",
         DetailEntityType.TvEpisode => $"/watch/player/resolve?workId={work.Id}",
         DetailEntityType.Audiobook => $"/details/audiobook/{work.Id}?context=listen",
-        DetailEntityType.MusicTrack => $"/details/musictrack/{work.Id}?context=listen",
+        DetailEntityType.Work when work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
+            => $"/listen/music?browse=songs&track={work.Id:D}",
         DetailEntityType.ComicIssue => $"/details/comicissue/{work.Id}?context=comics",
         _ => $"/details/book/{work.Id}?context=read",
     };
@@ -6914,9 +6925,23 @@ public sealed class DetailComposerService
         {
             DetailEntityType.TvShow => BuildTvShowWatchActions(works, heroProgress),
             DetailEntityType.MusicAlbum => BuildMusicAlbumActions(),
-            DetailEntityType.Collection => [],
+            DetailEntityType.Collection or DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries
+                => [new DetailAction
+                {
+                    Key = "shuffle-collection",
+                    Label = "Shuffle",
+                    Icon = "shuffle",
+                    Tooltip = "Open a random owned item",
+                    IsPrimary = true,
+                }],
             _ => [],
         };
+
+    private static bool IsStructuralContainer(DetailEntityType entityType)
+        => entityType is DetailEntityType.Collection
+            or DetailEntityType.BookSeries
+            or DetailEntityType.ComicSeries
+            or DetailEntityType.MovieSeries;
 
     private static IReadOnlyList<DetailAction> BuildTvShowWatchActions(
         IReadOnlyList<CollectionWorkSummary> works,
@@ -7412,8 +7437,7 @@ public sealed class DetailComposerService
             DetailEntityType.Audiobook => authors.Take(2).Concat(narrators.Take(2)).ToList(),
             DetailEntityType.Work => authors.Take(2).Concat(narrators.Take(2)).ToList(),
             DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => writers.Take(2).Concat(illustrators.Take(2)).ToList(),
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicTrack => artists.Take(2).Concat(featuredArtists.Take(2)).Concat(musicCredits.Take(1)).ToList(),
-            DetailEntityType.MusicArtist => artists.Take(2).Concat(featuredArtists.Take(2)).Concat(musicCredits.Take(2)).ToList(),
+            DetailEntityType.MusicAlbum => artists.Take(2).Concat(featuredArtists.Take(2)).Concat(musicCredits.Take(1)).ToList(),
             DetailEntityType.Universe or DetailEntityType.MovieSeries or DetailEntityType.BookSeries => cast.Take(6).ToList(),
             _ => [],
         };
@@ -7605,13 +7629,19 @@ public sealed class DetailComposerService
         };
         var roleSummary = roles.Count == 0 ? null : string.Join(", ", roles);
         var entityType = MapCreditToEntityType(representative);
+        var trackCount = entityType == DetailEntityType.MusicAlbum
+            ? credits.Max(credit => credit.TrackCount)
+            : null;
+        var trackSummary = trackCount.HasValue
+            ? $"{trackCount.Value} {(trackCount.Value == 1 ? "track" : "tracks")}"
+            : null;
 
         return new MediaGroupingItemViewModel
         {
             Id = CreditDisplayId(representative),
             EntityType = entityType,
             Title = representative.Title,
-            Subtitle = string.Join(" • ", new[] { FirstNonBlank(characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
+            Subtitle = string.Join(" · ", new[] { trackSummary, FirstNonBlank(characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
             ArtworkUrl = representative.CoverUrl,
             Lane = DetailLane(entityType),
             Roles = roles,
@@ -8077,7 +8107,7 @@ public sealed class DetailComposerService
             {
                 Id = alias.Id.ToString("D"),
                 Name = alias.Name,
-                Subtitle = alias.IsPseudonym ? "Pen name" : "Related identity",
+                Subtitle = alias.IsPseudonym ? "Pen name" : null,
                 ImageUrl = ApiImageUrls.BuildPersonHeadshotUrl(
                     alias.Id,
                     alias.LocalHeadshotPath,
@@ -8163,9 +8193,7 @@ public sealed class DetailComposerService
     }
 
     private static IReadOnlyList<DetailAction> BuildPersonActions(Guid personId, DetailEntityType entityType, DetailPresentationContext context)
-        => context == DetailPresentationContext.Listen || entityType == DetailEntityType.MusicArtist
-            ? [new DetailAction { Key = "play", Label = "Play Artist", Icon = "play_arrow", IsPrimary = true }, new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle" }]
-            : [new DetailAction { Key = "view-works", Label = "View Works", Icon = "collections", IsPrimary = true }];
+        => [new DetailAction { Key = "view-works", Label = "View Works", Icon = "collections", IsPrimary = true }];
 
     private static string? PreferredAssetUrl(IReadOnlyList<MediaEngine.Domain.Entities.EntityAsset> assets, string assetType)
         => assets.FirstOrDefault(a => a.AssetTypeValue.Equals(assetType, StringComparison.OrdinalIgnoreCase) && a.IsPreferred)?.ImageUrl
@@ -8402,7 +8430,7 @@ public sealed class DetailComposerService
 
         if (mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true)
         {
-            return DetailEntityType.MusicTrack;
+            return DetailEntityType.MusicAlbum;
         }
 
         if (mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true)
@@ -8441,7 +8469,7 @@ public sealed class DetailComposerService
         => entityType switch
         {
             DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "watch",
-            DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+            DetailEntityType.MusicAlbum or DetailEntityType.Audiobook => "listen",
             DetailEntityType.Book or DetailEntityType.BookSeries or DetailEntityType.ComicIssue or DetailEntityType.ComicSeries => "read",
             _ => "default",
         };
@@ -8513,7 +8541,6 @@ public sealed class DetailComposerService
         DetailEntityType.ComicIssue => "Comic Issue",
         DetailEntityType.ComicSeries => "Comic Volume",
         DetailEntityType.MusicAlbum => "Album",
-        DetailEntityType.MusicArtist => "Artist",
         _ => entityType.ToString(),
     };
 

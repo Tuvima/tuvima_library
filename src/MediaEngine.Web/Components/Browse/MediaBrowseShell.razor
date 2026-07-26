@@ -1,10 +1,12 @@
 @namespace MediaEngine.Web.Components.Browse
+@using System.Globalization
 @using System.Security.Cryptography
 @using System.Text
 @using MediaEngine.Contracts.Display
 @using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Branding
 @using MediaEngine.Web.Services.MediaTiles
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Services.Integration
@@ -290,6 +292,7 @@
                              OnPlayRequested="PlaySongTracksAsync"
                              OnFavoriteToggled="ToggleSongFavoriteAsync"
                              OnQueueRequested="QueueSongAsync"
+                             OnAlbumRequested="OpenSongAlbumAsync"
                              OnDragStarted="BeginSongDragAsync"
                              OnDragEnded="EndSongDragAsync" />
         </div>
@@ -394,6 +397,7 @@
 
     private List<LibraryItemViewModel> _items = [];
     private List<ContentGroupViewModel> _groups = [];
+    private static readonly StreamingServiceLogoResolver StreamingServiceLogos = new();
 
     private BrowseTabPreset CurrentTab =>
         Preset.Tabs.FirstOrDefault(tab => string.Equals(tab.Id, _activeTabId, StringComparison.OrdinalIgnoreCase))
@@ -409,6 +413,14 @@
     private bool IsAudiobookTab => string.Equals(CurrentTab.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
     private bool IsMusicTimelineGrouping => IsMusicTab
                                             && string.Equals(_grouping, "timeline", StringComparison.OrdinalIgnoreCase);
+    private bool IsTvTimelineGrouping =>
+        string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(_grouping, "timeline", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+    private bool IsTvNetworksGrouping =>
+        string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(_grouping, "networks", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
     private bool IsPlaylistGrouping => IsMusicTab
                                        && string.Equals(_grouping, "playlists", StringComparison.OrdinalIgnoreCase);
     private bool IsMusicSongsGrouping => IsMusicTab
@@ -575,6 +587,8 @@
         ActiveTableItems.Select(ToSongWork).ToList();
     private IReadOnlySet<Guid> SongFavoriteIds =>
         ActiveTableItems.Where(item => item.IsFavorite).Select(item => item.EntityId).ToHashSet();
+    private Guid? _requestedTrackId;
+    private Guid? _lastAutoPlayedTrackId;
 
     protected override void OnInitialized()
     {
@@ -645,6 +659,8 @@
         _status = state.Status;
         _selectedYears.Clear();
         _selectedYears.UnionWith(state.Years);
+        var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _requestedTrackId = Guid.TryParse(query["track"], out var trackId) ? trackId : null;
         if (state.TileSize is int tileSize)
         {
             _tileSizes[_activeTabId] = Math.Clamp(tileSize, TileSizeMinPx, TileSizeMaxPx);
@@ -676,7 +692,7 @@
             {
                 await LoadPlaylistsAsync();
             }
-            else if (IsContainerGrouping || IsMusicTimelineGrouping)
+            else if (IsContainerGrouping || IsMusicTimelineGrouping || IsTvTimelineGrouping)
             {
                 if (IsTvShowsGrouping && !UseListLayout)
                 {
@@ -815,6 +831,11 @@
         _groups.Clear();
         _hasMore = response is not null
                    && requestedOffset + incoming.Count < response.TotalCount;
+
+        if (!append)
+        {
+            await PlayRequestedSongAsync();
+        }
     }
 
     private async Task LoadContinueAsync()
@@ -1006,6 +1027,7 @@
             EntityId = card.WorkId ?? card.Id,
             AssetId = card.AssetId,
             CollectionId = card.CollectionId,
+            RootWorkId = metadata?.RootWorkId,
             Title = card.Title,
             Author = metadata?.Author,
             Director = metadata?.Director,
@@ -1057,6 +1079,7 @@
             Id = item.EntityId,
             AssetId = item.AssetId,
             CollectionId = item.CollectionId,
+            RootWorkId = item.RootWorkId,
             MediaType = "Music",
             CreatedAt = item.CreatedAt,
             ResolvedCoverUrl = item.CoverUrl,
@@ -1162,6 +1185,7 @@
         var presentation = (_activeTabId, _grouping) switch
         {
             ("tv", "shows") => "tvSeries",
+            ("tv", "timeline") => "tvSeries",
             ("movies", "series") => "movieSeries",
             ("books", "series") => "bookSeries",
             ("comics", "series") => "comicSeries",
@@ -1174,6 +1198,9 @@
         var wideArtwork = BrowseArtworkRules.ResolveWideArtwork(group.BackgroundUrl, group.BannerUrl);
         var navigationUrl = BuildGroupNavigationUrl(group);
         var displayMediaType = FormatMediaLabel(group.PrimaryMediaType);
+        var logoUrl = IsTvNetworksGrouping
+            ? StreamingServiceLogos.ResolveLogoPath(group.DisplayName) ?? group.LogoUrl
+            : group.LogoUrl;
         var coverUrl = string.Equals(presentation, "artist", StringComparison.OrdinalIgnoreCase)
             ? group.ArtistPhotoUrl
             : group.CoverUrl;
@@ -1198,8 +1225,8 @@
             GroupingType: string.Equals(presentation, "default", StringComparison.OrdinalIgnoreCase) ? "collection" : presentation,
             Title: group.DisplayName,
             Subtitle: group.Creator ?? group.Network,
-            Facts: BrowseArtworkRules.CompactFacts(group.Year, GroupCountLabel(group)),
-            Artwork: new DisplayArtworkDto(coverUrl, coverSmallUrl, coverMediumUrl, coverLargeUrl, group.ArtistPhotoUrl, artistSmallUrl, artistMediumUrl, artistLargeUrl, group.BannerUrl, bannerSmallUrl, bannerMediumUrl, bannerLargeUrl, wideArtwork, backgroundSmallUrl, backgroundMediumUrl, backgroundLargeUrl, group.LogoUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx, group.BannerWidthPx, group.BannerHeightPx, group.BackgroundWidthPx, group.BackgroundHeightPx, group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType)),
+            Facts: BrowseArtworkRules.CompactFacts(GroupYearLabel(group), GroupCountLabel(group)),
+            Artwork: new DisplayArtworkDto(coverUrl, coverSmallUrl, coverMediumUrl, coverLargeUrl, group.ArtistPhotoUrl, artistSmallUrl, artistMediumUrl, artistLargeUrl, group.BannerUrl, bannerSmallUrl, bannerMediumUrl, bannerLargeUrl, wideArtwork, backgroundSmallUrl, backgroundMediumUrl, backgroundLargeUrl, logoUrl, group.CoverWidthPx, group.CoverHeightPx, group.SquareWidthPx, group.SquareHeightPx, group.BannerWidthPx, group.BannerHeightPx, group.BackgroundWidthPx, group.BackgroundHeightPx, group.MediaTypeColor ?? AccentForMedia(group.PrimaryMediaType)),
             PreferredShape: BrowseArtworkRules.PreferredDisplayShape(group.PrimaryMediaType, wideArtwork, group.ArtistPhotoUrl),
             Presentation: presentation,
             TileTextMode: "caption",
@@ -1274,6 +1301,20 @@
         };
 
         return $"{group.WorkCount} {noun}";
+    }
+
+    private static string? GroupYearLabel(ContentGroupViewModel group)
+    {
+        if (group.EarliestYear is int earliest && group.LatestYear is int latest)
+        {
+            return earliest == latest
+                ? earliest.ToString(CultureInfo.InvariantCulture)
+                : $"{earliest.ToString(CultureInfo.InvariantCulture)}–{latest.ToString(CultureInfo.InvariantCulture)}";
+        }
+
+        return group.EarliestYear?.ToString(CultureInfo.InvariantCulture)
+            ?? group.LatestYear?.ToString(CultureInfo.InvariantCulture)
+            ?? group.Year;
     }
 
     private List<LibraryItemViewModel> BuildContainerDisplayItems()
@@ -1444,6 +1485,37 @@
         Snackbar.Add($"{track.Title} added to the queue.", Severity.Success);
     }
 
+    private Task OpenSongAlbumAsync(WorkViewModel track)
+    {
+        if (track.RootWorkId is not Guid albumId || albumId == Guid.Empty)
+        {
+            Snackbar.Add("This song is not linked to an album.", Severity.Info);
+            return Task.CompletedTask;
+        }
+
+        Nav.NavigateTo($"/details/musicalbum/{albumId:D}?context=listen");
+        return Task.CompletedTask;
+    }
+
+    private async Task PlayRequestedSongAsync()
+    {
+        if (!IsMusicSongsGrouping
+            || _requestedTrackId is not Guid requestedTrackId
+            || _lastAutoPlayedTrackId == requestedTrackId)
+        {
+            return;
+        }
+
+        var tracks = SongTracks;
+        if (tracks.All(track => track.Id != requestedTrackId))
+        {
+            return;
+        }
+
+        _lastAutoPlayedTrackId = requestedTrackId;
+        await PlaySongTracksAsync(tracks, requestedTrackId, "All Songs", shuffle: false);
+    }
+
     private Task BeginSongDragAsync(Guid workId)
     {
         var track = SongTracks.FirstOrDefault(item => item.Id == workId);
@@ -1549,14 +1621,6 @@
         }
 
         var selectedItem = ActiveTableItems.FirstOrDefault(item => item.EntityId == entityId);
-        if (selectedItem is not null
-            && IsMusicTab
-            && !string.IsNullOrWhiteSpace(selectedItem.Album))
-        {
-            Nav.NavigateTo($"/details/musictrack/{selectedItem.EntityId:D}?context=listen");
-            return;
-        }
-
         Nav.NavigateTo(selectedItem is not null
             ? MediaNavigation.ForLibraryItem(selectedItem)
             : $"/book/{entityId}");
@@ -1776,6 +1840,7 @@
         return (_activeTabId, _grouping) switch
         {
             ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
+            ("tv", "timeline") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("movies", "collections") => $"/details/collection/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
@@ -1802,6 +1867,8 @@
     private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
         IsPersonGrouping && (group.PersonId ?? group.ArtistPersonId) is Guid personId
             ? personId
+            : IsTvTimelineGrouping
+                ? GetTvShowGroupRouteId(group)
             : GetSystemViewGroupField() is not null
             ? GenerateDeterministicGuid(group.DisplayName)
             : IsTvShowsGrouping
@@ -1814,6 +1881,8 @@
     private string? GetSystemViewGroupField() =>
         IsMusicTimelineGrouping
             ? "album"
+            : IsTvTimelineGrouping
+                ? "show_name"
             : BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);
 
     private static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)

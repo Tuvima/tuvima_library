@@ -118,12 +118,19 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("<AppQuickFilterToggle", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppActiveFilterSummary", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppTimelineResults", browseShell, StringComparison.Ordinal);
+        Assert.Contains("IsTvTimelineGrouping", browseShell, StringComparison.Ordinal);
+        Assert.Contains("? \"show_name\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("GroupYearLabel(group)", browseShell, StringComparison.Ordinal);
+        Assert.Contains("group.EarliestYear is int earliest && group.LatestYear is int latest", browseShell, StringComparison.Ordinal);
+        Assert.Contains("StreamingServiceLogos.ResolveLogoPath(group.DisplayName)", browseShell, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", read, StringComparison.Ordinal);
         Assert.DoesNotContain("MediaBrowseNavigationBuilder.BuildBrowseGroup(Preset)", watch, StringComparison.Ordinal);
         Assert.Contains("new(\"My List\", \"/my-list\"", read, StringComparison.Ordinal);
         Assert.Contains("new(\"My List\", \"/my-list\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Browse audiobooks\"", listen, StringComparison.Ordinal);
         Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("role=\"menuitemcheckbox\"", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("OnClick=\"@(() => ToggleAsync(option))\"", multiSelect, StringComparison.Ordinal);
         Assert.Contains(".browse-multi-select ::deep .mud-menu-activator", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("height: 48px", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("ShowLabel=\"false\"", browseShell, StringComparison.Ordinal);
@@ -146,6 +153,12 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("new(\"songs\", \"Songs\"", listenPreset, StringComparison.Ordinal);
         Assert.Contains("new(\"playlists\", \"Playlists\"", listenPreset, StringComparison.Ordinal);
         Assert.Contains("new(\"narrators\", \"Narrators\"", listenPreset, StringComparison.Ordinal);
+        var musicTab = listenPreset[
+            listenPreset.IndexOf("Id = \"music\"", StringComparison.Ordinal)..
+            listenPreset.IndexOf("Id = \"audiobooks\"", StringComparison.Ordinal)];
+        Assert.DoesNotContain("Playlists", musicTab, StringComparison.Ordinal);
+        Assert.Contains("DefaultGrouping = \"songs\"", musicTab, StringComparison.Ordinal);
+        Assert.Contains("DefaultLayout = LibraryLayoutMode.List", musicTab, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath) =>

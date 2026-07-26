@@ -222,7 +222,7 @@
     private string HeroMediaClass => ActiveEntityType switch
     {
         DetailEntityType.Movie or DetailEntityType.TvShow => "tl-detail-hero--watch",
-        DetailEntityType.MusicAlbum or DetailEntityType.MusicArtist or DetailEntityType.MusicTrack => "tl-detail-hero--music",
+        DetailEntityType.MusicAlbum => "tl-detail-hero--music",
         DetailEntityType.Audiobook => "tl-detail-hero--listen",
         _ => "tl-detail-hero--read",
     };
@@ -240,14 +240,14 @@
     {
         DetailEntityType.Book or DetailEntityType.ComicIssue => "read",
         DetailEntityType.MusicAlbum => "play-album",
-        DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "listen",
+        DetailEntityType.Audiobook => "listen",
         _ => "watch",
     };
     private string PrimaryActionIcon => ActiveEntityType switch
     {
         DetailEntityType.Book or DetailEntityType.ComicIssue => "auto_stories",
         DetailEntityType.MusicAlbum => "play_arrow",
-        DetailEntityType.MusicArtist or DetailEntityType.MusicTrack or DetailEntityType.Audiobook => "headphones",
+        DetailEntityType.Audiobook => "headphones",
         _ => "play_arrow",
     };
     private string PauseButtonLabel => IsPaused ? "Resume featured item rotation" : "Pause featured item rotation";
@@ -257,9 +257,7 @@
     {
         "movie" => DetailEntityType.Movie,
         "tv" => DetailEntityType.TvShow,
-        "music" => string.Equals(ActiveHero.Presentation, "artist", StringComparison.OrdinalIgnoreCase)
-            ? DetailEntityType.MusicArtist
-            : DetailEntityType.MusicAlbum,
+        "music" => DetailEntityType.MusicAlbum,
         "audiobook" => DetailEntityType.Audiobook,
         "comic" => DetailEntityType.ComicIssue,
         _ => DetailEntityType.Book,
