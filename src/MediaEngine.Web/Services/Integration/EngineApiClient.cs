@@ -83,14 +83,14 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
-    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof). AddPlayerQueueItemsAsync
-    // intentionally left calling the hand-written PostPlayerMutationAsync below — wave 1 scope is exactly
-    // three methods, and AddPlayerQueueItemsAsync is wave 2's job even though it shares that private helper.
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
         PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /player/queue/replace", "/player/queue/replace", request, ct: ct);
 
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 2). The hand-written
+    // PostPlayerMutationAsync helper this used to call is now dead code and has been removed.
     public Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
-        PostPlayerMutationAsync("/player/queue/items", request, "POST /player/queue/items", ct);
+        PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /player/queue/items", "/player/queue/items", request, ct: ct);
 
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default) =>
@@ -100,196 +100,67 @@ public sealed partial class EngineApiClient : IEngineApiClient
     public Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default) =>
         PostAsync<PlayerHeartbeatDto, PlayerStateDto>("POST /player/heartbeat", "/player/heartbeat", request, ct: ct);
 
-    public async Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default)
-    {
-        const string endpoint = "GET /player/audiobooks/{workId}/history";
-        try
-        {
-            var query = new List<string> { $"limit={Math.Clamp(limit, 1, 50)}" };
-            if (profileId.HasValue)
+    // Migrated to the shared GetAsync<T> fallback-overload helper (stage 5B wave 2).
+    public Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AudiobookListenHistoryItemDto>>(
+            "GET /player/audiobooks/{workId}/history",
+            $"/player/audiobooks/{workId:D}/history",
+            () => [],
+            new Dictionary<string, string?>
             {
-                query.Add($"profileId={profileId.Value:D}");
-            }
+                ["limit"] = Math.Clamp(limit, 1, 50).ToString(),
+                ["profileId"] = profileId?.ToString("D"),
+            },
+            ct: ct);
 
-            var suffix = "?" + string.Join("&", query);
-            var items = await _http.GetFromJsonAsync<List<AudiobookListenHistoryItemDto>>($"/player/audiobooks/{workId:D}/history{suffix}", ct);
-            ClearFailure(endpoint);
-            return items ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/history failed", workId);
-            RecordExceptionFailure(endpoint, ex);
-            return [];
-        }
-    }
+    // Migrated to the shared GetAsync<T> fallback-overload helper (stage 5B wave 2).
+    public Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(Guid workId, Guid? profileId = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AudiobookBookmarkDto>>(
+            "GET /player/audiobooks/{workId}/bookmarks",
+            $"/player/audiobooks/{workId:D}/bookmarks",
+            () => [],
+            new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") },
+            ct: ct);
 
-    public async Task<IReadOnlyList<AudiobookBookmarkDto>> GetAudiobookBookmarksAsync(Guid workId, Guid? profileId = null, CancellationToken ct = default)
-    {
-        const string endpoint = "GET /player/audiobooks/{workId}/bookmarks";
-        try
-        {
-            var suffix = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
-            var items = await _http.GetFromJsonAsync<List<AudiobookBookmarkDto>>($"/player/audiobooks/{workId:D}/bookmarks{suffix}", ct);
-            ClearFailure(endpoint);
-            return items ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/bookmarks failed", workId);
-            RecordExceptionFailure(endpoint, ex);
-            return [];
-        }
-    }
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 2). The optional profileId
+    // query parameter now routes through BuildEndpointPath instead of a hand-built suffix string.
+    public Task<AudiobookBookmarkDto?> CreateAudiobookBookmarkAsync(Guid workId, CreateAudiobookBookmarkRequestDto request, Guid? profileId = null, CancellationToken ct = default) =>
+        PostAsync<CreateAudiobookBookmarkRequestDto, AudiobookBookmarkDto>(
+            "POST /player/audiobooks/{workId}/bookmarks",
+            BuildEndpointPath($"/player/audiobooks/{workId:D}/bookmarks", new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") }),
+            request,
+            ct: ct);
 
-    public async Task<AudiobookBookmarkDto?> CreateAudiobookBookmarkAsync(Guid workId, CreateAudiobookBookmarkRequestDto request, Guid? profileId = null, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /player/audiobooks/{workId}/bookmarks";
-        try
-        {
-            var suffix = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
-            var response = await _http.PostAsJsonAsync($"/player/audiobooks/{workId:D}/bookmarks{suffix}", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
+    // Migrated to the shared DeleteAsync helper (stage 5B wave 2).
+    public Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default) =>
+        DeleteAsync(
+            "DELETE /player/audiobooks/bookmarks/{bookmarkId}",
+            BuildEndpointPath($"/player/audiobooks/bookmarks/{bookmarkId:D}", new Dictionary<string, string?> { ["profileId"] = profileId?.ToString("D") }),
+            ct: ct);
 
-            var bookmark = await response.Content.ReadFromJsonAsync<AudiobookBookmarkDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return bookmark;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "POST /player/audiobooks/{WorkId}/bookmarks failed", workId);
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
+    // Migrated to the shared GetAsync<T> fallback-overload helper (stage 5B wave 2).
+    public Task<IReadOnlyList<AudiobookChapterTitleOverrideDto>> GetAudiobookChapterTitleOverridesAsync(Guid workId, Guid? assetId = null, CancellationToken ct = default) =>
+        GetAsync<IReadOnlyList<AudiobookChapterTitleOverrideDto>>(
+            "GET /player/audiobooks/{workId}/chapter-overrides",
+            $"/player/audiobooks/{workId:D}/chapter-overrides",
+            () => [],
+            new Dictionary<string, string?> { ["assetId"] = assetId?.ToString("D") },
+            ct: ct);
 
-    public async Task<bool> DeleteAudiobookBookmarkAsync(Guid bookmarkId, Guid? profileId = null, CancellationToken ct = default)
-    {
-        const string endpoint = "DELETE /player/audiobooks/bookmarks/{bookmarkId}";
-        try
-        {
-            var suffix = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
-            var response = await _http.DeleteAsync($"/player/audiobooks/bookmarks/{bookmarkId:D}{suffix}", ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return false;
-            }
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 2).
+    public Task<AudiobookChapterTitleOverrideDto?> UpsertAudiobookChapterTitleOverrideAsync(Guid workId, UpsertAudiobookChapterTitleOverrideRequestDto request, CancellationToken ct = default) =>
+        PostAsync<UpsertAudiobookChapterTitleOverrideRequestDto, AudiobookChapterTitleOverrideDto>(
+            "POST /player/audiobooks/{workId}/chapter-overrides",
+            $"/player/audiobooks/{workId:D}/chapter-overrides",
+            request,
+            ct: ct);
 
-            ClearFailure(endpoint);
-            return true;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "DELETE /player/audiobooks/bookmarks/{BookmarkId} failed", bookmarkId);
-            RecordExceptionFailure(endpoint, ex);
-            return false;
-        }
-    }
-
-    public async Task<IReadOnlyList<AudiobookChapterTitleOverrideDto>> GetAudiobookChapterTitleOverridesAsync(Guid workId, Guid? assetId = null, CancellationToken ct = default)
-    {
-        const string endpoint = "GET /player/audiobooks/{workId}/chapter-overrides";
-        try
-        {
-            var suffix = assetId.HasValue ? $"?assetId={assetId.Value:D}" : string.Empty;
-            var overrides = await _http.GetFromJsonAsync<List<AudiobookChapterTitleOverrideDto>>($"/player/audiobooks/{workId:D}/chapter-overrides{suffix}", ct);
-            ClearFailure(endpoint);
-            return overrides ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/chapter-overrides failed", workId);
-            RecordExceptionFailure(endpoint, ex);
-            return [];
-        }
-    }
-
-    public async Task<AudiobookChapterTitleOverrideDto?> UpsertAudiobookChapterTitleOverrideAsync(Guid workId, UpsertAudiobookChapterTitleOverrideRequestDto request, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /player/audiobooks/{workId}/chapter-overrides";
-        try
-        {
-            var response = await _http.PostAsJsonAsync($"/player/audiobooks/{workId:D}/chapter-overrides", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
-
-            var chapterOverride = await response.Content.ReadFromJsonAsync<AudiobookChapterTitleOverrideDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return chapterOverride;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "POST /player/audiobooks/{WorkId}/chapter-overrides failed", workId);
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
-
-    public async Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default)
-    {
-        const string endpoint = "DELETE /player/audiobooks/{workId}/chapter-overrides/{assetId}/{chapterIndex}";
-        try
-        {
-            var response = await _http.DeleteAsync($"/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}", ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return false;
-            }
-
-            ClearFailure(endpoint);
-            return true;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "DELETE /player/audiobooks/{WorkId}/chapter-overrides/{AssetId}/{ChapterIndex} failed", workId, assetId, chapterIndex);
-            RecordExceptionFailure(endpoint, ex);
-            return false;
-        }
-    }
-
-    private async Task<PlayerStateDto?> PostPlayerMutationAsync(
-        string url,
-        PlayerQueueMutationDto request,
-        string endpoint,
-        CancellationToken ct)
-    {
-        try
-        {
-            var response = await _http.PostAsJsonAsync(url, request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
-
-            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return state;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "{Endpoint} failed", endpoint);
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
+    // Migrated to the shared DeleteAsync helper (stage 5B wave 2).
+    public Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default) =>
+        DeleteAsync(
+            "DELETE /player/audiobooks/{workId}/chapter-overrides/{assetId}/{chapterIndex}",
+            $"/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}",
+            ct: ct);
 
     public async Task<IReadOnlyList<TextTrackViewModel>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
     {
@@ -731,41 +602,23 @@ public sealed partial class EngineApiClient : IEngineApiClient
             return [];
         }
     }
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 2). Kept async because the
+    // ScanRaw -> ScanResultViewModel projection has to run after the helper's awaited result.
     public async Task<ScanResultViewModel?> TriggerScanAsync(
         string? rootPath = null,
         CancellationToken ct = default)
     {
-        const string endpoint = "POST /ingestion/scan";
-        try
+        var raw = await PostAsync<object, ScanRaw>("POST /ingestion/scan", "/ingestion/scan", new { root_path = rootPath }, ct: ct);
+        return raw is null ? null : new ScanResultViewModel
         {
-            var body    = new { root_path = rootPath };
-            var resp    = await _http.PostAsJsonAsync("/ingestion/scan", body, ct);
-            if (!resp.IsSuccessStatusCode)
+            Operations = raw.Operations.Select(o => new PendingOperationViewModel
             {
-                await RecordHttpFailureAsync(endpoint, resp, ct);
-                return null;
-            }
-
-            var raw     = await resp.Content.ReadFromJsonAsync<ScanRaw>(ct);
-            ClearFailure(endpoint);
-            return raw is null ? null : new ScanResultViewModel
-            {
-                Operations = raw.Operations.Select(o => new PendingOperationViewModel
-                {
-                    SourcePath      = o.SourcePath,
-                    DestinationPath = o.DestinationPath,
-                    OperationKind   = o.OperationKind,
-                    Reason          = o.Reason,
-                }).ToList(),
-            };
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /ingestion/scan failed");
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
+                SourcePath      = o.SourcePath,
+                DestinationPath = o.DestinationPath,
+                OperationKind   = o.OperationKind,
+                Reason          = o.Reason,
+            }).ToList(),
+        };
     }
 
     // -- POST /ingestion/reconcile ---------------------------------------------
@@ -806,33 +659,16 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     // -- POST /ingestion/rescan ----------------------------------------------
 
-    public async Task<bool> TriggerRescanAsync(
+    // Migrated to the shared PostAsync<TReq> bool-returning helper (stage 5B wave 2).
+    public Task<bool> TriggerRescanAsync(
         string? rootPath = null,
         bool? includeSubdirectories = null,
-        CancellationToken ct = default)
-    {
-        const string endpoint = "POST /ingestion/rescan";
-        try
-        {
-            var body = new { root_path = rootPath, include_subdirectories = includeSubdirectories };
-            var resp = await _http.PostAsJsonAsync("/ingestion/rescan", body, ct);
-            if (!resp.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, resp, ct);
-                return false;
-            }
-
-            ClearFailure(endpoint);
-            return true;
-        }
-        catch (OperationCanceledException) { return false; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /ingestion/rescan failed");
-            RecordExceptionFailure(endpoint, ex);
-            return false;
-        }
-    }
+        CancellationToken ct = default) =>
+        PostAsync<object>(
+            "POST /ingestion/rescan",
+            "/ingestion/rescan",
+            new { root_path = rootPath, include_subdirectories = includeSubdirectories },
+            ct: ct);
 
     // -- GET /collections/search -----------------------------------------------------
 
