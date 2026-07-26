@@ -83,61 +83,22 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof). AddPlayerQueueItemsAsync
+    // intentionally left calling the hand-written PostPlayerMutationAsync below — wave 1 scope is exactly
+    // three methods, and AddPlayerQueueItemsAsync is wave 2's job even though it shares that private helper.
     public Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
-        PostPlayerMutationAsync("/player/queue/replace", request, "POST /player/queue/replace", ct);
+        PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /player/queue/replace", "/player/queue/replace", request, ct: ct);
 
     public Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
         PostPlayerMutationAsync("/player/queue/items", request, "POST /player/queue/items", ct);
 
-    public async Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /player/command";
-        try
-        {
-            var response = await _http.PostAsJsonAsync("/player/command", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
+    public Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default) =>
+        PostAsync<PlayerCommandRequestDto, PlayerStateDto>("POST /player/command", "/player/command", request, ct: ct);
 
-            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return state;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "POST /player/command failed");
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
-
-    public async Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default)
-    {
-        const string endpoint = "POST /player/heartbeat";
-        try
-        {
-            var response = await _http.PostAsJsonAsync("/player/heartbeat", request, ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return null;
-            }
-
-            var state = await response.Content.ReadFromJsonAsync<PlayerStateDto>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return state;
-        }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "POST /player/heartbeat failed");
-            RecordExceptionFailure(endpoint, ex);
-            return null;
-        }
-    }
+    // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
+    public Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default) =>
+        PostAsync<PlayerHeartbeatDto, PlayerStateDto>("POST /player/heartbeat", "/player/heartbeat", request, ct: ct);
 
     public async Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default)
     {
@@ -4752,6 +4713,268 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     private void RecordExceptionFailure(string endpoint, Exception ex, bool logAsWarning = true)
         => _failureState.RecordExceptionFailure(endpoint, ex, _logger, logAsWarning);
+
+    // ------------------------------------------------------------------------------------------------
+    // MIGRATION RECIPE (stage 5B wave 2)
+    // ------------------------------------------------------------------------------------------------
+    // This file hand-writes the same HTTP envelope ~270 more times. The five helpers below extract the
+    // "endpoint-label" envelope variant — the one used by SendPlayerCommandAsync, PostPlayerHeartbeatAsync,
+    // and ReplacePlayerQueueAsync (migrated here as the wave 1 proof). Apply this decision table mechanically;
+    // do not invent new shapes without escalating.
+    //
+    // Recognize the envelope variant a method uses, then transform it:
+    //
+    //   Shape found in the method                                              | Replace with
+    //   -------------------------------------------------------------------------------------------------------
+    //   GetFromJsonAsync<T>(url, ct) directly (no manual status check), single | GetAsync<T>(label, path, query, ct)
+    //   catch(Exception) -> RecordExceptionFailure only, e.g.                  |   (returns T?; if the method currently
+    //   GetAudiobookListenHistoryAsync, GetAudiobookBookmarksAsync,            |   falls back to [] / a default value on
+    //   GetAudiobookChapterTitleOverridesAsync, GetEncodeJobsAsync            |   null, use the GetAsync<T>(label, path,
+    //                                                                         |   fallback, query, ct) overload instead.)
+    //   -------------------------------------------------------------------------------------------------------
+    //   PostAsJsonAsync + manual IsSuccessStatusCode check + ReadFromJsonAsync | PostAsync<TReq,TRes>(label, path, body, ct)
+    //   for the typed result, e.g. SendPlayerCommandAsync, PostPlayerHeartbeat |
+    //   Async, PostPlayerMutationAsync, TriggerScanAsync, UpsertAudiobook...   |
+    //   -------------------------------------------------------------------------------------------------------
+    //   PostAsJsonAsync + manual IsSuccessStatusCode check, no response body   | PostAsync<TReq>(label, path, body, ct)
+    //   read, returns bool, e.g. TriggerRescanAsync, CancelEncodeJobAsync     |   (bool-returning overload)
+    //   -------------------------------------------------------------------------------------------------------
+    //   DeleteAsync(url, ct) + manual IsSuccessStatusCode check, returns bool, | DeleteAsync(label, path, ct)
+    //   e.g. DeleteAudiobookBookmarkAsync, DeleteAudiobookChapterTitleOverride|
+    //   Async                                                                 |
+    //   -------------------------------------------------------------------------------------------------------
+    //   PutAsJsonAsync + manual IsSuccessStatusCode check, returns bool       | PutAsync<TReq>(label, path, body, ct)
+    //                                                                         |   ONLY if the method already follows the
+    //                                                                         |   endpoint-label + RecordHttpFailureAsync/
+    //                                                                         |   ClearFailure/RecordExceptionFailure
+    //                                                                         |   pattern. As of wave 1, NO existing PUT
+    //                                                                         |   method does — see "NOT covered" below.
+    //                                                                         |   Do not point a legacy-shape PUT method
+    //                                                                         |   at this helper without a deliberate,
+    //                                                                         |   reviewed decision to add failure-state
+    //                                                                         |   bookkeeping that did not exist before.
+    //
+    // Mechanical steps once a method matches a row above:
+    //   1. Delete the `const string endpoint = "..."` local (it becomes the helper's first argument).
+    //   2. Replace the whole try/catch body with a single expression-bodied call to the matching helper,
+    //      passing the same path string(s) the method already builds (including any interpolated
+    //      {workId}/{assetId} segments and query-string suffixes — do not change the wire path).
+    //   3. If the method builds a query string by hand (e.g. `var suffix = "?" + string.Join("&", query)`),
+    //      convert it to an `IReadOnlyDictionary<string, string?>` and let BuildEndpointPath assemble it —
+    //      do NOT silently drop a query parameter or reorder it in a way that changes the escaped output.
+    //   4. If the method passes `logAsWarning: false` to RecordHttpFailureAsync/RecordExceptionFailure today
+    //      (e.g. GetReviewCountAsync), pass the same `logAsWarning: false` through to the helper call —
+    //      the default is `true` to match the majority shape (and the three wave-1 proof methods).
+    //   5. Keep the async method non-async (`=>` expression body returning the helper's Task) exactly like
+    //      the three migrated methods here — do not add a redundant `async`/`await` wrapper.
+    //
+    // Envelope variants this file ALSO contains that these helpers deliberately do NOT cover — leave these
+    // methods hand-written, do not force them onto the helpers above:
+    //   - "Legacy LastError-only" shape (the majority of PUT methods, e.g. UpdateFolderSettingsAsync,
+    //     SaveTranscodingSettingsAsync, UpdatePlaybackSettingsAsync, TestPathAsync): sets `LastError` directly
+    //     via the property setter, never touches `_failureState.RecordHttpFailureAsync`/`ClearFailure`/
+    //     `RecordExceptionFailure`, so `LastFailedEndpoint`/`LastFailureKind`/`LastStatusCode` are never
+    //     populated for these calls today. Routing them through PutAsync<TReq>/PostAsync<TReq,TRes> would
+    //     start populating those fields — an observable behavior change, not a mechanical rename. Only do
+    //     this as an explicit, reviewed decision (and note it in the stage 5B write-up), never silently.
+    //   - "Manual GetAsync + explicit status check" GET shape (e.g. GetReviewCountAsync,
+    //     GetPlaybackManifestAsync): uses `_http.GetAsync` + `IsSuccessStatusCode` + `RecordHttpFailureAsync`
+    //     instead of relying on GetFromJsonAsync's auto-throw, often because it also projects the DTO into a
+    //     scalar (e.g. `raw?.PendingCount ?? 0`) or needs the raw response for other reasons. GetAsync<T> here
+    //     mirrors the auto-throw shape instead, because that is what most GET methods use and it is what
+    //     keeps `LastFailureKind` classification (not_found/unauthorized/http_failure vs
+    //     engine_unavailable/unexpected_failure) identical to today. Do not mechanically retarget shape-2 GETs
+    //     at GetAsync<T> — the failure classification would silently change.
+    //   - Methods with no failure-state bookkeeping at all (e.g. MarkProvisionalAsync): a single
+    //     catch(Exception) that only logs and returns false/null, never calling ClearFailure/
+    //     RecordHttpFailureAsync/RecordExceptionFailure. Leave these as-is unless deliberately upgrading them.
+    //   - Methods whose catch(Exception) interpolates additional structured arguments beyond the endpoint
+    //     label (e.g. `_logger.LogDebug(ex, "GET /player/audiobooks/{WorkId}/history failed", workId)`): the
+    //     helpers below only log `"{Endpoint} failed"` with the endpoint label as the sole argument. Losing
+    //     the extra structured arg is usually acceptable (the id is still visible as literal route text in
+    //     the endpoint label string), but if a call site depends on the structured field for log queries,
+    //     leave it hand-written instead of silently flattening it.
+    //   - RunDevHarnessAsync: returns full diagnostic payload (status, body, timing) on both success AND
+    //     failure paths and never returns a bare null/false/default on error. Not helper-shaped; leave as-is.
+    //   - Endpoints reading the emerging application/problem+json body for anything beyond title/detail
+    //     (stage 5A is concurrently migrating error shapes): RecordHttpFailureAsync already tolerates both
+    //     ProblemDetails (title/detail/traceId) and legacy free-text bodies via
+    //     EngineApiFailureState.ReadProblemSummaryAsync, which falls back to the raw string on any parse
+    //     failure — the helpers below inherit that tolerance for free and require no extra parsing.
+    // ------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// GET envelope: calls <c>GetFromJsonAsync&lt;T&gt;</c> directly (relying on it to throw on a non-success
+    /// status) and reports failures through <see cref="RecordExceptionFailure(string, Exception, bool)"/> only —
+    /// this mirrors the majority "auto-throw" GET shape already used by e.g. GetAudiobookListenHistoryAsync.
+    /// See the "manual GetAsync + explicit status check" note above for the GET shape this does NOT cover.
+    /// </summary>
+    private async Task<T?> GetAsync<T>(
+        string endpointLabel,
+        string path,
+        IReadOnlyDictionary<string, string?>? query = null,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var result = await _http.GetFromJsonAsync<T>(BuildEndpointPath(path, query), ct);
+            ClearFailure(endpointLabel);
+            return result;
+        }
+        catch (OperationCanceledException) { return default; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpointLabel);
+            RecordExceptionFailure(endpointLabel, ex, logAsWarning);
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Overload for GET methods that fall back to a non-null default (commonly <c>[]</c>) instead of
+    /// returning null on failure/cancellation, e.g. GetEncodeJobsAsync's <c>?? []</c>.
+    /// </summary>
+    private async Task<T> GetAsync<T>(
+        string endpointLabel,
+        string path,
+        Func<T> fallback,
+        IReadOnlyDictionary<string, string?>? query = null,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        var result = await GetAsync<T>(endpointLabel, path, query, logAsWarning, ct);
+        return result is null ? fallback() : result;
+    }
+
+    /// <summary>
+    /// POST envelope with a typed JSON response body. This is the shape proven by the wave 1 migration of
+    /// SendPlayerCommandAsync, PostPlayerHeartbeatAsync, and ReplacePlayerQueueAsync (via PostPlayerMutationAsync).
+    /// </summary>
+    private async Task<TRes?> PostAsync<TReq, TRes>(
+        string endpointLabel,
+        string path,
+        TReq body,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync(path, body, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpointLabel, response, ct, logAsWarning);
+                return default;
+            }
+
+            var result = await response.Content.ReadFromJsonAsync<TRes>(cancellationToken: ct);
+            ClearFailure(endpointLabel);
+            return result;
+        }
+        catch (OperationCanceledException) { return default; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpointLabel);
+            RecordExceptionFailure(endpointLabel, ex, logAsWarning);
+            return default;
+        }
+    }
+
+    /// <summary>
+    /// Fire-and-check POST envelope for methods that only need a success/failure bool, e.g. TriggerRescanAsync.
+    /// </summary>
+    private async Task<bool> PostAsync<TReq>(
+        string endpointLabel,
+        string path,
+        TReq body,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PostAsJsonAsync(path, body, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpointLabel, response, ct, logAsWarning);
+                return false;
+            }
+
+            ClearFailure(endpointLabel);
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpointLabel);
+            RecordExceptionFailure(endpointLabel, ex, logAsWarning);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// PUT envelope matching the endpoint-label pattern (see the recipe note above: no current PUT method
+    /// actually uses this shape yet — every PUT today uses the "legacy LastError-only" variant instead).
+    /// Provided so wave 2 has it available for any PUT this pattern legitimately applies to, and so future
+    /// endpoints don't reinvent it. Do not point an existing legacy-shape PUT at this without a deliberate
+    /// decision to add failure-state bookkeeping that was not there before.
+    /// </summary>
+    private async Task<bool> PutAsync<TReq>(
+        string endpointLabel,
+        string path,
+        TReq body,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync(path, body, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpointLabel, response, ct, logAsWarning);
+                return false;
+            }
+
+            ClearFailure(endpointLabel);
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpointLabel);
+            RecordExceptionFailure(endpointLabel, ex, logAsWarning);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// DELETE envelope matching e.g. DeleteAudiobookBookmarkAsync / DeleteAudiobookChapterTitleOverrideAsync.
+    /// </summary>
+    private async Task<bool> DeleteAsync(
+        string endpointLabel,
+        string path,
+        bool logAsWarning = true,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.DeleteAsync(path, ct);
+            if (!response.IsSuccessStatusCode)
+            {
+                await RecordHttpFailureAsync(endpointLabel, response, ct, logAsWarning);
+                return false;
+            }
+
+            ClearFailure(endpointLabel);
+            return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "{Endpoint} failed", endpointLabel);
+            RecordExceptionFailure(endpointLabel, ex, logAsWarning);
+            return false;
+        }
+    }
 
     private static string BuildEndpointPath(string path, IReadOnlyDictionary<string, string?>? query)
     {

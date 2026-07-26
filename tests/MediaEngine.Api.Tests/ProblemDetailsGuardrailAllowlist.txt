@@ -1,0 +1,50 @@
+# ProblemDetails wire-shape guardrail allowlist.
+# Format: one repo-relative Endpoints/*.cs file path per line.
+# Blank lines and lines starting with # are ignored.
+#
+# An entry here means the named file still contains at least one ad-hoc
+# handled-error shape (Results.BadRequest(...), Results.NotFound(...),
+# Results.Conflict(...), Results.UnprocessableEntity(...), a bare
+# Results.NotFound()/BadRequest(), or Results.Json(new { error ... }) — including
+# the TypedResults equivalents of all of the above) instead of routing through
+# MediaEngine.Api.Http.ApiErrors.
+#
+# Seeded from the pre-standardization state of the endpoint surface (stage 5A
+# wave 1). Shrinks to empty in stage 5A wave 2; new entries forbidden — convert
+# the offending call site to ApiErrors instead of adding to this list.
+
+src/MediaEngine.Api/Endpoints/ActivityEndpoints.cs
+src/MediaEngine.Api/Endpoints/AdminEndpoints.cs
+src/MediaEngine.Api/Endpoints/AiEnrichmentEndpoints.cs
+src/MediaEngine.Api/Endpoints/CharacterEndpoints.cs
+src/MediaEngine.Api/Endpoints/CollectionEndpoints.cs
+src/MediaEngine.Api/Endpoints/DebugEndpoints.cs
+src/MediaEngine.Api/Endpoints/DetailEndpoints.cs
+src/MediaEngine.Api/Endpoints/DisplayEndpoints.cs
+src/MediaEngine.Api/Endpoints/IngestionEndpoints.cs
+src/MediaEngine.Api/Endpoints/ItemCanonicalEndpoints.cs
+src/MediaEngine.Api/Endpoints/LibraryEndpoints.cs
+src/MediaEngine.Api/Endpoints/LibraryItemEndpoints.cs
+src/MediaEngine.Api/Endpoints/MaintenanceEndpoints.cs
+src/MediaEngine.Api/Endpoints/MetadataEndpoints.MediaEditorNavigator.cs
+src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs
+src/MediaEngine.Api/Endpoints/OperationsEndpoints.cs
+src/MediaEngine.Api/Endpoints/PersonEndpoints.cs
+src/MediaEngine.Api/Endpoints/PlaybackEndpoints.cs
+src/MediaEngine.Api/Endpoints/PlaybackSegmentEndpoints.cs
+src/MediaEngine.Api/Endpoints/PlayerEndpoints.cs
+src/MediaEngine.Api/Endpoints/PluginEndpoints.cs
+src/MediaEngine.Api/Endpoints/ProfileEndpoints.cs
+src/MediaEngine.Api/Endpoints/ProgressEndpoints.cs
+src/MediaEngine.Api/Endpoints/ReadEndpoints.cs
+src/MediaEngine.Api/Endpoints/ReaderEndpoints.cs
+src/MediaEngine.Api/Endpoints/ReportEndpoints.cs
+src/MediaEngine.Api/Endpoints/ReviewEndpoints.cs
+src/MediaEngine.Api/Endpoints/SearchEndpoints.cs
+src/MediaEngine.Api/Endpoints/SettingsEndpoints.cs
+src/MediaEngine.Api/Endpoints/StreamEndpoints.cs
+src/MediaEngine.Api/Endpoints/TimelineEndpoints.cs
+src/MediaEngine.Api/Endpoints/UISettingsEndpoints.cs
+src/MediaEngine.Api/Endpoints/UniverseGraphEndpoints.cs
+src/MediaEngine.Api/Endpoints/UniverseLoreEndpoints.cs
+src/MediaEngine.Api/Endpoints/WorkEndpoints.cs
