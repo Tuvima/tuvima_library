@@ -3,6 +3,8 @@
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
     <IsPackable>false</IsPackable>
+    <!-- The API dependency already accepts MediaInfo.Core.Native's distro RID catalog. -->
+    <NoWarn>$(NoWarn);NETSDK1206</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
@@ -13,7 +15,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MediaEngine.Api\MediaEngine.Api.csproj" />
     <ProjectReference Include="..\..\src\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\MediaEngine.Web\MediaEngine.Web.csproj" />
   </ItemGroup>
 
   <ItemGroup>

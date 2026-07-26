@@ -1199,7 +1199,7 @@ public sealed class DetailComposerServiceTests
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/Details/DetailComposerService.cs"));
         var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
-        var client = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Web/Services/Integration/EngineApiClient.cs"));
+        var client = ReadEngineApiClientSources();
 
         Assert.Contains("public DetailFactsViewModel? Facts { get; init; }", contracts);
         Assert.Contains("public sealed class DetailFactsViewModel", contracts);
@@ -1433,5 +1433,18 @@ public sealed class DetailComposerServiceTests
         }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
+    }
+
+    private static string ReadEngineApiClientSources()
+    {
+        var directory = Path.Combine(
+            FindRepoRoot(),
+            "src", "MediaEngine.Web", "Services", "Integration");
+
+        return string.Join(
+            "\n",
+            Directory.EnumerateFiles(directory, "EngineApiClient*.cs")
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(File.ReadAllText));
     }
 }

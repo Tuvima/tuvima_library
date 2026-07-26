@@ -50,6 +50,47 @@ public sealed class UiArchitectureGuardrailTests
     }
 
     [Fact]
+    public void EngineApiClient_RemainsSplitByCohesiveArea()
+    {
+        var areas = new Dictionary<string, string>
+        {
+            ["Details"] = "GetDetailPageAsync",
+            ["Display"] = "GetDisplayHomeAsync",
+            ["Operations"] = "GetIngestionOperationsSnapshotAsync",
+            ["People"] = "GetPersonsAsync",
+            ["Playback"] = "GetPlaybackManifestAsync",
+            ["SearchMisc"] = "SearchWorksAsync",
+            ["Settings"] = "GetServerGeneralAsync",
+        };
+
+        foreach (var (area, representativeMethod) in areas)
+        {
+            var implementation = Read(
+                $"src/MediaEngine.Web/Services/Integration/EngineApiClient.{area}.cs");
+            var contract = Read(
+                $"src/MediaEngine.Web/Services/Integration/IEngineApiClient.{area}.cs");
+
+            Assert.Contains("public sealed partial class EngineApiClient", implementation);
+            Assert.Contains("public partial interface IEngineApiClient", contract);
+            Assert.Contains(representativeMethod, implementation);
+            Assert.Contains(representativeMethod, contract);
+        }
+
+        var facade = Read("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var interfaceFacade = Read("src/MediaEngine.Web/Services/Integration/IEngineApiClient.cs");
+
+        Assert.True(facade.Split('\n').Length <= 2_600);
+        Assert.True(interfaceFacade.Split('\n').Length <= 230);
+        Assert.Contains("private async Task<T?> GetAsync<T>(", facade);
+        Assert.Contains("GetUniverseGraphAsync", facade);
+        Assert.Contains("SearchUniverseAsync", facade);
+        Assert.Contains("GetUniverseHealthAsync", facade);
+        Assert.Contains("GetUniverseGraphAsync", interfaceFacade);
+        Assert.Contains("SearchUniverseAsync", interfaceFacade);
+        Assert.Contains("GetUniverseHealthAsync", interfaceFacade);
+    }
+
+    [Fact]
     public void EmptyStagedApiClients_RemainRemoved()
     {
         Assert.False(File.Exists(Path.Combine(

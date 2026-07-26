@@ -145,7 +145,7 @@ public sealed class DisplayContractTests
     [Fact]
     public void WebBrowseSurfaces_UseDisplayApiAndMediaTiles()
     {
-        var clientSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration\IEngineApiClient.cs"));
+        var clientSource = ReadEngineApiClientSources("IEngineApiClient*.cs");
         var composerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\MediaTiles\MediaTileComposerService.cs"));
         var browseShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Browse\MediaBrowseShell.razor"));
 
@@ -194,4 +194,14 @@ public sealed class DisplayContractTests
 
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+
+    private static string ReadEngineApiClientSources(string pattern)
+    {
+        var directory = GetRepoFilePath(@"src\MediaEngine.Web\Services\Integration");
+        return string.Join(
+            "\n",
+            Directory.EnumerateFiles(directory, pattern)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(File.ReadAllText));
+    }
 }

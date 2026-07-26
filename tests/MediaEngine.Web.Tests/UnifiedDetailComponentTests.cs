@@ -103,7 +103,7 @@ public sealed class UnifiedDetailComponentTests
         var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
         var progress = ReadSource("src/MediaEngine.Web/Components/Details/HeroProgressBlock.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
-        var client = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var client = ReadEngineApiClientSources();
         var appStyles = ReadSource("src/MediaEngine.Web/wwwroot/app.css");
         var layout = ReadSource("src/MediaEngine.Web/Shared/MainLayout.razor");
         var layoutStyles = ReadSource("src/MediaEngine.Web/Shared/MainLayout.razor.css");
@@ -178,7 +178,7 @@ public sealed class UnifiedDetailComponentTests
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
         var metadata = ReadSource("src/MediaEngine.Web/Components/Details/HeroMetadataPills.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
-        var client = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var client = ReadEngineApiClientSources();
 
         Assert.Contains("Model.HeroBrand is not null", source);
         Assert.Contains("HeroBrand=\"Model.HeroBrand\"", source);
@@ -481,7 +481,7 @@ public sealed class UnifiedDetailComponentTests
     [Fact]
     public void EngineClient_NormalizesSeriesAndCreditImageUrls()
     {
-        var source = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var source = ReadEngineApiClientSources();
 
         Assert.Contains("NormalizeSequencePlacement", source);
         Assert.Contains("NormalizeSequenceContainerOption", source);
@@ -837,7 +837,7 @@ public sealed class UnifiedDetailComponentTests
         var trackList = ReadSource("src/MediaEngine.Web/Components/Details/MusicTrackList.razor");
         var audioTable = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor");
         var audioTableStyles = ReadSource("src/MediaEngine.Web/Components/Details/AudioItemTable.razor.css");
-        var apiClient = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var apiClient = ReadEngineApiClientSources();
         var albumRoute = ReadSource("src/MediaEngine.Web/Components/Pages/UnifiedDetailPage.razor");
 
         Assert.Contains("<MusicAlbumOverviewContent Model=\"Model\"", detailPage);
@@ -899,7 +899,7 @@ public sealed class UnifiedDetailComponentTests
     {
         var overview = ReadSource("src/MediaEngine.Web/Components/Details/OverviewTab.razor");
         var primaryModuleStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPrimaryModule.razor.css");
-        var apiClient = ReadSource("src/MediaEngine.Web/Services/Integration/EngineApiClient.cs");
+        var apiClient = ReadEngineApiClientSources();
 
         Assert.Contains("<h3>Linked identities</h3>", overview);
         Assert.Contains("<PersonCreditCard Credit=\"@ToRelatedIdentityCredit(person)\"", overview);
@@ -1627,6 +1627,19 @@ public sealed class UnifiedDetailComponentTests
     {
         var root = FindRepoRoot();
         return File.ReadAllText(Path.Combine(root, relativePath));
+    }
+
+    private static string ReadEngineApiClientSources()
+    {
+        var directory = Path.Combine(
+            FindRepoRoot(),
+            "src", "MediaEngine.Web", "Services", "Integration");
+
+        return string.Join(
+            "\n",
+            Directory.EnumerateFiles(directory, "EngineApiClient*.cs")
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(File.ReadAllText));
     }
 
     private static string FindRepoRoot()

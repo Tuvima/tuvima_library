@@ -1,0 +1,359 @@
+using System.Text.Json;
+using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Paging;
+using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
+using MediaEngine.Web.Models.ViewDTOs;
+
+namespace MediaEngine.Web.Services.Integration;
+
+public partial interface IEngineApiClient
+{
+    Task<IReadOnlyList<PluginViewModel>> GetPluginsAsync(CancellationToken ct = default);
+
+    Task<ApprovedPluginCatalogViewModel?> GetApprovedPluginCatalogAsync(CancellationToken ct = default);
+
+    Task<bool> SetPluginEnabledAsync(string pluginId, bool enabled, CancellationToken ct = default);
+
+    Task<bool> SavePluginSettingsAsync(string pluginId, Dictionary<string, JsonElement> settings, CancellationToken ct = default);
+
+    Task<string?> GetPluginManifestJsonAsync(string pluginId, CancellationToken ct = default);
+
+    Task<bool> SavePluginManifestJsonAsync(string pluginId, string json, CancellationToken ct = default);
+
+    Task<bool> DeletePluginAsync(string pluginId, CancellationToken ct = default);
+
+    Task<PluginHealthViewModel?> CheckPluginHealthAsync(string pluginId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PluginJobViewModel>> GetPluginJobsAsync(string pluginId, CancellationToken ct = default);
+
+    Task<IReadOnlyList<PluginJobViewModel>> RunPluginSegmentDetectionJobsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /system/status — lightweight connectivity probe.</summary>
+    Task<SystemStatusViewModel?> GetSystemStatusAsync(CancellationToken ct = default);
+
+    /// <summary>GET /system/activity-status — sanitized active Engine operations for the global shell.</summary>
+    Task<IReadOnlyList<SystemActivityOperationViewModel>> GetSystemActivityOperationsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /settings/security/auth - sign-in and SSO configuration.</summary>
+    Task<AuthSettingsViewModel?> GetAuthSettingsAsync(CancellationToken ct = default);
+
+    // ── API key management (/admin/api-keys) ──────────────────────────────────
+
+    /// <summary>GET /admin/api-keys — list all issued keys (id, label, created_at).</summary>
+    Task<List<ApiKeyViewModel>> GetApiKeysAsync(CancellationToken ct = default);
+
+    /// <summary>POST /admin/api-keys — generate a new key. Returns key + one-time plaintext.</summary>
+    Task<NewApiKeyViewModel?> CreateApiKeyAsync(string label, CancellationToken ct = default);
+
+    /// <summary>DELETE /admin/api-keys/{id} — revoke a key immediately.</summary>
+    Task<bool> RevokeApiKeyAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>DELETE /admin/api-keys — revoke all keys in a single batch. Returns count of revoked keys.</summary>
+    Task<int> RevokeAllApiKeysAsync(CancellationToken ct = default);
+
+    // ── Profiles (/profiles) ────────────────────────────────────────────────────
+
+    /// <summary>GET /profiles — list all user profiles.</summary>
+    Task<List<ProfileViewModel>> GetProfilesAsync(CancellationToken ct = default);
+
+    /// <summary>POST /profiles — create a new user profile.</summary>
+    Task<ProfileViewModel?> CreateProfileAsync(
+        string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
+        CancellationToken ct = default);
+
+    /// <summary>PUT /profiles/{id} — update an existing profile.</summary>
+    Task<bool> UpdateProfileAsync(
+        Guid id, string displayName, string avatarColor, string role,
+        string? navigationConfig = null,
+        CancellationToken ct = default);
+
+    /// <summary>POST /profiles/{id}/avatar — upload a persisted profile avatar image.</summary>
+    Task<ProfileViewModel?> UploadProfileAvatarAsync(
+        Guid id,
+        Stream fileStream,
+        string fileName,
+        double zoom = 1,
+        CancellationToken ct = default);
+
+    /// <summary>DELETE /profiles/{id} — delete a profile.</summary>
+    /// <summary>DELETE /profiles/{id}/avatar - remove a persisted profile avatar image.</summary>
+    Task<ProfileViewModel?> RemoveProfileAvatarAsync(Guid id, CancellationToken ct = default);
+
+    Task<bool> DeleteProfileAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /profiles/{id}/external-logins — list linked SSO/OAuth accounts.</summary>
+    Task<List<ProfileExternalLoginViewModel>> GetProfileExternalLoginsAsync(Guid profileId, CancellationToken ct = default);
+
+    /// <summary>POST /profiles/{id}/external-logins — link a sign-in account.</summary>
+    Task<ProfileExternalLoginViewModel?> LinkProfileExternalLoginAsync(
+        Guid profileId,
+        string provider,
+        string subject,
+        string? email = null,
+        string? displayName = null,
+        CancellationToken ct = default);
+
+    /// <summary>DELETE /profiles/external-logins/{loginId} — unlink a sign-in account.</summary>
+    Task<bool> UnlinkProfileExternalLoginAsync(Guid loginId, CancellationToken ct = default);
+
+    /// <summary>GET /profiles/{id}/taste — read the computed taste profile for a user.</summary>
+    Task<TasteProfile?> GetTasteProfileAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>GET /profiles/{id}/overview - read user-facing profile details, history, and stats.</summary>
+    Task<ProfileOverviewViewModel?> GetProfileOverviewAsync(Guid id, CancellationToken ct = default);
+
+    // ── Metadata claims (/metadata) ─────────────────────────────────────────────
+
+    /// <summary>GET /metadata/claims/{entityId} — claim history for a work/edition.</summary>
+    Task<List<ClaimHistoryDto>> GetClaimHistoryAsync(Guid entityId, CancellationToken ct = default);
+
+    /// <summary>PATCH /metadata/lock-claim — create a user-locked claim.</summary>
+    Task<bool> LockClaimAsync(Guid entityId, string key, string value, CancellationToken ct = default);
+
+    // ── Settings (/settings) ──────────────────────────────────────────────────
+
+    /// <summary>GET /settings/server-general — server name and regional settings.</summary>
+    Task<ServerGeneralSettingsDto?> GetServerGeneralAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/server-general — save server name and regional settings.</summary>
+    Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default);
+
+    /// <summary>GET /settings/folders — current import folder paths.</summary>
+    Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default);
+
+    /// <summary>GET /settings/libraries — per-library config (source paths, ReadOnly, writeback override).</summary>
+    Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/libraries — save per-library folder config.</summary>
+    Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(List<LibraryFolderDto> libraries, CancellationToken ct = default);
+
+    /// <summary>PUT /settings/folders — save import folders and hot-swap the FileSystemWatcher.</summary>
+    Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default);
+
+    /// <summary>POST /settings/test-path — probe a directory for existence, read, and write access.</summary>
+    Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default);
+
+    /// <summary>POST /settings/browse-directory — list subdirectories or drive roots.</summary>
+    Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(string? path, CancellationToken ct = default);
+
+    /// <summary>GET /providers/catalogue — consolidated UI metadata for all configured providers.</summary>
+    Task<IReadOnlyList<ProviderCatalogueDto>> GetProviderCatalogueAsync(CancellationToken ct = default);
+
+    /// <summary>GET /settings/providers — enabled state and live reachability for all providers.</summary>
+    Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/providers/{name} — toggle a provider's enabled state.</summary>
+    Task<bool> UpdateProviderAsync(string name, bool enabled, CancellationToken ct = default);
+
+    /// <summary>GET /settings/providers/health — health status for all tracked providers.</summary>
+    Task<List<ProviderHealthDto>> GetProviderHealthAsync(CancellationToken ct = default);
+
+    /// <summary>POST /settings/providers/{name}/test — test a provider's connectivity.</summary>
+    Task<ProviderTestResultDto?> TestProviderAsync(string name, CancellationToken ct = default);
+
+    /// <summary>POST /settings/providers/{name}/sample — fetch sample claims from a provider.</summary>
+    Task<ProviderSampleResultDto?> FetchProviderSampleAsync(
+        string name, string title, string? author = null,
+        string? isbn = null, string? asin = null, string? mediaType = null,
+        CancellationToken ct = default);
+
+    /// <summary>PUT /settings/providers/{name}/config — save full provider configuration.</summary>
+    Task<bool> SaveProviderConfigAsync(string name, ProviderConfigUpdateDto config, CancellationToken ct = default);
+
+    /// <summary>DELETE /settings/providers/{name} — disable/delete a provider.</summary>
+    Task<bool> DeleteProviderAsync(string name, CancellationToken ct = default);
+
+    /// <summary>PUT /settings/providers/priority — save provider priority order.</summary>
+    Task<bool> UpdateProviderPriorityAsync(List<string> order, CancellationToken ct = default);
+
+    // ── Organization template ─────────────────────────────────────────────────
+
+    /// <summary>GET /settings/organization-template — current file organization template + preview.</summary>
+    Task<OrganizationTemplateDto?> GetOrganizationTemplateAsync(CancellationToken ct = default);
+    Task<OrganizationTemplateDto?> PreviewOrganizationTemplateAsync(
+        string template,
+        Dictionary<string, string>? templates = null,
+        CancellationToken ct = default);
+
+    /// <summary>PUT /settings/organization-template — save a new file organization template.</summary>
+    Task<OrganizationTemplateDto?> UpdateOrganizationTemplateAsync(
+        string template,
+        Dictionary<string, string>? templates = null,
+        CancellationToken ct = default);
+
+    // ── Activity log (/activity) ────────────────────────────────────────────────
+
+    /// <summary>GET /activity/recent?limit= — most recent system activity entries.</summary>
+    Task<List<ActivityEntryViewModel>> GetRecentActivityAsync(int limit = 50, CancellationToken ct = default);
+
+    /// <summary>GET /activity/stats — total entries and retention setting.</summary>
+    Task<ActivityStatsViewModel?> GetActivityStatsAsync(CancellationToken ct = default);
+
+    /// <summary>POST /activity/prune — manually prune old activity entries.</summary>
+    Task<PruneResultViewModel?> TriggerPruneAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /activity/retention?days= — update retention period.</summary>
+    Task<bool> UpdateRetentionAsync(int days, CancellationToken ct = default);
+
+    /// <summary>GET /activity/run/{runId} — all entries for a specific ingestion run.</summary>
+    Task<List<ActivityEntryViewModel>> GetActivityByRunIdAsync(Guid runId, CancellationToken ct = default);
+
+    /// <summary>GET /activity/by-types?types=...&amp;limit= — entries filtered by action type for Timeline view.</summary>
+    Task<List<ActivityEntryViewModel>> GetActivityByTypesAsync(
+        string[] actionTypes, int limit = 50, CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityBatchSummaryViewModel>?> GetActivityBatchesAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default);
+
+    Task<List<ActivityMediaTypeGroupViewModel>> GetActivityBatchGroupsAsync(
+        Guid batchId,
+        CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityBatchItemViewModel>?> GetActivityBatchItemsAsync(
+        Guid batchId,
+        string? mediaType = null,
+        int offset = 0,
+        int limit = 25,
+        string? sort = null,
+        string? sortDirection = null,
+        CancellationToken ct = default);
+
+    Task<ActivityBatchItemDetailViewModel?> GetActivityBatchItemDetailAsync(
+        Guid batchId,
+        Guid assetId,
+        CancellationToken ct = default);
+
+    Task<PagedResponse<ActivityPersonAuditViewModel>?> GetActivityPeopleAsync(
+        ActivityAuditQuery query,
+        CancellationToken ct = default);
+
+    // ── UI Settings (/settings/ui) ───────────────────────────────────────────────
+
+    /// <summary>
+    /// GET /settings/ui/resolved?device={class}&amp;profile={id} — fully cascaded UI settings
+    /// for the given device class and optional profile.
+    /// </summary>
+    Task<ResolvedUISettingsViewModel?> GetResolvedUISettingsAsync(
+        string deviceClass = "web",
+        string? profileId = null,
+        CancellationToken ct = default);
+
+    // ── Pipelines (/settings/pipelines) ─────────────────────────────────────
+
+    /// <summary>GET /settings/pipelines — pipeline configuration per media type.</summary>
+    Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/pipelines — save pipeline configuration.</summary>
+    Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default);
+
+    // ── Media types (/settings/media-types) ────────────────────────────────
+
+    /// <summary>GET /settings/media-types — load media type definitions.</summary>
+    Task<MediaTypeConfigurationDto?> GetMediaTypesAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/media-types — save all media type definitions.</summary>
+    Task<bool> SaveMediaTypesAsync(MediaTypeConfigurationDto config, CancellationToken ct = default);
+
+    /// <summary>POST /settings/media-types/add — add a single custom media type.</summary>
+    Task<MediaTypeConfigurationDto?> AddMediaTypeAsync(MediaTypeDefinitionDto newType, CancellationToken ct = default);
+
+    /// <summary>DELETE /settings/media-types/{key} — delete a custom media type.</summary>
+    Task<bool> DeleteMediaTypeAsync(string key, CancellationToken ct = default);
+
+    // ── Hydration settings (/settings/hydration) ──────────────────────────
+
+    /// <summary>GET /settings/hydration — load hydration pipeline configuration.</summary>
+    Task<HydrationSettingsDto?> GetHydrationSettingsAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /settings/hydration — save hydration pipeline configuration.</summary>
+    Task<bool> UpdateHydrationSettingsAsync(HydrationSettingsDto settings, CancellationToken ct = default);
+
+    // ── Provider Icons ───────────────────────────────────────────────────────
+
+    /// <summary>POST /settings/providers/{name}/icon — upload a provider icon.</summary>
+    Task<bool> UploadProviderIconAsync(string name, Stream fileStream, string fileName, CancellationToken ct = default);
+
+    /// <summary>Returns the URL path for a provider's icon, or null if none exists.</summary>
+    string GetProviderIconUrl(string name);
+
+    // ── Local AI (/ai) ───────────────────────────────────────────────────────
+
+    /// <summary>GET /ai/status — returns AI subsystem health.</summary>
+    Task<AiHealthStatusDto?> GetAiStatusAsync(CancellationToken ct = default);
+
+    /// <summary>GET /ai/models — returns configured model inventory and lifecycle status.</summary>
+    Task<IReadOnlyList<AiModelStatusDto>> GetAiModelStatusesAsync(CancellationToken ct = default);
+
+    /// <summary>POST /ai/models/{role}/download — starts model download.</summary>
+    Task<AiOperationResultDto> StartAiModelDownloadAsync(string role, CancellationToken ct = default);
+
+    /// <summary>DELETE /ai/models/{role}/download — cancels model download.</summary>
+    Task<AiOperationResultDto> CancelAiModelDownloadAsync(string role, CancellationToken ct = default);
+
+    /// <summary>POST /ai/models/{role}/load — loads model into memory.</summary>
+    Task<AiOperationResultDto> LoadAiModelAsync(string role, CancellationToken ct = default);
+
+    /// <summary>POST /ai/models/{role}/unload — unloads model from memory.</summary>
+    Task<AiOperationResultDto> UnloadAiModelAsync(string role, CancellationToken ct = default);
+
+    /// <summary>POST /ai/benchmark/suites/{suiteKey}/run - explicitly runs a local model validation suite.</summary>
+    Task<AiOperationResultDto<AiBenchmarkReportDto>> RunAiModelBenchmarkAsync(
+        string suiteKey,
+        string catalogKey,
+        bool allowHardwareBenchmark,
+        bool allowModelExecution,
+        CancellationToken ct = default);
+
+    /// <summary>GET /ai/config — returns persisted AI configuration.</summary>
+    Task<AiConfigDto?> GetAiConfigAsync(CancellationToken ct = default);
+
+    /// <summary>PUT /ai/config — saves persisted AI configuration.</summary>
+    Task<bool> SaveAiConfigAsync(AiConfigDto config, CancellationToken ct = default);
+
+    // ── AI Hardware Profile (/ai/profile, /ai/benchmark) ────────────────────
+
+    /// <summary>GET /ai/profile — returns the cached hardware profile and performance tier.</summary>
+    Task<HardwareProfileDto?> GetAiProfileAsync(CancellationToken ct = default);
+
+    /// <summary>POST /ai/benchmark — re-runs the hardware benchmark and returns the updated profile.</summary>
+    Task<AiOperationResultDto<HardwareProfileDto>> RunBenchmarkAsync(CancellationToken ct = default);
+
+    /// <summary>GET /ai/enrichment/progress — pending and completed AI enrichment counts.</summary>
+    Task<EnrichmentProgressDto?> GetEnrichmentProgressAsync(CancellationToken ct = default);
+
+    /// <summary>GET /ai/resources — live RAM, CPU pressure, and transcoding status.</summary>
+    Task<ResourceSnapshotDto?> GetResourceSnapshotAsync(CancellationToken ct = default);
+
+    // ── Library Preferences (/settings/ui/library-preferences) ──────────────────
+
+    /// <summary>GET /settings/ui/library-preferences - library display preferences, including per-media missing-item policies.</summary>
+    Task<LibraryPreferencesSettings?> GetLibraryPreferencesAsync();
+
+    /// <summary>GET the active profile's explicit missing-item override for one series. Null ShowMissing means inherit the media default.</summary>
+    Task<SeriesMissingItemPreferenceDto?> GetSeriesMissingItemPreferenceAsync(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        CancellationToken ct = default);
+
+    /// <summary>PUT an explicit missing-item visibility override for one profile and series.</summary>
+    Task<SeriesMissingItemPreferenceDto?> SaveSeriesMissingItemPreferenceAsync(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        bool showMissing,
+        CancellationToken ct = default);
+
+    /// <summary>DELETE a per-series override so the series inherits its media configuration default.</summary>
+    Task<SeriesMissingItemPreferenceDto?> ResetSeriesMissingItemPreferenceAsync(
+        Guid profileId,
+        string mediaType,
+        string containerKey,
+        CancellationToken ct = default);
+
+}

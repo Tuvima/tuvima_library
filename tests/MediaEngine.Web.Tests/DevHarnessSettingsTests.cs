@@ -18,8 +18,8 @@ public sealed class DevHarnessSettingsTests
     public void DevHarnessTab_UsesCoreHarnessEndpointsAndOptions()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\DevHarnessTab.razor");
-        var client = ReadRepoFile(@"src\MediaEngine.Web\Services\Integration\IEngineApiClient.cs");
-        var implementation = ReadRepoFile(@"src\MediaEngine.Web\Services\Integration\EngineApiClient.cs");
+        var client = ReadEngineApiClientSources("IEngineApiClient*.cs");
+        var implementation = ReadEngineApiClientSources("EngineApiClient*.cs");
 
         Assert.Contains("/dev/full-test", source, StringComparison.Ordinal);
         Assert.Contains("/dev/reingest-library", source, StringComparison.Ordinal);
@@ -44,4 +44,18 @@ public sealed class DevHarnessSettingsTests
 
     private static string ReadRepoFile(string relativePath) =>
         File.ReadAllText(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath)));
+
+    private static string ReadEngineApiClientSources(string pattern)
+    {
+        var directory = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory,
+            "..", "..", "..", "..", "..",
+            "src", "MediaEngine.Web", "Services", "Integration"));
+
+        return string.Join(
+            "\n",
+            Directory.EnumerateFiles(directory, pattern)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(File.ReadAllText));
+    }
 }
