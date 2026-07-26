@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text;
 using MediaEngine.Providers.Services;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Providers.Tests;

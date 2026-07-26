@@ -2,6 +2,7 @@
 using System.Runtime.Loader;
 using System.Text.Json;
 using MediaEngine.Plugins;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Plugins;

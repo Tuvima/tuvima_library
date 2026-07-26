@@ -16,7 +16,7 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -25,7 +25,7 @@ using System.Text;
 using System.Text.Json;
 
 // Disambiguate ProviderConfiguration — the IConfigurationLoader uses the Storage.Models one
-using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Providers.Tests;
 
@@ -2536,7 +2536,6 @@ public sealed class WorkerPipelineTests
             db.RunStartupChecks();
             var batchProgress = new BatchProgressService(
                 batchRepo,
-                db,
                 eventPublisher,
                 NullLogger<BatchProgressService>.Instance);
 
@@ -2900,7 +2899,6 @@ public sealed class WorkerPipelineTests
     {
         return new BatchProgressService(
             new StubIngestionBatchRepository(),
-            new DatabaseConnection(Path.Combine(Path.GetTempPath(), $"batch-progress-{Guid.NewGuid():N}.db")),
             new StubEventPublisher(),
             NullLogger<BatchProgressService>.Instance);
     }
@@ -3558,6 +3556,9 @@ public sealed class WorkerPipelineTests
 
         public Task<int> AbandonRunningAsync(CancellationToken ct = default)
             => Task.FromResult(0);
+
+        public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)
+            => Task.FromResult(new IngestionBatchProgressSnapshot());
     }
 
     // ── StubAutoOrganizeService ─────────────────────────────────────────
@@ -3604,6 +3605,9 @@ public sealed class WorkerPipelineTests
 
         public Task<int> AbandonRunningAsync(CancellationToken ct = default)
             => Task.FromResult(0);
+
+        public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)
+            => Task.FromResult(new IngestionBatchProgressSnapshot());
     }
 
     private sealed class RecordingEventPublisher : IEventPublisher

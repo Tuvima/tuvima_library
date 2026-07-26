@@ -1,7 +1,7 @@
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
-using MediaEngine.Storage.Contracts;
+using MediaEngine.Domain.Contracts;
 
 namespace MediaEngine.Intelligence;
 

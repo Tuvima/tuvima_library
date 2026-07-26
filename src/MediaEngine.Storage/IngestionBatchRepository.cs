@@ -2,6 +2,7 @@ using Dapper;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -228,5 +229,115 @@ public sealed class IngestionBatchRepository : IIngestionBatchRepository
             });
 
         return Task.FromResult(affected);
+    }
+
+    /// <inheritdoc/>
+    public async Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(
+        Guid batchId,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var snapshot = await conn.QueryFirstOrDefaultAsync<IngestionBatchProgressSnapshot>(
+            """
+            WITH latest_jobs AS (
+                SELECT
+                    entity_id,
+                    state,
+                    updated_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+            ),
+            job_states AS (
+                SELECT entity_id, state, updated_at
+                FROM latest_jobs
+                WHERE rn = 1
+            ),
+            pending_reviews AS (
+                SELECT DISTINCT entity_id
+                FROM review_queue
+                WHERE status = 'Pending'
+                  AND review_ready_at IS NOT NULL
+            )
+            SELECT
+                COUNT(js.entity_id) AS TotalJobs,
+                COALESCE(SUM(CASE WHEN js.state = 'Ready' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReady,
+                COALESCE(SUM(CASE WHEN js.state = 'ReadyWithoutUniverse' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesReadyWithoutUniverse,
+                COALESCE(SUM(CASE
+                    WHEN js.state IN ('QidNeedsReview', 'RetailMatchedNeedsReview') THEN 1
+                    WHEN pr.entity_id IS NOT NULL
+                         AND js.state IN ('Ready', 'ReadyWithoutUniverse', 'RetailNoMatch', 'QidNoMatch', 'Failed')
+                        THEN 1
+                    ELSE 0
+                END), 0) AS FilesReview,
+                COALESCE(SUM(CASE WHEN js.state IN ('RetailNoMatch', 'QidNoMatch') AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS FilesNoMatch,
+                COALESCE(SUM(CASE WHEN js.state = 'Failed' AND pr.entity_id IS NULL THEN 1 ELSE 0 END), 0) AS PipelineFailed,
+                COALESCE(SUM(CASE WHEN js.state = 'Queued' THEN 1 ELSE 0 END), 0) AS QueuedJobs,
+                COALESCE(SUM(CASE WHEN js.state = 'RetailSearching' THEN 1 ELSE 0 END), 0) AS RetailSearching,
+                COALESCE(SUM(CASE WHEN js.state = 'RetailMatched' THEN 1 ELSE 0 END), 0) AS RetailMatched,
+                0 AS RetailMatchedNeedsReview,
+                COALESCE(SUM(CASE WHEN js.state = 'BridgeSearching' THEN 1 ELSE 0 END), 0) AS BridgeSearching,
+                COALESCE(SUM(CASE WHEN js.state = 'QidResolved' THEN 1 ELSE 0 END), 0) AS QidResolved,
+                COALESCE(SUM(CASE WHEN js.state = 'Hydrating' THEN 1 ELSE 0 END), 0) AS Hydrating,
+                COALESCE(SUM(CASE WHEN js.state = 'UniverseEnriching' THEN 1 ELSE 0 END), 0) AS UniverseEnriching
+            FROM job_states js
+            LEFT JOIN pending_reviews pr ON pr.entity_id = js.entity_id;
+            """,
+            new { batchId }).ConfigureAwait(false) ?? new IngestionBatchProgressSnapshot();
+
+        var currentFileTitle = await conn.QueryFirstOrDefaultAsync<string?>(
+            """
+            WITH latest_jobs AS (
+                SELECT
+                    entity_id,
+                    state,
+                    updated_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE ingestion_run_id = @batchId
+            ),
+            active_job AS (
+                SELECT entity_id, state, updated_at
+                FROM latest_jobs
+                WHERE rn = 1
+                  AND state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+                ORDER BY updated_at DESC
+                LIMIT 1
+            )
+            SELECT cv.value
+            FROM active_job aj
+            INNER JOIN canonical_values cv ON cv.entity_id = aj.entity_id
+            WHERE cv.key IN ('title', 'show_name')
+            ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
+            LIMIT 1;
+            """,
+            new { batchId }).ConfigureAwait(false);
+
+        return new IngestionBatchProgressSnapshot
+        {
+            TotalJobs = snapshot.TotalJobs,
+            FilesReady = snapshot.FilesReady,
+            FilesReadyWithoutUniverse = snapshot.FilesReadyWithoutUniverse,
+            FilesReview = snapshot.FilesReview,
+            FilesNoMatch = snapshot.FilesNoMatch,
+            PipelineFailed = snapshot.PipelineFailed,
+            QueuedJobs = snapshot.QueuedJobs,
+            RetailSearching = snapshot.RetailSearching,
+            RetailMatched = snapshot.RetailMatched,
+            RetailMatchedNeedsReview = snapshot.RetailMatchedNeedsReview,
+            BridgeSearching = snapshot.BridgeSearching,
+            QidResolved = snapshot.QidResolved,
+            Hydrating = snapshot.Hydrating,
+            UniverseEnriching = snapshot.UniverseEnriching,
+            CurrentFileTitle = currentFileTitle,
+        };
     }
 }

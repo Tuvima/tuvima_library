@@ -10,9 +10,8 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Storage.Contracts;
 using MediaEngine.Domain.Services;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Tuvima.Wikidata;
 

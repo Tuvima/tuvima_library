@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Plugins;
 using MediaEngine.Storage.Contracts;
 

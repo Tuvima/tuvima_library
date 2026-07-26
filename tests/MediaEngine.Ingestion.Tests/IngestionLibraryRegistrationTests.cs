@@ -3,7 +3,7 @@ using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

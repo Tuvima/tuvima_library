@@ -1,6 +1,6 @@
 using MediaEngine.Domain;
-using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Providers.Helpers;
 

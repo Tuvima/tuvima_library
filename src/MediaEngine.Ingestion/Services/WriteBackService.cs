@@ -3,7 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Ingestion.Services;
 

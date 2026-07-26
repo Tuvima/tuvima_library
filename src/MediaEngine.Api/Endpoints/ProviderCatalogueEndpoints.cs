@@ -1,5 +1,6 @@
 using MediaEngine.Api.Security;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
@@ -46,7 +47,7 @@ public static class ProviderCatalogueEndpoints
 
     // ── Private helpers ──────────────────────────────────────────────────────────
 
-    private static ProviderCatalogueDto MapToEntry(MediaEngine.Storage.Models.ProviderConfiguration p)
+    private static ProviderCatalogueDto MapToEntry(MediaEngine.Domain.Configuration.ProviderConfiguration p)
     {
         var ui = p.UiMetadata;
 
@@ -90,7 +91,7 @@ public static class ProviderCatalogueEndpoints
             kv => kv.Value);
     }
 
-    private static string ResolveAuthType(MediaEngine.Storage.Models.ProviderConfiguration p)
+    private static string ResolveAuthType(MediaEngine.Domain.Configuration.ProviderConfiguration p)
     {
         var delivery = p.HttpClient?.ApiKeyDelivery?.ToLowerInvariant();
         return delivery switch

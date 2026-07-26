@@ -2,7 +2,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Contracts;
-using MediaEngine.Storage.Contracts;
+using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Intelligence;
@@ -95,7 +95,7 @@ public sealed class ParentCollectionResolver : IParentCollectionResolver
         }
 
         return new HashSet<string>(
-            new MediaEngine.Storage.Models.HydrationSettings().CollectionRollupRelationshipTypes,
+            new MediaEngine.Domain.Configuration.HydrationSettings().CollectionRollupRelationshipTypes,
             StringComparer.OrdinalIgnoreCase);
     }
 

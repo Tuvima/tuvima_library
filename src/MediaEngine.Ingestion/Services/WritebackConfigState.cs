@@ -1,7 +1,8 @@
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Ingestion.Services;
 

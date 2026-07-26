@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Text.Json;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
-using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Processors;

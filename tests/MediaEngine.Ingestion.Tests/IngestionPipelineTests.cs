@@ -1,7 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Models;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Ingestion.Tests;
 

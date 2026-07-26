@@ -456,7 +456,7 @@ public static class UploadSafety
         string mediaType,
         string fileName,
         long fileLength,
-        IReadOnlyList<MediaEngine.Storage.Models.MediaTypeDefinition> mediaTypes,
+        IReadOnlyList<MediaEngine.Domain.Configuration.MediaTypeDefinition> mediaTypes,
         IngestionOptions options)
     {
         if (string.IsNullOrWhiteSpace(watchRoot))
@@ -516,9 +516,9 @@ public static class UploadSafety
         return drive.AvailableFreeSpace >= fileLength + Math.Max(0, freeSpaceBufferBytes);
     }
 
-    private static MediaEngine.Storage.Models.MediaTypeDefinition? ResolveMediaType(
+    private static MediaEngine.Domain.Configuration.MediaTypeDefinition? ResolveMediaType(
         string mediaType,
-        IReadOnlyList<MediaEngine.Storage.Models.MediaTypeDefinition> mediaTypes)
+        IReadOnlyList<MediaEngine.Domain.Configuration.MediaTypeDefinition> mediaTypes)
     {
         if (string.IsNullOrWhiteSpace(mediaType))
             return null;

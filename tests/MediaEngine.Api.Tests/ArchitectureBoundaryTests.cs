@@ -32,6 +32,28 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
+    public void ProviderFacingLibraries_DoNotReferenceStorage()
+    {
+        string[] projects =
+        [
+            "MediaEngine.Providers",
+            "MediaEngine.Intelligence",
+            "MediaEngine.Processors",
+            "MediaEngine.AI",
+        ];
+
+        var offenders = projects
+            .SelectMany(project => ProjectReferences("src", project, $"{project}.csproj")
+                .Where(reference => reference.Contains(
+                    "MediaEngine.Storage",
+                    StringComparison.OrdinalIgnoreCase))
+                .Select(reference => $"{project}: {reference}"))
+            .ToList();
+
+        Assert.Empty(offenders);
+    }
+
+    [Fact]
     public void ActiveRazorComponents_DoNotImportStorageImplementationModelsOrSql()
     {
         var repoRoot = FindRepoRoot();
@@ -39,7 +61,7 @@ public sealed class ArchitectureBoundaryTests
         var offenders = Directory.EnumerateFiles(componentRoot, "*.razor", SearchOption.AllDirectories)
             .Select(path => new { Path = path, Text = File.ReadAllText(path) })
             .Where(file =>
-                file.Text.Contains("@using MediaEngine.Storage.Models", StringComparison.Ordinal)
+                file.Text.Contains("@using MediaEngine.Domain.Configuration", StringComparison.Ordinal)
                 || file.Text.Contains("CreateCommand(", StringComparison.Ordinal)
                 || file.Text.Contains("CommandText", StringComparison.Ordinal))
             .Select(file => Path.GetRelativePath(repoRoot, file.Path))

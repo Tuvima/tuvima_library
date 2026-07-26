@@ -41,7 +41,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
     private readonly ICollectionRepository              _collectionRepo;
     private readonly IEventPublisher              _publisher;
     private readonly WorkHierarchyMaintenanceService _hierarchyMaintenance;
-    private readonly WorkIdentityReconciliationService _workIdentityReconciliation;
+    private readonly IWorkIdentityReconciliationService _workIdentityReconciliation;
     private readonly CollectionBackfillService    _collectionBackfill;
     private readonly IConfigurationLoader         _configLoader;
     private readonly AssetPathService             _assetPaths;
@@ -67,7 +67,7 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         ICollectionRepository              collectionRepo,
         IEventPublisher             publisher,
         WorkHierarchyMaintenanceService hierarchyMaintenance,
-        WorkIdentityReconciliationService workIdentityReconciliation,
+        IWorkIdentityReconciliationService workIdentityReconciliation,
         CollectionBackfillService   collectionBackfill,
         IConfigurationLoader        configLoader,
         AssetPathService            assetPaths,

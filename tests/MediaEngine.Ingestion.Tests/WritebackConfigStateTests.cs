@@ -1,6 +1,6 @@
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Ingestion.Tests.Helpers;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Ingestion.Tests;

@@ -5,7 +5,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Adapters;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Tuvima.Wikidata;
 using Xunit.Abstractions;
 

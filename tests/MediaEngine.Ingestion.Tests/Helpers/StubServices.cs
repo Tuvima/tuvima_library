@@ -7,7 +7,7 @@ using MediaEngine.Ingestion.Models;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Ingestion.Tests.Helpers;
 
@@ -345,6 +345,10 @@ internal sealed class StubIngestionBatchRepository : IIngestionBatchRepository
     public Task<IReadOnlyList<MediaEngine.Domain.Entities.IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<MediaEngine.Domain.Entities.IngestionBatch>>([]);
     public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default) => Task.FromResult(0);
     public Task<int> AbandonRunningAsync(CancellationToken ct = default) => Task.FromResult(0);
+    public Task<MediaEngine.Domain.Models.IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(
+        Guid batchId,
+        CancellationToken ct = default)
+        => Task.FromResult(new MediaEngine.Domain.Models.IngestionBatchProgressSnapshot());
 }
 
 // ── EntityTimelineRepository Stub ────────────────────────────────────────────

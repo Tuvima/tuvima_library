@@ -9,8 +9,7 @@ using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
-using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Providers.Services;
 
@@ -634,7 +633,7 @@ public static class ScoringHelper
     public static (IReadOnlyDictionary<Guid, double> Weights,
                      IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, double>>? FieldWeights)
         BuildWeightMaps(
-            IReadOnlyList<Storage.Models.ProviderConfiguration> providerConfigs,
+            IReadOnlyList<MediaEngine.Domain.Configuration.ProviderConfiguration> providerConfigs,
             IEnumerable<IExternalMetadataProvider> providers)
     {
         var weights      = new Dictionary<Guid, double>();

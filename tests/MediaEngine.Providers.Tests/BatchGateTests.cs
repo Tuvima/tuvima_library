@@ -3,6 +3,7 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
@@ -10,12 +11,11 @@ using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
-using MediaEngine.Storage.Services;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 // Disambiguate ProviderConfiguration — the IConfigurationLoader uses the Storage.Models one
-using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Providers.Tests;
 
@@ -514,6 +514,8 @@ public sealed class BatchGateTests
         public Task<IngestionBatch?> GetByIdAsync(Guid id, CancellationToken ct = default) => Task.FromResult<IngestionBatch?>(null);
         public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> AbandonRunningAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)
+            => Task.FromResult(new IngestionBatchProgressSnapshot());
     }
 
     // ── BatchGateConfigLoader ────────────────────────────────────────────

@@ -2,11 +2,12 @@ using System.Text.Json;
 using System.Security.Cryptography;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 // Explicit alias (not a blanket `using MediaEngine.Contracts.Settings;`) because that
-// namespace and MediaEngine.Storage.Models (imported above) both declare
+// namespace and MediaEngine.Domain.Configuration (imported above) both declare
 // LibraryPreferencesSettings / MissingItemDisplayPolicy / LibraryLaneGroupDisplaySettings —
 // a wildcard import would make every existing unqualified use of those names in this file
 // ambiguous (CS0104).

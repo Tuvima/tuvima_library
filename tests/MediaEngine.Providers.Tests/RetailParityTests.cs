@@ -6,8 +6,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Intelligence.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
-using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using MediaEngine.Domain.Configuration;
+using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 using Xunit.Abstractions;
 
 namespace MediaEngine.Providers.Tests;

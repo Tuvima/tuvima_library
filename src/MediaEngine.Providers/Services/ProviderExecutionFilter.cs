@@ -1,5 +1,5 @@
 using MediaEngine.Providers.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Providers.Services;
 

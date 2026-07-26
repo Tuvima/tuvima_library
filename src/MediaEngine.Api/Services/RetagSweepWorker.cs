@@ -5,7 +5,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Contracts.Realtime;
 
 namespace MediaEngine.Api.Services;

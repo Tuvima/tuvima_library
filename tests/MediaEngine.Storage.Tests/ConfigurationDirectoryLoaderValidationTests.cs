@@ -1,6 +1,6 @@
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Tests;
 

@@ -12,7 +12,6 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Models;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;

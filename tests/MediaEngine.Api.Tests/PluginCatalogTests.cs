@@ -4,7 +4,7 @@ using MediaEngine.Api.Services.Plugins;
 using MediaEngine.Plugin.FandomLore;
 using MediaEngine.Plugins;
 using MediaEngine.Storage;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Api.Tests;

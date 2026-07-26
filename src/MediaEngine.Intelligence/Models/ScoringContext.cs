@@ -31,7 +31,7 @@ public sealed class ScoringContext
     /// Map of <c>ProviderId → weight</c> for every provider whose claims appear
     /// in <see cref="Claims"/>.  Providers absent from this map default to weight 1.0.
     ///
-    /// Typically populated from <see cref="MediaEngine.Storage.Models.ProviderBootstrap.Weight"/>
+    /// Typically populated from <see cref="MediaEngine.Domain.Configuration.ProviderBootstrap.Weight"/>
     /// values loaded at startup.
     /// </summary>
     public required IReadOnlyDictionary<Guid, double> ProviderWeights { get; init; }

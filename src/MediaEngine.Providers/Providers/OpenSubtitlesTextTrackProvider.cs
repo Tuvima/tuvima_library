@@ -5,7 +5,7 @@ using System.Text.Json;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Providers;

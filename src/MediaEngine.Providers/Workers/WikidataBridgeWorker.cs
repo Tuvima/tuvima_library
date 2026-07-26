@@ -10,9 +10,7 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
-using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
-using MediaEngine.Storage.Services;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 
@@ -53,7 +51,7 @@ public sealed class WikidataBridgeWorker
     private readonly WikidataSeriesManifestHydrationService? _seriesManifestHydration;
     private readonly CoverArtWorker _coverArt;
     private readonly CollectionFinalizationService? _collectionFinalization;
-    private readonly WorkIdentityReconciliationService? _workIdentityReconciliation;
+    private readonly IWorkIdentityReconciliationService? _workIdentityReconciliation;
     private readonly BatchProgressService? _batchProgress;
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly IMediaOperationTracker? _operationTracker;
@@ -96,7 +94,7 @@ public sealed class WikidataBridgeWorker
         IMediaOperationTracker? operationTracker = null,
         IEntityCapabilityStateRepository? capabilityStates = null,
         CollectionFinalizationService? collectionFinalization = null,
-        WorkIdentityReconciliationService? workIdentityReconciliation = null)
+        IWorkIdentityReconciliationService? workIdentityReconciliation = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;

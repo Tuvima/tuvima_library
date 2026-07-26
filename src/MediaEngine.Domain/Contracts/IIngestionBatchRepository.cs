@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Domain.Contracts;
 
@@ -64,4 +65,11 @@ public interface IIngestionBatchRepository
     /// by a previous shutdown. Returns the number of batches abandoned.
     /// </summary>
     Task<int> AbandonRunningAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns the latest identity-job state projection used for live batch progress.
+    /// </summary>
+    Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(
+        Guid batchId,
+        CancellationToken ct = default);
 }

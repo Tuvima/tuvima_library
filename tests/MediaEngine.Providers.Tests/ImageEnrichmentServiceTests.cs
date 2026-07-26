@@ -10,10 +10,10 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
-using StorageHttpClientConfig = MediaEngine.Storage.Models.HttpClientConfig;
-using StorageProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using StorageHttpClientConfig = MediaEngine.Domain.Configuration.HttpClientConfig;
+using StorageProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Providers.Tests;
 

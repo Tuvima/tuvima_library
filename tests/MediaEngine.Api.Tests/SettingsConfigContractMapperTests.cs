@@ -2,9 +2,9 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Contracts.Settings;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
-using StoragePipelineConfiguration = MediaEngine.Storage.Models.PipelineConfiguration;
+using StoragePipelineConfiguration = MediaEngine.Domain.Configuration.PipelineConfiguration;
 
 namespace MediaEngine.Api.Tests;
 
@@ -120,7 +120,7 @@ public sealed class SettingsConfigContractMapperTests
     [Fact]
     public void TranscodingPipelineAndLibraryPreferences_UseLosslessContractBoundaries()
     {
-        var transcoding = new MediaEngine.Storage.Models.TranscodingSettings
+        var transcoding = new MediaEngine.Domain.Configuration.TranscodingSettings
         {
             HardwareAcceleration = "nvenc",
             MaxConcurrentTranscodes = 3,
@@ -130,11 +130,11 @@ public sealed class SettingsConfigContractMapperTests
         {
             Pipelines = new()
             {
-                ["Books"] = new MediaEngine.Storage.Models.MediaTypePipeline
+                ["Books"] = new MediaEngine.Domain.Configuration.MediaTypePipeline
                 {
                     Providers =
                     [
-                        new MediaEngine.Storage.Models.PipelineProviderEntry
+                        new MediaEngine.Domain.Configuration.PipelineProviderEntry
                         {
                             Rank = 1,
                             Name = "open_library",
@@ -145,7 +145,7 @@ public sealed class SettingsConfigContractMapperTests
                 },
             },
         };
-        var preferences = new MediaEngine.Storage.Models.LibraryPreferencesSettings
+        var preferences = new MediaEngine.Domain.Configuration.LibraryPreferencesSettings
         {
             ViewModes = new() { ["movies"] = "series" },
         };

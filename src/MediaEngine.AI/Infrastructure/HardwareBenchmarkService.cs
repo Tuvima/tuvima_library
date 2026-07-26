@@ -2,7 +2,7 @@ using System.Diagnostics;
 using MediaEngine.AI.Configuration;
 using MediaEngine.AI.Llama;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Storage.Contracts;
+using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.AI.Infrastructure;

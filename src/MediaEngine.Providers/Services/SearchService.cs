@@ -5,7 +5,6 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Domain;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
-using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;

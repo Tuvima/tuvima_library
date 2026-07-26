@@ -9,8 +9,8 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
-using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using MediaEngine.Domain.Configuration;
+using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Providers.Tests;
 

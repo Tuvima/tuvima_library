@@ -1,12 +1,12 @@
 using System.Text.Json;
 using MediaEngine.Contracts.Settings;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using ContractLibraryPreferences = MediaEngine.Contracts.Settings.LibraryPreferencesSettings;
 using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
 using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
-using StorageLibraryPreferences = MediaEngine.Storage.Models.LibraryPreferencesSettings;
-using StoragePipelineConfiguration = MediaEngine.Storage.Models.PipelineConfiguration;
-using StorageTranscodingSettings = MediaEngine.Storage.Models.TranscodingSettings;
+using StorageLibraryPreferences = MediaEngine.Domain.Configuration.LibraryPreferencesSettings;
+using StoragePipelineConfiguration = MediaEngine.Domain.Configuration.PipelineConfiguration;
+using StorageTranscodingSettings = MediaEngine.Domain.Configuration.TranscodingSettings;
 
 namespace MediaEngine.Api.Endpoints;
 

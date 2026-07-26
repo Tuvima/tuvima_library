@@ -13,9 +13,9 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 // Explicit aliases (not a blanket `using MediaEngine.Contracts.Settings;`) because that
-// namespace and MediaEngine.Storage.Models (imported above) both declare
+// namespace and MediaEngine.Domain.Configuration (imported above) both declare
 // TranscodingSettings / PipelineConfiguration / LibraryPreferencesSettings — a wildcard
 // import would make every unqualified use of those pre-existing names ambiguous (CS0104).
 using ProviderHealthStatusResponse = MediaEngine.Contracts.Settings.ProviderHealthStatusResponse;
@@ -867,7 +867,7 @@ public static class SettingsEndpoints
             if (request.FieldMappings is not null)
             {
                 existing.FieldMappings = request.FieldMappings
-                    .Select(fm => new MediaEngine.Storage.Models.FieldMappingConfig
+                    .Select(fm => new MediaEngine.Domain.Configuration.FieldMappingConfig
                     {
                         ClaimKey      = fm.ClaimKey,
                         JsonPath      = fm.JsonPath,
@@ -881,12 +881,12 @@ public static class SettingsEndpoints
             // HTTP client settings: timeout and API key.
             if (request.TimeoutSeconds.HasValue)
             {
-                existing.HttpClient ??= new MediaEngine.Storage.Models.HttpClientConfig();
+                existing.HttpClient ??= new MediaEngine.Domain.Configuration.HttpClientConfig();
                 existing.HttpClient.TimeoutSeconds = Math.Clamp(request.TimeoutSeconds.Value, 1, 120);
             }
             if (request.ApiKey is not null)
             {
-                existing.HttpClient ??= new MediaEngine.Storage.Models.HttpClientConfig();
+                existing.HttpClient ??= new MediaEngine.Domain.Configuration.HttpClientConfig();
                 existing.HttpClient.ApiKey = request.ApiKey;
             }
             if (request.CustomIconName is not null)

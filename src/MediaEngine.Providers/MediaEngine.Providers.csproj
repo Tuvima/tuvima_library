@@ -29,11 +29,6 @@
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
     <ProjectReference Include="..\MediaEngine.Contracts\MediaEngine.Contracts.csproj" />
     <!--
-      Storage repositories (IMetadataClaimRepository, ICanonicalValueRepository,
-      IPersonRepository implementations) needed by MetadataHarvestingService.
-    -->
-    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
-    <!--
       Intelligence scoring engine (IScoringEngine) needed by
       MetadataHarvestingService to re-score entities after harvesting new claims.
     -->

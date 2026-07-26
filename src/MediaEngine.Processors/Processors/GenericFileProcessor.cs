@@ -1,8 +1,8 @@
 using MediaEngine.Domain.Enums;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Models;
-using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Processors.Processors;
 

@@ -1,7 +1,6 @@
 using Microsoft.Extensions.Logging;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Models;
-using MediaEngine.Storage.Contracts;
 using Tuvima.Wikidata;
 using TwPersonRole = Tuvima.Wikidata.PersonRole;
 using TwPersonSearchRequest = Tuvima.Wikidata.PersonSearchRequest;

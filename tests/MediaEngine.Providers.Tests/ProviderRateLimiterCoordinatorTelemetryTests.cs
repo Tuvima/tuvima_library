@@ -1,5 +1,5 @@
 using MediaEngine.Providers.Services;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Providers.Tests;
 

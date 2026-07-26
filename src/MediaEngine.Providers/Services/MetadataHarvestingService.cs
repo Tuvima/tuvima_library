@@ -13,7 +13,6 @@ using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
-using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Providers.Services;
 

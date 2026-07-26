@@ -1,6 +1,6 @@
 using System.Text.Json;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Tests;
 

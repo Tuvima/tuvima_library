@@ -10,7 +10,7 @@ using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 #pragma warning disable CS0618 // suppress obsolete warnings in test stubs
 
 namespace MediaEngine.Providers.Tests;

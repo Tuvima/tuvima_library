@@ -1,10 +1,11 @@
 using Dapper;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Storage.Services;
 
-public sealed class WorkIdentityReconciliationService
+public sealed class WorkIdentityReconciliationService : IWorkIdentityReconciliationService
 {
     private readonly IDatabaseConnection _db;
     private readonly ILogger<WorkIdentityReconciliationService>? _logger;

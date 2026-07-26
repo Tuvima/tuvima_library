@@ -23,12 +23,12 @@ using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 // Disambiguate ProviderConfiguration from the Storage.Models namespace
-using ProviderConfiguration = MediaEngine.Storage.Models.ProviderConfiguration;
+using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Ingestion.Tests;
 
@@ -1021,7 +1021,6 @@ public sealed class DurablePipelineTests : IDisposable
     private static BatchProgressService CreateBatchProgressService() =>
         new BatchProgressService(
             new NoOpIngestionBatchRepository(),
-            new DatabaseConnection(Path.Combine(Path.GetTempPath(), $"batch-progress-{Guid.NewGuid():N}.db")),
             new NoOpEventPublisher(),
             NullLogger<BatchProgressService>.Instance);
 
@@ -1614,6 +1613,8 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IReadOnlyList<IngestionBatch>> GetRecentAsync(int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<IngestionBatch>>([]);
         public Task<int> GetNeedsAttentionCountAsync(CancellationToken ct = default) => Task.FromResult(0);
         public Task<int> AbandonRunningAsync(CancellationToken ct = default) => Task.FromResult(0);
+        public Task<IngestionBatchProgressSnapshot> GetProgressSnapshotAsync(Guid batchId, CancellationToken ct = default)
+            => Task.FromResult(new IngestionBatchProgressSnapshot());
     }
 
     /// <summary>

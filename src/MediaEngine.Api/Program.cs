@@ -27,7 +27,7 @@ using MediaEngine.Processors.Processors;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
@@ -568,7 +568,7 @@ builder.Services.AddSingleton<IWorkRepository,           WorkRepository>();
 builder.Services.AddSingleton<ISeriesManifestRepository, SeriesManifestRepository>();
 builder.Services.AddSingleton<HierarchyResolver>();
 builder.Services.AddSingleton<WorkHierarchyMaintenanceService>();
-builder.Services.AddSingleton<WorkIdentityReconciliationService>();
+builder.Services.AddSingleton<IWorkIdentityReconciliationService, WorkIdentityReconciliationService>();
 builder.Services.AddSingleton<WorkClaimRouter>();
 builder.Services.AddSingleton<CatalogUpsertService>();
 builder.Services.AddSingleton<IMediaEntityChainFactory,  MediaEntityChainFactory>();
@@ -687,7 +687,7 @@ builder.Services.AddSingleton<ICanonicalValueArrayRepository, CanonicalValueArra
 // Registered as both its concrete type and IExternalMetadataProvider so the
 // hydration pipeline can inject the concrete type for direct method calls.
 {
-    var reconConfig = configLoader.LoadConfig<MediaEngine.Storage.Models.ReconciliationProviderConfig>(
+    var reconConfig = configLoader.LoadConfig<MediaEngine.Domain.Configuration.ReconciliationProviderConfig>(
         "providers", "wikidata_reconciliation");
     if (reconConfig is not null)
     {

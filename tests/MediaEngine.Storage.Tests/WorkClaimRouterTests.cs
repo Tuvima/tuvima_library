@@ -3,7 +3,7 @@ using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Storage.Services;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Storage.Tests;
 

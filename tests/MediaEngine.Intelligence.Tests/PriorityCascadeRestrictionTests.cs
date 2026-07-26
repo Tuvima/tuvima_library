@@ -1,6 +1,6 @@
 using MediaEngine.Domain.Entities;
 using MediaEngine.Intelligence.Models;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Intelligence.Tests;

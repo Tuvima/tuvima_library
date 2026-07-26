@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;

@@ -10,12 +10,12 @@ using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Text.Json;
-using ProviderConfig = MediaEngine.Storage.Models.ProviderConfiguration;
+using ProviderConfig = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Api.Services;
 

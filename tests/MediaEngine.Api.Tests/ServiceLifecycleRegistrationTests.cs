@@ -62,7 +62,7 @@ public sealed class ServiceLifecycleRegistrationTests
         var program = ReadSource("src/MediaEngine.Api/Program.cs");
 
         Assert.DoesNotContain("catch { /* non-fatal", program, StringComparison.Ordinal);
-        Assert.DoesNotContain("catch { s = new MediaEngine.Storage.Models.ScoringSettings(); }", program, StringComparison.Ordinal);
+        Assert.DoesNotContain("catch { s = new MediaEngine.Domain.Configuration.ScoringSettings(); }", program, StringComparison.Ordinal);
         Assert.Contains("var s = loader.LoadScoring();", program, StringComparison.Ordinal);
     }
 

@@ -853,12 +853,13 @@ public sealed class IngestionOperationsPageGuardrailTests
     {
         var workerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Workers\QuickHydrationWorker.cs"));
         var progressSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\BatchProgressService.cs"));
+        var progressRepositorySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Storage\IngestionBatchRepository.cs"));
         var normalizedProgressSource = progressSource.Replace("\r\n", "\n", StringComparison.Ordinal);
         var stateSource = ReadIngestionDashboardStateSource();
         var operationsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\IngestionOperationsStatusService.cs"));
 
         Assert.Contains("EmitBatchProgressAsync(job.IngestionRunId", workerSource, StringComparison.Ordinal);
-        Assert.Contains("\"UniverseEnriching\"", progressSource, StringComparison.Ordinal);
+        Assert.Contains("'UniverseEnriching'", progressRepositorySource, StringComparison.Ordinal);
         Assert.Contains("\"Hydrating\" => \"Retail Match\"", progressSource, StringComparison.Ordinal);
         Assert.Contains("BuildLiveBatchActivity", stateSource, StringComparison.Ordinal);
         Assert.Contains("nameof(IdentityJobState.Hydrating)", operationsSource, StringComparison.Ordinal);

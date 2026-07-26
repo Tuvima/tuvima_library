@@ -344,15 +344,14 @@ public sealed class IngestionOperationsContractTests
             "MediaEngine.Api",
             "Services",
             "IngestionOperationsStatusService.cs"));
-        var progressSource = File.ReadAllText(Path.Combine(
+        var progressRepositorySource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src",
-            "MediaEngine.Providers",
-            "Services",
-            "BatchProgressService.cs"));
+            "MediaEngine.Storage",
+            "IngestionBatchRepository.cs"));
 
         Assert.Contains("review_ready_at IS NOT NULL", source, StringComparison.Ordinal);
-        Assert.Contains("review_ready_at IS NOT NULL", progressSource, StringComparison.Ordinal);
+        Assert.Contains("review_ready_at IS NOT NULL", progressRepositorySource, StringComparison.Ordinal);
         Assert.DoesNotContain("WHEN ma.status = 'Normal'", source, StringComparison.Ordinal);
         Assert.Contains("var processed = isStaleUntrackedBatch || isNoWorkBatch\n                ? batch.FilesTotal\n                : terminal;", source.Replace("\r\n", "\n", StringComparison.Ordinal), StringComparison.Ordinal);
         Assert.Contains("var processed = Math.Clamp(Math.Max(0, batch.FilesProcessed), 0, total);", source, StringComparison.Ordinal);

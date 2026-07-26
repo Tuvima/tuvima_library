@@ -3,8 +3,8 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
 using Microsoft.Extensions.Logging;
-using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Intelligence;
 

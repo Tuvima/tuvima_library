@@ -6,7 +6,6 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 

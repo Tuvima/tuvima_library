@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Configuration;
 

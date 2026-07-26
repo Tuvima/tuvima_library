@@ -3,7 +3,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Intelligence.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Intelligence.Tests;
@@ -95,7 +95,7 @@ public sealed class ScoringEngineTests
             },
             ProviderConfigurations =
             [
-                new MediaEngine.Storage.Models.ProviderConfiguration
+                new MediaEngine.Domain.Configuration.ProviderConfiguration
                 {
                     Name = "apple_api",
                     ProviderId = AppleProviderId.ToString("D"),
@@ -151,13 +151,13 @@ public sealed class ScoringEngineTests
             },
             ProviderConfigurations =
             [
-                new MediaEngine.Storage.Models.ProviderConfiguration
+                new MediaEngine.Domain.Configuration.ProviderConfiguration
                 {
                     Name = "tmdb",
                     ProviderId = WellKnownProviders.Tmdb.ToString("D"),
                     Enabled = true,
                 },
-                new MediaEngine.Storage.Models.ProviderConfiguration
+                new MediaEngine.Domain.Configuration.ProviderConfiguration
                 {
                     Name = "wikidata_reconciliation",
                     ProviderId = WikidataProviderId.ToString("D"),

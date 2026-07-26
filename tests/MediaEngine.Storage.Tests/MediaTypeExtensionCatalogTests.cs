@@ -68,7 +68,7 @@ public sealed class MediaTypeExtensionCatalogTests
     }
 
     /// <summary>
-    /// The hardcoded <see cref="MediaEngine.Storage.Models.MediaTypeConfiguration.DefaultTypes"/>
+    /// The hardcoded <see cref="MediaEngine.Domain.Configuration.MediaTypeConfiguration.DefaultTypes"/>
     /// fallback (used when <c>config/media_types.json</c> can't be loaded, e.g. first run) must
     /// carry the same extension superset as the JSON config, or a config-less catalog would
     /// silently lose recognition for these formats.

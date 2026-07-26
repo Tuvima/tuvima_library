@@ -9,7 +9,7 @@ using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Processors;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

@@ -10,7 +10,7 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Xunit.Abstractions;
 
 namespace MediaEngine.Providers.Tests;

@@ -1,5 +1,6 @@
 using Dapper;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Storage.Contracts;
@@ -121,7 +122,7 @@ public sealed class CollectionRepository : ICollectionRepository
             // Direct repository tests and first-run config fall back to defaults.
         }
 
-        return new MediaEngine.Storage.Models.HydrationSettings()
+        return new MediaEngine.Domain.Configuration.HydrationSettings()
             .CollectionRollupRelationshipTypes
             .ToList();
     }

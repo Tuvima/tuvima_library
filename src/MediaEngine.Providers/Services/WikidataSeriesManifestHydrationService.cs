@@ -7,7 +7,6 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Models;
-using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 using Tuvima.Wikidata;
 

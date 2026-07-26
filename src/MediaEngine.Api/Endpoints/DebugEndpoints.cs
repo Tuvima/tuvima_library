@@ -10,7 +10,7 @@ using MediaEngine.Providers.Adapters;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -699,7 +699,7 @@ public static class DebugEndpoints
     private static List<DebugBridgeHint> ComputeBridgeHintPreview(
         IReadOnlyList<ProviderClaim> claims,
         string mediaTypeName,
-        IReadOnlyList<Storage.Models.ProviderConfiguration> allProviderConfigs)
+        IReadOnlyList<MediaEngine.Domain.Configuration.ProviderConfiguration> allProviderConfigs)
     {
         var results = new List<DebugBridgeHint>();
 

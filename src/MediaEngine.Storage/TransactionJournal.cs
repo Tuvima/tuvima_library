@@ -1,4 +1,5 @@
 using Dapper;
+using MediaEngine.Domain.Contracts;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;

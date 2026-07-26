@@ -10,7 +10,6 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -747,7 +746,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         };
 
     private async Task<string?> ResolveFanartApiKeyAsync(
-        MediaEngine.Storage.Models.ProviderConfiguration? fanartConfig,
+        MediaEngine.Domain.Configuration.ProviderConfiguration? fanartConfig,
         CancellationToken ct)
     {
         var apiKey = fanartConfig?.HttpClient?.ApiKey;

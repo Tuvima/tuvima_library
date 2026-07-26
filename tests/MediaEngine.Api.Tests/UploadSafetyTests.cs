@@ -1,6 +1,6 @@
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Ingestion.Models;
-using MediaEngine.Storage.Models;
+using MediaEngine.Domain.Configuration;
 using Microsoft.AspNetCore.Http;
 
 namespace MediaEngine.Api.Tests;

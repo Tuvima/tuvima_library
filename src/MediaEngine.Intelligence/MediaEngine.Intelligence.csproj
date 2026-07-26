@@ -3,8 +3,6 @@
   <ItemGroup>
     <!-- Domain layer: MetadataClaim, CanonicalValue, Hub, Work aggregates -->
     <ProjectReference Include="..\MediaEngine.Domain\MediaEngine.Domain.csproj" />
-    <!-- Storage layer: ITransactionJournal for arbitration decision logging -->
-    <ProjectReference Include="..\MediaEngine.Storage\MediaEngine.Storage.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -4,7 +4,7 @@ namespace MediaEngine.Intelligence.Models;
 /// Immutable snapshot of the scoring thresholds and decay parameters consumed
 /// by the Intelligence &amp; Scoring Engine at runtime.
 ///
-/// Typically constructed from <see cref="MediaEngine.Storage.Models.ScoringSettings"/>
+/// Typically constructed from <see cref="MediaEngine.Domain.Configuration.ScoringSettings"/>
 /// at startup so that the Intelligence layer does not take a hard dependency on
 /// the Storage manifest model.
 ///

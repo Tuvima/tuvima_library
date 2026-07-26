@@ -838,7 +838,7 @@ public static class DevSeedEndpoints
     /// </summary>
     private static async Task<Dictionary<string, (bool Healthy, string Reason)>> CheckProviderHealthAsync(
         ILogger logger,
-        Storage.Contracts.IConfigurationLoader configLoader)
+        Domain.Contracts.IConfigurationLoader configLoader)
     {
         var results = new Dictionary<string, (bool, string)>(StringComparer.OrdinalIgnoreCase);
         using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(8) };
@@ -983,7 +983,7 @@ public static class DevSeedEndpoints
     // â”€â”€ GET /dev/check-keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private static async Task<IResult> CheckKeysAsync(
-        Storage.Contracts.IConfigurationLoader configLoader,
+        Domain.Contracts.IConfigurationLoader configLoader,
         ILogger<Program> logger)
     {
         logger.LogInformation("[CheckKeys] Probing all configured provider API keys");
@@ -1018,7 +1018,7 @@ public static class DevSeedEndpoints
     private static async Task<IResult> SeedLibraryAsync(
         HttpContext context,
         IOptions<IngestionOptions> options,
-        Storage.Contracts.IConfigurationLoader configLoader,
+        Domain.Contracts.IConfigurationLoader configLoader,
         ILogger<Program> logger)
     {
         var requestedTypes = ParseTypes(context);
@@ -1251,7 +1251,7 @@ public static class DevSeedEndpoints
 
     private static async Task<IResult> ReingestLibraryAsync(
         HttpContext context,
-        Storage.Contracts.IConfigurationLoader configLoader,
+        Domain.Contracts.IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
         DevHarnessResetService resetService,
         ILogger<Program> logger)
@@ -1296,7 +1296,7 @@ public static class DevSeedEndpoints
     private static async Task<IResult> FullTestAsync(
         HttpContext context,
         IOptions<IngestionOptions> options,
-        Storage.Contracts.IConfigurationLoader configLoader,
+        Domain.Contracts.IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
         DevHarnessResetService resetService,
         ILogger<Program> logger,
@@ -1432,7 +1432,7 @@ public static class DevSeedEndpoints
     /// Resolves the correct source directory for a media type by checking libraries.json.
     /// </summary>
     private static string? ResolveWatchDirectory(
-        Storage.Contracts.IConfigurationLoader configLoader,
+        Domain.Contracts.IConfigurationLoader configLoader,
         IOptions<IngestionOptions> options,
         string mediaTypeCategory)
     {
