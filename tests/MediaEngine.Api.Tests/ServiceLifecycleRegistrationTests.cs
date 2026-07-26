@@ -20,11 +20,14 @@ public sealed class ServiceLifecycleRegistrationTests
             provider.GetRequiredService<MetadataHarvestQueue>(),
             provider.GetRequiredService<IMetadataHarvestQueueAdmission>());
 
-        var program = ReadSource("src/MediaEngine.Api/Program.cs");
-        Assert.Contains("AddSingleton<MetadataHarvestQueue>()", program, StringComparison.Ordinal);
-        Assert.Contains("GetRequiredService<MetadataHarvestQueue>()", program, StringComparison.Ordinal);
-        Assert.Contains("AddHostedService(sp =>", program, StringComparison.Ordinal);
-        Assert.Contains("GetRequiredService<MetadataHarvestingService>()", program, StringComparison.Ordinal);
+        var providers = ReadSource(
+            "src/MediaEngine.Api/DependencyInjection/TuvimaProviderServiceCollectionExtensions.cs");
+        var hosted = ReadSource(
+            "src/MediaEngine.Api/DependencyInjection/TuvimaHostedServiceCollectionExtensions.cs");
+        Assert.Contains("AddSingleton<MetadataHarvestQueue>()", providers, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService<MetadataHarvestQueue>()", providers, StringComparison.Ordinal);
+        Assert.Contains("AddHostedService(sp =>", hosted, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService<MetadataHarvestingService>()", hosted, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -60,10 +63,12 @@ public sealed class ServiceLifecycleRegistrationTests
     public void StartupConfiguration_DoesNotSilentlyReplaceInvalidCoreOrScoringConfiguration()
     {
         var program = ReadSource("src/MediaEngine.Api/Program.cs");
+        var intelligence = ReadSource(
+            "src/MediaEngine.Api/DependencyInjection/TuvimaIntelligenceServiceCollectionExtensions.cs");
 
         Assert.DoesNotContain("catch { /* non-fatal", program, StringComparison.Ordinal);
         Assert.DoesNotContain("catch { s = new MediaEngine.Domain.Configuration.ScoringSettings(); }", program, StringComparison.Ordinal);
-        Assert.Contains("var s = loader.LoadScoring();", program, StringComparison.Ordinal);
+        Assert.Contains("LoadScoring()", intelligence, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath) =>

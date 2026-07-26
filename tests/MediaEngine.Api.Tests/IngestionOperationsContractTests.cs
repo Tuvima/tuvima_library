@@ -554,12 +554,16 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("idx_ingestion_batch_artifacts_batch", schema, StringComparison.Ordinal);
         Assert.DoesNotContain("ALTER TABLE ingestion_batch_artifacts", schema, StringComparison.OrdinalIgnoreCase);
 
-        var program = File.ReadAllText(Path.Combine(
+        var storageRegistrations = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src",
             "MediaEngine.Api",
-            "Program.cs"));
-        Assert.Contains("IIngestionBatchArtifactRepository", program, StringComparison.Ordinal);
+            "DependencyInjection",
+            "TuvimaStorageServiceCollectionExtensions.cs"));
+        Assert.Contains(
+            "IIngestionBatchArtifactRepository",
+            storageRegistrations,
+            StringComparison.Ordinal);
     }
 
     [Fact]

@@ -19,7 +19,8 @@ public sealed class ActivityEndpointTests
     {
         var endpoints = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ActivityEndpoints.cs"));
         var service = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\ActivityBatchReadService.cs"));
-        var program = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var registrations = File.ReadAllText(GetRepoFilePath(
+            @"src\MediaEngine.Api\DependencyInjection\ApiReadServiceCollectionExtensions.cs"));
 
         Assert.Contains("IActivityBatchReadService", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/batches\"", endpoints, StringComparison.Ordinal);
@@ -28,7 +29,7 @@ public sealed class ActivityEndpointTests
         Assert.Contains("\"/batches/{batchId:guid}/items/{assetId:guid}\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("\"/people\"", endpoints, StringComparison.Ordinal);
         Assert.Contains("PagedResponse<ActivityBatchSummaryDto>", endpoints, StringComparison.Ordinal);
-        Assert.Contains("AddSingleton<IActivityBatchReadService", program, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<IActivityBatchReadService", registrations, StringComparison.Ordinal);
 
         Assert.Contains("IDatabaseConnection", service, StringComparison.Ordinal);
         Assert.Contains("_db.CreateConnection()", service, StringComparison.Ordinal);

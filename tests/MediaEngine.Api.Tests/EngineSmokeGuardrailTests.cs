@@ -12,6 +12,14 @@ public sealed class EngineSmokeGuardrailTests
         Assert.Contains("SqliteHealthCheck", program);
         Assert.Contains("MapHealthChecks(\"/health\")", program);
         Assert.Contains("MapEngineEndpoints()", program);
+        Assert.Contains("AddTuvimaStorage()", program);
+        Assert.Contains("AddTuvimaProviders(configLoader)", program);
+        Assert.Contains("AddTuvimaIntelligence()", program);
+        Assert.Contains("AddTuvimaAi(configLoader)", program);
+        Assert.Contains("AddTuvimaPlayback()", program);
+        Assert.Contains("AddTuvimaPlugins()", program);
+        Assert.Contains("AddTuvimaDisplay()", program);
+        Assert.Contains("AddTuvimaHostedServices()", program);
     }
 
     [Fact]
@@ -30,13 +38,18 @@ public sealed class EngineSmokeGuardrailTests
     public void IdentityStartupRecovery_RunsBeforeIdentityWorkersCanLeaseJobs()
     {
         var repoRoot = FindRepoRoot();
-        var program = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Program.cs"));
+        var hostedRegistrations = File.ReadAllText(Path.Combine(
+            repoRoot,
+            "src",
+            "MediaEngine.Api",
+            "DependencyInjection",
+            "TuvimaHostedServiceCollectionExtensions.cs"));
         var recoverySource = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Services", "HydrationStartupSweepService.cs"));
 
-        var recoveryRegistration = program.IndexOf("AddHostedService<HydrationStartupSweepService>", StringComparison.Ordinal);
-        var retailRegistration = program.IndexOf("AddHostedService<MediaEngine.Api.Services.RetailMatchHostedService>", StringComparison.Ordinal);
-        var bridgeRegistration = program.IndexOf("AddHostedService<MediaEngine.Api.Services.WikidataBridgeHostedService>", StringComparison.Ordinal);
-        var hydrationRegistration = program.IndexOf("AddHostedService<MediaEngine.Api.Services.QuickHydrationHostedService>", StringComparison.Ordinal);
+        var recoveryRegistration = hostedRegistrations.IndexOf("AddHostedService<HydrationStartupSweepService>", StringComparison.Ordinal);
+        var retailRegistration = hostedRegistrations.IndexOf("AddHostedService<RetailMatchHostedService>", StringComparison.Ordinal);
+        var bridgeRegistration = hostedRegistrations.IndexOf("AddHostedService<WikidataBridgeHostedService>", StringComparison.Ordinal);
+        var hydrationRegistration = hostedRegistrations.IndexOf("AddHostedService<QuickHydrationHostedService>", StringComparison.Ordinal);
 
         Assert.True(recoveryRegistration >= 0);
         Assert.True(recoveryRegistration < retailRegistration);
@@ -45,6 +58,31 @@ public sealed class EngineSmokeGuardrailTests
         Assert.Contains("public override async Task StartAsync", recoverySource, StringComparison.Ordinal);
         Assert.Contains("RecoverInterruptedJobsAsync(cancellationToken)", recoverySource, StringComparison.Ordinal);
         Assert.DoesNotContain("Task.Delay", recoverySource, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void EngineProgram_PreservesSecurityCriticalMiddlewareOrder()
+    {
+        var repoRoot = FindRepoRoot();
+        var program = File.ReadAllText(Path.Combine(repoRoot, "src", "MediaEngine.Api", "Program.cs"));
+        string[] orderedMarkers =
+        [
+            "app.UseExceptionHandler",
+            "app.UseCors(\"BlazorWasm\")",
+            "app.UseRateLimiter()",
+            "app.UseMiddleware<ApiKeyMiddleware>()",
+            "app.MapHealthChecks(\"/health\")",
+            "app.UseSwagger()",
+            "app.MapEngineEndpoints()",
+        ];
+
+        var previous = -1;
+        foreach (var marker in orderedMarkers)
+        {
+            var current = program.IndexOf(marker, StringComparison.Ordinal);
+            Assert.True(current > previous, $"{marker} must remain after the preceding pipeline stage.");
+            previous = current;
+        }
     }
 
     private static string FindRepoRoot()

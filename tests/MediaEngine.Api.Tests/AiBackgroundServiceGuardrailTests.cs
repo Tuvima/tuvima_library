@@ -37,7 +37,8 @@ public sealed class AiBackgroundServiceGuardrailTests
     [Fact]
     public void EngineRegistersFeatureAndTastePersistenceContracts()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var source = File.ReadAllText(GetRepoFilePath(
+            @"src\MediaEngine.Api\DependencyInjection\TuvimaStorageServiceCollectionExtensions.cs"));
 
         Assert.Contains("IAiFeaturePersistenceRepository", source, StringComparison.Ordinal);
         Assert.Contains("ITasteProfileRepository, TasteProfileRepository", source, StringComparison.Ordinal);

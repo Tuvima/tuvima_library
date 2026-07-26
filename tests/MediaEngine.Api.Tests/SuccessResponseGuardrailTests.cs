@@ -193,7 +193,7 @@ public sealed partial class SuccessResponseGuardrailTests
             "MediaEngine.Api",
             "Program.cs"));
 
-        Assert.Contains("c.CustomSchemaIds(", program, StringComparison.Ordinal);
+        Assert.Contains("options.CustomSchemaIds(", program, StringComparison.Ordinal);
         Assert.Contains("type.FullName", program, StringComparison.Ordinal);
     }
 

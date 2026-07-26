@@ -65,6 +65,7 @@ public sealed class ItemEndpointRouteTests
                     && !relative.StartsWith(@"src\MediaEngine.Domain\Capabilities\", StringComparison.OrdinalIgnoreCase)
                     && !relative.Equals(@"src\MediaEngine.Api\Services\ReviewQueueRouter.cs", StringComparison.OrdinalIgnoreCase)
                     && !relative.Equals(@"src\MediaEngine.Api\Program.cs", StringComparison.OrdinalIgnoreCase)
+                    && !relative.Equals(@"src\MediaEngine.Api\DependencyInjection\TuvimaStorageServiceCollectionExtensions.cs", StringComparison.OrdinalIgnoreCase)
                     && !relative.Equals(@"tests\MediaEngine.Web.Tests\UnifiedDetailComponentTests.cs", StringComparison.OrdinalIgnoreCase);
             })
             .Where(path =>

@@ -7,16 +7,17 @@ public sealed class PlayerEndpointRouteTests
     {
         var endpointSource = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/Endpoints/PlayerEndpoints.cs"));
         var routeBuilderSource = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/DependencyInjection/ApiEndpointRouteBuilderExtensions.cs"));
-        var programSource = File.ReadAllText(GetRepoFilePath("src/MediaEngine.Api/Program.cs"));
+        var playbackRegistrations = File.ReadAllText(GetRepoFilePath(
+            "src/MediaEngine.Api/DependencyInjection/TuvimaPlaybackServiceCollectionExtensions.cs"));
 
         Assert.Contains("app.MapPlayerEndpoints();", routeBuilderSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<PlayerSessionRepository>();", programSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<AudiobookListenHistoryRepository>();", programSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<MusicPlayStatsRepository>();", programSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<AudiobookBookmarkRepository>();", programSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<AudiobookChapterTitleOverrideRepository>();", programSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<AudiobookChapterNamingService>();", programSource, StringComparison.Ordinal);
-        Assert.Contains("builder.Services.AddSingleton<PlayerService>();", programSource, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<PlayerSessionRepository>();", playbackRegistrations, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<AudiobookListenHistoryRepository>();", playbackRegistrations, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<MusicPlayStatsRepository>();", playbackRegistrations, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<AudiobookBookmarkRepository>();", playbackRegistrations, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<AudiobookChapterTitleOverrideRepository>();", playbackRegistrations, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<AudiobookChapterNamingService>();", playbackRegistrations, StringComparison.Ordinal);
+        Assert.Contains("services.AddSingleton<PlayerService>();", playbackRegistrations, StringComparison.Ordinal);
         Assert.Contains("app.MapGroup(\"/player\")", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/state\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/capabilities\"", endpointSource, StringComparison.Ordinal);

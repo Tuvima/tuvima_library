@@ -7,6 +7,7 @@ public static class ApiReadServiceCollectionExtensions
 {
     public static IServiceCollection AddApiReadServices(this IServiceCollection services)
     {
+        services.AddSingleton<IActivityBatchReadService, ActivityBatchReadService>();
         services.AddSingleton<IJourneyReadService, JourneyReadService>();
         services.AddSingleton<IIngestionBatchReadService, IngestionBatchReadService>();
         services.AddSingleton<IPersonAliasReadService, PersonAliasReadService>();

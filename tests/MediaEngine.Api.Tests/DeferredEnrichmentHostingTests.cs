@@ -16,13 +16,17 @@ public sealed class DeferredEnrichmentHostingTests
     [Fact]
     public void EngineRegistration_UsesTheSameSingletonForCommandsAndHostedExecution()
     {
-        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Program.cs"));
+        var providerRegistrations = File.ReadAllText(GetRepoFilePath(
+            @"src\MediaEngine.Api\DependencyInjection\TuvimaProviderServiceCollectionExtensions.cs"));
+        var hostedRegistrations = File.ReadAllText(GetRepoFilePath(
+            @"src\MediaEngine.Api\DependencyInjection\TuvimaHostedServiceCollectionExtensions.cs"));
 
-        Assert.Contains("AddSingleton<DeferredEnrichmentService>()", source, StringComparison.Ordinal);
-        Assert.Contains("GetRequiredService<DeferredEnrichmentService>()", source, StringComparison.Ordinal);
+        Assert.Contains("AddSingleton<DeferredEnrichmentService>()", providerRegistrations, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService<DeferredEnrichmentService>()", providerRegistrations, StringComparison.Ordinal);
+        Assert.Contains("GetRequiredService<DeferredEnrichmentService>()", hostedRegistrations, StringComparison.Ordinal);
         Assert.DoesNotContain(
             "AddSingleton<IDeferredEnrichmentService,    DeferredEnrichmentService>()",
-            source,
+            providerRegistrations,
             StringComparison.Ordinal);
     }
 
