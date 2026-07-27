@@ -25,6 +25,8 @@ public partial interface IEngineApiClient
 
     string? LastFailureKind { get; }
 
+    TimeSpan? LastRetryAfter { get; }
+
     string ToAbsoluteEngineUrl(string value);
 
     // ── Review queue (/review) ──────────────────────────────────────────────

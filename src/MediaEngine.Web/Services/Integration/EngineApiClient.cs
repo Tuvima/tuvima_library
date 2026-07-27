@@ -1033,6 +1033,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     public string? LastFailureKind => _failureState.LastFailureKind;
 
+    public TimeSpan? LastRetryAfter => _failureState.LastRetryAfter;
+
     private void ClearFailure(string endpoint)
         => _failureState.Clear(endpoint);
 

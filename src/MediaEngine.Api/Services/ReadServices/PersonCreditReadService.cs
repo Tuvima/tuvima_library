@@ -357,18 +357,18 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         var charactersByOrdinal = characters
             .GroupBy(character => character.Ordinal)
             .ToDictionary(group => group.Key, group => group.First());
+        var broadcastCharacter = characters.Count == 1 && castMembers.Count > 1
+            ? characters[0]
+            : null;
         foreach (var credit in explicitCredits)
         {
             var castMember = castMembers.FirstOrDefault(entry => SamePerson(entry, credit));
-            if (castMember is null
-                || !charactersByOrdinal.TryGetValue(castMember.Ordinal, out var ordinalCharacter))
-            {
-                continue;
-            }
-
             var evidence = claimCredits.FirstOrDefault(candidate => SamePerson(candidate, credit));
             credit.Characters.RemoveAll(character =>
-                SameCharacter(ordinalCharacter, character)
+                ((castMember is not null
+                        && charactersByOrdinal.TryGetValue(castMember.Ordinal, out var ordinalCharacter)
+                        && SameCharacter(ordinalCharacter, character))
+                    || (broadcastCharacter is not null && SameCharacter(broadcastCharacter, character)))
                 && (evidence is null
                     || !evidence.Characters.Any(candidate => SameCharacter(candidate, character))));
         }
@@ -560,62 +560,77 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
     private static List<CastClaimEntry> BuildCastEntriesFromClaims(IReadOnlyList<CastClaimRow> rows)
     {
-        var nameClaims = rows
-            .Where(row => row.ClaimKey.Equals("cast_member", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        var qidClaims = rows
-            .Where(row => row.ClaimKey.Equals("cast_member_qid", StringComparison.OrdinalIgnoreCase))
-            .Select(row => ParseQidLabel(row.ClaimValue))
-            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Qid) || !string.IsNullOrWhiteSpace(parsed.Label))
-            .ToList();
-        var characterClaims = rows
-            .Where(row => row.ClaimKey.Equals("cast_member_character", StringComparison.OrdinalIgnoreCase))
-            .Select(row => row.ClaimValue)
-            .ToList();
-
-        var qidByName = qidClaims
-            .Where(parsed => !string.IsNullOrWhiteSpace(parsed.Label) && !string.IsNullOrWhiteSpace(parsed.Qid))
-            .GroupBy(parsed => parsed.Label!, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(group => group.Key, group => group.First().Qid, StringComparer.OrdinalIgnoreCase);
-
-        var entries = new List<CastClaimEntry>();
-        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        for (var i = 0; i < nameClaims.Count; i++)
+        var claimGroups = new List<MutableCastClaimEntry>();
+        MutableCastClaimEntry? active = null;
+        foreach (var row in rows.OrderBy(row => row.RowNumber))
         {
-            var name = nameClaims[i].ClaimValue.Trim();
-            if (string.IsNullOrWhiteSpace(name))
+            if (row.ClaimKey.Equals("cast_member", StringComparison.OrdinalIgnoreCase))
+            {
+                var name = row.ClaimValue.Trim();
+                active = string.IsNullOrWhiteSpace(name)
+                    ? null
+                    : new MutableCastClaimEntry(name);
+                if (active is not null)
+                {
+                    claimGroups.Add(active);
+                }
+
+                continue;
+            }
+
+            if (active is null)
             {
                 continue;
             }
 
-            qidByName.TryGetValue(name, out var qid);
-            qid ??= i < qidClaims.Count ? qidClaims[i].Qid : null;
-            var characters = i < characterClaims.Count
-                ? SplitCharacterNames(characterClaims[i])
-                : [];
-            var key = qid ?? name;
-            if (seen.Add(key))
+            if (row.ClaimKey.Equals("cast_member_character", StringComparison.OrdinalIgnoreCase))
             {
-                entries.Add(new CastClaimEntry(name, qid, characters));
-            }
-        }
-
-        foreach (var parsed in qidClaims)
-        {
-            var name = StringHelpers.FirstNonBlank(parsed.Label, parsed.Qid);
-            if (string.IsNullOrWhiteSpace(name))
-            {
+                active.Characters.AddRange(SplitCharacterNames(row.ClaimValue));
                 continue;
             }
 
-            var key = parsed.Qid ?? name;
-            if (seen.Add(key))
+            if (row.ClaimKey.Equals("cast_member_qid", StringComparison.OrdinalIgnoreCase))
             {
-                entries.Add(new CastClaimEntry(name, parsed.Qid, []));
+                var parsed = ParseQidLabel(row.ClaimValue);
+                if (string.IsNullOrWhiteSpace(parsed.Label)
+                    || string.Equals(parsed.Label, active.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    active.Qid = parsed.Qid;
+                }
             }
         }
 
-        return entries;
+        var merged = new List<MutableCastClaimEntry>();
+        foreach (var group in claimGroups)
+        {
+            var existing = merged.FirstOrDefault(entry =>
+                (!string.IsNullOrWhiteSpace(group.Qid)
+                    && string.Equals(entry.Qid, group.Qid, StringComparison.OrdinalIgnoreCase))
+                || string.Equals(entry.Name, group.Name, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                merged.Add(group);
+                continue;
+            }
+
+            existing.Qid ??= group.Qid;
+            foreach (var character in group.Characters)
+            {
+                if (!existing.Characters.Contains(character, StringComparer.OrdinalIgnoreCase))
+                {
+                    existing.Characters.Add(character);
+                }
+            }
+        }
+
+        return merged
+            .Select(entry => new CastClaimEntry(
+                entry.Name,
+                entry.Qid,
+                entry.Characters
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList()))
+            .ToList();
     }
 
     private static List<CharacterPortrayalDto> BuildClaimCharacterPortrayals(
@@ -882,6 +897,13 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     }
 
     private sealed record CastClaimEntry(string Name, string? Qid, IReadOnlyList<string> Characters);
+
+    private sealed class MutableCastClaimEntry(string name)
+    {
+        public string Name { get; } = name;
+        public string? Qid { get; set; }
+        public List<string> Characters { get; } = [];
+    }
 
     public async Task<List<PersonGroupMemberDto>> GetGroupMembersAsync(
         Guid personId,

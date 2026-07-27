@@ -5,6 +5,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.MediaTiles
 @inject MediaTileComposerService MediaTiles
+@inject ILogger<WatchPage> Logger
 
 @namespace MediaEngine.Web.Components.Pages
 
@@ -34,6 +35,7 @@
     private DiscoveryPageViewModel? _landingPage;
     private bool _loading = true;
     private bool _loadFailed;
+    private Task? _landingLoadTask;
 
     private string ActiveWatchMode => Tab?.Trim().ToLowerInvariant() switch
     {
@@ -72,7 +74,18 @@
         await LoadLandingAsync();
     }
 
-    private async Task LoadLandingAsync()
+    private Task LoadLandingAsync()
+    {
+        if (_landingLoadTask is { IsCompleted: false })
+        {
+            return _landingLoadTask;
+        }
+
+        _landingLoadTask = LoadLandingCoreAsync();
+        return _landingLoadTask;
+    }
+
+    private async Task LoadLandingCoreAsync()
     {
         _loading = true;
         _loadFailed = false;
@@ -81,8 +94,9 @@
         {
             _landingPage = await MediaTiles.BuildWatchAsync();
         }
-        catch
+        catch (Exception ex)
         {
+            Logger.LogWarning(ex, "Watch landing failed after bounded display API retries.");
             _loadFailed = true;
         }
         finally

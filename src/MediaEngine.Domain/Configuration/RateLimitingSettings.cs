@@ -16,9 +16,13 @@ public sealed class RateLimitingSettings
     [JsonPropertyName("streaming")]
     public RateLimitPolicy Streaming { get; set; } = new() { PermitLimit = 100, WindowMinutes = 1 };
 
-    /// <summary>General API: default limit for all other endpoints.</summary>
+    /// <summary>
+    /// General API: default limit for all other endpoints. Dashboard routes fan
+    /// out into many parallel reads, so this protects against floods without
+    /// throttling ordinary navigation and artwork-rich page loads.
+    /// </summary>
     [JsonPropertyName("general")]
-    public RateLimitPolicy General { get; set; } = new() { PermitLimit = 60, WindowMinutes = 1 };
+    public RateLimitPolicy General { get; set; } = new() { PermitLimit = 600, WindowMinutes = 1 };
 }
 
 /// <summary>A single rate limit policy with a permit count and time window.</summary>

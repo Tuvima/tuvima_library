@@ -10,6 +10,7 @@ public sealed class EngineApiFailureState
     public int? LastStatusCode { get; private set; }
     public string? LastFailedEndpoint { get; private set; }
     public string? LastFailureKind { get; private set; }
+    public TimeSpan? LastRetryAfter { get; private set; }
 
     public void Clear(string endpoint)
     {
@@ -22,6 +23,7 @@ public sealed class EngineApiFailureState
         LastStatusCode = null;
         LastFailedEndpoint = null;
         LastFailureKind = null;
+        LastRetryAfter = null;
     }
 
     public async Task RecordHttpFailureAsync(
@@ -34,6 +36,7 @@ public sealed class EngineApiFailureState
         var detail = await ReadProblemSummaryAsync(response, ct);
         LastStatusCode = (int)response.StatusCode;
         LastFailedEndpoint = endpoint;
+        LastRetryAfter = ResolveRetryAfter(response);
         LastFailureKind = response.StatusCode switch
         {
             HttpStatusCode.NotFound => "not_found",
@@ -57,6 +60,7 @@ public sealed class EngineApiFailureState
         LastStatusCode = null;
         LastFailedEndpoint = endpoint;
         LastFailureKind = ex is HttpRequestException ? "engine_unavailable" : "unexpected_failure";
+        LastRetryAfter = null;
         LastError = ex.Message;
 
         if (logAsWarning)
@@ -74,6 +78,7 @@ public sealed class EngineApiFailureState
         LastStatusCode = null;
         LastFailedEndpoint = endpoint;
         LastFailureKind = ex is HttpRequestException ? "engine_unavailable" : "unexpected_failure";
+        LastRetryAfter = null;
         LastError = ex.Message;
     }
 
@@ -81,6 +86,7 @@ public sealed class EngineApiFailureState
     {
         LastStatusCode = statusCode;
         LastFailedEndpoint = endpoint;
+        LastRetryAfter = null;
         LastFailureKind = statusCode switch
         {
             404 => "not_found",
@@ -129,4 +135,20 @@ public sealed class EngineApiFailureState
         => element.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String
             ? property.GetString()
             : null;
+
+    private static TimeSpan? ResolveRetryAfter(HttpResponseMessage response)
+    {
+        if (response.Headers.RetryAfter?.Delta is { } delta)
+        {
+            return delta > TimeSpan.Zero ? delta : TimeSpan.FromSeconds(1);
+        }
+
+        if (response.Headers.RetryAfter?.Date is { } date)
+        {
+            var remaining = date - DateTimeOffset.UtcNow;
+            return remaining > TimeSpan.Zero ? remaining : TimeSpan.FromSeconds(1);
+        }
+
+        return null;
+    }
 }

@@ -6,10 +6,12 @@ using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.Integration.Clients;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Tests.Support;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
@@ -122,6 +124,53 @@ public sealed class Phase3BrowseFoundationTests : TestContext
         Assert.Empty(page.Shelves);
         Assert.Empty(page.Catalog);
         Assert.Contains("first story", page.EmptyTitle, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Watch_RetriesATransientNullDisplayResponse()
+    {
+        var requestCount = 0;
+        var api = EngineApiClientStub.Create(stub =>
+        {
+            stub.SetHandler(nameof(IEngineApiClient.GetDisplayBrowseAsync), _ =>
+            {
+                requestCount++;
+                return Task.FromResult<DisplayPageDto?>(requestCount == 1
+                    ? null
+                    : CreateDisplayPage(
+                        "watch",
+                        "Watch",
+                        "movies",
+                        "Movies",
+                        "Movie",
+                        "Arrival",
+                        "Denis Villeneuve"));
+            });
+        });
+        var composer = new MediaTileComposerService(api);
+
+        var page = await composer.BuildWatchAsync();
+
+        Assert.Equal(2, requestCount);
+        Assert.Equal("Arrival", page.Hero?.Title);
+    }
+
+    [Fact]
+    public async Task EngineFailureState_CapturesRetryAfterFromThrottledResponses()
+    {
+        var state = new EngineApiFailureState();
+        using var response = new HttpResponseMessage(System.Net.HttpStatusCode.TooManyRequests);
+        response.Headers.RetryAfter = new System.Net.Http.Headers.RetryConditionHeaderValue(
+            TimeSpan.FromSeconds(12));
+
+        await state.RecordHttpFailureAsync(
+            "GET /api/v1/display/browse",
+            response,
+            NullLogger.Instance,
+            CancellationToken.None);
+
+        Assert.Equal(429, state.LastStatusCode);
+        Assert.Equal(TimeSpan.FromSeconds(12), state.LastRetryAfter);
     }
 
     [Theory]

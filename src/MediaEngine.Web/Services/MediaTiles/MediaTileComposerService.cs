@@ -8,6 +8,7 @@ namespace MediaEngine.Web.Services.MediaTiles;
 
 public sealed class MediaTileComposerService
 {
+    private const int DisplayReadAttempts = 3;
     private static readonly StreamingServiceLogoResolver SourceLogos = new();
 
     private readonly IEngineApiClient _api;
@@ -18,18 +19,25 @@ public sealed class MediaTileComposerService
     }
 
     public async Task<DiscoveryPageViewModel> BuildHomeAsync(Guid? profileId = null, CancellationToken ct = default) =>
-        FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayHomeAsync(profileId, ct), "home"));
+        FromDisplayPage(await RequireDisplayPageAsync(() => _api.GetDisplayHomeAsync(profileId, ct), "home", ct));
 
     public async Task<DiscoveryPageViewModel> BuildReadAsync(CancellationToken ct = default) =>
-        FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "read", grouping: "all", ct: ct), "read"));
+        FromDisplayPage(await RequireDisplayPageAsync(
+            () => _api.GetDisplayBrowseAsync(lane: "read", grouping: "all", ct: ct),
+            "read",
+            ct));
 
     public async Task<DiscoveryPageViewModel> BuildWatchAsync(CancellationToken ct = default) =>
-        FromDisplayPage(await RequireDisplayPageAsync(_api.GetDisplayBrowseAsync(lane: "watch", grouping: "all", ct: ct), "watch"));
+        FromDisplayPage(await RequireDisplayPageAsync(
+            () => _api.GetDisplayBrowseAsync(lane: "watch", grouping: "all", ct: ct),
+            "watch",
+            ct));
 
     public async Task<DiscoveryPageViewModel> BuildListenAsync(Guid? profileId = null, CancellationToken ct = default) =>
         FromDisplayPage(await RequireDisplayPageAsync(
-            _api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", profileId: profileId, ct: ct),
-            "listen"));
+            () => _api.GetDisplayBrowseAsync(lane: "listen", grouping: "all", profileId: profileId, ct: ct),
+            "listen",
+            ct));
 
     public static bool IsUserVisiblePlaylist(ManagedCollectionViewModel collection)
     {
@@ -391,10 +399,33 @@ public sealed class MediaTileComposerService
                ?? ResolveCardNavigationUrl(card);
     }
 
-    private static async Task<DisplayPageDto> RequireDisplayPageAsync(Task<DisplayPageDto?> request, string surface)
+    private async Task<DisplayPageDto> RequireDisplayPageAsync(
+        Func<Task<DisplayPageDto?>> request,
+        string surface,
+        CancellationToken ct)
     {
-        var page = await request;
-        return page ?? throw new InvalidOperationException($"Display API did not return a page for {surface}.");
+        for (var attempt = 1; attempt <= DisplayReadAttempts; attempt++)
+        {
+            ct.ThrowIfCancellationRequested();
+            var page = await request();
+            if (page is not null)
+            {
+                return page;
+            }
+
+            if (attempt < DisplayReadAttempts)
+            {
+                var delay = _api.LastStatusCode == StatusCodes.Status429TooManyRequests
+                    ? _api.LastRetryAfter ?? TimeSpan.FromSeconds(1)
+                    : TimeSpan.FromMilliseconds(150 * attempt);
+                await Task.Delay(
+                    TimeSpan.FromMilliseconds(Math.Clamp(delay.TotalMilliseconds, 100, 60_000)),
+                    ct);
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"Display API did not return a page for {surface} after {DisplayReadAttempts} attempts.");
     }
 
     private static MediaTileBucket GetBucket(string? mediaType)

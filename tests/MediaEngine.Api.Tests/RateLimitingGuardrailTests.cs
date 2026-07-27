@@ -41,6 +41,18 @@ public sealed class RateLimitingGuardrailTests
             "streaming, general) receives no rate limiting at all — do not remove this default.");
     }
 
+    [Fact]
+    public void GeneralLimiter_AllowsDashboardRequestFanOutAndAdvertisesRetryTiming()
+    {
+        var defaults = new MediaEngine.Domain.Configuration.RateLimitingSettings();
+        var source = Read(@"src\MediaEngine.Api\Program.cs");
+
+        Assert.True(defaults.General.PermitLimit >= 600);
+        Assert.Contains("options.OnRejected", source, StringComparison.Ordinal);
+        Assert.Contains("MetadataName.RetryAfter", source, StringComparison.Ordinal);
+        Assert.Contains("Response.Headers.RetryAfter", source, StringComparison.Ordinal);
+    }
+
     private static string Read(string relativePath) =>
         File.ReadAllText(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath)));
 }

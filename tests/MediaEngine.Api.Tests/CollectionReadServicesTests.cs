@@ -594,6 +594,181 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionCatalog_ExpandsBookAndMovieSeriesIntoIndependentOwnedWorks()
+    {
+        var universeId = Guid.NewGuid();
+        var bookCollectionId = Guid.NewGuid();
+        var movieCollectionId = Guid.NewGuid();
+        var bookRootId = Guid.NewGuid();
+        var movieRootId = Guid.NewGuid();
+        var firstBookId = Guid.NewGuid();
+        var secondBookId = Guid.NewGuid();
+        var firstMovieId = Guid.NewGuid();
+        var secondMovieId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, wikidata_qid)
+                VALUES (
+                    @UniverseId, 'Shared Story World', 'Universe', 'library', 'materialized', 'QUNIVERSE');
+                INSERT INTO collections (
+                    id, parent_collection_id, display_name, collection_type, scope, resolution, group_by_field)
+                VALUES (
+                    @BookCollectionId, @UniverseId, 'Novel Sequence', 'ContentGroup', 'library', 'materialized', 'series');
+                INSERT INTO collections (
+                    id, parent_collection_id, display_name, collection_type, scope, resolution, group_by_field)
+                VALUES (
+                    @MovieCollectionId, @UniverseId, 'Film Sequence', 'ContentGroup', 'library', 'materialized', 'series');
+
+                INSERT INTO works (id, media_type, work_kind, ownership, curator_state)
+                VALUES
+                    (@BookRootId, 'Books', 'parent', 'Owned', 'Accepted'),
+                    (@MovieRootId, 'Movies', 'parent', 'Owned', 'Accepted');
+                INSERT INTO works (
+                    id, parent_work_id, collection_id, media_type, work_kind, ownership, curator_state, ordinal)
+                VALUES
+                    (@FirstBookId, @BookRootId, @BookCollectionId, 'Books', 'child', 'Owned', 'Accepted', 1),
+                    (@SecondBookId, @BookRootId, @BookCollectionId, 'Books', 'child', 'Owned', 'Accepted', 2),
+                    (@FirstMovieId, @MovieRootId, @MovieCollectionId, 'Movies', 'child', 'Owned', 'Accepted', 1),
+                    (@SecondMovieId, @MovieRootId, @MovieCollectionId, 'Movies', 'child', 'Owned', 'Accepted', 2);
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES
+                    (@BookRootId, 'title', 'Novel Sequence', @Now),
+                    (@MovieRootId, 'title', 'Film Sequence', @Now),
+                    (@FirstBookId, 'title', 'First Novel', @Now),
+                    (@SecondBookId, 'title', 'Second Novel', @Now),
+                    (@FirstMovieId, 'title', 'First Film', @Now),
+                    (@SecondMovieId, 'title', 'Second Film', @Now);
+                """,
+                new
+                {
+                    UniverseId = universeId,
+                    BookCollectionId = bookCollectionId,
+                    MovieCollectionId = movieCollectionId,
+                    BookRootId = bookRootId,
+                    MovieRootId = movieRootId,
+                    FirstBookId = firstBookId,
+                    SecondBookId = secondBookId,
+                    FirstMovieId = firstMovieId,
+                    SecondMovieId = secondMovieId,
+                    Now = now,
+                });
+
+            foreach (var (workId, collectionId, extension) in new[]
+                     {
+                         (firstBookId, bookCollectionId, ".epub"),
+                         (secondBookId, bookCollectionId, ".epub"),
+                         (firstMovieId, movieCollectionId, ".mkv"),
+                         (secondMovieId, movieCollectionId, ".mkv"),
+                     })
+            {
+                var editionId = Guid.NewGuid();
+                var assetId = Guid.NewGuid();
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO editions (id, work_id)
+                    VALUES (@EditionId, @WorkId);
+                    INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES (@AssetId, @EditionId, @ContentHash, @FilePath);
+                    INSERT INTO collection_items (id, collection_id, work_id, sort_order)
+                    VALUES (@ItemId, @CollectionId, @WorkId, 0);
+                    """,
+                    new
+                    {
+                        EditionId = editionId,
+                        WorkId = workId,
+                        AssetId = assetId,
+                        ContentHash = $"independent-{assetId:N}",
+                        FilePath = $"C:/library/{workId:N}{extension}",
+                        ItemId = Guid.NewGuid(),
+                        CollectionId = collectionId,
+                    });
+            }
+        }
+
+        var result = await _catalog.GetItemsAsync(universeId, null, 20, CancellationToken.None);
+
+        Assert.True(result.Found);
+        Assert.Equal(4, result.Items.Count);
+        Assert.DoesNotContain(result.Items, item => item.WorkId == bookRootId || item.WorkId == movieRootId);
+        Assert.Collection(
+            result.Items.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
+            item => Assert.Equal($"/details/work/{firstMovieId:D}?context=watch", item.DetailRoute),
+            item => Assert.Equal($"/details/work/{firstBookId:D}?context=read", item.DetailRoute),
+            item => Assert.Equal($"/details/work/{secondMovieId:D}?context=watch", item.DetailRoute),
+            item => Assert.Equal($"/details/work/{secondBookId:D}?context=read", item.DetailRoute));
+    }
+
+    [Fact]
+    public async Task CollectionCatalog_UsesOwnedAudiobookIdentityInsteadOfItsSeriesParent()
+    {
+        var universeId = Guid.NewGuid();
+        var audioCollectionId = Guid.NewGuid();
+        var audioSeriesRootId = Guid.NewGuid();
+        var ownedAudiobookWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, wikidata_qid)
+                VALUES (
+                    @UniverseId, 'Shared Story World', 'Universe', 'library', 'materialized', 'QUNIVERSE');
+                INSERT INTO collections (
+                    id, parent_collection_id, display_name, collection_type, scope, resolution, group_by_field)
+                VALUES (
+                    @AudioCollectionId, @UniverseId, 'Audio Series', 'ContentGroup', 'library', 'materialized', 'series');
+                INSERT INTO works (id, media_type, work_kind, ownership, curator_state)
+                VALUES (@AudioSeriesRootId, 'Audiobooks', 'parent', 'Owned', 'Accepted');
+                INSERT INTO works (
+                    id, parent_work_id, collection_id, media_type, work_kind, ownership, curator_state)
+                VALUES (
+                    @OwnedAudiobookWorkId, @AudioSeriesRootId, @AudioCollectionId, 'Audiobooks', 'child', 'Owned', 'Accepted');
+                INSERT INTO editions (id, work_id)
+                VALUES (@EditionId, @OwnedAudiobookWorkId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@AssetId, @EditionId, 'audio-independent', 'C:/library/Leviathan Wakes.m4b');
+                INSERT INTO collection_items (id, collection_id, work_id, sort_order)
+                VALUES (@ItemId, @AudioCollectionId, @OwnedAudiobookWorkId, 1);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES
+                    (@AudioSeriesRootId, 'title', 'The Expanse', @Now),
+                    (@AssetId, 'title', 'Leviathan Wakes', @Now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@AssetId, 'author', 0, 'James S. A. Corey');
+                """,
+                new
+                {
+                    UniverseId = universeId,
+                    AudioCollectionId = audioCollectionId,
+                    AudioSeriesRootId = audioSeriesRootId,
+                    OwnedAudiobookWorkId = ownedAudiobookWorkId,
+                    EditionId = editionId,
+                    AssetId = assetId,
+                    ItemId = Guid.NewGuid(),
+                    Now = now,
+                });
+        }
+
+        var item = Assert.Single(
+            (await _catalog.GetItemsAsync(universeId, null, 20, CancellationToken.None)).Items);
+
+        Assert.Equal(ownedAudiobookWorkId, item.WorkId);
+        Assert.Equal("Leviathan Wakes", item.Title);
+        Assert.Equal("James S. A. Corey", item.Creator);
+        Assert.Equal($"/details/work/{ownedAudiobookWorkId:D}?context=listen", item.DetailRoute);
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();

@@ -179,6 +179,19 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+        options.OnRejected = (rejectedContext, _) =>
+        {
+            if (rejectedContext.Lease.TryGetMetadata(
+                    MetadataName.RetryAfter,
+                    out var retryAfter))
+            {
+                rejectedContext.HttpContext.Response.Headers.RetryAfter =
+                    Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds))
+                        .ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            return ValueTask.CompletedTask;
+        };
         options.AddPolicy("key_generation", context =>
             RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",

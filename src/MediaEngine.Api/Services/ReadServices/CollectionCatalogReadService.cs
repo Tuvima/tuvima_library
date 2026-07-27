@@ -880,16 +880,52 @@ public sealed class CollectionCatalogReadService(
         using var conn = db.CreateConnection();
         var rows = await conn.QueryAsync<CollectionDisplayWorkRow>(new CommandDefinition(
             """
+            WITH RECURSIVE source_roots(SourceWorkId, RootWorkId, RootMediaType) AS (
+                SELECT DISTINCT
+                       w.id AS SourceWorkId,
+                       CASE
+                           WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)
+                           WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
+                           ELSE w.id
+                       END AS RootWorkId,
+                       COALESCE(gp.media_type, p.media_type, w.media_type) AS RootMediaType
+                FROM works w
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                WHERE w.id IN @WorkIds
+            ),
+            work_tree(SourceWorkId, RootWorkId, RootMediaType, WorkId) AS (
+                SELECT SourceWorkId,
+                       RootWorkId,
+                       RootMediaType,
+                       SourceWorkId
+                FROM source_roots
+                UNION ALL
+                SELECT work_tree.SourceWorkId,
+                       work_tree.RootWorkId,
+                       work_tree.RootMediaType,
+                       child.id
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
+            )
             SELECT DISTINCT
                    CASE
-                       WHEN w.work_kind = 'child' THEN COALESCE(gp.id, p.id, w.id)
-                       WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
-                       ELSE w.id
+                       WHEN LOWER(RootMediaType) LIKE '%tv%'
+                         OR LOWER(RootMediaType) LIKE '%comic%'
+                         OR LOWER(RootMediaType) LIKE '%music%'
+                       THEN RootWorkId
+                       ELSE WorkId
                    END AS WorkId
-            FROM works w
-            LEFT JOIN works p ON p.id = w.parent_work_id
-            LEFT JOIN works gp ON gp.id = p.parent_work_id
-            WHERE w.id IN @WorkIds;
+            FROM work_tree
+            WHERE LOWER(RootMediaType) LIKE '%tv%'
+               OR LOWER(RootMediaType) LIKE '%comic%'
+               OR LOWER(RootMediaType) LIKE '%music%'
+               OR EXISTS (
+                   SELECT 1
+                   FROM editions e
+                   INNER JOIN media_assets ma ON ma.edition_id = e.id
+                   WHERE e.work_id = work_tree.WorkId
+               );
             """,
             new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
             cancellationToken: ct)).ConfigureAwait(false);
@@ -978,23 +1014,37 @@ public sealed class CollectionCatalogReadService(
                    w.work_kind AS WorkKind,
                    COALESCE(
                        NULLIF(title_work.value, ''),
+                       NULLIF(title_asset.value, ''),
                        NULLIF(episode_title.value, ''),
                        NULLIF(show_name.value, ''),
                        NULLIF(series_item.item_label, ''),
                        'Untitled'
                    ) AS Title,
-                   (SELECT NULLIF(cva.value, '')
-                    FROM canonical_value_arrays cva
-                    WHERE cva.entity_id = w.id
-                      AND cva.key IN ('author', 'album_artist', 'artist', 'director')
-                    ORDER BY CASE cva.key
-                                 WHEN 'author' THEN 1
-                                 WHEN 'album_artist' THEN 2
-                                 WHEN 'artist' THEN 3
-                                 ELSE 4
-                             END,
-                             cva.ordinal
-                    LIMIT 1) AS Creator,
+                   COALESCE(
+                       (SELECT NULLIF(cva.value, '')
+                        FROM canonical_value_arrays cva
+                        WHERE cva.entity_id = w.id
+                          AND cva.key IN ('author', 'album_artist', 'artist', 'director')
+                        ORDER BY CASE cva.key
+                                     WHEN 'author' THEN 1
+                                     WHEN 'album_artist' THEN 2
+                                     WHEN 'artist' THEN 3
+                                     ELSE 4
+                                 END,
+                                 cva.ordinal
+                        LIMIT 1),
+                       (SELECT NULLIF(cva.value, '')
+                        FROM canonical_value_arrays cva
+                        WHERE cva.entity_id = ra.AssetId
+                          AND cva.key IN ('author', 'album_artist', 'artist', 'director')
+                        ORDER BY CASE cva.key
+                                     WHEN 'author' THEN 1
+                                     WHEN 'album_artist' THEN 2
+                                     WHEN 'artist' THEN 3
+                                     ELSE 4
+                                 END,
+                                 cva.ordinal
+                        LIMIT 1)) AS Creator,
                    w.media_type AS MediaType,
                    COALESCE(
                        NULLIF(cover_asset.value, ''),
@@ -1018,6 +1068,7 @@ public sealed class CollectionCatalogReadService(
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
+            LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ra.AssetId AND title_asset.key = 'title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
             LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
@@ -1064,27 +1115,6 @@ public sealed class CollectionCatalogReadService(
             && mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
         {
             return $"/details/comicseries/{row.StructuralCollectionId.Value:D}?context=comics";
-        }
-
-        if (isParent
-            && row.StructuralCollectionId.HasValue
-            && mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/details/movieseries/{row.StructuralCollectionId.Value:D}?context=watch";
-        }
-
-        if (isParent
-            && row.StructuralCollectionId.HasValue
-            && mediaType.Contains("book", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/details/bookseries/{row.StructuralCollectionId.Value:D}?context=read";
-        }
-
-        if (isParent
-            && row.StructuralCollectionId.HasValue
-            && mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"/details/collection/{row.StructuralCollectionId.Value:D}?context=listen";
         }
 
         var context = IsWatchMediaType(mediaType)

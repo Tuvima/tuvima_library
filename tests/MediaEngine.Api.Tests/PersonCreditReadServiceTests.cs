@@ -1,3 +1,4 @@
+using Dapper;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain;
 using MediaEngine.Storage;
@@ -630,6 +631,133 @@ public sealed class PersonCreditReadServiceTests : IDisposable
         var bryan = Assert.Single(credits, credit => credit.Name == "Bryan Cranston");
         Assert.Equal("Walter White", bryan.CharacterName);
         Assert.DoesNotContain(bryan.Characters, character => character.CharacterName == "Saul Goodman");
+    }
+
+    [Fact]
+    public async Task BuildForWorkAsync_RemovesABroadcastFirstCharacterAndUsesActorSpecificClaims()
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var providerId = WellKnownProviders.Tmdb;
+        var timId = Guid.NewGuid();
+        var morganId = Guid.NewGuid();
+        var bobId = Guid.NewGuid();
+        var andyId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
+                    VALUES ($providerId, 'tmdb', '1.0', 1);
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($workId, 'Movies', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'shawshank-role-regression', 'C:/library/The Shawshank Redemption.mkv');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($assetId, 'wikidata_qid', 'Q172241', $now);
+
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                VALUES
+                    ($timId, 'Tim Robbins', 'Q95048', $now),
+                    ($morganId, 'Morgan Freeman', 'Q48337', $now),
+                    ($bobId, 'Bob Gunton', 'Q352203', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($andyId, 'Q56240620', 'Andy Dufresne', 'Character', $now);
+
+                -- Historical ingestion incorrectly broadcast this one structural
+                -- character to every actor in the film.
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                VALUES
+                    ($timId, $andyId, 'Q172241'),
+                    ($morganId, $andyId, 'Q172241'),
+                    ($bobId, $andyId, 'Q172241');
+
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                VALUES
+                    ($workId, 'cast_member', 0, 'Tim Robbins', 'Q95048'),
+                    ($workId, 'cast_member', 1, 'Morgan Freeman', 'Q48337'),
+                    ($workId, 'cast_member', 2, 'Bob Gunton', 'Q352203'),
+                    ($workId, 'characters', 0, 'Andy Dufresne', 'Q56240620');
+
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                VALUES
+                    ($claim1, $workId, $providerId, 'cast_member', 'Tim Robbins', 0.90, $now),
+                    ($claim2, $workId, $providerId, 'cast_member_character', 'Andy Dufresne', 0.90, $now),
+                    ($claim3, $workId, $providerId, 'cast_member', 'Morgan Freeman', 0.90, $now),
+                    ($claim4, $workId, $providerId, 'cast_member_character', 'Ellis Boyd Red Redding', 0.90, $now),
+                    ($claim5, $workId, $providerId, 'cast_member', 'Bob Gunton', 0.90, $now),
+                    ($claim6, $workId, $providerId, 'cast_member_character', 'Warden Norton', 0.90, $now);
+                """;
+            AddGuid(cmd, "$providerId", providerId);
+            AddGuid(cmd, "$workId", workId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            AddGuid(cmd, "$timId", timId);
+            AddGuid(cmd, "$morganId", morganId);
+            AddGuid(cmd, "$bobId", bobId);
+            AddGuid(cmd, "$andyId", andyId);
+            for (var i = 1; i <= 6; i++)
+            {
+                AddGuid(cmd, $"$claim{i}", Guid.NewGuid());
+            }
+
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var credits = await CreateService().BuildForWorkAsync(workId, CancellationToken.None);
+
+        Assert.Equal("Andy Dufresne", Assert.Single(credits, credit => credit.Name == "Tim Robbins").CharacterName);
+        Assert.Equal("Ellis Boyd Red Redding", Assert.Single(credits, credit => credit.Name == "Morgan Freeman").CharacterName);
+        Assert.Equal("Warden Norton", Assert.Single(credits, credit => credit.Name == "Bob Gunton").CharacterName);
+    }
+
+    [Fact]
+    public async Task BuildForWorkAsync_DoesNotShiftCharactersPastAnActorWithNoCharacterClaim()
+    {
+        var workId = Guid.NewGuid();
+        var providerId = WellKnownProviders.Tmdb;
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
+                VALUES (@ProviderId, 'tmdb', '1.0', 1);
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@WorkId, 'Movies', 'standalone');
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                VALUES
+                    (@Claim1, @WorkId, @ProviderId, 'cast_member', 'First Actor', 0.90, @Now),
+                    (@Claim2, @WorkId, @ProviderId, 'cast_member_character', 'First Role', 0.90, @Now),
+                    (@Claim3, @WorkId, @ProviderId, 'cast_member', 'Uncredited Role Actor', 0.90, @Now),
+                    (@Claim4, @WorkId, @ProviderId, 'cast_member', 'Third Actor', 0.90, @Now),
+                    (@Claim5, @WorkId, @ProviderId, 'cast_member_character', 'Third Role', 0.90, @Now);
+                """,
+                new
+                {
+                    ProviderId = providerId,
+                    WorkId = workId,
+                    Claim1 = Guid.NewGuid(),
+                    Claim2 = Guid.NewGuid(),
+                    Claim3 = Guid.NewGuid(),
+                    Claim4 = Guid.NewGuid(),
+                    Claim5 = Guid.NewGuid(),
+                    Now = now,
+                });
+        }
+
+        var credits = await CreateService().BuildForWorkAsync(workId, CancellationToken.None);
+
+        Assert.Equal("First Role", Assert.Single(credits, credit => credit.Name == "First Actor").CharacterName);
+        Assert.Empty(Assert.Single(credits, credit => credit.Name == "Uncredited Role Actor").Characters);
+        Assert.Equal("Third Role", Assert.Single(credits, credit => credit.Name == "Third Actor").CharacterName);
     }
 
     [Fact]
