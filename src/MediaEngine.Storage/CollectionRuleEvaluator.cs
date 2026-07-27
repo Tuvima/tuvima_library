@@ -23,8 +23,8 @@ public sealed class CollectionRuleEvaluator
     private readonly IDatabaseConnection _db;
 
     /// <summary>
-    /// Builds a "w.id IN (...)" clause that finds works whose canonical_values
-    /// row matches <paramref name="cvPredicate"/> on EITHER the asset row
+    /// Builds a "w.id IN (...)" clause that finds works whose canonical scalar
+    /// or array row matches <paramref name="cvPredicate"/> on EITHER the asset row
     /// (Self-scope) or the root parent Work row (Parent-scope, walking
     /// parent_work_id up two levels).
     /// </summary>
@@ -42,6 +42,17 @@ public sealed class CollectionRuleEvaluator
                 LEFT JOIN works p2  ON p2.id  = w2.parent_work_id
                 LEFT JOIN works gp2 ON gp2.id = p2.parent_work_id
                 INNER JOIN canonical_values cv ON cv.entity_id = COALESCE(gp2.id, p2.id, w2.id)
+                WHERE {{cvPredicate}}
+                UNION
+                SELECT e_cv.work_id FROM editions e_cv
+                INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id
+                INNER JOIN canonical_value_arrays cv ON cv.entity_id = ma_cv.id
+                WHERE {{cvPredicate}}
+                UNION
+                SELECT w2.id FROM works w2
+                LEFT JOIN works p2  ON p2.id  = w2.parent_work_id
+                LEFT JOIN works gp2 ON gp2.id = p2.parent_work_id
+                INNER JOIN canonical_value_arrays cv ON cv.entity_id = COALESCE(gp2.id, p2.id, w2.id)
                 WHERE {{cvPredicate}}
             )
             """;
@@ -62,7 +73,18 @@ public sealed class CollectionRuleEvaluator
              LEFT JOIN works p_p  ON p_p.id  = w_p.parent_work_id
              LEFT JOIN works gp_p ON gp_p.id = p_p.parent_work_id
              INNER JOIN canonical_values cv ON cv.entity_id = COALESCE(gp_p.id, p_p.id, w_p.id)
-             WHERE w_p.id = w.id AND cv.key = {{keyParam}} LIMIT 1)
+             WHERE w_p.id = w.id AND cv.key = {{keyParam}} LIMIT 1),
+            (SELECT cv.value FROM editions e_cv
+             INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id
+             INNER JOIN canonical_value_arrays cv ON cv.entity_id = ma_cv.id
+             WHERE e_cv.work_id = w.id AND cv.key = {{keyParam}}
+             ORDER BY cv.ordinal LIMIT 1),
+            (SELECT cv.value FROM works w_p
+             LEFT JOIN works p_p  ON p_p.id  = w_p.parent_work_id
+             LEFT JOIN works gp_p ON gp_p.id = p_p.parent_work_id
+             INNER JOIN canonical_value_arrays cv ON cv.entity_id = COALESCE(gp_p.id, p_p.id, w_p.id)
+             WHERE w_p.id = w.id AND cv.key = {{keyParam}}
+             ORDER BY cv.ordinal LIMIT 1)
         )
         """;
 

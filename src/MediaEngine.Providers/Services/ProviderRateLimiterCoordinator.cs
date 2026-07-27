@@ -360,6 +360,13 @@ public sealed class ProviderRateLimiterCoordinator : IProviderRateLimiterCoordin
 
 public static class ProviderRateLimitDefaults
 {
+    public static readonly ProviderRateLimitConfiguration MusicBrainz = new()
+    {
+        RequestsPerSecond = 1,
+        Burst = 1,
+        MaxConcurrency = 1
+    };
+
     public static readonly ProviderRateLimitConfiguration Apple = new()
     {
         RequestsPerMinute = 20,

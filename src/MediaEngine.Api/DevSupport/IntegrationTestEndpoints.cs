@@ -5,7 +5,11 @@ using System.Text.Json;
 using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Details;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Collections;
+using MediaEngine.Contracts.Details;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -62,6 +66,8 @@ public static class IntegrationTestEndpoints
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
         public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
         public List<CrossMediaSeriesCheckResult> CrossMediaSeriesChecks { get; set; } = [];
+        public List<PersonCoverageCheckResult> PersonCoverageChecks { get; set; } = [];
+        public List<DetailRouteCheckResult> DetailRouteChecks { get; set; } = [];
         public List<MusicAlbumHarnessCheckResult> MusicAlbumChecks { get; set; } = [];
         public List<CharacterArtworkCheckResult> CharacterArtworkChecks { get; set; } = [];
         public List<DescriptionSourceCheckResult> DescriptionSourceChecks { get; set; } = [];
@@ -86,6 +92,8 @@ public static class IntegrationTestEndpoints
             && Stage3FanartSummaries.All(result => result.Pass)
             && SeriesHarnessChecks.All(result => result.Pass)
             && CrossMediaSeriesChecks.All(result => result.Pass)
+            && PersonCoverageChecks.All(result => result.Pass)
+            && DetailRouteChecks.All(result => result.Pass)
             && MusicAlbumChecks.All(result => result.Pass)
             && CharacterArtworkChecks.All(result => result.Pass)
             && DescriptionSourceChecks.All(result => result.Pass);
@@ -519,11 +527,55 @@ public static class IntegrationTestEndpoints
         public bool HasAllRequiredMediaTypes =>
             RequiredMediaTypes.All(required =>
                 FoundMediaTypes.Any(found => string.Equals(found, required, StringComparison.OrdinalIgnoreCase)));
-        public bool HasCrossMediaLink => HasSharedParentCollection || HasSharedNarrativeRoot;
+        public bool HasCrossMediaLink => HasSharedParentCollection;
         public bool Pass => OwnedCount > 0 && HasAllRequiredMediaTypes && HasCrossMediaLink;
         public string Detail => Pass
             ? $"Found {string.Join(", ", FoundMediaTypes)} with shared cross-media linkage."
             : $"Found {string.Join(", ", FoundMediaTypes.DefaultIfEmpty("none"))}; required {string.Join(", ", RequiredMediaTypes)}; shared parent={HasSharedParentCollection}; shared narrative root={HasSharedNarrativeRoot}.";
+    }
+
+    private sealed class PersonCoverageCheckResult
+    {
+        public string Name { get; set; } = "";
+        public bool PersonFound { get; set; }
+        public List<PersonCreditRequirementResult> Requirements { get; set; } = [];
+        public bool Pass => PersonFound && Requirements.All(requirement => requirement.Pass);
+        public string Detail => !PersonFound
+            ? "No canonical person record was found."
+            : string.Join(
+                "; ",
+                Requirements.Select(requirement =>
+                    $"{requirement.MediaType}/{requirement.Role}"
+                    + (string.IsNullOrWhiteSpace(requirement.TitlePattern) ? "" : $" containing '{requirement.TitlePattern}'")
+                    + $": {requirement.ActualCount}/{requirement.MinimumCount}"));
+    }
+
+    private sealed class DetailRouteCheckResult
+    {
+        public string Surface { get; set; } = "";
+        public string Title { get; set; } = "";
+        public string Route { get; set; } = "";
+        public bool Resolved { get; set; }
+        public bool UsesExpectedTabs { get; set; } = true;
+        public bool SuppressesCollectionCredits { get; set; } = true;
+        public bool Pass => Resolved && UsesExpectedTabs && SuppressesCollectionCredits;
+        public string Detail => !Resolved
+            ? "The outward browse ID did not compose a canonical detail page."
+            : !UsesExpectedTabs
+                ? "The detail page did not use the expected shared navigation contract."
+                : !SuppressesCollectionCredits
+                    ? "A standard collection exposed a media-credit shelf."
+                    : "The outward browse ID resolves through the canonical detail composer.";
+    }
+
+    private sealed class PersonCreditRequirementResult
+    {
+        public string MediaType { get; set; } = "";
+        public string Role { get; set; } = "";
+        public string? TitlePattern { get; set; }
+        public int MinimumCount { get; set; }
+        public int ActualCount { get; set; }
+        public bool Pass => ActualCount >= MinimumCount;
     }
 
     private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
@@ -695,6 +747,8 @@ public static class IntegrationTestEndpoints
         ICanonicalValueArrayRepository canonicalArrayRepo,
         IPersonRepository personRepo,
         IPersonCreditReadService personCreditReadService,
+        ICollectionBrowseReadService collectionBrowseReadService,
+        DetailComposerService detailComposer,
         IEnumerable<IExternalMetadataProvider> providers,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -915,7 +969,21 @@ public static class IntegrationTestEndpoints
                 await ValidateFileSystemAsync(db, options, configLoader, libraryItemRepo, report, loggerFactory, logger, ct);
                 ValidateStage3FanartAsync(report, logger);
                 await ValidateCharacterArtworkAsync(db, personCreditReadService, report, logger, ct);
+                await ValidatePersonCoverageAsync(
+                    personRepo,
+                    personCreditReadService,
+                    report,
+                    logger,
+                    ct);
             }
+
+            logger.LogInformation("[Phase 8] Validating outward links against the canonical detail composer...");
+            await ValidateOutwardDetailRoutesAsync(
+                collectionBrowseReadService,
+                detailComposer,
+                report,
+                logger,
+                ct);
 
             sw.Stop();
             report.TotalDuration = sw.Elapsed;
@@ -1093,6 +1161,17 @@ public static class IntegrationTestEndpoints
     private static bool ContainsIgnoreCase(string? value, string pattern) =>
         !string.IsNullOrWhiteSpace(value)
         && value.Contains(pattern, StringComparison.OrdinalIgnoreCase);
+
+    private static bool MatchesHarnessContributorRole(string? actualRole, string expectedRole)
+    {
+        if (string.Equals(actualRole, expectedRole, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return string.Equals(expectedRole, "Artist", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(actualRole, "Performer", StringComparison.OrdinalIgnoreCase);
+    }
 
     private static IEnumerable<string> SharedCrossMediaQids(CrossMediaHarnessRow row)
     {
@@ -2539,8 +2618,8 @@ public static class IntegrationTestEndpoints
                        NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id IN (child.id, asset.id) AND key = 'album' LIMIT 1), '')
                    ) AS Album,
                    COALESCE(
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key IN ('album_artist', 'artist', 'author') LIMIT 1), ''),
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id IN (child.id, asset.id) AND key IN ('album_artist', 'artist', 'author') LIMIT 1), '')
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id = parent.id AND key IN ('album_artist', 'artist', 'author') ORDER BY ordinal LIMIT 1), ''),
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id IN (child.id, asset.id) AND key IN ('album_artist', 'artist', 'author') ORDER BY ordinal LIMIT 1), '')
                    ) AS Artist,
                    COUNT(DISTINCT child.id) AS OwnedTrackCount,
                    (SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key = 'child_entities_json' LIMIT 1) AS ChildEntitiesJson,
@@ -2644,6 +2723,11 @@ public static class IntegrationTestEndpoints
     {
         var expectations = new[]
         {
+            new CrossMediaSeriesExpectation(
+                "The Expanse books/audiobooks/TV",
+                ["the expanse", "leviathan wakes", "caliban"],
+                ["books", "audiobooks", "tv"],
+                ["Books", "Audiobooks", "TV"]),
             new CrossMediaSeriesExpectation(
                 "Dune audiobook/movie",
                 ["dune"],
@@ -2782,6 +2866,236 @@ public static class IntegrationTestEndpoints
             if (!check.Pass)
             {
                 report.IssuesFound.Add($"Cross-media series: {check.Name} did not meet harness expectations. {check.Detail}");
+            }
+        }
+    }
+
+    private static async Task ValidatePersonCoverageAsync(
+        IPersonRepository personRepo,
+        IPersonCreditReadService personCreditReadService,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        report.PersonCoverageChecks.Clear();
+        var expectations = new[]
+        {
+            new PersonCoverageExpectation(
+                "Stephen King",
+                ["books", "audiobooks"],
+                [
+                    new PersonCreditRequirement("books", "Author", 2),
+                    new PersonCreditRequirement("audiobooks", "Author", 1),
+                ]),
+            new PersonCoverageExpectation(
+                "James S. A. Corey",
+                ["books", "audiobooks"],
+                [
+                    new PersonCreditRequirement("books", "Author", 2),
+                    new PersonCreditRequirement("audiobooks", "Author", 1),
+                ]),
+            new PersonCoverageExpectation(
+                "David Bowie",
+                ["music"],
+                [
+                    new PersonCreditRequirement("music", "Artist", 2),
+                ]),
+            new PersonCoverageExpectation(
+                "Andy Serkis",
+                ["audiobooks", "movies"],
+                [
+                    new PersonCreditRequirement("audiobooks", "Narrator", 1, "The Hobbit"),
+                    new PersonCreditRequirement("movies", "Actor", 1, "Planet of the Apes"),
+                ]),
+            new PersonCoverageExpectation(
+                "Bryan Cranston",
+                ["movies", "tv"],
+                [
+                    new PersonCreditRequirement("movies", "Actor", 1, "Drive"),
+                    new PersonCreditRequirement("tv", "Actor", 1, "Breaking Bad"),
+                ]),
+        };
+
+        foreach (var expected in expectations.Where(expected =>
+                     expected.RequiredMediaTypeKeys.All(key => report.ActiveTypes.Contains(key))))
+        {
+            ct.ThrowIfCancellationRequested();
+            var person = await personRepo.FindByNameAsync(expected.Name, ct);
+            var check = new PersonCoverageCheckResult
+            {
+                Name = expected.Name,
+                PersonFound = person is not null,
+            };
+
+            var credits = person is null
+                ? []
+                : await personCreditReadService.GetLibraryCreditsAsync(person.Id, ct);
+            foreach (var requirement in expected.Requirements)
+            {
+                var actualCount = credits
+                    .Where(credit =>
+                        string.Equals(
+                            NormalizeHarnessMediaTypeKey(credit.MediaType),
+                            requirement.MediaTypeKey,
+                            StringComparison.OrdinalIgnoreCase))
+                    .Where(credit =>
+                        MatchesHarnessContributorRole(credit.Role, requirement.Role))
+                    .Where(credit =>
+                        string.IsNullOrWhiteSpace(requirement.TitlePattern)
+                        || ContainsIgnoreCase(credit.Title, requirement.TitlePattern))
+                    .Select(credit => credit.WorkId)
+                    .Distinct()
+                    .Count();
+
+                check.Requirements.Add(new PersonCreditRequirementResult
+                {
+                    MediaType = NormalizeHarnessMediaTypeDisplay(requirement.MediaTypeKey),
+                    Role = requirement.Role,
+                    TitlePattern = requirement.TitlePattern,
+                    MinimumCount = requirement.MinimumCount,
+                    ActualCount = actualCount,
+                });
+            }
+
+            report.PersonCoverageChecks.Add(check);
+            logger.LogInformation(
+                "  Person coverage {Name}: found={Found}, pass={Pass}, {Detail}",
+                check.Name,
+                check.PersonFound,
+                check.Pass,
+                check.Detail);
+            if (!check.Pass)
+            {
+                report.IssuesFound.Add(
+                    $"Person coverage: {check.Name} did not meet repeat/cross-media expectations. {check.Detail}");
+            }
+        }
+    }
+
+    private static async Task ValidateOutwardDetailRoutesAsync(
+        ICollectionBrowseReadService collectionBrowse,
+        DetailComposerService detailComposer,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        report.DetailRouteChecks.Clear();
+
+        if (report.ActiveTypes.Contains("audiobooks"))
+        {
+            await ValidateSystemViewAsync(
+                "Audiobook series",
+                "Audiobooks",
+                "series",
+                DetailEntityType.Collection,
+                DetailPresentationContext.Listen,
+                group => SystemViewGroupIdentity.CreateId(group, "Audiobooks", "series"),
+                id => $"/details/collection/{id:D}?context=listen",
+                enforceSharedCollectionContract: true);
+        }
+
+        if (report.ActiveTypes.Contains("books"))
+        {
+            await ValidateSystemViewAsync(
+                "Book series",
+                "Books",
+                "series",
+                DetailEntityType.BookSeries,
+                DetailPresentationContext.Read,
+                group => SystemViewGroupIdentity.CreateId(group, "Books", "series"),
+                id => $"/details/bookseries/{id:D}?context=read");
+        }
+
+        if (report.ActiveTypes.Contains("music"))
+        {
+            await ValidateSystemViewAsync(
+                "Music album",
+                "Music",
+                "album",
+                DetailEntityType.MusicAlbum,
+                DetailPresentationContext.Listen,
+                group => group.RootWorkId ?? group.CollectionId,
+                id => $"/details/musicalbum/{id:D}?context=listen",
+                expectedTabs: ["overview", "details"]);
+        }
+
+        if (report.ActiveTypes.Contains("tv"))
+        {
+            await ValidateSystemViewAsync(
+                "TV show",
+                "TV",
+                "show_name",
+                DetailEntityType.TvShow,
+                DetailPresentationContext.Watch,
+                group => group.RootWorkId ?? group.CollectionId,
+                id => $"/details/tvshow/{id:D}?context=watch");
+        }
+
+        async Task ValidateSystemViewAsync(
+            string surface,
+            string mediaType,
+            string groupField,
+            DetailEntityType entityType,
+            DetailPresentationContext context,
+            Func<ContentGroupDto, Guid> idSelector,
+            Func<Guid, string> routeSelector,
+            bool enforceSharedCollectionContract = false,
+            IReadOnlyList<string>? expectedTabs = null)
+        {
+            var groups = await collectionBrowse
+                .GetSystemViewGroupsAsync(mediaType, groupField, ct)
+                .ConfigureAwait(false);
+            foreach (var group in groups)
+            {
+                ct.ThrowIfCancellationRequested();
+                var id = idSelector(group);
+                var check = new DetailRouteCheckResult
+                {
+                    Surface = surface,
+                    Title = group.DisplayName,
+                    Route = routeSelector(id),
+                };
+
+                try
+                {
+                    var detail = await detailComposer
+                        .BuildAsync(entityType, id, context, ct)
+                        .ConfigureAwait(false);
+                    check.Resolved = detail is not null;
+                    if (detail is not null)
+                    {
+                        var requiredTabs = expectedTabs
+                            ?? (enforceSharedCollectionContract ? ["overview", "details"] : null);
+                        check.UsesExpectedTabs = requiredTabs is null
+                            || detail.Tabs.Select(tab => tab.Key)
+                                .SequenceEqual(requiredTabs, StringComparer.OrdinalIgnoreCase);
+                        check.SuppressesCollectionCredits = !enforceSharedCollectionContract
+                            || (detail.ContributorGroups.Count == 0 && detail.PreviewContributors.Count == 0);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(
+                        ex,
+                        "Outward detail route failed for {Surface} {Title} at {Route}",
+                        surface,
+                        group.DisplayName,
+                        check.Route);
+                }
+
+                report.DetailRouteChecks.Add(check);
+                logger.LogInformation(
+                    "  Detail route {Surface} / {Title}: resolved={Resolved}, tabs={Tabs}, noCollectionCredits={NoCredits}",
+                    check.Surface,
+                    check.Title,
+                    check.Resolved,
+                    check.UsesExpectedTabs,
+                    check.SuppressesCollectionCredits);
+                if (!check.Pass)
+                {
+                    report.IssuesFound.Add(
+                        $"Detail route: {check.Surface} '{check.Title}' failed at {check.Route}. {check.Detail}");
+                }
             }
         }
     }
@@ -2978,6 +3292,17 @@ public static class IntegrationTestEndpoints
         string[] MatchPatterns,
         string[] RequiredMediaTypeKeys,
         string[] RequiredMediaTypes);
+
+    private sealed record PersonCoverageExpectation(
+        string Name,
+        string[] RequiredMediaTypeKeys,
+        PersonCreditRequirement[] Requirements);
+
+    private sealed record PersonCreditRequirement(
+        string MediaTypeKey,
+        string Role,
+        int MinimumCount,
+        string? TitlePattern = null);
 
     private sealed record MusicAlbumHarnessExpectation(
         string Album,
@@ -3771,6 +4096,16 @@ public static class IntegrationTestEndpoints
             SummaryCard(sb, report.CrossMediaSeriesChecks.Count(s => s.Pass) + "/" + report.CrossMediaSeriesChecks.Count, "Cross-Media", "#C084FC");
         }
 
+        if (report.PersonCoverageChecks.Count > 0)
+        {
+            SummaryCard(sb, report.PersonCoverageChecks.Count(s => s.Pass) + "/" + report.PersonCoverageChecks.Count, "People Coverage", "#A78BFA");
+        }
+
+        if (report.DetailRouteChecks.Count > 0)
+        {
+            SummaryCard(sb, report.DetailRouteChecks.Count(s => s.Pass) + "/" + report.DetailRouteChecks.Count, "Detail Links", "#60A5FA");
+        }
+
         if (report.Stage3FanartSummaries.Count > 0)
         {
             SummaryCard(sb, report.Stage3FanartSummaries.Sum(s => s.WithAnyFanart) + "/" + report.Stage3FanartSummaries.Sum(s => s.EligibleCount), "Stage 3 Art", "#14B8A6");
@@ -4030,6 +4365,47 @@ public static class IntegrationTestEndpoints
                     $"<td>{Esc(string.Join(", ", check.FoundMediaTypes.DefaultIfEmpty("none")))}</td><td>{check.OwnedCount}</td>" +
                     $"<td>{BoolMark(check.HasSharedParentCollection)}</td><td>{BoolMark(check.HasSharedNarrativeRoot)}</td>" +
                     $"<td>{badge}</td><td>{Esc(check.Detail)}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        if (report.PersonCoverageChecks.Count > 0)
+        {
+            int peoplePass = report.PersonCoverageChecks.Count(check => check.Pass);
+            string peopleBadge = peoplePass == report.PersonCoverageChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.PersonCoverageChecks.Count - peoplePass} ISSUES</span>";
+            sb.AppendLine($"<h2>Repeat and Cross-Media People Validation {peopleBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Person</th><th>Canonical Record</th><th>Requirements</th><th>Status</th></tr>");
+            foreach (var check in report.PersonCoverageChecks.OrderBy(check => check.Name))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Name)}</td><td>{BoolMark(check.PersonFound)}</td>" +
+                    $"<td>{Esc(check.Detail)}</td><td>{badge}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        if (report.DetailRouteChecks.Count > 0)
+        {
+            int detailRoutePass = report.DetailRouteChecks.Count(check => check.Pass);
+            string detailRouteBadge = detailRoutePass == report.DetailRouteChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.DetailRouteChecks.Count - detailRoutePass} ISSUES</span>";
+            sb.AppendLine($"<h2>Outward Detail Link Validation {detailRouteBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Surface</th><th>Title</th><th>Canonical Route</th><th>Resolved</th><th>Shared Tabs</th><th>No Collection Credits</th><th>Status</th></tr>");
+            foreach (var check in report.DetailRouteChecks.OrderBy(check => check.Surface).ThenBy(check => check.Title))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Surface)}</td><td>{Esc(check.Title)}</td><td class=\"mono\">{Esc(check.Route)}</td>" +
+                    $"<td>{BoolMark(check.Resolved)}</td><td>{BoolMark(check.UsesExpectedTabs)}</td>" +
+                    $"<td>{BoolMark(check.SuppressesCollectionCredits)}</td><td>{badge}</td></tr>");
             }
             sb.AppendLine("</table>");
         }

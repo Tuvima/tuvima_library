@@ -130,7 +130,10 @@ public sealed class IdentityPipelineSignalTests
         public Task<IReadOnlyList<IdentityJob>> GetStaleAsync(TimeSpan age, int limit, CancellationToken ct = default) =>
             Task.FromResult<IReadOnlyList<IdentityJob>>([]);
 
-        public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default) =>
+        public Task<int> ReclaimStuckJobsAsync(
+            IdentityJobState processingState,
+            TimeSpan stuckThreshold,
+            CancellationToken ct = default) =>
             Task.FromResult(0);
 
         public Task<IReadOnlyList<IdentityJob>> GetByStateAsync(IdentityJobState state, int limit, CancellationToken ct = default) =>

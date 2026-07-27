@@ -317,7 +317,7 @@ public sealed partial class WikidataBridgeWorker
                     resolvedCount, contexts.Count);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex) when (ShouldResetBatchAfterFailure(ex, ct))
         {
             _logger.LogError(ex,
                 "Wikidata: batch resolution failed for {Count} job(s) — resetting for retry",

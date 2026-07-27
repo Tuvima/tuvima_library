@@ -233,12 +233,8 @@ public sealed class WorkRepository : IWorkRepository
                             END), '')) AS WikidataQid,
                    COALESCE(NULLIF(TRIM(cv_work_title.value), ''),
                             NULLIF(TRIM(cv_asset_title.value), '')) AS Title,
-                   COALESCE(NULLIF(TRIM(cv_work_author.value), ''),
-                            NULLIF(TRIM(cv_asset_author.value), ''),
-                            NULLIF(TRIM(cva_work_author.value), ''),
+                   COALESCE(NULLIF(TRIM(cva_work_author.value), ''),
                             NULLIF(TRIM(cva_asset_author.value), ''),
-                            NULLIF(TRIM(cv_work_artist.value), ''),
-                            NULLIF(TRIM(cv_asset_artist.value), ''),
                             NULLIF(TRIM(cva_work_artist.value), ''),
                             NULLIF(TRIM(cva_asset_artist.value), '')) AS Creator
             FROM   works w
@@ -257,18 +253,10 @@ public sealed class WorkRepository : IWorkRepository
                    ON cv_work_title.entity_id = w.id AND cv_work_title.key = 'title'
             LEFT JOIN canonical_values cv_asset_title
                    ON cv_asset_title.entity_id = ma.id AND cv_asset_title.key = 'title'
-            LEFT JOIN canonical_values cv_work_author
-                   ON cv_work_author.entity_id = w.id AND cv_work_author.key = 'author'
-            LEFT JOIN canonical_values cv_asset_author
-                   ON cv_asset_author.entity_id = ma.id AND cv_asset_author.key = 'author'
             LEFT JOIN canonical_value_arrays cva_work_author
                    ON cva_work_author.entity_id = w.id AND cva_work_author.key = 'author' AND cva_work_author.ordinal = 0
             LEFT JOIN canonical_value_arrays cva_asset_author
                    ON cva_asset_author.entity_id = ma.id AND cva_asset_author.key = 'author' AND cva_asset_author.ordinal = 0
-            LEFT JOIN canonical_values cv_work_artist
-                   ON cv_work_artist.entity_id = w.id AND cv_work_artist.key = 'artist'
-            LEFT JOIN canonical_values cv_asset_artist
-                   ON cv_asset_artist.entity_id = ma.id AND cv_asset_artist.key = 'artist'
             LEFT JOIN canonical_value_arrays cva_work_artist
                    ON cva_work_artist.entity_id = w.id AND cva_work_artist.key = 'artist' AND cva_work_artist.ordinal = 0
             LEFT JOIN canonical_value_arrays cva_asset_artist

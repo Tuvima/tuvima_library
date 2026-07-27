@@ -65,6 +65,9 @@ internal sealed partial class DetailCompositionOrchestrator
         var musicAlbumGroup = !hasCollectionRow && entityType == DetailEntityType.MusicAlbum
             ? await LoadMusicAlbumSystemViewGroupAsync(collectionId, ct)
             : null;
+        var audiobookSeriesGroup = !hasCollectionRow && entityType == DetailEntityType.Collection
+            ? await LoadAudiobookSeriesSystemViewGroupAsync(collectionId, ct)
+            : null;
         var row = hasCollectionRow
             ? new CollectionDetailRow(
                 Guid.Parse(StringValue(rawRow!.Id) ?? collectionId.ToString("D")),
@@ -93,6 +96,19 @@ internal sealed partial class DetailCompositionOrchestrator
                         null,
                         null,
                         null)
+                    : audiobookSeriesGroup is not null
+                        ? new CollectionDetailRow(
+                            collectionId,
+                            audiobookSeriesGroup.DisplayName,
+                            audiobookSeriesGroup.WikidataQid,
+                            audiobookSeriesGroup.Description,
+                            audiobookSeriesGroup.Tagline,
+                            audiobookSeriesGroup.CoverUrl,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null)
                     : null;
 
         if (row is null)
@@ -102,7 +118,7 @@ internal sealed partial class DetailCompositionOrchestrator
 
         var collectionValues = hasCollectionRow
             ? await LoadCanonicalMapAsync(collectionId, ct)
-            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            : BuildSystemViewCanonicalMap(audiobookSeriesGroup);
         var rootWorkId = hasCollectionRow
             ? await LoadCollectionRootWorkIdAsync(
                 collectionId,
@@ -110,7 +126,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 ct)
             : entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum
                 ? collectionId
-                : null;
+                : audiobookSeriesGroup?.RootWorkId;
         IReadOnlyList<Guid> resolvedCollectionWorkIds = [];
         if (hasCollectionRow
             && entityType == DetailEntityType.Collection
@@ -131,9 +147,12 @@ internal sealed partial class DetailCompositionOrchestrator
 
         var ownedWorks = musicAlbumGroup is not null
             ? await LoadMusicAlbumSystemViewWorksAsync(musicAlbumGroup, ct)
-            : await LoadCollectionWorksAsync(collectionId, rootWorkId, ct, resolvedCollectionWorkIds);
+            : audiobookSeriesGroup is not null
+                ? await LoadAudiobookSeriesSystemViewWorksAsync(audiobookSeriesGroup, ct)
+                : await LoadCollectionWorksAsync(collectionId, rootWorkId, ct, resolvedCollectionWorkIds);
         if (!hasCollectionRow
-            && entityType is (DetailEntityType.TvShow or DetailEntityType.MusicAlbum)
+            && (entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum
+                || audiobookSeriesGroup is not null)
             && ownedWorks.Count == 0)
         {
             return null;
@@ -259,7 +278,9 @@ internal sealed partial class DetailCompositionOrchestrator
             Id = collectionId.ToString("D"),
             EntityType = entityType,
             PresentationContext = context,
-            EditorTarget = BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
+            EditorTarget = audiobookSeriesGroup is not null && rootWorkId.HasValue
+                ? BuildCanonicalSystemViewEditorTarget(rootWorkId.Value)
+                : BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
             Title = collectionTitle,
             Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = entityType == DetailEntityType.TvShow
@@ -294,6 +315,125 @@ internal sealed partial class DetailCompositionOrchestrator
             IsAdminView = isAdminView,
         };
     }
+
+    private async Task<ContentGroupDto?> LoadAudiobookSeriesSystemViewGroupAsync(
+        Guid systemViewGroupId,
+        CancellationToken ct)
+    {
+        if (_collectionBrowse is null)
+        {
+            return null;
+        }
+
+        var groups = await _collectionBrowse
+            .GetSystemViewGroupsAsync("Audiobooks", "series", ct)
+            .ConfigureAwait(false);
+        return groups.FirstOrDefault(group =>
+            SystemViewGroupIdentity.CreateId(group, "Audiobooks", "series") == systemViewGroupId);
+    }
+
+    private async Task<IReadOnlyList<CollectionWorkSummary>> LoadAudiobookSeriesSystemViewWorksAsync(
+        ContentGroupDto group,
+        CancellationToken ct)
+    {
+        if (_collectionBrowse is null)
+        {
+            return [];
+        }
+
+        var rows = await _collectionBrowse.GetSystemViewDetailWorksAsync(
+            "series",
+            group.DisplayName,
+            "Audiobooks",
+            group.Creator,
+            ct);
+        var previewsByWorkId = group.PreviewItems
+            .GroupBy(item => item.WorkId)
+            .ToDictionary(items => items.Key, items => items.First());
+
+        return rows.Select((row, index) =>
+        {
+            var preview = previewsByWorkId.GetValueOrDefault(row.WorkId);
+            var seriesPosition = StringHelpers.FirstNonBlankOr(string.Empty, row.SeriesIndex);
+            var durationSource = StringHelpers.FirstNonBlankOr(
+                string.Empty,
+                row.DurationSecondsValue,
+                row.Duration,
+                row.Runtime);
+            var duration = FormatSecondsDuration(ParseDurationSeconds(durationSource))
+                ?? FormatTrackDuration(durationSource);
+            var assetId = row.AssetId?.ToString("D");
+            var artworkUrl = row.AssetId.HasValue
+                ? $"/stream/{row.AssetId.Value:D}/cover"
+                : preview?.ImageUrl;
+
+            return new CollectionWorkSummary(
+                row.WorkId.ToString("D"),
+                "Audiobooks",
+                TryParseInt(seriesPosition),
+                StringHelpers.FirstNonBlankOr(
+                    string.Empty,
+                    row.Title,
+                    preview?.Title,
+                    $"Audiobook {index + 1}"),
+                null,
+                null,
+                null,
+                null,
+                null,
+                duration,
+                StringHelpers.FirstNonBlankOr(string.Empty, row.ReleaseYear, row.YearValue),
+                row.Author,
+                false,
+                null,
+                null,
+                row.AssetId.HasValue,
+                "Owned",
+                false,
+                artworkUrl,
+                row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/background" : null,
+                assetId)
+            {
+                SequenceLabel = string.IsNullOrWhiteSpace(seriesPosition) ? null : seriesPosition,
+                SequenceSort = TryParseSeriesPositionSort(seriesPosition),
+            };
+        })
+        .OrderBy(work => work.SequenceSort ?? double.MaxValue)
+        .ThenBy(work => work.Title, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    }
+
+    private static Dictionary<string, string> BuildSystemViewCanonicalMap(ContentGroupDto? group)
+    {
+        var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        if (group is null)
+        {
+            return values;
+        }
+
+        Add(MetadataFieldConstants.Series, group.DisplayName);
+        Add(MetadataFieldConstants.Title, group.DisplayName);
+        Add(MetadataFieldConstants.Author, group.Creator);
+        Add(MetadataFieldConstants.Year, group.Year);
+        return values;
+
+        void Add(string key, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                values[key] = value.Trim();
+            }
+        }
+    }
+
+    private static DetailEditorTarget BuildCanonicalSystemViewEditorTarget(Guid rootWorkId)
+        => new()
+        {
+            EntityId = rootWorkId.ToString("D"),
+            EntityKind = "Work",
+            ContainerMode = "Canonical",
+            InitialTab = "details",
+        };
 
     private async Task<ContentGroupDto?> LoadMusicAlbumSystemViewGroupAsync(
         Guid rootWorkId,

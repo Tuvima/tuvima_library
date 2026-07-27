@@ -1,5 +1,6 @@
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
+using MediaEngine.Api.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
@@ -30,6 +31,7 @@ public sealed class DevHarnessResetService
     private readonly IOptions<IngestionOptions> _options;
     private readonly IConfigurationLoader _configLoader;
     private readonly IIngestionEngine _ingestionEngine;
+    private readonly EnrichmentPipelineExecutionGate _enrichmentPipelineGate;
     private readonly ILogger<DevHarnessResetService> _logger;
 
     public DevHarnessResetService(
@@ -37,12 +39,14 @@ public sealed class DevHarnessResetService
         IOptions<IngestionOptions> options,
         IConfigurationLoader configLoader,
         IIngestionEngine ingestionEngine,
+        EnrichmentPipelineExecutionGate enrichmentPipelineGate,
         ILogger<DevHarnessResetService> logger)
     {
         _db = db;
         _options = options;
         _configLoader = configLoader;
         _ingestionEngine = ingestionEngine;
+        _enrichmentPipelineGate = enrichmentPipelineGate;
         _logger = logger;
     }
 
@@ -72,6 +76,7 @@ public sealed class DevHarnessResetService
 
         try
         {
+            await PauseEnrichmentPipelineAsync(details, ct).ConfigureAwait(false);
             EnsureDestructivePathSafety(details);
             WipeGeneratedLibraryState(details);
 
@@ -86,6 +91,8 @@ public sealed class DevHarnessResetService
         }
         finally
         {
+            ResumeEnrichmentPipeline(details);
+
             if (resumeWatcher)
                 await ResumeWatcherAsync(details, ct).ConfigureAwait(false);
             else
@@ -101,10 +108,18 @@ public sealed class DevHarnessResetService
 
         await PauseWatcherAsync(details, ct).ConfigureAwait(false);
 
-        WipeGeneratedCachesOnly(details);
-        await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
-        WipeRuntimeLogs(details);
-        details.Add("Ingestion engine: FSW resume deferred");
+        try
+        {
+            await PauseEnrichmentPipelineAsync(details, ct).ConfigureAwait(false);
+            WipeGeneratedCachesOnly(details);
+            await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
+            WipeRuntimeLogs(details);
+            details.Add("Ingestion engine: FSW resume deferred");
+        }
+        finally
+        {
+            ResumeEnrichmentPipeline(details);
+        }
 
         return new DevHarnessResetResult(DevHarnessWipeScope.GeneratedState, details);
     }
@@ -138,6 +153,20 @@ public sealed class DevHarnessResetService
             _logger.LogWarning(ex, "[HarnessReset] Failed to resume ingestion engine");
             details?.Add($"Ingestion engine resume: FAILED - {ex.Message}");
         }
+    }
+
+    private async Task PauseEnrichmentPipelineAsync(List<string> details, CancellationToken ct)
+    {
+        await _enrichmentPipelineGate.PauseAndDrainAsync(ct).ConfigureAwait(false);
+        _logger.LogInformation("[HarnessReset] Enrichment pipeline paused and drained");
+        details.Add("Enrichment pipeline: paused and active workers drained");
+    }
+
+    private void ResumeEnrichmentPipeline(List<string> details)
+    {
+        _enrichmentPipelineGate.Resume();
+        _logger.LogInformation("[HarnessReset] Enrichment pipeline resumed");
+        details.Add("Enrichment pipeline: resumed");
     }
 
     private void WipeGeneratedLibraryState(List<string> details)

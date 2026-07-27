@@ -506,7 +506,7 @@ public static class CollectionEndpoints
             }
             else if (isMusic)
             {
-                collectionChildJson = await manifestService.EnsureAppleAlbumTrackManifestAsync(
+                collectionChildJson = await manifestService.EnsureAlbumTrackManifestAsync(
                     rootParentWorkId,
                     collectionCreator,
                     StringHelpers.FirstNonBlank(ParentCv(MetadataFieldConstants.Album), ParentCv(MetadataFieldConstants.Title), collection.DisplayName),
@@ -1101,7 +1101,7 @@ public static class CollectionEndpoints
             {
                 rootCanonicals = await canonicalRepo.GetByEntityAsync(combinedRootWorkId.Value, ct);
                 collectedChildJson ??= FirstCanonicalValue(rootCanonicals, MetadataFieldConstants.ChildEntitiesJson);
-                collectedChildJson = await manifestService.EnsureAppleAlbumTrackManifestAsync(
+                collectedChildJson = await manifestService.EnsureAlbumTrackManifestAsync(
                     combinedRootWorkId,
                     combinedCreator,
                     groupValue,

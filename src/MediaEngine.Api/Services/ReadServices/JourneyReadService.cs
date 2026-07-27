@@ -107,7 +107,12 @@ public sealed class JourneyReadService : IJourneyReadService
             us.extended_properties,
             h.display_name  AS collection_display_name,
             cv_title_a.value      AS title,
-            cv_author_w.value     AS author,
+            (SELECT value
+             FROM canonical_value_arrays
+             WHERE entity_id = COALESCE(gpw.id, pw.id, w.id)
+               AND key IN ('author', 'creator')
+             ORDER BY ordinal
+             LIMIT 1)             AS author,
             cv_cover_w.value      AS cover_url,
             cv_background_w.value AS background_url,
             cv_banner_w.value     AS banner_url,
@@ -118,7 +123,12 @@ public sealed class JourneyReadService : IJourneyReadService
             cv_background_height_w.value AS background_height_px,
             cv_banner_width_w.value     AS banner_width_px,
             cv_banner_height_w.value    AS banner_height_px,
-            cv_narrator_w.value   AS narrator,
+            (SELECT value
+             FROM canonical_value_arrays
+             WHERE entity_id = COALESCE(gpw.id, pw.id, w.id)
+               AND key = 'narrator'
+             ORDER BY ordinal
+             LIMIT 1)             AS narrator,
             cv_series_w.value     AS series,
             cv_series_pos_a.value AS series_position,
             cv_desc_w.value       AS description
@@ -133,15 +143,9 @@ public sealed class JourneyReadService : IJourneyReadService
             ON cv_title_a.entity_id = ma.id AND cv_title_a.key = 'title'
         LEFT JOIN canonical_values cv_series_pos_a
             ON cv_series_pos_a.entity_id = ma.id AND cv_series_pos_a.key = 'series_position'
-        LEFT JOIN canonical_values cv_author_w
-            ON cv_author_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
-           AND cv_author_w.key = 'author'
         LEFT JOIN canonical_values cv_cover_w
             ON cv_cover_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
            AND cv_cover_w.key = 'cover'
-        LEFT JOIN canonical_values cv_narrator_w
-            ON cv_narrator_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
-           AND cv_narrator_w.key = 'narrator'
         LEFT JOIN canonical_values cv_background_w
             ON cv_background_w.entity_id = COALESCE(gpw.id, pw.id, w.id)
            AND cv_background_w.key = 'background'

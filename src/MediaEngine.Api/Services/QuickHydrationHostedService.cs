@@ -1,5 +1,6 @@
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Api.Services;
 
@@ -12,8 +13,9 @@ public sealed class QuickHydrationHostedService : PipelineStageHostedService<Qui
     public QuickHydrationHostedService(
         IServiceScopeFactory scopeFactory,
         IIdentityPipelineSignal signal,
+        EnrichmentPipelineExecutionGate executionGate,
         ILogger<QuickHydrationHostedService> logger)
-        : base(scopeFactory, signal, logger)
+        : base(scopeFactory, signal, executionGate, logger)
     {
     }
 
@@ -21,6 +23,10 @@ public sealed class QuickHydrationHostedService : PipelineStageHostedService<Qui
         IdentityPipelineSignalKind.Hydration;
 
     protected override TimeSpan StuckJobThreshold => TimeSpan.FromMinutes(5);
+
+    protected override IdentityJobState ProcessingState => IdentityJobState.Hydrating;
+
+    protected override TimeSpan? UniverseStuckJobThreshold => TimeSpan.FromHours(2);
 
     protected override Task<int> PollAsync(QuickHydrationWorker worker, CancellationToken stoppingToken) =>
         worker.PollAsync(stoppingToken);

@@ -1,4 +1,5 @@
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Providers.Contracts;
 
 namespace MediaEngine.Api.Services;
@@ -17,15 +18,18 @@ public abstract class PipelineStageHostedService<TWorker> : BackgroundService
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IIdentityPipelineSignal _signal;
+    private readonly EnrichmentPipelineExecutionGate _executionGate;
     private DateTimeOffset _nextReclaimAt = DateTimeOffset.UtcNow;
 
     protected PipelineStageHostedService(
         IServiceScopeFactory scopeFactory,
         IIdentityPipelineSignal signal,
+        EnrichmentPipelineExecutionGate executionGate,
         ILogger logger)
     {
         _scopeFactory = scopeFactory;
         _signal = signal;
+        _executionGate = executionGate;
         Logger = logger;
     }
 
@@ -34,6 +38,10 @@ public abstract class PipelineStageHostedService<TWorker> : BackgroundService
     protected abstract IdentityPipelineSignalKind WakeSignal { get; }
 
     protected abstract TimeSpan StuckJobThreshold { get; }
+
+    protected abstract IdentityJobState ProcessingState { get; }
+
+    protected virtual TimeSpan? UniverseStuckJobThreshold => null;
 
     protected virtual IdentityPipelineSignalKind? DownstreamSignal => null;
 
@@ -49,32 +57,51 @@ public abstract class PipelineStageHostedService<TWorker> : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            CancellationToken resetCancellationToken = default;
             try
             {
                 using var scope = _scopeFactory.CreateScope();
+                int processed;
 
-                // Reclaim jobs stuck in intermediate states every 30 seconds.
-                if (DateTimeOffset.UtcNow >= _nextReclaimAt)
+                using (var executionLease = await _executionGate.EnterAsync(stoppingToken).ConfigureAwait(false))
                 {
-                    var jobRepository = scope.ServiceProvider.GetRequiredService<IIdentityJobRepository>();
-                    var reclaimed = await jobRepository.ReclaimStuckJobsAsync(
-                        StuckJobThreshold,
-                        stoppingToken);
-                    if (reclaimed > 0)
+                    resetCancellationToken = executionLease.PauseCancellationToken;
+                    using var pollCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                        stoppingToken,
+                        resetCancellationToken);
+                    var pollToken = pollCancellation.Token;
+
+                    // Reclaim jobs stuck in intermediate states every 30 seconds.
+                    if (DateTimeOffset.UtcNow >= _nextReclaimAt)
                     {
-                        Logger.LogInformation(
-                            "{Service}: reclaimed {Count} stuck job(s)",
-                            GetType().Name,
-                            reclaimed);
+                        var jobRepository = scope.ServiceProvider.GetRequiredService<IIdentityJobRepository>();
+                        var reclaimed = await jobRepository.ReclaimStuckJobsAsync(
+                            ProcessingState,
+                            StuckJobThreshold,
+                            pollToken);
+                        if (UniverseStuckJobThreshold is { } universeThreshold)
+                        {
+                            reclaimed += await jobRepository.ReclaimStuckJobsAsync(
+                                IdentityJobState.UniverseEnriching,
+                                universeThreshold,
+                                pollToken);
+                        }
+                        if (reclaimed > 0)
+                        {
+                            Logger.LogInformation(
+                                "{Service}: reclaimed {Count} stuck job(s)",
+                                GetType().Name,
+                                reclaimed);
+                        }
+
+                        _nextReclaimAt = DateTimeOffset.UtcNow.Add(ReclaimInterval);
                     }
 
-                    _nextReclaimAt = DateTimeOffset.UtcNow.Add(ReclaimInterval);
+                    var worker = scope.ServiceProvider.GetRequiredService<TWorker>();
+                    processed = await PollAsync(worker, pollToken);
+                    if (processed > 0 && DownstreamSignal is { } downstreamSignal)
+                        _signal.Signal(downstreamSignal);
                 }
-
-                var worker = scope.ServiceProvider.GetRequiredService<TWorker>();
-                var processed = await PollAsync(worker, stoppingToken);
-                if (processed > 0 && DownstreamSignal is { } downstreamSignal)
-                    _signal.Signal(downstreamSignal);
 
                 // Back off when idle.
                 var delay = processed > 0 ? PollInterval : IdleInterval;
@@ -83,6 +110,12 @@ public abstract class PipelineStageHostedService<TWorker> : BackgroundService
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
+            }
+            catch (OperationCanceledException) when (resetCancellationToken.IsCancellationRequested)
+            {
+                // A destructive development reset canceled this poll. The next
+                // loop waits at the gate until the replacement database is ready.
+                continue;
             }
             catch (Exception exception)
             {

@@ -21,7 +21,8 @@ namespace MediaEngine.Api.Services.Collections;
 /// </summary>
 public sealed class AlbumTrackManifestService(
     ICanonicalValueRepository canonicalRepo,
-    AppleRetailClient appleRetailClient)
+    AppleRetailClient appleRetailClient,
+    MusicBrainzReleaseClient musicBrainzReleaseClient)
 {
     /// <summary>
     /// Merges Wikidata-discovered tracks (from <c>child_entities_json</c>) into the owned-track list,
@@ -367,7 +368,7 @@ public sealed class AlbumTrackManifestService(
         return false;
     }
 
-    public async Task<string?> EnsureAppleAlbumTrackManifestAsync(
+    public async Task<string?> EnsureAlbumTrackManifestAsync(
         Guid? rootWorkId,
         string? artist,
         string? album,
@@ -375,19 +376,95 @@ public sealed class AlbumTrackManifestService(
         IReadOnlyList<CanonicalValue> rootCanonicalValues,
         CancellationToken ct)
     {
-        if (!NeedsAppleAlbumTrackGapFill(existingChildEntitiesJson))
+        var needsManifest = NeedsAlbumTrackGapFill(existingChildEntitiesJson);
+        var hasCover = rootCanonicalValues.Any(value =>
+            (value.Key is MetadataFieldConstants.Cover or MetadataFieldConstants.CoverUrl)
+            && !string.IsNullOrWhiteSpace(value.Value));
+        var releaseId = rootCanonicalValues.FirstOrDefault(value =>
+            string.Equals(
+                value.Key,
+                BridgeIdKeys.MusicBrainzReleaseId,
+                StringComparison.OrdinalIgnoreCase))?.Value;
+
+        MusicBrainzAlbumRelease? musicBrainzRelease = null;
+        if ((!hasCover || needsManifest) && !string.IsNullOrWhiteSpace(releaseId))
         {
-            return existingChildEntitiesJson;
+            musicBrainzRelease = await musicBrainzReleaseClient
+                .FetchReleaseAsync(releaseId, ct)
+                .ConfigureAwait(false);
         }
 
-        // Re-resolve the album by name instead of trusting an older collection ID.
-        // This repairs manifests that were previously anchored to a box set.
-        var collectionId = await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct);
+        if (needsManifest && musicBrainzRelease is not null)
+        {
+            if (rootWorkId.HasValue)
+            {
+                var values = BuildManifestValues(
+                    rootWorkId.Value,
+                    musicBrainzRelease.ManifestJson,
+                    musicBrainzRelease.TrackCount,
+                    WellKnownProviders.MusicBrainz);
+                if (!hasCover && !string.IsNullOrWhiteSpace(musicBrainzRelease.CoverUrl))
+                {
+                    values.Add(BuildCoverValue(
+                        rootWorkId.Value,
+                        musicBrainzRelease.CoverUrl,
+                        WellKnownProviders.MusicBrainz));
+                }
+
+                await canonicalRepo.UpsertBatchAsync(values, ct);
+            }
+
+            return musicBrainzRelease.ManifestJson;
+        }
+
+        if (!needsManifest)
+        {
+            if (rootWorkId.HasValue)
+            {
+                var values = new List<CanonicalValue>();
+                AddTrackCountRepair(
+                    values,
+                    rootWorkId.Value,
+                    existingChildEntitiesJson!,
+                    rootCanonicalValues,
+                    MusicBrainzAlbumManifestJson.IsCompleteForRelease(existingChildEntitiesJson)
+                        ? WellKnownProviders.MusicBrainz
+                        : WellKnownProviders.AppleApi);
+
+                if (!hasCover && !string.IsNullOrWhiteSpace(musicBrainzRelease?.CoverUrl))
+                {
+                    values.Add(BuildCoverValue(
+                        rootWorkId.Value,
+                        musicBrainzRelease.CoverUrl,
+                        WellKnownProviders.MusicBrainz));
+                }
+
+                if (values.Count > 0)
+                    await canonicalRepo.UpsertBatchAsync(values, ct);
+            }
+
+            if (hasCover
+                || !string.IsNullOrWhiteSpace(musicBrainzRelease?.CoverUrl)
+                || MusicBrainzAlbumManifestJson.IsCompleteForRelease(existingChildEntitiesJson))
+            {
+                return existingChildEntitiesJson;
+            }
+        }
+
+        // Re-resolve incomplete Apple manifests by name instead of trusting an
+        // older collection ID. Complete Apple manifests reuse their proven
+        // collection identity when only managed cover art needs repair.
+        var collectionId = needsManifest
+            ? await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct)
+            : TryReadAppleCollectionId(existingChildEntitiesJson)
+                ?? rootCanonicalValues.FirstOrDefault(value =>
+                    string.Equals(
+                        value.Key,
+                        BridgeIdKeys.AppleMusicCollectionId,
+                        StringComparison.OrdinalIgnoreCase))?.Value;
 
         if (string.IsNullOrWhiteSpace(collectionId))
-        {
             return existingChildEntitiesJson;
-        }
 
         var appleTracks = await appleRetailClient.FetchAlbumTracksAsync(collectionId, "us", "en", ct);
         if (appleTracks.Count == 0)
@@ -395,45 +472,156 @@ public sealed class AlbumTrackManifestService(
             return existingChildEntitiesJson;
         }
 
-        var appleManifest = AppleAlbumManifestJson.Build(appleTracks, collectionId, album, artist);
-        if (rootWorkId.HasValue && !string.Equals(appleManifest, existingChildEntitiesJson, StringComparison.Ordinal))
+        var appleManifest = needsManifest
+            ? AppleAlbumManifestJson.Build(appleTracks, collectionId, album, artist)
+            : existingChildEntitiesJson;
+        if (rootWorkId.HasValue)
         {
-            await canonicalRepo.UpsertBatchAsync(
-                [
-                    new CanonicalValue
-                    {
-                        EntityId = rootWorkId.Value,
-                        Key = MetadataFieldConstants.ChildEntitiesJson,
-                        Value = appleManifest,
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                        WinningProviderId = WellKnownProviders.AppleApi,
-                    },
-                    new CanonicalValue
-                    {
-                        EntityId = rootWorkId.Value,
-                        Key = MetadataFieldConstants.TrackCount,
-                        Value = CountManifestTracks(appleManifest).ToString(CultureInfo.InvariantCulture),
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                        WinningProviderId = WellKnownProviders.AppleApi,
-                    },
-                    new CanonicalValue
-                    {
-                        EntityId = rootWorkId.Value,
-                        Key = BridgeIdKeys.AppleMusicCollectionId,
-                        Value = collectionId,
-                        LastScoredAt = DateTimeOffset.UtcNow,
-                        WinningProviderId = WellKnownProviders.AppleApi,
-                    },
-                ],
-                ct);
+            var values = new List<CanonicalValue>();
+            if (needsManifest
+                && !string.Equals(appleManifest, existingChildEntitiesJson, StringComparison.Ordinal))
+            {
+                values.AddRange(BuildManifestValues(
+                    rootWorkId.Value,
+                    appleManifest!,
+                    CountManifestTracks(appleManifest!),
+                    WellKnownProviders.AppleApi));
+                values.Add(new CanonicalValue
+                {
+                    EntityId = rootWorkId.Value,
+                    Key = BridgeIdKeys.AppleMusicCollectionId,
+                    Value = collectionId,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                    WinningProviderId = WellKnownProviders.AppleApi,
+                });
+            }
+            else if (appleManifest is not null)
+            {
+                AddTrackCountRepair(
+                    values,
+                    rootWorkId.Value,
+                    appleManifest,
+                    rootCanonicalValues,
+                    WellKnownProviders.AppleApi);
+            }
+
+            var coverUrl = appleTracks
+                .Select(track => RetailRequestBuilder.BuildAppleCoverUrl(
+                    track["artworkUrl100"]?.GetValue<string>()))
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            if (!hasCover && !string.IsNullOrWhiteSpace(coverUrl))
+            {
+                values.Add(BuildCoverValue(
+                    rootWorkId.Value,
+                    coverUrl,
+                    WellKnownProviders.AppleApi));
+            }
+
+            if (values.Count > 0)
+            {
+                await canonicalRepo.UpsertBatchAsync(values, ct);
+            }
         }
 
         return appleManifest;
     }
 
-    private static bool NeedsAppleAlbumTrackGapFill(string? childEntitiesJson)
+    private static List<CanonicalValue> BuildManifestValues(
+        Guid rootWorkId,
+        string manifest,
+        int trackCount,
+        Guid providerId)
+        =>
+        [
+            new CanonicalValue
+            {
+                EntityId = rootWorkId,
+                Key = MetadataFieldConstants.ChildEntitiesJson,
+                Value = manifest,
+                LastScoredAt = DateTimeOffset.UtcNow,
+                WinningProviderId = providerId,
+            },
+            new CanonicalValue
+            {
+                EntityId = rootWorkId,
+                Key = MetadataFieldConstants.TrackCount,
+                Value = trackCount.ToString(CultureInfo.InvariantCulture),
+                LastScoredAt = DateTimeOffset.UtcNow,
+                WinningProviderId = providerId,
+            },
+        ];
+
+    private static CanonicalValue BuildCoverValue(
+        Guid rootWorkId,
+        string coverUrl,
+        Guid providerId)
+        => new()
+        {
+            EntityId = rootWorkId,
+            Key = MetadataFieldConstants.CoverUrl,
+            Value = coverUrl,
+            LastScoredAt = DateTimeOffset.UtcNow,
+            WinningProviderId = providerId,
+        };
+
+    private static void AddTrackCountRepair(
+        ICollection<CanonicalValue> values,
+        Guid rootWorkId,
+        string manifest,
+        IReadOnlyList<CanonicalValue> rootCanonicalValues,
+        Guid providerId)
     {
-        if (AppleAlbumManifestJson.IsCompleteForCollection(childEntitiesJson))
+        var manifestTrackCount = CountManifestTracks(manifest);
+        if (manifestTrackCount <= 0)
+            return;
+
+        var canonicalTrackCount = rootCanonicalValues.FirstOrDefault(value =>
+            string.Equals(
+                value.Key,
+                MetadataFieldConstants.TrackCount,
+                StringComparison.OrdinalIgnoreCase))?.Value;
+        if (int.TryParse(
+                canonicalTrackCount,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsedTrackCount)
+            && parsedTrackCount == manifestTrackCount)
+        {
+            return;
+        }
+
+        values.Add(new CanonicalValue
+        {
+            EntityId = rootWorkId,
+            Key = MetadataFieldConstants.TrackCount,
+            Value = manifestTrackCount.ToString(CultureInfo.InvariantCulture),
+            LastScoredAt = DateTimeOffset.UtcNow,
+            WinningProviderId = providerId,
+        });
+    }
+
+    private static string? TryReadAppleCollectionId(string? childEntitiesJson)
+    {
+        if (string.IsNullOrWhiteSpace(childEntitiesJson))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(childEntitiesJson);
+            return document.RootElement.TryGetProperty("provider_collection_id", out var collectionId)
+                && collectionId.ValueKind == JsonValueKind.String
+                ? collectionId.GetString()
+                : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static bool NeedsAlbumTrackGapFill(string? childEntitiesJson)
+    {
+        if (MusicAlbumManifestJson.IsComplete(childEntitiesJson))
             return false;
 
         if (string.IsNullOrWhiteSpace(childEntitiesJson))

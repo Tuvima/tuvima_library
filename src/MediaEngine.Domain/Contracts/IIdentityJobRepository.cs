@@ -63,13 +63,16 @@ public interface IIdentityJobRepository
     Task<IReadOnlyList<IdentityJob>> GetStaleAsync(TimeSpan age, int limit, CancellationToken ct = default);
 
     /// <summary>
-    /// Finds jobs stuck in intermediate processing states (RetailSearching,
-    /// BridgeSearching, Hydrating) that have no active lease and have been
-    /// in that state for longer than <paramref name="stuckThreshold"/>.
+    /// Finds jobs stuck in the specified intermediate processing state that
+    /// have no active lease and have been in that state for longer than
+    /// <paramref name="stuckThreshold"/>.
     /// Resets them to the appropriate "ready" state so the next poll picks
     /// them up. Returns the number of jobs reclaimed.
     /// </summary>
-    Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default);
+    Task<int> ReclaimStuckJobsAsync(
+        IdentityJobState processingState,
+        TimeSpan stuckThreshold,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Clears leases left behind by a previous Engine process and resets in-flight

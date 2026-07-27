@@ -1,0 +1,44 @@
+  MediaEngine.Domain -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Domain\bin\Debug\net10.0\MediaEngine.Domain.dll
+  MediaEngine.Contracts -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Contracts\bin\Debug\net10.0\MediaEngine.Contracts.dll
+  MediaEngine.AI -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\bin\Debug\net10.0\MediaEngine.AI.dll
+  MediaEngine.AI.Tests -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.AI.Tests\bin\Debug\net10.0\MediaEngine.AI.Tests.dll
+Test run for C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.AI.Tests\bin\Debug\net10.0\MediaEngine.AI.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    49, Skipped:     0, Total:    49, Duration: 340 ms - MediaEngine.AI.Tests.dll (net10.0)
+  MediaEngine.Application -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Application\bin\Debug\net10.0\MediaEngine.Application.dll
+  MediaEngine.Intelligence -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Intelligence\bin\Debug\net10.0\MediaEngine.Intelligence.dll
+  MediaEngine.Processors -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Processors\bin\Debug\net10.0\MediaEngine.Processors.dll
+  MediaEngine.Storage -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Storage\bin\Debug\net10.0\MediaEngine.Storage.dll
+  MediaEngine.Providers -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Providers\bin\Debug\net10.0\MediaEngine.Providers.dll
+  MediaEngine.Ingestion -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Ingestion\bin\Debug\net10.0\MediaEngine.Ingestion.dll
+  MediaEngine.Plugins -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Plugins\bin\Debug\net10.0\MediaEngine.Plugins.dll
+  MediaEngine.Plugin.CommercialSkip -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Plugin.CommercialSkip\bin\Debug\net10.0\MediaEngine.Plugin.CommercialSkip.dll
+  MediaEngine.Plugin.FandomLore -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Plugin.FandomLore\bin\Debug\net10.0\MediaEngine.Plugin.FandomLore.dll
+  MediaEngine.Plugin.MediaSegments -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Plugin.MediaSegments\bin\Debug\net10.0\MediaEngine.Plugin.MediaSegments.dll
+  MediaEngine.Identity -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Identity\bin\Debug\net10.0\MediaEngine.Identity.dll
+  MediaEngine.Api -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\bin\Debug\net10.0\MediaEngine.Api.dll
+  MediaEngine.Api.Tests -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Api.Tests\bin\Debug\net10.0\MediaEngine.Api.Tests.dll
+Test run for C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Api.Tests\bin\Debug\net10.0\MediaEngine.Api.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   491, Skipped:     0, Total:   491, Duration: 2 s - MediaEngine.Api.Tests.dll (net10.0)
+  MediaEngine.Web -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Web\bin\Debug\net10.0\MediaEngine.Web.dll
+  MediaEngine.Contracts.Tests -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Contracts.Tests\bin\Debug\net10.0\MediaEngine.Contracts.Tests.dll
+Test run for C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Contracts.Tests\bin\Debug\net10.0\MediaEngine.Contracts.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:    43, Skipped:     0, Total:    43, Duration: 6 s - MediaEngine.Contracts.Tests.dll (net10.0)
+  MediaEngine.Domain.Tests -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Domain.Tests\bin\Debug\net10.0\MediaEngine.Domain.Tests.dll
+Test run for C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Domain.Tests\bin\Debug\net10.0\MediaEngine.Domain.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:   227, Skipped:     0, Total:   227, Duration: 430 ms - MediaEngine.Domain.Tests.dll (net10.0)
+  MediaEngine.Identity.Tests -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Identity.Tests\bin\Debug\net10.0\MediaEngine.Identity.Tests.dll
+Test run for C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Identity.Tests\bin\Debug\net10.0\MediaEngine.Identity.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+
+Passed!  - Failed:     0, Passed:     4, Skipped:     0, Total:     4, Duration: 23 ms - MediaEngine.Identity.Tests.dll (net10.0)
+  MediaEngine.Ingestion.Tests -> C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Ingestion.Tests\bin\Debug\net10.0\MediaEngine.Ingestion.Tests.dll
+Test run for C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tests\MediaEngine.Ingestion.Tests\bin\Debug\net10.0\MediaEngine.Ingestion.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.

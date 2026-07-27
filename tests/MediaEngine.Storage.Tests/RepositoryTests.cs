@@ -1203,7 +1203,9 @@ public sealed class RepositoryTests : IDisposable
             cmd.ExecuteNonQuery();
         }
 
-        var reclaimed = await repo.ReclaimStuckJobsAsync(TimeSpan.FromMinutes(5));
+        var reclaimed = await repo.ReclaimStuckJobsAsync(
+            IdentityJobState.UniverseEnriching,
+            TimeSpan.FromMinutes(5));
         var failed = await repo.GetByIdAsync(job.Id);
 
         Assert.Equal(1, reclaimed);
@@ -1235,7 +1237,9 @@ public sealed class RepositoryTests : IDisposable
             new CanonicalValue { EntityId = entityId, Key = "tmdb_movie_id", Value = "123", LastScoredAt = DateTimeOffset.UtcNow },
         ]);
 
-        var reclaimed = await repo.ReclaimStuckJobsAsync(TimeSpan.FromMinutes(5));
+        var reclaimed = await repo.ReclaimStuckJobsAsync(
+            IdentityJobState.UniverseEnriching,
+            TimeSpan.FromMinutes(5));
         var recovered = await repo.GetByIdAsync(job.Id);
 
         Assert.Equal(1, reclaimed);
@@ -1243,6 +1247,61 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal(IdentityJobState.QidResolved.ToString(), recovered!.State);
         Assert.Equal(0, recovered.AttemptCount);
         Assert.Equal("Recovered for Stage 3 artwork/enhancer retry", recovered.LastError);
+    }
+
+    [Fact]
+    public async Task IdentityJob_ReclaimStuckJobsAsync_OnlyReclaimsTheRequestedPipelineStage()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var hydratingJob = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Quick",
+            State = IdentityJobState.Hydrating.ToString(),
+        };
+        var universeJob = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = Guid.NewGuid(),
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Books),
+            Pass = "Universe",
+            State = IdentityJobState.UniverseEnriching.ToString(),
+        };
+        await repo.CreateAsync(hydratingJob);
+        await repo.CreateAsync(universeJob);
+
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                UPDATE identity_jobs
+                SET updated_at = @updatedAt
+                WHERE id = @id;
+                """;
+            cmd.Parameters.AddWithValue(
+                "@updatedAt",
+                DateTimeOffset.UtcNow.AddMinutes(-10).ToString("O"));
+            var idParameter = cmd.Parameters.Add("@id", Microsoft.Data.Sqlite.SqliteType.Blob);
+            foreach (var id in new[] { hydratingJob.Id, universeJob.Id })
+            {
+                idParameter.Value = GuidSql.ToBlob(id);
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        var reclaimed = await repo.ReclaimStuckJobsAsync(
+            IdentityJobState.Hydrating,
+            TimeSpan.FromMinutes(5));
+        var recoveredHydration = await repo.GetByIdAsync(hydratingJob.Id);
+        var untouchedUniverse = await repo.GetByIdAsync(universeJob.Id);
+
+        Assert.Equal(1, reclaimed);
+        Assert.Equal(IdentityJobState.QidResolved.ToString(), recoveredHydration!.State);
+        Assert.Equal(IdentityJobState.UniverseEnriching.ToString(), untouchedUniverse!.State);
     }
 
     [Fact]

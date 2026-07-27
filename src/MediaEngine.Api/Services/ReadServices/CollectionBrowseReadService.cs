@@ -209,11 +209,16 @@ public sealed class CollectionBrowseReadService(
         var rows = await conn.QueryAsync<CollectionArtistWorkReadModel>(new CommandDefinition(
             """
             WITH artist_works AS (
-                SELECT DISTINCT e.work_id
-                FROM canonical_values cv
-                INNER JOIN media_assets ma ON ma.id = cv.entity_id
-                INNER JOIN editions e ON e.id = ma.edition_id
-                WHERE cv.key = 'artist' AND cv.value = @ArtistName COLLATE NOCASE
+                SELECT DISTINCT w.id AS work_id
+                FROM works w
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                INNER JOIN editions e ON e.work_id = w.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                INNER JOIN canonical_value_arrays cva
+                    ON cva.entity_id IN (w.id, ma.id, COALESCE(gp.id, p.id, w.id))
+                   AND cva.key IN ('album_artist', 'artist', 'performer')
+                WHERE cva.value = @ArtistName COLLATE NOCASE
             ),
             work_data AS (
                 SELECT
@@ -221,7 +226,7 @@ public sealed class CollectionBrowseReadService(
                     MIN(ma.id) AS AssetId,
                     MAX(CASE WHEN cv.key = 'title' THEN cv.value END) AS Title,
                     MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS Album,
-                    MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS Artist,
+                    MAX(CASE WHEN cva.key IN ('album_artist', 'artist', 'performer') THEN cva.value END) AS Artist,
                     MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS TrackNumber,
                     MAX(CASE WHEN cv.key = 'disc_number' THEN cv.value END) AS DiscNumber,
                     MAX(CASE WHEN cv.key = 'apple_music_id' THEN cv.value END) AS AppleMusicId,
@@ -231,12 +236,17 @@ public sealed class CollectionBrowseReadService(
                     MAX(CASE WHEN cv.key = 'duration' THEN cv.value END) AS Duration,
                     MAX(CASE WHEN cv.key = 'runtime' THEN cv.value END) AS Runtime,
                     '/stream/' || MIN(ma.id) || '/cover' AS Cover,
-                    MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS Genre,
+                    MAX(CASE WHEN cva.key = 'genre' THEN cva.value END) AS Genre,
                     MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS ChildEntitiesJson
                 FROM artist_works aw
                 INNER JOIN editions e ON e.work_id = aw.work_id
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
                 INNER JOIN canonical_values cv ON cv.entity_id = ma.id
+                LEFT JOIN works w ON w.id = aw.work_id
+                LEFT JOIN works p ON p.id = w.parent_work_id
+                LEFT JOIN works gp ON gp.id = p.parent_work_id
+                LEFT JOIN canonical_value_arrays cva
+                    ON cva.entity_id IN (aw.work_id, ma.id, COALESCE(gp.id, p.id, aw.work_id))
                 GROUP BY aw.work_id
             )
             SELECT * FROM work_data ORDER BY Album, CAST(TrackNumber AS INTEGER), Title
@@ -316,15 +326,8 @@ public sealed class CollectionBrowseReadService(
                       @ArtistName IS NULL
                       OR EXISTS (
                           SELECT 1
-                          FROM canonical_values cv_artist
-                          WHERE cv_artist.key IN ('artist', 'author')
-                            AND cv_artist.value = @ArtistName COLLATE NOCASE
-                            AND cv_artist.entity_id IN (ma.id, w.id, p.id, gp.id)
-                      )
-                      OR EXISTS (
-                          SELECT 1
                           FROM canonical_value_arrays cva_artist
-                          WHERE cva_artist.key IN ('artist', 'author', 'creator')
+                          WHERE cva_artist.key IN ('album_artist', 'artist', 'author', 'creator')
                             AND cva_artist.value = @ArtistName COLLATE NOCASE
                             AND cva_artist.entity_id IN (ma.id, w.id, p.id, gp.id)
                       )
@@ -343,21 +346,24 @@ public sealed class CollectionBrowseReadService(
                     MAX(CASE WHEN cv.key = 'series' THEN cv.value END) AS Series,
                     MAX(CASE WHEN cv.key = 'series_index' THEN cv.value END) AS SeriesIndex,
                     MAX(CASE WHEN cv.key = 'album' THEN cv.value END) AS Album,
-                    MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS Artist,
-                    COALESCE(
-                        MAX(CASE WHEN cv.key = 'author' THEN cv.value END),
-                        (SELECT value
-                         FROM canonical_value_arrays
-                         WHERE entity_id IN (ma.id, w.id, p.id, gp.id)
-                           AND key IN ('artist', 'author', 'creator')
-                         ORDER BY ordinal
-                         LIMIT 1),
-                        (SELECT value
-                         FROM canonical_values
-                         WHERE entity_id IN (w.id, p.id, gp.id)
-                           AND key IN ('artist', 'author')
-                         LIMIT 1)) AS Author,
-                    MAX(CASE WHEN cv.key = 'director' THEN cv.value END) AS Director,
+                    (SELECT value
+                     FROM canonical_value_arrays
+                     WHERE entity_id IN (ma.id, w.id, p.id, gp.id)
+                       AND key IN ('album_artist', 'artist')
+                     ORDER BY CASE key WHEN 'album_artist' THEN 1 ELSE 2 END, ordinal
+                     LIMIT 1) AS Artist,
+                    (SELECT value
+                     FROM canonical_value_arrays
+                     WHERE entity_id IN (ma.id, w.id, p.id, gp.id)
+                       AND key IN ('author', 'creator')
+                     ORDER BY ordinal
+                     LIMIT 1) AS Author,
+                    (SELECT value
+                     FROM canonical_value_arrays
+                     WHERE entity_id IN (ma.id, w.id, p.id, gp.id)
+                       AND key = 'director'
+                     ORDER BY ordinal
+                     LIMIT 1) AS Director,
                     MAX(CASE WHEN cv.key = 'track_number' THEN cv.value END) AS TrackNumber,
                     MAX(CASE WHEN cv.key = 'disc_number' THEN cv.value END) AS DiscNumber,
                     MAX(CASE WHEN cv.key = 'apple_music_id' THEN cv.value END) AS AppleMusicId,
@@ -406,7 +412,14 @@ public sealed class CollectionBrowseReadService(
                          WHERE entity_id = {hierarchyRootSql}
                            AND key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color') LIMIT 1),
                         MAX(CASE WHEN cv.key IN ('artwork_accent_hex', 'cover_accent_hex', 'accent_color', 'dominant_color') THEN NULLIF(cv.value, '') END)) AS AccentColor,
-                    MAX(CASE WHEN cv.key = 'genre' THEN cv.value END) AS Genre,
+                    (SELECT group_concat(value, ';')
+                     FROM (
+                         SELECT cva_genre.value
+                         FROM canonical_value_arrays cva_genre
+                         WHERE cva_genre.entity_id IN (mw.work_id, ma.id, {hierarchyRootSql})
+                           AND cva_genre.key = 'genre'
+                         ORDER BY cva_genre.ordinal
+                     )) AS Genre,
                     MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS Network,
                     MAX(CASE WHEN cv.key = 'child_entities_json' THEN cv.value END) AS ChildEntitiesJson
                 FROM matched_works mw
@@ -623,15 +636,9 @@ public sealed class CollectionBrowseReadService(
                            (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'year' LIMIT 1))
                        END AS WorkYear,
                        COALESCE(
-                           (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.RootWorkId AND key IN ('artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
-                           (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.WorkId AND key IN ('artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
-                           (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.AssetId AND key IN ('artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'artist' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'artist' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'artist' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.RootWorkId AND key = 'author' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.WorkId AND key = 'author' LIMIT 1),
-                           (SELECT value FROM canonical_values WHERE entity_id = wa.AssetId AND key = 'author' LIMIT 1)) AS WorkCreator
+                           (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.RootWorkId AND key IN ('album_artist', 'artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
+                           (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.WorkId AND key IN ('album_artist', 'artist', 'author', 'creator') ORDER BY ordinal LIMIT 1),
+                           (SELECT value FROM canonical_value_arrays WHERE entity_id = wa.AssetId AND key IN ('album_artist', 'artist', 'author', 'creator') ORDER BY ordinal LIMIT 1)) AS WorkCreator
                 FROM work_assets wa
             ),
             grouped AS (
@@ -659,8 +666,6 @@ public sealed class CollectionBrowseReadService(
             ),
             metadata AS (
                 SELECT cv.entity_id AS EntityId,
-                       MAX(CASE WHEN cv.key = 'artist' THEN cv.value END) AS Artist,
-                       MAX(CASE WHEN cv.key = 'author' THEN cv.value END) AS Author,
                        MAX(CASE WHEN cv.key = 'network' THEN cv.value END) AS Network,
                        COALESCE(
                            MAX(CASE WHEN cv.key = 'premiere_date' THEN cv.value END),
@@ -692,7 +697,7 @@ public sealed class CollectionBrowseReadService(
                    g.AlbumCount,
                    g.FirstAssetId,
                    g.RootWorkId,
-                   COALESCE(g.WorkCreator, root.Artist, root.Author, asset.Artist, asset.Author) AS Creator,
+                   g.WorkCreator AS Creator,
                    COALESCE(root.Network, asset.Network) AS Network,
                    COALESCE(root.Year, asset.Year) AS Year,
                    g.EarliestYear,

@@ -85,9 +85,12 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
         {
             using var parentCmd = conn.CreateCommand();
             parentCmd.CommandText = """
-                SELECT key, value FROM canonical_values
+                SELECT 'author' AS key, value
+                FROM canonical_value_arrays
                 WHERE entity_id = @parentId
-                  AND key IN ('author', 'description')
+                  AND key IN ('author', 'creator')
+                ORDER BY ordinal
+                LIMIT 1
                 """;
             parentCmd.Parameters.Add("@parentId", SqliteType.Blob).Value = GuidSql.ToBlob(rootParentId.Value);
             using var pr = parentCmd.ExecuteReader();
@@ -96,8 +99,18 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 var k = pr.GetString(0);
                 var v = pr.IsDBNull(1) ? null : pr.GetString(1);
                 if (k == "author")      author      = v;
-                if (k == "description") description = v;
             }
+
+            using var descriptionCmd = conn.CreateCommand();
+            descriptionCmd.CommandText = """
+                SELECT value
+                FROM canonical_values
+                WHERE entity_id = @parentId
+                  AND key = 'description'
+                LIMIT 1
+                """;
+            descriptionCmd.Parameters.Add("@parentId", SqliteType.Blob).Value = GuidSql.ToBlob(rootParentId.Value);
+            description = descriptionCmd.ExecuteScalar() as string;
         }
 
         // Alternate titles live in canonical_value_arrays. They are Self-scope
@@ -174,9 +187,9 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                 FROM works w
                 LEFT JOIN works p  ON p.id  = w.parent_work_id
                 LEFT JOIN works gp ON gp.id = p.parent_work_id
-                JOIN canonical_values cv
+                JOIN canonical_value_arrays cv
                   ON cv.entity_id = COALESCE(gp.id, p.id, w.id)
-                WHERE cv.key = 'author'
+                WHERE cv.key IN ('author', 'creator')
                   AND cv.value LIKE @pattern
                 LIMIT @limit
                 """;
@@ -248,9 +261,10 @@ public sealed class SearchIndexRepository : ISearchIndexRepository
                  JOIN media_assets ma4 ON ma4.edition_id = e4.id
                  WHERE cva.entity_id = ma4.id AND cva.key = 'alternate_title'),
                 (SELECT cv.value
-                 FROM canonical_values cv
+                 FROM canonical_value_arrays cv
                  WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id)
-                   AND cv.key = 'author'
+                   AND cv.key IN ('author', 'creator')
+                 ORDER BY cv.ordinal
                  LIMIT 1),
                 (SELECT cv.value
                  FROM canonical_values cv

@@ -5,6 +5,25 @@ namespace MediaEngine.Providers.Tests;
 public sealed class WikidataBridgeWorkerProgressTests
 {
     [Fact]
+    public void BatchFailureClassification_RetriesProviderTimeoutButNotHostCancellation()
+    {
+        var providerTimeout = new TaskCanceledException("provider timeout");
+        Assert.True(WikidataBridgeWorker.ShouldResetBatchAfterFailure(
+            providerTimeout,
+            CancellationToken.None));
+
+        using var hostStopping = new CancellationTokenSource();
+        hostStopping.Cancel();
+        Assert.False(WikidataBridgeWorker.ShouldResetBatchAfterFailure(
+            new OperationCanceledException(hostStopping.Token),
+            hostStopping.Token));
+
+        Assert.True(WikidataBridgeWorker.ShouldResetBatchAfterFailure(
+            new InvalidOperationException("provider failure"),
+            CancellationToken.None));
+    }
+
+    [Fact]
     public void BridgeOperationStaysRunningThroughPropertyFetchAndPostPipeline()
     {
         var source = ReadWorkerSource(nameof(WikidataBridgeWorker));

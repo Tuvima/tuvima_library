@@ -36,8 +36,9 @@ public sealed class ItemCanonicalRepositoryTests : IDisposable
             conn.Execute("""
                 INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
                 VALUES (@assetId, 'title', 'Dune', @now),
-                       (@assetId, 'author', 'Frank Herbert', @now),
                        (@assetId, 'year', '1965', @now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@assetId, 'author', 0, 'Frank Herbert');
                 """, new { assetId, now = DateTimeOffset.UtcNow.ToString("O") });
         }
 

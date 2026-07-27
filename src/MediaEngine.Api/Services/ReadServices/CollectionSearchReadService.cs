@@ -141,12 +141,12 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                 LEFT JOIN canonical_values season_work ON season_work.entity_id = w.id AND season_work.key = 'season_number'
                 LEFT JOIN canonical_values episode_asset ON episode_asset.entity_id = ma.id AND episode_asset.key = 'episode_number'
                 LEFT JOIN canonical_values episode_work ON episode_work.entity_id = w.id AND episode_work.key = 'episode_number'
-                LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ma.id AND author_asset.key = 'author'
-                LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key = 'artist'
-                LEFT JOIN canonical_values director_asset ON director_asset.entity_id = ma.id AND director_asset.key = 'director'
-                LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-                LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist'
-                LEFT JOIN canonical_values director_work ON director_work.entity_id = w.id AND director_work.key = 'director'
+                LEFT JOIN canonical_value_arrays author_asset ON author_asset.entity_id = ma.id AND author_asset.key = 'author' AND author_asset.ordinal = 0
+                LEFT JOIN canonical_value_arrays artist_asset ON artist_asset.entity_id = ma.id AND artist_asset.key = 'artist' AND artist_asset.ordinal = 0
+                LEFT JOIN canonical_value_arrays director_asset ON director_asset.entity_id = ma.id AND director_asset.key = 'director' AND director_asset.ordinal = 0
+                LEFT JOIN canonical_value_arrays author_work ON author_work.entity_id = w.id AND author_work.key = 'author' AND author_work.ordinal = 0
+                LEFT JOIN canonical_value_arrays artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist' AND artist_work.ordinal = 0
+                LEFT JOIN canonical_value_arrays director_work ON director_work.entity_id = w.id AND director_work.key = 'director' AND director_work.ordinal = 0
                 LEFT JOIN canonical_values collection_title ON collection_title.entity_id = w.collection_id AND collection_title.key = 'title'
                 LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ma.id AND cover_asset.key = 'cover'
                 LEFT JOIN canonical_values cover_url_asset ON cover_url_asset.entity_id = ma.id AND cover_url_asset.key = 'cover_url'
@@ -162,6 +162,12 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                           FROM canonical_values cv
                           WHERE cv.entity_id IN (ma.id, w.id, w.collection_id)
                             AND cv.value LIKE @like COLLATE NOCASE
+                      )
+                      OR EXISTS (
+                          SELECT 1
+                          FROM canonical_value_arrays cva
+                          WHERE cva.entity_id IN (ma.id, w.id)
+                            AND cva.value LIKE @like COLLATE NOCASE
                       )
                       OR EXISTS (
                           SELECT 1

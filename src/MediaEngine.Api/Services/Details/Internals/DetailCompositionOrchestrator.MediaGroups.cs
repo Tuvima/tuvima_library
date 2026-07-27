@@ -85,12 +85,12 @@ internal sealed partial class DetailCompositionOrchestrator
                        'Full audiobook'
                    ) AS Title,
                    COALESCE(
-                       MAX(CASE WHEN wcv.key = 'author' THEN wcv.value END),
-                       MAX(CASE WHEN acv.key = 'author' THEN acv.value END)
+                       (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
+                       (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1)
                    ) AS Author,
                    COALESCE(
-                       MAX(CASE WHEN wcv.key = 'narrator' THEN wcv.value END),
-                       MAX(CASE WHEN acv.key = 'narrator' THEN acv.value END)
+                       (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key = 'narrator' ORDER BY ordinal LIMIT 1),
+                       (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key = 'narrator' ORDER BY ordinal LIMIT 1)
                    ) AS Narrator,
                    COALESCE(
                        MAX(CASE WHEN wcv.key IN ('duration_seconds', 'duration_sec') THEN wcv.value END),

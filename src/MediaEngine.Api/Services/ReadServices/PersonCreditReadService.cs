@@ -399,11 +399,14 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 entries.Where(entry => !string.IsNullOrWhiteSpace(entry.Qid)).Select(entry => entry.Qid!),
                 ct))
             .Where(person => !string.IsNullOrWhiteSpace(person.WikidataQid))
-            .ToDictionary(person => person.WikidataQid!, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(person => person.WikidataQid!, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
         var peopleByName = (await personRepo.FindByNamesAsync(
                 entries.Select(entry => entry.Name),
                 ct))
-            .ToDictionary(person => person.Name, StringComparer.OrdinalIgnoreCase);
+            .GroupBy(person => person.Name, StringComparer.OrdinalIgnoreCase)
+            .Where(group => group.Count() == 1)
+            .ToDictionary(group => group.Key, group => group.Single(), StringComparer.OrdinalIgnoreCase);
 
         var credits = new List<CastCreditDto>(entries.Count);
         foreach (var entry in entries)
@@ -1032,6 +1035,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         var roles = rows
             .Select(row => row.Role)
             .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Where(role => IsEligibleLibraryCreditRole(rows[0].MediaType, role))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(LibraryCreditRoleRank)
             .ThenBy(role => role, StringComparer.OrdinalIgnoreCase)
@@ -1048,7 +1052,27 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 .ToList();
         }
 
-        return roles.Count == 0 ? ["Credit"] : roles;
+        return roles.Count > 0
+            ? roles
+            : rows.All(row => string.IsNullOrWhiteSpace(row.Role))
+                ? ["Credit"]
+                : [];
+    }
+
+    private static bool IsEligibleLibraryCreditRole(string? mediaType, string role)
+    {
+        var normalizedRole = role.Trim().ToLowerInvariant();
+        if (mediaType?.Contains("audiobook", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return normalizedRole is "author" or "narrator" or "performer";
+        }
+
+        if (IsMusicMediaType(mediaType))
+        {
+            return normalizedRole is "artist" or "performer" or "composer" or "producer";
+        }
+
+        return true;
     }
 
     private static int LibraryCreditRoleRank(string role)

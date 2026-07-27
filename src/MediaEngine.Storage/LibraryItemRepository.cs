@@ -947,10 +947,6 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                             ) a2 ON cnt.total >= 2
                             WHERE cnt.total >= 1
                         ) END,
-                        CASE
-                            WHEN w.media_type = 'Comics' THEN MAX(CASE WHEN acv.key = 'author' THEN acv.value END)
-                            ELSE NULL
-                        END,
                         CASE WHEN w.media_type = 'Comics' THEN (
                             SELECT mc_author.claim_value
                             FROM metadata_claims mc_author
@@ -1006,17 +1002,39 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                                 LIMIT 1 OFFSET 1
                             ) a2 ON cnt.total >= 2
                             WHERE cnt.total >= 1
-                        ),
-                        MAX(CASE WHEN wcv.key = 'author' THEN wcv.value END),
-                        CASE
-                            WHEN w.media_type = 'Comics' THEN MAX(CASE WHEN acv.key = 'author' THEN acv.value END)
-                            ELSE NULL
-                        END
+                        )
                     ) AS author,
-                    MAX(CASE WHEN wcv.key = 'artist' THEN wcv.value END) AS artist,
+                    (
+                        SELECT value
+                        FROM canonical_value_arrays cva_artist
+                        INNER JOIN root_work_data rwd_artist ON rwd_artist.root_work_id = cva_artist.entity_id
+                        WHERE rwd_artist.work_id = w.id
+                          AND cva_artist.key IN ('album_artist', 'artist', 'performer')
+                        ORDER BY CASE cva_artist.key WHEN 'album_artist' THEN 0 WHEN 'artist' THEN 1 ELSE 2 END,
+                                 cva_artist.ordinal
+                        LIMIT 1
+                    ) AS artist,
                     MAX(CASE WHEN wcv.key = 'series' THEN wcv.value END) AS series,
-                    MAX(CASE WHEN wcv.key = 'narrator' THEN wcv.value END) AS narrator,
-                    MAX(CASE WHEN wcv.key = 'genre' THEN wcv.value END) AS genre,
+                    (
+                        SELECT value
+                        FROM canonical_value_arrays cva_narrator
+                        INNER JOIN root_work_data rwd_narrator ON rwd_narrator.root_work_id = cva_narrator.entity_id
+                        WHERE rwd_narrator.work_id = w.id
+                          AND cva_narrator.key = 'narrator'
+                        ORDER BY cva_narrator.ordinal
+                        LIMIT 1
+                    ) AS narrator,
+                    (
+                        SELECT GROUP_CONCAT(value, ';')
+                        FROM (
+                            SELECT cva_genre.value
+                            FROM canonical_value_arrays cva_genre
+                            INNER JOIN root_work_data rwd_genre ON rwd_genre.root_work_id = cva_genre.entity_id
+                            WHERE rwd_genre.work_id = w.id
+                              AND cva_genre.key = 'genre'
+                            ORDER BY cva_genre.ordinal
+                        )
+                    ) AS genre,
                     MAX(CASE WHEN wcv.key = 'album' THEN wcv.value END) AS album,
                     MAX(CASE WHEN wcv.key = 'show_name' THEN wcv.value END) AS show_name,
                     MAX(CASE WHEN wcv.key = 'network' THEN wcv.value END) AS network,
@@ -1043,10 +1061,30 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                             LIMIT 3
                         ) sub
                     ) AS top_cast,
-                    CASE
-                        WHEN w.media_type = 'Movies' THEN MAX(CASE WHEN wcv.key = 'director' THEN wcv.value END)
-                        ELSE MAX(CASE WHEN acv.key = 'director' THEN acv.value END)
-                    END AS director,
+                    COALESCE(
+                        (
+                            SELECT GROUP_CONCAT(value, ';')
+                            FROM (
+                                SELECT cva_director.value
+                                FROM canonical_value_arrays cva_director
+                                INNER JOIN root_work_data rwd_director ON rwd_director.root_work_id = cva_director.entity_id
+                                WHERE rwd_director.work_id = w.id
+                                  AND cva_director.key = 'director'
+                                ORDER BY cva_director.ordinal
+                            )
+                        ),
+                        (
+                            SELECT GROUP_CONCAT(value, ';')
+                            FROM (
+                                SELECT cva_director_asset.value
+                                FROM canonical_value_arrays cva_director_asset
+                                INNER JOIN primary_asset_data pad_director ON pad_director.asset_id = cva_director_asset.entity_id
+                                WHERE pad_director.work_id = w.id
+                                  AND cva_director_asset.key = 'director'
+                                ORDER BY cva_director_asset.ordinal
+                            )
+                        )
+                    ) AS director,
                     CASE
                         WHEN w.media_type = 'Movies' THEN MAX(CASE WHEN wcv.key = 'runtime' THEN wcv.value END)
                         ELSE MAX(CASE WHEN acv.key = 'runtime' THEN acv.value END)

@@ -113,6 +113,36 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     }
 
     [Fact]
+    public void IntegrationHarness_SeedsAndValidatesRepeatCreatorsAndCrossMediaPeople()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
+        var seedSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
+
+        Assert.Contains("\"The Expanse books/audiobooks/TV\"", source, StringComparison.Ordinal);
+        Assert.Contains("[\"books\", \"audiobooks\", \"tv\"]", source, StringComparison.Ordinal);
+        Assert.Contains("ValidatePersonCoverageAsync", source, StringComparison.Ordinal);
+        Assert.Contains("new PersonCreditRequirement(\"books\", \"Author\", 2)", source, StringComparison.Ordinal);
+        Assert.Contains("new PersonCreditRequirement(\"music\", \"Artist\", 2)", source, StringComparison.Ordinal);
+        Assert.Contains("MatchesHarnessContributorRole(credit.Role, requirement.Role)", source, StringComparison.Ordinal);
+        Assert.Contains("SELECT value FROM canonical_value_arrays WHERE entity_id = parent.id", source, StringComparison.Ordinal);
+        Assert.Contains("SELECT value FROM canonical_value_arrays WHERE entity_id IN (child.id, asset.id)", source, StringComparison.Ordinal);
+        Assert.Contains("\"Andy Serkis\"", source, StringComparison.Ordinal);
+        Assert.Contains("\"Bryan Cranston\"", source, StringComparison.Ordinal);
+        Assert.Contains("ValidateOutwardDetailRoutesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("\"Audiobook series\"", source, StringComparison.Ordinal);
+        Assert.Contains("enforceSharedCollectionContract: true", source, StringComparison.Ordinal);
+        Assert.Contains("SystemViewGroupIdentity.CreateId(group, \"Audiobooks\", \"series\")", source, StringComparison.Ordinal);
+        Assert.Contains("SystemViewGroupIdentity.CreateId(group, \"Books\", \"series\")", source, StringComparison.Ordinal);
+        Assert.Contains("detail.ContributorGroups.Count == 0", source, StringComparison.Ordinal);
+        Assert.Contains("Rise of the Planet of the Apes (2011) {imdb-tt1318514}.mp4", seedSource, StringComparison.Ordinal);
+        Assert.Contains("Drive (2011) {imdb-tt0780504}.mp4", seedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("dune-films/", seedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("batman-nolan/", seedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("cross-media-people/", seedSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("middle-earth/", seedSource, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void IntegrationHarness_ReportShowsUtf8IssueCategoriesAndProviderProvenance()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\IntegrationTestEndpoints.cs"));
@@ -317,6 +347,24 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
     {
         var report = CreateTestReport();
         AddToListProperty(report, "CrossMediaSeriesChecks", CreateCrossMediaSeriesCheckResult());
+
+        Assert.False(GetOverallPass(report));
+    }
+
+    [Fact]
+    public void OverallPass_FailsWhenPersonCoverageValidationFails()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "PersonCoverageChecks", CreatePersonCoverageCheckResult());
+
+        Assert.False(GetOverallPass(report));
+    }
+
+    [Fact]
+    public void OverallPass_FailsWhenAnOutwardDetailRouteDoesNotResolve()
+    {
+        var report = CreateTestReport();
+        AddToListProperty(report, "DetailRouteChecks", CreateDetailRouteCheckResult());
 
         Assert.False(GetOverallPass(report));
     }
@@ -572,6 +620,34 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         var result = Activator.CreateInstance(type!, nonPublic: true)!;
         SetProperty(result, "Name", "Fixture");
         SetProperty(result, "OwnedCount", 1);
+        return result;
+    }
+
+    private static object CreatePersonCoverageCheckResult()
+    {
+        var type = typeof(IntegrationTestEndpoints).GetNestedType(
+            "PersonCoverageCheckResult",
+            BindingFlags.NonPublic);
+
+        Assert.NotNull(type);
+        var result = Activator.CreateInstance(type!, nonPublic: true)!;
+        SetProperty(result, "Name", "Fixture Person");
+        SetProperty(result, "PersonFound", false);
+        return result;
+    }
+
+    private static object CreateDetailRouteCheckResult()
+    {
+        var type = typeof(IntegrationTestEndpoints).GetNestedType(
+            "DetailRouteCheckResult",
+            BindingFlags.NonPublic);
+
+        Assert.NotNull(type);
+        var result = Activator.CreateInstance(type!, nonPublic: true)!;
+        SetProperty(result, "Surface", "Audiobook series");
+        SetProperty(result, "Title", "Fixture Series");
+        SetProperty(result, "Route", "/details/collection/00000000-0000-0000-0000-000000000000?context=listen");
+        SetProperty(result, "Resolved", false);
         return result;
     }
 

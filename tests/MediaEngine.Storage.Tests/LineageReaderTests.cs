@@ -44,8 +44,8 @@ public sealed class LineageReaderTests : IDisposable
         // Self-scope: episode title on the asset row.
         await InsertCanonicalAsync(assetId, "title", "Hide and Seek");
         // Parent-scope: author lives on the root show Work row.
-        await InsertCanonicalAsync(showId, "author", "Dan Erickson");
-        await InsertCanonicalAsync(showId, "genre",  "Sci-Fi");
+        await InsertCanonicalArrayAsync(showId, "author", "Dan Erickson");
+        await InsertCanonicalArrayAsync(showId, "genre",  "Sci-Fi");
 
         var repo = new LibraryItemRepository(_db);
         var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
@@ -69,7 +69,7 @@ public sealed class LineageReaderTests : IDisposable
 
         await InsertCanonicalAsync(assetId, "title", "Pilot");
         // Intentionally write author to the WRONG row (asset).
-        await InsertCanonicalAsync(assetId, "author", "Wrong Place");
+        await InsertCanonicalArrayAsync(assetId, "author", "Wrong Place");
         // Leave the show row empty for author.
 
         var repo = new LibraryItemRepository(_db);
@@ -89,7 +89,7 @@ public sealed class LineageReaderTests : IDisposable
 
         await InsertCanonicalAsync(assetId, "title", "Dune");
         await InsertCanonicalAsync(workId,  "year",     "2021");
-        await InsertCanonicalAsync(workId,  "director", "Denis Villeneuve");
+        await InsertCanonicalArrayAsync(workId,  "director", "Denis Villeneuve");
 
         var repo = new LibraryItemRepository(_db);
         var page = await repo.GetPageAsync(new LibraryItemQuery(IncludeAll: true));
@@ -109,7 +109,7 @@ public sealed class LineageReaderTests : IDisposable
 
         await InsertCanonicalAsync(assetId, "title",         "Hide and Seek");
         await InsertCanonicalAsync(assetId, "original_title","Hide and Seek");
-        await InsertCanonicalAsync(showId,  "author",        "Dan Erickson");
+        await InsertCanonicalArrayAsync(showId,  "author",        "Dan Erickson");
         await InsertCanonicalAsync(showId,  "description",   "A workplace mystery.");
 
         var index = new SearchIndexRepository(_db);
@@ -131,7 +131,7 @@ public sealed class LineageReaderTests : IDisposable
         var (showId, _, episodeWorkId, assetId) = await BuildTvHierarchyAsync();
 
         await InsertCanonicalAsync(assetId, "title",  "Hide and Seek");
-        await InsertCanonicalAsync(showId,  "author", "Dan Erickson");
+        await InsertCanonicalArrayAsync(showId,  "author", "Dan Erickson");
 
         var index = new SearchIndexRepository(_db);
         await index.UpsertByEntityIdAsync(episodeWorkId);
@@ -202,7 +202,7 @@ public sealed class LineageReaderTests : IDisposable
     {
         // Same predicate, but the value lives on the parent show Work id.
         var (showId, _, episodeWorkId, _) = await BuildTvHierarchyAsync();
-        await InsertCanonicalAsync(showId, "genre", "Sci-Fi");
+        await InsertCanonicalArrayAsync(showId, "genre", "Sci-Fi");
 
         var evaluator = new CollectionRuleEvaluator(_db);
         var matches = evaluator.Evaluate(
@@ -330,6 +330,20 @@ public sealed class LineageReaderTests : IDisposable
         cmd.CommandText = """
             INSERT OR REPLACE INTO canonical_values (entity_id, key, value, last_scored_at)
             VALUES (@entityId, @key, @value, datetime('now'));
+            """;
+        AddGuid(cmd, "@entityId", entityId);
+        cmd.Parameters.AddWithValue("@key", key);
+        cmd.Parameters.AddWithValue("@value", value);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task InsertCanonicalArrayAsync(Guid entityId, string key, string value)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO canonical_value_arrays (entity_id, key, ordinal, value)
+            VALUES (@entityId, @key, 0, @value);
             """;
         AddGuid(cmd, "@entityId", entityId);
         cmd.Parameters.AddWithValue("@key", key);

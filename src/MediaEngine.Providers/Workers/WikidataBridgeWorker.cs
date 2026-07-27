@@ -158,6 +158,9 @@ public sealed partial class WikidataBridgeWorker
             PollCoreAsync,
             ct);
 
+    internal static bool ShouldResetBatchAfterFailure(Exception exception, CancellationToken ct) =>
+        exception is not OperationCanceledException || !ct.IsCancellationRequested;
+
     private int GetBatchSize() =>
         Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Wikidata);
 

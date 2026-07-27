@@ -2,6 +2,7 @@ using Dapper;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -12,6 +13,7 @@ public sealed class CollectionReadServicesTests : IDisposable
     private readonly string _databasePath;
     private readonly DatabaseConnection _database;
     private readonly CollectionBrowseReadService _browse;
+    private readonly CollectionCatalogReadService _catalog;
     private readonly CollectionMediaLookupReadService _lookup;
 
     public CollectionReadServicesTests()
@@ -21,11 +23,19 @@ public sealed class CollectionReadServicesTests : IDisposable
         _database = new DatabaseConnection(_databasePath);
         _database.InitializeSchema();
         _database.RunStartupChecks();
+        var collectionRepository = new CollectionRepository(_database);
         _browse = new CollectionBrowseReadService(
-            new CollectionRepository(_database),
+            collectionRepository,
             _database,
             NullLogger<CollectionBrowseReadService>.Instance);
         _lookup = new CollectionMediaLookupReadService(_database);
+        _catalog = new CollectionCatalogReadService(
+            collectionRepository,
+            new SeriesManifestRepository(_database),
+            new PersonRepository(_database),
+            new ArtworkPaletteService(),
+            _lookup,
+            _database);
     }
 
     [Fact]
@@ -146,8 +156,8 @@ public sealed class CollectionReadServicesTests : IDisposable
         {
             await connection.ExecuteAsync(
                 """
-                DELETE FROM canonical_values
-                WHERE key = 'artist' AND entity_id IN (@AlbumWorkId, @AssetId);
+                DELETE FROM canonical_value_arrays
+                WHERE key IN ('album_artist', 'artist') AND entity_id IN (@AlbumWorkId, @AssetId);
                 INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
                 VALUES (@TrackWorkId, 'author', 0, 'The Artist');
                 """,
@@ -391,6 +401,82 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionCatalog_GroupsCrossMediaChildrenThroughTheirSharedParentUniverse()
+    {
+        var universeId = Guid.NewGuid();
+        var fixtures = new[]
+        {
+            (CollectionId: Guid.NewGuid(), WorkId: Guid.NewGuid(), MediaType: "Books", Title: "Leviathan Wakes"),
+            (CollectionId: Guid.NewGuid(), WorkId: Guid.NewGuid(), MediaType: "Audiobooks", Title: "Leviathan Wakes"),
+            (CollectionId: Guid.NewGuid(), WorkId: Guid.NewGuid(), MediaType: "TV", Title: "The Expanse"),
+        };
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, wikidata_qid)
+                VALUES (
+                    @UniverseId, 'The Expanse', 'Universe', 'library', 'query', 'Q19610143');
+                """,
+                new { UniverseId = universeId });
+
+            foreach (var fixture in fixtures)
+            {
+                var editionId = Guid.NewGuid();
+                var assetId = Guid.NewGuid();
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO collections (
+                        id, parent_collection_id, display_name, collection_type, scope, resolution)
+                    VALUES (
+                        @CollectionId, @UniverseId, 'The Expanse', 'ContentGroup', 'library', 'query');
+                    INSERT INTO works (
+                        id, collection_id, media_type, work_kind, ownership, curator_state)
+                    VALUES (
+                        @WorkId, @CollectionId, @MediaType, 'standalone', 'Owned', 'Accepted');
+                    INSERT INTO editions (id, work_id)
+                    VALUES (@EditionId, @WorkId);
+                    INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES (@AssetId, @EditionId, @ContentHash, @FilePath);
+                    INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@WorkId, 'title', @Title, @Now);
+                    """,
+                    new
+                    {
+                        fixture.CollectionId,
+                        UniverseId = universeId,
+                        fixture.WorkId,
+                        fixture.MediaType,
+                        fixture.Title,
+                        EditionId = editionId,
+                        AssetId = assetId,
+                        ContentHash = $"cross-media-{assetId:N}",
+                        FilePath = $"C:/library/{assetId:N}.media",
+                        Now = now,
+                    });
+            }
+        }
+
+        var entry = Assert.Single(await _catalog.GetCatalogAsync(null, CancellationToken.None));
+        var items = await _catalog.GetItemsAsync(entry.Id, null, 20, CancellationToken.None);
+
+        Assert.Equal("The Expanse", entry.Name);
+        Assert.Equal(3, entry.ItemCount);
+        Assert.Equal(1, entry.BookCount);
+        Assert.Equal(1, entry.AudiobookCount);
+        Assert.Equal(1, entry.TvCount);
+        Assert.True(items.Found);
+        Assert.False(items.Forbidden);
+        Assert.Equal(3, items.Items.Count);
+        Assert.Contains(items.Items, item => item.MediaType == "Books");
+        Assert.Contains(items.Items, item => item.MediaType == "Audiobooks");
+        Assert.Contains(items.Items, item => item.MediaType == "TV");
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();
@@ -420,12 +506,13 @@ public sealed class CollectionReadServicesTests : IDisposable
             INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
                 (@AlbumWorkId, 'album', 'The Album', @Now),
                 (@AlbumWorkId, 'title', 'The Album', @Now),
-                (@AlbumWorkId, 'artist', 'The Artist', @Now),
                 (@AssetId, 'title', @Title, @Now),
                 (@AssetId, 'album', 'The Album', @Now),
-                (@AssetId, 'artist', 'The Artist', @Now),
                 (@AssetId, 'track_number', '1', @Now),
                 (@AssetId, 'year', '2026', @Now);
+            INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value) VALUES
+                (@AlbumWorkId, 'album_artist', 0, 'The Artist'),
+                (@AssetId, 'artist', 0, 'The Artist');
             INSERT INTO entity_assets (
                 id, entity_id, entity_type, asset_type, aspect_class,
                 primary_hex, secondary_hex, accent_hex, created_at)

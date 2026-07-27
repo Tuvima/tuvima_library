@@ -65,6 +65,7 @@ public static class TuvimaProviderServiceCollectionExtensions
         services.AddSingleton<RetailRequestBuilder>();
         services.AddSingleton<IProviderRateLimiterCoordinator, ProviderRateLimiterCoordinator>();
         services.AddSingleton<AppleRetailClient>();
+        services.AddSingleton<MusicBrainzReleaseClient>();
         services.AddSingleton<TmdbRetailClient>();
         services.AddSingleton<RetailCandidateScorer>();
         services.AddSingleton<RetailMatchWorker>();

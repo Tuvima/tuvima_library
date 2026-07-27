@@ -1,0 +1,218 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[02:58:35 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[02:58:35 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[02:58:35 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[02:58:36 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[02:58:36 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[02:58:36 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[02:58:36 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[02:58:36 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[02:58:36 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[02:58:36 INF] IngestionEngine started
+[02:58:36 INF] FolderHealthService started — checking every 30s
+[02:58:36 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[02:58:36 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[02:58:36 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[02:58:36 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[02:58:36 INF] RetagSweepWorker started
+[02:58:36 INF] Running startup reconciliation...
+[02:58:36 INF] Identity startup recovery found no interrupted jobs.
+[02:58:36 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[02:58:36 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[02:58:36 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[02:58:36 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[02:58:36 INF] RetailMatchHostedService started
+[02:58:36 INF] QuickHydrationHostedService started
+[02:58:36 INF] WikidataBridgeHostedService started
+[02:58:36 INF] Collection backfill complete: 30/30 processed, 0 assigned, 0 created, 0 already assigned, 30 skipped, 0 failed in 35ms
+[02:58:36 INF] Reconciliation: collection backfill processed 30/30 candidate work(s), assigned 0, created 0, skipped 30, failed 0
+[02:58:36 INF] Reconciliation complete: 111 scanned, 0 missing, 0 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 6 empty folders, 0 orphan people, 0 stale root sidecars, 402ms
+[02:58:36 INF] Startup reconciliation complete: 111 scanned, 0 missing
+[02:58:36 INF] Watching: C:\temp\tuvima-watch\books
+[02:58:36 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[02:58:36 INF] Watching: C:\temp\tuvima-watch\tv
+[02:58:36 INF] Watching: C:\temp\tuvima-watch\movies
+[02:58:36 INF] Watching: C:\temp\tuvima-watch\music
+[02:58:36 INF] Watching: C:\temp\tuvima-watch\comics
+[02:58:36 INF] Initial scan: skipped 28 already-known or duplicate file(s) across 6 scan target(s)
+[02:58:36 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[02:58:37 INF] Now listening on: https://localhost:61494
+[02:58:37 INF] Now listening on: http://localhost:61495
+[02:58:37 INF] Application started. Press Ctrl+C to shut down.
+[02:58:37 INF] Hosting environment: Development
+[02:58:37 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[02:58:39 INF] Artwork rendition repair completed: 0 assets repaired, 157 canonical sets refreshed.
+[02:58:41 INF] DeferredEnrichmentService started
+[02:58:46 INF] ProviderHealthMonitor started — 4 providers tracked
+[02:58:46 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[02:58:51 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[02:58:51 INF] Cover art: skipped 'Nuvole bianche' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\07fc2172-9670-49d5-b594-42c3dbe7973c\cover\bfd1ffb51f814509b7de9255c9477055.jpg)
+[02:58:51 INF] Cover art: skipped 'Yesterday' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\25e3fce1-ef32-466d-94a2-3611f7b6203b\cover\3f918d9c294b497199352629d28a457f.jpg)
+[02:58:51 INF] Cover art: skipped 'Under Pressure' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\420090c1-3e44-4af4-ae39-85d282481157\cover\8128a35e298044c0a1b7fe3a23ed32c9.jpg)
+[02:58:51 INF] Cover art: skipped 'BLOOD.' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\65b81a1c-eeb4-4782-8df5-83374288f440\cover\876b0189fdc84710a9e6bbc065c1dec7.jpg)
+[02:58:51 INF] Cover art: skipped 'Something' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\734f3516-c27c-477b-9741-b67e29afe0c3\cover\e6b95bd39a7d4086958cabfc7811b726.jpg)
+[02:58:51 INF] Cover art: skipped 'Seaside Rendezvous' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\757181f8-cc26-4742-92c0-f04edb80a82b\cover\ceb0dfd9488241efbc15a8bc2e659b83.jpg)
+[02:58:51 INF] Cover art: skipped 'Lose Yourself' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\79df381b-65b1-4eec-b974-e4a5f7f923aa\cover\c6a7766e52ba47b0a6882e8a3632d13a.jpg)
+[02:58:51 INF] Cover art: skipped 'Imagine' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\852b411b-a1d7-43c0-b9d4-0f5b7a408429\cover\51bd9c61984540aeb35f4c46efc57e80.jpg)
+[02:58:51 INF] Cover art: skipped 'Beauty and the Beast' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\86eceb19-ab62-4fef-8c19-4fd7efdee467\cover\3b95a44b3db74ee9825d9ce567840f5e.jpg)
+[02:58:51 INF] Cover art: skipped 'MMMBop' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\a59f01ba-04e2-4d38-965f-6dd25a299253\cover\2d3f57a9ed5346cc8db4eb639b943ca0.jpg)
+[02:58:51 INF] Cover art: skipped 'Time' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\e87e6079-9677-4511-9c5b-8f6fa94bb978\cover\cf964858d2644f4099f5e756f7c655db.jpg)
+[02:59:06 INF] Next activity prune at 07/27/2026 03:00:00 -05:00
+[02:59:11 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:16 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:21 INF] Next rejected-file cleanup at 07/27/2026 04:00:00 -05:00
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:23 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:59:36 INF] Next retag sweep at 07/27/2026 03:00:00 -05:00
+[02:59:36 INF] Next storage maintenance pass at 07/28/2026 02:00:00 -05:00
+[03:00:00 INF] Next activity prune at 07/28/2026 03:00:00 -05:00
+[03:00:00 INF] Next retag sweep at 07/28/2026 03:00:00 -05:00
+[03:00:36 INF] VibeBatchService: scanning for entities needing vibe tags
+[03:00:36 INF] PluginScheduledSegmentService: next run in 22:59:23.5633053
+[03:00:37 INF] VibeBatchService: tagged 0 entities
+[03:00:37 INF] VibeBatchService: next run in 00:59:22.5076331
+[03:01:36 INF] SeriesAlignmentService: scanning for unpositioned series works
+[03:01:36 INF] [DESCRIPTION-INTEL-BATCH] Next run in 00:13:23.5732673
+[03:01:37 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[03:01:37 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[03:01:37 WRN] SeriesAlignmentService: failed to infer position for entity 2d5aaa26-1021-4f17-8d14-818777b0ce67
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[03:01:37 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[03:01:37 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[03:01:37 WRN] SeriesAlignmentService: failed to infer position for entity c9cd39df-d2aa-4a4a-8f4c-e366a2863a30
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[03:01:37 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[03:01:37 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[03:01:37 WRN] SeriesAlignmentService: failed to infer position for entity 9a473a32-8a09-4887-9c48-302e14e8d727
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[03:01:37 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[03:01:37 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[03:01:37 WRN] SeriesAlignmentService: failed to infer position for entity e6a94722-eb3c-4edc-a113-5e81f0e636c0
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[03:01:37 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[03:01:37 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[03:01:37 WRN] SeriesAlignmentService: failed to infer position for entity b7fb7242-c09a-48d6-9ccc-ef9b3f706eab
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[03:01:37 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[03:01:37 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[03:01:37 WRN] SeriesAlignmentService: failed to infer position for entity f7727b14-2873-492a-adb0-5d814da580a0
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[03:01:37 INF] SeriesAlignmentService: attempted 6 bounded suggestion(s)
+[03:01:37 INF] SeriesAlignmentService: next run in 23:58:22.5642609
+[03:03:36 INF] TasteProfileService: persisted 0 profile(s)
+[03:03:36 INF] TasteProfileService: next run in 6.01:56:23.5801676
+[03:03:36 INF] Poll sweep: inspected 6, changed 0, queued 0, unchanged 6, ignored 0, missing 0 in C:\temp\tuvima-watch\books
+[03:03:36 INF] Poll sweep: inspected 0, changed 0, queued 0, unchanged 0, ignored 0, missing 0 in C:\temp\tuvima-watch\audiobooks
+[03:03:36 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\tv
+[03:03:36 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\movies
+[03:03:36 INF] Poll sweep: inspected 19, changed 0, queued 0, unchanged 19, ignored 0, missing 0 in C:\temp\tuvima-watch\music
+[03:03:36 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\comics
+[03:03:36 INF] [UNIVERSE-ENRICH] Processing maintenance sweep with 50 item(s)
+[03:03:36 INF] Narrative root resolved: Sprawl trilogy (Q2610590) at level Series
+[03:03:36 INF] Narrative root resolved: Sprawl trilogy (Q2610590) at level Series
+[03:03:36 WRN] [UNIVERSE-ENRICH] Stage 3 core completed for Q662029 (465dd40c-43b0-409a-988f-3ec3bd84315e) but linked no fictional entities; leaving item retryable
+[03:03:36 INF] [IMAGE-ENRICH] Starting image enrichment for asset 465dd40c-43b0-409a-988f-3ec3bd84315e using canonical entity b7fb7242-c09a-48d6-9ccc-ef9b3f706eab (Q662029)
+[03:03:36 INF] AudioTagger: wrote 7 tags to C:\temp\tuvima-library\Audiobooks/Unknown/Neuromancer (Unabridged) (2011)/Neuromancer (Unabridged).mp3
+[03:03:36 INF] WriteBack: wrote 7 fields to C:\temp\tuvima-library\Audiobooks/Unknown/Neuromancer (Unabridged) (2011)/Neuromancer (Unabridged).mp3 (trigger: universe_enrichment)
+[03:03:36 INF] Narrative root resolved: Sprawl trilogy (Q2610590) at level Series
+[03:03:36 INF] Narrative root resolved: Sprawl trilogy (Q2610590) at level Series
+[03:03:36 WRN] [UNIVERSE-ENRICH] Stage 3 core completed for Q662029 (4c4bb35d-9303-4e04-a9e8-3863f5cf581d) but linked no fictional entities; leaving item retryable
+[03:03:36 INF] [IMAGE-ENRICH] Starting image enrichment for asset 4c4bb35d-9303-4e04-a9e8-3863f5cf581d using canonical entity e6a94722-eb3c-4edc-a113-5e81f0e636c0 (Q662029)
+[03:03:36 INF] Wrote 8 tag(s) to EPUB: C:\temp\tuvima-library\Books/Unknown/Neuromancer (1984)/Neuromancer (1984).epub
+[03:03:36 INF] WriteBack: wrote 8 fields to C:\temp\tuvima-library\Books/Unknown/Neuromancer (1984)/Neuromancer (1984).epub (trigger: universe_enrichment)
+[03:03:36 WRN] [IMAGE-ENRICH] Asset 2a81dc57-fb7c-4365-a9ba-5c5267cbd1df has no media file path — skipping sidecar artwork enrichment
+[03:03:36 WRN] [IMAGE-ENRICH] Asset e0e5ffb7-8307-45ef-adc7-69a42a438cc5 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset a55488cb-efd4-439e-a891-943c28398e1c has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 8a171d51-3822-424b-8e1d-363ae37d03b7 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 7e2992d5-38b5-4295-98ed-9291aad6c28d has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset c58ab1b0-f674-4217-8186-b50445e4492e has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 493d9af2-a813-44ec-a85b-03f695f21839 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 6e628bab-a06e-4cb3-9989-b880cf50f3fc has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset c76756db-c145-435c-9178-6bfb2c23d765 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset d1dc6d9a-729c-4af7-99a8-c74e860c6236 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 03752620-d20d-4bc1-a0e1-0093c5fed757 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 5b7cb312-b825-40e0-ac97-224c6f91bc09 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 888a48bd-af29-4cde-b69c-ed2909a63eaa has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset b95275a3-9682-474c-b9cb-864beea8e1ad has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 8470706f-3aeb-4aba-ab85-877ba65502a4 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset c12d1bfa-9a7e-4e63-893d-8cf11ee0d413 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 7e46293d-d0ba-4304-9199-ee892716cf5a has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 5531b02b-a637-47c1-9abd-d3cb695e8241 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 85f9469b-352e-4103-ac02-6c8f937b5846 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset a843b167-bad9-47a0-971b-f269c6973f96 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 3836fd6b-0a82-481a-93b0-7ae7b4ef07a6 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 615d2ad4-269f-45c6-b2f6-3ae6f09898d7 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 3d12131c-23cf-4ae9-bffe-fc3cb64a67ec has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 084d1565-f197-4267-b361-94f922d94faa has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 9c39ed6c-11eb-4001-ba8c-adab90391367 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset d0f6375b-abd0-4240-9204-a34e3f06dfe2 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset cb28704a-69c1-41cb-91be-10d2605c8775 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset ec02bf39-88d9-4837-a998-d17e40313cbb has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset a6da1e8d-70e6-4a29-b8e7-cba3149227ba has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset bbb52b71-3ad8-4510-bdc5-1aa25eef7e7a has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 0b42fdb0-6c70-456e-ae23-0a0326c854ec has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 29a44e9f-c9b3-409e-8e76-8f89564dcbb1 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset ae79f926-7b14-4fca-82bb-ce0bef816585 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 902090b2-4184-42b3-bc6f-b51e5eef9701 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 10d3186e-628d-457e-9a04-b324ffa227bc has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 809007a3-f3c5-4cb0-a438-fc7c430b2512 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 4f736e89-aba8-4606-bb35-f19f1532c880 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 8836581a-a00d-43a8-ab09-b6b5db1c9878 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 98bca5b0-c23b-4190-ad5c-fba7e8caeaf1 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset c9c172ed-290c-43cd-8e50-a51332aebf6f has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset e05e7171-2472-44e0-8d7f-11c61b93571d has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset dc2720cb-c382-4379-88d9-f882c106b07f has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset a24ca69f-51e5-4232-adcb-1fb925a32bbe has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 1ba5a128-5a29-472c-bc99-c6d10acee563 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 365f8398-b97a-46ce-8ee7-691ded1e531f has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 1c5b4cd5-1a28-455b-9abe-326c30ef2087 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset 55e038bb-4931-4260-bed2-47b6197ff251 has no media file path — skipping sidecar artwork enrichment
+[03:03:37 WRN] [IMAGE-ENRICH] Asset a050a519-b382-4514-b37d-a039b195f6e7 has no media file path — skipping sidecar artwork enrichment

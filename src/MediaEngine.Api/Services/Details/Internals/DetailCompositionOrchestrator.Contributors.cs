@@ -42,7 +42,7 @@ internal sealed partial class DetailCompositionOrchestrator
                    (SELECT value FROM canonical_values WHERE entity_id = e.id AND key IN ('cover_url', 'cover') LIMIT 1) AS EditionCoverUrl,
                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'runtime' LIMIT 1) AS Runtime,
                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'page_count' LIMIT 1) AS PageCount,
-                   (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'narrator' LIMIT 1) AS Narrator,
+                   (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key = 'narrator' ORDER BY ordinal LIMIT 1) AS Narrator,
                    us.progress_pct AS ProgressPct
             FROM editions e
             INNER JOIN media_assets ma ON ma.edition_id = e.id
@@ -235,6 +235,18 @@ internal sealed partial class DetailCompositionOrchestrator
         if (entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode)
         {
             return group.GroupType is CreditGroupType.Directors or CreditGroupType.Cast;
+        }
+
+        if (entityType == DetailEntityType.Audiobook)
+        {
+            return group.GroupType is CreditGroupType.Authors or CreditGroupType.Narrators;
+        }
+
+        if (entityType == DetailEntityType.MusicAlbum)
+        {
+            return group.GroupType is CreditGroupType.PrimaryArtists
+                or CreditGroupType.FeaturedArtists
+                or CreditGroupType.MusicCredits;
         }
 
         return true;

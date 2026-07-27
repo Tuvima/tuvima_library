@@ -10,6 +10,8 @@ public static class TuvimaHostedServiceCollectionExtensions
 {
     public static IServiceCollection AddTuvimaHostedServices(this IServiceCollection services)
     {
+        services.AddSingleton<EnrichmentPipelineExecutionGate>();
+
         // IHostedService.StartAsync methods are awaited sequentially before Kestrel
         // accepts requests. Keep the two startup data repairs first.
         services.AddHostedService<UISettingsCacheWarmupHostedService>();

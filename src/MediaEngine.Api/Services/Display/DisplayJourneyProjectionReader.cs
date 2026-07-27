@@ -37,17 +37,14 @@ public sealed class DisplayJourneyProjectionReader
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key = 'short_description' LIMIT 1)
                 ) AS Description,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('author', 'creator') LIMIT 1),
                     (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
-                    cv_author_w.value,
                     (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('author', 'creator') LIMIT 1),
                     (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key IN ('author', 'creator') ORDER BY ordinal LIMIT 1)
                 ) AS Author,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'artist' LIMIT 1),
-                    cv_artist_w.value,
-                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'artist' LIMIT 1)
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal LIMIT 1)
                 ) AS Artist,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'album' LIMIT 1),
@@ -92,7 +89,11 @@ public sealed class DisplayJourneyProjectionReader
                 ) AS Series,
                 COALESCE(cv_issue_a.value, cv_issue_w.value, cv_series_position_a.value) AS SeriesPosition,
                 cv_show_w.value AS ShowName,
-                cv_narrator_w.value AS Narrator,
+                COALESCE(
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key = 'narrator' ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'narrator' ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key = 'narrator' ORDER BY ordinal LIMIT 1)
+                ) AS Narrator,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
@@ -200,20 +201,16 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_title_w ON cv_title_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_title_w.key = 'title'
             LEFT JOIN canonical_values cv_issue_title_a ON cv_issue_title_a.entity_id = ma.id AND cv_issue_title_a.key = 'issue_title'
             LEFT JOIN canonical_values cv_issue_title_w ON cv_issue_title_w.entity_id = w.id AND cv_issue_title_w.key = 'issue_title'
-            LEFT JOIN canonical_values cv_author_w ON cv_author_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_author_w.key = 'author'
-            LEFT JOIN canonical_values cv_artist_w ON cv_artist_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_artist_w.key = 'artist'
             LEFT JOIN canonical_values cv_album_w ON cv_album_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_album_w.key = 'album'
             LEFT JOIN canonical_values cv_year_w ON cv_year_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_year_w.key IN ('release_year', 'year')
             LEFT JOIN canonical_values cv_rating_w ON cv_rating_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_rating_w.key = 'rating'
             LEFT JOIN canonical_values cv_rating_item ON cv_rating_item.entity_id = w.id AND cv_rating_item.key = 'rating'
             LEFT JOIN canonical_values cv_rating_a ON cv_rating_a.entity_id = ma.id AND cv_rating_a.key = 'rating'
-            LEFT JOIN canonical_values cv_genre_w ON cv_genre_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_genre_w.key = 'genre'
             LEFT JOIN canonical_values cv_series_w ON cv_series_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_series_w.key = 'series'
             LEFT JOIN canonical_values cv_series_position_a ON cv_series_position_a.entity_id = ma.id AND cv_series_position_a.key = 'series_position'
             LEFT JOIN canonical_values cv_issue_a ON cv_issue_a.entity_id = ma.id AND cv_issue_a.key = 'issue_number'
             LEFT JOIN canonical_values cv_issue_w ON cv_issue_w.entity_id = w.id AND cv_issue_w.key = 'issue_number'
             LEFT JOIN canonical_values cv_show_w ON cv_show_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_show_w.key = 'show_name'
-            LEFT JOIN canonical_values cv_narrator_w ON cv_narrator_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_narrator_w.key = 'narrator'
             LEFT JOIN canonical_values cv_cover_a ON cv_cover_a.entity_id = ma.id AND cv_cover_a.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cv_square_a ON cv_square_a.entity_id = ma.id AND cv_square_a.key IN ('square_url', 'square')
             LEFT JOIN canonical_values cv_background_a ON cv_background_a.entity_id = ma.id AND cv_background_a.key IN ('background_url', 'background', 'episode_still_url', 'episode_still', 'still_url', 'still')

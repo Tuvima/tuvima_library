@@ -1248,6 +1248,7 @@ public sealed class DetailComposerServiceTests
 
         Assert.Contains("BuildFallbackCreditsFromMetadataClaimsAsync", creditSource);
         Assert.Contains("mc.claim_key IN ('cast_member', 'cast_member_qid')", creditSource);
+        Assert.Contains(".Where(group => group.Count() == 1)", creditSource);
         Assert.Contains("ExtractQid(entry.ValueQid)", creditSource);
 
         Assert.Contains("BuildCanonicalArrayEntries(winningClaims, qidClaims)", scoringSource);

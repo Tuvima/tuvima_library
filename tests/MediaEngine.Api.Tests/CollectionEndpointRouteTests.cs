@@ -189,7 +189,9 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("CollectionType.PlaylistFolder", source, StringComparison.Ordinal);
         Assert.Contains("CollectionType.Smart", source, StringComparison.Ordinal);
         Assert.Contains("CollectionManagementCatalogCandidate", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionCatalogAggregation(collection)", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionCatalogAggregation(collection, collections)", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetStructuralParentAggregation", source, StringComparison.Ordinal);
+        Assert.Contains("$\"parent:{root.Id:D}\"", source, StringComparison.Ordinal);
         Assert.Contains("fictional_universe", source, StringComparison.Ordinal);
         Assert.Contains("franchise", source, StringComparison.Ordinal);
         Assert.Contains("TryGetRelationshipAggregation(collection, \"series\"", source, StringComparison.Ordinal);
@@ -206,7 +208,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.DoesNotContain("FindByNameAsync(reference.LookupValue", source, StringComparison.Ordinal);
         Assert.Contains("ApiImageUrls.BuildPersonHeadshotUrl", source, StringComparison.Ordinal);
         Assert.Contains("HasKnownSeriesManifestAsync(collection, ct)", source, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionCatalogAggregation(collection) is null", source, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionCatalogAggregation(collection, accessibleCollections)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("collection:{NormalizeCatalogQid(collection.WikidataQid)}", source, StringComparison.Ordinal);
         Assert.Contains("mediaCounts.TotalCount >= 2 || hasKnownSeriesManifest", source, StringComparison.Ordinal);
         Assert.Contains("manifest?.TotalCount > 1", source, StringComparison.Ordinal);

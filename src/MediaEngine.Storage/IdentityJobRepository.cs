@@ -269,11 +269,26 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         return Task.FromResult<IReadOnlyList<IdentityJob>>(rows.Select(MapRow).ToList());
     }
 
-    public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
+    public Task<int> ReclaimStuckJobsAsync(
+        IdentityJobState processingState,
+        TimeSpan stuckThreshold,
+        CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var resumeState = processingState switch
+        {
+            IdentityJobState.RetailSearching => IdentityJobState.Queued,
+            IdentityJobState.BridgeSearching => IdentityJobState.RetailMatched,
+            IdentityJobState.Hydrating => IdentityJobState.QidResolved,
+            IdentityJobState.UniverseEnriching => IdentityJobState.QidResolved,
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(processingState),
+                processingState,
+                "Only intermediate identity job states can be reclaimed."),
+        };
         var cutoff = DateTimeOffset.UtcNow.Subtract(stuckThreshold).ToString("O");
         var now = DateTimeOffset.UtcNow.ToString("O");
+        var processingStateName = processingState.ToString();
         using var conn = _db.CreateConnection();
         var affected = conn.Execute("""
             UPDATE identity_jobs
@@ -283,6 +298,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                    last_error       = NULL,
                    updated_at       = @now
             WHERE  state = 'UniverseEnriching'
+              AND  @processingState = 'UniverseEnriching'
               AND  EXISTS (
                    SELECT 1
                    FROM canonical_values cv
@@ -299,6 +315,7 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                    last_error       = 'Recovered for Stage 3 artwork/enhancer retry',
                    updated_at       = @now
             WHERE  state = 'Failed'
+              AND  @processingState = 'UniverseEnriching'
               AND  last_error = 'Stuck intermediate state exceeded retry limit'
               AND  EXISTS (
                    SELECT 1
@@ -324,17 +341,12 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
               );
 
             UPDATE identity_jobs
-            SET    state = CASE state
-                       WHEN 'RetailSearching' THEN 'Queued'
-                       WHEN 'BridgeSearching' THEN 'RetailMatched'
-                       WHEN 'Hydrating'       THEN 'QidResolved'
-                       WHEN 'UniverseEnriching' THEN 'QidResolved'
-                   END,
+            SET    state            = @resumeState,
                    lease_owner      = NULL,
                    lease_expires_at = NULL,
                    last_error       = 'Reclaimed from stuck intermediate state',
                    updated_at       = @now
-            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+            WHERE  state = @processingState
               AND  (lease_owner IS NULL OR lease_expires_at < @now)
               AND  updated_at < @cutoff
               AND  attempt_count < 5;
@@ -345,12 +357,18 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
                    lease_expires_at = NULL,
                    last_error       = 'Stuck intermediate state exceeded retry limit',
                    updated_at       = @now
-            WHERE  state IN ('RetailSearching', 'BridgeSearching', 'Hydrating', 'UniverseEnriching')
+            WHERE  state = @processingState
               AND  (lease_owner IS NULL OR lease_expires_at < @now)
               AND  updated_at < @cutoff
               AND  attempt_count >= 5;
             """,
-            new { cutoff, now });
+            new
+            {
+                cutoff,
+                now,
+                processingState = processingStateName,
+                resumeState = resumeState.ToString(),
+            });
         return Task.FromResult(affected);
     }
 

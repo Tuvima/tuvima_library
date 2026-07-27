@@ -65,7 +65,19 @@ public sealed class ItemCanonicalRepository(
                 t.asset_id,
                 COALESCE(NULLIF(t.work_media_type, ''), MAX(CASE WHEN cv.key = 'media_type' THEN cv.value END), ''),
                 COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), ''),
-                COALESCE(MAX(CASE WHEN cv.key IN ('author', 'artist', 'director') THEN cv.value END), ''),
+                COALESCE(
+                    (SELECT value
+                     FROM canonical_value_arrays
+                     WHERE entity_id IN (t.work_id, t.asset_id)
+                       AND key IN ('author', 'album_artist', 'artist', 'director')
+                     ORDER BY CASE key
+                         WHEN 'author' THEN 0
+                         WHEN 'album_artist' THEN 1
+                         WHEN 'artist' THEN 2
+                         ELSE 3
+                     END, ordinal
+                     LIMIT 1),
+                    ''),
                 COALESCE(MAX(CASE WHEN cv.key = 'year' THEN cv.value END), '')
             FROM target t
             LEFT JOIN canonical_values cv ON cv.entity_id = t.asset_id

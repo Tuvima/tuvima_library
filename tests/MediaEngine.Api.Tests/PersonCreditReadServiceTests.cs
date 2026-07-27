@@ -155,6 +155,69 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLibraryCreditsAsync_RejectsContributorRolesThatDoNotBelongToTheMediaType()
+    {
+        var personId = Guid.NewGuid();
+        var audiobookWorkId = Guid.NewGuid();
+        var audiobookEditionId = Guid.NewGuid();
+        var audiobookAssetId = Guid.NewGuid();
+        var musicWorkId = Guid.NewGuid();
+        var musicEditionId = Guid.NewGuid();
+        var musicAssetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'Cross Media Contributor', $now);
+
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($audiobookWorkId, 'Audiobooks', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($audiobookEditionId, $audiobookWorkId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($audiobookAssetId, $audiobookEditionId, 'role-filter-audiobook', 'C:/library/Novel.m4b');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($audiobookWorkId, 'title', 'Spoken Novel', $now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($audiobookWorkId, 'author', 0, 'Cross Media Contributor');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($audiobookWorkId, 'artist', 0, 'Cross Media Contributor');
+
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($musicWorkId, 'Music', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($musicEditionId, $musicWorkId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($musicAssetId, $musicEditionId, 'role-filter-music', 'C:/library/Album.flac');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($musicWorkId, 'title', 'Studio Album', $now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($musicWorkId, 'artist', 0, 'Cross Media Contributor');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($musicWorkId, 'author', 0, 'Cross Media Contributor');
+                """;
+            AddGuid(cmd, "$personId", personId);
+            AddGuid(cmd, "$audiobookWorkId", audiobookWorkId);
+            AddGuid(cmd, "$audiobookEditionId", audiobookEditionId);
+            AddGuid(cmd, "$audiobookAssetId", audiobookAssetId);
+            AddGuid(cmd, "$musicWorkId", musicWorkId);
+            AddGuid(cmd, "$musicEditionId", musicEditionId);
+            AddGuid(cmd, "$musicAssetId", musicAssetId);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var credits = await CreateService().GetLibraryCreditsAsync(personId, CancellationToken.None);
+
+        Assert.Equal(2, credits.Count);
+        Assert.Equal("Author", Assert.Single(credits, credit => credit.MediaType == "Audiobooks").Role);
+        Assert.Equal("Artist", Assert.Single(credits, credit => credit.MediaType == "Music").Role);
+    }
+
+    [Fact]
     public async Task GetLibraryCreditsAsync_CollapsesMusicTracksToOneAlbumWithTrackCount()
     {
         var personId = Guid.NewGuid();

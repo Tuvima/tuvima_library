@@ -83,7 +83,7 @@ public sealed class PersonAndWorkEndpointRouteTests
         Assert.Contains("SecondaryColor", dtoSource, StringComparison.Ordinal);
         Assert.Contains("AccentColor", dtoSource, StringComparison.Ordinal);
         Assert.Contains("DurationSeconds", dtoSource, StringComparison.Ordinal);
-        Assert.Contains("EnsureAppleAlbumTrackManifestAsync", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("EnsureAlbumTrackManifestAsync", endpointSource, StringComparison.Ordinal);
         Assert.Contains("AppleRetailClient appleRetailClient", endpointSource, StringComparison.Ordinal);
         Assert.Contains("MetadataFieldConstants.ChildEntitiesJson", endpointSource, StringComparison.Ordinal);
         Assert.Contains("Status = \"Missing\"", endpointSource, StringComparison.Ordinal);

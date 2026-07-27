@@ -423,23 +423,23 @@ public static class DevSeedEndpoints
             ExpectedQid: "Q21500755"),
 
         new("Dune: Part One", "Denis Villeneuve", 2021, "Movie",
-            FileNameOverride: "dune-films/Dune Part One (2021) {imdb-tt1160419}.mp4",
+            FileNameOverride: "Dune Part One (2021) {imdb-tt1160419}.mp4",
             TestCategory: "Movie - Dune cross-media fixture for audiobook/movie linkage",
             ExpectedProvider: "tmdb",
             ReconciliationTitle: "Dune"),
 
         new("Dune: Part Two", "Denis Villeneuve", 2024, "Movie",
-            FileNameOverride: "dune-films/Dune Part Two (2024) {imdb-tt15239678}.mp4",
+            FileNameOverride: "Dune Part Two (2024) {imdb-tt15239678}.mp4",
             TestCategory: "Movie - Dune sequel cross-media fixture for series totals and linkage",
             ExpectedProvider: "tmdb"),
 
         new("Batman Begins", "Christopher Nolan", 2005, "Movie",
-            FileNameOverride: "batman-nolan/Batman Begins (2005) {imdb-tt0372784}.mp4",
+            FileNameOverride: "Batman Begins (2005) {imdb-tt0372784}.mp4",
             TestCategory: "Movie - Batman cross-media fixture for comic/movie linkage",
             ExpectedProvider: "tmdb"),
 
         new("The Dark Knight", "Christopher Nolan", 2008, "Movie",
-            FileNameOverride: "batman-nolan/The Dark Knight (2008) {imdb-tt0468569}.mp4",
+            FileNameOverride: "The Dark Knight (2008) {imdb-tt0468569}.mp4",
             TestCategory: "Movie - Batman sequel cross-media fixture for comic/movie linkage",
             ExpectedProvider: "tmdb"),
 
@@ -462,6 +462,16 @@ public static class DevSeedEndpoints
         new("The Shawshank Redemption", "Frank Darabont", 1994, "Movie",
             TestCategory: "Movie — Stephen King adaptation (cross-ref with books)",
             ExpectedQid: "Q172241"),
+
+        new("Rise of the Planet of the Apes", "Rupert Wyatt", 2011, "Movie",
+            FileNameOverride: "Rise of the Planet of the Apes (2011) {imdb-tt1318514}.mp4",
+            TestCategory: "Movie — Andy Serkis lead actor credit cross-linked with The Hobbit audiobook narrator",
+            ExpectedProvider: "tmdb"),
+
+        new("Drive", "Nicolas Winding Refn", 2011, "Movie",
+            FileNameOverride: "Drive (2011) {imdb-tt0780504}.mp4",
+            TestCategory: "Movie — Bryan Cranston actor credit cross-linked with Breaking Bad TV",
+            ExpectedProvider: "tmdb"),
 
         // ── TV Episodes ─────────────────────────────────────────────────────
 

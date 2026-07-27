@@ -21,13 +21,15 @@ public sealed class PipelineStageHostedServiceTests
         using var provider = BuildProvider(repository, scopeState, processedCount: 3);
         var service = new TestPipelineStageHostedService(
             provider.GetRequiredService<IServiceScopeFactory>(),
-            signal);
+            signal,
+            new EnrichmentPipelineExecutionGate());
 
         await service.StartAsync(stopping.Token);
         await signal.WaitObserved.WaitAsync(TimeSpan.FromSeconds(5));
         await service.StopAsync(CancellationToken.None);
 
         Assert.Equal(1, service.StartedCount);
+        Assert.Equal(IdentityJobState.RetailSearching, repository.LastProcessingState);
         Assert.Equal(TimeSpan.FromMinutes(7), repository.LastStuckThreshold);
         Assert.Equal(1, scopeState.PollCount);
         Assert.Equal([IdentityPipelineSignalKind.Hydration], signal.Signals);
@@ -49,7 +51,8 @@ public sealed class PipelineStageHostedServiceTests
         using var provider = BuildProvider(repository, scopeState, processedCount: 0);
         var service = new TestPipelineStageHostedService(
             provider.GetRequiredService<IServiceScopeFactory>(),
-            signal);
+            signal,
+            new EnrichmentPipelineExecutionGate());
 
         await service.StartAsync(stopping.Token);
         await signal.WaitObserved.WaitAsync(TimeSpan.FromSeconds(5));
@@ -68,30 +71,37 @@ public sealed class PipelineStageHostedServiceTests
         using var provider = new ServiceCollection().BuildServiceProvider();
         var scopeFactory = provider.GetRequiredService<IServiceScopeFactory>();
         var signal = new PassiveSignal();
+        var executionGate = new EnrichmentPipelineExecutionGate();
 
         AssertStageConfiguration(
             new RetailMatchHostedService(
                 scopeFactory,
                 signal,
+                executionGate,
                 NullLogger<RetailMatchHostedService>.Instance),
             IdentityPipelineSignalKind.Retail,
             TimeSpan.FromMinutes(5),
+            IdentityJobState.RetailSearching,
             IdentityPipelineSignalKind.WikidataBridge);
         AssertStageConfiguration(
             new WikidataBridgeHostedService(
                 scopeFactory,
                 signal,
+                executionGate,
                 NullLogger<WikidataBridgeHostedService>.Instance),
             IdentityPipelineSignalKind.WikidataBridge,
             TimeSpan.FromMinutes(10),
+            IdentityJobState.BridgeSearching,
             IdentityPipelineSignalKind.Hydration);
         AssertStageConfiguration(
             new QuickHydrationHostedService(
                 scopeFactory,
                 signal,
+                executionGate,
                 NullLogger<QuickHydrationHostedService>.Instance),
             IdentityPipelineSignalKind.Hydration,
             TimeSpan.FromMinutes(5),
+            IdentityJobState.Hydrating,
             downstreamSignal: null);
     }
 
@@ -113,6 +123,7 @@ public sealed class PipelineStageHostedServiceTests
         object service,
         IdentityPipelineSignalKind wakeSignal,
         TimeSpan stuckJobThreshold,
+        IdentityJobState processingState,
         IdentityPipelineSignalKind? downstreamSignal)
     {
         const BindingFlags Flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -125,6 +136,9 @@ public sealed class PipelineStageHostedServiceTests
             stuckJobThreshold,
             type.GetProperty("StuckJobThreshold", Flags)!.GetValue(service));
         Assert.Equal(
+            processingState,
+            type.GetProperty("ProcessingState", Flags)!.GetValue(service));
+        Assert.Equal(
             downstreamSignal,
             type.GetProperty("DownstreamSignal", Flags)!.GetValue(service));
     }
@@ -134,10 +148,12 @@ public sealed class PipelineStageHostedServiceTests
     {
         public TestPipelineStageHostedService(
             IServiceScopeFactory scopeFactory,
-            IIdentityPipelineSignal signal)
+            IIdentityPipelineSignal signal,
+            EnrichmentPipelineExecutionGate executionGate)
             : base(
                 scopeFactory,
                 signal,
+                executionGate,
                 NullLogger<TestPipelineStageHostedService>.Instance)
         {
         }
@@ -150,6 +166,8 @@ public sealed class PipelineStageHostedServiceTests
             IdentityPipelineSignalKind.Retail;
 
         protected override TimeSpan StuckJobThreshold => TimeSpan.FromMinutes(7);
+
+        protected override IdentityJobState ProcessingState => IdentityJobState.RetailSearching;
 
         protected override IdentityPipelineSignalKind? DownstreamSignal =>
             IdentityPipelineSignalKind.Hydration;
@@ -244,10 +262,14 @@ public sealed class PipelineStageHostedServiceTests
     {
         public TimeSpan? LastStuckThreshold { get; private set; }
 
+        public IdentityJobState? LastProcessingState { get; private set; }
+
         public Task<int> ReclaimStuckJobsAsync(
+            IdentityJobState processingState,
             TimeSpan stuckThreshold,
             CancellationToken ct = default)
         {
+            LastProcessingState = processingState;
             LastStuckThreshold = stuckThreshold;
             return Task.FromResult(reclaimedCount);
         }

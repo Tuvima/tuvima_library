@@ -18,10 +18,12 @@ public sealed class MusicAlbumManifestHostedService(
     ICanonicalValueRepository canonicalRepo,
     AlbumTrackManifestService manifestService,
     CoverArtWorker coverArtWorker,
+    EnrichmentPipelineExecutionGate executionGate,
     ILogger<MusicAlbumManifestHostedService> logger) : BackgroundService
 {
     private static readonly TimeSpan InitialDelay = TimeSpan.FromSeconds(15);
     private static readonly TimeSpan SweepInterval = TimeSpan.FromHours(6);
+    private static readonly TimeSpan IncompleteRetryInterval = TimeSpan.FromMinutes(5);
     private const int BatchSize = 100;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -37,22 +39,42 @@ public sealed class MusicAlbumManifestHostedService(
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var interruptedByReset = false;
+            var allComplete = false;
+            CancellationToken resetCancellationToken = default;
             try
             {
-                await RunSweepAsync(stoppingToken).ConfigureAwait(false);
+                using var executionLease =
+                    await executionGate.EnterAsync(stoppingToken).ConfigureAwait(false);
+                resetCancellationToken = executionLease.PauseCancellationToken;
+                using var sweepCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                    stoppingToken,
+                    resetCancellationToken);
+                {
+                    allComplete = await RunSweepAsync(sweepCancellation.Token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
+            }
+            catch (OperationCanceledException) when (resetCancellationToken.IsCancellationRequested)
+            {
+                interruptedByReset = true;
             }
             catch (Exception ex)
             {
                 logger.LogWarning(ex, "Music album manifest repair sweep failed; incomplete albums will be retried");
             }
 
+            if (interruptedByReset)
+                continue;
+
             try
             {
-                await Task.Delay(SweepInterval, stoppingToken).ConfigureAwait(false);
+                await Task.Delay(
+                    allComplete ? SweepInterval : IncompleteRetryInterval,
+                    stoppingToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -61,20 +83,19 @@ public sealed class MusicAlbumManifestHostedService(
         }
     }
 
-    internal async Task RunSweepAsync(CancellationToken ct)
+    internal async Task<bool> RunSweepAsync(CancellationToken ct)
     {
         var candidates = LoadCandidates(ct);
+        var allComplete = true;
         foreach (var candidate in candidates)
         {
             ct.ThrowIfCancellationRequested();
-            if (AppleAlbumManifestJson.IsCompleteForCollection(candidate.ChildEntitiesJson))
-                continue;
 
             try
             {
                 var canonicalValues = await canonicalRepo.GetByEntityAsync(candidate.RootWorkId, ct)
                     .ConfigureAwait(false);
-                var manifest = await manifestService.EnsureAppleAlbumTrackManifestAsync(
+                var manifest = await manifestService.EnsureAlbumTrackManifestAsync(
                         candidate.RootWorkId,
                         candidate.Artist,
                         candidate.Album,
@@ -83,8 +104,11 @@ public sealed class MusicAlbumManifestHostedService(
                         ct)
                     .ConfigureAwait(false);
 
-                if (!AppleAlbumManifestJson.IsCompleteForCollection(manifest))
+                if (!MusicAlbumManifestJson.IsComplete(manifest))
+                {
+                    allComplete = false;
                     continue;
+                }
 
                 await coverArtWorker.DownloadAndPersistAsync(candidate.AssetId, wikidataQid: null, ct)
                     .ConfigureAwait(false);
@@ -99,8 +123,11 @@ public sealed class MusicAlbumManifestHostedService(
                     ex,
                     "Music album manifest repair failed for root work {RootWorkId}; it will be retried",
                     candidate.RootWorkId);
+                allComplete = false;
             }
         }
+
+        return allComplete;
     }
 
     private IReadOnlyList<MusicAlbumManifestCandidate> LoadCandidates(CancellationToken ct)
@@ -117,8 +144,8 @@ public sealed class MusicAlbumManifestHostedService(
                        NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id IN (child.id, asset.id) AND key = 'album' LIMIT 1), '')
                    ) AS Album,
                    COALESCE(
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key IN ('album_artist', 'artist', 'author') LIMIT 1), ''),
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id IN (child.id, asset.id) AND key IN ('album_artist', 'artist', 'author') LIMIT 1), '')
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id = parent.id AND key IN ('album_artist', 'artist', 'author') ORDER BY ordinal LIMIT 1), ''),
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id IN (child.id, asset.id) AND key IN ('album_artist', 'artist', 'author') ORDER BY ordinal LIMIT 1), '')
                    ) AS Artist,
                    (SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key = 'child_entities_json' LIMIT 1) AS ChildEntitiesJson
             FROM works parent

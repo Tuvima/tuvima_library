@@ -1,0 +1,426 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[04:32:12 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[04:32:13 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[04:32:13 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[04:32:13 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[04:32:13 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[04:32:13 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[04:32:13 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[04:32:13 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[04:32:13 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[04:32:13 INF] IngestionEngine started
+[04:32:13 INF] Running startup reconciliation...
+[04:32:13 INF] FolderHealthService started — checking every 30s
+[04:32:13 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[04:32:13 INF] RetagSweepWorker started
+[04:32:13 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[04:32:13 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[04:32:13 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[04:32:13 INF] Identity startup recovery found no interrupted jobs.
+[04:32:13 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[04:32:13 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[04:32:13 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[04:32:13 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[04:32:13 INF] QuickHydrationHostedService started
+[04:32:13 INF] WikidataBridgeHostedService started
+[04:32:13 INF] RetailMatchHostedService started
+[04:32:13 INF] CollectionAssignment: created ContentGroup collection 'Department of Clockwork Rain' (local:tv:department-of-clockwork-rain) for work 5b13d43f-d639-44cf-9db9-88ab024f891b
+[04:32:13 INF] CollectionAssignment: assigned work 5b13d43f-d639-44cf-9db9-88ab024f891b to collection 'Department of Clockwork Rain' (local:tv:department-of-clockwork-rain)
+[04:32:13 INF] CollectionAssignment: created ContentGroup collection 'Captain Semaphore' (local:comics:captain-semaphore) for work efbcdcc7-7298-43ff-a2e2-2aa38d602b68
+[04:32:13 INF] CollectionAssignment: assigned work efbcdcc7-7298-43ff-a2e2-2aa38d602b68 to collection 'Captain Semaphore' (local:comics:captain-semaphore)
+[04:32:13 INF] Collection backfill complete: 33/33 processed, 2 assigned, 2 created, 0 already assigned, 31 skipped, 0 failed in 54ms
+[04:32:13 INF] Reconciliation: collection backfill processed 33/33 candidate work(s), assigned 2, created 2, skipped 31, failed 0
+[04:32:14 INF] Reconciliation complete: 111 scanned, 0 missing, 2 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 8 empty folders, 18 orphan people, 0 stale root sidecars, 936ms
+[04:32:14 INF] Startup reconciliation complete: 111 scanned, 0 missing
+[04:32:14 INF] Watching: C:\temp\tuvima-watch\books
+[04:32:14 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[04:32:14 INF] Watching: C:\temp\tuvima-watch\tv
+[04:32:14 INF] Watching: C:\temp\tuvima-watch\movies
+[04:32:14 INF] Watching: C:\temp\tuvima-watch\music
+[04:32:14 INF] Watching: C:\temp\tuvima-watch\comics
+[04:32:14 INF] Initial scan: skipped 26 already-known or duplicate file(s) across 6 scan target(s)
+[04:32:14 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[04:32:14 INF] Now listening on: https://localhost:61494
+[04:32:14 INF] Now listening on: http://localhost:61495
+[04:32:14 INF] Application started. Press Ctrl+C to shut down.
+[04:32:14 INF] Hosting environment: Development
+[04:32:14 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[04:32:17 INF] Artwork rendition repair completed: 0 assets repaired, 777 canonical sets refreshed.
+[04:32:18 INF] DeferredEnrichmentService started
+[04:32:23 INF] ProviderHealthMonitor started — 4 providers tracked
+[04:32:23 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[04:32:28 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[04:32:28 INF] Cover art: skipped 'Imagine' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\1b46bf58-1245-474b-8e82-55c7f87f1342\cover\e2e223c6db1c4142b2fe7d57659bdd83.jpg)
+[04:32:28 INF] Cover art: skipped 'Something' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\248b84bb-9322-4135-9568-ea8e811faa21\cover\e29ba103cd084a4bb1054ba9b03b24e2.jpg)
+[04:32:28 INF] Start processing HTTP request GET https://musicbrainz.org/ws/2/release/657daffd-2176-441c-b176-337eaa7dac92?*
+[04:32:28 INF] Sending HTTP request GET https://musicbrainz.org/ws/2/release/657daffd-2176-441c-b176-337eaa7dac92?*
+[04:32:29 INF] Received HTTP response headers after 636.3569ms - 200
+[04:32:29 INF] Execution attempt. Source: 'musicbrainz-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 648.2088ms
+[04:32:29 INF] End processing HTTP request after 674.1825ms - 200
+[04:32:29 INF] Cover art: downloading 'La Vie en rose' from https://coverartarchive.org/release/657daffd-2176-441c-b176-337eaa7dac92/front-500 → C:\temp\tuvima-library\.data\assets\artwork\work\2f94abb5-f7b3-47b8-a4d7-477ab05141f2\cover\5f7da6fcdd5a45ebac4626a060a1e4c0.jpg
+[04:32:29 INF] Start processing HTTP request GET https://coverartarchive.org/release/657daffd-2176-441c-b176-337eaa7dac92/front-500
+[04:32:29 INF] Sending HTTP request GET https://coverartarchive.org/release/657daffd-2176-441c-b176-337eaa7dac92/front-500
+[04:32:30 INF] Received HTTP response headers after 1543.14ms - 200
+[04:32:30 INF] Execution attempt. Source: 'cover_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 1543.8405ms
+[04:32:30 INF] End processing HTTP request after 1544.4563ms - 200
+[04:32:30 INF] Cover art: downloaded poster for 'La Vie en rose' (57.8 KB) → C:\temp\tuvima-library\.data\assets\artwork\work\2f94abb5-f7b3-47b8-a4d7-477ab05141f2\cover\5f7da6fcdd5a45ebac4626a060a1e4c0.jpg
+[04:32:30 INF] Cover art: skipped 'Yesterday' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\6032ea79-9909-4bd1-8ed5-d41dc4887aef\cover\8b80d413c6314a1fb7402c7f92de8154.jpg)
+[04:32:30 INF] Cover art: skipped 'MMMBop' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\80fcaacf-5cc0-4a79-a533-b798c4d1e7e3\cover\8c46c4b3207f4628846b62e76c220069.jpg)
+[04:32:30 INF] Cover art: skipped '99 Luftballons' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\85a7f8c2-23ea-4186-a6b3-d13d89bbed52\cover\c959772df00647b7bd9e18513576dddb.jpg)
+[04:32:31 INF] Cover art: skipped 'Beauty and the Beast' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\92142743-1902-4f86-8cd5-9d7d0ea98ab9\cover\d1167fac0ac342f98cbd421dc982bca7.jpg)
+[04:32:31 INF] Cover art: skipped 'Nuvole bianche' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\b2be3616-bf61-4648-84f0-efae7ccdd64e\cover\46ea7851c97844b6b0e3f1223221773b.jpg)
+[04:32:31 INF] Cover art: skipped 'Lose Yourself' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\bbf3b66e-058e-4bbf-8d57-3f1a42a47318\cover\bcb549c82b21470988cd3df949fc530e.jpg)
+[04:32:31 INF] Cover art: skipped 'BLOOD.' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\c4b1d655-b39b-407b-aa5c-8a89086ec1e2\cover\4d47e271c91b443bb8ab277d403b4b4a.jpg)
+[04:32:31 INF] Cover art: skipped 'Time' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\cba20a8a-fe3c-4b67-9162-5458766649c4\cover\86903a9ef373416ab80115da3de991cc.jpg)
+[04:32:31 INF] Cover art: skipped 'Under Pressure' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\db7545db-f10f-45c7-a29a-a4bda6dc5595\cover\8c98a3cff64e4b2bb417a8318974ba37.jpg)
+[04:32:31 INF] Start processing HTTP request GET https://musicbrainz.org/ws/2/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b?*
+[04:32:31 INF] Sending HTTP request GET https://musicbrainz.org/ws/2/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b?*
+[04:32:31 INF] Received HTTP response headers after 313.5962ms - 200
+[04:32:31 INF] Execution attempt. Source: 'musicbrainz-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 314.2319ms
+[04:32:31 INF] End processing HTTP request after 314.7435ms - 200
+[04:32:31 INF] Cover art: downloading 'Dreaming of the Crash' from https://coverartarchive.org/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b/front-500 → C:\temp\tuvima-library\.data\assets\artwork\work\de180a18-5571-4d1f-9f96-c644dddb6494\cover\dce2a1ad40414b1e86d0a3511a6f2d6a.jpg
+[04:32:31 INF] Start processing HTTP request GET https://coverartarchive.org/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b/front-500
+[04:32:31 INF] Sending HTTP request GET https://coverartarchive.org/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b/front-500
+[04:32:32 INF] Received HTTP response headers after 1057.26ms - 200
+[04:32:32 INF] Execution attempt. Source: 'cover_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 1057.8447ms
+[04:32:32 INF] End processing HTTP request after 1058.2828ms - 200
+[04:32:32 INF] Cover art: downloaded poster for 'Dreaming of the Crash' (62.3 KB) → C:\temp\tuvima-library\.data\assets\artwork\work\de180a18-5571-4d1f-9f96-c644dddb6494\cover\dce2a1ad40414b1e86d0a3511a6f2d6a.jpg
+[04:32:32 INF] Cover art: skipped 'Seaside Rendezvous' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\f8d9d7d6-f009-46b8-b43a-7420cd3e41a3\cover\be9206f7b10e4b578c3fc75f1e1b2324.jpg)
+[04:32:42 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:32:42 INF] Resolved 5 system-view groups for media type Books and field series
+[04:32:43 INF] Next activity prune at 07/28/2026 03:00:00 -05:00
+[04:32:47 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:32:58 INF] Next rejected-file cleanup at 07/28/2026 04:00:00 -05:00
+[04:33:06 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:06 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:13 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:13 INF] Next retag sweep at 07/28/2026 03:00:00 -05:00
+[04:33:13 INF] Next storage maintenance pass at 07/28/2026 02:00:00 -05:00
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:27 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:28 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:28 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:28 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:28 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:38 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:39 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:45 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:45 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 6 system-view groups for media type Audiobooks and field series
+[04:33:56 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:56 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:56 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:56 INF] Resolved 5 system-view groups for media type Books and field series
+[04:33:56 INF] Resolved 5 system-view groups for media type Books and field series
+[04:34:13 INF] VibeBatchService: scanning for entities needing vibe tags
+[04:34:13 INF] PluginScheduledSegmentService: next run in 21:25:46.5042138
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 59a7d5c7-b818-478e-91fa-0596e6f19e1b
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity dd86abfa-afce-44ab-a46f-fc74ad785d6b
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity ed09029f-bbcb-4826-941a-8845c95a94e7
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 3b1325f9-d003-49de-824d-477ed13466d5
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 94d881d1-6604-4172-aa23-7869d6812269
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 0ea77a23-de36-42c0-affb-fc2624ed506c
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 4d740f5a-3c38-4498-b8a3-494a544dafba
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 79c3fbbf-18a3-4c03-8101-894062cd8c94
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity f3055dac-28f7-404a-9db2-9cd4e180af17
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity eb9415da-f41d-4afd-b8c7-982006214690
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 40b8d4b4-e597-42b6-9ba0-fd198a659dd2
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity 3907143a-2635-41b3-9b6d-62203c8e36ef
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:34:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:34:14 WRN] VibeBatchService: failed to tag entity e21270ca-cdad-464a-92ca-47bf843f4a7e
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[04:34:14 INF] VibeBatchService: tagged 0 entities
+[04:34:14 INF] VibeBatchService: next run in 23:25:45.4488876
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:21 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:22 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:22 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:22 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:22 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:31 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:37 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:37 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:48 INF] Resolved 14 system-view groups for media type Music and field album
+[04:34:49 INF] Resolved 14 system-view groups for media type Music and field album
+[04:35:13 INF] SeriesAlignmentService: scanning for unpositioned series works
+[04:35:13 INF] [DESCRIPTION-INTEL-BATCH] Next run in 00:09:46.5136522
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 9c5ad85d-9733-4f28-b78b-588f2f7241d4
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity e241f91f-4af8-4cfb-9d92-93f5e0710e1e
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 502b6553-662a-4198-a245-939aad3597ca
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity dd86abfa-afce-44ab-a46f-fc74ad785d6b
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 3907143a-2635-41b3-9b6d-62203c8e36ef
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 3b1325f9-d003-49de-824d-477ed13466d5
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 94d881d1-6604-4172-aa23-7869d6812269
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 0ea77a23-de36-42c0-affb-fc2624ed506c
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity 4d740f5a-3c38-4498-b8a3-494a544dafba
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[04:35:14 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[04:35:14 WRN] SeriesAlignmentService: failed to infer position for entity e21270ca-cdad-464a-92ca-47bf843f4a7e
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[04:35:14 INF] SeriesAlignmentService: attempted 10 bounded suggestion(s)
+[04:35:14 INF] SeriesAlignmentService: next run in 22:24:45.4377942
+[04:37:13 INF] TasteProfileService: persisted 0 profile(s)
+[04:37:13 INF] TasteProfileService: next run in 6.00:22:46.5151782
+[04:37:14 INF] Poll sweep: inspected 6, changed 0, queued 0, unchanged 6, ignored 0, missing 0 in C:\temp\tuvima-watch\books
+[04:37:14 INF] Poll sweep: inspected 0, changed 0, queued 0, unchanged 0, ignored 0, missing 0 in C:\temp\tuvima-watch\audiobooks
+[04:37:14 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\tv
+[04:37:14 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\movies
+[04:37:14 INF] Poll sweep: inspected 17, changed 0, queued 0, unchanged 17, ignored 0, missing 0 in C:\temp\tuvima-watch\music
+[04:37:14 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\comics

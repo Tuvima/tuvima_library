@@ -77,7 +77,12 @@ public sealed class CollectionCatalogReadService(
             var itemCount = workIds.Count;
             var mediaCounts = await GetCollectionMediaCountsAsync(workIds, ct).ConfigureAwait(false);
             var hasKnownSeriesManifest = await HasKnownSeriesManifestAsync(collection, ct).ConfigureAwait(false);
-            if (!ShouldIncludeInManagementCatalog(collection, classification, mediaCounts, hasKnownSeriesManifest))
+            if (!ShouldIncludeInManagementCatalog(
+                    collection,
+                    classification,
+                    mediaCounts,
+                    hasKnownSeriesManifest,
+                    collections))
             {
                 continue;
             }
@@ -85,7 +90,7 @@ public sealed class CollectionCatalogReadService(
             candidates.Add(new CollectionManagementCatalogCandidate(
                 collection,
                 classification,
-                GetCollectionCatalogAggregation(collection),
+                GetCollectionCatalogAggregation(collection, collections),
                 workIds,
                 itemCount,
                 mediaCounts));
@@ -292,7 +297,8 @@ public sealed class CollectionCatalogReadService(
         Collection collection,
         CollectionCatalogClassification classification,
         CollectionMediaCounts mediaCounts,
-        bool hasKnownSeriesManifest)
+        bool hasKnownSeriesManifest,
+        IReadOnlyList<Collection> accessibleCollections)
     {
         if (IsPlaylistCatalogCollection(collection))
         {
@@ -309,9 +315,17 @@ public sealed class CollectionCatalogReadService(
             return true;
         }
 
-        if (IsGeneratedSeriesCollection(collection) && GetCollectionCatalogAggregation(collection) is null)
+        var generatedAggregation = IsGeneratedSeriesCollection(collection)
+            ? GetCollectionCatalogAggregation(collection, accessibleCollections)
+            : null;
+        if (IsGeneratedSeriesCollection(collection) && generatedAggregation is null)
         {
             return false;
+        }
+
+        if (generatedAggregation?.Key.StartsWith("parent:", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return mediaCounts.TotalCount > 0;
         }
 
         return mediaCounts.TotalCount >= 2 || hasKnownSeriesManifest;
@@ -499,11 +513,19 @@ public sealed class CollectionCatalogReadService(
 
     private sealed record CatalogPersonReference(string LookupKind, string LookupValue, string? Role);
 
-    private static CollectionCatalogAggregation? GetCollectionCatalogAggregation(Collection collection)
+    private static CollectionCatalogAggregation? GetCollectionCatalogAggregation(
+        Collection collection,
+        IReadOnlyList<Collection>? accessibleCollections = null)
     {
         if (!IsGeneratedSeriesCollection(collection))
         {
             return null;
+        }
+
+        if (accessibleCollections is not null
+            && TryGetStructuralParentAggregation(collection, accessibleCollections, out var structuralAggregation))
+        {
+            return structuralAggregation;
         }
 
         return TryGetRelationshipAggregation(collection, "fictional_universe", out var aggregation)
@@ -511,6 +533,37 @@ public sealed class CollectionCatalogReadService(
             || TryGetRelationshipAggregation(collection, "series", out aggregation)
             ? aggregation
             : null;
+    }
+
+    private static bool TryGetStructuralParentAggregation(
+        Collection collection,
+        IReadOnlyList<Collection> accessibleCollections,
+        out CollectionCatalogAggregation aggregation)
+    {
+        var byId = accessibleCollections.ToDictionary(candidate => candidate.Id);
+        var root = collection;
+        var visited = new HashSet<Guid>();
+        while (root.ParentCollectionId is Guid parentId
+               && visited.Add(root.Id)
+               && byId.TryGetValue(parentId, out var parent)
+               && IsGeneratedSeriesCollection(parent))
+        {
+            root = parent;
+        }
+
+        var hasGeneratedChildren = accessibleCollections.Any(candidate =>
+            candidate.ParentCollectionId == root.Id
+            && IsGeneratedSeriesCollection(candidate));
+        if (!hasGeneratedChildren)
+        {
+            aggregation = default!;
+            return false;
+        }
+
+        aggregation = new CollectionCatalogAggregation(
+            $"parent:{root.Id:D}",
+            root.DisplayName);
+        return true;
     }
 
     private static bool ShouldIncludeCatalogGroup(IReadOnlyList<CollectionManagementCatalogCandidate> entries)
@@ -755,12 +808,15 @@ public sealed class CollectionCatalogReadService(
             return [];
         }
 
-        var targetGrouping = GetCollectionCatalogAggregation(target);
+        var targetGrouping = GetCollectionCatalogAggregation(target, accessibleCollections);
         var siblingCollections = targetGrouping is null
             ? new List<Collection> { target }
             : accessibleCollections
                 .Where(collection => IsGeneratedSeriesCollection(collection)
-                    && string.Equals(GetCollectionCatalogAggregation(collection)?.Key, targetGrouping.Key, StringComparison.OrdinalIgnoreCase))
+                    && string.Equals(
+                        GetCollectionCatalogAggregation(collection, accessibleCollections)?.Key,
+                        targetGrouping.Key,
+                        StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
         var workIds = new List<Guid>();
@@ -926,26 +982,30 @@ public sealed class CollectionCatalogReadService(
                        NULLIF(series_item.item_label, ''),
                        'Untitled'
                    ) AS Title,
-                   COALESCE(
-                       NULLIF(CAST(author_work.value AS TEXT), ''),
-                       NULLIF(CAST(artist_work.value AS TEXT), ''),
-                       NULLIF(CAST(director_work.value AS TEXT), '')
-                   ) AS Creator,
+                   (SELECT NULLIF(cva.value, '')
+                    FROM canonical_value_arrays cva
+                    WHERE cva.entity_id = w.id
+                      AND cva.key IN ('author', 'album_artist', 'artist', 'director')
+                    ORDER BY CASE cva.key
+                                 WHEN 'author' THEN 1
+                                 WHEN 'album_artist' THEN 2
+                                 WHEN 'artist' THEN 3
+                                 ELSE 4
+                             END,
+                             cva.ordinal
+                    LIMIT 1) AS Creator,
                    w.media_type AS MediaType,
                    COALESCE(
                        NULLIF(cover_asset.value, ''),
                        NULLIF(cover_work.value, ''),
                        CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
                    ) AS CoverUrl,
-                   COALESCE(w.ordinal, series_item.sort_order, 999999) AS SortOrder
+                   CAST(COALESCE(w.ordinal, series_item.sort_order, 999999) AS INTEGER) AS SortOrder
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
             LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
-            LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
-            LEFT JOIN canonical_values director_work ON director_work.entity_id = w.id AND director_work.key = 'director'
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id AND series_item.collection_id = @CollectionId
@@ -1039,8 +1099,8 @@ public sealed class CollectionCatalogReadService(
                    COALESCE(
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'release_year' LIMIT 1),
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'year' LIMIT 1)) AS Year,
-                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'author' LIMIT 1) AS Author,
-                   (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'artist' LIMIT 1) AS Artist,
+                   (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = w.id AND cva.key = 'author' ORDER BY cva.ordinal LIMIT 1) AS Author,
+                   (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = w.id AND cva.key IN ('album_artist', 'artist') ORDER BY CASE cva.key WHEN 'album_artist' THEN 1 ELSE 2 END, cva.ordinal LIMIT 1) AS Artist,
                    COALESCE(
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'content_rating' LIMIT 1),
                        (SELECT NULLIF(cv.value, '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'certification' LIMIT 1)) AS ContentRating,

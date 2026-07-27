@@ -1,5 +1,6 @@
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Workers;
+using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Api.Services;
 
@@ -12,8 +13,9 @@ public sealed class WikidataBridgeHostedService : PipelineStageHostedService<Wik
     public WikidataBridgeHostedService(
         IServiceScopeFactory scopeFactory,
         IIdentityPipelineSignal signal,
+        EnrichmentPipelineExecutionGate executionGate,
         ILogger<WikidataBridgeHostedService> logger)
-        : base(scopeFactory, signal, logger)
+        : base(scopeFactory, signal, executionGate, logger)
     {
     }
 
@@ -21,6 +23,8 @@ public sealed class WikidataBridgeHostedService : PipelineStageHostedService<Wik
         IdentityPipelineSignalKind.WikidataBridge;
 
     protected override TimeSpan StuckJobThreshold => TimeSpan.FromMinutes(10);
+
+    protected override IdentityJobState ProcessingState => IdentityJobState.BridgeSearching;
 
     protected override IdentityPipelineSignalKind? DownstreamSignal =>
         IdentityPipelineSignalKind.Hydration;

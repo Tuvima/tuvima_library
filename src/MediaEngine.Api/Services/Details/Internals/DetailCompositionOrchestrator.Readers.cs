@@ -91,9 +91,9 @@ internal sealed partial class DetailCompositionOrchestrator
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('year', 'release_year') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('year', 'release_year') LIMIT 1)) AS TEXT) AS Year,
                    CAST(COALESCE(
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('artist', 'album_artist') LIMIT 1),
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('artist', 'album_artist') LIMIT 1),
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = COALESCE(gp.id, p.id, w.id) AND cv.key IN ('artist', 'album_artist') LIMIT 1)) AS TEXT) AS Artist,
+                       (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = ma.id AND cva.key IN ('artist', 'album_artist') ORDER BY cva.ordinal LIMIT 1),
+                       (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = w.id AND cva.key IN ('artist', 'album_artist') ORDER BY cva.ordinal LIMIT 1),
+                       (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = COALESCE(gp.id, p.id, w.id) AND cva.key IN ('artist', 'album_artist') ORDER BY cva.ordinal LIMIT 1)) AS TEXT) AS Artist,
                    CAST(COALESCE(
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('explicit', 'is_explicit') LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('explicit', 'is_explicit') LIMIT 1)) AS TEXT) AS Explicit,

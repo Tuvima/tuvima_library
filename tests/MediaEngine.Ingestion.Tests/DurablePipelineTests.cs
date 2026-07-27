@@ -1116,7 +1116,10 @@ public sealed class DurablePipelineTests : IDisposable
             IReadOnlyList<string> ingestionRunIds, CancellationToken ct = default)
             => Task.FromResult<IReadOnlyDictionary<string, int>>(new Dictionary<string, int>());
 
-        public Task<int> ReclaimStuckJobsAsync(TimeSpan stuckThreshold, CancellationToken ct = default)
+        public Task<int> ReclaimStuckJobsAsync(
+            IdentityJobState processingState,
+            TimeSpan stuckThreshold,
+            CancellationToken ct = default)
             => Task.FromResult(0);
 
         public Task ReleaseLeaseAsync(Guid jobId, CancellationToken ct = default)

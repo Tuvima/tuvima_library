@@ -37,6 +37,7 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
     private readonly ICanonicalValueArrayRepository _arrayRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly CoverArtWorker _coverArtWorker;
+    private readonly EnrichmentPipelineExecutionGate _executionGate;
     private readonly ILogger<MusicBrainzEnrichmentHostedService> _logger;
 
     public MusicBrainzEnrichmentHostedService(
@@ -50,6 +51,7 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
         ICanonicalValueArrayRepository arrayRepo,
         IScoringEngine scoringEngine,
         CoverArtWorker coverArtWorker,
+        EnrichmentPipelineExecutionGate executionGate,
         ILogger<MusicBrainzEnrichmentHostedService> logger)
     {
         _db = db;
@@ -62,6 +64,7 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
         _arrayRepo = arrayRepo;
         _scoringEngine = scoringEngine;
         _coverArtWorker = coverArtWorker;
+        _executionGate = executionGate;
         _logger = logger;
     }
 
@@ -78,18 +81,35 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
 
         while (!stoppingToken.IsCancellationRequested)
         {
+            var interruptedByReset = false;
+            CancellationToken resetCancellationToken = default;
             try
             {
-                await RunSweepAsync(stoppingToken).ConfigureAwait(false);
+                using var executionLease =
+                    await _executionGate.EnterAsync(stoppingToken).ConfigureAwait(false);
+                resetCancellationToken = executionLease.PauseCancellationToken;
+                using var sweepCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+                    stoppingToken,
+                    resetCancellationToken);
+                {
+                    await RunSweepAsync(sweepCancellation.Token).ConfigureAwait(false);
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
+            catch (OperationCanceledException) when (resetCancellationToken.IsCancellationRequested)
+            {
+                interruptedByReset = true;
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "MusicBrainz enrichment sweep failed; music items remain visible and will be retried later");
             }
+
+            if (interruptedByReset)
+                continue;
 
             try
             {
@@ -164,9 +184,9 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
                        NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = w.id AND key = 'album' LIMIT 1), '')
                    ) AS Album,
                    COALESCE(
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = a.id AND key IN ('artist', 'album_artist') LIMIT 1), ''),
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = w.id AND key IN ('artist', 'album_artist') LIMIT 1), ''),
-                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key IN ('album_artist', 'artist', 'author') LIMIT 1), '')
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id = a.id AND key IN ('artist', 'album_artist') ORDER BY ordinal LIMIT 1), ''),
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key IN ('artist', 'album_artist') ORDER BY ordinal LIMIT 1), ''),
+                       NULLIF((SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key IN ('album_artist', 'artist', 'author') ORDER BY ordinal LIMIT 1), '')
                    ) AS Artist,
                    COALESCE(
                        NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = a.id AND key = 'track_number' LIMIT 1), ''),

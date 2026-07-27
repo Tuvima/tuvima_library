@@ -1,0 +1,531 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[02:54:24 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[02:54:24 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[02:54:24 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[02:54:24 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[02:54:24 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[02:54:24 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[02:54:24 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[02:54:24 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[02:54:24 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[02:54:24 INF] IngestionEngine started
+[02:54:24 INF] FolderHealthService started — checking every 30s
+[02:54:24 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[02:54:24 INF] RetagSweepWorker started
+[02:54:24 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[02:54:24 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[02:54:24 INF] Running startup reconciliation...
+[02:54:24 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[02:54:24 INF] Identity startup recovery found no interrupted jobs.
+[02:54:24 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[02:54:24 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[02:54:24 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[02:54:24 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[02:54:24 INF] RetailMatchHostedService started
+[02:54:24 INF] WikidataBridgeHostedService started
+[02:54:24 INF] QuickHydrationHostedService started
+[02:54:24 INF] CollectionAssignment: created ContentGroup collection 'Department of Clockwork Rain' (local:tv:department-of-clockwork-rain) for work 7aaf8c44-121e-485a-ad3d-9d54070f8aa5
+[02:54:24 INF] CollectionAssignment: assigned work 7aaf8c44-121e-485a-ad3d-9d54070f8aa5 to collection 'Department of Clockwork Rain' (local:tv:department-of-clockwork-rain)
+[02:54:24 INF] CollectionAssignment: created ContentGroup collection 'Captain Semaphore' (local:comics:captain-semaphore) for work ba4ced9b-c066-42d0-b6f5-d137aac4c0c9
+[02:54:24 INF] CollectionAssignment: assigned work ba4ced9b-c066-42d0-b6f5-d137aac4c0c9 to collection 'Captain Semaphore' (local:comics:captain-semaphore)
+[02:54:24 INF] Collection backfill complete: 32/32 processed, 2 assigned, 2 created, 0 already assigned, 30 skipped, 0 failed in 72ms
+[02:54:24 INF] Reconciliation: collection backfill processed 32/32 candidate work(s), assigned 2, created 2, skipped 30, failed 0
+[02:54:25 INF] Reconciliation complete: 111 scanned, 0 missing, 2 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 8 empty folders, 18 orphan people, 0 stale root sidecars, 733ms
+[02:54:25 INF] Startup reconciliation complete: 111 scanned, 0 missing
+[02:54:25 INF] Watching: C:\temp\tuvima-watch\books
+[02:54:25 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[02:54:25 INF] Watching: C:\temp\tuvima-watch\tv
+[02:54:25 INF] Watching: C:\temp\tuvima-watch\movies
+[02:54:25 INF] Watching: C:\temp\tuvima-watch\music
+[02:54:25 INF] Watching: C:\temp\tuvima-watch\comics
+[02:54:25 INF] Initial scan: skipped 28 already-known or duplicate file(s) across 6 scan target(s)
+[02:54:25 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[02:54:25 INF] Now listening on: https://localhost:61494
+[02:54:25 INF] Now listening on: http://localhost:61495
+[02:54:25 INF] Application started. Press Ctrl+C to shut down.
+[02:54:25 INF] Hosting environment: Development
+[02:54:25 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[02:54:28 INF] Artwork rendition repair completed: 0 assets repaired, 791 canonical sets refreshed.
+[02:54:29 INF] DeferredEnrichmentService started
+[02:54:34 INF] ProviderHealthMonitor started — 4 providers tracked
+[02:54:34 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[02:54:39 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[02:54:39 INF] Cover art: skipped 'Nuvole bianche' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\07fc2172-9670-49d5-b594-42c3dbe7973c\cover\bfd1ffb51f814509b7de9255c9477055.jpg)
+[02:54:39 INF] Start processing HTTP request GET https://musicbrainz.org/ws/2/release/657daffd-2176-441c-b176-337eaa7dac92?*
+[02:54:39 INF] Sending HTTP request GET https://musicbrainz.org/ws/2/release/657daffd-2176-441c-b176-337eaa7dac92?*
+[02:54:43 INF] Received HTTP response headers after 4208.827ms - 200
+[02:54:43 INF] Execution attempt. Source: 'musicbrainz-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 4220.3397ms
+[02:54:43 INF] End processing HTTP request after 4245.1107ms - 200
+[02:54:43 INF] Cover art: downloading 'La Vie en rose' from https://coverartarchive.org/release/657daffd-2176-441c-b176-337eaa7dac92/front-500 → C:\temp\tuvima-library\.data\assets\artwork\work\11697492-a609-4eb6-a37a-134f261f4457\cover\721f3b66bf2c42b5848a79bec5505d68.jpg
+[02:54:43 INF] Start processing HTTP request GET https://coverartarchive.org/release/657daffd-2176-441c-b176-337eaa7dac92/front-500
+[02:54:43 INF] Sending HTTP request GET https://coverartarchive.org/release/657daffd-2176-441c-b176-337eaa7dac92/front-500
+[02:54:45 INF] Received HTTP response headers after 1624.0841ms - 200
+[02:54:45 INF] Execution attempt. Source: 'cover_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 1624.7655ms
+[02:54:45 INF] End processing HTTP request after 1625.2586ms - 200
+[02:54:45 INF] Cover art: downloaded poster for 'La Vie en rose' (57.8 KB) → C:\temp\tuvima-library\.data\assets\artwork\work\11697492-a609-4eb6-a37a-134f261f4457\cover\721f3b66bf2c42b5848a79bec5505d68.jpg
+[02:54:45 INF] Cover art: skipped 'Yesterday' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\25e3fce1-ef32-466d-94a2-3611f7b6203b\cover\3f918d9c294b497199352629d28a457f.jpg)
+[02:54:45 INF] Start processing HTTP request GET https://musicbrainz.org/ws/2/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b?*
+[02:54:45 INF] Sending HTTP request GET https://musicbrainz.org/ws/2/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b?*
+[02:54:46 INF] Received HTTP response headers after 326.1378ms - 200
+[02:54:46 INF] Execution attempt. Source: 'musicbrainz-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 326.8805ms
+[02:54:46 INF] End processing HTTP request after 327.3606ms - 200
+[02:54:46 INF] Cover art: downloading 'Cornfield Chase' from https://coverartarchive.org/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b/front-500 → C:\temp\tuvima-library\.data\assets\artwork\work\3cfa3deb-c469-47f3-9412-d48b145d5cf2\cover\55e6a95820f94ba9a160b79d82d0fbe3.jpg
+[02:54:46 INF] Start processing HTTP request GET https://coverartarchive.org/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b/front-500
+[02:54:46 INF] Sending HTTP request GET https://coverartarchive.org/release/3dd79a9c-ede6-4d05-8735-5bb51a3e505b/front-500
+[02:54:47 INF] Received HTTP response headers after 1075.9142ms - 200
+[02:54:47 INF] Execution attempt. Source: 'cover_download-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 1076.489ms
+[02:54:47 INF] End processing HTTP request after 1076.8763ms - 200
+[02:54:47 INF] Cover art: downloaded poster for 'Cornfield Chase' (62.3 KB) → C:\temp\tuvima-library\.data\assets\artwork\work\3cfa3deb-c469-47f3-9412-d48b145d5cf2\cover\55e6a95820f94ba9a160b79d82d0fbe3.jpg
+[02:54:47 INF] Cover art: skipped 'Under Pressure' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\420090c1-3e44-4af4-ae39-85d282481157\cover\8128a35e298044c0a1b7fe3a23ed32c9.jpg)
+[02:54:47 INF] Cover art: skipped 'BLOOD.' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\65b81a1c-eeb4-4782-8df5-83374288f440\cover\876b0189fdc84710a9e6bbc065c1dec7.jpg)
+[02:54:47 INF] Cover art: skipped 'Something' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\734f3516-c27c-477b-9741-b67e29afe0c3\cover\e6b95bd39a7d4086958cabfc7811b726.jpg)
+[02:54:47 INF] Cover art: skipped 'Seaside Rendezvous' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\757181f8-cc26-4742-92c0-f04edb80a82b\cover\ceb0dfd9488241efbc15a8bc2e659b83.jpg)
+[02:54:47 INF] Cover art: skipped 'Lose Yourself' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\79df381b-65b1-4eec-b974-e4a5f7f923aa\cover\c6a7766e52ba47b0a6882e8a3632d13a.jpg)
+[02:54:47 INF] Cover art: skipped 'Imagine' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\852b411b-a1d7-43c0-b9d4-0f5b7a408429\cover\51bd9c61984540aeb35f4c46efc57e80.jpg)
+[02:54:47 INF] Cover art: skipped 'Beauty and the Beast' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\86eceb19-ab62-4fef-8c19-4fd7efdee467\cover\3b95a44b3db74ee9825d9ce567840f5e.jpg)
+[02:54:47 INF] Cover art: skipped 'MMMBop' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\a59f01ba-04e2-4d38-965f-6dd25a299253\cover\2d3f57a9ed5346cc8db4eb639b943ca0.jpg)
+[02:54:47 INF] Cover art: skipped 'Time' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\e87e6079-9677-4511-9c5b-8f6fa94bb978\cover\cf964858d2644f4099f5e756f7c655db.jpg)
+[02:54:54 INF] Next activity prune at 07/27/2026 03:00:00 -05:00
+[02:55:09 INF] Next rejected-file cleanup at 07/27/2026 04:00:00 -05:00
+[02:55:24 INF] Next retag sweep at 07/27/2026 03:00:00 -05:00
+[02:55:24 INF] Next storage maintenance pass at 07/28/2026 02:00:00 -05:00
+[02:56:24 INF] VibeBatchService: scanning for entities needing vibe tags
+[02:56:24 INF] PluginScheduledSegmentService: next run in 23:03:35.4063680
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity a3a69ed8-3abd-4059-b34c-448a837a1941
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 7e3d65a3-b00f-4051-8a0e-f252e92a5a69
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 295a3b90-b5f1-4a8d-80ad-31f78fbde2da
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 21b37796-a0da-4c62-88cd-61c97c563000
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 03730567-69e7-4378-92e7-d813752a1af7
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 1d45141b-3da6-4039-86b7-00d1b82363ce
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 4a564b93-b704-422c-8ffb-28ae16a9c91f
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity a07b0d82-d7c1-48d0-b8b1-ccd228969ee0
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 4c7c7e24-56d0-4868-b774-f715eb0f5586
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 5c26f3a7-6342-4a16-8b60-8f7b9e973907
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 6f8f8920-3465-412f-b8ba-02414b1c90c6
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity d7f02e6e-1146-46d5-b17c-c0d1e857f6cb
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:56:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:56:25 WRN] VibeBatchService: failed to tag entity 2a949433-fa73-44dc-9770-736afb1e517c
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.VibeTagger.TagAsync(String title, String wikipediaSummary, IReadOnlyList`1 genres, String mediaCategory, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\VibeTagger.cs:line 61
+   at MediaEngine.Api.Services.VibeBatchService.RunBatchAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\VibeBatchService.cs:line 135
+[02:56:25 INF] VibeBatchService: tagged 0 entities
+[02:56:25 INF] VibeBatchService: next run in 01:03:34.3660328
+[02:56:40 INF] Resolved 7 system-view groups for media type Audiobooks and field series
+[02:56:40 INF] Resolved 13 system-view groups for media type Music and field album
+[02:56:40 INF] Resolved 13 system-view groups for media type Music and field album
+[02:57:17 ERR] Unhandled API exception for /api/details/collection/6f2cf9ff-2d73-4f1d-8e35-8794f760e61b (trace 0HNNBMHHTN2K6:00000001)
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:17 ERR] An unhandled exception has occurred while executing the request.
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:17 ERR] Unhandled API exception for /api/details/collection/3f699e9d-ea4a-4610-9641-c90b3471342c (trace 0HNNBMHHTN2K7:00000001)
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:17 ERR] An unhandled exception has occurred while executing the request.
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:17 ERR] Unhandled API exception for /api/details/collection/cc148cad-e392-4941-9d61-01ecd58f4b44 (trace 0HNNBMHHTN2K8:00000001)
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:17 ERR] An unhandled exception has occurred while executing the request.
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:18 ERR] Unhandled API exception for /api/details/collection/3161ab26-e099-45b5-ae34-30a0f011215d (trace 0HNNBMHHTN2K9:00000001)
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:18 ERR] An unhandled exception has occurred while executing the request.
+System.Data.DataException: Error parsing column 5 (SortOrder=999999 - Int64)
+ ---> System.InvalidCastException: Unable to cast object of type 'System.Int64' to type 'System.Double'.
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   --- End of inner exception stack trace ---
+   at Dapper.SqlMapper.ThrowDataException(Exception ex, Int32 index, IDataReader reader, Object value) in /_/Dapper/SqlMapper.cs:line 3966
+   at Deserializec49c7c57-0ac4-4ce5-ba88-3b0a60c43d33(DbDataReader)
+   at Dapper.SqlMapper.QueryAsync[T](IDbConnection cnn, Type effectiveType, CommandDefinition command) in /_/Dapper/SqlMapper.Async.cs:line 454
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.ResolveCollectionWorkIdsToItemsAsync(Guid collectionId, IReadOnlyList`1 workIds, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 955
+   at MediaEngine.Api.Services.ReadServices.CollectionCatalogReadService.GetItemsAsync(Guid collectionId, Profile activeProfile, Int32 limit, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ReadServices\CollectionCatalogReadService.cs:line 194
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildCollectionAsync(Guid collectionId, DetailEntityType entityType, DetailPresentationContext context, Boolean isAdminView, IReadOnlySet`1 favoriteWorkIds, CancellationToken ct, Nullable`1 currentWorkId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Collections.cs:line 138
+   at MediaEngine.Api.Services.Details.Internals.DetailCompositionOrchestrator.BuildAsync(DetailEntityType entityType, Guid id, DetailPresentationContext context, CancellationToken ct, String selectedContainerId, Nullable`1 profileId) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Details\Internals\DetailCompositionOrchestrator.Core.cs:line 94
+   at MediaEngine.Api.Endpoints.DetailEndpoints.<>c.<<MapDetailEndpoints>b__0_0>d.MoveNext() in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Endpoints\DetailEndpoints.cs:line 31
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<TaskOfTToValueTaskOfObject>g__ExecuteAwaited|92_0[T](Task`1 task)
+   at MediaEngine.Api.Security.RoleAuthorizationFilter.InvokeAsync(EndpointFilterInvocationContext ctx, EndpointFilterDelegate next) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Security\RoleAuthorizationFilter.cs:line 45
+   at Microsoft.AspNetCore.Http.RequestDelegateFactory.<ExecuteValueTaskOfObject>g__ExecuteAwaited|130_0(ValueTask`1 valueTask, HttpContext httpContext, JsonTypeInfo`1 jsonTypeInfo)
+   at Swashbuckle.AspNetCore.SwaggerUI.SwaggerUIMiddleware.Invoke(HttpContext httpContext)
+   at Swashbuckle.AspNetCore.Swagger.SwaggerMiddleware.Invoke(HttpContext httpContext, ISwaggerProvider swaggerProvider)
+   at MediaEngine.Api.Middleware.ApiKeyMiddleware.InvokeAsync(HttpContext ctx, IApiKeyLookupCache apiKeyCache, IConfiguration config) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Middleware\ApiKeyMiddleware.cs:line 99
+   at Microsoft.AspNetCore.RateLimiting.RateLimitingMiddleware.InvokeInternal(HttpContext context, EnableRateLimitingAttribute enableRateLimitingAttribute)
+   at Microsoft.AspNetCore.Diagnostics.ExceptionHandlerMiddlewareImpl.<Invoke>g__Awaited|10_0(ExceptionHandlerMiddlewareImpl middleware, HttpContext context, Task task)
+[02:57:24 INF] SeriesAlignmentService: scanning for unpositioned series works
+[02:57:24 INF] [DESCRIPTION-INTEL-BATCH] Next run in 00:02:35.4020225
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 7c88538f-ae1f-4cb7-83e4-d9e1d8d17abb
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity a3a69ed8-3abd-4059-b34c-448a837a1941
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 7e3d65a3-b00f-4051-8a0e-f252e92a5a69
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 4c7c7e24-56d0-4868-b774-f715eb0f5586
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 295a3b90-b5f1-4a8d-80ad-31f78fbde2da
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 5c26f3a7-6342-4a16-8b60-8f7b9e973907
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 03730567-69e7-4378-92e7-d813752a1af7
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity a07b0d82-d7c1-48d0-b8b1-ccd228969ee0
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity 6f8f8920-3465-412f-b8ba-02414b1c90c6
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 WRN] Cannot ensure model TextQuality: state is NotDownloaded
+[02:57:25 WRN] Model TextQuality is unavailable
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[02:57:25 WRN] SeriesAlignmentService: failed to infer position for entity d7f02e6e-1146-46d5-b17c-c0d1e857f6cb
+System.InvalidOperationException: Model TextQuality is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferJsonAsync[T](AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 93
+   at MediaEngine.AI.Features.SeriesAligner.InferPositionAsync(String workTitle, String seriesName, IReadOnlyList`1 siblingTitles, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\SeriesAligner.cs:line 27
+   at MediaEngine.Api.Services.SeriesAlignmentBackgroundService.RunAlignmentAsync(CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\SeriesAlignmentBackgroundService.cs:line 143
+[02:57:25 INF] SeriesAlignmentService: attempted 10 bounded suggestion(s)
+[02:57:25 INF] SeriesAlignmentService: next run in 00:02:34.2814488

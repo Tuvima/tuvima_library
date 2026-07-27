@@ -96,7 +96,8 @@ public sealed class ProfileOverviewReadService(
                     NULLIF(ma.file_path_root, ''),
                     'Untitled') AS title,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('author', 'artist', 'narrator', 'show_name', 'series') LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('author', 'album_artist', 'artist', 'narrator') ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('show_name', 'series') LIMIT 1),
                     h.display_name) AS subtitle,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'media_type' LIMIT 1),
@@ -106,7 +107,7 @@ public sealed class ProfileOverviewReadService(
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover', 'image_url') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('cover_url', 'cover', 'image_url') LIMIT 1)) AS cover_url,
-                (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'genre' LIMIT 1) AS genre
+                (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'genre' ORDER BY ordinal LIMIT 1) AS genre
             FROM user_states us
             JOIN media_assets ma ON ma.id = us.asset_id
             JOIN editions e ON e.id = ma.edition_id
@@ -172,13 +173,14 @@ public sealed class ProfileOverviewReadService(
                     NULLIF(ma.file_path_root, ''),
                     'Untitled') AS title,
                 COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('author', 'artist', 'narrator', 'show_name', 'series') LIMIT 1),
+                    (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('author', 'album_artist', 'artist', 'narrator') ORDER BY ordinal LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('show_name', 'series') LIMIT 1),
                     h.display_name) AS subtitle,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('cover_url', 'cover', 'image_url') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('cover_url', 'cover', 'image_url') LIMIT 1)) AS cover_url,
                 h.display_name AS collection_name,
-                (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'genre' LIMIT 1) AS genre,
+                (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'genre' ORDER BY ordinal LIMIT 1) AS genre,
                 COALESCE(MAX(mc.claimed_at), datetime('now')) AS added_at
             FROM media_assets ma
             JOIN editions e ON e.id = ma.edition_id

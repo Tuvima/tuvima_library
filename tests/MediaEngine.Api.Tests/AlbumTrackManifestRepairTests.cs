@@ -16,37 +16,42 @@ public sealed class AlbumTrackManifestRepairTests
     {
         var rootWorkId = Guid.NewGuid();
         var canonicalRepo = new StubCanonicalValueRepository();
-        var client = new AppleRetailClient(
-            new RoutingHttpClientFactory(request =>
+        var httpFactory = new RoutingHttpClientFactory(request =>
+        {
+            var url = request.RequestUri!.ToString();
+            if (url.Contains("/search?", StringComparison.OrdinalIgnoreCase))
             {
-                var url = request.RequestUri!.ToString();
-                if (url.Contains("/search?", StringComparison.OrdinalIgnoreCase))
-                {
-                    return JsonResponse("""
-                        {
-                          "results": [
-                            { "collectionName": "A New Career in a New Town (1977-1982)", "artistName": "David Bowie", "collectionId": 1255088551 },
-                            { "collectionName": "\"Heroes\" (2017 Remaster)", "artistName": "David Bowie", "collectionId": 1347894082 }
-                          ]
-                        }
-                        """);
-                }
-
                 return JsonResponse("""
                     {
                       "results": [
-                        { "wrapperType": "collection", "collectionId": 1347894082 },
-                        { "wrapperType": "track", "kind": "song", "trackName": "Beauty and the Beast", "trackNumber": 1, "discNumber": 1, "trackTimeMillis": 215000, "trackId": 1347894083 },
-                        { "wrapperType": "track", "kind": "music-video", "trackName": "Documentary", "trackNumber": 2, "trackTimeMillis": 600000, "trackId": 999 },
-                        { "wrapperType": "track", "kind": "song", "trackName": "Heroes", "trackNumber": 3, "discNumber": 1, "trackTimeMillis": 370000, "trackId": 1347894085 }
+                        { "collectionName": "A New Career in a New Town (1977-1982)", "artistName": "David Bowie", "collectionId": 1255088551 },
+                        { "collectionName": "\"Heroes\" (2017 Remaster)", "artistName": "David Bowie", "collectionId": 1347894082 }
                       ]
                     }
                     """);
-            }),
+            }
+
+            return JsonResponse("""
+                {
+                  "results": [
+                    { "wrapperType": "collection", "collectionId": 1347894082 },
+                    { "wrapperType": "track", "kind": "song", "trackName": "Beauty and the Beast", "trackNumber": 1, "discNumber": 1, "trackTimeMillis": 215000, "trackId": 1347894083, "artworkUrl100": "https://example.test/100x100bb.jpg" },
+                    { "wrapperType": "track", "kind": "music-video", "trackName": "Documentary", "trackNumber": 2, "trackTimeMillis": 600000, "trackId": 999 },
+                    { "wrapperType": "track", "kind": "song", "trackName": "Heroes", "trackNumber": 3, "discNumber": 1, "trackTimeMillis": 370000, "trackId": 1347894085 }
+                  ]
+                }
+                """);
+        });
+        var client = new AppleRetailClient(
+            httpFactory,
             new RetailRequestBuilder(),
             new ProviderRateLimiterCoordinator(),
             NullLogger<AppleRetailClient>.Instance);
-        var service = new AlbumTrackManifestService(canonicalRepo, client);
+        var musicBrainzClient = new MusicBrainzReleaseClient(
+            httpFactory,
+            new ProviderRateLimiterCoordinator(),
+            NullLogger<MusicBrainzReleaseClient>.Instance);
+        var service = new AlbumTrackManifestService(canonicalRepo, client, musicBrainzClient);
         var legacyManifest = """
             {
               "tracks": [
@@ -55,7 +60,7 @@ public sealed class AlbumTrackManifestRepairTests
             }
             """;
 
-        var result = await service.EnsureAppleAlbumTrackManifestAsync(
+        var result = await service.EnsureAlbumTrackManifestAsync(
             rootWorkId,
             "David Bowie",
             "Heroes",
@@ -77,6 +82,154 @@ public sealed class AlbumTrackManifestRepairTests
             value.EntityId == rootWorkId
             && value.Key == BridgeIdKeys.AppleMusicCollectionId
             && value.Value == "1347894082");
+        Assert.Contains(canonicalRepo.Values, value =>
+            value.EntityId == rootWorkId
+            && value.Key == MetadataFieldConstants.CoverUrl
+            && value.Value == "https://example.test/9999x9999bb.jpg");
+    }
+
+    [Fact]
+    public async Task ExactMusicBrainzRelease_ProvidesManifestAndCoverBeforeAppleNameFallback()
+    {
+        const string releaseId = "3dd79a9c-ede6-4d05-8735-5bb51a3e505b";
+        var rootWorkId = Guid.NewGuid();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        canonicalRepo.Values.AddRange(
+        [
+            new CanonicalValue
+            {
+                EntityId = rootWorkId,
+                Key = BridgeIdKeys.MusicBrainzReleaseId,
+                Value = releaseId,
+                WinningProviderId = WellKnownProviders.MusicBrainz,
+            },
+            new CanonicalValue
+            {
+                EntityId = rootWorkId,
+                Key = MetadataFieldConstants.TrackCount,
+                Value = "50",
+                WinningProviderId = WellKnownProviders.MusicBrainz,
+            },
+        ]);
+
+        var httpFactory = new RoutingHttpClientFactory(request =>
+        {
+            Assert.Contains($"/release/{releaseId}", request.RequestUri!.ToString(), StringComparison.Ordinal);
+            return JsonResponse($$"""
+                {
+                  "id": "{{releaseId}}",
+                  "title": "Interstellar",
+                  "artist-credit": [
+                    { "name": "Hans Zimmer", "joinphrase": "" }
+                  ],
+                  "cover-art-archive": { "artwork": true, "front": true },
+                  "media": [
+                    {
+                      "position": 1,
+                      "tracks": [
+                        { "position": 1, "title": "Dreaming of the Crash", "length": 235840, "recording": { "id": "ba6f5a1a-d8fc-4a7a-afd0-97c42cdab38b", "title": "Dreaming of the Crash", "length": 235840 } },
+                        { "position": 2, "title": "Cornfield Chase", "length": 126960, "recording": { "id": "442c73a5-8b61-40e6-8eb2-bcd913e1b88d", "title": "Cornfield Chase", "length": 126960 } }
+                      ]
+                    }
+                  ]
+                }
+                """);
+        });
+        var appleClient = new AppleRetailClient(
+            httpFactory,
+            new RetailRequestBuilder(),
+            new ProviderRateLimiterCoordinator(),
+            NullLogger<AppleRetailClient>.Instance);
+        var musicBrainzClient = new MusicBrainzReleaseClient(
+            httpFactory,
+            new ProviderRateLimiterCoordinator(),
+            NullLogger<MusicBrainzReleaseClient>.Instance);
+        var service = new AlbumTrackManifestService(
+            canonicalRepo,
+            appleClient,
+            musicBrainzClient);
+
+        var result = await service.EnsureAlbumTrackManifestAsync(
+            rootWorkId,
+            "Hans Zimmer",
+            "Interstellar",
+            null,
+            canonicalRepo.Values,
+            CancellationToken.None);
+
+        Assert.True(MusicBrainzAlbumManifestJson.IsCompleteForRelease(result, releaseId));
+        Assert.Contains("\"Cornfield Chase\"", result, StringComparison.Ordinal);
+        Assert.Contains(canonicalRepo.Values, value =>
+            value.EntityId == rootWorkId
+            && value.Key == MetadataFieldConstants.TrackCount
+            && value.Value == "2");
+        Assert.Contains(canonicalRepo.Values, value =>
+            value.EntityId == rootWorkId
+            && value.Key == MetadataFieldConstants.CoverUrl
+            && value.Value == $"https://coverartarchive.org/release/{releaseId}/front-500");
+    }
+
+    [Fact]
+    public async Task CompleteManifest_RepairsTrackCountWithoutProviderLookup()
+    {
+        var rootWorkId = Guid.NewGuid();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        canonicalRepo.Values.AddRange(
+        [
+            new CanonicalValue
+            {
+                EntityId = rootWorkId,
+                Key = MetadataFieldConstants.TrackCount,
+                Value = "50",
+                WinningProviderId = WellKnownProviders.MusicBrainz,
+            },
+            new CanonicalValue
+            {
+                EntityId = rootWorkId,
+                Key = MetadataFieldConstants.CoverUrl,
+                Value = "https://example.test/cover.jpg",
+                WinningProviderId = WellKnownProviders.AppleApi,
+            },
+        ]);
+        var manifest = """
+            {
+              "schema": "music_album_tracks_v1",
+              "source": "apple_itunes_album",
+              "provider_collection_id": "123",
+              "tracks": [
+                { "title": "One", "ordinal": 1, "track_number": 1, "duration_seconds": 100 },
+                { "title": "Two", "ordinal": 2, "track_number": 2, "duration_seconds": 120 }
+              ]
+            }
+            """;
+        var httpFactory = new RoutingHttpClientFactory(_ =>
+            throw new Xunit.Sdk.XunitException("A complete manifest must not require a provider lookup."));
+        var service = new AlbumTrackManifestService(
+            canonicalRepo,
+            new AppleRetailClient(
+                httpFactory,
+                new RetailRequestBuilder(),
+                new ProviderRateLimiterCoordinator(),
+                NullLogger<AppleRetailClient>.Instance),
+            new MusicBrainzReleaseClient(
+                httpFactory,
+                new ProviderRateLimiterCoordinator(),
+                NullLogger<MusicBrainzReleaseClient>.Instance));
+
+        var result = await service.EnsureAlbumTrackManifestAsync(
+            rootWorkId,
+            "Artist",
+            "Album",
+            manifest,
+            canonicalRepo.Values,
+            CancellationToken.None);
+
+        Assert.Equal(manifest, result);
+        Assert.Contains(canonicalRepo.Values, value =>
+            value.EntityId == rootWorkId
+            && value.Key == MetadataFieldConstants.TrackCount
+            && value.Value == "2"
+            && value.WinningProviderId == WellKnownProviders.AppleApi);
     }
 
     private static HttpResponseMessage JsonResponse(string json)

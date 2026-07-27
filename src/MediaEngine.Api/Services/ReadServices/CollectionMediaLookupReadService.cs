@@ -38,12 +38,18 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                        (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'title' LIMIT 1),
                        'Unknown') AS TEXT) AS Title,
                    CAST(COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'artist' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'artist' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'author' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'author' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'director' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'director' LIMIT 1)) AS TEXT) AS Creator,
+                       (SELECT value
+                        FROM canonical_value_arrays
+                        WHERE entity_id = ra.AssetId
+                          AND key IN ('album_artist', 'artist', 'author', 'director')
+                        ORDER BY CASE key WHEN 'album_artist' THEN 1 WHEN 'artist' THEN 2 WHEN 'author' THEN 3 ELSE 4 END, ordinal
+                        LIMIT 1),
+                       (SELECT value
+                        FROM canonical_value_arrays
+                        WHERE entity_id = COALESCE(gp.id, p.id, w.id)
+                          AND key IN ('album_artist', 'artist', 'author', 'director')
+                        ORDER BY CASE key WHEN 'album_artist' THEN 1 WHEN 'artist' THEN 2 WHEN 'author' THEN 3 ELSE 4 END, ordinal
+                        LIMIT 1)) AS TEXT) AS Creator,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key IN ('release_year', 'year') LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key IN ('release_year', 'year') LIMIT 1)) AS TEXT) AS Year
@@ -139,9 +145,9 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
             LEFT JOIN canonical_values title_root ON title_root.entity_id = COALESCE(gp.id, p.id, w.id) AND title_root.key = 'title'
             LEFT JOIN canonical_values episode_title ON episode_title.entity_id = w.id AND episode_title.key = 'episode_title'
-            LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
-            LEFT JOIN canonical_values artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_value_arrays author_work ON author_work.entity_id = w.id AND author_work.key = 'author' AND author_work.ordinal = 0
+            LEFT JOIN canonical_value_arrays artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist' AND artist_work.ordinal = 0
+            LEFT JOIN canonical_value_arrays artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key = 'album_artist' AND artist_root.ordinal = 0
             LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
             LEFT JOIN canonical_values year_root ON year_root.entity_id = COALESCE(gp.id, p.id, w.id) AND year_root.key IN ('year', 'release_year')
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
@@ -152,8 +158,8 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             LEFT JOIN canonical_values album_work ON album_work.entity_id = w.id AND album_work.key = 'album'
             LEFT JOIN canonical_values album_root ON album_root.entity_id = COALESCE(gp.id, p.id, w.id) AND album_root.key = 'album'
             LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ra.AssetId AND title_asset.key = 'title'
-            LEFT JOIN canonical_values author_asset ON author_asset.entity_id = ra.AssetId AND author_asset.key = 'author'
-            LEFT JOIN canonical_values artist_asset ON artist_asset.entity_id = ra.AssetId AND artist_asset.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_value_arrays author_asset ON author_asset.entity_id = ra.AssetId AND author_asset.key = 'author' AND author_asset.ordinal = 0
+            LEFT JOIN canonical_value_arrays artist_asset ON artist_asset.entity_id = ra.AssetId AND artist_asset.key = 'artist' AND artist_asset.ordinal = 0
             LEFT JOIN canonical_values year_asset ON year_asset.entity_id = ra.AssetId AND year_asset.key IN ('year', 'release_year')
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values season_asset ON season_asset.entity_id = ra.AssetId AND season_asset.key = 'season_number'
@@ -274,8 +280,8 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
             LEFT JOIN canonical_values title_work ON title_work.entity_id = w.id AND title_work.key = 'title'
             LEFT JOIN canonical_values show_name ON show_name.entity_id = w.id AND show_name.key = 'show_name'
-            LEFT JOIN canonical_values author_work ON author_work.entity_id = w.id AND author_work.key = 'author'
-            LEFT JOIN canonical_values artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist')
+            LEFT JOIN canonical_value_arrays author_work ON author_work.entity_id = w.id AND author_work.key = 'author' AND author_work.ordinal = 0
+            LEFT JOIN canonical_value_arrays artist_work ON artist_work.entity_id = w.id AND artist_work.key IN ('artist', 'album_artist') AND artist_work.ordinal = 0
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster')
             LEFT JOIN series_manifest_items series_item ON series_item.linked_work_id = w.id AND series_item.collection_id = @CollectionId
             WHERE ({visibleWorkPredicate} OR ra.AssetId IS NOT NULL)

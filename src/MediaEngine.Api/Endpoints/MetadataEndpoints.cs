@@ -1326,7 +1326,7 @@ public static partial class MetadataEndpoints
         .RequireAdmin();
 
 
-        // â"€â"€ POST /metadata/search-all â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // POST /metadata/search-all
         //
         // Fan-out search: queries ALL eligible providers concurrently and returns
         // merged results grouped by provider. Powers the shared media editor search flow.
@@ -1479,7 +1479,7 @@ public static partial class MetadataEndpoints
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdminOrCurator();
 
-        // â"€â"€ GET /metadata/canonical/{entityId} â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // GET /metadata/canonical/{entityId}
         //
         // Returns all current canonical values for an entity with confidence,
         // provider attribution, and user-lock status.
@@ -1563,7 +1563,7 @@ public static partial class MetadataEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdminOrCurator();
 
-        // â"€â"€ POST /metadata/{entityId}/cover-from-url â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+        // POST /metadata/{entityId}/cover-from-url
         //
         // Downloads a cover image from a provider URL, saves the managed artwork,
         // generates renditions + palette metadata, and updates canonical values.
