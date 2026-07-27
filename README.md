@@ -30,11 +30,11 @@ Personal media collections rarely live in one neat place. A single story might b
 
 Tuvima Library starts with the story.
 
-Point Tuvima at the folders you choose and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
+Choose the folders Tuvima Library should watch and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
 
-## Why I Started Tuvima
+## Why I Started Tuvima Library
 
-Tuvima began with a gap I felt in my own library.
+Tuvima Library began with a gap I felt in my own library.
 
 I was—and still am—an avid user of Plex, Audiobookshelf, and other media managers. I appreciated what each one did well, but I was still responsible for remembering how everything connected. The book lived in one library, its audiobook in another, the film adaptation somewhere else, and the soundtrack somewhere else again. The more formats I collected, the less the whole thing felt like one collection.
 
@@ -50,11 +50,13 @@ Watching adaptations raised a different set of questions:
 
 A normal remote can pause the movie or change the volume, but it cannot help explore the story. I imagined a phone becoming a true companion: following where I was in the film and offering timely, spoiler-aware context about a character, location, event, performer, or source chapter.
 
-That was the realization behind Tuvima. The missing piece was not another player. It was a shared understanding of the works and the universe around them. As I looked beyond my own setup, I found many other collectors trying to bridge the same gaps with separate servers, manual collections, spreadsheets, plugins, and memory.
+That was the realization behind Tuvima Library. The missing piece was not another player. It was a shared understanding of the works and the universe around them. As I looked beyond my own setup, I found many other collectors trying to bridge the same gaps with separate servers, manual collections, spreadsheets, plugins, and memory.
 
-Tuvima is the library I wanted for myself, built in the hope that it can become that library for others too.
+The name came from the same idea. [ElfDict lists **túvima**](https://www.elfdict.com/w/tuuvima/q) as a Quenya adjective meaning **“discoverable,”** citing Tolkien's linguistic material through its Eldamo entry. A product intended to reveal the stories and connections hidden across a media collection needed a name that meant exactly that. **Tuvima Library** was the logical choice.
 
-## What Tuvima Means by a Universe
+Tuvima Library is the library I wanted for myself, built in the hope that it can become that library for others too.
+
+## What Tuvima Library Means by a Universe
 
 A **Universe** is not another folder or playlist. It is the living map of a creative world.
 
@@ -78,13 +80,13 @@ In the fuller vision, a phone could follow the current point in a film and show 
 
 The same foundation can support cross-format position mapping: stop reading an ebook at home, begin the audiobook in the car, and continue from the corresponding narrative point. It is a local-first version of the continuity that makes Whispersync for Voice compelling, designed for the editions you own.
 
-Wikidata supplies canonical identities and relationships; Wikipedia supplies readable context; Tuvima's local analysis can align positions, chapters, scenes, and playback time. Today, the foundations include shared identities, progress, media relationships, people and character links, and sourced Universe Graph data. Automatic cross-format position matching, scene mapping, and the real-time companion are still in development.
+Wikidata supplies canonical identities and relationships; Wikipedia supplies readable context; Tuvima Library's local analysis can align positions, chapters, scenes, and playback time. Today, the foundations include shared identities, progress, media relationships, people and character links, and sourced Universe Graph data. Automatic cross-format position matching, scene mapping, and the real-time companion are still in development.
 
 Learn more in [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/) and the technical [Universe Graph](https://tuvima.github.io/tuvima_library/architecture/universe-graph/) documentation.
 
 ## Collections That Build Themselves
 
-Tuvima uses a simple principle: immediate groups should be useful, while broader Collections should earn their place.
+Tuvima Library uses a simple principle: immediate groups should be useful, while broader Collections should earn their place.
 
 - A book series becomes an ordered shelf in Read.
 - A film series or TV show becomes a shelf in Watch.
@@ -93,28 +95,28 @@ Tuvima uses a simple principle: immediate groups should be useful, while broader
 
 For example, owning only a film trilogy creates a useful Watch shelf. Owning related novels, film series, audiobooks, and music can create a broader Collection that brings those shelves together. An ebook and audiobook of one title do not create a Collection by themselves; they are two owned ways to experience the same work.
 
-These structural groupings are automated. Tuvima uses file metadata and configured knowledge sources to identify relationships, then updates the view as the library changes. It does not rely on similar titles alone, and uncertain matches are sent for review rather than silently forcing unrelated items together.
+These structural groupings are automated. Tuvima Library uses file metadata and configured knowledge sources to identify relationships, then updates the view as the library changes. It does not rely on similar titles alone, and uncertain matches are sent for review rather than silently forcing unrelated items together.
 
 Richer personal rules, recommendations, and smart collection automation remain in development. Learn more in [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/).
 
 ## Wikipedia and Wikidata Give the Library Context
 
-[Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:About) and [Wikidata](https://www.wikidata.org/wiki/Wikidata:Introduction) are two of the most remarkable resources behind Tuvima. Both are built and maintained by people around the world, and each brings something essential to the library.
+[Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:About) and [Wikidata](https://www.wikidata.org/wiki/Wikidata:Introduction) are two of the most remarkable resources behind Tuvima Library. Both are built and maintained by people around the world, and each brings something essential to the library.
 
 Wikidata provides structured identity, facts, and relationships that software can understand. Wikipedia provides the human-readable history, descriptions, biographies, and context that help people understand why a work or creator matters.
 
-A metadata provider can help Tuvima identify a file as a particular book, film, album, or episode. Wikidata helps place that item in the wider world, while Wikipedia helps explain it:
+A metadata provider can help Tuvima Library identify a file as a particular book, film, album, or episode. Wikidata helps place that item in the wider world, while Wikipedia helps explain it:
 
 - Is this work part of a series, franchise, or adaptation?
 - Which people created, performed, directed, narrated, or composed it?
 - Which formats and owned shelves belong to the same creative world?
 - What is the history and human context behind the work, person, or collection?
 
-Tuvima first looks for a safe media match and a trustworthy identifier, such as an ISBN, TMDB ID, MusicBrainz ID, or Comic Vine ID. It can then find the corresponding Wikidata item, follow supported relationships, and retrieve linked Wikipedia context. If a reliable identity is unavailable, Tuvima does not use open knowledge as a guessing engine; the item remains usable with other metadata or waits for review.
+Tuvima Library first looks for a safe media match and a trustworthy identifier, such as an ISBN, TMDB ID, MusicBrainz ID, or Comic Vine ID. It can then find the corresponding Wikidata item, follow supported relationships, and retrieve linked Wikipedia context. If a reliable identity is unavailable, Tuvima Library does not use open knowledge as a guessing engine; the item remains usable with other metadata or waits for review.
 
 ### Giving Back to Wikipedia and Wikidata
 
-Tuvima does not see Wikipedia and Wikidata as simply free services to consume. They are shared public infrastructure, built through an extraordinary amount of community effort, and the project wants to support them wherever possible.
+Tuvima Library does not see Wikipedia and Wikidata as simply free services to consume. They are shared public infrastructure, built through an extraordinary amount of community effort, and the project wants to support them wherever possible.
 
 That means:
 
@@ -123,13 +125,13 @@ That means:
 - Making data gaps and uncertain relationships visible instead of hiding them.
 - Contributing corrections, citations, translations, modeling improvements, documentation, and open tooling where appropriate.
 
-Readers can [contribute to Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:Contributing_to_Wikipedia), [participate in Wikidata](https://www.wikidata.org/wiki/Wikidata:Contribute), or [support the Wikimedia movement](https://donate.wikimedia.org/). Helping this knowledge become more complete benefits Tuvima and everyone else building with open knowledge.
+Readers can [contribute to Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:Contributing_to_Wikipedia), [participate in Wikidata](https://www.wikidata.org/wiki/Wikidata:Contribute), or [support the Wikimedia movement](https://donate.wikimedia.org/). Helping this knowledge become more complete benefits Tuvima Library and everyone else building with open knowledge.
 
-## What Tuvima Does Differently
+## What Tuvima Library Does Differently
 
 The media-management ecosystem is broad, and many of its tools are excellent at the job they were designed to do.
 
-| Kind of tool | Common choices | What they do especially well | Tuvima's different job |
+| Kind of tool | Common choices | What they do especially well | Tuvima Library's different job |
 |---|---|---|---|
 | General media servers | [Plex](https://support.plex.tv/articles/200288286-what-is-plex/), [Jellyfin](https://jellyfin.org/), [Emby](https://emby.media/about.html) | Mature streaming, transcoding, live TV, and apps for movies, shows, music, and photos | Connect those experiences to books, comics, audiobooks, soundtracks, adaptations, and the wider creative world |
 | Living-room media centers | [Kodi](https://kodi.tv/about/) | Flexible playback of local and network media, a television-first interface, and extensive customization | Build a persistent, server-side understanding of works, versions, people, shelves, and Collections across formats |
@@ -138,15 +140,15 @@ The media-management ecosystem is broad, and many of its tools are excellent at 
 | Acquisition and file automation | [Sonarr](https://sonarr.tv/), [Radarr](https://radarr.video/), [Lidarr](https://lidarr.audio/) | Monitor releases and automate acquisition, quality choices, renaming, and file organization for a particular media type | Begin with the files you own, determine what they are, enrich them, and reveal how they relate across every supported media type |
 | Cross-media story library | **Tuvima Library** | A common, local-first view of the stories and creative worlds represented by the media you own | Make cross-media understanding the foundation, so the library can build and evolve its structure as it learns what each item is |
 
-These tools do not always need to be replaced. Automation tools can prepare files that Tuvima then watches, while specialist players may remain valuable for particular devices or formats. Tuvima's goal is to provide the shared library those separate workflows do not.
+These tools do not always need to be replaced. Automation tools can prepare files that Tuvima Library then watches, while specialist players may remain valuable for particular devices or formats. Tuvima Library's goal is to provide the shared library those separate workflows do not.
 
 Its advantage is not simply supporting more file extensions. It is understanding that the files are related—and using that understanding to make the whole collection more valuable than the sum of its folders.
 
 ## Built Around Ownership and Privacy
 
 - **Local first:** the Engine, Dashboard, SQLite database, managed artwork, and optional AI models run locally.
-- **No Tuvima account:** using your library does not require a hosted account or subscription.
-- **No built-in tracking:** Tuvima does not include product telemetry.
+- **No hosted account:** using Tuvima Library does not require an account or subscription.
+- **No built-in tracking:** Tuvima Library does not include product telemetry.
 - **Your choice of metadata sources:** external providers are contacted only when configured and needed.
 - **Human review when it matters:** low-confidence matches are surfaced instead of silently treated as correct.
 - **Free and open source:** there is no premium tier or feature gate.
@@ -189,9 +191,9 @@ Features still in development include:
 
 The [Product Status](https://tuvima.github.io/tuvima_library/product/status/) page explains what is live, partial, or planned. For a detailed implementation view, see the [Feature Truth Inventory](https://tuvima.github.io/tuvima_library/product/feature-truth-inventory/).
 
-## Try Tuvima
+## Try Tuvima Library
 
-Tuvima currently targets developers and early adopters running it from source.
+Tuvima Library currently targets developers and early adopters running it from source.
 
 You will need:
 
@@ -228,10 +230,10 @@ Full user and developer documentation lives at [tuvima.github.io/tuvima_library]
 
 | If you want to... | Read... |
 |---|---|
-| Install and launch Tuvima | [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) |
+| Install and launch Tuvima Library | [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) |
 | Build your first library | [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) |
 | Add and organize media | [How to Add Media](https://tuvima.github.io/tuvima_library/guides/adding-media/) |
-| Understand how Tuvima identifies files | [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/) |
+| Understand how Tuvima Library identifies files | [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/) |
 | Understand shelves, Collections, and Universes | [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/) |
 | Configure metadata services | [Configure Providers](https://tuvima.github.io/tuvima_library/guides/configuring-providers/) |
 | Check what is ready today | [Product Status](https://tuvima.github.io/tuvima_library/product/status/) |
@@ -244,7 +246,7 @@ Bug reports, feature ideas, documentation improvements, and code contributions a
 
 The product is branded as **Tuvima Library**, while many projects and namespaces in the code still use the earlier `MediaEngine.*` name. They refer to the same product.
 
-Tuvima is built on open-source software and public-knowledge projects. See [Attributions](https://tuvima.github.io/tuvima_library/reference/attributions/) for the maintained acknowledgement list.
+Tuvima Library is built on open-source software and public-knowledge projects. See [Attributions](https://tuvima.github.io/tuvima_library/reference/attributions/) for the maintained acknowledgement list.
 
 ## License
 
@@ -254,7 +256,7 @@ Tuvima Library is free and open-source software under the [GNU Affero General Pu
 
 <div align="center">
 
-**You already own the stories. Tuvima makes them easier to find, understand, and enjoy.**
+**You already own the stories. Tuvima Library makes them easier to find, understand, and enjoy.**
 
 [Documentation](https://tuvima.github.io/tuvima_library/) ·
 [Report a Bug](https://github.com/Tuvima/tuvima_library/issues) ·
