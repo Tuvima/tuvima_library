@@ -1134,6 +1134,69 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task MusicBrainz_FetchAsync_SelectsReleaseFromRequestedAlbumAndEmitsCoverArt()
+    {
+        var config = LoadExampleConfig("musicbrainz");
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(_ => JsonResponse("""
+                {
+                  "recordings": [
+                    {
+                      "id": "recording-1",
+                      "title": "Cornfield Chase",
+                      "artist-credit": [{ "name": "Hans Zimmer" }],
+                      "releases": [
+                        {
+                          "id": "wrong-release",
+                          "title": "Classical",
+                          "status": "Official",
+                          "date": "2010-01-01",
+                          "track-count": 20,
+                          "release-group": { "id": "wrong-group", "primary-type": "Album" },
+                          "cover-art-archive": { "artwork": true }
+                        },
+                        {
+                          "id": "interstellar-release",
+                          "title": "Interstellar: Original Motion Picture Soundtrack",
+                          "status": "Official",
+                          "date": "2014-11-18",
+                          "track-count": 20,
+                          "release-group": { "id": "interstellar-group", "primary-type": "Album" },
+                          "cover-art-archive": { "artwork": true }
+                        }
+                      ]
+                    }
+                  ]
+                }
+                """)));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Music,
+            Title = "Cornfield Chase",
+            Artist = "Hans Zimmer",
+            Album = "Interstellar: Original Motion Picture Soundtrack",
+            BaseUrl = "https://musicbrainz.org/ws/2",
+            Country = "us",
+            Language = "en",
+        });
+
+        Assert.Contains(claims, claim =>
+            claim.Key == BridgeIdKeys.MusicBrainzReleaseId
+            && claim.Value == "interstellar-release");
+        Assert.Contains(claims, claim =>
+            claim.Key == MetadataFieldConstants.CoverUrl
+            && claim.Value == "https://coverartarchive.org/release/interstellar-release/front-500");
+        Assert.DoesNotContain(claims, claim => claim.Value == "wrong-release");
+    }
+
+    [Fact]
     public async Task Tmdb_MovieSearch_StoresShortDescriptionButDoesNotSetGenericLanguage()
     {
         var config = LoadExampleConfig("tmdb");

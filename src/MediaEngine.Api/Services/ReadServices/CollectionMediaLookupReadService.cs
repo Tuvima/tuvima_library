@@ -116,6 +116,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                        WHEN w.work_kind = 'parent' AND p.id IS NOT NULL THEN COALESCE(gp.id, p.id, w.id)
                        ELSE w.id
                    END AS WorkId,
+                   COALESCE(gp.collection_id, p.collection_id, w.collection_id) AS CollectionId,
                    w.media_type AS MediaType,
                    CASE
                        WHEN COALESCE(gp.id, p.id, w.id) != w.id THEN 'parent'
@@ -382,7 +383,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         {
             if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
             {
-                return $"/watch/tv/show/{row.WorkId:D}";
+                return $"/details/tvshow/{row.WorkId:D}?context=watch";
             }
 
             if (row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase))
@@ -390,25 +391,36 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                 return $"/details/musicalbum/{row.WorkId:D}?context=listen";
             }
 
+            if (row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            {
+                return row.CollectionId.HasValue
+                    ? $"/details/collection/{row.CollectionId.Value:D}?context=listen"
+                    : "/listen/audiobooks?browse=series";
+            }
+
             if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
             {
-                return $"/details/comicseries/{row.WorkId:D}?context=comics";
+                return row.CollectionId.HasValue
+                    ? $"/details/comicseries/{row.CollectionId.Value:D}?context=comics"
+                    : "/read/comics?browse=series";
             }
 
             if (row.MediaType.Contains("book", StringComparison.OrdinalIgnoreCase))
             {
-                return $"/details/bookseries/{row.WorkId:D}?context=read";
+                return row.CollectionId.HasValue
+                    ? $"/details/bookseries/{row.CollectionId.Value:D}?context=read"
+                    : "/read/books?browse=series";
             }
         }
 
         if (row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/watch/tv/show/{row.WorkId:D}";
+            return $"/details/work/{row.WorkId:D}?context=watch";
         }
 
         if (row.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/watch/movie/{row.WorkId:D}";
+            return $"/details/work/{row.WorkId:D}?context=watch";
         }
 
         if (row.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
@@ -418,19 +430,20 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
 
         if (row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/details/audiobook/{row.WorkId:D}?context=listen";
+            return $"/details/work/{row.WorkId:D}?context=listen";
         }
 
         if (row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
         {
-            return $"/details/comicissue/{row.WorkId:D}?context=comics";
+            return $"/details/work/{row.WorkId:D}?context=comics";
         }
 
-        return $"/book/{row.WorkId:D}";
+        return $"/details/work/{row.WorkId:D}?context=read";
     }
 
     private sealed record CollectionMediaLookupRow(
         Guid WorkId,
+        Guid? CollectionId,
         string MediaType,
         string? WorkKind,
         int? Ordinal,

@@ -42,55 +42,32 @@ public sealed record DetailRouteRequest
     public DetailRouteOriginNavigation? OriginNavigation { get; }
     public bool CanLoad => EntityType.HasValue;
 
-    public static DetailRouteRequest ForBook(Guid id, string? mode)
-    {
-        var context = string.Equals(mode, "listen", StringComparison.OrdinalIgnoreCase)
-            ? DetailPresentationContext.Listen
-            : DetailPresentationContext.Read;
-
-        // Work is the preferred read route because it can collapse ebook +
-        // audiobook formats into one canonical detail page.
-        return new(
-            DetailEntityType.Work,
-            id,
-            context,
-            pageTitleFallback: "Book",
-            productTitle: "Tuvima Library",
-            notFoundTitle: "Book not found",
-            notFoundMessage: "This title could not be loaded from your library.");
-    }
-
-    public static DetailRouteRequest ForMovie(Guid workId) =>
-        new(
-            DetailEntityType.Movie,
-            workId,
-            DetailPresentationContext.Watch,
-            pageTitleFallback: "Movie",
-            productTitle: "Tuvima",
-            notFoundTitle: "Movie not found",
-            notFoundMessage: "This title could not be loaded from your library.");
-
-    public static DetailRouteRequest ForTvShow(Guid collectionId, Guid? episodeId)
-    {
-        var isEpisode = episodeId.HasValue;
-        return new(
-            isEpisode ? DetailEntityType.TvEpisode : DetailEntityType.TvShow,
-            episodeId ?? collectionId,
-            DetailPresentationContext.Watch,
-            pageTitleFallback: "TV Show",
-            productTitle: "Tuvima",
-            notFoundTitle: isEpisode ? "Episode not found" : "TV show not found",
-            notFoundMessage: isEpisode
-                ? "This episode could not be loaded from your library."
-                : "This show could not be loaded from your library.",
-            containerId: isEpisode ? collectionId.ToString("D") : null);
-    }
-
-    public static DetailRouteRequest ForUnified(string entityType, Guid id, string? contextValue)
+    public static DetailRouteRequest ForUnified(
+        string entityType,
+        Guid id,
+        string? contextValue,
+        Guid? episodeId = null)
     {
         var context = ParseContext(contextValue);
+        var hasParsedEntityType = TryParseEntityType(entityType, out var parsedEntityType);
+        if (hasParsedEntityType
+            && parsedEntityType == DetailEntityType.TvShow
+            && episodeId.HasValue)
+        {
+            return new(
+                DetailEntityType.TvEpisode,
+                episodeId.Value,
+                DetailPresentationContext.Watch,
+                pageTitleFallback: "TV Show",
+                productTitle: "Tuvima Library",
+                notFoundTitle: "Episode not found",
+                notFoundMessage: "This episode could not be loaded from your library.",
+                containerId: id.ToString("D"),
+                originNavigation: OriginFor(DetailPresentationContext.Watch));
+        }
+
         return new(
-            TryParseEntityType(entityType, out var parsedEntityType) ? parsedEntityType : null,
+            hasParsedEntityType ? parsedEntityType : null,
             id,
             context,
             pageTitleFallback: "Details",

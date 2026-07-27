@@ -21,9 +21,9 @@ public sealed class RetailProviderDecompositionTests
         var album = builder.BuildAppleAlbumSearchUrl("AC/DC", "Back in Black", "gb", "en");
         var lookup = builder.BuildAppleAlbumLookupUrl("12345", "ca", "fr");
 
-        Assert.Equal("https://itunes.apple.com/search?term=Rock%20%26%20Roll&entity=musicTrack&limit=10&country=us&lang=en_us", track);
-        Assert.Equal("https://itunes.apple.com/search?term=AC%2FDC%20Back%20in%20Black&entity=album&limit=10&country=gb&lang=en_gb", album);
-        Assert.Equal("https://itunes.apple.com/lookup?id=12345&entity=song&country=ca&lang=fr_ca", lookup);
+        Assert.Equal("https://itunes.apple.com/search?term=Rock%20%26%20Roll&entity=musicTrack&limit=25&country=us&lang=en_us", track);
+        Assert.Equal("https://itunes.apple.com/search?term=AC%2FDC%20Back%20in%20Black&entity=album&limit=25&country=gb&lang=en_gb", album);
+        Assert.Equal("https://itunes.apple.com/lookup?id=12345&entity=song&limit=200&country=ca&lang=fr_ca", lookup);
     }
 
     [Fact]
@@ -144,14 +144,52 @@ public sealed class RetailProviderDecompositionTests
         Assert.Equal("123", collectionId);
     }
 
+    [Theory]
+    [InlineData("Heroes", "\"Heroes\" (2017 Remaster)", true)]
+    [InlineData("Abbey Road", "Abbey Road (2019 Mix)", true)]
+    [InlineData("DAMN.", "DAMN.", true)]
+    [InlineData("1989", "1989 (Taylor's Version)", false)]
+    [InlineData("1989", "1977", false)]
+    [InlineData("Abbey Road", "Abbey Road (Super Deluxe Edition)", false)]
+    [InlineData("Interstellar", "Interstellar (Original Motion Picture Soundtrack) [Expanded Edition]", false)]
+    [InlineData("Heroes", "A New Career in a New Town (1977-1982)", false)]
+    public void MusicAlbumIdentity_DistinguishesMasteringLabelsFromDifferentTrackSets(
+        string requested,
+        string candidate,
+        bool expected)
+    {
+        Assert.Equal(expected, MusicAlbumIdentity.IsSameTrackList(requested, candidate));
+    }
+
     [Fact]
-    public async Task AppleRetailClient_AlbumLookupReturnsOnlyTrackWrappers()
+    public async Task AppleRetailClient_AlbumSearchPrefersAlbumEditionOverBoxSet()
+    {
+        var client = BuildAppleClient(_ => JsonResponse("""
+            { "results": [
+              { "collectionName": "A New Career in a New Town (1977-1982)", "artistName": "David Bowie", "collectionId": 1255088551 },
+              { "collectionName": "\"Heroes\" (2017 Remaster)", "artistName": "David Bowie", "collectionId": 1347894082 }
+            ] }
+            """));
+
+        var collectionId = await client.SearchAlbumAsync(
+            "David Bowie",
+            "Heroes",
+            "us",
+            "en",
+            CancellationToken.None);
+
+        Assert.Equal("1347894082", collectionId);
+    }
+
+    [Fact]
+    public async Task AppleRetailClient_AlbumLookupReturnsOnlySongTracks()
     {
         var client = BuildAppleClient(_ => JsonResponse("""
             { "results": [
               { "wrapperType": "collection", "collectionId": 123 },
-              { "wrapperType": "track", "trackName": "One" },
-              { "wrapperType": "track", "trackName": "Two" }
+              { "wrapperType": "track", "kind": "song", "trackName": "One" },
+              { "wrapperType": "track", "kind": "music-video", "trackName": "Documentary" },
+              { "wrapperType": "track", "kind": "song", "trackName": "Two" }
             ] }
             """));
 

@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Details;
+using MediaEngine.Web.Components.Details;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Navigation;
 
@@ -90,7 +91,7 @@ public sealed class DetailTabNavigationTests
         var route = MediaNavigation.ForMedia("Movies", workId, collectionId, "cast");
 
         Assert.Equal(
-            "/details/movie/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?context=watch",
+            "/details/work/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa?context=watch",
             route);
         Assert.DoesNotContain("tab=", route, StringComparison.OrdinalIgnoreCase);
     }
@@ -121,7 +122,7 @@ public sealed class DetailTabNavigationTests
             PrimaryMediaType = "TV",
         };
 
-        Assert.Equal($"/watch/tv/show/{rootWorkId:D}", MediaNavigation.ForContentGroup(group));
+        Assert.Equal($"/details/tvshow/{rootWorkId:D}?context=watch", MediaNavigation.ForContentGroup(group));
     }
 
     [Fact]
@@ -151,7 +152,37 @@ public sealed class DetailTabNavigationTests
             PrimaryMediaType = "TV",
         };
 
-        Assert.Equal($"/watch/tv/show/{collectionId:D}", MediaNavigation.ForContentGroup(group));
+        Assert.Equal($"/details/tvshow/{collectionId:D}?context=watch", MediaNavigation.ForContentGroup(group));
+    }
+
+    [Fact]
+    public void MediaNavigation_UsesStandardCollectionDetailForAudiobookShelves()
+    {
+        var collectionId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var group = new ContentGroupViewModel
+        {
+            CollectionId = collectionId,
+            PrimaryMediaType = "Audiobooks",
+        };
+
+        Assert.Equal(
+            $"/details/collection/{collectionId:D}?context=listen",
+            MediaNavigation.ForContentGroup(group));
+    }
+
+    [Fact]
+    public void UnifiedTvShowRoute_LoadsEpisodeThroughTheSharedDetailHost()
+    {
+        var showId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
+        var episodeId = Guid.Parse("cccccccc-cccc-cccc-cccc-cccccccccccc");
+
+        var request = DetailRouteRequest.ForUnified("tvshow", showId, "watch", episodeId);
+
+        Assert.True(request.CanLoad);
+        Assert.Equal(DetailEntityType.TvEpisode, request.EntityType);
+        Assert.Equal(episodeId, request.EntityId);
+        Assert.Equal(showId.ToString("D"), request.ContainerId);
+        Assert.Equal(DetailPresentationContext.Watch, request.PresentationContext);
     }
 
     private static DetailPageViewModel CreateModel(params string[] tabs) =>

@@ -185,7 +185,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("Breaking Bad", showCard.Title);
         Assert.Equal("1 season", showCard.Subtitle);
         Assert.Equal("Open Show", showCard.Actions[0].Label);
-        Assert.Equal($"/watch/tv/show/{tvRootId:D}", showCard.Actions[0].WebUrl);
+        Assert.Equal($"/details/tvshow/{tvRootId:D}?context=watch", showCard.Actions[0].WebUrl);
 
         var seriesCard = page.Shelves.Single(shelf => shelf.Key == "series").Items.Single();
         Assert.Equal("Dune", seriesCard.Title);
@@ -297,7 +297,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal(58, audiobookCard.Progress?.Percent);
         Assert.Equal("Continue Listening", audiobookCard.Actions[0].Label);
         Assert.All(audiobookCard.Actions, action =>
-            Assert.Equal($"/details/audiobook/{audiobookId:D}?context=listen", action.WebUrl));
+            Assert.Equal($"/details/work/{audiobookId:D}?context=listen", action.WebUrl));
         Assert.DoesNotContain(
             page.Shelves.Where(shelf => shelf.Key == "recently-added-audiobooks").SelectMany(shelf => shelf.Items),
             card => card.WorkId == audiobookId);
@@ -419,7 +419,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Contains("2 episodes", card.Facts);
         Assert.Contains("Crime", card.Facts);
         Assert.Equal("Open Show", card.Actions[0].Label);
-        Assert.Equal($"/watch/tv/show/{showRootId:D}", card.Actions[0].WebUrl);
+        Assert.Equal($"/details/tvshow/{showRootId:D}?context=watch", card.Actions[0].WebUrl);
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");
     }
 
@@ -617,7 +617,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("tvSeries", card.Presentation);
         Assert.Null(card.CollectionId);
         Assert.Equal("/art/expanse-show.jpg", card.Artwork.BackgroundUrl);
-        Assert.Equal($"/watch/tv/show/{showRootId:D}", card.Actions[0].WebUrl);
+        Assert.Equal($"/details/tvshow/{showRootId:D}?context=watch", card.Actions[0].WebUrl);
         Assert.DoesNotContain("/details/bookseries", card.Actions[0].WebUrl, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -766,7 +766,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("Continue · S5 E1", continueCard.Subtitle);
         Assert.Equal("Resume S5 E1", continueCard.Actions[0].Label);
         Assert.Equal($"/watch/player/resolve?workId={firstEpisode:D}", continueCard.Actions[0].WebUrl);
-        Assert.Equal($"/watch/tv/show/{showRootId:D}?episode={firstEpisode:D}", continueCard.Actions[1].WebUrl);
+        Assert.Equal($"/details/work/{firstEpisode:D}?context=watch", continueCard.Actions[1].WebUrl);
 
         Assert.Single(page.Catalog, card => card.Title == "Severance");
         Assert.DoesNotContain(page.Catalog, card => card.Title is "Pilot" or "Half Loop");

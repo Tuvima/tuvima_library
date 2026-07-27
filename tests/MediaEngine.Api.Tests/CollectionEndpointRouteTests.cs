@@ -86,18 +86,18 @@ public sealed class CollectionEndpointRouteTests
         var lookupSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\ReadServices\CollectionMediaLookupReadService.cs"));
         var detailsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\DetailEndpoints.cs"));
         var composerSource = ReadDetailComposerSource();
-        var watchPageSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchTvShowPage.razor"));
+        var watchPageSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\UnifiedDetailPage.razor"));
         var detailRouteRequestSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Details\DetailRouteRequest.cs"));
 
         Assert.Contains("group.MapGet(\"/system-views\"", collectionSource, StringComparison.Ordinal);
         Assert.Contains("groupField", collectionSource, StringComparison.Ordinal);
         Assert.Contains("show_name", browseSource, StringComparison.Ordinal);
         Assert.Contains("RootWorkId", browseSource, StringComparison.Ordinal);
-        Assert.Contains("return $\"/watch/tv/show/{row.WorkId:D}\";", lookupSource, StringComparison.Ordinal);
+        Assert.Contains("return $\"/details/tvshow/{row.WorkId:D}?context=watch\";", lookupSource, StringComparison.Ordinal);
         Assert.Contains("MapGet(\"/{entityType}/{id:guid}\"", detailsSource, StringComparison.Ordinal);
         Assert.Contains("DetailEntityType.TvShow", composerSource, StringComparison.Ordinal);
-        Assert.Contains("DetailRouteRequest.ForTvShow(CollectionId, EpisodeId)", watchPageSource, StringComparison.Ordinal);
-        Assert.Contains("isEpisode ? DetailEntityType.TvEpisode : DetailEntityType.TvShow", detailRouteRequestSource, StringComparison.Ordinal);
+        Assert.Contains("DetailRouteRequest.ForUnified(EntityType, Id, Context, EpisodeId)", watchPageSource, StringComparison.Ordinal);
+        Assert.Contains("parsedEntityType == DetailEntityType.TvShow", detailRouteRequestSource, StringComparison.Ordinal);
         Assert.Contains("DetailPresentationContext.Watch", detailRouteRequestSource, StringComparison.Ordinal);
     }
 

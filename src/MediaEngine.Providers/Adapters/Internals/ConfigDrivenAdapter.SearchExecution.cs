@@ -129,7 +129,7 @@ public sealed partial class ConfigDrivenAdapter
         // When the strategy has release selection (e.g. MusicBrainz recordings with nested
         // releases), pick the best release so source-routed mappings resolve correctly.
         JsonNode? releaseNode = strategy?.ReleaseSelection is not null
-            ? ApplyReleaseSelection(resultNode, strategy.ReleaseSelection)
+            ? ApplyReleaseSelection(resultNode, strategy.ReleaseSelection, request)
             : null;
 
         string? title = null;

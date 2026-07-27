@@ -576,6 +576,40 @@ public static class DevSeedEndpoints
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11,
             TestCategory: "Music â€” classic track, strong Apple Music match"),
 
+        // Regression albums: incomplete ownership must still produce a complete
+        // provider manifest, and repeated artists must span multiple album roots.
+        new("Five Years", "David Bowie",
+            Album: "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", Year: 1972, Genre: "Rock", TrackNumber: 1,
+            TestCategory: "Music — Bowie album one; verifies multi-album artist grouping"),
+
+        new("Beauty and the Beast", "David Bowie",
+            Album: "Heroes", Year: 1977, Genre: "Rock", TrackNumber: 1,
+            TestCategory: "Music — Bowie album two; must not match a 50-track box set"),
+
+        new("Come Together", "The Beatles",
+            Album: "Abbey Road", Year: 1969, Genre: "Rock", TrackNumber: 1,
+            TestCategory: "Music — Abbey Road manifest and cover regression"),
+
+        new("Something", "The Beatles",
+            Album: "Abbey Road", Year: 1969, Genre: "Rock", TrackNumber: 2,
+            TestCategory: "Music — Abbey Road second owned track with remaining tracks missing"),
+
+        new("BLOOD.", "Kendrick Lamar",
+            Album: "DAMN.", Year: 2017, Genre: "Hip-Hop", TrackNumber: 1,
+            TestCategory: "Music — one owned DAMN. track; all other album tracks must show missing"),
+
+        new("Dreaming of the Crash", "Hans Zimmer",
+            Album: "Interstellar: Original Motion Picture Soundtrack", Year: 2014, Genre: "Soundtrack", TrackNumber: 1,
+            TestCategory: "Music — Interstellar MusicBrainz release and Cover Art Archive regression"),
+
+        new("Cornfield Chase", "Hans Zimmer",
+            Album: "Interstellar: Original Motion Picture Soundtrack", Year: 2014, Genre: "Soundtrack", TrackNumber: 2,
+            TestCategory: "Music — Interstellar second owned track"),
+
+        new("Time", "Hans Zimmer",
+            Album: "Inception (Music from the Motion Picture)", Year: 2010, Genre: "Soundtrack", TrackNumber: 12,
+            TestCategory: "Music — Hans Zimmer second album for artist shelf validation"),
+
         new("Clair de Lune", "Claude Debussy",
             Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
             TestCategory: "Music â€” classical, foreign artist name â€” Apple bridge IDs lack Wikidata P-code mapping",

@@ -35,13 +35,13 @@ public sealed class PipelineConfigurationTests
     }
 
     [Fact]
-    public void AudiobookPipeline_PrefersRetailEditionMetadataForDisplayIdentity()
+    public void AudiobookPipeline_PreservesCanonicalBookAuthorIdentityWithRetailFallback()
     {
         var configPath = FindRepoFile("config", "pipelines.json");
         using var document = JsonDocument.Parse(File.ReadAllText(configPath));
 
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "title"));
-        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "author"));
+        Assert.Equal(["wikidata_reconciliation", "apple_api"], ReadPriority(document, "Audiobooks", "author"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "series"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "narrator"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "cover"));
@@ -73,7 +73,7 @@ public sealed class PipelineConfigurationTests
         Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "artist"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "track_number"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Music", "disc_number"));
-        Assert.Equal(["apple_api"], ReadPriority(document, "Music", "cover"));
+        Assert.Equal(["apple_api", "musicbrainz"], ReadPriority(document, "Music", "cover"));
         Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "album"));
         Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "year"));
         Assert.Equal(["musicbrainz", "apple_api"], ReadPriority(document, "Music", "track_count"));

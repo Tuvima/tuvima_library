@@ -125,11 +125,11 @@ public sealed class Phase3BrowseFoundationTests : TestContext
     }
 
     [Theory]
-    [InlineData("Book", "/details/book/32000000-0000-0000-0000-000000000001?context=read")]
-    [InlineData("Movie", "/details/movie/32000000-0000-0000-0000-000000000001?context=watch")]
-    [InlineData("TV", "/watch")]
+    [InlineData("Book", "/details/work/32000000-0000-0000-0000-000000000001?context=read")]
+    [InlineData("Movie", "/details/work/32000000-0000-0000-0000-000000000001?context=watch")]
+    [InlineData("TV", "/details/work/32000000-0000-0000-0000-000000000001?context=watch")]
     [InlineData("Music", "/listen/music?browse=songs&track=32000000-0000-0000-0000-000000000001")]
-    [InlineData("Audiobook", "/details/audiobook/32000000-0000-0000-0000-000000000001?context=listen")]
+    [InlineData("Audiobook", "/details/work/32000000-0000-0000-0000-000000000001?context=listen")]
     public void SearchResults_RouteToMediaSpecificSurfaces(string mediaType, string expectedRoute)
     {
         var result = new SearchResultDto

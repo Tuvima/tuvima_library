@@ -76,7 +76,7 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.DoesNotContain("<TvBrowsePage", watchPage, StringComparison.Ordinal);
         Assert.Contains("IsTvShowsGrouping && !UseListLayout", browseShell, StringComparison.Ordinal);
         Assert.Contains("LoadDisplayCardsAsync(append)", browseShell, StringComparison.Ordinal);
-        Assert.Contains("(\"tv\", \"shows\") => $\"/watch/tv/show/{GetTvShowGroupRouteId(group):D}\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("(\"tv\", \"shows\") => $\"/details/tvshow/{GetTvShowGroupRouteId(group):D}?context=watch\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("group.RootWorkId ?? group.CollectionId", browseShell, StringComparison.Ordinal);
         Assert.DoesNotContain("(\"tv\", \"shows\") => \"show_name\"", queryBuilder, StringComparison.Ordinal);
     }

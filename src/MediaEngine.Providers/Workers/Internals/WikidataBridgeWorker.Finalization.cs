@@ -530,6 +530,15 @@ public sealed partial class WikidataBridgeWorker
                     "Wikidata: merged {Count} duplicate read work(s) after QID finalization.",
                     merged);
             }
+
+            var aligned = await _workIdentityReconciliation.AlignAudiobookAuthorsWithBooksByQidAsync(ct)
+                .ConfigureAwait(false);
+            if (aligned > 0)
+            {
+                _logger.LogInformation(
+                    "Wikidata: aligned author identities for {Count} audiobook work(s) after QID finalization.",
+                    aligned);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

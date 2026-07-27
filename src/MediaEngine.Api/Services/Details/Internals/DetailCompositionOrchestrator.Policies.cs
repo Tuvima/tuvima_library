@@ -127,10 +127,17 @@ internal sealed partial class DetailCompositionOrchestrator
     private static string BuildCreditRoute(PersonLibraryCreditDto credit)
     {
         var entityType = MapCreditToEntityType(credit);
-        var id = entityType == DetailEntityType.TvShow && credit.CollectionId.HasValue
-            ? credit.CollectionId.Value
-            : credit.WorkId;
-        return $"/details/{entityType.ToString().ToLowerInvariant()}/{id:D}?context={DetailLane(entityType)}";
+        if (entityType == DetailEntityType.TvShow && credit.CollectionId.HasValue)
+        {
+            return $"/details/tvshow/{credit.CollectionId.Value:D}?context=watch";
+        }
+
+        if (entityType == DetailEntityType.MusicAlbum)
+        {
+            return $"/details/musicalbum/{credit.WorkId:D}?context=listen";
+        }
+
+        return $"/details/work/{credit.WorkId:D}?context={DetailLane(entityType)}";
     }
 
     private static string DetailLane(DetailEntityType entityType)

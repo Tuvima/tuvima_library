@@ -40,7 +40,7 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("Arrival (2016) {imdb-tt2543164}.mp4", source);
         Assert.Contains("The Shawshank Redemption (1994) {imdb-tt0111161}.mp4", source);
         Assert.Contains("Shogun S01E01 Anjin (2024).mp4", source);
-        Assert.Contains("large ? \"132\" : \"47\"", source);
+        Assert.Contains("large ? \"138\" : \"53\"", source);
     }
 
     [Fact]
@@ -92,9 +92,25 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("The Sandman #2: Imperfect Hosts", source);
         Assert.Contains("Akira 002 (1982).cbz", source);
         Assert.Contains("Hans Zimmer", source);
-        Assert.Contains("large ? \"132\" : \"47\"", source);
+        Assert.Contains("large ? \"138\" : \"53\"", source);
         Assert.Contains("[switch]$Large", resetScript);
         Assert.Contains(@"""C:\temp\tuvima-watch""", resetScript);
+    }
+
+    [Fact]
+    public void Generator_MusicCorpusCoversProblemAlbumsAndArtistsWithMultipleAlbums()
+    {
+        var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "tools", "GenerateTestEpubs", "Program.cs"));
+
+        Assert.Contains("Path.Combine(\"David Bowie\", \"Heroes\")", source);
+        Assert.Contains("Path.Combine(\"David Bowie\", \"Hunky Dory\")", source);
+        Assert.Contains("Path.Combine(\"The Beatles\", \"Abbey Road\")", source);
+        Assert.Contains("Path.Combine(\"The Beatles\", \"Sgt Peppers\")", source);
+        Assert.Contains("Path.Combine(\"Kendrick Lamar\", \"DAMN\")", source);
+        Assert.Contains("Path.Combine(\"Kendrick Lamar\", \"good kid maad city\")", source);
+        Assert.Contains("Path.Combine(\"Hans Zimmer\", \"Interstellar\")", source);
+        Assert.Contains("Path.Combine(\"Hans Zimmer\", \"Inception\")", source);
+        Assert.Contains("Artist appears across multiple owned albums", source);
     }
 
     [Fact]
@@ -125,6 +141,24 @@ public sealed class TestHarnessGuardrailTests
         Assert.Contains("Dune Part Two (2024) {imdb-tt15239678}.mp4", source);
         Assert.Contains("Batman Begins (2005) {imdb-tt0372784}.mp4", source);
         Assert.Contains("The Dark Knight (2008) {imdb-tt0468569}.mp4", source);
+    }
+
+    [Fact]
+    public void DevSeedAndIntegrationHarness_ExerciseMusicAlbumManifestsAndCoverArt()
+    {
+        var seed = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "DevSeedEndpoints.cs"));
+        var integration = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Api", "DevSupport", "IntegrationTestEndpoints.cs"));
+
+        Assert.Contains("must not match a 50-track box set", seed);
+        Assert.Contains("Abbey Road manifest and cover regression", seed);
+        Assert.Contains("all other album tracks must show missing", seed);
+        Assert.Contains("Interstellar MusicBrainz release and Cover Art Archive regression", seed);
+        Assert.Contains("Hans Zimmer second album", seed);
+        Assert.Contains("MusicAlbumChecks", integration);
+        Assert.Contains("new MusicAlbumHarnessExpectation(\"Heroes\", \"David Bowie\", 1, 10)", integration);
+        Assert.Contains("new MusicAlbumHarnessExpectation(\"Abbey Road\", \"The Beatles\", 2, 17)", integration);
+        Assert.Contains("new MusicAlbumHarnessExpectation(\"DAMN.\", \"Kendrick Lamar\", 1, 14)", integration);
+        Assert.Contains("ValidateMusicAlbumHarnessAsync", integration);
     }
 
     [Fact]

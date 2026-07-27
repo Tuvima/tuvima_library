@@ -482,12 +482,7 @@
     };
 
     private static string CollectionItemRoute(CollectionArtworkItemDto item)
-    {
-        var mediaType = item.MediaType.Trim().ToLowerInvariant();
-        return mediaType.Contains("tv")
-            ? $"/watch/tv/show/{item.WorkId:D}"
-            : MediaNavigation.ForMedia(item.MediaType, item.WorkId);
-    }
+        => MediaNavigation.ForMedia(item.MediaType, item.WorkId);
 
     private static ArtworkShape ToArtworkShape(string? shape, string? mediaType)
     {

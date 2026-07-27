@@ -30,7 +30,7 @@ public sealed partial class ConfigDrivenAdapter
         IReadOnlyList<ProviderClaim> claims;
         if (strategy.ReleaseSelection is not null)
         {
-            var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection);
+            var releaseNode = ApplyReleaseSelection(resultNode, strategy.ReleaseSelection, request);
             claims = ExtractClaimsWithRelease(resultNode, releaseNode, request.MediaType);
         }
         else

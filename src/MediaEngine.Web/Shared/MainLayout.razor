@@ -441,11 +441,7 @@
         || _currentPath.StartsWith(path + "/", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsDetailPath(string path)
-        => path.StartsWith("/watch/movie/", StringComparison.OrdinalIgnoreCase)
-           || path.StartsWith("/watch/tv/", StringComparison.OrdinalIgnoreCase)
-           || path.StartsWith("/details/", StringComparison.OrdinalIgnoreCase)
-           || path.StartsWith("/book/", StringComparison.OrdinalIgnoreCase)
-           || path.StartsWith("/collection/", StringComparison.OrdinalIgnoreCase);
+        => path.StartsWith("/details/", StringComparison.OrdinalIgnoreCase);
 
     private static string GetAvatarInitial(string displayName)
     {

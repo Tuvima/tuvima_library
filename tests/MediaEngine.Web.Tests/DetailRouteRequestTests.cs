@@ -9,54 +9,42 @@ public sealed class DetailRouteRequestTests
     private static readonly Guid ContainerId = Guid.Parse("20000000-0000-0000-0000-000000000002");
 
     [Theory]
-    [InlineData(null, DetailPresentationContext.Read)]
     [InlineData("read", DetailPresentationContext.Read)]
     [InlineData("LISTEN", DetailPresentationContext.Listen)]
-    public void BookRoute_UsesCanonicalWorkWithLaneContext(
-        string? mode,
+    [InlineData("watch", DetailPresentationContext.Watch)]
+    public void WorkRoute_UsesEngineInferredTypeWithLaneContext(
+        string context,
         DetailPresentationContext expectedContext)
     {
-        var request = DetailRouteRequest.ForBook(EntityId, mode);
+        var request = DetailRouteRequest.ForUnified("work", EntityId, context);
 
         Assert.Equal(DetailEntityType.Work, request.EntityType);
         Assert.Equal(EntityId, request.EntityId);
         Assert.Equal(expectedContext, request.PresentationContext);
         Assert.Null(request.ContainerId);
-        Assert.Equal("Book not found", request.NotFoundTitle);
-        Assert.Equal("Book", request.PageTitleFallback);
+        Assert.Equal("Detail page not found", request.NotFoundTitle);
+        Assert.Equal("Details", request.PageTitleFallback);
         Assert.Equal("Tuvima Library", request.ProductTitle);
-    }
-
-    [Fact]
-    public void MovieRoute_UsesWatchContext()
-    {
-        var request = DetailRouteRequest.ForMovie(EntityId);
-
-        Assert.Equal(DetailEntityType.Movie, request.EntityType);
-        Assert.Equal(EntityId, request.EntityId);
-        Assert.Equal(DetailPresentationContext.Watch, request.PresentationContext);
-        Assert.Equal("Movie", request.PageTitleFallback);
-        Assert.Equal("Tuvima", request.ProductTitle);
     }
 
     [Fact]
     public void TvShowRoute_LoadsRootShowWithoutAContainer()
     {
-        var request = DetailRouteRequest.ForTvShow(ContainerId, episodeId: null);
+        var request = DetailRouteRequest.ForUnified("tvshow", ContainerId, "watch");
 
         Assert.Equal(DetailEntityType.TvShow, request.EntityType);
         Assert.Equal(ContainerId, request.EntityId);
         Assert.Equal(DetailPresentationContext.Watch, request.PresentationContext);
         Assert.Null(request.ContainerId);
-        Assert.Equal("TV show not found", request.NotFoundTitle);
-        Assert.Equal("TV Show", request.PageTitleFallback);
-        Assert.Equal("Tuvima", request.ProductTitle);
+        Assert.Equal("Detail page not found", request.NotFoundTitle);
+        Assert.Equal("Details", request.PageTitleFallback);
+        Assert.Equal("Tuvima Library", request.ProductTitle);
     }
 
     [Fact]
     public void TvEpisodeRoute_PreservesItsShowContainer()
     {
-        var request = DetailRouteRequest.ForTvShow(ContainerId, EntityId);
+        var request = DetailRouteRequest.ForUnified("tvshow", ContainerId, "watch", EntityId);
 
         Assert.Equal(DetailEntityType.TvEpisode, request.EntityType);
         Assert.Equal(EntityId, request.EntityId);

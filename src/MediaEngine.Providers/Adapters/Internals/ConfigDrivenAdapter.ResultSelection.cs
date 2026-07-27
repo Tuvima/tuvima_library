@@ -47,6 +47,9 @@ public sealed partial class ConfigDrivenAdapter
         if (comicIssueResult is not null)
             return comicIssueResult;
 
+        if (request.MediaType == MediaType.Music && strategy.ReleaseSelection is not null)
+            return TrySelectMusicRecordingWithAlbumRelease(arr, strategy.ReleaseSelection, request);
+
         if (ShouldApplyMusicAlbumGuard(strategy, request))
             return TrySelectMusicAlbumScopedResult(arr, request);
 
@@ -438,6 +441,54 @@ public sealed partial class ConfigDrivenAdapter
            && !string.IsNullOrWhiteSpace(GetRequestedAlbum(request))
            && strategy.Name.StartsWith("music", StringComparison.OrdinalIgnoreCase);
 
+    private JsonNode? TrySelectMusicRecordingWithAlbumRelease(
+        JsonArray recordings,
+        ReleaseSelectionConfig releaseSelection,
+        ProviderLookupRequest request)
+    {
+        var requestedTitle = CleanTitleForSearch(request.Title) ?? request.Title;
+        var requestedArtist = request.Artist ?? request.Author ?? request.Composer;
+        var candidates = new List<(JsonNode Node, double TitleScore, double ArtistScore)>();
+
+        foreach (var recording in recordings)
+        {
+            if (recording is null
+                || ApplyReleaseSelection(recording, releaseSelection, request) is null)
+            {
+                continue;
+            }
+
+            var candidateTitle = ExtractFirstString(recording, ["title", "trackName", "name"]);
+            var titleScore = !string.IsNullOrWhiteSpace(requestedTitle)
+                && !string.IsNullOrWhiteSpace(candidateTitle)
+                    ? ComputeWordOverlap(requestedTitle, candidateTitle)
+                    : 0;
+            if (!string.IsNullOrWhiteSpace(requestedTitle) && titleScore < 0.40)
+                continue;
+
+            var candidateArtist = ExtractFirstString(recording,
+                ["artist-credit[*].name", "artist-credit[0].name", "artistName", "artist"]);
+            var artistScore = !string.IsNullOrWhiteSpace(requestedArtist)
+                && !string.IsNullOrWhiteSpace(candidateArtist)
+                    ? ComputeWordOverlap(requestedArtist, candidateArtist)
+                    : 0;
+            if (!string.IsNullOrWhiteSpace(requestedArtist)
+                && !string.IsNullOrWhiteSpace(candidateArtist)
+                && artistScore < 0.50)
+            {
+                continue;
+            }
+
+            candidates.Add((recording, titleScore, artistScore));
+        }
+
+        return candidates
+            .OrderByDescending(candidate => candidate.TitleScore)
+            .ThenByDescending(candidate => candidate.ArtistScore)
+            .Select(candidate => candidate.Node)
+            .FirstOrDefault();
+    }
+
     private static JsonNode? TrySelectMusicAlbumScopedResult(JsonArray arr, ProviderLookupRequest request)
     {
         var requestedAlbum = GetRequestedAlbum(request);
@@ -489,8 +540,7 @@ public sealed partial class ConfigDrivenAdapter
         if (string.IsNullOrWhiteSpace(requestedAlbum) || string.IsNullOrWhiteSpace(candidateAlbum))
             return false;
 
-        return RetailTextSimilarity.AreEquivalentNames(requestedAlbum, candidateAlbum)
-               || ComputeWordOverlap(requestedAlbum, candidateAlbum) >= 0.92;
+        return MusicAlbumIdentity.IsSameTrackList(requestedAlbum, candidateAlbum);
     }
 
     private static string? GetComicIssueHint(ProviderLookupRequest request)

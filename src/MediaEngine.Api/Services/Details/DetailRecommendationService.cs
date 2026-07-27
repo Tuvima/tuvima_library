@@ -345,14 +345,13 @@ public sealed class DetailRecommendationService
 
         return entityType switch
         {
-            DetailEntityType.TvShow when !string.IsNullOrWhiteSpace(collectionId) => $"/watch/tv/show/{collectionId}",
-            DetailEntityType.Movie when !string.IsNullOrWhiteSpace(collectionId) => $"/watch/movie/{workId}?collectionId={collectionId}",
-            DetailEntityType.Movie => $"/watch/movie/{workId}",
+            DetailEntityType.TvShow when !string.IsNullOrWhiteSpace(collectionId) => $"/details/tvshow/{collectionId}?context=watch",
+            DetailEntityType.Movie => $"/details/work/{workId}?context=watch",
             DetailEntityType.Work when row.MediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true
                 => $"/listen/music?browse=songs&track={workId}",
-            DetailEntityType.Audiobook => $"/details/audiobook/{workId}?context=listen",
-            DetailEntityType.ComicIssue => $"/book/{workId}?mode=read",
-            _ => $"/book/{workId}?mode=read",
+            DetailEntityType.Audiobook => $"/details/work/{workId}?context=listen",
+            DetailEntityType.ComicIssue => $"/details/work/{workId}?context=comics",
+            _ => $"/details/work/{workId}?context=read",
         };
     }
 

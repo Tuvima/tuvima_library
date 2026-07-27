@@ -2202,9 +2202,7 @@ public sealed partial class IngestionLiveDashboardState
 
         var entityType = StringHelpers.FirstNonBlankOr("", activity.EntityType, "work").ToLowerInvariant() switch
         {
-            "movie" or "film" => "movie",
-            "tvshow" or "tv_show" or "show" or "series" => "tv-show",
-            "tvepisode" or "tv_episode" or "episode" => "tv-episode",
+            "tvshow" or "tv_show" or "show" => "tvshow",
             _ => "work",
         };
         return $"/details/{entityType}/{entityId:D}";

@@ -351,6 +351,21 @@ public sealed partial class RetailMatchWorker
             "Music: resolved album via {Strategy} — collectionId={CollectionId}, {TrackCount} tracks from API — distributing to {JobCount} queued track(s)",
             resolvedVia, collectionId, allTracks.Count, orderedGroupJobs.Count);
 
+        var albumLineage = await _workRepo.GetLineageByAssetAsync(orderedGroupJobs[0].EntityId, ct)
+            .ConfigureAwait(false);
+        if (albumLineage is not null)
+        {
+            await PersistAppleAlbumManifestAsync(
+                    albumLineage,
+                    collectionId,
+                    album,
+                    artist,
+                    appleProvider.ProviderId,
+                    ct,
+                    allTracks)
+                .ConfigureAwait(false);
+        }
+
         // ── Step 4: For each job, find the best-matching track and apply its claims.
         foreach (var job in orderedGroupJobs)
         {
@@ -480,7 +495,7 @@ public sealed partial class RetailMatchWorker
         var fileAlbum = fileHints.GetValueOrDefault(MetadataFieldConstants.Album);
         var candidateAlbum = bestTrack["collectionName"]?.GetValue<string>();
         var albumCorroborates = !string.IsNullOrWhiteSpace(fileAlbum)
-            && RetailTextSimilarity.AreEquivalentNames(fileAlbum, candidateAlbum);
+            && MusicAlbumIdentity.IsSameTrackList(fileAlbum, candidateAlbum);
         var yearCorroborates = retailScore.YearScore >= 0.80;
         var singleTrackRelease = candidateTrackCount == 1;
         var strongSingleTrackIdentity = singleTrackRelease

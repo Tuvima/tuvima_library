@@ -166,7 +166,7 @@ public sealed class DisplayCardBuilder
 
     public static DisplayCardDto FromHomeCollection(DisplayHomeCollectionRow row)
     {
-        var action = new DisplayActionDto("openCollection", "Open", null, null, row.CollectionId, $"/collection/{row.CollectionId:D}");
+        var action = new DisplayActionDto("openCollection", "Open", null, null, row.CollectionId, $"/details/collection/{row.CollectionId:D}?context=default");
         return new DisplayCardDto(
             Id: row.CollectionId,
             WorkId: null,
@@ -279,7 +279,7 @@ public sealed class DisplayCardBuilder
             .First();
         var artwork = RootArtworkFor(representative);
         var title = StringHelpers.FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
-        var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/watch/tv/show/{showRootWorkId:D}");
+        var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/details/tvshow/{showRootWorkId:D}?context=watch");
         var previewItems = BuildSeriesPreviewItems("TV", works, tvShowRootId: showRootWorkId, progressByWork: progressByWork);
 
         return new DisplayCardDto(
@@ -350,9 +350,13 @@ public sealed class DisplayCardBuilder
     }
 
     private static DisplayActionDto DetailsAction(Guid workId, Guid? collectionId, string mediaKind, Guid rootWorkId) =>
-        new("openWork", "Details", workId, null, collectionId, mediaKind == "TV"
-            ? $"/watch/tv/show/{(rootWorkId == Guid.Empty ? workId : rootWorkId):D}?episode={workId:D}"
-            : WebUrlFor(workId, collectionId, mediaKind));
+        new(
+            "openWork",
+            "Details",
+            workId,
+            null,
+            collectionId,
+            $"/details/work/{workId:D}?context={WorkDetailContext(mediaKind)}");
 
     private static IReadOnlyList<DisplayActionDto> WorkActions(
         DisplayActionDto primaryAction,
@@ -370,38 +374,46 @@ public sealed class DisplayCardBuilder
         {
             return mediaKind switch
             {
-                "Movie" => $"/watch/movie/{workId}?collectionId={collectionId.Value}",
-                "TV" => $"/watch/tv/show/{collectionId.Value}",
+                "Movie" or "TV" => $"/watch/player/resolve?workId={workId:D}",
                 "Music" => SongPlaybackUrl(workId),
-                "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
-                "Comic" => $"/book/{workId}?mode=read",
-                "Book" => $"/book/{workId}?mode=read",
-                _ => $"/collection/{collectionId}",
+                "Audiobook" => $"/details/work/{workId:D}?context=listen",
+                "Comic" => $"/details/work/{workId:D}?context=comics",
+                "Book" => $"/details/work/{workId:D}?context=read",
+                _ => $"/details/collection/{collectionId:D}?context=default",
             };
         }
 
         return mediaKind switch
         {
-            "Movie" => $"/watch/movie/{workId}",
+            "Movie" => $"/watch/player/resolve?workId={workId:D}",
             "TV" => $"/watch/player/resolve?workId={workId:D}",
             "Music" => SongPlaybackUrl(workId),
-            "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
-            "Comic" => $"/book/{workId}?mode=read",
-            "Book" => $"/book/{workId}?mode=read",
-            _ => $"/book/{workId}",
+            "Audiobook" => $"/details/work/{workId:D}?context=listen",
+            "Comic" => $"/details/work/{workId:D}?context=comics",
+            "Book" => $"/details/work/{workId:D}?context=read",
+            _ => $"/details/work/{workId:D}?context=default",
         };
     }
 
     private static string CollectionUrlFor(Guid collectionId, Guid representativeWorkId, string mediaKind, string title) =>
         mediaKind switch
         {
-            "Movie" => $"/watch/movie/{representativeWorkId}?collectionId={collectionId}",
-            "TV" => $"/watch/tv/show/{collectionId}",
+            "Movie" => $"/details/movieseries/{collectionId:D}?context=watch",
+            "TV" => $"/details/tvshow/{representativeWorkId:D}?context=watch",
             "Music" => $"/details/musicalbum/{representativeWorkId:D}?context=listen",
-            "Audiobook" => $"/details/bookseries/{collectionId:D}?context=listen",
+            "Audiobook" => $"/details/collection/{collectionId:D}?context=listen",
             "Comic" => $"/details/comicseries/{collectionId}?context=comics",
             "Book" => $"/details/bookseries/{collectionId}?context=read",
-            _ => $"/collection/{collectionId}",
+            _ => $"/details/collection/{collectionId:D}?context=default",
+        };
+
+    private static string WorkDetailContext(string mediaKind) =>
+        mediaKind switch
+        {
+            "Movie" or "TV" => "watch",
+            "Music" or "Audiobook" => "listen",
+            "Book" or "Comic" => "read",
+            _ => "default",
         };
 
     private static DisplayCardFlagsDto FlagsFor(string mediaType, bool isCollection) =>
@@ -1075,13 +1087,10 @@ public sealed class DisplayCardBuilder
         var normalizedKind = DisplayMediaRules.NormalizeDisplayKind(mediaKind);
         return normalizedKind switch
         {
-            "TV" => $"/watch/tv/show/{(tvShowRootId ?? workId):D}?episode={workId:D}",
-            "Movie" => collectionId.HasValue
-                ? $"/watch/movie/{workId:D}?collectionId={collectionId.Value:D}"
-                : $"/watch/movie/{workId:D}",
+            "TV" or "Movie" => $"/details/work/{workId:D}?context=watch",
             "Music" => SongPlaybackUrl(workId),
-            "Audiobook" => $"/details/audiobook/{workId:D}?context=listen",
-            "Book" or "Comic" => $"/book/{workId:D}?mode=read",
+            "Audiobook" => $"/details/work/{workId:D}?context=listen",
+            "Book" or "Comic" => $"/details/work/{workId:D}?context=read",
             _ => $"/details/work/{workId:D}",
         };
     }

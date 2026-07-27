@@ -554,6 +554,7 @@ public sealed class DetailComposerServiceTests
         var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"));
 
         Assert.Contains("BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct)", source);
+        Assert.Contains("IReadOnlyList<CreditGroupViewModel> contributorGroups = entityType == DetailEntityType.Collection", source);
         Assert.Contains("BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);

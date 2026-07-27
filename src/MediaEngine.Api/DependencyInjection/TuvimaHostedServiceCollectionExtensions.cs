@@ -45,6 +45,7 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService<WikidataBridgeHostedService>();
         services.AddHostedService<QuickHydrationHostedService>();
         services.AddHostedService<MusicBrainzEnrichmentHostedService>();
+        services.AddHostedService<MusicAlbumManifestHostedService>();
         services.AddHostedService<HardwareBenchmarkBackgroundService>();
         services.AddHostedService(sp => sp.GetRequiredService<PluginScheduledSegmentService>());
         return services;

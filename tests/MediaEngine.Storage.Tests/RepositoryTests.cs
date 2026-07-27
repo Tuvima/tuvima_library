@@ -730,7 +730,7 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task WorkIdentityReconciliation_DoesNotMergeReadWorksAcrossMediaTypesByQid()
+    public async Task WorkIdentityReconciliation_KeepsReadFormatsSeparateAndAlignsAudiobookAuthorIdentityByQid()
     {
         var service = new WorkIdentityReconciliationService(_db);
         var qid = "Q43361";
@@ -740,6 +740,7 @@ public sealed class RepositoryTests : IDisposable
         var audiobookEditionId = Guid.NewGuid();
         var bookAssetId = Guid.NewGuid();
         var audiobookAssetId = Guid.NewGuid();
+        var authorPersonId = Guid.NewGuid();
 
         using (var conn = _db.CreateConnection())
         {
@@ -756,6 +757,9 @@ public sealed class RepositoryTests : IDisposable
                 INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
                 VALUES (@bookAssetId, @bookEditionId, @bookHash, '/library/Books/Harry Potter.epub', 'Normal'),
                        (@audiobookAssetId, @audiobookEditionId, @audioHash, '/library/Audiobooks/Harry Potter.m4b', 'Normal');
+
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                VALUES (@authorPersonId, 'J. K. Rowling', 'Q34660', @createdAt);
                 """,
                 new
                 {
@@ -766,14 +770,28 @@ public sealed class RepositoryTests : IDisposable
                     audiobookEditionId,
                     bookAssetId,
                     audiobookAssetId,
+                    authorPersonId,
+                    createdAt = DateTimeOffset.UtcNow.ToString("O"),
                     bookHash = $"book_{Guid.NewGuid():N}",
                     audioHash = $"audio_{Guid.NewGuid():N}",
                 });
         }
 
+        var arrays = new CanonicalValueArrayRepository(_db);
+        await arrays.SetValuesAsync(
+            bookAssetId,
+            "author",
+            [new CanonicalArrayEntry { Ordinal = 0, Value = "J. K. Rowling", ValueQid = "Q34660" }]);
+        await arrays.SetValuesAsync(
+            audiobookWorkId,
+            "author",
+            [new CanonicalArrayEntry { Ordinal = 0, Value = "J.K. Rowling" }]);
+
         var merged = await service.MergeDuplicateReadWorksByQidAsync();
+        var aligned = await service.AlignAudiobookAuthorsWithBooksByQidAsync();
 
         Assert.Equal(0, merged);
+        Assert.Equal(1, aligned);
         using var verify = _db.CreateConnection();
         var workCount = await verify.ExecuteScalarAsync<int>(
             "SELECT COUNT(1) FROM works WHERE wikidata_qid = @qid;",
@@ -788,6 +806,96 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal(2, workCount);
         Assert.Equal(bookWorkId, bookEditionWorkId);
         Assert.Equal(audiobookWorkId, audiobookEditionWorkId);
+
+        var audiobookAuthors = await arrays.GetValuesAsync(audiobookWorkId, "author");
+        var audiobookAuthor = Assert.Single(audiobookAuthors);
+        Assert.Equal("J. K. Rowling", audiobookAuthor.Value);
+        Assert.Equal("Q34660", audiobookAuthor.ValueQid);
+        var alignedPersonCreditCount = await verify.ExecuteScalarAsync<int>(
+            """
+            SELECT COUNT(1)
+            FROM primary_person_media_credits
+            WHERE media_asset_id = @audiobookAssetId
+              AND person_id = @authorPersonId
+              AND credit_key = 'author';
+            """,
+            new { audiobookAssetId, authorPersonId });
+        Assert.Equal(1, alignedPersonCreditCount);
+        Assert.Equal(0, await service.AlignAudiobookAuthorsWithBooksByQidAsync());
+    }
+
+    [Fact]
+    public async Task WorkIdentityReconciliation_AlignsAudiobookChildAndSeriesRootAuthors()
+    {
+        var service = new WorkIdentityReconciliationService(_db);
+        var arrays = new CanonicalValueArrayRepository(_db);
+        var qid = "Q190192";
+        var bookRootId = Guid.NewGuid();
+        var audiobookRootId = Guid.NewGuid();
+        var bookWorkId = Guid.NewGuid();
+        var audiobookWorkId = Guid.NewGuid();
+        var bookEditionId = Guid.NewGuid();
+        var audiobookEditionId = Guid.NewGuid();
+        var bookAssetId = Guid.NewGuid();
+        var audiobookAssetId = Guid.NewGuid();
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, parent_key)
+                VALUES (@bookRootId, 'Books', 'parent', 'frank-herbert|dune'),
+                       (@audiobookRootId, 'Audiobooks', 'parent', 'frank-herbert|dune');
+
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal, wikidata_qid)
+                VALUES (@bookWorkId, 'Books', 'child', @bookRootId, 1, @qid),
+                       (@audiobookWorkId, 'Audiobooks', 'child', @audiobookRootId, 1, @qid);
+
+                INSERT INTO editions (id, work_id)
+                VALUES (@bookEditionId, @bookWorkId),
+                       (@audiobookEditionId, @audiobookWorkId);
+
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, status)
+                VALUES (@bookAssetId, @bookEditionId, @bookHash, '/library/Books/Dune.epub', 'Normal'),
+                       (@audiobookAssetId, @audiobookEditionId, @audioHash, '/library/Audiobooks/Dune.m4b', 'Normal');
+                """,
+                new
+                {
+                    qid,
+                    bookRootId,
+                    audiobookRootId,
+                    bookWorkId,
+                    audiobookWorkId,
+                    bookEditionId,
+                    audiobookEditionId,
+                    bookAssetId,
+                    audiobookAssetId,
+                    bookHash = $"book_{Guid.NewGuid():N}",
+                    audioHash = $"audio_{Guid.NewGuid():N}",
+                });
+        }
+
+        await arrays.SetValuesAsync(
+            bookAssetId,
+            "author",
+            [new CanonicalArrayEntry { Ordinal = 0, Value = "Frank Herbert", ValueQid = "Q1005" }]);
+        await arrays.SetValuesAsync(
+            audiobookWorkId,
+            "author",
+            [new CanonicalArrayEntry { Ordinal = 0, Value = "Frank P. Herbert" }]);
+        await arrays.SetValuesAsync(
+            audiobookRootId,
+            "author",
+            [new CanonicalArrayEntry { Ordinal = 0, Value = "Frank P. Herbert" }]);
+
+        Assert.Equal(2, await service.AlignAudiobookAuthorsWithBooksByQidAsync());
+
+        foreach (var targetId in new[] { audiobookWorkId, audiobookRootId })
+        {
+            var author = Assert.Single(await arrays.GetValuesAsync(targetId, "author"));
+            Assert.Equal("Frank Herbert", author.Value);
+            Assert.Equal("Q1005", author.ValueQid);
+        }
     }
 
     [Fact]

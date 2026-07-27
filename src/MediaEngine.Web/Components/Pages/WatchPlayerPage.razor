@@ -227,7 +227,7 @@ else
 
         if (CollectionId.HasValue)
         {
-            Nav.NavigateTo($"/watch/tv/show/{CollectionId.Value}");
+            Nav.NavigateTo($"/details/tvshow/{CollectionId.Value:D}?context=watch");
             return;
         }
 

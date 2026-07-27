@@ -21,7 +21,10 @@ namespace MediaEngine.Providers.Adapters;
 
 public sealed partial class ConfigDrivenAdapter
 {
-    private JsonNode? ApplyReleaseSelection(JsonNode parentNode, ReleaseSelectionConfig config)
+    private JsonNode? ApplyReleaseSelection(
+        JsonNode parentNode,
+        ReleaseSelectionConfig config,
+        ProviderLookupRequest? request = null)
     {
         var nested = JsonPathEvaluator.Evaluate(parentNode, config.Path);
         if (nested is not JsonArray arr || arr.Count == 0)
@@ -35,6 +38,23 @@ public sealed partial class ConfigDrivenAdapter
             .Where(n => n is not null && PassesFilters(n, config.Filters))
             .ToList();
 
+        // A MusicBrainz recording can appear on compilations, live albums, cover
+        // releases, and expanded editions. Constrain the nested release to the
+        // file's album before date/artwork preferences are evaluated.
+        var requestedAlbum = request is { MediaType: MediaType.Music }
+            ? GetRequestedAlbum(request)
+            : null;
+        if (!string.IsNullOrWhiteSpace(requestedAlbum))
+        {
+            candidates = candidates
+                .Where(candidate =>
+                {
+                    var candidateAlbum = ExtractFirstString(candidate!, ["title", "release.title", "collectionName"]);
+                    return MusicAlbumIdentity.IsSameTrackList(requestedAlbum, candidateAlbum);
+                })
+                .ToList();
+        }
+
         _logger.LogDebug(
             "{Provider}: release selection — {Total} nested items, {Filtered} pass filters",
             Name, arr.Count, candidates.Count);
@@ -47,7 +67,11 @@ public sealed partial class ConfigDrivenAdapter
                 candidates = arr
                     .Where(n => n is not null
                         && MatchesJsonPath(n, "release-group.primary-type", fallbackType)
-                        && MatchesJsonPath(n, "status", "Official"))
+                        && MatchesJsonPath(n, "status", "Official")
+                        && (string.IsNullOrWhiteSpace(requestedAlbum)
+                            || MusicAlbumIdentity.IsSameTrackList(
+                                requestedAlbum,
+                                ExtractFirstString(n!, ["title", "release.title", "collectionName"]))))
                     .ToList();
 
                 if (candidates.Count > 0)

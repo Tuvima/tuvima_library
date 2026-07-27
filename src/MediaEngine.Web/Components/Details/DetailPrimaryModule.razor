@@ -280,7 +280,23 @@
 
     private static string ResolveRoute(MediaGroupingItemViewModel item)
         => item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
-           ?? $"/details/{item.EntityType.ToString().ToLowerInvariant()}/{item.Id}";
+           ?? FallbackDetailRoute(item);
+
+    private static string FallbackDetailRoute(MediaGroupingItemViewModel item) => item.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.TvEpisode
+            => $"/details/work/{item.Id}?context=watch",
+        DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue or DetailEntityType.Work
+            => $"/details/work/{item.Id}?context={ResolveLane(item)}",
+        DetailEntityType.TvShow => $"/details/tvshow/{item.Id}?context=watch",
+        DetailEntityType.MusicAlbum => $"/details/musicalbum/{item.Id}?context=listen",
+        DetailEntityType.MovieSeries => $"/details/movieseries/{item.Id}?context=watch",
+        DetailEntityType.BookSeries => $"/details/bookseries/{item.Id}?context=read",
+        DetailEntityType.ComicSeries => $"/details/comicseries/{item.Id}?context=comics",
+        DetailEntityType.Collection => $"/details/collection/{item.Id}?context={ResolveLane(item)}",
+        DetailEntityType.Person => $"/details/person/{item.Id}?context={ResolveLane(item)}",
+        _ => $"/details/work/{item.Id}?context={ResolveLane(item)}",
+    };
 
     private static string ResolveLane(MediaGroupingItemViewModel item)
         => !string.IsNullOrWhiteSpace(item.Lane) ? item.Lane : item.EntityType switch

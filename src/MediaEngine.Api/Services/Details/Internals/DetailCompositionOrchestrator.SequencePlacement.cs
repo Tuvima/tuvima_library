@@ -264,7 +264,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 Description = row.Description,
                 Duration = FormatTrackDuration(row.Duration),
                 Route = entityType == DetailEntityType.TvEpisode
-                    ? $"/watch/player/resolve?workId={row.WorkId:D}"
+                    ? $"/details/work/{row.WorkId:D}?context=watch"
                     : null,
                 PublicationDate = row.PublicationDate,
                 PositionNumber = positionNumber,

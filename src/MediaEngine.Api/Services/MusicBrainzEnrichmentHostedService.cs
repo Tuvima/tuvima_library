@@ -9,6 +9,7 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
@@ -35,6 +36,7 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
     private readonly ICanonicalValueRepository _canonicalRepo;
     private readonly ICanonicalValueArrayRepository _arrayRepo;
     private readonly IScoringEngine _scoringEngine;
+    private readonly CoverArtWorker _coverArtWorker;
     private readonly ILogger<MusicBrainzEnrichmentHostedService> _logger;
 
     public MusicBrainzEnrichmentHostedService(
@@ -47,6 +49,7 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
         ICanonicalValueRepository canonicalRepo,
         ICanonicalValueArrayRepository arrayRepo,
         IScoringEngine scoringEngine,
+        CoverArtWorker coverArtWorker,
         ILogger<MusicBrainzEnrichmentHostedService> logger)
     {
         _db = db;
@@ -58,6 +61,7 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
         _canonicalRepo = canonicalRepo;
         _arrayRepo = arrayRepo;
         _scoringEngine = scoringEngine;
+        _coverArtWorker = coverArtWorker;
         _logger = logger;
     }
 
@@ -271,6 +275,13 @@ public sealed class MusicBrainzEnrichmentHostedService : BackgroundService
         if (bridgeEntries.Count > 0)
         {
             await _bridgeIdRepo.UpsertBatchAsync(bridgeEntries, ct).ConfigureAwait(false);
+        }
+
+        if (claims.Any(claim =>
+                string.Equals(claim.Key, MetadataFieldConstants.CoverUrl, StringComparison.OrdinalIgnoreCase)))
+        {
+            await _coverArtWorker.DownloadAndPersistAsync(candidate.AssetId, wikidataQid: null, ct)
+                .ConfigureAwait(false);
         }
 
         _logger.LogInformation(

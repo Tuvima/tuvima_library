@@ -5,8 +5,8 @@
   "weight": 0.7,
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
-  "capability_tags": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_count", "isrc"],
-  "available_fields": ["title", "author", "artist", "album_artist", "year", "genre", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_count"],
+  "capability_tags": ["title", "author", "artist", "album_artist", "year", "genre", "cover", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "track_count", "isrc"],
+  "available_fields": ["title", "author", "artist", "album_artist", "year", "genre", "cover", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album", "track_count"],
   "field_weights": {
     "title": 0.8,
     "author": 0.8,
@@ -71,17 +71,6 @@
         ],
         "fallback_types": ["Single", "EP"]
       }
-    },
-    {
-      "name": "release_search",
-      "priority": 2,
-      "required_fields": ["title"],
-      "url_template": "{base_url}/release?query={query}&fmt=json&limit={limit}",
-      "query_template": "{title} AND artist:{artist}",
-      "results_path": "releases",
-      "result_index": 0,
-      "fetch_limit": 5,
-      "max_results": 10
     }
   ],
 
@@ -93,6 +82,7 @@
     { "claim_key": "album",          "json_path": "title",                     "confidence": 0.75, "source": "release" },
     { "claim_key": "year",           "json_path": "date",                      "confidence": 0.85, "source": "release",   "transform": "first_n_chars", "transform_args": "4" },
     { "claim_key": "track_count",    "json_path": "track-count",               "confidence": 0.8,  "source": "release" },
+    { "claim_key": "cover_url",      "json_path": "id",                        "confidence": 0.9,  "source": "release", "condition": { "path": "cover-art-archive.artwork", "equals": true }, "transform": "url_template", "transform_args": "https://coverartarchive.org/release/{value}/front-500" },
     { "claim_key": "isrc",           "json_path": "isrcs[0]",                  "confidence": 0.92, "source": "recording" },
     { "claim_key": "musicbrainz_release_id", "json_path": "id",                "confidence": 1.0,  "source": "release" },
     { "claim_key": "musicbrainz_recording_id", "json_path": "id",               "confidence": 1.0, "source": "recording" },

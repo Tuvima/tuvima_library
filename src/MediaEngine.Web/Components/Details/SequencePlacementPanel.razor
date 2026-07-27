@@ -533,7 +533,7 @@ else
         }
     }
     private string ShowDetailRoute => Guid.TryParse(Placement.ContainerId, out var showId)
-        ? $"/watch/tv/show/{showId:D}"
+        ? $"/details/tvshow/{showId:D}?context=watch"
         : "#";
     private string GroupSelectorAriaLabel => IsSeasonContainer ? "Choose season" : "Choose series section";
     private string SourceKindLabel => IsSeasonContainer ? "Show" : "Series";
@@ -1018,7 +1018,7 @@ else
         if (item.EntityType == DetailEntityType.TvEpisode || !Guid.TryParse(item.Id, out var id))
             return null;
 
-        return $"/details/{ToRouteEntityType(item.EntityType)}/{id:D}?context={ContextKey(item.EntityType)}";
+        return $"/details/work/{id:D}?context={ContextKey(item.EntityType)}";
     }
 
     private RenderFragment SequenceItemContent(SequenceItemViewModel item, SequenceItemViewModel? previousItem) => @<text>
@@ -1170,7 +1170,7 @@ else
 
     private string? EpisodeDetailRoute(SequenceItemViewModel item)
         => IsSeasonContainer && item.IsOwned && Guid.TryParse(item.Id, out var episodeId) && ShowDetailRoute != "#"
-            ? $"{ShowDetailRoute}?episode={episodeId:D}"
+            ? $"{ShowDetailRoute}&episode={episodeId:D}"
             : null;
 
     private string EpisodeWatchLabel(SequenceItemViewModel item)
@@ -1211,9 +1211,6 @@ else
                 ? $"Watch E{episode}"
                 : $"Watch {SequenceItemTitle(item)}";
     }
-
-    private static string ToRouteEntityType(DetailEntityType entityType)
-        => entityType.ToString().Replace("Tv", "tv-", StringComparison.Ordinal).ToLowerInvariant();
 
     private static string ContextKey(DetailEntityType entityType) => entityType switch
     {

@@ -62,6 +62,7 @@ public static class IntegrationTestEndpoints
         public List<Stage3FanartSummary> Stage3FanartSummaries { get; set; } = [];
         public List<SeriesHarnessCheckResult> SeriesHarnessChecks { get; set; } = [];
         public List<CrossMediaSeriesCheckResult> CrossMediaSeriesChecks { get; set; } = [];
+        public List<MusicAlbumHarnessCheckResult> MusicAlbumChecks { get; set; } = [];
         public List<CharacterArtworkCheckResult> CharacterArtworkChecks { get; set; } = [];
         public List<DescriptionSourceCheckResult> DescriptionSourceChecks { get; set; } = [];
         public List<string> IssuesFound { get; set; } = [];
@@ -85,6 +86,7 @@ public static class IntegrationTestEndpoints
             && Stage3FanartSummaries.All(result => result.Pass)
             && SeriesHarnessChecks.All(result => result.Pass)
             && CrossMediaSeriesChecks.All(result => result.Pass)
+            && MusicAlbumChecks.All(result => result.Pass)
             && CharacterArtworkChecks.All(result => result.Pass)
             && DescriptionSourceChecks.All(result => result.Pass);
         public HashSet<string> RequestedTypes { get; set; } = [];
@@ -483,6 +485,27 @@ public static class IntegrationTestEndpoints
             : $"{OwnedCount} owned item(s), {KnownCount} known series item(s); expected at least {ExpectedMinimumKnown}.";
     }
 
+    private sealed class MusicAlbumHarnessCheckResult
+    {
+        public string Album { get; set; } = "";
+        public string Artist { get; set; } = "";
+        public int OwnedTrackCount { get; set; }
+        public int? KnownTrackCount { get; set; }
+        public int ExpectedOwnedTrackCount { get; set; }
+        public int? ExpectedKnownTrackCount { get; set; }
+        public bool HasManifest { get; set; }
+        public bool HasCover { get; set; }
+        public bool RequiresManifest => ExpectedKnownTrackCount.HasValue;
+        public bool Pass =>
+            OwnedTrackCount >= ExpectedOwnedTrackCount
+            && (!RequiresManifest
+                || (HasManifest && KnownTrackCount == ExpectedKnownTrackCount))
+            && HasCover;
+        public string Detail => Pass
+            ? $"{OwnedTrackCount} owned, {KnownTrackCount?.ToString() ?? "provider-specific"} known, cover present."
+            : $"{OwnedTrackCount} owned (expected {ExpectedOwnedTrackCount}), {KnownTrackCount?.ToString() ?? "no"} known (expected {ExpectedKnownTrackCount?.ToString() ?? "provider-specific"}), manifest={HasManifest}, cover={HasCover}.";
+    }
+
     // â”€â”€ Dynamic type selection + provider health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private sealed class CrossMediaSeriesCheckResult
@@ -869,6 +892,7 @@ public static class IntegrationTestEndpoints
 
             logger.LogInformation("[Phase 4g] Validating cross-media series totals...");
             await ValidateSeriesHarnessAsync(db, report, logger, ct);
+            await ValidateMusicAlbumHarnessAsync(db, report, logger, ct);
 
             // â”€â”€ Phase 5: Test manual search for review items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             logger.LogInformation("[Phase 5] Testing manual search on review items...");
@@ -2486,6 +2510,132 @@ public static class IntegrationTestEndpoints
         await ValidateCrossMediaSeriesHarnessAsync(db, report, logger, ct);
     }
 
+    private static Task ValidateMusicAlbumHarnessAsync(
+        IDatabaseConnection db,
+        TestReport report,
+        ILogger logger,
+        CancellationToken ct)
+    {
+        report.MusicAlbumChecks.Clear();
+        if (!report.ActiveTypes.Contains("music"))
+            return Task.CompletedTask;
+
+        var expectations = new[]
+        {
+            new MusicAlbumHarnessExpectation("Heroes", "David Bowie", 1, 10),
+            new MusicAlbumHarnessExpectation("Abbey Road", "The Beatles", 2, 17),
+            new MusicAlbumHarnessExpectation("DAMN.", "Kendrick Lamar", 1, 14),
+            new MusicAlbumHarnessExpectation("Interstellar", "Hans Zimmer", 2, ExpectedKnownTrackCount: null),
+        };
+
+        ct.ThrowIfCancellationRequested();
+        using var connection = db.CreateConnection();
+        var rows = connection.Query<MusicAlbumHarnessRow>(new CommandDefinition(
+            """
+            SELECT parent.id AS RootWorkId,
+                   COALESCE(
+                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key = 'album' LIMIT 1), ''),
+                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key = 'title' LIMIT 1), ''),
+                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id IN (child.id, asset.id) AND key = 'album' LIMIT 1), '')
+                   ) AS Album,
+                   COALESCE(
+                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key IN ('album_artist', 'artist', 'author') LIMIT 1), ''),
+                       NULLIF((SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id IN (child.id, asset.id) AND key IN ('album_artist', 'artist', 'author') LIMIT 1), '')
+                   ) AS Artist,
+                   COUNT(DISTINCT child.id) AS OwnedTrackCount,
+                   (SELECT CAST(value AS TEXT) FROM canonical_values WHERE entity_id = parent.id AND key = 'child_entities_json' LIMIT 1) AS ChildEntitiesJson,
+                   CASE WHEN EXISTS (
+                       SELECT 1
+                       FROM canonical_values cover
+                       WHERE cover.entity_id IN (parent.id, child.id, asset.id)
+                         AND cover.key IN ('cover', 'cover_url')
+                         AND NULLIF(TRIM(CAST(cover.value AS TEXT)), '') IS NOT NULL
+                   ) THEN 1 ELSE 0 END AS HasCover
+            FROM works parent
+            INNER JOIN works child ON child.parent_work_id = parent.id
+            INNER JOIN editions edition ON edition.work_id = child.id
+            INNER JOIN media_assets asset ON asset.edition_id = edition.id
+            WHERE LOWER(parent.media_type) = 'music'
+              AND parent.work_kind = 'parent'
+              AND COALESCE(parent.is_catalog_only, 0) = 0
+            GROUP BY parent.id
+            """,
+            cancellationToken: ct)).AsList();
+
+        foreach (var expectation in expectations)
+        {
+            var row = rows.FirstOrDefault(candidate =>
+                MusicAlbumHarnessNamesMatch(candidate.Album, expectation.Album)
+                && string.Equals(candidate.Artist, expectation.Artist, StringComparison.OrdinalIgnoreCase));
+            var knownTrackCount = CountMusicManifestTracks(row?.ChildEntitiesJson);
+            var check = new MusicAlbumHarnessCheckResult
+            {
+                Album = expectation.Album,
+                Artist = expectation.Artist,
+                OwnedTrackCount = row?.OwnedTrackCount ?? 0,
+                KnownTrackCount = knownTrackCount,
+                ExpectedOwnedTrackCount = expectation.ExpectedOwnedTrackCount,
+                ExpectedKnownTrackCount = expectation.ExpectedKnownTrackCount,
+                HasManifest = knownTrackCount.HasValue,
+                HasCover = row?.HasCover == true,
+            };
+            report.MusicAlbumChecks.Add(check);
+            logger.LogInformation(
+                "  Music album {Artist} / {Album}: owned={Owned}, known={Known}, cover={Cover}, pass={Pass}",
+                check.Artist,
+                check.Album,
+                check.OwnedTrackCount,
+                check.KnownTrackCount,
+                check.HasCover,
+                check.Pass);
+
+            if (!check.Pass)
+                report.IssuesFound.Add($"Music album: {check.Artist} / {check.Album} did not meet harness expectations. {check.Detail}");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static bool MusicAlbumHarnessNamesMatch(string? left, string? right)
+    {
+        if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            return false;
+
+        static string Normalize(string value)
+            => string.Join(
+                ' ',
+                new string(value
+                        .ToLowerInvariant()
+                        .Select(character => char.IsLetterOrDigit(character) ? character : ' ')
+                        .ToArray())
+                    .Split(' ', StringSplitOptions.RemoveEmptyEntries));
+
+        var normalizedLeft = Normalize(left);
+        var normalizedRight = Normalize(right);
+        return string.Equals(normalizedLeft, normalizedRight, StringComparison.Ordinal)
+            || normalizedLeft.StartsWith(normalizedRight + " ", StringComparison.Ordinal)
+            || normalizedRight.StartsWith(normalizedLeft + " ", StringComparison.Ordinal);
+    }
+
+    private static int? CountMusicManifestTracks(string? manifestJson)
+    {
+        if (string.IsNullOrWhiteSpace(manifestJson))
+            return null;
+
+        try
+        {
+            using var document = JsonDocument.Parse(manifestJson);
+            return document.RootElement.TryGetProperty("tracks", out var tracks)
+                && tracks.ValueKind == JsonValueKind.Array
+                    ? tracks.GetArrayLength()
+                    : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
     private static async Task ValidateCrossMediaSeriesHarnessAsync(
         IDatabaseConnection db,
         TestReport report,
@@ -2829,10 +2979,26 @@ public static class IntegrationTestEndpoints
         string[] RequiredMediaTypeKeys,
         string[] RequiredMediaTypes);
 
+    private sealed record MusicAlbumHarnessExpectation(
+        string Album,
+        string Artist,
+        int ExpectedOwnedTrackCount,
+        int? ExpectedKnownTrackCount);
+
     private sealed class SeriesHarnessRow
     {
         public int OwnedCount { get; init; }
         public int ManifestCount { get; init; }
+    }
+
+    private sealed class MusicAlbumHarnessRow
+    {
+        public Guid RootWorkId { get; init; }
+        public string? Album { get; init; }
+        public string? Artist { get; init; }
+        public int OwnedTrackCount { get; init; }
+        public string? ChildEntitiesJson { get; init; }
+        public bool HasCover { get; init; }
     }
 
     private sealed class CrossMediaHarnessRow
@@ -3595,6 +3761,10 @@ public static class IntegrationTestEndpoints
         {
             SummaryCard(sb, report.SeriesHarnessChecks.Count(s => s.Pass) + "/" + report.SeriesHarnessChecks.Count, "Series Totals", "#818CF8");
         }
+        if (report.MusicAlbumChecks.Count > 0)
+        {
+            SummaryCard(sb, report.MusicAlbumChecks.Count(s => s.Pass) + "/" + report.MusicAlbumChecks.Count, "Music Albums", "#EC4899");
+        }
 
         if (report.CrossMediaSeriesChecks.Count > 0)
         {
@@ -3860,6 +4030,27 @@ public static class IntegrationTestEndpoints
                     $"<td>{Esc(string.Join(", ", check.FoundMediaTypes.DefaultIfEmpty("none")))}</td><td>{check.OwnedCount}</td>" +
                     $"<td>{BoolMark(check.HasSharedParentCollection)}</td><td>{BoolMark(check.HasSharedNarrativeRoot)}</td>" +
                     $"<td>{badge}</td><td>{Esc(check.Detail)}</td></tr>");
+            }
+            sb.AppendLine("</table>");
+        }
+
+        if (report.MusicAlbumChecks.Count > 0)
+        {
+            int musicAlbumPass = report.MusicAlbumChecks.Count(check => check.Pass);
+            string musicAlbumBadge = musicAlbumPass == report.MusicAlbumChecks.Count
+                ? "<span class=\"badge badge-pass\">ALL PASS</span>"
+                : $"<span class=\"badge badge-warn\">{report.MusicAlbumChecks.Count - musicAlbumPass} ISSUES</span>";
+            sb.AppendLine($"<h2>Music Album Validation {musicAlbumBadge}</h2>");
+            sb.AppendLine("<table>");
+            sb.AppendLine("<tr><th>Artist</th><th>Album</th><th>Owned</th><th>Known Tracks</th><th>Manifest</th><th>Cover</th><th>Status</th><th>Detail</th></tr>");
+            foreach (var check in report.MusicAlbumChecks.OrderBy(check => check.Artist).ThenBy(check => check.Album))
+            {
+                string badge = check.Pass
+                    ? "<span class=\"badge badge-pass\">PASS</span>"
+                    : "<span class=\"badge badge-fail\">FAIL</span>";
+                sb.AppendLine($"<tr><td>{Esc(check.Artist)}</td><td>{Esc(check.Album)}</td><td>{check.OwnedTrackCount}</td>" +
+                    $"<td>{Esc(check.KnownTrackCount?.ToString() ?? "-")}</td><td>{BoolMark(check.HasManifest)}</td>" +
+                    $"<td>{BoolMark(check.HasCover)}</td><td>{badge}</td><td>{Esc(check.Detail)}</td></tr>");
             }
             sb.AppendLine("</table>");
         }

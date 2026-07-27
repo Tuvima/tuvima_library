@@ -1625,7 +1625,7 @@
         var selectedItem = ActiveTableItems.FirstOrDefault(item => item.EntityId == entityId);
         Nav.NavigateTo(selectedItem is not null
             ? MediaNavigation.ForLibraryItem(selectedItem)
-            : $"/book/{entityId}");
+            : $"/details/work/{entityId:D}");
     }
 
     private Task OpenItem(Guid entityId)
@@ -1633,7 +1633,7 @@
         var displayItem = _items.FirstOrDefault(item => item.EntityId == entityId);
         Nav.NavigateTo(displayItem is not null
             ? MediaNavigation.ForLibraryItem(displayItem)
-            : $"/book/{entityId}");
+            : $"/details/work/{entityId:D}");
         return Task.CompletedTask;
     }
 
@@ -1841,12 +1841,12 @@
 
         return (_activeTabId, _grouping) switch
         {
-            ("tv", "shows") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
-            ("tv", "timeline") => $"/watch/tv/show/{GetTvShowGroupRouteId(group):D}",
+            ("tv", "shows") => $"/details/tvshow/{GetTvShowGroupRouteId(group):D}?context=watch",
+            ("tv", "timeline") => $"/details/tvshow/{GetTvShowGroupRouteId(group):D}?context=watch",
             ("movies", "series") => $"/details/movieseries/{group.CollectionId:D}?context=watch",
             ("movies", "collections") => $"/details/collection/{group.CollectionId:D}?context=watch",
             ("books", "series") => $"/details/bookseries/{group.CollectionId:D}?context=read",
-            ("audiobooks", "series") => $"/details/bookseries/{group.CollectionId:D}?context=listen",
+            ("audiobooks", "series") => $"/details/collection/{group.CollectionId:D}?context=listen",
             ("comics", "series") => $"/details/comicseries/{group.CollectionId:D}?context=comics",
             ("music", "albums" or "timeline") => BuildMusicAlbumNavigationUrl(group),
             (_, "publishers" or "networks") =>
@@ -2095,10 +2095,10 @@
     private string BuildGroupPreviewNavigationUrl(ContentGroupViewModel group, Guid workId) =>
         (_activeTabId, _grouping) switch
         {
-            ("movies", "series") => $"/details/movie/{workId:D}?context=watch",
-            ("books", "series") => $"/details/book/{workId:D}?context=read",
-            ("audiobooks", "series") => $"/details/audiobook/{workId:D}?context=listen",
-            ("comics", "series") => $"/details/comicissue/{workId:D}?context=comics",
+            ("movies", "series") => $"/details/work/{workId:D}?context=watch",
+            ("books", "series") => $"/details/work/{workId:D}?context=read",
+            ("audiobooks", "series") => $"/details/work/{workId:D}?context=listen",
+            ("comics", "series") => $"/details/work/{workId:D}?context=comics",
             ("music", "albums") => $"/details/musicalbum/{(group.RootWorkId ?? group.CollectionId):D}?context=listen&track={workId:D}",
             _ => $"/details/work/{workId:D}",
         };

@@ -5,17 +5,17 @@ public sealed class RetailRequestBuilder
     public string BuildAppleTrackSearchUrl(string searchQuery, string country, string language)
     {
         var query = Uri.EscapeDataString(searchQuery);
-        return $"https://itunes.apple.com/search?term={query}&entity=musicTrack&limit=10&country={country}&lang={language}_{country}";
+        return $"https://itunes.apple.com/search?term={query}&entity=musicTrack&limit=25&country={country}&lang={language}_{country}";
     }
 
     public string BuildAppleAlbumSearchUrl(string? artist, string album, string country, string language)
     {
         var query = Uri.EscapeDataString($"{artist} {album}".Trim());
-        return $"https://itunes.apple.com/search?term={query}&entity=album&limit=10&country={country}&lang={language}_{country}";
+        return $"https://itunes.apple.com/search?term={query}&entity=album&limit=25&country={country}&lang={language}_{country}";
     }
 
     public string BuildAppleAlbumLookupUrl(string collectionId, string country, string language)
-        => $"https://itunes.apple.com/lookup?id={collectionId}&entity=song&country={country}&lang={language}_{country}";
+        => $"https://itunes.apple.com/lookup?id={collectionId}&entity=song&limit=200&country={country}&lang={language}_{country}";
 
     public string BuildTmdbTvSearchUrl(string showName, int? yearHint, string apiKey, string language, string country)
     {

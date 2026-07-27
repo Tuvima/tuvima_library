@@ -247,6 +247,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         var duplicateReadWorksMerged = await _workIdentityReconciliation
             .MergeDuplicateReadWorksByQidAsync(ct)
             .ConfigureAwait(false);
+        var audiobookAuthorsAligned = await _workIdentityReconciliation
+            .AlignAudiobookAuthorsWithBooksByQidAsync(ct)
+            .ConfigureAwait(false);
 
         // ── Folder Maintenance Passes ───────────────────────────────────────
 
@@ -304,13 +307,14 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
         {
             ActionType  = SystemActionType.ReconciliationCompleted,
             EntityType  = "System",
-            Detail      = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing, {hierarchyPruned} hierarchy rows pruned, {foldersCleanedCount} empty folders cleaned, {orphanPeopleCount} orphan people removed, {staleSidecarsCount} stale root sidecars cleaned",
+            Detail      = $"Reconciliation complete — scanned {assets.Count}, {missingCount} missing, {audiobookAuthorsAligned} audiobook author identities aligned, {hierarchyPruned} hierarchy rows pruned, {foldersCleanedCount} empty folders cleaned, {orphanPeopleCount} orphan people removed, {staleSidecarsCount} stale root sidecars cleaned",
             ChangesJson = JsonSerializer.Serialize(new
             {
                 total_scanned        = assets.Count,
                 missing_count        = missingCount,
                 hierarchy_pruned     = hierarchyPruned,
                 duplicate_read_works_merged = duplicateReadWorksMerged,
+                audiobook_authors_aligned = audiobookAuthorsAligned,
                 folders_cleaned      = foldersCleanedCount,
                 orphan_people        = orphanPeopleCount,
                 stale_root_sidecars  = staleSidecarsCount,
@@ -322,7 +326,10 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
         // Broadcast a library-changed event so Dashboard circuits that are already
         // open invalidate their collection cache and refresh the home page.
-        if (missingCount > 0 || duplicateReadWorksMerged > 0 || collectionBackfill.AssignedCount > 0)
+        if (missingCount > 0
+            || duplicateReadWorksMerged > 0
+            || audiobookAuthorsAligned > 0
+            || collectionBackfill.AssignedCount > 0)
         {
             try
             {
@@ -347,9 +354,9 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
         _logger.LogInformation(
             "Reconciliation complete: {Total} scanned, {Missing} missing, {CollectionBackfillAssigned} collection assignments repaired, {HierarchyPruned} hierarchy rows pruned, " +
-            "{DuplicateReadWorksMerged} duplicate read works merged, {FoldersCleaned} empty folders, {OrphanPeople} orphan people, " +
+            "{DuplicateReadWorksMerged} duplicate read works merged, {AudiobookAuthorsAligned} audiobook author identities aligned, {FoldersCleaned} empty folders, {OrphanPeople} orphan people, " +
             "{StaleSidecars} stale root sidecars, {Elapsed}ms",
-            assets.Count, missingCount, collectionBackfill.AssignedCount, hierarchyPruned, duplicateReadWorksMerged, foldersCleanedCount,
+            assets.Count, missingCount, collectionBackfill.AssignedCount, hierarchyPruned, duplicateReadWorksMerged, audiobookAuthorsAligned, foldersCleanedCount,
             orphanPeopleCount, staleSidecarsCount, sw.ElapsedMilliseconds);
 
         return new ReconciliationResult(assets.Count, missingCount, sw.ElapsedMilliseconds);

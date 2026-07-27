@@ -1656,6 +1656,8 @@ public sealed class WorkerPipelineTests
     public async Task RetailMatchWorker_MusicBrainzFirstPipeline_UsesConfiguredProviderOrder()
     {
         var entityId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var albumRootId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
         var musicBrainzProviderId = Guid.NewGuid();
         var appleProviderId = Guid.NewGuid();
@@ -1692,8 +1694,10 @@ public sealed class WorkerPipelineTests
             [
                 new ProviderClaim(MetadataFieldConstants.Title, "Bohemian Rhapsody", 0.90),
                 new ProviderClaim(MetadataFieldConstants.Author, "Queen", 0.90),
+                new ProviderClaim(MetadataFieldConstants.Album, "A Night at the Opera", 0.90),
                 new ProviderClaim(MetadataFieldConstants.CoverUrl, "https://example.invalid/cover.jpg", 0.90),
                 new ProviderClaim(BridgeIdKeys.AppleMusicId, "1440806768", 0.95),
+                new ProviderClaim(BridgeIdKeys.AppleMusicCollectionId, "1440806041", 0.95),
             ],
         };
 
@@ -1760,9 +1764,33 @@ public sealed class WorkerPipelineTests
             new StubScoringEngine(),
             configLoader,
             new StubBridgeIdRepository(),
-            new StubWorkRepository(),
+            new StubWorkRepository
+            {
+                Lineage = new WorkLineage(
+                    entityId,
+                    Guid.NewGuid(),
+                    workId,
+                    albumRootId,
+                    albumRootId,
+                    WorkKind.Child,
+                    MediaType.Music),
+            },
             new WorkClaimRouter(),
-            new StubHttpClientFactory(),
+            new RoutingHttpClientFactory(_ => new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(
+                    """
+                    {
+                      "results": [
+                        { "wrapperType": "collection", "collectionId": 1440806041 },
+                        { "wrapperType": "track", "kind": "song", "trackName": "Death on Two Legs", "trackNumber": 1, "discNumber": 1, "trackTimeMillis": 223000, "trackId": 1440806042 },
+                        { "wrapperType": "track", "kind": "song", "trackName": "Bohemian Rhapsody", "trackNumber": 11, "discNumber": 1, "trackTimeMillis": 354000, "trackId": 1440806768 }
+                      ]
+                    }
+                    """,
+                    Encoding.UTF8,
+                    "application/json"),
+            }),
             null!,
             NullLogger<RetailMatchWorker>.Instance);
 
@@ -1775,6 +1803,15 @@ public sealed class WorkerPipelineTests
         Assert.Equal([1, 2], candidateRepo.Candidates.Select(candidate => candidate.Rank).ToArray());
         Assert.NotNull(apple.Requests[0].PriorProviderBridgeIds);
         Assert.Contains(BridgeIdKeys.MusicBrainzRecordingId, apple.Requests[0].PriorProviderBridgeIds!.Keys);
+        var manifest = Assert.Single(canonicalRepo.Values, value =>
+            value.EntityId == albumRootId
+            && value.Key == MetadataFieldConstants.ChildEntitiesJson);
+        Assert.Contains("\"provider_collection_id\":\"1440806041\"", manifest.Value, StringComparison.Ordinal);
+        Assert.Contains("\"Bohemian Rhapsody\"", manifest.Value, StringComparison.Ordinal);
+        Assert.Contains(canonicalRepo.Values, value =>
+            value.EntityId == albumRootId
+            && value.Key == MetadataFieldConstants.TrackCount
+            && value.Value == "2");
         var musicBrainzCandidate = Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "musicbrainz");
         var appleCandidate = Assert.Single(candidateRepo.Candidates, candidate => candidate.ProviderName == "apple_api");
         Assert.True(appleCandidate.ScoreTotal > musicBrainzCandidate.ScoreTotal);

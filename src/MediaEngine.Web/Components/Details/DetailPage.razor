@@ -291,7 +291,10 @@
 
         var isAudiobookListenAction = string.Equals(action.Key, "listen", StringComparison.OrdinalIgnoreCase)
             || string.Equals(action.Label, "Listen", StringComparison.OrdinalIgnoreCase);
-        if (Model?.EntityType == DetailEntityType.Audiobook && (isAudiobookListenAction || IsContinueAction(action)))
+        if (Model is not null
+            && (Model.EntityType == DetailEntityType.Audiobook
+                || Model.OwnedFormats.Any(format => format.FormatType == MediaFormatType.Audiobook))
+            && (isAudiobookListenAction || IsContinueAction(action)))
         {
             await PlayAudiobookAsync(IsContinueAction(action));
             return;

@@ -266,7 +266,7 @@ internal sealed partial class DetailCompositionOrchestrator
                     {
                         Key = "open",
                         Label = "Open",
-                        Route = $"/book/{item.WorkId:D}?mode=read",
+                        Route = $"/details/work/{item.WorkId:D}?context=read",
                     },
                 ],
             })

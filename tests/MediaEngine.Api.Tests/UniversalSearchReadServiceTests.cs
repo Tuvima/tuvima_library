@@ -94,7 +94,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
         Assert.Equal("movie", result.EntityType);
         Assert.Equal("Movie", result.MediaType);
         Assert.Equal("Watch", result.PrimaryActionLabel);
-        Assert.Equal($"/watch/movie/{workId:D}?collectionId={collectionId:D}", result.DetailRoute);
+        Assert.Equal($"/details/work/{workId:D}?context=watch", result.DetailRoute);
         Assert.Equal("1988", result.Year);
         Assert.Contains("7.5", result.Facts);
     }
@@ -121,7 +121,7 @@ public sealed class UniversalSearchReadServiceTests : IDisposable
         Assert.Null(response.TopResult.Creator);
         Assert.Null(response.TopResult.Subtitle);
         Assert.DoesNotContain("Dune", response.TopResult.Facts);
-        Assert.Equal($"/details/audiobook/{workId:D}?context=listen", response.TopResult.DetailRoute);
+        Assert.Equal($"/details/work/{workId:D}?context=listen", response.TopResult.DetailRoute);
     }
 
     [Fact]

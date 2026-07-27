@@ -277,7 +277,7 @@ public sealed class ProfileOverviewReadService(
 
         if (normalized.Contains("audio"))
         {
-            return $"/details/audiobook/{workId}?context=listen";
+            return $"/details/work/{workId}?context=listen";
         }
 
         if (normalized.Contains("music"))

@@ -570,10 +570,10 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.Movie => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress),
             DetailEntityType.TvEpisode => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress, episodePosition),
             DetailEntityType.TvShow or DetailEntityType.TvSeason => BuildWatchActions(null, heroProgress),
-            DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
+            DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", IsPrimary = true }],
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
-            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{id}", IsPrimary = true }],
-            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", Route = $"/details/audiobook/{id}?context=listen", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.MusicAlbum => BuildMusicAlbumActions(),
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };
@@ -1163,8 +1163,8 @@ internal sealed partial class DetailCompositionOrchestrator
     private static IReadOnlyList<DetailAction> BuildFormatActions(Guid workId, MediaFormatType format)
         => format switch
         {
-            MediaFormatType.Ebook => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", Route = $"/book/{workId}" }],
-            MediaFormatType.Audiobook => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones", Route = $"/details/audiobook/{workId}?context=listen" }],
+            MediaFormatType.Ebook => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book" }],
+            MediaFormatType.Audiobook => [new DetailAction { Key = "listen", Label = "Listen", Icon = "headphones" }],
             MediaFormatType.Movie => [new DetailAction { Key = "play", Label = "Play", Icon = "play_arrow" }],
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new" }],
         };

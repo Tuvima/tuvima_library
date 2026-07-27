@@ -436,13 +436,13 @@ var expectedPeople = new[]
     new ExpectedPersonEntry(
         "David Bowie",
         ExpectedWikidataQid: "Q5383",
-        MinimumOwnedCredits: 2,
-        MinimumMediaItems: 2,
+        MinimumOwnedCredits: 4,
+        MinimumMediaItems: 4,
         ExpectedMediaTypes: ["Music"],
-        ExpectedTitles: ["Five Years", "Soul Love"],
+        ExpectedTitles: ["Five Years", "Soul Love", "Beauty and the Beast", "Heroes"],
         RequireBiography: true,
         RequireHeadshot: true,
-        Note: "Artist appears across multiple tracks in one album so music person enrichment is covered."),
+        Note: "Artist appears across multiple owned albums so artist shelves and More by can be validated."),
     new ExpectedPersonEntry(
         "Alan Moore",
         ExpectedWikidataQid: "Q183581",
@@ -902,6 +902,12 @@ var musicTracks = new MusicSpec[]
 {
     new(43, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "01 Five Years.mp3", "Five Years", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "1"),
     new(44, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "02 Soul Love.mp3", "Soul Love", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "2"),
+    new(48, Path.Combine("David Bowie", "Heroes"), "01 Beauty and the Beast.mp3", "Beauty and the Beast", "David Bowie", "Heroes", "1977", "Rock", "1"),
+    new(49, Path.Combine("David Bowie", "Heroes"), "03 Heroes.mp3", "Heroes", "David Bowie", "Heroes", "1977", "Rock", "3"),
+    new(50, Path.Combine("The Beatles", "Abbey Road"), "01 Come Together.mp3", "Come Together", "The Beatles", "Abbey Road", "1969", "Rock", "1"),
+    new(51, Path.Combine("The Beatles", "Abbey Road"), "02 Something.mp3", "Something", "The Beatles", "Abbey Road", "1969", "Rock", "2"),
+    new(52, Path.Combine("Kendrick Lamar", "DAMN"), "01 BLOOD.mp3", "BLOOD.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "1"),
+    new(53, Path.Combine("Hans Zimmer", "Interstellar"), "01 Dreaming of the Crash.mp3", "Dreaming of the Crash", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "1"),
 };
 
 var comics = new ComicSpec[]
@@ -936,7 +942,7 @@ foreach (var spec in tvSeries)
 }
 
 Console.WriteLine();
-Console.WriteLine("Music fixtures (scenarios 43-44)");
+Console.WriteLine("Music fixtures (scenarios 43-44 and 48-53)");
 foreach (var spec in musicTracks)
 {
     var tempMusicDir = Path.Combine(tempDir, "music", spec.Subdir);
@@ -1093,16 +1099,16 @@ if (large)
     var largeMusic = new MusicSpec[]
     {
         new(1100, Path.Combine("David Bowie", "The Rise and Fall of Ziggy Stardust"), "03 Moonage Daydream.mp3", "Moonage Daydream", "David Bowie", "The Rise and Fall of Ziggy Stardust and the Spiders from Mars", "1972", "Rock", "3"),
-        new(1101, Path.Combine("David Bowie", "Heroes"), "01 Beauty and the Beast.mp3", "Beauty and the Beast", "David Bowie", "Heroes", "1977", "Rock", "1"),
+        new(1101, Path.Combine("David Bowie", "Hunky Dory"), "04 Changes.mp3", "Changes", "David Bowie", "Hunky Dory", "1971", "Rock", "4"),
         new(1102, Path.Combine("Radiohead", "OK Computer"), "01 Airbag.mp3", "Airbag", "Radiohead", "OK Computer", "1997", "Alternative", "1"),
         new(1103, Path.Combine("Radiohead", "OK Computer"), "02 Paranoid Android.mp3", "Paranoid Android", "Radiohead", "OK Computer", "1997", "Alternative", "2"),
-        new(1104, Path.Combine("The Beatles", "Abbey Road"), "01 Come Together.mp3", "Come Together", "The Beatles", "Abbey Road", "1969", "Rock", "1"),
-        new(1105, Path.Combine("The Beatles", "Abbey Road"), "02 Something.mp3", "Something", "The Beatles", "Abbey Road", "1969", "Rock", "2"),
+        new(1104, Path.Combine("The Beatles", "Sgt Peppers"), "01 Sgt Peppers Lonely Hearts Club Band.mp3", "Sgt. Pepper's Lonely Hearts Club Band", "The Beatles", "Sgt. Pepper's Lonely Hearts Club Band", "1967", "Rock", "1"),
+        new(1105, Path.Combine("The Beatles", "Sgt Peppers"), "02 With a Little Help from My Friends.mp3", "With a Little Help from My Friends", "The Beatles", "Sgt. Pepper's Lonely Hearts Club Band", "1967", "Rock", "2"),
         new(1106, Path.Combine("Taylor Swift", "1989"), "01 Welcome to New York.mp3", "Welcome to New York", "Taylor Swift", "1989", "2014", "Pop", "1"),
         new(1107, Path.Combine("Taylor Swift", "1989"), "02 Blank Space.mp3", "Blank Space", "Taylor Swift", "1989", "2014", "Pop", "2"),
-        new(1108, Path.Combine("Kendrick Lamar", "DAMN"), "01 BLOOD.mp3", "BLOOD.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "1"),
-        new(1109, Path.Combine("Kendrick Lamar", "DAMN"), "02 DNA.mp3", "DNA.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "2"),
-        new(1110, Path.Combine("Hans Zimmer", "Interstellar"), "01 Dreaming of the Crash.mp3", "Dreaming of the Crash", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "1"),
+        new(1108, Path.Combine("Kendrick Lamar", "DAMN"), "02 DNA.mp3", "DNA.", "Kendrick Lamar", "DAMN.", "2017", "Hip-Hop", "2"),
+        new(1109, Path.Combine("Kendrick Lamar", "good kid maad city"), "01 Sherane.mp3", "Sherane a.k.a Master Splinter's Daughter", "Kendrick Lamar", "good kid, m.A.A.d city", "2012", "Hip-Hop", "1"),
+        new(1110, Path.Combine("Hans Zimmer", "Inception"), "12 Time.mp3", "Time", "Hans Zimmer", "Inception (Music from the Motion Picture)", "2010", "Soundtrack", "12"),
         new(1111, Path.Combine("Hans Zimmer", "Interstellar"), "02 Cornfield Chase.mp3", "Cornfield Chase", "Hans Zimmer", "Interstellar: Original Motion Picture Soundtrack", "2014", "Soundtrack", "2"),
     };
 
@@ -1271,13 +1277,13 @@ var expectedPeopleForManifest = large
         new ExpectedPersonEntry(
             "Hans Zimmer",
             ExpectedWikidataQid: "Q76364",
-            MinimumOwnedCredits: 3,
-            MinimumMediaItems: 3,
+            MinimumOwnedCredits: 4,
+            MinimumMediaItems: 4,
             ExpectedMediaTypes: ["Movies", "Music"],
-            ExpectedTitles: ["Interstellar", "Dreaming of the Crash", "Cornfield Chase"],
+            ExpectedTitles: ["Interstellar", "Dreaming of the Crash", "Cornfield Chase", "Time"],
             RequireBiography: true,
             RequireHeadshot: true,
-            Note: "Large corpus stress case: film composer plus soundtrack tracks."),
+            Note: "Large corpus stress case: film composer plus soundtrack tracks across multiple albums."),
         new ExpectedPersonEntry(
             "Taylor Swift",
             ExpectedWikidataQid: "Q26876",
@@ -1353,7 +1359,7 @@ File.WriteAllText(manifestPath, manifestJson);
 // â”€â”€ Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 Console.WriteLine();
 Console.WriteLine($"â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”");
-Console.WriteLine($"  Generated : {total} / {(large ? "132" : "47")}");
+Console.WriteLine($"  Generated : {total} / {(large ? "138" : "53")}");
 if (failed > 0) Console.WriteLine($"  Failed    : {failed}");
 Console.WriteLine($"  Manifest  : {manifestPath}");
 Console.WriteLine();
@@ -1374,9 +1380,9 @@ Console.WriteLine($"  Title disambiguation : 4 scenarios (3, 22, 23, 28)");
 Console.WriteLine($"  Foreign language     : 3 scenarios (24, 25, 26)");
 Console.WriteLine($"  Multi-author         : 2 scenarios (29, 30)");
 Console.WriteLine($"  Same-author diff-work: 1 scenario  (27)");
-Console.WriteLine($"  All media watch roots: 10 scenarios (38-47)");
+Console.WriteLine($"  All media watch roots: 16 scenarios (38-53)");
 Console.WriteLine($"  Repeated-person checks: {expectedPeopleForManifest.Length} people declared in MANIFEST.json");
-Console.WriteLine($"  Total: {(large ? "132" : "47")} files covering {(large ? "21" : "14")} test categories");
+Console.WriteLine($"  Total: {(large ? "138" : "53")} files covering {(large ? "21" : "14")} test categories");
 Console.WriteLine();
 
 return failed > 0 ? 1 : 0;

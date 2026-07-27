@@ -115,7 +115,8 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.Movie => DetailEntityType.MovieSeries,
             DetailEntityType.TvEpisode or DetailEntityType.TvSeason => DetailEntityType.TvShow,
             DetailEntityType.ComicIssue => DetailEntityType.ComicSeries,
-            DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.Work => DetailEntityType.BookSeries,
+            DetailEntityType.Audiobook => DetailEntityType.Collection,
+            DetailEntityType.Book or DetailEntityType.Work => DetailEntityType.BookSeries,
             _ => (DetailEntityType?)null,
         };
 
@@ -918,13 +919,12 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private static string BuildWorkRoute(CollectionWorkSummary work) => InferMediaItemEntityType(work) switch
     {
-        DetailEntityType.Movie => $"/details/movie/{work.Id}?context=watch",
-        DetailEntityType.TvEpisode => $"/watch/player/resolve?workId={work.Id}",
-        DetailEntityType.Audiobook => $"/details/audiobook/{work.Id}?context=listen",
+        DetailEntityType.Movie or DetailEntityType.TvEpisode => $"/details/work/{work.Id}?context=watch",
+        DetailEntityType.Audiobook => $"/details/work/{work.Id}?context=listen",
         DetailEntityType.Work when work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
             => $"/listen/music?browse=songs&track={work.Id:D}",
-        DetailEntityType.ComicIssue => $"/details/comicissue/{work.Id}?context=comics",
-        _ => $"/details/book/{work.Id}?context=read",
+        DetailEntityType.ComicIssue => $"/details/work/{work.Id}?context=comics",
+        _ => $"/details/work/{work.Id}?context=read",
     };
 
     private static IReadOnlyList<MetadataPill> BuildCollectionMetadata(

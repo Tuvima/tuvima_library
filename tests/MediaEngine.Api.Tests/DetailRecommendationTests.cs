@@ -124,7 +124,7 @@ public sealed class DetailRecommendationTests : IDisposable
         Assert.Equal(DetailEntityType.TvShow, relatedShow.EntityType);
         Assert.Equal("Better Call Saul", relatedShow.Title);
         Assert.Contains("Shared Person", relatedShow.Subtitle);
-        Assert.Contains($"/watch/tv/show/{relatedCollectionId:D}", relatedShow.Actions.Single().Route);
+        Assert.Contains($"/details/tvshow/{relatedCollectionId:D}?context=watch", relatedShow.Actions.Single().Route);
     }
 
     private async Task<IReadOnlyList<MediaGroupingViewModel>> InvokeBuildWorkMediaGroupsAsync(Guid workId, DetailEntityType entityType)

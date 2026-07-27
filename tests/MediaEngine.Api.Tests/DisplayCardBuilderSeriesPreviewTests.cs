@@ -41,7 +41,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(["1", "2", "4", "5"], card.PreviewItems.Select(item => item.Position));
         Assert.Equal(["/covers/1-s.jpg", "/covers/2-s.jpg", "/covers/4-s.jpg", "/covers/5-s.jpg"], card.PreviewItems.Select(item => item.ImageUrl));
         Assert.All(card.PreviewItems, item => Assert.Equal("Book", item.MediaType));
-        Assert.All(card.PreviewItems, item => Assert.StartsWith("/book/", item.WebUrl, StringComparison.Ordinal));
+        Assert.All(card.PreviewItems, item => Assert.StartsWith("/details/work/", item.WebUrl, StringComparison.Ordinal));
         Assert.Equal("The first book in the sequence.", card.PreviewItems[0].Description);
         Assert.Equal("A science-fiction series about the fall and rebuilding of a galactic civilization.", card.Description);
         Assert.Equal(5, card.GroupSummary?.OwnedCount);
@@ -207,7 +207,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal(["S1 E1", "S1 E2"], card.PreviewItems.Select(item => item.Position));
         Assert.Equal(["wide", "wide"], card.PreviewItems.Select(item => item.Shape));
         Assert.Equal(
-            works.Select(work => $"/watch/tv/show/{rootWorkId:D}?episode={work.WorkId:D}"),
+            works.Select(work => $"/details/work/{work.WorkId:D}?context=watch"),
             card.PreviewItems.Select(item => item.WebUrl));
         Assert.Equal(2, card.PreviewTotalCount);
     }
@@ -245,7 +245,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("Resume S1 E3", card.Actions[0].Label);
         Assert.Equal($"/watch/player/resolve?workId={episodeId:D}", card.Actions[0].WebUrl);
         Assert.Equal("Details", card.Actions[1].Label);
-        Assert.Equal($"/watch/tv/show/{showId:D}?episode={episodeId:D}", card.Actions[1].WebUrl);
+        Assert.Equal($"/details/work/{episodeId:D}?context=watch", card.Actions[1].WebUrl);
         Assert.Equal(card.Actions[0], card.Progress?.ResumeAction);
     }
 
@@ -290,7 +290,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
     }
 
     [Fact]
-    public void FromWork_AudiobookUsesCanonicalListenDetailRoute()
+    public void FromWork_AudiobookUsesCanonicalWorkDetailRoute()
     {
         var row = new DisplayWorkRow
         {
@@ -305,7 +305,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         var card = new DisplayCardBuilder().FromWork(row, "listen", progress: null);
 
         Assert.All(card.Actions, action =>
-            Assert.Equal($"/details/audiobook/{row.WorkId:D}?context=listen", action.WebUrl));
+            Assert.Equal($"/details/work/{row.WorkId:D}?context=listen", action.WebUrl));
     }
 
     [Fact]
@@ -322,9 +322,9 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         var card = new DisplayCardBuilder().BuildCollectionCards(works, "listen").Single();
 
         Assert.Equal("audiobookSeries", card.Presentation);
-        Assert.Equal($"/details/bookseries/{collectionId:D}?context=listen", card.Actions[0].WebUrl);
+        Assert.Equal($"/details/collection/{collectionId:D}?context=listen", card.Actions[0].WebUrl);
         Assert.All(card.PreviewItems, item =>
-            Assert.Equal($"/details/audiobook/{item.WorkId:D}?context=listen", item.WebUrl));
+            Assert.Equal($"/details/work/{item.WorkId:D}?context=listen", item.WebUrl));
     }
 
     private static DisplayWorkRow CreateWork(

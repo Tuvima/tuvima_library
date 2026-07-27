@@ -72,7 +72,25 @@
 
     private static string ResolveRoute(MediaGroupingItemViewModel item)
         => item.Actions.FirstOrDefault(action => !string.IsNullOrWhiteSpace(action.Route))?.Route
-           ?? $"/details/{item.EntityType.ToString().ToLowerInvariant()}/{item.Id}";
+           ?? FallbackDetailRoute(item);
+
+    private static string FallbackDetailRoute(MediaGroupingItemViewModel item) => item.EntityType switch
+    {
+        DetailEntityType.Movie or DetailEntityType.TvEpisode
+            => $"/details/work/{item.Id}?context=watch",
+        DetailEntityType.Audiobook
+            => $"/details/work/{item.Id}?context=listen",
+        DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work
+            => $"/details/work/{item.Id}?context=read",
+        DetailEntityType.TvShow => $"/details/tvshow/{item.Id}?context=watch",
+        DetailEntityType.MusicAlbum => $"/details/musicalbum/{item.Id}?context=listen",
+        DetailEntityType.MovieSeries => $"/details/movieseries/{item.Id}?context=watch",
+        DetailEntityType.BookSeries => $"/details/bookseries/{item.Id}?context=read",
+        DetailEntityType.ComicSeries => $"/details/comicseries/{item.Id}?context=comics",
+        DetailEntityType.Collection => $"/details/collection/{item.Id}?context=default",
+        DetailEntityType.Person => $"/details/person/{item.Id}?context=default",
+        _ => $"/details/work/{item.Id}?context=default",
+    };
 
     private static string ItemClass(MediaGroupingItemViewModel item)
         => $"tl-related-tab__item tl-related-tab__item--{ArtworkShape(item.EntityType)}";

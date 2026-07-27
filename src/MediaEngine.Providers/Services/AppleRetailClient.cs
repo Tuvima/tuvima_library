@@ -142,11 +142,11 @@ public sealed class AppleRetailClient
                 if (string.IsNullOrWhiteSpace(resultCollection) || resultId is null)
                     continue;
 
-                var albumScore = RetailTextSimilarity.ComputeWordOverlap(album, resultCollection);
+                var albumScore = MusicAlbumIdentity.ComputeBaseNameOverlap(album, resultCollection);
                 var artistScore = !string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(resultArtist)
                     ? RetailTextSimilarity.ComputeWordOverlap(artist, resultArtist)
                     : 0.0;
-                var albumExact = RetailTextSimilarity.AreEquivalentNames(album, resultCollection);
+                var albumExact = MusicAlbumIdentity.IsSameTrackList(album, resultCollection);
                 var artistExact = RetailTextSimilarity.AreEquivalentNames(artist, resultArtist);
                 var combined = albumScore * 0.7 + artistScore * 0.3;
                 if (combined > bestScore)
@@ -216,7 +216,10 @@ public sealed class AppleRetailClient
                     continue;
 
                 var wrapperType = node["wrapperType"]?.GetValue<string>();
-                if (string.Equals(wrapperType, "track", StringComparison.OrdinalIgnoreCase))
+                var kind = node["kind"]?.GetValue<string>();
+                if (string.Equals(wrapperType, "track", StringComparison.OrdinalIgnoreCase)
+                    && (string.IsNullOrWhiteSpace(kind)
+                        || string.Equals(kind, "song", StringComparison.OrdinalIgnoreCase)))
                     tracks.Add(node);
             }
 
@@ -288,11 +291,11 @@ public sealed class AppleRetailClient
                 ? RetailTextSimilarity.ComputeWordOverlap(artist, resultArtist)
                 : 0.0;
             var albumScore = !string.IsNullOrWhiteSpace(albumTitle) && !string.IsNullOrWhiteSpace(resultAlbum)
-                ? RetailTextSimilarity.ComputeWordOverlap(albumTitle, resultAlbum)
+                ? MusicAlbumIdentity.ComputeBaseNameOverlap(albumTitle, resultAlbum)
                 : 0.0;
             var titleExact = RetailTextSimilarity.AreEquivalentNames(trackTitle, resultTrackName);
             var artistExact = RetailTextSimilarity.AreEquivalentNames(artist, resultArtist);
-            var albumExact = RetailTextSimilarity.AreEquivalentNames(albumTitle, resultAlbum);
+            var albumExact = MusicAlbumIdentity.IsSameTrackList(albumTitle, resultAlbum);
             var singleTrackRelease = resultTrackCount == 1;
 
             var combined = string.IsNullOrWhiteSpace(albumTitle)

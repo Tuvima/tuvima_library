@@ -3,7 +3,7 @@
 
 @namespace MediaEngine.Web.Components.Pages
 
-<DetailRouteHost Request="@DetailRouteRequest.ForUnified(EntityType, Id, Context)" />
+<DetailRouteHost Request="@DetailRouteRequest.ForUnified(EntityType, Id, Context, EpisodeId)" />
 
 @code {
     [Parameter] public string EntityType { get; set; } = string.Empty;
@@ -11,4 +11,7 @@
 
     [SupplyParameterFromQuery(Name = "context")]
     public string? Context { get; set; }
+
+    [SupplyParameterFromQuery(Name = "episode")]
+    public Guid? EpisodeId { get; set; }
 }

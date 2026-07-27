@@ -910,7 +910,7 @@ public static class CollectionEndpoints
 
         // GET /collections/system-view-detail?groupField=album&groupValue=The%20Record&mediaType=Music
         // Generic grouped detail endpoint for non-routed system views such as music albums/artists.
-        // TV shows use /watch/tv/show/{collectionId} and the unified detail composer instead of this endpoint.
+        // TV shows use /details/tvshow/{id} and the unified detail composer instead of this endpoint.
         group.MapGet("/system-view-detail", async (
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupField")] string? groupField,
             [Microsoft.AspNetCore.Mvc.FromQuery(Name = "groupValue")] string? groupValue,

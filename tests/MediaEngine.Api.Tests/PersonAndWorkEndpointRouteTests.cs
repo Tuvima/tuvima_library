@@ -75,7 +75,8 @@ public sealed class PersonAndWorkEndpointRouteTests
         // AlbumTrackManifestService in stage 5A; scan both as one surface.
         var endpointSource =
             File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\CollectionEndpoints.cs"))
-            + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Collections\AlbumTrackManifestService.cs"));
+            + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Collections\AlbumTrackManifestService.cs"))
+            + File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Providers\Services\AppleAlbumManifestJson.cs"));
         var dtoSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Collections\CollectionGroups.cs"));
 
         Assert.Contains("PrimaryColor", dtoSource, StringComparison.Ordinal);
@@ -86,7 +87,8 @@ public sealed class PersonAndWorkEndpointRouteTests
         Assert.Contains("AppleRetailClient appleRetailClient", endpointSource, StringComparison.Ordinal);
         Assert.Contains("MetadataFieldConstants.ChildEntitiesJson", endpointSource, StringComparison.Ordinal);
         Assert.Contains("Status = \"Missing\"", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("MergeTrackManifests", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("AppleAlbumManifestJson.Build", endpointSource, StringComparison.Ordinal);
+        Assert.Contains("provider_collection_id", endpointSource, StringComparison.Ordinal);
     }
 
     [Fact]

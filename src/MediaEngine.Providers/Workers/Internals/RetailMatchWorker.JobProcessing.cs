@@ -436,6 +436,14 @@ public sealed partial class RetailMatchWorker
             }
         }
 
+        if (mediaType == MediaType.Music
+            && lineage is not null
+            && acceptedEnrichmentProviders.Contains("apple_api"))
+        {
+            await PersistAcceptedAppleAlbumManifestAsync(lineage, hints, sequentialBridgeIds, ct)
+                .ConfigureAwait(false);
+        }
+
         // Persist ALL candidates (winners and losers)
         if (allCandidates.Count > 0)
             await _candidateRepo.InsertBatchAsync(allCandidates, ct);

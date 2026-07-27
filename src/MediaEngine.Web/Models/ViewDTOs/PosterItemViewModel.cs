@@ -165,7 +165,7 @@ public sealed record PosterItemViewModel
             return $"/details/collection/{card.CollectionId.Value}";
         }
 
-        return card.WorkId.HasValue ? $"/book/{card.WorkId.Value}" : "/";
+        return card.WorkId.HasValue ? $"/details/work/{card.WorkId.Value:D}" : "/";
     }
 
     private static bool IsYearFact(string value) =>

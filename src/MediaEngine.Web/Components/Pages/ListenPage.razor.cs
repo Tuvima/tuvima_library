@@ -2467,7 +2467,7 @@ public partial class ListenPage
             TileTextMode: "caption",
             PreviewPlacement: "smart",
             Progress: journey is null ? null : new DisplayProgressDto(journey.ProgressPct, journey.ProgressDisplay, journey.LastAccessed, null),
-            Actions: [new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/details/audiobook/{workId:D}?context=listen")],
+            Actions: [new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/details/work/{workId:D}?context=listen")],
             Flags: new DisplayCardFlagsDto(true, false, true, false, false),
             SortTimestamp: journey?.LastAccessed ?? DateTimeOffset.MinValue);
 
@@ -2794,7 +2794,7 @@ public partial class ListenPage
            ?? (item.Work is null ? "/" : MediaNavigation.ForWork(item.Work));
 
     private static string AudiobookSeriesRoute(ContentGroupViewModel series)
-        => $"/details/bookseries/{series.CollectionId:D}?context=read";
+        => $"/details/collection/{series.CollectionId:D}?context=listen";
 
     private static string AudiobookTabClass(string view, string activeView)
         => string.Equals(view, activeView, StringComparison.OrdinalIgnoreCase)

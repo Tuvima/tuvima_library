@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using MediaEngine.Api.Models;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain;
@@ -13,8 +12,8 @@ using static MediaEngine.Api.Services.Collections.CollectionResponseFormatting;
 namespace MediaEngine.Api.Services.Collections;
 
 /// <summary>
-/// Merges Wikidata-discovered album/episode/issue manifests (<c>child_entities_json</c>)
-/// with owned local tracks/episodes, and gap-fills missing album track manifests from the
+/// Merges provider album manifests (<c>child_entities_json</c>) with owned local tracks,
+/// and repairs missing or legacy Apple manifests as one provider-scoped track list from the
 /// Apple Music retail catalogue. Extracted from <c>CollectionEndpoints</c> — this is the
 /// only cluster of former endpoint helpers that performs provider/database I/O, so its
 /// dependencies (<see cref="ICanonicalValueRepository"/>, <see cref="AppleRetailClient"/>)
@@ -381,11 +380,9 @@ public sealed class AlbumTrackManifestService(
             return existingChildEntitiesJson;
         }
 
-        var collectionId = FirstCanonicalValue(rootCanonicalValues, BridgeIdKeys.AppleMusicCollectionId);
-        if (string.IsNullOrWhiteSpace(collectionId))
-        {
-            collectionId = await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct);
-        }
+        // Re-resolve the album by name instead of trusting an older collection ID.
+        // This repairs manifests that were previously anchored to a box set.
+        var collectionId = await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct);
 
         if (string.IsNullOrWhiteSpace(collectionId))
         {
@@ -398,9 +395,8 @@ public sealed class AlbumTrackManifestService(
             return existingChildEntitiesJson;
         }
 
-        var appleManifest = BuildAppleAlbumTrackManifest(appleTracks);
-        var mergedManifest = MergeTrackManifests(existingChildEntitiesJson, appleManifest);
-        if (rootWorkId.HasValue && !string.IsNullOrWhiteSpace(mergedManifest) && !string.Equals(mergedManifest, existingChildEntitiesJson, StringComparison.Ordinal))
+        var appleManifest = AppleAlbumManifestJson.Build(appleTracks, collectionId, album, artist);
+        if (rootWorkId.HasValue && !string.Equals(appleManifest, existingChildEntitiesJson, StringComparison.Ordinal))
         {
             await canonicalRepo.UpsertBatchAsync(
                 [
@@ -408,7 +404,7 @@ public sealed class AlbumTrackManifestService(
                     {
                         EntityId = rootWorkId.Value,
                         Key = MetadataFieldConstants.ChildEntitiesJson,
-                        Value = mergedManifest,
+                        Value = appleManifest,
                         LastScoredAt = DateTimeOffset.UtcNow,
                         WinningProviderId = WellKnownProviders.AppleApi,
                     },
@@ -416,7 +412,15 @@ public sealed class AlbumTrackManifestService(
                     {
                         EntityId = rootWorkId.Value,
                         Key = MetadataFieldConstants.TrackCount,
-                        Value = CountManifestTracks(mergedManifest).ToString(CultureInfo.InvariantCulture),
+                        Value = CountManifestTracks(appleManifest).ToString(CultureInfo.InvariantCulture),
+                        LastScoredAt = DateTimeOffset.UtcNow,
+                        WinningProviderId = WellKnownProviders.AppleApi,
+                    },
+                    new CanonicalValue
+                    {
+                        EntityId = rootWorkId.Value,
+                        Key = BridgeIdKeys.AppleMusicCollectionId,
+                        Value = collectionId,
                         LastScoredAt = DateTimeOffset.UtcNow,
                         WinningProviderId = WellKnownProviders.AppleApi,
                     },
@@ -424,15 +428,21 @@ public sealed class AlbumTrackManifestService(
                 ct);
         }
 
-        return mergedManifest;
+        return appleManifest;
     }
 
     private static bool NeedsAppleAlbumTrackGapFill(string? childEntitiesJson)
     {
+        if (AppleAlbumManifestJson.IsCompleteForCollection(childEntitiesJson))
+            return false;
+
         if (string.IsNullOrWhiteSpace(childEntitiesJson))
-        {
             return true;
-        }
+
+        // Older Apple manifests had no top-level collection identity, so even
+        // internally complete rows could belong to a compilation or box set.
+        if (AppleAlbumManifestJson.ContainsAppleTrackRows(childEntitiesJson))
+            return true;
 
         try
         {
@@ -454,198 +464,6 @@ public sealed class AlbumTrackManifestService(
         }
     }
 
-    private static string BuildAppleAlbumTrackManifest(IReadOnlyList<JsonNode> tracks)
-    {
-        var array = new JsonArray();
-        var ordinal = 0;
-        foreach (var track in tracks)
-        {
-            ordinal++;
-            var title = track["trackName"]?.GetValue<string>();
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                continue;
-            }
-
-            var trackNumber = track["trackNumber"]?.GetValue<int?>() ?? ordinal;
-            var durationMillis = track["trackTimeMillis"]?.GetValue<long?>();
-            var item = new JsonObject
-            {
-                ["title"] = title,
-                ["ordinal"] = trackNumber,
-                ["track_number"] = trackNumber,
-                ["source"] = "apple_itunes",
-            };
-
-            if (track["discNumber"]?.GetValue<int?>() is { } discNumber)
-            {
-                item["disc_number"] = discNumber;
-            }
-
-            if (durationMillis is > 0)
-            {
-                item["duration_seconds"] = Math.Round(durationMillis.Value / 1000d, 3);
-            }
-
-            if (track["trackId"]?.GetValue<long?>() is { } trackId)
-            {
-                item["apple_music_id"] = trackId.ToString(CultureInfo.InvariantCulture);
-            }
-
-            array.Add(item);
-        }
-
-        return new JsonObject { ["tracks"] = array }.ToJsonString();
-    }
-
-    private static string MergeTrackManifests(string? existingJson, string appleJson)
-    {
-        var items = ReadTrackManifest(existingJson, defaultSource: "wikidata");
-        var appleItems = ReadTrackManifest(appleJson, defaultSource: "apple_itunes");
-        if (items.Count == 0)
-        {
-            items = appleItems;
-        }
-        else
-        {
-            foreach (var appleItem in appleItems)
-            {
-                var existing = !string.IsNullOrWhiteSpace(appleItem.AppleMusicId)
-                    ? items.FirstOrDefault(item => string.Equals(item.AppleMusicId, appleItem.AppleMusicId, StringComparison.OrdinalIgnoreCase))
-                    : null;
-                existing ??= items.FirstOrDefault(item =>
-                    string.Equals(
-                        BuildTrackMatchKey(item.Title, item.DiscNumber, item.TrackNumber),
-                        BuildTrackMatchKey(appleItem.Title, appleItem.DiscNumber, appleItem.TrackNumber),
-                        StringComparison.OrdinalIgnoreCase))
-                    ?? items.FirstOrDefault(item =>
-                        string.Equals(NormalizeTrackTitle(item.Title), NormalizeTrackTitle(appleItem.Title), StringComparison.OrdinalIgnoreCase)
-                        && !HasTrackManifestIdentityConflict(item, appleItem));
-
-                if (existing is null)
-                {
-                    items.Add(appleItem);
-                    continue;
-                }
-
-                existing.TrackNumber ??= appleItem.TrackNumber;
-                existing.Ordinal = existing.Ordinal <= 0 ? appleItem.Ordinal : existing.Ordinal;
-                existing.DiscNumber ??= appleItem.DiscNumber;
-                existing.DurationSeconds ??= appleItem.DurationSeconds;
-                existing.AppleMusicId ??= appleItem.AppleMusicId;
-            }
-        }
-
-        var array = new JsonArray();
-        foreach (var item in items
-                     .OrderBy(item => item.DiscNumber ?? 1)
-                     .ThenBy(item => item.TrackNumber ?? item.Ordinal)
-                     .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase))
-        {
-            var obj = new JsonObject
-            {
-                ["title"] = item.Title,
-                ["ordinal"] = item.Ordinal,
-                ["source"] = item.Source,
-            };
-            if (item.TrackNumber is { } trackNumber)
-            {
-                obj["track_number"] = trackNumber;
-            }
-            if (item.DiscNumber is { } discNumber)
-            {
-                obj["disc_number"] = discNumber;
-            }
-            if (item.DurationSeconds is { } duration)
-            {
-                obj["duration_seconds"] = Math.Round(duration, 3);
-            }
-            if (!string.IsNullOrWhiteSpace(item.AppleMusicId))
-            {
-                obj["apple_music_id"] = item.AppleMusicId;
-            }
-
-            array.Add(obj);
-        }
-
-        return new JsonObject { ["tracks"] = array }.ToJsonString();
-    }
-
-    private static bool HasTrackManifestIdentityConflict(
-        AlbumTrackManifestItem existing,
-        AlbumTrackManifestItem incoming)
-    {
-        if (existing.DiscNumber is { } existingDisc
-            && incoming.DiscNumber is { } incomingDisc
-            && existingDisc != incomingDisc)
-        {
-            return true;
-        }
-
-        if (existing.TrackNumber is { } existingTrack
-            && incoming.TrackNumber is { } incomingTrack
-            && existingTrack != incomingTrack)
-        {
-            return true;
-        }
-
-        if (existing.DurationSeconds is { } existingDuration
-            && incoming.DurationSeconds is { } incomingDuration
-            && Math.Abs(existingDuration - incomingDuration) > 3)
-        {
-            return true;
-        }
-
-        return false;
-    }
-
-    private static List<AlbumTrackManifestItem> ReadTrackManifest(string? json, string defaultSource)
-    {
-        if (string.IsNullOrWhiteSpace(json))
-        {
-            return [];
-        }
-
-        try
-        {
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("tracks", out var tracks) || tracks.ValueKind != JsonValueKind.Array)
-            {
-                return [];
-            }
-
-            var ordinal = 0;
-            var result = new List<AlbumTrackManifestItem>();
-            foreach (var track in tracks.EnumerateArray())
-            {
-                ordinal++;
-                var title = ReadJsonString(track, "title", "trackName", "name");
-                if (string.IsNullOrWhiteSpace(title))
-                {
-                    continue;
-                }
-
-                var trackNumber = ReadJsonInt(track, "track_number", "trackNumber", "number");
-                result.Add(new AlbumTrackManifestItem
-                {
-                    Title = title,
-                    Ordinal = ReadJsonInt(track, "ordinal", "position") ?? trackNumber ?? ordinal,
-                    TrackNumber = trackNumber,
-                    DiscNumber = ReadJsonInt(track, "disc_number", "discNumber"),
-                    DurationSeconds = ReadChildDurationSeconds(track),
-                    AppleMusicId = ReadJsonString(track, "apple_music_id", "appleMusicId", "trackId"),
-                    Source = ReadJsonString(track, "source", "provider") ?? defaultSource,
-                });
-            }
-
-            return result;
-        }
-        catch (JsonException)
-        {
-            return [];
-        }
-    }
-
     private static int CountManifestTracks(string manifestJson)
     {
         try
@@ -659,16 +477,5 @@ public sealed class AlbumTrackManifestService(
         {
             return 0;
         }
-    }
-
-    private sealed class AlbumTrackManifestItem
-    {
-        public string Title { get; init; } = string.Empty;
-        public int Ordinal { get; set; }
-        public int? TrackNumber { get; set; }
-        public int? DiscNumber { get; set; }
-        public double? DurationSeconds { get; set; }
-        public string? AppleMusicId { get; set; }
-        public string Source { get; init; } = "provider";
     }
 }

@@ -71,9 +71,27 @@ else
                 RelatedEntityType.Person => $"/details/person/{id:D}",
                 RelatedEntityType.Character => $"/details/character/{id:D}?context=universe",
                 RelatedEntityType.Universe => $"/details/universe/{id:D}?context=universe",
-                RelatedEntityType.Series => $"/details/bookseries/{id:D}?context=read",
+                RelatedEntityType.Series => RelatedWorkRoute(id),
                 _ => null,
             };
         }
+    }
+
+    private string RelatedWorkRoute(Guid id)
+    {
+        var mediaType = Credit.SecondaryRole ?? string.Empty;
+        if (mediaType.Contains("music", StringComparison.OrdinalIgnoreCase))
+            return $"/details/musicalbum/{id:D}?context=listen";
+        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+            return $"/details/work/{id:D}?context=listen";
+        if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("tv", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("video", StringComparison.OrdinalIgnoreCase))
+            return $"/details/work/{id:D}?context=watch";
+        if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
+            return $"/details/work/{id:D}?context=read";
+
+        return $"/details/bookseries/{id:D}?context=read";
     }
 }

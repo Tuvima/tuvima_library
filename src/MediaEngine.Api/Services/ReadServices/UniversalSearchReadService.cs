@@ -130,7 +130,7 @@ public sealed class UniversalSearchReadService(
             var isPlaylist = entityType == "playlist";
             var route = isPlaylist
                 ? $"/listen/music/playlists/{row.Id:D}"
-                : $"/collection/{row.Id:D}";
+                : $"/details/collection/{row.Id:D}?context=default";
             var typeLabel = isPlaylist ? "Playlist" : CollectionTypeLabel(row.CollectionType);
             return new UniversalSearchResultDto(
                 row.Id,
@@ -229,13 +229,10 @@ public sealed class UniversalSearchReadService(
 
     private static string WorkRoute(SearchResultDto result, string mediaType) => mediaType switch
     {
-        "Movie" => result.CollectionId.HasValue
-            ? $"/watch/movie/{result.WorkId:D}?collectionId={result.CollectionId.Value:D}"
-            : $"/watch/movie/{result.WorkId:D}",
-        "TV" => result.CollectionId.HasValue ? $"/watch/tv/show/{result.CollectionId.Value:D}" : "/watch/tv",
+        "Movie" or "TV" => $"/details/work/{result.WorkId:D}?context=watch",
         "Music" => $"/listen/music?browse=songs&track={result.WorkId:D}",
-        "Audiobook" => $"/details/audiobook/{result.WorkId:D}?context=listen",
-        _ => $"/book/{result.WorkId:D}?mode=read",
+        "Audiobook" => $"/details/work/{result.WorkId:D}?context=listen",
+        _ => $"/details/work/{result.WorkId:D}?context=read",
     };
 
     private static string NormalizeMediaType(string? value)
