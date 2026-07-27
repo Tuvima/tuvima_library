@@ -222,13 +222,12 @@ public sealed class TestHarnessGuardrailTests
     }
 
     [Fact]
-    public void PersonEnrichment_LinksActorCharactersFromCanonicalArrays()
+    public void PersonEnrichment_DoesNotPairIndependentActorAndCharacterArrays()
     {
         var source = File.ReadAllText(Path.Combine(FindRepoRoot(), "src", "MediaEngine.Providers", "Workers", "PersonEnrichmentWorker.cs"));
 
-        Assert.Contains("LinkActorCharacterMappingsFromCanonicalArraysAsync", source);
-        Assert.Contains("MetadataFieldConstants.CastMember", source);
-        Assert.Contains("MetadataFieldConstants.Characters", source);
+        Assert.DoesNotContain("LinkActorCharacterMappingsFromCanonicalArraysAsync", source);
+        Assert.Contains("independent cast and character arrays are not pairing evidence", source);
         Assert.Contains("LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid", source);
         Assert.Contains("ResolveActorCharacterArrayEntityIdsAsync", source);
     }

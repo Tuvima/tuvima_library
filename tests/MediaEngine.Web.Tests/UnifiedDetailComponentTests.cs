@@ -394,7 +394,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-overview-credit-groups", source);
         Assert.Contains("View full @CreditPanelTitle.ToLowerInvariant()", source);
         Assert.Contains("OverviewCreditRows", source);
-        Assert.Contains("ShowOverviewCredits => Model.EntityType != DetailEntityType.Collection", source);
+        Assert.Contains("ShowOverviewCredits => Model.EntityType is not (", source);
+        Assert.Contains("or DetailEntityType.ComicSeries", source);
         Assert.Contains("tl-overview-surface--collection", source);
         Assert.Contains(".tl-overview-surface--collection", styles);
         Assert.Contains("CreditGroupType.Authors", source);
@@ -579,7 +580,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("item.EntityType == DetailEntityType.TvEpisode", source);
         Assert.Contains("tl-series-placement--long", source);
         Assert.Contains("LongSequenceThreshold = 6", source);
-        Assert.Contains("WindowSize = 12", source);
+        Assert.Contains("PortraitWindowSize = 6", source);
+        Assert.Contains("LandscapeWindowSize = 4", source);
+        Assert.Contains("nextStart + (VisibleCount / 2)", source);
         Assert.Contains("SequenceItemTitleClass", source);
         Assert.Contains("is-very-long", source);
         Assert.Contains("SeriesDateRange", source);
@@ -827,7 +830,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("HeroGenreChips", hero);
         Assert.Contains("BuildSeriesContextLabel", hero);
         Assert.Contains("{containerTitle} · {positionedItem}", hero);
-        Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode", hero);
+        Assert.Contains("if (entityType is DetailEntityType.Collection", hero);
+        Assert.Contains("or DetailEntityType.BookSeries", hero);
+        Assert.Contains("or DetailEntityType.ComicSeries", hero);
+        Assert.Contains("or DetailEntityType.MovieSeries", hero);
+        Assert.Contains("or DetailEntityType.TvShow", hero);
         Assert.DoesNotContain("{positionedItem} of {total}", hero);
         Assert.DoesNotContain("MembershipScope", hero);
         Assert.DoesNotContain("placement.TotalKnownItems", hero);

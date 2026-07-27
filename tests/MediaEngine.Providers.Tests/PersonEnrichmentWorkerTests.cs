@@ -28,7 +28,7 @@ public sealed class PersonEnrichmentWorkerTests : IDisposable
     }
 
     [Fact]
-    public async Task EnrichActorCharacterMappingsAsync_LinksAlignedCastAndCharacterCanonicalArrays()
+    public async Task EnrichActorCharacterMappingsAsync_DoesNotPairIndependentCanonicalArraysByPosition()
     {
         var workId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
@@ -81,13 +81,9 @@ public sealed class PersonEnrichmentWorkerTests : IDisposable
         await worker.EnrichActorCharacterMappingsAsync(assetId, workQid, CancellationToken.None);
 
         var character = await fictionalRepo.FindByQidAsync("Q56240620");
-        Assert.NotNull(character);
-        Assert.Equal("Andy Dufresne", character!.Label);
-
+        Assert.Null(character);
         var links = await personRepo.GetCharacterLinksAsync(person.Id);
-        var link = Assert.Single(links);
-        Assert.Equal(character.Id, link.FictionalEntityId);
-        Assert.Equal(workQid, link.WorkQid);
+        Assert.Empty(links);
     }
 
     private void InsertOwnedMovie(Guid workId, Guid editionId, Guid assetId)

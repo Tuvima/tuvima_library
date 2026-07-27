@@ -975,6 +975,7 @@ public sealed class CollectionCatalogReadService(
                 GROUP BY work_tree.RootWorkId
             )
             SELECT w.id AS WorkId,
+                   w.work_kind AS WorkKind,
                    COALESCE(
                        NULLIF(title_work.value, ''),
                        NULLIF(episode_title.value, ''),
@@ -1000,6 +1001,19 @@ public sealed class CollectionCatalogReadService(
                        NULLIF(cover_work.value, ''),
                        CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
                    ) AS CoverUrl,
+                   (SELECT c.id
+                    FROM work_tree member_tree
+                    INNER JOIN collection_items member_item
+                        ON member_item.work_id = member_tree.WorkId
+                    INNER JOIN collections c
+                        ON c.id = member_item.collection_id
+                    WHERE member_tree.RootWorkId = w.id
+                      AND c.id <> @CollectionId
+                      AND LOWER(COALESCE(c.group_by_field, '')) IN ('series', 'show_name')
+                    ORDER BY CASE WHEN c.parent_collection_id = @CollectionId THEN 0 ELSE 1 END,
+                             c.created_at,
+                             c.id
+                    LIMIT 1) AS StructuralCollectionId,
                    CAST(COALESCE(w.ordinal, series_item.sort_order, 999999) AS INTEGER) AS SortOrder
             FROM works w
             LEFT JOIN representative_assets ra ON ra.WorkId = w.id
@@ -1032,7 +1046,53 @@ public sealed class CollectionCatalogReadService(
                 MediaType = row.MediaType,
                 CoverUrl = row.CoverUrl,
                 SortOrder = row.SortOrder,
+                DetailRoute = BuildCollectionItemDetailRoute(row),
             }).ToList();
+    }
+
+    private static string BuildCollectionItemDetailRoute(GeneratedCollectionItemRow row)
+    {
+        var mediaType = row.MediaType.Trim();
+        var isParent = string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase);
+        if (mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"/details/tvshow/{row.WorkId:D}?context=watch";
+        }
+
+        if (isParent
+            && row.StructuralCollectionId.HasValue
+            && mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"/details/comicseries/{row.StructuralCollectionId.Value:D}?context=comics";
+        }
+
+        if (isParent
+            && row.StructuralCollectionId.HasValue
+            && mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"/details/movieseries/{row.StructuralCollectionId.Value:D}?context=watch";
+        }
+
+        if (isParent
+            && row.StructuralCollectionId.HasValue
+            && mediaType.Contains("book", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"/details/bookseries/{row.StructuralCollectionId.Value:D}?context=read";
+        }
+
+        if (isParent
+            && row.StructuralCollectionId.HasValue
+            && mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"/details/collection/{row.StructuralCollectionId.Value:D}?context=listen";
+        }
+
+        var context = IsWatchMediaType(mediaType)
+            ? "watch"
+            : IsListenMediaType(mediaType)
+                ? "listen"
+                : "read";
+        return $"/details/work/{row.WorkId:D}?context={context}";
     }
 
     /// <summary>
@@ -1308,7 +1368,9 @@ public sealed class CollectionCatalogReadService(
         public string Title { get; init; } = string.Empty;
         public object? Creator { get; init; }
         public string MediaType { get; init; } = string.Empty;
+        public string WorkKind { get; init; } = string.Empty;
         public string? CoverUrl { get; init; }
+        public Guid? StructuralCollectionId { get; init; }
         public int SortOrder { get; init; }
     }
 

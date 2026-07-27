@@ -96,7 +96,7 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
         Assert.Equal(routeId.ToString("D"), detail.Id);
         Assert.Equal(DetailEntityType.Collection, detail.EntityType);
         Assert.Equal("The Expanse", detail.Title);
-        Assert.Equal("James S. A. Corey", detail.Facts?.Authors.Single());
+        Assert.Empty(detail.Facts?.Authors ?? []);
         Assert.Empty(detail.ContributorGroups);
         Assert.Equal(rootWorkId.ToString("D"), detail.EditorTarget?.EntityId);
         Assert.Equal("Work", detail.EditorTarget?.EntityKind);

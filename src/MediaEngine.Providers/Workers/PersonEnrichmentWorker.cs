@@ -516,13 +516,10 @@ public sealed class PersonEnrichmentWorker
 
         if (_reconciliationAdapter is null)
         {
-            var fallbackOnlyCount = await LinkActorCharacterMappingsFromCanonicalArraysAsync(candidateEntityIds, workQid, canonicals, ct)
-                .ConfigureAwait(false);
             _logger.LogDebug(
-                "Actor-character mapping skipped live Wikidata for entity {EntityId} ({Qid}) because ReconciliationAdapter is unavailable; canonical fallback created {Count} link(s)",
+                "Actor-character mapping skipped for entity {EntityId} ({Qid}) because ReconciliationAdapter is unavailable; independent cast and character arrays are not pairing evidence",
                 entityId,
-                workQid,
-                fallbackOnlyCount);
+                workQid);
             return;
         }
 
@@ -531,13 +528,10 @@ public sealed class PersonEnrichmentWorker
             || !properties.TryGetValue("P161", out var castClaims)
             || castClaims.Count == 0)
         {
-            var fallbackOnlyCount = await LinkActorCharacterMappingsFromCanonicalArraysAsync(candidateEntityIds, workQid, canonicals, ct)
-                .ConfigureAwait(false);
             _logger.LogDebug(
-                "Actor-character mapping found no live cast-member claims for entity {EntityId} ({Qid}); canonical fallback created {Count} link(s)",
+                "Actor-character mapping found no qualified live cast-member claims for entity {EntityId} ({Qid}); independent cast and character arrays are not pairing evidence",
                 entityId,
-                workQid,
-                fallbackOnlyCount);
+                workQid);
             return;
         }
 
@@ -591,109 +585,11 @@ public sealed class PersonEnrichmentWorker
             }
         }
 
-        linkCount += await LinkActorCharacterMappingsFromCanonicalArraysAsync(candidateEntityIds, workQid, canonicals, ct)
-            .ConfigureAwait(false);
-
         _logger.LogInformation(
             "Actor-character mapping created {Count} link(s) for entity {EntityId} ({Qid})",
             linkCount,
             entityId,
             workQid);
-    }
-
-    private async Task<int> LinkActorCharacterMappingsFromCanonicalArraysAsync(
-        IReadOnlyList<Guid> entityIds,
-        string workQid,
-        IReadOnlyList<CanonicalValue> canonicals,
-        CancellationToken ct)
-    {
-        if (_canonicalArrayRepo is null)
-            return 0;
-
-        var linkCount = 0;
-
-        foreach (var candidateEntityId in entityIds)
-        {
-            var arrays = await _canonicalArrayRepo.GetAllByEntityAsync(candidateEntityId, ct).ConfigureAwait(false);
-            if (!arrays.TryGetValue(MetadataFieldConstants.CastMember, out var castMembers)
-                || !arrays.TryGetValue(MetadataFieldConstants.Characters, out var characters)
-                || castMembers.Count == 0
-                || characters.Count == 0)
-            {
-                continue;
-            }
-
-            var charactersByOrdinal = characters
-                .Where(entry => RetailHints.NormalizeQid(entry.ValueQid) is not null)
-                .GroupBy(entry => entry.Ordinal)
-                .ToDictionary(group => group.Key, group => group.First());
-
-            var singleCharacter = characters.Count == 1
-                ? characters.FirstOrDefault(entry => RetailHints.NormalizeQid(entry.ValueQid) is not null)
-                : null;
-
-            foreach (var castMember in castMembers)
-            {
-                var personQid = RetailHints.NormalizeQid(castMember.ValueQid);
-                if (personQid is null)
-                    continue;
-
-                var character = charactersByOrdinal.GetValueOrDefault(castMember.Ordinal) ?? singleCharacter;
-                var characterQid = RetailHints.NormalizeQid(character?.ValueQid);
-                if (character is null || characterQid is null)
-                    continue;
-
-                var person = await _personRepo.FindByQidAsync(personQid, ct).ConfigureAwait(false)
-                    ?? await _personRepo.FindByNameAsync(castMember.Value, ct).ConfigureAwait(false)
-                    ?? await _personRepo.CreateAsync(new Person
-                    {
-                        Name = castMember.Value,
-                        Roles = ["Actor"],
-                        WikidataQid = personQid,
-                    }, ct).ConfigureAwait(false);
-
-                await _personRepo.AddRoleAsync(person.Id, "Actor", ct).ConfigureAwait(false);
-
-                var fictionalEntity = await _fictionalEntityRepo.FindByQidAsync(characterQid, ct).ConfigureAwait(false);
-                if (fictionalEntity is null)
-                {
-                    fictionalEntity = new FictionalEntity
-                    {
-                        Id = Guid.NewGuid(),
-                        WikidataQid = characterQid,
-                        Label = character.Value,
-                        EntitySubType = FictionalEntityType.Character,
-                        FictionalUniverseQid = ResolveCanonicalQid(canonicals, "fictional_universe_qid")
-                            ?? ResolveCanonicalQid(canonicals, "franchise_qid")
-                            ?? ResolveCanonicalQid(canonicals, "series_qid")
-                            ?? workQid,
-                        FictionalUniverseLabel = ResolveCanonicalLabel(canonicals, "fictional_universe")
-                            ?? ResolveCanonicalLabel(canonicals, "franchise")
-                            ?? ResolveCanonicalLabel(canonicals, "series"),
-                        CreatedAt = DateTimeOffset.UtcNow,
-                    };
-
-                    await _fictionalEntityRepo.CreateAsync(fictionalEntity, ct).ConfigureAwait(false);
-                }
-
-                var existingLinks = await _personRepo.GetCharacterLinksAsync(person.Id, ct).ConfigureAwait(false);
-                if (existingLinks.Any(link =>
-                    link.FictionalEntityId == fictionalEntity.Id
-                    && string.Equals(link.WorkQid, workQid, StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                await _fictionalEntityRepo.LinkToWorkAsync(fictionalEntity.Id, workQid, null, "portrayed_in", ct)
-                    .ConfigureAwait(false);
-
-                await _personRepo.LinkToCharacterAsync(person.Id, fictionalEntity.Id, workQid, ct).ConfigureAwait(false);
-                await EnqueueCharacterHarvestIfNeededAsync(fictionalEntity, ct).ConfigureAwait(false);
-                linkCount++;
-            }
-        }
-
-        return linkCount;
     }
 
     private async Task<IReadOnlyList<CanonicalValue>> LoadActorCharacterCanonicalsAsync(

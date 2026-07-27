@@ -884,6 +884,31 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private static DetailEntityType InferMediaItemEntityType(CollectionWorkSummary work)
     {
+        if (work.DetailRoute?.StartsWith("/details/tvshow/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.TvShow;
+        }
+
+        if (work.DetailRoute?.StartsWith("/details/comicseries/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.ComicSeries;
+        }
+
+        if (work.DetailRoute?.StartsWith("/details/bookseries/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.BookSeries;
+        }
+
+        if (work.DetailRoute?.StartsWith("/details/movieseries/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.MovieSeries;
+        }
+
+        if (work.DetailRoute?.StartsWith("/details/collection/", StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return DetailEntityType.Collection;
+        }
+
         return InferMediaItemEntityType(work.MediaType, work.Episode);
     }
 
@@ -917,15 +942,23 @@ internal sealed partial class DetailCompositionOrchestrator
         return DetailEntityType.Book;
     }
 
-    private static string BuildWorkRoute(CollectionWorkSummary work) => InferMediaItemEntityType(work) switch
+    private static string BuildWorkRoute(CollectionWorkSummary work)
     {
-        DetailEntityType.Movie or DetailEntityType.TvEpisode => $"/details/work/{work.Id}?context=watch",
-        DetailEntityType.Audiobook => $"/details/work/{work.Id}?context=listen",
-        DetailEntityType.Work when work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
-            => $"/listen/music?browse=songs&track={work.Id:D}",
-        DetailEntityType.ComicIssue => $"/details/work/{work.Id}?context=comics",
-        _ => $"/details/work/{work.Id}?context=read",
-    };
+        if (!string.IsNullOrWhiteSpace(work.DetailRoute))
+        {
+            return work.DetailRoute;
+        }
+
+        return InferMediaItemEntityType(work) switch
+        {
+            DetailEntityType.Movie or DetailEntityType.TvEpisode => $"/details/work/{work.Id}?context=watch",
+            DetailEntityType.Audiobook => $"/details/work/{work.Id}?context=listen",
+            DetailEntityType.Work when work.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
+                => $"/listen/music?browse=songs&track={work.Id:D}",
+            DetailEntityType.ComicIssue => $"/details/work/{work.Id}?context=comics",
+            _ => $"/details/work/{work.Id}?context=read",
+        };
+    }
 
     private static IReadOnlyList<MetadataPill> BuildCollectionMetadata(
         DetailEntityType entityType,
@@ -1023,6 +1056,11 @@ internal sealed partial class DetailCompositionOrchestrator
         if (entityType == DetailEntityType.Collection)
         {
             return BuildStandardCollectionMetadata(works);
+        }
+
+        if (entityType == DetailEntityType.ComicSeries)
+        {
+            return [new MetadataPill { Label = OwnedCollectionCountLabel(entityType, works), Kind = "count" }];
         }
 
         return [new MetadataPill { Label = FormatEntityType(entityType), Kind = "type" }, new MetadataPill { Label = OwnedCollectionCountLabel(entityType, works), Kind = "count" }];

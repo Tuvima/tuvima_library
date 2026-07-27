@@ -555,8 +555,9 @@ public sealed class DetailComposerServiceTests
         var creditSource = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Api/Services/ReadServices/PersonCreditReadService.cs"));
 
         Assert.Contains("BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct)", source);
-        Assert.Contains("IReadOnlyList<CreditGroupViewModel> contributorGroups = entityType == DetailEntityType.Collection", source);
-        Assert.Contains("BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
+        Assert.Contains("IReadOnlyList<CreditGroupViewModel> contributorGroups = IsStructuralContainer(entityType)", source);
+        Assert.Contains("var characterGroups = IsStructuralContainer(entityType)", source);
+        Assert.Contains(": await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseCastGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("BuildUniverseRelationshipGroupsAsync(row.WikidataQid, ct)", source);
         Assert.Contains("ApiImageUrls.BuildCharacterPortraitUrl(row.PortraitId", source);
@@ -566,7 +567,9 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => cast.Take(5).ToList()", source);
         Assert.Contains("Title = \"Actors\"", source);
         Assert.Contains(") AS RootWorkQid", creditSource);
-        Assert.Contains("await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, _db, ct)", creditSource);
+        Assert.Contains("await BuildExplicitCastAsync(effectiveRootWorkQid, rootRankMap, _db, ct)", creditSource);
+        Assert.Contains("workClaimCredits.Count == 0", creditSource);
+        Assert.Contains("rootClaimCredits.Count > 0", creditSource);
         Assert.Contains("BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, _canonicalArrayRepo, _personRepo, ct)", creditSource);
         Assert.Contains("CastRankMap.BuildAsync", creditSource);
         Assert.Contains("ORDER BY cpl.rowid", creditSource);

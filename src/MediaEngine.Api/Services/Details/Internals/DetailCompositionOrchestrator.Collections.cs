@@ -127,7 +127,7 @@ internal sealed partial class DetailCompositionOrchestrator
             : entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum
                 ? collectionId
                 : audiobookSeriesGroup?.RootWorkId;
-        IReadOnlyList<Guid> resolvedCollectionWorkIds = [];
+        IReadOnlyList<CollectionItemDto> resolvedCollectionItems = [];
         if (hasCollectionRow
             && entityType == DetailEntityType.Collection
             && _collectionCatalog is not null)
@@ -140,8 +140,8 @@ internal sealed partial class DetailCompositionOrchestrator
                 activeProfile,
                 int.MaxValue,
                 ct);
-            resolvedCollectionWorkIds = resolvedItems.Found && !resolvedItems.Forbidden
-                ? resolvedItems.Items.Select(item => item.WorkId).Distinct().ToList()
+            resolvedCollectionItems = resolvedItems.Found && !resolvedItems.Forbidden
+                ? resolvedItems.Items
                 : [];
         }
 
@@ -149,7 +149,15 @@ internal sealed partial class DetailCompositionOrchestrator
             ? await LoadMusicAlbumSystemViewWorksAsync(musicAlbumGroup, ct)
             : audiobookSeriesGroup is not null
                 ? await LoadAudiobookSeriesSystemViewWorksAsync(audiobookSeriesGroup, ct)
-                : await LoadCollectionWorksAsync(collectionId, rootWorkId, ct, resolvedCollectionWorkIds);
+                : await LoadCollectionWorksAsync(
+                    collectionId,
+                    rootWorkId,
+                    ct,
+                    resolvedCollectionItems.Select(item => item.WorkId).Distinct().ToList());
+        if (entityType == DetailEntityType.Collection && resolvedCollectionItems.Count > 0)
+        {
+            ownedWorks = NormalizeStandardCollectionWorks(ownedWorks, resolvedCollectionItems);
+        }
         if (!hasCollectionRow
             && (entityType is DetailEntityType.TvShow or DetailEntityType.MusicAlbum
                 || audiobookSeriesGroup is not null)
@@ -231,7 +239,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 GetValue(values, "poster"),
                 fallbackCover);
         var collectionLogo = StringHelpers.FirstNonBlankOr(string.Empty, row.LogoUrl, GetValue(values, "logo_url"), GetValue(values, "logo"));
-        IReadOnlyList<CreditGroupViewModel> contributorGroups = entityType == DetailEntityType.Collection
+        IReadOnlyList<CreditGroupViewModel> contributorGroups = IsStructuralContainer(entityType)
             ? []
             : await BuildCollectionCreditsAsync(collectionId, rootWorkId, works, entityType, values, ct);
         var musicAlbumCompanion = entityType == DetailEntityType.MusicAlbum
@@ -240,7 +248,9 @@ internal sealed partial class DetailCompositionOrchestrator
                 contributorGroups,
                 ct)
             : null;
-        var characterGroups = await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
+        var characterGroups = IsStructuralContainer(entityType)
+            ? []
+            : await BuildCollectionCharactersAsync(collectionId, row.WikidataQid, ct);
         var heroProgress = BuildCollectionHeroProgress(entityType, works);
         var manifest = await _seriesManifests.GetViewByCollectionIdAsync(collectionId, ct);
         var displayWorks = MergeCollectionManifestPlaceholders(entityType, works, manifest);
@@ -314,6 +324,65 @@ internal sealed partial class DetailCompositionOrchestrator
             LibraryStatus = LibraryStatus.Owned,
             IsAdminView = isAdminView,
         };
+    }
+
+    private static IReadOnlyList<CollectionWorkSummary> NormalizeStandardCollectionWorks(
+        IReadOnlyList<CollectionWorkSummary> loadedWorks,
+        IReadOnlyList<CollectionItemDto> resolvedItems)
+    {
+        var loadedById = loadedWorks
+            .Where(work => Guid.TryParse(work.Id, out _))
+            .GroupBy(work => Guid.Parse(work.Id))
+            .ToDictionary(group => group.Key, group => group.First());
+
+        return resolvedItems
+            .DistinctBy(item => item.WorkId)
+            .OrderBy(item => item.SortOrder)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .Select(item =>
+            {
+                if (loadedById.TryGetValue(item.WorkId, out var loaded))
+                {
+                    return loaded with
+                    {
+                        MediaType = item.MediaType,
+                        Title = StringHelpers.FirstNonBlankOr("Untitled", item.Title, loaded.Title),
+                        HasAsset = true,
+                        Ownership = "Owned",
+                        IsCatalogOnly = false,
+                        ArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty, item.CoverUrl, loaded.ArtworkUrl),
+                        BackgroundUrl = null,
+                        DetailRoute = item.DetailRoute,
+                    };
+                }
+
+                return new CollectionWorkSummary(
+                    item.WorkId.ToString("D"),
+                    item.MediaType,
+                    item.SortOrder,
+                    StringHelpers.FirstNonBlankOr("Untitled", item.Title),
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    item.Creator,
+                    false,
+                    null,
+                    null,
+                    true,
+                    "Owned",
+                    false,
+                    item.CoverUrl,
+                    null,
+                    null)
+                {
+                    DetailRoute = item.DetailRoute,
+                };
+            })
+            .ToList();
     }
 
     private async Task<ContentGroupDto?> LoadAudiobookSeriesSystemViewGroupAsync(

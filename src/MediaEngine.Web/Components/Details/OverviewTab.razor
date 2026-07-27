@@ -124,7 +124,11 @@
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
 
     private bool _creditsExpanded;
-    private bool ShowOverviewCredits => Model.EntityType != DetailEntityType.Collection;
+    private bool ShowOverviewCredits => Model.EntityType is not (
+        DetailEntityType.Collection
+        or DetailEntityType.BookSeries
+        or DetailEntityType.ComicSeries
+        or DetailEntityType.MovieSeries);
     private string OverviewSurfaceModifier => Model.EntityType switch
     {
         DetailEntityType.Person => "tl-overview-surface--person",

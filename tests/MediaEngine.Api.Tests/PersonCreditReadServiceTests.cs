@@ -437,6 +437,202 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task BuildForWorkAsync_RejectsUncorroboratedPositionalCharacterLinksAndPrefersCanonicalIdentity()
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var katieId = Guid.NewGuid();
+        var liamId = Guid.NewGuid();
+        var rachelId = Guid.NewGuid();
+        var alfredId = Guid.NewGuid();
+        var henriId = Guid.NewGuid();
+        var rasId = Guid.NewGuid();
+        var scarecrowId = Guid.NewGuid();
+        var providerId = WellKnownProviders.Tmdb;
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
+                    VALUES ($providerId, 'tmdb', '1.0', 1);
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($workId, 'Movies', 'standalone');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'batman-role-regression', 'C:/library/Batman Begins.mkv');
+                INSERT INTO identity_jobs (
+                    id, entity_id, entity_type, media_type, state, pass, resolved_qid, created_at, updated_at)
+                    VALUES ($jobId, $assetId, 'MediaAsset', 'Movies', 'Ready', 'Quick', 'Q166262', $now, $now);
+
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                    VALUES ($katieId, 'Katie Holmes', 'Q174346', $now);
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                    VALUES ($liamId, 'Liam Neeson', 'Q58444', $now);
+
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($rachelId, 'Q2567497', 'Rachel Dawes', 'Character', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($alfredId, 'Q159051', 'Alfred Pennyworth', 'Character', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($henriId, 'Q3131007', 'Henri Ducard', 'Character', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($rasId, 'Q158931', 'Ra''s al Ghul', 'Character', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($scarecrowId, 'Q295375', 'Scarecrow', 'Character', $now);
+
+                -- The first links are qualified Wikidata actor/character pairs.
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($katieId, $rachelId, 'Q166262');
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($liamId, $henriId, 'Q166262');
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($liamId, $rasId, 'Q166262');
+
+                -- These later links reproduce the old incorrect ordinal zip.
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($katieId, $alfredId, 'Q166262');
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($liamId, $scarecrowId, 'Q166262');
+
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                    VALUES ($workId, 'cast_member', 0, 'Katie Holmes', 'Q174346');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                    VALUES ($workId, 'cast_member', 1, 'Liam Neeson', 'Q58444');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                    VALUES ($workId, 'characters', 0, 'Alfred Pennyworth', 'Q159051');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                    VALUES ($workId, 'characters', 1, 'Scarecrow', 'Q295375');
+
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim1, $workId, $providerId, 'cast_member', 'Katie Holmes', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim2, $workId, $providerId, 'cast_member_character', 'Rachel Dawes', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim3, $workId, $providerId, 'cast_member', 'Liam Neeson', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim4, $workId, $providerId, 'cast_member_character', 'Ducard', 0.90, $now);
+                """;
+            AddGuid(cmd, "$providerId", providerId);
+            AddGuid(cmd, "$workId", workId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            AddGuid(cmd, "$jobId", jobId);
+            AddGuid(cmd, "$katieId", katieId);
+            AddGuid(cmd, "$liamId", liamId);
+            AddGuid(cmd, "$rachelId", rachelId);
+            AddGuid(cmd, "$alfredId", alfredId);
+            AddGuid(cmd, "$henriId", henriId);
+            AddGuid(cmd, "$rasId", rasId);
+            AddGuid(cmd, "$scarecrowId", scarecrowId);
+            AddGuid(cmd, "$claim1", Guid.NewGuid());
+            AddGuid(cmd, "$claim2", Guid.NewGuid());
+            AddGuid(cmd, "$claim3", Guid.NewGuid());
+            AddGuid(cmd, "$claim4", Guid.NewGuid());
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var credits = await CreateService().BuildForWorkAsync(workId, CancellationToken.None);
+
+        var katie = Assert.Single(credits, credit => credit.Name == "Katie Holmes");
+        Assert.Equal("Rachel Dawes", katie.CharacterName);
+        Assert.DoesNotContain(katie.Characters, character => character.CharacterName == "Alfred Pennyworth");
+
+        var liam = Assert.Single(credits, credit => credit.Name == "Liam Neeson");
+        Assert.Equal("Ra's al Ghul", liam.CharacterName);
+        Assert.DoesNotContain(liam.Characters, character => character.CharacterName == "Scarecrow");
+
+        var katieLibraryCredit = Assert.Single(
+            await CreateService().GetLibraryCreditsAsync(katieId, CancellationToken.None),
+            credit => credit.Role == "Actor");
+        Assert.Contains(katieLibraryCredit.Characters, character => character.CharacterName == "Rachel Dawes");
+        Assert.DoesNotContain(katieLibraryCredit.Characters, character => character.CharacterName == "Alfred Pennyworth");
+
+        var katieRoles = await CreateService().GetCharacterRolesAsync(katieId, CancellationToken.None);
+        Assert.Contains(katieRoles, role => role.CharacterName == "Rachel Dawes");
+        Assert.DoesNotContain(katieRoles, role => role.CharacterName == "Alfred Pennyworth");
+    }
+
+    [Fact]
+    public async Task BuildForWorkAsync_UsesRootEvidenceWhenChildAndRootShareTheSameIdentity()
+    {
+        var rootWorkId = Guid.NewGuid();
+        var episodeWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var bryanId = Guid.NewGuid();
+        var walterId = Guid.NewGuid();
+        var saulId = Guid.NewGuid();
+        var providerId = WellKnownProviders.Tmdb;
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT OR IGNORE INTO metadata_providers (id, name, version, is_enabled)
+                    VALUES ($providerId, 'tmdb', '1.0', 1);
+                INSERT INTO works (id, media_type, work_kind)
+                    VALUES ($rootWorkId, 'TV', 'parent');
+                INSERT INTO works (id, parent_work_id, media_type, work_kind)
+                    VALUES ($episodeWorkId, $rootWorkId, 'TV', 'child');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $episodeWorkId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'breaking-bad-role-regression', 'C:/library/Breaking Bad.mkv');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($assetId, 'wikidata_qid', 'Q1079', $now);
+
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                    VALUES ($bryanId, 'Bryan Cranston', 'Q23547', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($walterId, 'Q23554', 'Walter White', 'Character', $now);
+                INSERT INTO fictional_entities (id, wikidata_qid, label, entity_sub_type, created_at)
+                    VALUES ($saulId, 'Q7154377', 'Saul Goodman', 'Character', $now);
+
+                -- Qualified mapping followed by the historical bad positional link.
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($bryanId, $walterId, 'Q1079');
+                INSERT INTO character_performer_links (person_id, fictional_entity_id, work_qid)
+                    VALUES ($bryanId, $saulId, 'Q1079');
+
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                    VALUES ($rootWorkId, 'cast_member', 0, 'Bryan Cranston', 'Q23547');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                    VALUES ($rootWorkId, 'characters', 0, 'Saul Goodman', 'Q7154377');
+
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim1, $rootWorkId, $providerId, 'cast_member', 'Bryan Cranston', 0.90, $now);
+                INSERT INTO metadata_claims (id, entity_id, provider_id, claim_key, claim_value, confidence, claimed_at)
+                    VALUES ($claim2, $rootWorkId, $providerId, 'cast_member_character', 'Walter White', 0.90, $now);
+                """;
+            AddGuid(cmd, "$providerId", providerId);
+            AddGuid(cmd, "$rootWorkId", rootWorkId);
+            AddGuid(cmd, "$episodeWorkId", episodeWorkId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            AddGuid(cmd, "$bryanId", bryanId);
+            AddGuid(cmd, "$walterId", walterId);
+            AddGuid(cmd, "$saulId", saulId);
+            AddGuid(cmd, "$claim1", Guid.NewGuid());
+            AddGuid(cmd, "$claim2", Guid.NewGuid());
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var credits = await CreateService().BuildForWorkAsync(episodeWorkId, CancellationToken.None);
+
+        var bryan = Assert.Single(credits, credit => credit.Name == "Bryan Cranston");
+        Assert.Equal("Walter White", bryan.CharacterName);
+        Assert.DoesNotContain(bryan.Characters, character => character.CharacterName == "Saul Goodman");
+    }
+
+    [Fact]
     public async Task GetGroupMembersAsync_ReturnsMembersAndParentGroupsInNameOrder()
     {
         var groupId = Guid.NewGuid();

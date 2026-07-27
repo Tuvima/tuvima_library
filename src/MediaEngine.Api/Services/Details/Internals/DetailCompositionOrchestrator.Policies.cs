@@ -214,7 +214,7 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailEntityType.MovieSeries => "Movie Series",
         DetailEntityType.BookSeries => "Book Series",
         DetailEntityType.ComicIssue => "Comic Issue",
-        DetailEntityType.ComicSeries => "Comic Volume",
+        DetailEntityType.ComicSeries => "Comic Series",
         DetailEntityType.MusicAlbum => "Album",
         _ => entityType.ToString(),
     };

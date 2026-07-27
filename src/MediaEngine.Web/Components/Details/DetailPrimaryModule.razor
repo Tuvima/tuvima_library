@@ -257,13 +257,13 @@
     private static string MediaTypeLabel(DetailEntityType entityType) => entityType switch
     {
         DetailEntityType.Movie => "Movie",
-        DetailEntityType.TvShow => "TV",
+        DetailEntityType.TvShow => "TV Series",
         DetailEntityType.TvSeason => "Season",
         DetailEntityType.TvEpisode => "Episode",
         DetailEntityType.MusicAlbum => "Album",
         DetailEntityType.Audiobook => "Audiobook",
         DetailEntityType.ComicIssue => "Comic",
-        DetailEntityType.ComicSeries => "Comics",
+        DetailEntityType.ComicSeries => "Comic series",
         DetailEntityType.BookSeries => "Book series",
         _ => "Book",
     };

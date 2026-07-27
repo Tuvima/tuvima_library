@@ -383,7 +383,7 @@ internal sealed partial class DetailCompositionOrchestrator
 
         if (entityType == DetailEntityType.ComicSeries)
         {
-            return $"Comic Volume - {OwnedCollectionCountLabel(entityType, works)}";
+            return OwnedCollectionCountLabel(entityType, works);
         }
 
         var types = works.Select(w => FormatEntityType(InferMediaItemEntityType(w))).Distinct(StringComparer.OrdinalIgnoreCase).Take(3);

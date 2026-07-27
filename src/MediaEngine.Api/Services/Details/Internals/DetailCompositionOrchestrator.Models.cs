@@ -161,6 +161,7 @@ internal sealed partial class DetailCompositionOrchestrator
         public double? SequenceSort { get; init; }
         public string? SequenceLabel { get; init; }
         public string? MembershipScope { get; init; }
+        public string? DetailRoute { get; init; }
 
         public bool IsOwned =>
             HasAsset

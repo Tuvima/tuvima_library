@@ -105,16 +105,21 @@ internal sealed partial class DetailCompositionOrchestrator
         var identifiers = BuildIdentifierFacts(canonicalValues, null, wikidataQid);
         var genres = SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Genre)).ToList();
         var years = works.Select(work => work.Year).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Order().ToList();
-        var artists = MergeNames(
-            CreditNames(contributorGroups, CreditGroupType.PrimaryArtists),
-            works
-                .SelectMany(work => SplitMetadataValues(work.Artist))
-                .Where(value => !string.IsNullOrWhiteSpace(value)),
-            SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Artist)));
-        var albumArtists = MergeNames(
-            SplitMetadataValues(GetValue(canonicalValues, "album_artist")),
-            SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author)),
-            artists.Take(1));
+        var suppressCollectionCredits = IsStructuralContainer(entityType);
+        var artists = suppressCollectionCredits
+            ? []
+            : MergeNames(
+                CreditNames(contributorGroups, CreditGroupType.PrimaryArtists),
+                works
+                    .SelectMany(work => SplitMetadataValues(work.Artist))
+                    .Where(value => !string.IsNullOrWhiteSpace(value)),
+                SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Artist)));
+        var albumArtists = suppressCollectionCredits
+            ? []
+            : MergeNames(
+                SplitMetadataValues(GetValue(canonicalValues, "album_artist")),
+                SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author)),
+                artists.Take(1));
         var seasonCount = StringHelpers.FirstNonBlankOr(string.Empty,
             GetValue(canonicalValues, MetadataFieldConstants.SeasonCount),
             entityType is DetailEntityType.TvShow
@@ -134,16 +139,20 @@ internal sealed partial class DetailCompositionOrchestrator
             Genres = genres,
             Identifiers = identifiers,
 
-            Authors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Authors), SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author))),
+            Authors = suppressCollectionCredits
+                ? []
+                : MergeNames(CreditNames(contributorGroups, CreditGroupType.Authors), SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author))),
             Artists = artists,
             AlbumArtists = albumArtists,
-            Actors = CreditNames(contributorGroups, CreditGroupType.Cast),
-            Directors = CreditNames(contributorGroups, CreditGroupType.Directors),
-            Writers = CreditNames(contributorGroups, CreditGroupType.Writers),
-            Composers = CreditNames(contributorGroups, CreditGroupType.MusicCredits),
-            Narrators = CreditNames(contributorGroups, CreditGroupType.Narrators),
-            Illustrators = CreditNames(contributorGroups, CreditGroupType.Illustrators),
-            Producers = MergeNames(CreditNames(contributorGroups, CreditGroupType.Producers), SplitMetadataValues(GetValue(canonicalValues, "producer"))),
+            Actors = suppressCollectionCredits ? [] : CreditNames(contributorGroups, CreditGroupType.Cast),
+            Directors = suppressCollectionCredits ? [] : CreditNames(contributorGroups, CreditGroupType.Directors),
+            Writers = suppressCollectionCredits ? [] : CreditNames(contributorGroups, CreditGroupType.Writers),
+            Composers = suppressCollectionCredits ? [] : CreditNames(contributorGroups, CreditGroupType.MusicCredits),
+            Narrators = suppressCollectionCredits ? [] : CreditNames(contributorGroups, CreditGroupType.Narrators),
+            Illustrators = suppressCollectionCredits ? [] : CreditNames(contributorGroups, CreditGroupType.Illustrators),
+            Producers = suppressCollectionCredits
+                ? []
+                : MergeNames(CreditNames(contributorGroups, CreditGroupType.Producers), SplitMetadataValues(GetValue(canonicalValues, "producer"))),
 
             ShowName = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.ShowName), GetValue(canonicalValues, MetadataFieldConstants.Title)),
             Network = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Network), GetValue(canonicalValues, "broadcaster")),
@@ -791,22 +800,22 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.TvSeason => ["overview", "cast", "related", "details"],
             DetailEntityType.Movie when hasUniverse => ["overview", "cast", "universe", "related", "details"],
             DetailEntityType.Movie => ["overview", "cast", "related", "details"],
-            DetailEntityType.MovieSeries when hasUniverse => ["overview", "cast", "universe", "related", "details"],
-            DetailEntityType.MovieSeries => ["overview", "cast", "related", "details"],
+            DetailEntityType.MovieSeries when hasUniverse => ["overview", "universe", "related", "details"],
+            DetailEntityType.MovieSeries => ["overview", "related", "details"],
             DetailEntityType.TvEpisode when hasUniverse => ["overview", "cast", "characters", "universe", "related", "details"],
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "related", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.Book => ["overview", "credits", "related", "details"],
             DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.Audiobook => ["overview", "credits", "related", "details"],
-            DetailEntityType.BookSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
-            DetailEntityType.BookSeries => ["overview", "credits", "related", "details"],
+            DetailEntityType.BookSeries when hasUniverse => ["overview", "universe", "related", "details"],
+            DetailEntityType.BookSeries => ["overview", "related", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "related", "details"],
             DetailEntityType.Work => ["overview", "credits", "formats", "related", "details"],
             DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
-            DetailEntityType.ComicSeries when hasUniverse => ["overview", "credits", "universe", "related", "details"],
-            DetailEntityType.ComicSeries => ["overview", "credits", "related", "details"],
+            DetailEntityType.ComicSeries when hasUniverse => ["overview", "universe", "related", "details"],
+            DetailEntityType.ComicSeries => ["overview", "related", "details"],
             DetailEntityType.MusicAlbum => ["overview", "details"],
             DetailEntityType.Person => ["overview"],
             DetailEntityType.Collection => ["overview", "details"],

@@ -477,6 +477,123 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionCatalog_ResolvesEpisodesAndComicIssuesToCoverLedSeriesEntries()
+    {
+        var universeId = Guid.NewGuid();
+        var comicCollectionId = Guid.NewGuid();
+        var tvCollectionId = Guid.NewGuid();
+        var comicRootId = Guid.NewGuid();
+        var issueId = Guid.NewGuid();
+        var issueEditionId = Guid.NewGuid();
+        var issueAssetId = Guid.NewGuid();
+        var showRootId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var episodeEditionId = Guid.NewGuid();
+        var episodeAssetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, wikidata_qid)
+                VALUES (
+                    @UniverseId, 'Shared Story World', 'Universe', 'library', 'materialized', 'QUNIVERSE');
+                INSERT INTO collections (
+                    id, parent_collection_id, display_name, collection_type, scope, resolution, group_by_field)
+                VALUES (
+                    @ComicCollectionId, @UniverseId, 'Batman', 'ContentGroup', 'library', 'materialized', 'series');
+                INSERT INTO collections (
+                    id, parent_collection_id, display_name, collection_type, scope, resolution, group_by_field)
+                VALUES (
+                    @TvCollectionId, @UniverseId, 'The Expanse', 'ContentGroup', 'library', 'materialized', 'show_name');
+
+                INSERT INTO works (id, media_type, work_kind, ownership, curator_state)
+                    VALUES (@ComicRootId, 'Comics', 'parent', 'Owned', 'Accepted');
+                INSERT INTO works (
+                    id, parent_work_id, collection_id, media_type, work_kind, ownership, curator_state)
+                    VALUES (
+                    @IssueId, @ComicRootId, @ComicCollectionId, 'Comics', 'child', 'Owned', 'Accepted');
+                INSERT INTO editions (id, work_id)
+                    VALUES (@IssueEditionId, @IssueId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES (@IssueAssetId, @IssueEditionId, 'batman-404', 'C:/library/Batman 404.cbz');
+                INSERT INTO collection_items (id, collection_id, work_id, sort_order)
+                    VALUES (@IssueItemId, @ComicCollectionId, @IssueId, 404);
+
+                INSERT INTO works (id, media_type, work_kind, ownership, curator_state)
+                    VALUES (@ShowRootId, 'TV', 'parent', 'Owned', 'Accepted');
+                INSERT INTO works (
+                    id, parent_work_id, media_type, work_kind, ownership, curator_state)
+                    VALUES (@SeasonId, @ShowRootId, 'TV', 'parent', 'Owned', 'Accepted');
+                INSERT INTO works (
+                    id, parent_work_id, collection_id, media_type, work_kind, ownership, curator_state)
+                    VALUES (
+                    @EpisodeId, @SeasonId, @TvCollectionId, 'TV', 'child', 'Owned', 'Accepted');
+                INSERT INTO editions (id, work_id)
+                    VALUES (@EpisodeEditionId, @EpisodeId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES (@EpisodeAssetId, @EpisodeEditionId, 'expanse-s01e01', 'C:/library/The Expanse/S01E01.mkv');
+                INSERT INTO collection_items (id, collection_id, work_id, sort_order)
+                    VALUES (@EpisodeItemId, @TvCollectionId, @EpisodeId, 1);
+
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@ComicRootId, 'title', 'Batman', @Now);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@ComicRootId, 'cover_url', '/stream/artwork/batman-cover', @Now);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@IssueId, 'issue_title', 'Batman - Issue 404', @Now);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@ShowRootId, 'title', 'The Expanse', @Now);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@ShowRootId, 'cover_url', '/stream/artwork/expanse-cover', @Now);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@EpisodeId, 'episode_title', 'Dulcinea', @Now);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@EpisodeId, 'episode_still_url', '/stream/artwork/expanse-still', @Now);
+                """,
+                new
+                {
+                    UniverseId = universeId,
+                    ComicCollectionId = comicCollectionId,
+                    TvCollectionId = tvCollectionId,
+                    ComicRootId = comicRootId,
+                    IssueId = issueId,
+                    IssueEditionId = issueEditionId,
+                    IssueAssetId = issueAssetId,
+                    IssueItemId = Guid.NewGuid(),
+                    ShowRootId = showRootId,
+                    SeasonId = seasonId,
+                    EpisodeId = episodeId,
+                    EpisodeEditionId = episodeEditionId,
+                    EpisodeAssetId = episodeAssetId,
+                    EpisodeItemId = Guid.NewGuid(),
+                    Now = now,
+                });
+        }
+
+        var result = await _catalog.GetItemsAsync(universeId, null, 20, CancellationToken.None);
+
+        Assert.True(result.Found);
+        Assert.False(result.Forbidden);
+        Assert.Equal(2, result.Items.Count);
+
+        var comic = Assert.Single(result.Items, item => item.MediaType == "Comics");
+        Assert.Equal(comicRootId, comic.WorkId);
+        Assert.Equal("Batman", comic.Title);
+        Assert.Equal("/stream/artwork/batman-cover", comic.CoverUrl);
+        Assert.Equal($"/details/comicseries/{comicCollectionId:D}?context=comics", comic.DetailRoute);
+
+        var show = Assert.Single(result.Items, item => item.MediaType == "TV");
+        Assert.Equal(showRootId, show.WorkId);
+        Assert.Equal("The Expanse", show.Title);
+        Assert.Equal("/stream/artwork/expanse-cover", show.CoverUrl);
+        Assert.Equal($"/details/tvshow/{showRootId:D}?context=watch", show.DetailRoute);
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();

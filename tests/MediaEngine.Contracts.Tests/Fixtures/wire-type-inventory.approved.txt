@@ -789,7 +789,8 @@
   MediaType: System.String | json=media_type | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverUrl: System.String | json=cover_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortOrder: System.Int32 | json=sort_order | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"11111111-2222-3333-4444-555555555555","work_id":"11111111-2222-3333-4444-555555555555","title":"sample","creator":"sample","media_type":"sample","cover_url":"sample","sort_order":7}
+  DetailRoute: System.String | json=detail_route | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"11111111-2222-3333-4444-555555555555","work_id":"11111111-2222-3333-4444-555555555555","title":"sample","creator":"sample","media_type":"sample","cover_url":"sample","sort_order":7,"detail_route":"sample"}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionItemReorderRequest
   kind=class | converter=default | number-handling=default | unmapped=default

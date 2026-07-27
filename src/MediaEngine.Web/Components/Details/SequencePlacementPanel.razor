@@ -157,7 +157,7 @@
         <AppIconButton Class="@RightArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronRight"
                        Size="Size.Large"
-                       aria-label="@($"More {Placement.ItemPluralLabel.ToLowerInvariant()}")"
+                       aria-label="@($"Next {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
     </div>
@@ -441,7 +441,7 @@ else
         <AppIconButton Class="@RightArrowClass"
                        Icon="@Icons.Material.Outlined.ChevronRight"
                        Size="Size.Large"
-                       aria-label="@($"More {Placement.ItemPluralLabel.ToLowerInvariant()}")"
+                       aria-label="@($"Next {Placement.ItemPluralLabel.ToLowerInvariant()}")"
                        Disabled="@(!CanPageRight)"
                        OnClick="PageRight" />
         </div>
@@ -467,7 +467,8 @@ else
     [Parameter] public bool DetailSurface { get; set; }
 
     private const int LongSequenceThreshold = 6;
-    private const int WindowSize = 12;
+    private const int PortraitWindowSize = 6;
+    private const int LandscapeWindowSize = 4;
     private string? _placementKey;
     private string? _selectedGroupKey;
     private string? _jumpSelectionValue;
@@ -638,7 +639,8 @@ else
     };
     private string LowerContainerLabel => StringHelpers.FirstNonBlank(Placement.ContainerLabel, "sequence")!.ToLowerInvariant();
     private string SequenceGridStyle => $"--series-count:{Math.Max(1, VisibleItems.Count)};";
-    private int VisibleCount => ActiveItems.Count <= WindowSize ? ActiveItems.Count : WindowSize;
+    private int VisibleWindowSize => IsSeasonContainer ? LandscapeWindowSize : PortraitWindowSize;
+    private int VisibleCount => Math.Min(ActiveItems.Count, VisibleWindowSize);
     private int WindowStart => Math.Clamp(_windowCenterIndex - (VisibleCount / 2), 0, Math.Max(0, ActiveItems.Count - VisibleCount));
     private IReadOnlyList<SequenceItemViewModel> VisibleItems => ActiveItems.Skip(WindowStart).Take(VisibleCount).ToList();
     private bool CanPageLeft => WindowStart > 0;
@@ -970,10 +972,21 @@ else
     }
 
     private void PageLeft()
-        => _windowCenterIndex = Math.Max(0, _windowCenterIndex - Math.Max(1, VisibleCount - 2));
+    {
+        var previousStart = Math.Max(0, WindowStart - Math.Max(1, VisibleCount));
+        _windowCenterIndex = Math.Min(
+            Math.Max(0, ActiveItems.Count - 1),
+            previousStart + (VisibleCount / 2));
+    }
 
     private void PageRight()
-        => _windowCenterIndex = Math.Min(Math.Max(0, ActiveItems.Count - 1), _windowCenterIndex + Math.Max(1, VisibleCount - 2));
+    {
+        var maximumStart = Math.Max(0, ActiveItems.Count - VisibleCount);
+        var nextStart = Math.Min(maximumStart, WindowStart + Math.Max(1, VisibleCount));
+        _windowCenterIndex = Math.Min(
+            Math.Max(0, ActiveItems.Count - 1),
+            nextStart + (VisibleCount / 2));
+    }
 
     private Task SelectContainerAsync(SequenceContainerOptionViewModel option)
         => OnContainerSelected.InvokeAsync(option);

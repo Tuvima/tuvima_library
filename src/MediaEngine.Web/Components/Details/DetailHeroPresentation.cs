@@ -305,7 +305,7 @@ public sealed class DetailHeroPresentation
         DetailEntityType.MovieSeries => "Movie Series",
         DetailEntityType.BookSeries => "Book Series",
         DetailEntityType.ComicIssue => "Comic",
-        DetailEntityType.ComicSeries => "Comic Volume",
+        DetailEntityType.ComicSeries => "Comic Series",
         DetailEntityType.MusicAlbum => "Album",
         _ => entityType.ToString(),
     };

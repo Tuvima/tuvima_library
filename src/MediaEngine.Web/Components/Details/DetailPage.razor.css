@@ -7483,11 +7483,14 @@
     min-width: 0;
     height: 100%;
     padding: 0.2rem 0.65rem 0.65rem;
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: hidden;
     overscroll-behavior-inline: contain;
-    scrollbar-color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 54%, transparent) transparent;
-    scroll-snap-type: inline proximity;
+    scrollbar-width: none;
+}
+
+.tl-detail-page ::deep .tl-series-detail__strip::-webkit-scrollbar {
+    display: none;
 }
 
 .tl-detail-page ::deep .tl-series-detail .tl-series-carousel__arrow {

@@ -6,134 +6,107 @@
   <img src="assets/images/tuvima-logo.svg" alt="Tuvima Library" height="90" />
 </picture>
 
-**A private, local-first library for the stories you already own.**
+**Your books, films, shows, music, audiobooks, and comics—together in one private library.**
 
-*Tuvima Library watches your folders, identifies your books, audiobooks, movies, TV shows, music, and comics, enriches them with metadata, and presents them by story instead of by file type.*
+Tuvima Library turns the media you already own into a collection that is easier to explore, understand, and enjoy.
+
+[Get Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) ·
+[Read the Documentation](https://tuvima.github.io/tuvima_library/) ·
+[See Product Status](https://tuvima.github.io/tuvima_library/product/status/)
 
 <br/>
 
 [![License: AGPLv3](https://img.shields.io/badge/License-AGPLv3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 [![.NET](https://img.shields.io/badge/.NET-10.0-purple.svg)](https://dotnet.microsoft.com/)
-[![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-8b5cf6.svg)](https://tuvima.github.io/tuvima_library/)
 [![Status](https://img.shields.io/badge/status-Early%20Access-f0ad4e.svg)](https://tuvima.github.io/tuvima_library/product/status/)
 
 </div>
 
 ---
 
-## What Tuvima Is
+## Your Collection Should Feel Like a Library
 
-Tuvima Library is an Early Access media library for people with real collections on disk. It is built for the person whose *Dune* ebook, audiobook, film, soundtrack, and comics should feel like one library, not six disconnected apps.
+Personal media collections rarely live in one neat place. A single story might be an ebook in one folder, an audiobook in another, a film on a hard drive, and a soundtrack mixed into a music collection. Traditional media servers tend to separate those files by format.
 
-The Engine runs locally, watches the folders you choose, reads incoming files, identifies what they are, enriches them with metadata and artwork, stores normalized records in SQLite, and serves a Blazor Dashboard for browsing, search, reading, playback, settings, and review.
+Tuvima Library starts with the story.
 
-The product is branded as **Tuvima Library**. The code still uses `MediaEngine.*` project and namespace names in many places; in this repository, those names refer to the same product.
+Point Tuvima at the folders you choose and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can discover what you own and decide whether you want to read, watch, or listen.
 
-## Why It Matters
+## From Files to a Living Library
 
-- **Story-first organization:** Home highlights what to resume, then Watch, Read, Listen, placed Collections & Lists, and new arrivals. Home alone uses the premium cinematic hero. Read, Watch, and Listen keep a compact Discover/media navigation bar at the top while the content underneath changes; redundant lane identity blocks and sidebar lane titles are omitted. Their Discover surfaces are compact, rail-navigated, and row-based; direct routes such as `/read/books`, `/read/comics`, `/watch/movies`, `/watch/tv`, `/watch/series`, `/listen/music`, and `/listen/audiobooks` open the complete filterable library beneath that same navigation in one click and use vertically wrapping tiled results rather than horizontally scrolling media rows. Direct filters separate Browse as, Filter by, and Display; use one URL-backed configuration for both toolbar choices and sidebar shortcuts; and filter matching media before creating author, series, collection, network, or timeline groups. TV Timeline uses each show's canonical premiere year rather than its newest owned episode, and Network groups show the resolved network logo in the same identity position used for person-led cards. Author, creator, director, artist, and narrator views use the same landscape person-collection card, including representative titles, a managed portrait, role, year span, owned count, and direct navigation to that person's detail page. Those person views, search attribution, person details, and person-scoped collections all use the same ordered canonical credits as the media detail page, so broad enrichment relationships such as assistant directors do not become top-level library credits. Direct tiled results keep their cover or group artwork unchanged, omit redundant context pills such as `TV Show` within TV Shows, and use a purple hover/focus glow; individual items show a compact title/year below the art, while landscape series/collection cards embed an all-caps title, year, and count inside the card. Each filter area can resize tiles while the artwork ratio remains fixed. Cinematic background expansion remains on Home and Discover shelves. Listen is album-first: `/listen/music` opens the filterable album grid at a smaller default tile size, while Songs uses the shared artwork-led audio table with play, queue, drag-to-playlist, resizable columns, and profile-scoped qualified play counts. Ingestion creates lane shelves from trusted QIDs, provider IDs, or local grouping metadata; Collections appear only when a broader world spans multiple shelves. Series and collection cards use one fixed-size landscape treatment with two to four slightly angled representative covers; person-scoped collections add the linked creator's portrait and open that person's detail page.
-- **Unified details:** Media, people, series, and standard collections open on canonical full-width `/details/...` routes. On desktop the cinematic stage is `95svh`, keeping its lower navigation visible while preserving substantially more of native 16:9 art. Its edge-to-edge, top-center landscape art extends beneath translucent global and lower navigation, with a strong bottom fade and left scrim protecting the copy. Music albums use the shared stage with a cover-derived blurred atmosphere, a large sharp album/record composition centered in the right half, bottom-left identity and actions, Play and Shuffle on the primary row, utilities beneath them, plus **Overview** and **Details** navigation. Overview gives most of the width to a borderless track list, keeps Show missing without track search, resolves identified artists into the same compact square clickable people cards used by movie and TV credits, and shows every other owned album from the exact canonical primary artist in a conditional full-width **More by** shelf; oversized provider box-set manifests are scoped to the canonical disc represented by the local album, while normal multi-disc albums remain whole. Technical and source content renders only under Details. Audiobooks keep their shared detail structure and specialized chapter/player tools while using a substantially larger cover where viewport height permits. Audiobook Chapters remain embedded; Editions, Play All, and a list-level duplicate My List action remain omitted. Structural details render their sequence, owned-works, or collection array below the stage on Overview only, ending in a compact owned summary and an authoritative-total progress bar when available. Collections use no member-derived backdrop, show the same up-to-four representative artwork cluster as collection tiles at a dominant hero scale, suppress contributor credits, expose one functional Shuffle action, and report the year range, total items, and applicable Read/Watch/Listen counts in one compact row. Comics and books share a larger cover-only foreground envelope, and poster-only movie/TV details use that available hero space without affecting true landscape backdrops. Person portraits use the larger visual envelope on one continuous no-tab page, and linked identities reuse cast/credit portrait cards. Overview combines the full description or biography, a purpose-built cast/credits peek, and applicable series or collection context; recommendations live in a separate Related tab. Jump to appears beside the array heading only when a sequence contains more than ten entries, while alternate series/arc selectors stay left and Show missing stays right. Read/Watch/Listen filters belong only to mixed-media collections and people with owned works in more than one lane. A person's works use managed portrait cover/poster art or square album art—never cinematic landscape backgrounds—and include only owned canonical eligible credits with all eligible roles per work; an owned asset's canonical title takes precedence over its parent collection label. Standard collection details resolve membership through the same catalog rules as the Collections surface. Listen playlists remain specialized lane-local queue and editing surfaces.
-- **Cinematic continuity:** Home and detail heroes share the same `95svh` identity/content composition—logo scale, facts, action, progress, and full-paragraph synopsis—plus the same edge-to-edge top-center backdrop, left-edge scrim, atmosphere, and top/bottom contrast layers. Home has no lane submenu; its shelves rise into the bottom fade. The non-control slide background opens details, while Watch, Read, Listen, Play, Resume, and Restart act directly. Carousel context sits at the top right as Featured Content or lane-specific Continue wording. Watch landing TV slides always use show-level managed artwork rather than episode stills, and detail tabs use a translucent lower navigation bar.
-- **Local-first privacy:** Your files, database, models, and processing stay on your machine. Provider calls are only for metadata lookups that you configure.
-- **Honest automation:** Strong matches flow through automatically. Low-confidence, blocked, or uncertain items go to the Review Queue instead of being silently misfiled.
-- **One dashboard:** Home, media lanes, Search, detail pages, Settings/Admin, and Review Queue work together instead of forcing every correction into a separate management workspace. Global Search opens an instant overlay over the current page and returns ranked titles, people, series, collections, and playlists; View all opens a URL-backed, sectioned search page with a contextual preview. TV show and episode detail pages share the same season selector and list only episodes present in the library. An unstarted show may keep its series hero while its facts and Watch action target the first owned episode; once progress exists, the hero follows that episode and uses its `Sx Ey` synopsis. The short provider show description remains in a separated Series Description block. Detail heroes share one left-aligned identity/facts/action column, use common button geometry and typography, and show at most two linked genres on their own line. Movie heroes use the movie description directly. Continue cards retain the episode still and playback target and identify the child as `Sx Ey`.
-- **Extensible architecture:** Config-driven providers, processors, plugins, and a typed Engine/Dashboard boundary make the system practical to extend.
+### Bring the collection you already have
 
-## How It Works
+Keep your existing books, comics, movies, TV episodes, music, and audiobooks on your own disks. Tuvima watches the folders you configure and notices when media is added or changed.
 
-```text
-Watch folders
-  -> Ingestion
-  -> File processors
-  -> Identity and scoring
-  -> Retail identification (Stage 1)
-  -> Wikidata bridge resolution (Stage 2)
-  -> Quick hydration
-  -> Universe enrichment (Stage 3)
-  -> SQLite, .data/assets artwork, organization, write-back
-  -> API and SignalR
-  -> Dashboard
-```
+### Let Tuvima organize the details
 
-In plain English:
+Tuvima reads the files, identifies their contents, and enriches them with titles, descriptions, credits, artwork, series information, and other useful context. Confident matches flow into the library automatically; uncertain items wait in a Review Queue for you.
 
-1. A file appears in a configured folder.
-2. Tuvima waits until the file is stable, fingerprints it, and reads embedded metadata.
-3. Processors extract details from EPUB, audio, video, comic, and other supported files.
-4. Stage 1 configured providers provide identity and retail evidence. Music runs MusicBrainz first for canonical music IDs, then Apple for artwork and retail metadata; other lanes use their configured providers such as Apple, TMDB, and Comic Vine.
-5. Stage 2 Wikidata resolution uses bridge IDs such as ISBN, TMDB ID, MusicBrainz ID, Apple ID, or Comic Vine ID to find canonical identity when possible. If Stage 1 finds no safe provider match, Wikidata is not used as a broad fallback.
-6. Quick Hydration gets the item visible with core identity, managed artwork, and lane shelf assignment. If retail metadata is retained but Wikidata finds no QID, the item can still get a Read, Watch, or Listen shelf without becoming a top-level Collections tile.
-7. Managed artwork and headshots are stored under `.data/assets/...` and indexed in SQLite through `entity_assets` or person/entity records. Sidecar files beside media are optional exports only.
-8. The Priority Cascade decides which metadata wins, while user corrections stay final.
-9. The Dashboard updates through HTTP and SignalR so ingestion and review progress are visible.
+### Find something worth returning to
 
-Learn more in [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/), [How Enrichment Works](https://tuvima.github.io/tuvima_library/explanation/how-hydration-works/), the [Ingestion, Identity, and Enrichment Pipeline](https://tuvima.github.io/tuvima_library/architecture/ingestion-identity-enrichment-pipeline/), and the [Technical Overview](https://tuvima.github.io/tuvima_library/architecture/technical-overview/).
+Home helps you continue where you stopped and rediscover the collection. Read, Watch, and Listen give each kind of experience a natural home, while search reaches across the whole library. Series, creators, and broader collections help reveal connections that folders alone cannot.
 
-## Built Today
+### Enjoy it without giving up control
 
-Tuvima is Early Access, but it is not just a mockup. Current builds include:
+Read supported books, play audio and video, track progress, and correct an item from its own page. Your library remains yours: the catalog, artwork, progress, and optional AI processing stay on your machine.
 
-- Engine and Dashboard apps for local development.
-- Home, Read, Watch, Listen, Collections, Search, detail pages, Settings/Admin, and Review Queue surfaces. Home is the only cinematic landing; Read, Watch, and Listen use compact discovery shelves plus one-click scoped browse routes, and Collections opens directly as a filterable grid.
-- A profile-aware navbar with My List, clear account/settings/help actions, permission-gated Needs Review attention, and one circular activity indicator for playback, ingestion, AI, enrichment, and other active Engine work.
-- Folder scanning, ingestion operations, file fingerprinting, duplicate handling, review creation, and live progress.
-- SQLite persistence with startup schema initialization, `guid-blob-v1` internal GUID storage, and reset/reingest safety for legacy database epochs.
-- Relationship-scoped series manifests keep the main sequence separate from short fiction, collected content, and broader franchise context while preserving provider/Wikidata decimal ordinals exactly.
-- Provider-neutral sequence manifests retain missing TMDB/Wikidata members, link ownership through stable external IDs, and only show finite completion totals when every position can be represented.
-- Series details use consistent Series Set/Series selectors, ownership counts, a Jump to selector for groups over five entries, and carousel arrows adjacent to the visible cards. Canonical series containers surface the same numbered rail on Overview; connectors remain behind the numbered nodes and a stronger purple frame glow identifies the current item without `This book`, `This movie`, or `Up next` labels. **Show missing** inherits a media default from `config/ui/library-preferences.json`, while SQLite stores only explicit profile-and-series overrides.
-- EPUB reading routes, video/audio streaming routes, playback/reader progress APIs, and personal playback preferences.
-- Inline media editing through the shared editor in normal, review, and batch modes.
-- Provider configuration, provider health/status, pipeline priority settings, and config-driven provider adapters.
-- Local AI model inventory, downloads, load/unload actions, hardware/resource status, feature flags, vocabulary, and schedules where Engine endpoints exist.
-- Plugin listing, enable/disable, settings JSON, dynamic manifests, health checks, and job views for current plugin capabilities.
-- API key/profile management, UI/device/profile settings, activity logs, ingestion dashboards, and review workflows.
-- Current browsing lives on Home, Read, Watch, Listen, Collections, Search, and detail pages; Settings/Admin handles configuration and operational review.
+## Built Around Ownership and Privacy
 
-For the detailed truth table, see [Product Status](https://tuvima.github.io/tuvima_library/product/status/) and [Feature Truth Inventory](https://tuvima.github.io/tuvima_library/product/feature-truth-inventory/).
+- **Local first:** the Engine, Dashboard, SQLite database, managed artwork, and optional AI models run locally.
+- **No Tuvima account:** using your library does not require a hosted account or subscription.
+- **No built-in tracking:** Tuvima does not include product telemetry.
+- **Your choice of metadata sources:** external providers are contacted only when configured and needed.
+- **Human review when it matters:** low-confidence matches are surfaced instead of silently treated as correct.
+- **Free and open source:** there is no premium tier or feature gate.
 
-## Still Outstanding
+Read more about [Privacy and Local-First Behavior](https://tuvima.github.io/tuvima_library/explanation/privacy-local-first/).
 
-These areas are intentionally documented as partial, planned, or not connected where appropriate:
+## What You Can Add
 
-- A fully guided first-run wizard.
-- Advanced delivery controls, direct-play policy, subtitle/audio delivery preferences, and richer offline-download automation.
-- Deeper playlist editing, recommendation generation, and smart collection automation.
-- Plugin marketplace install/update flows.
-- Some Local AI job controls and per-feature runtime integrations where no public Engine endpoint exists yet.
-- Complete multi-user/remote-access hardening beyond the current local-first profile and API-key model.
-- OPDS, Audiobookshelf-compatible APIs, import wizards, webhooks, PWA support, and other target-state interoperability work.
-
-The docs mark future-state material explicitly so users can tell what is built from what is planned.
-
-## Supported Media
-
-| Lane | Media | Common formats |
+| Experience | Media | Common formats |
 |---|---|---|
-| Read | Books, comics | EPUB, PDF, CBZ, CBR |
-| Watch | Movies, TV | MKV, MP4, M4V, WEBM, AVI |
-| Listen | Music, audiobooks | FLAC, MP3, AAC, M4A, OGG, WAV, M4B |
+| Read | Books and comics | EPUB, PDF, CBZ, CBR |
+| Watch | Movies and TV | MKV, MP4, M4V, WEBM, AVI |
+| Listen | Music and audiobooks | FLAC, MP3, AAC, M4A, OGG, WAV, M4B |
 
-See [Supported Media Types and Formats](https://tuvima.github.io/tuvima_library/reference/media-types/) for processor and provider details.
+See [Supported Media Types and Formats](https://tuvima.github.io/tuvima_library/reference/media-types/) for the complete, current list.
 
-## Privacy
+## Early Access
 
-Tuvima is designed around local ownership:
+Tuvima Library is under active development. The core Engine and Dashboard are real and usable today, but some experiences are still being refined.
 
-- The Engine, Dashboard, database, and local AI run on your machine.
-- No Tuvima account is required.
-- There is no built-in telemetry or tracking.
-- AI inference is local. Model download URLs retrieve model files only.
-- External metadata providers are contacted only when configured and needed for enrichment.
+Current builds include:
 
-Read the full [Privacy and Local-First Behavior](https://tuvima.github.io/tuvima_library/explanation/privacy-local-first/) page.
+- Folder scanning, file identification, metadata enrichment, artwork management, and duplicate handling.
+- Home, Read, Watch, Listen, Collections, library-wide Search, and rich detail pages.
+- EPUB reading plus audio and video playback with saved progress and personal preferences.
+- Series, people, playlists, and collection views backed by library data.
+- Inline corrections and a Review Queue for items that need help.
+- Settings for libraries, providers, profiles, local AI, plugins, ingestion, and system health.
 
-## Getting Started
+Features still in development include:
 
-Prerequisites:
+- A guided first-run experience.
+- Richer recommendations, playlists, and smart collections.
+- More advanced playback, subtitles, delivery, and offline controls.
+- Plugin marketplace installation and updates.
+- Broader remote-access hardening and interoperability.
+- Deeper integration of local AI across library workflows.
+
+The [Product Status](https://tuvima.github.io/tuvima_library/product/status/) page explains what is live, partial, or planned. For a detailed implementation view, see the [Feature Truth Inventory](https://tuvima.github.io/tuvima_library/product/feature-truth-inventory/).
+
+## Try Tuvima
+
+Tuvima currently targets developers and early adopters running it from source.
+
+You will need:
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- About 10 GB free space if you plan to use local AI models
-- Optional provider keys for services that require credentials
+- A local copy of this repository
+- Optional provider credentials for services that require them
+- About 10 GB of free space if you want to use local AI models
+
+Clone and restore:
 
 ```bash
 git clone https://github.com/Tuvima/tuvima_library.git
@@ -145,55 +118,42 @@ Start the Engine and Dashboard in separate terminals:
 
 ```bash
 dotnet run --project src/MediaEngine.Api
+```
+
+```bash
 dotnet run --project src/MediaEngine.Web
 ```
 
-Default local URLs:
+Then open `http://localhost:5016`, add your folders in **Settings > Libraries**, and start your first scan.
 
-- Engine: `http://localhost:61495`
-- Dashboard: `http://localhost:5016`
+The [Getting Started guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) covers configuration, provider credentials, Docker, and troubleshooting. Continue with [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) for the full first-scan walkthrough.
 
-Open the Dashboard, configure folders in **Settings > Libraries**, confirm providers in **Settings > Providers**, then start a scan from Libraries and watch progress in **Settings > Ingestion**.
+## Learn More
 
-Full walkthroughs:
+Full user and developer documentation lives at [tuvima.github.io/tuvima_library](https://tuvima.github.io/tuvima_library/).
 
-- [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/)
-- [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/)
-- [How to Add Media](https://tuvima.github.io/tuvima_library/guides/adding-media/)
-- [Troubleshooting](https://tuvima.github.io/tuvima_library/guides/troubleshooting/)
-
-## Documentation
-
-Full documentation lives at [tuvima.github.io/tuvima_library](https://tuvima.github.io/tuvima_library/).
-
-| Need | Start here |
+| If you want to... | Read... |
 |---|---|
-| Install and run | [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) |
-| Add your first files | [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) |
-| Configure metadata sources | [Configure Providers](https://tuvima.github.io/tuvima_library/guides/configuring-providers/) |
-| Understand product readiness | [Product Status](https://tuvima.github.io/tuvima_library/product/status/) |
-| Extend or debug the system | [Technical Overview](https://tuvima.github.io/tuvima_library/architecture/technical-overview/) |
-| Look up API routes | [Engine API Reference](https://tuvima.github.io/tuvima_library/reference/api-endpoints/) |
-| Review dependencies and data sources | [Attributions](https://tuvima.github.io/tuvima_library/reference/attributions/) |
+| Install and launch Tuvima | [Getting Started](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) |
+| Build your first library | [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) |
+| Add and organize media | [How to Add Media](https://tuvima.github.io/tuvima_library/guides/adding-media/) |
+| Understand how Tuvima identifies files | [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/) |
+| Configure metadata services | [Configure Providers](https://tuvima.github.io/tuvima_library/guides/configuring-providers/) |
+| Check what is ready today | [Product Status](https://tuvima.github.io/tuvima_library/product/status/) |
+| Explore the architecture | [Technical Overview](https://tuvima.github.io/tuvima_library/architecture/technical-overview/) |
+| Fix a problem | [Troubleshooting](https://tuvima.github.io/tuvima_library/guides/troubleshooting/) |
 
-Preview docs locally:
+## Contributing
 
-```powershell
-./scripts/docs/build-docs.ps1
-./scripts/docs/serve-docs.ps1
-```
+Bug reports, feature ideas, documentation improvements, and code contributions are welcome. Start with [CONTRIBUTING.md](CONTRIBUTING.md), [report a bug](https://github.com/Tuvima/tuvima_library/issues), or [request a feature](https://github.com/Tuvima/tuvima_library/issues).
 
-## Attributions
+The product is branded as **Tuvima Library**, while many projects and namespaces in the code still use the earlier `MediaEngine.*` name. They refer to the same product.
 
-Tuvima stands on a large open-source and public-knowledge foundation, including .NET, ASP.NET Core, Blazor, MudBlazor, SQLite, Dapper, SignalR, Serilog, Polly, Swashbuckle, TagLibSharp, VersOne.Epub, SkiaSharp, Xabe.FFmpeg, MediaInfo, SharpCompress, LLamaSharp, Whisper.net, Cronos, xUnit, MkDocs, Material for MkDocs, FFmpeg, Wikimedia Commons, Wikipedia, Wikidata, Tuvima.Wikidata, MusicBrainz, TMDB, Open Library, Comic Vine, Fanart.tv, LRCLIB, OpenSubtitles, and Apple APIs.
-
-See [Attributions](https://tuvima.github.io/tuvima_library/reference/attributions/) for the maintained acknowledgement list and notes about optional provider credentials.
+Tuvima is built on open-source software and public-knowledge projects. See [Attributions](https://tuvima.github.io/tuvima_library/reference/attributions/) for the maintained acknowledgement list.
 
 ## License
 
-Tuvima Library is free and open-source software under the **GNU Affero General Public License v3.0 (AGPLv3)**.
-
-No premium tier. No cloud account requirement. No feature gates.
+Tuvima Library is free and open-source software under the [GNU Affero General Public License v3.0](LICENSE).
 
 ---
 
@@ -201,6 +161,8 @@ No premium tier. No cloud account requirement. No feature gates.
 
 **You already own the stories. Tuvima makes them easier to find, understand, and enjoy.**
 
-[Documentation](https://tuvima.github.io/tuvima_library/) | [Report a Bug](https://github.com/Tuvima/tuvima_library/issues) | [Request a Feature](https://github.com/Tuvima/tuvima_library/issues)
+[Documentation](https://tuvima.github.io/tuvima_library/) ·
+[Report a Bug](https://github.com/Tuvima/tuvima_library/issues) ·
+[Request a Feature](https://github.com/Tuvima/tuvima_library/issues)
 
 </div>

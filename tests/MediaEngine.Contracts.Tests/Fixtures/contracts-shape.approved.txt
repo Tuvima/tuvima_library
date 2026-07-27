@@ -660,6 +660,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionIt
   MediaType: System.String | nullability=not-null | accessors=get,set
   CoverUrl: System.String | nullability=nullable | accessors=get,set
   SortOrder: System.Int32 | nullability=not-null | accessors=get,set
+  DetailRoute: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionItemReorderRequest
   ItemIds: System.Collections.Generic.List<System.Guid> | nullability=not-null | accessors=get,init

@@ -90,18 +90,55 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
 
         var workRankMap = await CastRankMap.BuildAsync(work.WorkId, _canonicalArrayRepo, _db, ct);
         var credits = new List<CastCreditDto>();
-        var explicitCredits = string.IsNullOrWhiteSpace(work.WorkQid)
-            ? []
-            : await BuildExplicitCastAsync(work.WorkQid, workRankMap, _db, ct);
-        AddUniqueCredits(credits, explicitCredits);
-
+        var workClaimCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(
+            workId,
+            _personRepo,
+            _db,
+            ct);
         var rootRankMap = work.RootWorkId.HasValue
             ? await CastRankMap.BuildAsync(work.RootWorkId.Value, _canonicalArrayRepo, _db, ct)
             : CastRankMap.Empty;
-        var rootExplicitCredits = string.IsNullOrWhiteSpace(work.RootWorkQid)
-            || string.Equals(work.RootWorkQid, work.WorkQid, StringComparison.OrdinalIgnoreCase)
+        var rootClaimCredits = work.RootWorkId.HasValue && work.RootWorkId.Value != workId
+            ? await BuildFallbackCreditsFromMetadataClaimsAsync(
+                work.RootWorkId.Value,
+                _personRepo,
+                _db,
+                ct)
+            : [];
+        var workUsesRootIdentity = work.RootWorkId.HasValue
+            && work.RootWorkId.Value != workId
+            && workClaimCredits.Count == 0
+            && rootClaimCredits.Count > 0
+            && (string.IsNullOrWhiteSpace(work.RootWorkQid)
+                || string.Equals(work.WorkQid, work.RootWorkQid, StringComparison.OrdinalIgnoreCase));
+        var explicitCredits = string.IsNullOrWhiteSpace(work.WorkQid) || workUsesRootIdentity
             ? []
-            : await BuildExplicitCastAsync(work.RootWorkQid, rootRankMap, _db, ct);
+            : await BuildExplicitCastAsync(work.WorkQid, workRankMap, _db, ct);
+        await RemoveUncorroboratedOrdinalCharacterLinksAsync(
+            workId,
+            explicitCredits,
+            workClaimCredits,
+            _canonicalArrayRepo,
+            ct);
+        AddUniqueCredits(credits, explicitCredits);
+
+        var effectiveRootWorkQid = StringHelpers.FirstNonBlank(
+            work.RootWorkQid,
+            workUsesRootIdentity ? work.WorkQid : null);
+        var rootExplicitCredits = string.IsNullOrWhiteSpace(effectiveRootWorkQid)
+            || !work.RootWorkId.HasValue
+            || work.RootWorkId.Value == workId
+            ? []
+            : await BuildExplicitCastAsync(effectiveRootWorkQid, rootRankMap, _db, ct);
+        if (work.RootWorkId.HasValue)
+        {
+            await RemoveUncorroboratedOrdinalCharacterLinksAsync(
+                work.RootWorkId.Value,
+                rootExplicitCredits,
+                rootClaimCredits,
+                _canonicalArrayRepo,
+                ct);
+        }
         AddUniqueCredits(credits, rootExplicitCredits);
 
         var linkedActors = await BuildActorOnlyCreditsFromMediaLinksAsync(workId, workRankMap, _db, ct);
@@ -110,16 +147,14 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(workId, _canonicalArrayRepo, _personRepo, ct);
         AddUniqueCredits(credits, fallbackCredits);
 
-        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(workId, _personRepo, _db, ct);
-        AddUniqueCredits(credits, fallbackCredits);
+        AddUniqueCredits(credits, workClaimCredits);
 
         if (work.RootWorkId.HasValue && work.RootWorkId.Value != workId)
         {
             fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(work.RootWorkId.Value, _canonicalArrayRepo, _personRepo, ct);
             AddUniqueCredits(credits, fallbackCredits);
 
-            fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(work.RootWorkId.Value, _personRepo, _db, ct);
-            AddUniqueCredits(credits, fallbackCredits);
+            AddUniqueCredits(credits, rootClaimCredits);
         }
 
         return credits.Take(MaxCastCredits).ToList();
@@ -131,18 +166,29 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         CancellationToken ct)
     {
         var rankMap = await CastRankMap.BuildAsync(rootWorkId, _canonicalArrayRepo, _db, ct);
+        var claimCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(
+            rootWorkId,
+            _personRepo,
+            _db,
+            ct);
         var explicitCredits = string.IsNullOrWhiteSpace(rootWorkQid)
             ? []
             : await BuildExplicitCastAsync(rootWorkQid, rankMap, _db, ct);
+        await RemoveUncorroboratedOrdinalCharacterLinksAsync(
+            rootWorkId,
+            explicitCredits,
+            claimCredits,
+            _canonicalArrayRepo,
+            ct);
         if (explicitCredits.Count > 0)
         {
+            AddUniqueCredits(explicitCredits, claimCredits);
             return explicitCredits;
         }
 
         var fallbackCredits = await BuildFallbackCreditsFromCanonicalArrayAsync(rootWorkId, _canonicalArrayRepo, _personRepo, ct);
         AddUniqueCredits(explicitCredits, fallbackCredits);
-        fallbackCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(rootWorkId, _personRepo, _db, ct);
-        AddUniqueCredits(explicitCredits, fallbackCredits);
+        AddUniqueCredits(explicitCredits, claimCredits);
         return explicitCredits.Take(MaxCastCredits).ToList();
     }
 
@@ -253,18 +299,26 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                                 .ThenByDescending(row => !string.IsNullOrWhiteSpace(row.PortraitImageUrl))
                                 .First();
 
-                            return new CharacterPortrayalDto
+                            return new
                             {
-                                FictionalEntityId = characterGroup.Key.CharacterId,
-                                CharacterName = characterGroup.Key.CharacterName,
-                                CharacterQid = characterGroup.Key.CharacterQid,
-                                PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
-                                    preferred.PortraitId,
-                                    preferred.PortraitLocalImagePath,
-                                    preferred.PortraitImageUrl),
+                                LinkOrder = characterGroup.Min(row => row.LinkOrder),
+                                Character = new CharacterPortrayalDto
+                                {
+                                    FictionalEntityId = characterGroup.Key.CharacterId,
+                                    CharacterName = characterGroup.Key.CharacterName,
+                                    CharacterQid = characterGroup.Key.CharacterQid,
+                                    PortraitUrl = ApiImageUrls.BuildCharacterPortraitUrl(
+                                        preferred.PortraitId,
+                                        preferred.PortraitLocalImagePath,
+                                        preferred.PortraitImageUrl),
+                                },
                             };
                         })
-                        .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
+                        // Wikidata commonly emits a credited alias before the canonical
+                        // character identity (for example a concealed identity). Prefer
+                        // the final qualified identity while retaining every portrayal.
+                        .OrderByDescending(item => item.LinkOrder)
+                        .Select(item => item.Character)
                         .ToList(),
                 };
 
@@ -279,6 +333,81 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             .Take(MaxCastCredits)
             .Select(item => item.Credit)
             .ToList();
+    }
+
+    private static async Task RemoveUncorroboratedOrdinalCharacterLinksAsync(
+        Guid workId,
+        IReadOnlyList<CastCreditDto> explicitCredits,
+        IReadOnlyList<CastCreditDto> claimCredits,
+        ICanonicalValueArrayRepository canonicalArrayRepo,
+        CancellationToken ct)
+    {
+        if (explicitCredits.Count == 0 || claimCredits.Count == 0)
+        {
+            return;
+        }
+
+        var castMembers = await canonicalArrayRepo.GetValuesAsync(workId, "cast_member", ct);
+        var characters = await canonicalArrayRepo.GetValuesAsync(workId, "characters", ct);
+        if (castMembers.Count == 0 || characters.Count == 0)
+        {
+            return;
+        }
+
+        var charactersByOrdinal = characters
+            .GroupBy(character => character.Ordinal)
+            .ToDictionary(group => group.Key, group => group.First());
+        foreach (var credit in explicitCredits)
+        {
+            var castMember = castMembers.FirstOrDefault(entry => SamePerson(entry, credit));
+            if (castMember is null
+                || !charactersByOrdinal.TryGetValue(castMember.Ordinal, out var ordinalCharacter))
+            {
+                continue;
+            }
+
+            var evidence = claimCredits.FirstOrDefault(candidate => SamePerson(candidate, credit));
+            credit.Characters.RemoveAll(character =>
+                SameCharacter(ordinalCharacter, character)
+                && (evidence is null
+                    || !evidence.Characters.Any(candidate => SameCharacter(candidate, character))));
+        }
+    }
+
+    private static bool SamePerson(CanonicalArrayEntry entry, CastCreditDto credit)
+    {
+        var entryQid = ExtractQid(entry.ValueQid);
+        var creditQid = ExtractQid(credit.WikidataQid);
+        return (!string.IsNullOrWhiteSpace(entryQid)
+                && string.Equals(entryQid, creditQid, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(entry.Value.Trim(), credit.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SamePerson(CastCreditDto left, CastCreditDto right)
+    {
+        var leftQid = ExtractQid(left.WikidataQid);
+        var rightQid = ExtractQid(right.WikidataQid);
+        return (!string.IsNullOrWhiteSpace(leftQid)
+                && string.Equals(leftQid, rightQid, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(left.Name.Trim(), right.Name.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SameCharacter(CanonicalArrayEntry entry, CharacterPortrayalDto character)
+    {
+        var entryQid = ExtractQid(entry.ValueQid);
+        var characterQid = ExtractQid(character.CharacterQid);
+        return (!string.IsNullOrWhiteSpace(entryQid)
+                && string.Equals(entryQid, characterQid, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(entry.Value.Trim(), character.CharacterName?.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool SameCharacter(CharacterPortrayalDto left, CharacterPortrayalDto right)
+    {
+        var leftQid = ExtractQid(left.CharacterQid);
+        var rightQid = ExtractQid(right.CharacterQid);
+        return (!string.IsNullOrWhiteSpace(leftQid)
+                && string.Equals(leftQid, rightQid, StringComparison.OrdinalIgnoreCase))
+            || string.Equals(left.CharacterName?.Trim(), right.CharacterName?.Trim(), StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<List<CastCreditDto>> BuildActorOnlyCreditsFromMediaLinksAsync(
@@ -826,8 +955,16 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                           AND ij.resolved_qid IS NOT NULL
                           AND TRIM(ij.resolved_qid) <> ''
                         ORDER BY ij.updated_at DESC, ij.created_at DESC
-                        LIMIT 1)
+                       LIMIT 1)
                    )                                      AS WorkQid,
+                   COALESCE(
+                       NULLIF(TRIM(COALESCE(gp.wikidata_qid, p.wikidata_qid, w.wikidata_qid)), ''),
+                       (SELECT root_qid.value
+                        FROM canonical_values root_qid
+                        WHERE root_qid.entity_id = COALESCE(gp.id, p.id, w.id)
+                          AND root_qid.key = 'wikidata_qid'
+                        LIMIT 1)
+                   )                                      AS RootWorkQid,
                    COALESCE(
                        MAX(CASE WHEN cv.key = 'title' THEN cv.value END),
                        (SELECT asset_title.value
@@ -887,7 +1024,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             new { personId })).ToList();
 
         var workQids = baseRows
-            .SelectMany(row => new[] { row.WorkQid, row.CollectionQid })
+            .SelectMany(row => new[] { row.WorkQid, row.RootWorkQid, row.CollectionQid })
             .Where(qid => !string.IsNullOrWhiteSpace(qid))
             .Select(qid => qid!)
             .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -946,6 +1083,49 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                         .OrderBy(character => character.CharacterName, StringComparer.OrdinalIgnoreCase)
                         .ToList(),
                     StringComparer.OrdinalIgnoreCase);
+
+            var person = await _personRepo.FindByIdAsync(personId, ct);
+            if (person is not null)
+            {
+                var evidenceScopes = baseRows
+                    .SelectMany(row => new[]
+                    {
+                        new CharacterEvidenceScope(row.WorkId, row.WorkQid),
+                        new CharacterEvidenceScope(row.RootWorkId, row.RootWorkQid ?? row.WorkQid),
+                    })
+                    .Where(scope => !string.IsNullOrWhiteSpace(scope.WorkQid))
+                    .Distinct()
+                    .ToList();
+
+                foreach (var scope in evidenceScopes)
+                {
+                    if (!charactersByWorkQid.TryGetValue(scope.WorkQid!, out var linkedCharacters)
+                        || linkedCharacters.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var claimCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(
+                        scope.EntityId,
+                        _personRepo,
+                        _db,
+                        ct);
+                    var filteredCredit = new CastCreditDto
+                    {
+                        PersonId = person.Id,
+                        Name = person.Name,
+                        WikidataQid = person.WikidataQid,
+                        Characters = linkedCharacters.ToList(),
+                    };
+                    await RemoveUncorroboratedOrdinalCharacterLinksAsync(
+                        scope.EntityId,
+                        [filteredCredit],
+                        claimCredits,
+                        _canonicalArrayRepo,
+                        ct);
+                    charactersByWorkQid[scope.WorkQid!] = filteredCredit.Characters;
+                }
+            }
         }
 
         return NormalizeLibraryCreditRows(baseRows, charactersByWorkQid);
@@ -968,7 +1148,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 var isMusicAlbumCredit = IsMusicMediaType(representative.MediaType);
                 var roles = ResolveLibraryCreditRoles(orderedRows, charactersByWorkQid);
                 var characterQids = orderedRows
-                    .SelectMany(row => new[] { row.CollectionQid, row.WorkQid })
+                    .SelectMany(row => new[] { row.CollectionQid, row.RootWorkQid, row.WorkQid })
                     .Where(qid => !string.IsNullOrWhiteSpace(qid))
                     .Select(qid => qid!)
                     .Distinct(StringComparer.OrdinalIgnoreCase);
@@ -1104,6 +1284,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             """
             SELECT cpl.fictional_entity_id  AS FictionalEntityId,
                    fe.label                 AS CharacterName,
+                   fe.wikidata_qid          AS CharacterQid,
                    fe.image_url             AS CharacterImageUrl,
                    cp.id                    AS PortraitId,
                    cp.image_url             AS PortraitImageUrl,
@@ -1111,6 +1292,15 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                    cp.is_default            AS PortraitIsDefault,
                    w.id                     AS WorkId,
                    cpl.work_qid             AS WorkQid,
+                   COALESCE(gp.id, p.id, w.id) AS RootWorkId,
+                   COALESCE(
+                       NULLIF(TRIM(COALESCE(gp.wikidata_qid, p.wikidata_qid, w.wikidata_qid)), ''),
+                       (SELECT root_qid.value
+                        FROM canonical_values root_qid
+                        WHERE root_qid.entity_id = COALESCE(gp.id, p.id, w.id)
+                          AND root_qid.key = 'wikidata_qid'
+                        LIMIT 1)
+                   )                        AS RootWorkQid,
                    w.collection_id          AS CollectionId,
                    w.media_type             AS MediaType,
                    COALESCE(MAX(CASE WHEN cv.key = 'title' THEN cv.value END), 'Untitled') AS WorkTitle,
@@ -1145,18 +1335,85 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             LEFT JOIN canonical_values cv
                 ON cv.entity_id = w.id
                AND cv.key = 'title'
+            LEFT JOIN works p
+                ON p.id = w.parent_work_id
+            LEFT JOIN works gp
+                ON gp.id = p.parent_work_id
             LEFT JOIN character_portraits cp
                 ON cp.fictional_entity_id = fe.id
                AND cp.person_id = cpl.person_id
             WHERE cpl.person_id = @personId
               AND cpl.work_qid IS NOT NULL
-            GROUP BY cpl.fictional_entity_id, fe.label, fe.image_url, cp.id, cp.image_url, cp.local_image_path, cp.is_default,
-                     w.id, cpl.work_qid, w.collection_id, w.media_type, fe.fictional_universe_qid, fe.fictional_universe_label
+            GROUP BY cpl.fictional_entity_id, fe.label, fe.wikidata_qid, fe.image_url,
+                     cp.id, cp.image_url, cp.local_image_path, cp.is_default,
+                     w.id, cpl.work_qid, COALESCE(gp.id, p.id, w.id), RootWorkQid,
+                     w.collection_id, w.media_type, fe.fictional_universe_qid, fe.fictional_universe_label
             ORDER BY UniverseLabel, WorkTitle, CharacterName, cp.is_default DESC;
             """,
             new { personId })).ToList();
 
+        var allowedCharactersByWorkQid = new Dictionary<string, HashSet<Guid>>(StringComparer.OrdinalIgnoreCase);
+        var person = await _personRepo.FindByIdAsync(personId, ct);
+        if (person is not null)
+        {
+            foreach (var qidGroup in rows
+                         .Where(row => !string.IsNullOrWhiteSpace(row.WorkQid))
+                         .GroupBy(row => row.WorkQid!, StringComparer.OrdinalIgnoreCase))
+            {
+                var filteredCredit = new CastCreditDto
+                {
+                    PersonId = person.Id,
+                    Name = person.Name,
+                    WikidataQid = person.WikidataQid,
+                    Characters = qidGroup
+                        .GroupBy(row => row.FictionalEntityId)
+                        .Select(characterGroup =>
+                        {
+                            var character = characterGroup.First();
+                            return new CharacterPortrayalDto
+                            {
+                                FictionalEntityId = character.FictionalEntityId,
+                                CharacterName = character.CharacterName,
+                                CharacterQid = character.CharacterQid,
+                            };
+                        })
+                        .ToList(),
+                };
+                var evidenceScopes = qidGroup
+                    .SelectMany(row => new[]
+                    {
+                        new CharacterEvidenceScope(row.WorkId, row.WorkQid),
+                        new CharacterEvidenceScope(row.RootWorkId, row.RootWorkQid ?? row.WorkQid),
+                    })
+                    .Where(scope => string.Equals(scope.WorkQid, qidGroup.Key, StringComparison.OrdinalIgnoreCase))
+                    .Distinct()
+                    .ToList();
+
+                foreach (var scope in evidenceScopes)
+                {
+                    var claimCredits = await BuildFallbackCreditsFromMetadataClaimsAsync(
+                        scope.EntityId,
+                        _personRepo,
+                        _db,
+                        ct);
+                    await RemoveUncorroboratedOrdinalCharacterLinksAsync(
+                        scope.EntityId,
+                        [filteredCredit],
+                        claimCredits,
+                        _canonicalArrayRepo,
+                        ct);
+                }
+
+                allowedCharactersByWorkQid[qidGroup.Key] = filteredCredit.Characters
+                    .Select(character => character.FictionalEntityId)
+                    .ToHashSet();
+            }
+        }
+
         return rows
+            .Where(row => string.IsNullOrWhiteSpace(row.WorkQid)
+                || !allowedCharactersByWorkQid.TryGetValue(row.WorkQid, out var allowedCharacters)
+                || allowedCharacters.Contains(row.FictionalEntityId))
             .GroupBy(row => new { row.WorkId, row.FictionalEntityId })
             .Select(group =>
             {
@@ -1206,12 +1463,15 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         public string? CollectionTitle { get; init; }
         public string? CollectionQid { get; init; }
         public string? WorkQid { get; init; }
+        public string? RootWorkQid { get; init; }
         public string? Title { get; init; }
         public string? RootTitle { get; init; }
         public string? Year { get; init; }
         public string Role { get; init; } = string.Empty;
         public Guid? FirstAssetId { get; init; }
     }
+
+    private sealed record CharacterEvidenceScope(Guid EntityId, string? WorkQid);
 
     private sealed class PersonCreditCharacterRow
     {
@@ -1230,6 +1490,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     {
         public Guid FictionalEntityId { get; init; }
         public string? CharacterName { get; init; }
+        public string? CharacterQid { get; init; }
         public string? CharacterImageUrl { get; init; }
         public Guid? PortraitId { get; init; }
         public string? PortraitImageUrl { get; init; }
@@ -1237,6 +1498,8 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         public bool PortraitIsDefault { get; init; }
         public Guid WorkId { get; init; }
         public string? WorkQid { get; init; }
+        public Guid RootWorkId { get; init; }
+        public string? RootWorkQid { get; init; }
         public Guid? CollectionId { get; init; }
         public string? MediaType { get; init; }
         public string? WorkTitle { get; init; }

@@ -62,3 +62,5 @@ Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
 [08:11:31 INF] Next rejected-file cleanup at 07/28/2026 04:00:00 -05:00
 [08:11:46 INF] Next retag sweep at 07/28/2026 03:00:00 -05:00
 [08:11:47 INF] Next storage maintenance pass at 07/28/2026 02:00:00 -05:00
+[08:12:47 INF] VibeBatchService: scanning for entities needing vibe tags
+[08:12:47 INF] PluginScheduledSegmentService: next run in 17:47:12.9731991

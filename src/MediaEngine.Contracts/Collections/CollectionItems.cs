@@ -24,6 +24,9 @@ public sealed class CollectionItemDto
 
     [JsonPropertyName("sort_order")]
     public int SortOrder { get; set; }
+
+    [JsonPropertyName("detail_route")]
+    public string? DetailRoute { get; set; }
 }
 
 public sealed class CollectionResolvedItemDto
