@@ -1070,7 +1070,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("@attributes=\"AdditionalAttributes\"", playbackPrimaryButton);
         Assert.Contains("playback-primary-button-shell--compact", playbackPrimaryButtonStyles);
         Assert.Contains("playback-primary-button-shell--large", playbackPrimaryButtonStyles);
-        Assert.Contains("--playback-primary-size: 54px;", playbackPrimaryButtonStyles);
+        Assert.Contains("--playback-primary-icon-size: 34px;", playbackPrimaryButtonStyles);
         Assert.Contains("--playback-primary-size: 58px;", playbackPrimaryButtonStyles);
         Assert.Contains("--playback-primary-size: 64px;", playbackPrimaryButtonStyles);
         Assert.DoesNotContain("--playback-primary-size: 74px;", playbackPrimaryButtonStyles);
@@ -1079,8 +1079,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("\"panel\" => \"standard\"", transportControls);
         Assert.Contains("_ => \"compact\"", transportControls);
         Assert.Contains("listen-transport__secondary-icon", transportControls);
-        Assert.Contains("--listen-transport-secondary-size: 46px;", transportControlStyles);
-        Assert.Contains("--listen-transport-primary-size: 54px;", transportControlStyles);
+        Assert.Contains("--listen-transport-secondary-size: 52px;", transportControlStyles);
+        Assert.Contains("--listen-transport-secondary-icon-size: 30px;", transportControlStyles);
         Assert.Contains("--listen-transport-secondary-size: 50px;", transportControlStyles);
         Assert.Contains("--listen-transport-primary-size: 58px;", transportControlStyles);
         Assert.Contains("--listen-transport-secondary-size: 54px;", transportControlStyles);
@@ -1088,7 +1088,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("grid-template-columns: var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) var(--listen-transport-primary-size) var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) !important;", transportControlStyles);
         Assert.Contains("width: var(--listen-transport-secondary-size) !important;", transportControlStyles);
         Assert.Contains("--playback-relative-skip-size: var(--listen-transport-secondary-size);", transportControlStyles);
-        Assert.Contains("grid-template-columns: 46px 46px 54px 46px 46px;", playerStyles);
+        Assert.Contains("grid-template-columns: 52px 52px 64px 52px 52px;", playerStyles);
         Assert.Contains("grid-template-columns: 54px 54px 64px 54px 54px;", popupPlayerStyles);
         Assert.DoesNotContain("grid-template-columns: 38px 54px 52px 54px 38px", playerStyles);
         Assert.DoesNotContain("grid-template-columns: 72px 64px 104px 64px 72px", popupPlayerStyles);
@@ -1282,8 +1282,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("window.detailOrigin.initialize();", playerScript);
         Assert.Contains("[data-detail-origin-scroll]", playerScript);
         Assert.Contains("registerAudioStateObserver: function", playerScript);
-        Assert.Contains("grid-template-columns: 4.35rem minmax(0, 1fr) 4.35rem", playerStyles);
-        Assert.Contains("width: min(100%, 720px);", playerStyles);
+        Assert.Contains("grid-template-columns: 3.6rem minmax(0, 1fr) 3.6rem", playerStyles);
+        Assert.Contains("grid-column: 1 / -1;", playerStyles);
+        Assert.Contains("width: 100%;", playerStyles);
         Assert.Contains("FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook)", audioTable);
         Assert.Contains("FormatChapterTimeRange(item.StartSeconds.Value, item.EndSeconds)", audioTable);
         Assert.Contains("Playback.CurrentTimeSeconds", audioTable);
@@ -1522,12 +1523,13 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SleepTimerValueText: BottomSleepTimerValueText", host);
         Assert.Contains("Playback.TogglePanel();", host);
         Assert.Contains("ShortSleepTimerLabel", host);
-        Assert.Contains("grid-template-columns: minmax(0, 260px) minmax(300px, 1fr) minmax(590px, auto);", hostCss);
+        Assert.Contains("grid-template-columns: minmax(280px, 0.82fr) minmax(440px, 1.45fr) minmax(320px, 0.9fr);", hostCss);
         Assert.Contains(".listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions", hostCss);
         Assert.Contains("grid-template-columns: repeat(5, minmax(52px, 1fr)) !important;", hostCss);
         Assert.Contains("width: clamp(300px, 24vw, 350px) !important;", hostCss);
         Assert.Contains("@media (max-width: 1240px)", hostCss);
-        Assert.Contains("width: min(100%, 720px);", hostCss);
+        Assert.Contains("grid-column: 1 / -1;", hostCss);
+        Assert.Contains("width: 100%;", hostCss);
         Assert.Contains("grid-template-rows: 24px 10px 12px;", hostCss);
         Assert.Contains("min-height: 52px;", hostCss);
         Assert.Contains("<PlaybackSleepTimerControl", host);

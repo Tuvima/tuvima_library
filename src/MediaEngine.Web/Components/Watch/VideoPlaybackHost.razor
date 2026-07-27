@@ -170,19 +170,6 @@
                     <MudIcon Icon="@Icons.Material.Outlined.Forward10" />
                 </AppNativeButton>
             </div>
-            <div class="video-playback-dock__progress-row">
-                <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
-                <AppNativeInput Type="range"
-                                Min="0"
-                                Max="@ProgressMax"
-                                Step="1"
-                                Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
-                                Class="video-playback-dock__progress"
-                                OnChange="SeekAsync"
-                                AriaLabel="Playback position"
-                                aria-valuetext="@ProgressValueText" />
-                <span>-@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
-            </div>
         </div>
 
         <div class="video-playback-dock__actions">
@@ -196,6 +183,20 @@
             <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="ClosePlayerAsync" AriaLabel="Close player" title="Close player">
                 <MudIcon Icon="@Icons.Material.Outlined.Close" />
             </AppNativeButton>
+        </div>
+
+        <div class="video-playback-dock__progress-row">
+            <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+            <AppNativeInput Type="range"
+                            Min="0"
+                            Max="@ProgressMax"
+                            Step="1"
+                            Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
+                            Class="video-playback-dock__progress"
+                            OnChange="SeekAsync"
+                            AriaLabel="Playback position"
+                            aria-valuetext="@ProgressValueText" />
+            <span>-@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
         </div>
     </section>
 }

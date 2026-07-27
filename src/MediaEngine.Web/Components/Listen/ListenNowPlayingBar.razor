@@ -49,29 +49,44 @@
                 }
                 else
                 {
-                    <div class="listen-player-panel__header">
-                        <div class="listen-player-panel__summary">
-                            <div class="listen-player-panel__thumb">
-                                @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
-                                {
-                                    <img src="@Playback.CurrentItem.CoverUrl" alt="@Playback.CurrentItem.Title" />
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="tl-u-font-size-18px" />
-                                }
+                    @if (Playback.ActiveTab == ListenPlaybackTabs.Lyrics)
+                    {
+                        <div class="listen-player-panel__lyrics-header">
+                            <div class="listen-player-panel__lyrics-heading">
+                                <MudIcon Icon="@Icons.Material.Outlined.Lyrics" />
+                                <span>Lyrics</span>
                             </div>
-                            <div class="listen-player-panel__copy">
-                                <div class="listen-player-panel__title">@Playback.CurrentItem.Title</div>
-                                <div class="listen-player-panel__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
-                            </div>
-                        </div>
-                        <div class="listen-player-panel__actions">
-                            <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel">
+                            <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel" AriaLabel="Close lyrics">
                                 <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
                             </AppNativeButton>
                         </div>
-                    </div>
+                    }
+                    else
+                    {
+                        <div class="listen-player-panel__header">
+                            <div class="listen-player-panel__summary">
+                                <div class="listen-player-panel__thumb">
+                                    @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
+                                    {
+                                        <img src="@Playback.CurrentItem.CoverUrl" alt="@Playback.CurrentItem.Title" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="tl-u-font-size-18px" />
+                                    }
+                                </div>
+                                <div class="listen-player-panel__copy">
+                                    <div class="listen-player-panel__title">@Playback.CurrentItem.Title</div>
+                                    <div class="listen-player-panel__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
+                                </div>
+                            </div>
+                            <div class="listen-player-panel__actions">
+                                <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
+                                </AppNativeButton>
+                            </div>
+                        </div>
+                    }
                 }
 
                 @if (Playback.IsAudiobookMode)
@@ -184,17 +199,17 @@
                 }
                 else
                 {
-                <div class="listen-player-panel__tabs" role="tablist" aria-label="Queue panel">
-                    <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.Queue ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
-                        Playing Next
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.History ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
-                        History
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Lyrics))">
-                        Lyrics
-                    </AppNativeButton>
-                </div>
+                @if (Playback.ActiveTab != ListenPlaybackTabs.Lyrics)
+                {
+                    <div class="listen-player-panel__tabs" role="tablist" aria-label="Queue panel">
+                        <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.Queue ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.Queue))">
+                            Playing Next
+                        </AppNativeButton>
+                        <AppNativeButton Type="button" Class='@($"listen-player-panel__tab {(Playback.ActiveTab == ListenPlaybackTabs.History ? " is-active" : null)}")' OnClick="@(() => Playback.SetActiveTab(ListenPlaybackTabs.History))">
+                            History
+                        </AppNativeButton>
+                    </div>
+                }
 
                 @if (Playback.ActiveTab == ListenPlaybackTabs.Queue)
                 {
@@ -279,10 +294,6 @@
                 }
                 else
                 {
-                    <div class="listen-player-panel__subheader">
-                        <span>Lyrics</span>
-                    </div>
-
                     @if (_lyricsLoading)
                     {
                         <div class="listen-player-panel__empty">Loading lyrics...</div>
@@ -316,13 +327,17 @@
                     }
                     else
                     {
-                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="tl-u-font-size-18px" />
+                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="listen-player__thumbnail-fallback" />
                     }
                 </div>
 
                 <div class="listen-player__copy">
                     <div class="listen-player__title">@Playback.CurrentItem.Title</div>
                     <div class="listen-player__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
+                    @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.Album))
+                    {
+                        <div class="listen-player__context">@Playback.CurrentItem.Album</div>
+                    }
                     @if (!string.IsNullOrWhiteSpace(Playback.CurrentError))
                     {
                         <div class="listen-player__error">@Playback.CurrentError</div>
@@ -340,7 +355,7 @@
                                          AriaLabel="Toggle shuffle"
                                          title="Shuffle"
                                          aria-pressed="@Playback.ShuffleEnabled">
-                            <MudIcon Icon="@Icons.Material.Outlined.Shuffle" Class="tl-u-font-size-18px" />
+                            <MudIcon Icon="@Icons.Material.Outlined.Shuffle" Class="listen-player__utility-glyph" />
                         </AppNativeButton>
                     }
                     <ListenTransportControls Variant="bar"
@@ -372,23 +387,14 @@
                                          AriaLabel="@RepeatAriaLabel"
                                          title="@RepeatAriaLabel"
                                          aria-pressed="@(Playback.RepeatMode != PlayerRepeatModes.Off)">
-                            <MudIcon Icon="@(Playback.RepeatMode == PlayerRepeatModes.One ? Icons.Material.Outlined.RepeatOne : Icons.Material.Outlined.Repeat)" Class="tl-u-font-size-18px" />
+                            <MudIcon Icon="@(Playback.RepeatMode == PlayerRepeatModes.One ? Icons.Material.Outlined.RepeatOne : Icons.Material.Outlined.Repeat)" Class="listen-player__utility-glyph" />
                         </AppNativeButton>
                     }
                 </div>
 
-                <div class="listen-player__progress">
-                    <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
-                    <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnChange="SeekAsync" AriaLabel="Playback position" aria-valuetext="@ProgressValueText" />
-                    <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
-                </div>
             </div>
 
             <div class="listen-player__actions">
-                <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
-                    <AppMaterialIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Css="font-size: 18px;"  />
-                </AppNativeButton>
-                <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@Playback.Volume" Class="listen-player__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
                 @if (Playback.IsAudiobookMode)
                 {
                     <PlaybackControlStrip Controls="@AudiobookPanelControls"
@@ -405,18 +411,30 @@
                                      AriaLabel="Open synced lyrics"
                                      title="Lyrics"
                                      aria-pressed="@(Playback.IsPanelOpen && Playback.ActiveTab == ListenPlaybackTabs.Lyrics)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Lyrics" Class="tl-u-font-size-18px" />
+                        <MudIcon Icon="@Icons.Material.Outlined.Lyrics" Class="listen-player__utility-glyph" />
                     </AppNativeButton>
                     <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMusicPanelAsync" AriaLabel="Open queue panel" title="Open queue panel">
-                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-18px" />
+                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="listen-player__utility-glyph" />
                     </AppNativeButton>
                 }
+                <span class="listen-player__volume">
+                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
+                        <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="listen-player__utility-glyph" />
+                    </AppNativeButton>
+                    <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@Playback.Volume" Class="listen-player__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
+                </span>
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="TogglePopupAsync" AriaLabel="Pop out player" title="Pop out player" data-listen-popup-route="@(Playback.IsPopupOpen ? null : PopupRoute)">
-                    <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="tl-u-font-size-18px" />
+                    <MudIcon Icon="@(Playback.IsPopupOpen ? Icons.Material.Outlined.OpenInNewOff : Icons.Material.Outlined.OpenInNew)" Class="listen-player__utility-glyph" />
                 </AppNativeButton>
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync" AriaLabel="Close player" title="Close player">
-                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
+                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="listen-player__utility-glyph" />
                 </AppNativeButton>
+            </div>
+
+            <div class="listen-player__progress">
+                <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnChange="SeekAsync" AriaLabel="Playback position" aria-valuetext="@ProgressValueText" />
+                <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
             </div>
         </PlaybackMiniPlayer>
     </div>

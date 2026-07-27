@@ -1,4 +1,5 @@
 @page "/watch/player/{WorkId:guid}"
+@using MediaEngine.Contracts.Details
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
@@ -110,10 +111,20 @@ else
         }
 
         var detailTask = ApiClient.GetLibraryItemDetailAsync(WorkId);
+        var presentationTask = ApiClient.GetDetailPageAsync(
+            DetailEntityType.Work,
+            WorkId,
+            DetailPresentationContext.Watch);
         var assetTask = Orchestrator.ResolveWorkToAssetAsync(WorkId);
-        await Task.WhenAll(detailTask, assetTask);
+        await Task.WhenAll(detailTask, presentationTask, assetTask);
 
         _detail = detailTask.Result;
+        var presentation = presentationTask.Result;
+        var playerCoverUrl = StringHelpers.FirstNonBlank(
+            presentation?.Artwork.CoverUrl,
+            presentation?.Artwork.PosterUrl,
+            presentation?.Artwork.PortraitUrl,
+            _detail?.CoverUrl);
         var assetId = assetTask.Result;
         if (_detail is null || !assetId.HasValue)
         {
@@ -148,7 +159,7 @@ else
             EpisodeNumber = _detail.EpisodeNumber,
             EpisodeTitle = _detail.EpisodeTitle ?? (_detail.ShowName is not null ? _detail.Title : null),
             Quality = _detail.PlaybackSummary?.VideoResolutionLabel ?? manifest.Technical.QualityLabel,
-            CoverUrl = _detail.BackgroundUrl ?? _detail.BannerUrl ?? _detail.HeroUrl ?? _detail.CoverUrl,
+            CoverUrl = playerCoverUrl,
             Duration = _detail.Runtime,
             AssetId = assetId,
             StreamUrl = manifest.DirectStreamUrl ?? $"/stream/{assetId.Value:D}",

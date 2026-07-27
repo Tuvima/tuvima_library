@@ -370,8 +370,7 @@ body {
     }
 }
 
-/* High-priority legacy surface alignment: Listen player and provider/settings panels. */
-.listen-player,
+/* High-priority legacy surface alignment for provider/settings panels and playback sheets. */
 .listen-player-panel,
 .provider-card,
 .chain-card,
@@ -383,15 +382,6 @@ body {
     box-shadow: var(--app-shadow) !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
-}
-
-.listen-player {
-    border: 1px solid rgba(255, 255, 255, 0.24) !important;
-    border-radius: 20px !important;
-    background: rgba(6, 13, 27, 0.94) !important;
-    box-shadow: 0 20px 58px rgba(0, 0, 0, 0.46) !important;
-    backdrop-filter: blur(22px) !important;
-    -webkit-backdrop-filter: blur(22px) !important;
 }
 
 .listen-player-panel.listen-player-panel--lyrics {
@@ -408,7 +398,6 @@ body {
     border-color: var(--app-border) !important;
 }
 
-.listen-player__thumb,
 .listen-player-panel__thumb,
 .listen-player-panel__item-thumb,
 .drawer-icon-circle {
@@ -417,7 +406,6 @@ body {
     border-radius: var(--app-radius-sm) !important;
 }
 
-.listen-player__title,
 .listen-player-panel__title,
 .listen-player-panel__item-title {
     color: var(--app-text-primary) !important;
@@ -426,8 +414,6 @@ body {
     font-weight: 700 !important;
 }
 
-.listen-player__subtitle,
-.listen-player__progress,
 .listen-player-panel__subtitle,
 .listen-player-panel__subheader,
 .listen-player-panel__item-subtitle,
@@ -440,7 +426,6 @@ body {
     font-family: var(--app-font-sans) !important;
 }
 
-.listen-player__icon,
 .listen-player-panel__close,
 .listen-player-panel__item-remove,
 .listen-player-panel__tab,
@@ -450,7 +435,6 @@ body {
     border-radius: var(--app-radius-sm) !important;
 }
 
-.listen-player__icon:hover,
 .listen-player-panel__close:hover,
 .listen-player-panel__item-remove:hover,
 .listen-player-panel__tab:hover,
@@ -459,11 +443,6 @@ body {
     color: var(--app-text-primary) !important;
     background: var(--app-hover-overlay) !important;
     transform: none !important;
-}
-
-.listen-player__progress-slider,
-.listen-player__volume-slider {
-    accent-color: var(--app-primary) !important;
 }
 
 .listen-player-panel-backdrop,
@@ -4034,16 +4013,17 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
         min-height: 116px !important;
         display: grid !important;
         grid-template-columns: minmax(0, 1fr) auto !important;
+        grid-template-rows: auto auto !important;
         gap: 8px 10px !important;
-        padding: 10px 12px 12px !important;
-        border-radius: 16px !important;
+        padding: 9px 12px 10px !important;
+        border-radius: 0 !important;
     }
 
     .listen-player .listen-player__meta {
         min-width: 0;
         grid-column: 1;
         grid-row: 1;
-        padding-right: 54px;
+        padding-right: 58px;
     }
 
     .listen-player .listen-player__thumb {
@@ -4053,27 +4033,36 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 
     .listen-player .listen-player__copy {
         min-width: 0;
-        max-width: 190px;
+        max-width: 168px;
+    }
+
+    .listen-player .listen-player__error {
+        max-width: 168px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 
     .listen-player .listen-player__transport {
         grid-column: 1 / -1;
-        grid-row: 2;
+        grid-row: 1;
     }
 
     .listen-player .listen-player__transport-line {
         position: absolute;
         top: 9px;
-        right: 50px;
+        right: 52px;
         width: auto;
     }
 
     .listen-player .listen-player__transport-line > .listen-player__mode-button,
-    .listen-player .listen-transport--bar > .listen-player__icon {
+    .listen-player .listen-transport--bar > :not(.listen-player__play) {
         display: none !important;
     }
 
     .listen-player .listen-player__progress {
+        grid-column: 1 / -1;
+        grid-row: 2;
         grid-template-columns: 2.7rem minmax(0, 1fr) 2.7rem;
         gap: 6px;
         font-size: 0.68rem;
