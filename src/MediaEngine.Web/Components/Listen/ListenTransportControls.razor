@@ -92,7 +92,7 @@
     private string RootClass => Variant switch
     {
         "panel" => $"listen-transport listen-transport--panel listen-now-panel__controls {(IsAudiobookMode ? "listen-now-panel__controls--audiobook" : null)}",
-        "popup" => "listen-transport listen-transport--popup listen-popup__transport",
+        "popup" => $"listen-transport listen-transport--popup listen-popup__transport {(IsAudiobookMode ? "listen-transport--popup-audiobook" : "listen-transport--popup-music")}",
         _ => $"listen-transport listen-transport--bar listen-player__transport-buttons {(IsAudiobookMode ? "listen-player__transport-buttons--audiobook" : null)}",
     };
     private string IconButtonClass => Variant switch

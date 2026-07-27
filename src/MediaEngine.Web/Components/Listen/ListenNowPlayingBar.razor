@@ -417,6 +417,13 @@
                         <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="listen-player__utility-glyph" />
                     </AppNativeButton>
                 }
+                <AppNativeButton Type="button"
+                                 Class="listen-player__icon listen-player__cast"
+                                 Disabled="true"
+                                 AriaLabel="Playback device unavailable"
+                                 title="Playback device unavailable">
+                    <MudIcon Icon="@Icons.Material.Outlined.Cast" Class="listen-player__utility-glyph" />
+                </AppNativeButton>
                 <span class="listen-player__volume">
                     <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
                         <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="listen-player__utility-glyph" />

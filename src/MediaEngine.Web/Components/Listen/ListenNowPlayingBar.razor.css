@@ -339,6 +339,11 @@
         background: rgba(255, 255, 255, 0.08);
     }
 
+    .listen-player__icon:disabled {
+        cursor: default;
+        opacity: 0.48;
+    }
+
     ::deep .listen-player__mode-button.is-active,
     ::deep .listen-player__actions .listen-player__mode-button.is-active {
         border: 1px solid rgba(255, 177, 0, 0.28);

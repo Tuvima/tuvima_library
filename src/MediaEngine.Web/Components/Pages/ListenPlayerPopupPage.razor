@@ -144,7 +144,11 @@
                         <span>Volume</span>
                     </AppNativeButton>
                 </section>
-                <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
+                <section class="listen-popup__volume-control" aria-label="Volume control">
+                    <MudIcon Icon="@Icons.Material.Outlined.VolumeDown" Class="listen-popup__volume-glyph" />
+                    <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
+                    <MudIcon Icon="@Icons.Material.Outlined.VolumeUp" Class="listen-popup__volume-glyph" />
+                </section>
             }
         </main>
 

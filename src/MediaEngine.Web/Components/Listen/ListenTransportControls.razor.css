@@ -42,6 +42,14 @@
     column-gap: clamp(4px, 1.4vw, 8px) !important;
 }
 
+.listen-transport--popup-music {
+    --listen-transport-secondary-size: 62px;
+    --listen-transport-primary-size: 82px;
+    --listen-transport-secondary-icon-size: 36px;
+    grid-template-columns: var(--listen-transport-secondary-size) var(--listen-transport-primary-size) var(--listen-transport-secondary-size) !important;
+    column-gap: clamp(20px, 7vw, 34px) !important;
+}
+
 .listen-transport--bar.listen-player__transport-buttons--audiobook {
     display: grid !important;
     grid-template-columns: var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) var(--listen-transport-primary-size) var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) !important;
@@ -121,5 +129,13 @@
         --listen-transport-secondary-icon-size: 28px;
         grid-template-columns: var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) var(--listen-transport-primary-size) var(--listen-transport-secondary-size) var(--listen-transport-secondary-size) !important;
         column-gap: 2px !important;
+    }
+
+    .listen-transport--popup-music {
+        --listen-transport-secondary-size: 56px;
+        --listen-transport-primary-size: 82px;
+        --listen-transport-secondary-icon-size: 34px;
+        grid-template-columns: var(--listen-transport-secondary-size) var(--listen-transport-primary-size) var(--listen-transport-secondary-size) !important;
+        column-gap: clamp(14px, 6vw, 26px) !important;
     }
 }

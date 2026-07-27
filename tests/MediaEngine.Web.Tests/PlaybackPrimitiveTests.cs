@@ -168,6 +168,11 @@ public sealed class PlaybackPrimitiveTests
 
         Assert.Contains("<ListenTransportControls", bar, StringComparison.Ordinal);
         Assert.Contains("<ListenTransportControls", popup, StringComparison.Ordinal);
+        Assert.Contains("listen-transport--popup-music", shared, StringComparison.Ordinal);
+        Assert.Contains("listen-popup__volume-control", popup, StringComparison.Ordinal);
+        Assert.Contains("Icons.Material.Outlined.VolumeDown", popup, StringComparison.Ordinal);
+        Assert.Contains("Icons.Material.Outlined.VolumeUp", popup, StringComparison.Ordinal);
+        Assert.Contains("--playback-primary-size: 82px;", popupStyles, StringComparison.Ordinal);
         Assert.Contains("<PlaybackPrimaryButton", shared, StringComparison.Ordinal);
         Assert.DoesNotContain("MudIcon Icon=\"@(IsPlaying", shared, StringComparison.Ordinal);
         Assert.Contains("[Parameter(CaptureUnmatchedValues = true)]", primary, StringComparison.Ordinal);
@@ -474,6 +479,8 @@ public sealed class PlaybackPrimitiveTests
         var watchPlayer = File.ReadAllText(Path.Combine(root, "src/MediaEngine.Web/Components/Pages/WatchPlayerPage.razor"));
 
         Assert.Contains("Class=\"listen-player__utility-glyph\"", listenBar, StringComparison.Ordinal);
+        Assert.Contains("Icons.Material.Outlined.Cast", listenBar, StringComparison.Ordinal);
+        Assert.Contains("Playback device unavailable", listenBar, StringComparison.Ordinal);
         Assert.Contains("font-size: 26px !important;", listenStyles, StringComparison.Ordinal);
         Assert.Contains("place-items: center;", listenStyles, StringComparison.Ordinal);
         Assert.Contains("object-fit: contain;", listenStyles, StringComparison.Ordinal);
