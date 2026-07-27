@@ -18,6 +18,11 @@ public sealed class DisplayJourneyProjectionReader
         using var conn = _db.CreateConnection();
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var displayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(gpw.id, pw.id, w.id)",
+            "ma.id",
+            "w.media_type");
         var sql = $"""
             SELECT
                 us.asset_id AS AssetId,
@@ -51,11 +56,7 @@ public sealed class DisplayJourneyProjectionReader
                     cv_album_w.value,
                     (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'album' LIMIT 1)
                 ) AS Album,
-                COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('release_year', 'year') LIMIT 1),
-                    cv_year_w.value,
-                    (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('release_year', 'year') LIMIT 1)
-                ) AS Year,
+                {displayYearSql} AS Year,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('content_rating', 'certification') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key IN ('content_rating', 'certification') LIMIT 1),
@@ -202,7 +203,6 @@ public sealed class DisplayJourneyProjectionReader
             LEFT JOIN canonical_values cv_issue_title_a ON cv_issue_title_a.entity_id = ma.id AND cv_issue_title_a.key = 'issue_title'
             LEFT JOIN canonical_values cv_issue_title_w ON cv_issue_title_w.entity_id = w.id AND cv_issue_title_w.key = 'issue_title'
             LEFT JOIN canonical_values cv_album_w ON cv_album_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_album_w.key = 'album'
-            LEFT JOIN canonical_values cv_year_w ON cv_year_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_year_w.key IN ('release_year', 'year')
             LEFT JOIN canonical_values cv_rating_w ON cv_rating_w.entity_id = COALESCE(gpw.id, pw.id, w.id) AND cv_rating_w.key = 'rating'
             LEFT JOIN canonical_values cv_rating_item ON cv_rating_item.entity_id = w.id AND cv_rating_item.key = 'rating'
             LEFT JOIN canonical_values cv_rating_a ON cv_rating_a.entity_id = ma.id AND cv_rating_a.key = 'rating'

@@ -43,12 +43,19 @@ internal sealed partial class DetailCompositionOrchestrator
         var albumArtists = MergeNames(
             SplitMetadataValues(GetValue(canonicalValues, "album_artist")),
             SplitMetadataValues(GetValue(canonicalValues, MetadataFieldConstants.Author)));
+        string? Canonical(string key) => GetValue(canonicalValues, key);
 
         return new DetailFactsViewModel
         {
             MediaKind = FormatEntityType(entityType),
-            Year = StringHelpers.FirstNonBlankOr(string.Empty, detail.Year, GetValue(canonicalValues, MetadataFieldConstants.Year), ReleaseYear(GetValue(canonicalValues, "release_date"))),
-            ReleaseDate = StringHelpers.FirstNonBlankOr(string.Empty, detail.ReleaseDate, GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
+            Year = StringHelpers.FirstNonBlankOr(
+                string.Empty,
+                detail.Year,
+                MediaDateSemantics.ResolveOriginalYear(detail.MediaType, Canonical)),
+            ReleaseDate = StringHelpers.FirstNonBlankOr(
+                string.Empty,
+                detail.ReleaseDate,
+                MediaDateSemantics.ResolveOriginalDate(detail.MediaType, Canonical)),
             Rating = StringHelpers.FirstNonBlankOr(string.Empty, FormatRating(detail.Rating), detail.Rating, GetValue(canonicalValues, MetadataFieldConstants.Rating)),
             ContentRating = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
             Runtime = FormatRuntime(detail.Runtime),
@@ -125,12 +132,21 @@ internal sealed partial class DetailCompositionOrchestrator
             entityType is DetailEntityType.TvShow
                 ? works.Select(work => work.Season).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Count().ToString(CultureInfo.InvariantCulture)
                 : null);
+        string? Canonical(string key) => GetValue(canonicalValues, key);
+        var explicitOriginalYear = MediaDateSemantics.ResolveExplicitOriginalYear(entityType.ToString(), Canonical);
+        var canonicalOriginalYear = MediaDateSemantics.ResolveOriginalYear(entityType.ToString(), Canonical);
+        var displayedYear = entityType is DetailEntityType.MusicAlbum && explicitOriginalYear is null
+            ? years.FirstOrDefault()
+            : explicitOriginalYear ?? canonicalOriginalYear ?? years.FirstOrDefault();
+        var displayedReleaseDate = entityType is DetailEntityType.MusicAlbum && explicitOriginalYear is null
+            ? displayedYear
+            : MediaDateSemantics.ResolveOriginalDate(entityType.ToString(), Canonical);
 
         return new DetailFactsViewModel
         {
             MediaKind = FormatEntityType(entityType),
-            Year = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Year), GetValue(canonicalValues, "release_year"), years.FirstOrDefault()),
-            ReleaseDate = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "release_date"), GetValue(canonicalValues, "first_air_date")),
+            Year = displayedYear ?? string.Empty,
+            ReleaseDate = displayedReleaseDate ?? string.Empty,
             Rating = StringHelpers.FirstNonBlankOr(string.Empty, FormatRating(GetValue(canonicalValues, MetadataFieldConstants.Rating)), GetValue(canonicalValues, MetadataFieldConstants.Rating)),
             ContentRating = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")),
             Runtime = FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.Runtime)),

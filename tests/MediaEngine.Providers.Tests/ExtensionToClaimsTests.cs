@@ -52,6 +52,18 @@ public sealed class ExtensionToClaimsTests
             }
         };
 
+    private static WikidataClaim TimeClaim(string value) =>
+        new()
+        {
+            PropertyId = "P577",
+            Rank = "normal",
+            Value = new WikidataValue
+            {
+                Kind = WikidataValueKind.Time,
+                RawValue = value,
+            }
+        };
+
     /// <summary>
     /// Invokes <c>ExtensionToClaims</c> via reflection and materialises the result.
     /// </summary>
@@ -60,10 +72,14 @@ public sealed class ExtensionToClaimsTests
         IReadOnlyDictionary<string, IReadOnlyList<WikidataClaim>> properties,
         Dictionary<string, string> propertyLabels,
         bool isWork = true,
-        string? metadataLanguage = null)
+        string? metadataLanguage = null,
+        bool editionScopedDates = false)
     {
-        // ExtensionToClaims(entityQid, properties, propertyLabels, isWork, castMemberLimit, metadataLanguage)
-        var result = ExtensionToClaimsMethod.Invoke(null, [entityQid, properties, propertyLabels, isWork, 20, metadataLanguage]);
+        // ExtensionToClaims(entityQid, properties, propertyLabels, isWork,
+        // castMemberLimit, metadataLanguage, editionScopedDates)
+        var result = ExtensionToClaimsMethod.Invoke(
+            null,
+            [entityQid, properties, propertyLabels, isWork, 20, metadataLanguage, editionScopedDates]);
         return ((IEnumerable<ProviderClaim>)result!).ToList();
     }
 
@@ -107,6 +123,46 @@ public sealed class ExtensionToClaimsTests
 
         var qidClaim = claims.First(c => c.Key == "author_qid");
         Assert.NotEqual("Q44413::Q44413", qidClaim.Value);
+    }
+
+    [Fact]
+    public void P577WorkDates_UseEarliestReleaseAndOriginalKeys()
+    {
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P577"] =
+            [
+                TimeClaim("+2025-02-14T00:00:00Z"),
+                TimeClaim("+2014-11-05T00:00:00Z"),
+            ],
+        };
+        var labels = new Dictionary<string, string> { ["P577"] = "release_year" };
+
+        var claims = ConvertToClaims("Q13417189", properties, labels);
+
+        Assert.Contains(claims, claim => claim.Key == "original_release_year" && claim.Value == "2014");
+        Assert.Contains(claims, claim => claim.Key == "original_release_date" && claim.Value == "2014-11-05");
+        Assert.DoesNotContain(claims, claim => claim.Key == "release_year");
+    }
+
+    [Fact]
+    public void P577EditionDates_StaySeparateFromOriginalWorkDate()
+    {
+        var properties = new Dictionary<string, IReadOnlyList<WikidataClaim>>
+        {
+            ["P577"] = [TimeClaim("+2007-09-18T00:00:00Z")],
+        };
+        var labels = new Dictionary<string, string> { ["P577"] = "release_year" };
+
+        var claims = ConvertToClaims(
+            "Q92076495",
+            properties,
+            labels,
+            editionScopedDates: true);
+
+        Assert.Contains(claims, claim => claim.Key == "edition_release_year" && claim.Value == "2007");
+        Assert.Contains(claims, claim => claim.Key == "edition_release_date" && claim.Value == "2007-09-18");
+        Assert.DoesNotContain(claims, claim => claim.Key.StartsWith("original_", StringComparison.Ordinal));
     }
 
     // ── Label absent: falls back to QID ──────────────────────────────────────

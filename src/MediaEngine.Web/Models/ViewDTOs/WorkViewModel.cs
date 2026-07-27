@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Services;
 
 namespace MediaEngine.Web.Models.ViewDTOs;
 
@@ -92,7 +93,7 @@ public sealed class WorkViewModel
         }
     }
 
-    public string? Year           => Canonical("release_year") ?? Canonical("year");
+    public string? Year           => MediaDateSemantics.ResolveOriginalYear(MediaType, Canonical);
     public string? CoverUrl       => ResolvedCoverUrl ?? Canonical("cover_url") ?? Canonical("cover");
     public string? SquareUrl      => Canonical("square_url") ?? Canonical("square");
     public string? BackgroundUrl  => ResolvedBackgroundUrl ?? Canonical("background_url") ?? Canonical("background");

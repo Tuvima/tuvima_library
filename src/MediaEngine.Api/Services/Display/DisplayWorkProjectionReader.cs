@@ -18,6 +18,11 @@ public sealed class DisplayWorkProjectionReader
         using var conn = _db.CreateConnection();
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var displayYearSql = MediaDateSql.DisplayOriginalYear(
+            "WorkId",
+            "RootWorkId",
+            "AssetId",
+            "MediaType");
         var sql = $"""
             WITH ranked_assets AS (
                 SELECT
@@ -125,11 +130,7 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'album' LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'album' LIMIT 1)
                 ) AS Album,
-                COALESCE(
-                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('release_year', 'year') LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('release_year', 'year') LIMIT 1),
-                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('release_year', 'year') LIMIT 1)
-                ) AS Year,
+                {displayYearSql} AS Year,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('content_rating', 'certification') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('content_rating', 'certification') LIMIT 1),

@@ -3,6 +3,7 @@ using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Data.Sqlite;
 
@@ -430,10 +431,9 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
 
         string? Canonical(string key)
         {
-            var value = canonicalValues.FirstOrDefault(v => v.Key == key)?.Value;
-            if (value is null && key == "release_year")
-                value = canonicalValues.FirstOrDefault(v => v.Key is "date" or "year")?.Value;
-            return value;
+            return canonicalValues
+                .FirstOrDefault(v => v.Key.Equals(key, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
         }
 
         var bridgeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
@@ -578,12 +578,32 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                 ?? Canonical("overview")
                 ?? Canonical("plot_summary");
 
+        var resolvedMediaType = projection?.MediaType ?? lineageRow.MediaType ?? "";
+        var explicitOriginalYear = MediaDateSemantics.ResolveExplicitOriginalYear(resolvedMediaType, Canonical);
+        var relatedBookYear = string.Empty;
+        if (resolvedMediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)
+            && explicitOriginalYear is null
+            && assetId.HasValue)
+        {
+            var relatedBookYearSql = MediaDateSql.RelatedBookOriginalYear("@workId", "@assetId");
+            relatedBookYear = conn.QueryFirstOrDefault<string?>(
+                $"SELECT {relatedBookYearSql};",
+                new { workId = entityId, assetId }) ?? string.Empty;
+        }
+
+        var originalYear = explicitOriginalYear
+            ?? (!string.IsNullOrWhiteSpace(relatedBookYear) ? relatedBookYear : null)
+            ?? MediaDateSemantics.ResolveOriginalYear(resolvedMediaType, Canonical)
+            ?? projection?.Year;
+        var originalDate = explicitOriginalYear is null && !string.IsNullOrWhiteSpace(relatedBookYear)
+            ? relatedBookYear
+            : MediaDateSemantics.ResolveOriginalDate(resolvedMediaType, Canonical);
         var detail = new LibraryItemDetail
         {
             EntityId = entityId,
             Title = projection?.Title ?? Canonical("title") ?? "Untitled",
-            Year = projection?.Year ?? Canonical("release_year"),
-            MediaType = projection?.MediaType ?? lineageRow.MediaType ?? "",
+            Year = originalYear ?? projection?.Year,
+            MediaType = resolvedMediaType,
             CoverUrl = projection?.CoverUrl,
             BackgroundUrl = projection?.BackgroundUrl,
             BannerUrl = projection?.BannerUrl,
@@ -615,7 +635,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
             SeasonNumber = projection?.SeasonNumber ?? Canonical("season_number"),
             EpisodeNumber = projection?.EpisodeNumber ?? Canonical("episode_number"),
             EpisodeTitle = projection?.EpisodeTitle ?? Canonical("episode_title"),
-            ReleaseDate = NormalizeReleaseDate(Canonical("release_date") ?? Canonical("date") ?? Canonical("year")),
+            ReleaseDate = NormalizeReleaseDate(originalDate),
             Narrator = projection?.Narrator ?? Canonical("narrator"),
             Rating = projection?.Rating ?? Canonical("rating"),
             WikidataQid = projection?.WikidataQid ?? Canonical(BridgeIdKeys.WikidataQid),
@@ -838,6 +858,12 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
         var localProcessorId = SqlGuidLiteral(WellKnownProviders.LocalProcessor);
         var libraryScanId = SqlGuidLiteral(WellKnownProviders.LibraryScanner);
         var comicVineId = SqlGuidLiteral(WellKnownProviders.ComicVine);
+        var workYearSql = MediaDateSql.OriginalYearFromGroupedRows("w.media_type", "wcv.key", "wcv.value");
+        var assetYearSql = MediaDateSql.OriginalYearFromGroupedRows("w.media_type", "acv.key", "acv.value");
+        var explicitWorkYearSql = MediaDateSql.ExplicitOriginalYearFromGroupedRows("w.media_type", "wcv.key", "wcv.value");
+        var explicitAssetYearSql = MediaDateSql.ExplicitOriginalYearFromGroupedRows("w.media_type", "acv.key", "acv.value");
+        var primaryAssetIdSql = "(SELECT year_asset.asset_id FROM primary_asset_data year_asset WHERE year_asset.work_id = w.id)";
+        var relatedBookYearSql = MediaDateSql.RelatedBookOriginalYear("w.id", primaryAssetIdSql);
 
         var sql = $"""
             WITH primary_asset_data AS (
@@ -909,7 +935,25 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     MAX(CASE WHEN acv.key = 'hero' THEN acv.value END) AS self_hero_url,
                     MAX(CASE WHEN acv.key = 'background' THEN acv.value END) AS self_background_url,
                     MAX(CASE WHEN acv.key = 'banner' THEN acv.value END) AS self_banner_url,
-                    MAX(CASE WHEN wcv.key IN ('release_year', 'date', 'year') THEN wcv.value END) AS year,
+                    CASE
+                        WHEN LOWER(w.media_type) LIKE '%audio%'
+                        THEN COALESCE(
+                            {explicitWorkYearSql},
+                            {explicitAssetYearSql},
+                            {relatedBookYearSql},
+                            {assetYearSql},
+                            {workYearSql})
+                        WHEN LOWER(w.media_type) LIKE '%music%'
+                        THEN COALESCE(
+                            {explicitWorkYearSql},
+                            {explicitAssetYearSql},
+                            {assetYearSql},
+                            {workYearSql})
+                        WHEN LOWER(w.media_type) LIKE '%tv%'
+                          OR LOWER(w.media_type) LIKE '%television%'
+                        THEN COALESCE({workYearSql}, {assetYearSql})
+                        ELSE COALESCE({assetYearSql}, {workYearSql})
+                    END AS year,
                     COALESCE(
                         CASE WHEN w.media_type = 'Comics' THEN (
                             SELECT CASE

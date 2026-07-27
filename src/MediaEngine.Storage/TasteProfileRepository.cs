@@ -60,22 +60,23 @@ public sealed class TasteProfileRepository : ITasteProfileRepository
         }
 
         using var conn = _db.CreateConnection();
+        var displayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            "us.asset_id",
+            "w.media_type");
         // user_states is the only persisted interaction source keyed by profile.
         // Metadata rating claims are deliberately excluded because they have no
         // profile id and therefore cannot be attributed to the requested user.
         var interactions = conn.Query<InteractionRow>(
-            """
+            $"""
             SELECT us.asset_id AS AssetId,
                    us.progress_pct AS ProgressPct,
                    us.last_accessed AS LastAccessed,
                    e.work_id AS WorkId,
                    COALESCE(gp.id, p.id, w.id) AS RootWorkId,
                    w.media_type AS MediaType,
-                   COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'release_year' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key = 'release_year' LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = us.asset_id AND key = 'release_year' LIMIT 1)
-                   ) AS ReleaseYear
+                   {displayYearSql} AS ReleaseYear
             FROM user_states us
             INNER JOIN media_assets a ON a.id = us.asset_id
             INNER JOIN editions e ON e.id = a.edition_id

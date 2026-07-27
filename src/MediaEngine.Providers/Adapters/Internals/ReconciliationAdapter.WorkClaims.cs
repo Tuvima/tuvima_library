@@ -319,7 +319,7 @@ public sealed partial class ReconciliationAdapter
             {
                 var editionExtensions = await ExtendAsync([audiobookEditionQid], editionProps, ct).ConfigureAwait(false);
                 if (editionExtensions.TryGetValue(audiobookEditionQid, out var editionEntityProps))
-                    claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language));
+                    claims.AddRange(ExtensionToClaims(audiobookEditionQid, editionEntityProps, _config.DataExtension.PropertyLabels, isWork: true, castMemberLimit: _config.Reconciliation.CastMemberLimit, metadataLanguage: language, editionScopedDates: true));
             }
 
             _logger.LogDebug(

@@ -36,8 +36,13 @@ internal sealed partial class DetailCompositionOrchestrator
         IReadOnlyList<Guid>? resolvedWorkIds = null)
     {
         using var conn = _db.CreateConnection();
+        var displayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            "ma.id",
+            "w.media_type");
         var rawRows = await conn.QueryAsync(new CommandDefinition(
-            """
+            $"""
             SELECT w.id AS Id,
                    ma.id AS AssetId,
                    CAST(w.media_type AS TEXT) AS MediaType,
@@ -85,11 +90,7 @@ internal sealed partial class DetailCompositionOrchestrator
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key = 'duration' LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'runtime' LIMIT 1),
                        (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key = 'duration' LIMIT 1)) AS TEXT) AS Duration,
-                   CAST(COALESCE(
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('air_date', 'original_air_date', 'release_date', 'publication_date') LIMIT 1),
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('air_date', 'original_air_date', 'release_date', 'publication_date') LIMIT 1),
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = ma.id AND cv.key IN ('year', 'release_year') LIMIT 1),
-                       (SELECT NULLIF(CAST(cv.value AS TEXT), '') FROM canonical_values cv WHERE cv.entity_id = w.id AND cv.key IN ('year', 'release_year') LIMIT 1)) AS TEXT) AS Year,
+                   CAST({displayYearSql} AS TEXT) AS Year,
                    CAST(COALESCE(
                        (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = ma.id AND cva.key IN ('artist', 'album_artist') ORDER BY cva.ordinal LIMIT 1),
                        (SELECT NULLIF(cva.value, '') FROM canonical_value_arrays cva WHERE cva.entity_id = w.id AND cva.key IN ('artist', 'album_artist') ORDER BY cva.ordinal LIMIT 1),

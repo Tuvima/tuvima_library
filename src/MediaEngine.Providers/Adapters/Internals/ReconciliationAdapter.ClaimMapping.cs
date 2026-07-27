@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -92,7 +93,8 @@ public sealed partial class ReconciliationAdapter
         Dictionary<string, string> propertyLabels,
         bool isWork,
         int castMemberLimit = 20,
-        string? metadataLanguage = null)
+        string? metadataLanguage = null,
+        bool editionScopedDates = false)
     {
         foreach (var (pCode, rawClaims) in properties)
         {
@@ -124,6 +126,48 @@ public sealed partial class ReconciliationAdapter
             {
                 if (claims.Count > 0 && !string.IsNullOrWhiteSpace(claims[0].Value?.RawValue))
                     yield return new ProviderClaim(MetadataFieldConstants.ShortDescription, claims[0].Value!.RawValue!, ClaimConfidence.Description);
+                continue;
+            }
+
+            // P577 can contain several regional premieres or re-releases. Treat
+            // the earliest value as the original work date, and never merge a
+            // known edition's date into the same canonical field.
+            if (isWork && string.Equals(pCode, "P577", StringComparison.OrdinalIgnoreCase))
+            {
+                var earliest = claims
+                    .Select(claim => new
+                    {
+                        Claim = claim,
+                        Year = ExtractYear(claim.Value?.RawValue ?? string.Empty),
+                    })
+                    .Where(candidate => candidate.Year is not null)
+                    .OrderBy(candidate => candidate.Year, StringComparer.Ordinal)
+                    .ThenBy(candidate => candidate.Claim.Value?.RawValue, StringComparer.Ordinal)
+                    .FirstOrDefault();
+
+                if (earliest is not null)
+                {
+                    var yearKey = editionScopedDates
+                        ? MetadataFieldConstants.EditionReleaseYear
+                        : MetadataFieldConstants.OriginalReleaseYear;
+                    var dateKey = editionScopedDates
+                        ? MetadataFieldConstants.EditionReleaseDate
+                        : MetadataFieldConstants.OriginalReleaseDate;
+                    yield return new ProviderClaim(
+                        yearKey,
+                        earliest.Year!,
+                        ClaimConfidence.AlternateTitle);
+
+                    var fullDate = ExtractDate(earliest.Claim.Value?.RawValue);
+                    if (fullDate is not null)
+                    {
+                        yield return new ProviderClaim(
+                            dateKey,
+                            fullDate,
+                            ClaimConfidence.AlternateTitle);
+                    }
+                }
+
                 continue;
             }
 
@@ -366,6 +410,26 @@ public sealed partial class ReconciliationAdapter
             return year.ToString();
 
         return null;
+    }
+
+    private static string? ExtractDate(string? isoDate)
+    {
+        if (string.IsNullOrWhiteSpace(isoDate))
+            return null;
+
+        var value = isoDate.Trim().TrimStart('+');
+        if (value.Length < 10
+            || !DateOnly.TryParseExact(
+                value[..10],
+                "yyyy-MM-dd",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date))
+        {
+            return null;
+        }
+
+        return date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
     }
 
     // ── Private: Cache key + SHA-256 ─────────────────────────────────────────

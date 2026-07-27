@@ -30,6 +30,14 @@ public static class MetadataFieldConstants
     public const string Title           = "title";
     public const string Author          = "author";
     public const string Year            = "year";
+    public const string OriginalReleaseYear = "original_release_year";
+    public const string OriginalReleaseDate = "original_release_date";
+    public const string OriginalPublicationYear = "original_publication_year";
+    public const string OriginalPublicationDate = "original_publication_date";
+    public const string PublicationYear = "publication_year";
+    public const string PublicationDate = "publication_date";
+    public const string EditionReleaseYear = "edition_release_year";
+    public const string EditionReleaseDate = "edition_release_date";
     public const string Description     = "description";
     public const string ShortDescription = "short_description";
     public const string Tagline         = "tagline";

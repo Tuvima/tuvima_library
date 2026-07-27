@@ -448,6 +448,7 @@ public sealed partial class ReconciliationAdapter
         "P2850", // Apple Music artist ID
         "P10110", // Apple Music track ID
         "P1243", // ISRC
+        "P577",  // publication/release date (kept work- or edition-scoped)
 
         "P434",  // MusicBrainz artist ID
         "P435",  // MusicBrainz work ID

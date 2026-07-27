@@ -86,7 +86,25 @@ public sealed partial class ReconciliationAdapter
                     _config.DataExtension.PropertyLabels,
                     isWork: true,
                     castMemberLimit: _config.Reconciliation.CastMemberLimit,
-                    metadataLanguage: language));
+                    metadataLanguage: language,
+                    editionScopedDates: isEdition));
+            }
+
+            if (isEdition
+                && !string.IsNullOrWhiteSpace(workQid)
+                && !string.Equals(workQid, resolvedQid, StringComparison.OrdinalIgnoreCase))
+            {
+                var workDateExtensions = await ExtendAsync([workQid], ["P577"], ct).ConfigureAwait(false);
+                if (workDateExtensions.TryGetValue(workQid, out var workDateProps))
+                {
+                    claims.AddRange(ExtensionToClaims(
+                        workQid,
+                        workDateProps,
+                        _config.DataExtension.PropertyLabels,
+                        isWork: true,
+                        castMemberLimit: 0,
+                        metadataLanguage: language));
+                }
             }
         }
         catch (OperationCanceledException) { throw; }

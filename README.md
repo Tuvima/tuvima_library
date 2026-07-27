@@ -32,21 +32,55 @@ Tuvima Library starts with the story.
 
 Point Tuvima at the folders you choose and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
 
-## One Story, Every Form
+## Why I Started Tuvima
 
-Imagine owning the *Dune* novels as EPUBs, their audiobook editions as M4Bs, two film adaptations as MKVs, a graphic novel as a CBZ, and a soundtrack as a FLAC album.
+Tuvima began with a gap I felt in my own library.
 
-Those files still belong in Read, Watch, and Listen, because each format deserves an experience designed for it. But they should not become unrelated islands. Tuvima gives them a common identity and relationship layer, allowing the library to understand that they are different expressions of the same larger creative world.
+I was—and still am—an avid user of Plex, Audiobookshelf, and other media managers. I appreciated what each one did well, but I was still responsible for remembering how everything connected. The book lived in one library, its audiobook in another, the film adaptation somewhere else, and the soundtrack somewhere else again. The more formats I collected, the less the whole thing felt like one collection.
 
-That common view gives a collection life:
+Books made the problem especially clear. I might read an ebook at home, then want to continue the same story as an audiobook while driving to work. Amazon's Kindle and Audible apps use [Whispersync for Voice](https://help.audible.com/s/article/listen-with-whispersync-for-voice?language=en_US) to make that switch feel natural—but only for supported Kindle and Audible editions. I wanted that kind of continuity for media I already owned and controlled.
 
-- A file becomes a work with a title, artwork, description, creators, performers, and history.
-- Different formats of the same work can be understood as versions rather than unrelated duplicates.
-- Books, films, shows, albums, comics, and audiobooks can retain their own identity while revealing how they are connected.
-- Progress and ownership make the view personal: what you have, what you started, what you finished, and what belongs next.
-- New media can deepen an existing shelf or reveal a broader Collection without requiring you to rebuild the library by hand.
+Watching adaptations raised a different set of questions:
 
-Read, Watch, and Listen are therefore different doors into the same library—not three disconnected catalogs.
+- Where did this scene happen in the book?
+- Was it changed for the film?
+- Who is this character, and what is their history?
+- How are they connected to the other people, places, and events in this world?
+- Which actor played the same character in another adaptation?
+
+A normal remote can pause the movie or change the volume, but it cannot help explore the story. I imagined a phone becoming a true companion: following where I was in the film and offering timely, spoiler-aware context about a character, location, event, performer, or source chapter.
+
+That was the realization behind Tuvima. The missing piece was not another player. It was a shared understanding of the works and the universe around them. As I looked beyond my own setup, I found many other collectors trying to bridge the same gaps with separate servers, manual collections, spreadsheets, plugins, and memory.
+
+Tuvima is the library I wanted for myself, built in the hope that it can become that library for others too.
+
+## What Tuvima Means by a Universe
+
+A **Universe** is not another folder or playlist. It is the living map of a creative world.
+
+It connects:
+
+- The works you own across books, comics, audiobooks, films, television, and music.
+- Different editions and formats, ordered series, and broader Collections.
+- Adaptations, sequels, prequels, spin-offs, and source material.
+- Creators, performers, narrators, characters, locations, organizations, and events.
+- The timelines and relationships that explain how everything fits together.
+
+A Collection is the browsable view that brings related owned shelves together. The Universe is the knowledge behind it. A Middle-earth Collection might gather novels, audiobooks, films, and soundtracks; its Universe can explain who Frodo is, how he relates to Bilbo, where Rivendell fits into the story, and who portrayed each character.
+
+Your files remain at the center. The Universe never pretends external knowledge is media you own, and it only presents relationships supported by real evidence.
+
+### From Remote Control to Story Companion
+
+The Universe model is intended to remain useful after you press Play or begin reading.
+
+In the fuller vision, a phone could follow the current point in a film and show spoiler-aware context about the character on screen, their background so far, the performer, the location, and the matching passage in the source book. Instead of merely asking a phone to pause *The Lord of the Rings*, you could ask, “Who is this character?” or “Where did this happen in the book?” and receive an answer grounded in the right adaptation and moment.
+
+The same foundation can support cross-format position mapping: stop reading an ebook at home, begin the audiobook in the car, and continue from the corresponding narrative point. It is a local-first version of the continuity that makes Whispersync for Voice compelling, designed for the editions you own.
+
+Wikidata supplies canonical identities and relationships; Wikipedia supplies readable context; Tuvima's local analysis can align positions, chapters, scenes, and playback time. Today, the foundations include shared identities, progress, media relationships, people and character links, and sourced Universe Graph data. Automatic cross-format position matching, scene mapping, and the real-time companion are still in development.
+
+Learn more in [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/) and the technical [Universe Graph](https://tuvima.github.io/tuvima_library/architecture/universe-graph/) documentation.
 
 ## Collections That Build Themselves
 
@@ -63,67 +97,48 @@ These structural groupings are automated. Tuvima uses file metadata and configur
 
 Richer personal rules, recommendations, and smart collection automation remain in development. Learn more in [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/).
 
-## Open Knowledge Gives the Library Context
+## Wikipedia and Wikidata Give the Library Context
 
-[Wikidata](https://www.wikidata.org/wiki/Wikidata:Introduction) is one of the most remarkable resources behind Tuvima. It is a free, collaborative, multilingual knowledge base maintained by people around the world. More importantly for a library, it describes not only *things*, but the relationships between them.
+[Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:About) and [Wikidata](https://www.wikidata.org/wiki/Wikidata:Introduction) are two of the most remarkable resources behind Tuvima. Both are built and maintained by people around the world, and each brings something essential to the library.
 
-A metadata provider can help Tuvima identify a file as a particular book, film, album, or episode. Wikidata helps answer the next questions:
+Wikidata provides structured identity, facts, and relationships that software can understand. Wikipedia provides the human-readable history, descriptions, biographies, and context that help people understand why a work or creator matters.
 
-- Is this work part of a series or a wider franchise?
-- Is this film an adaptation of a book already in the library?
+A metadata provider can help Tuvima identify a file as a particular book, film, album, or episode. Wikidata helps place that item in the wider world, while Wikipedia helps explain it:
+
+- Is this work part of a series, franchise, or adaptation?
 - Which people created, performed, directed, narrated, or composed it?
-- Which editions and formats represent the same work?
-- What other owned shelves belong to the same creative world?
+- Which formats and owned shelves belong to the same creative world?
+- What is the history and human context behind the work, person, or collection?
 
-Tuvima approaches that information carefully. It first looks for a safe media match and a trustworthy identifier, such as an ISBN, TMDB ID, MusicBrainz ID, or Comic Vine ID. It can then use that identifier to find the corresponding Wikidata item and follow supported relationships. Those connections help build ordered shelves, people views, adaptations, and cross-media Collections without relying on title similarity alone.
+Tuvima first looks for a safe media match and a trustworthy identifier, such as an ISBN, TMDB ID, MusicBrainz ID, or Comic Vine ID. It can then find the corresponding Wikidata item, follow supported relationships, and retrieve linked Wikipedia context. If a reliable identity is unavailable, Tuvima does not use open knowledge as a guessing engine; the item remains usable with other metadata or waits for review.
 
-If a reliable identity or relationship is not available, Tuvima does not use Wikidata as a guessing engine. The item remains usable with its other metadata, or waits for review when human confirmation is needed.
+### Giving Back to Wikipedia and Wikidata
 
-### Giving Back to Wikidata
-
-Tuvima does not see Wikidata as simply a free API to consume. It is shared public infrastructure, built through an extraordinary amount of community effort, and the project wants to support it wherever possible.
+Tuvima does not see Wikipedia and Wikidata as simply free services to consume. They are shared public infrastructure, built through an extraordinary amount of community effort, and the project wants to support them wherever possible.
 
 That means:
 
-- Clearly attributing Wikidata and linking people back to the source.
-- Preserving where facts came from, when they were retrieved, and whether Tuvima changed or summarized them.
-- Querying and caching data responsibly.
+- Clearly attributing and linking to original sources, while preserving provenance, retrieval time, licensing, and modifications.
+- Querying and caching responsibly.
 - Making data gaps and uncertain relationships visible instead of hiding them.
-- Contributing corrections, modeling improvements, documentation, and useful open tooling back to the community where appropriate.
-- Encouraging Tuvima contributors and users to [participate in Wikidata](https://www.wikidata.org/wiki/Wikidata:Contribute) or [support the Wikimedia movement](https://donate.wikimedia.org/).
+- Contributing corrections, citations, translations, modeling improvements, documentation, and open tooling where appropriate.
 
-Wikidata makes Tuvima's common view possible. Helping that knowledge become more complete, accurate, and useful benefits Tuvima, the Wikimedia projects, and everyone else building with open knowledge.
-
-## From Files to a Living Library
-
-### Bring the collection you already have
-
-Keep your existing books, comics, movies, TV episodes, music, and audiobooks on your own disks. Tuvima watches the folders you configure and notices when media is added or changed.
-
-### Let Tuvima organize the details
-
-Tuvima reads the files, identifies their contents, and enriches them with titles, descriptions, credits, artwork, series information, and other useful context. It then uses those identities to build shelves and Collections. Confident matches flow into the library automatically; uncertain items wait in a Review Queue for you.
-
-### Find something worth returning to
-
-Home helps you continue where you stopped and rediscover the collection. Read, Watch, and Listen give each kind of experience a natural home, while search reaches across the whole library. Series, creators, and broader collections help reveal connections that folders alone cannot.
-
-### Enjoy it without giving up control
-
-Read supported books, play audio and video, track progress, and correct an item from its own page. Your library remains yours: the catalog, artwork, progress, and optional AI processing stay on your machine.
+Readers can [contribute to Wikipedia](https://en.wikipedia.org/wiki/Wikipedia:Contributing_to_Wikipedia), [participate in Wikidata](https://www.wikidata.org/wiki/Wikidata:Contribute), or [support the Wikimedia movement](https://donate.wikimedia.org/). Helping this knowledge become more complete benefits Tuvima and everyone else building with open knowledge.
 
 ## What Tuvima Does Differently
 
-[Plex](https://support.plex.tv/articles/200288286-what-is-plex/), [Jellyfin](https://jellyfin.org/), and [Audiobookshelf](https://audiobookshelf.org/docs/documentation/introduction/) are strong products. They also begin from different goals.
+The media-management ecosystem is broad, and many of its tools are excellent at the job they were designed to do.
 
-| Product | What it does especially well | Where Tuvima goes further |
-|---|---|---|
-| Plex | Mature streaming across many devices, with polished movie, TV, music, and photo libraries | Tuvima connects books, comics, audiobooks, music, films, and TV through the stories and creative worlds they share instead of leaving them in media-type libraries or name-matched collections |
-| Jellyfin | Free, private, multi-device media streaming with broad playback and library support | Tuvima puts the story, its different versions, its place in a series, and trusted connections to other media at the center of the product |
-| Audiobookshelf | A focused audiobook and podcast experience with chapters, progress, metadata tools, and companion apps | Tuvima connects an audiobook to its ebook, adaptations, soundtrack, creators, series, and wider Collection instead of stopping at its place in a book library |
-| Tuvima Library | A common, local-first view of the stories and creative worlds represented by everything you own | Cross-media understanding is the foundation, not an add-on: the library can build and evolve its structure as it learns what each item is |
+| Kind of tool | Common choices | What they do especially well | Tuvima's different job |
+|---|---|---|---|
+| General media servers | [Plex](https://support.plex.tv/articles/200288286-what-is-plex/), [Jellyfin](https://jellyfin.org/), [Emby](https://emby.media/about.html) | Mature streaming, transcoding, live TV, and apps for movies, shows, music, and photos | Connect those experiences to books, comics, audiobooks, soundtracks, adaptations, and the wider creative world |
+| Living-room media centers | [Kodi](https://kodi.tv/about/) | Flexible playback of local and network media, a television-first interface, and extensive customization | Build a persistent, server-side understanding of works, versions, people, shelves, and Collections across formats |
+| Book and comic libraries | [calibre](https://calibre-ebook.com/about), [Kavita](https://www.kavitareader.com/), [Komga](https://komga.org/) | Ebook management and conversion, device workflows, comics and manga organization, and purpose-built readers | Place reading alongside audiobooks, screen adaptations, music, creators, and other owned media without losing the reading experience |
+| Audio specialists | [Audiobookshelf](https://audiobookshelf.org/docs/documentation/introduction/), [Navidrome](https://www.navidrome.org/) | Focused audiobook, podcast, or music playback with strong audio-specific tools and compatible apps | Connect an audiobook or album to its source work, other formats, creators, series, and broader Collection |
+| Acquisition and file automation | [Sonarr](https://sonarr.tv/), [Radarr](https://radarr.video/), [Lidarr](https://lidarr.audio/) | Monitor releases and automate acquisition, quality choices, renaming, and file organization for a particular media type | Begin with the files you own, determine what they are, enrich them, and reveal how they relate across every supported media type |
+| Cross-media story library | **Tuvima Library** | A common, local-first view of the stories and creative worlds represented by the media you own | Make cross-media understanding the foundation, so the library can build and evolve its structure as it learns what each item is |
 
-Plex and Jellyfin are excellent when the main goal is mature streaming to many devices. Audiobookshelf is excellent when the audiobook itself is the center of the experience. Tuvima is built for the collector who wants all of those formats to participate in one growing, meaningful view.
+These tools do not always need to be replaced. Automation tools can prepare files that Tuvima then watches, while specialist players may remain valuable for particular devices or formats. Tuvima's goal is to provide the shared library those separate workflows do not.
 
 Its advantage is not simply supporting more file extensions. It is understanding that the files are related—and using that understanding to make the whole collection more valuable than the sum of its folders.
 
@@ -165,6 +180,8 @@ Features still in development include:
 
 - A guided first-run experience.
 - Richer recommendations, playlists, personal rules, and smart collections.
+- Cross-format position matching between ebooks and audiobooks.
+- Scene-to-source mapping and a spoiler-aware mobile story companion.
 - More advanced playback, subtitles, delivery, and offline controls.
 - Plugin marketplace installation and updates.
 - Broader remote-access hardening and interoperability.
@@ -215,7 +232,7 @@ Full user and developer documentation lives at [tuvima.github.io/tuvima_library]
 | Build your first library | [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) |
 | Add and organize media | [How to Add Media](https://tuvima.github.io/tuvima_library/guides/adding-media/) |
 | Understand how Tuvima identifies files | [How File Ingestion Works](https://tuvima.github.io/tuvima_library/explanation/how-ingestion-works/) |
-| See how open knowledge connects media | [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/) |
+| Understand shelves, Collections, and Universes | [How Universes and Series Work](https://tuvima.github.io/tuvima_library/explanation/how-universes-work/) |
 | Configure metadata services | [Configure Providers](https://tuvima.github.io/tuvima_library/guides/configuring-providers/) |
 | Check what is ready today | [Product Status](https://tuvima.github.io/tuvima_library/product/status/) |
 | Explore the architecture | [Technical Overview](https://tuvima.github.io/tuvima_library/architecture/technical-overview/) |

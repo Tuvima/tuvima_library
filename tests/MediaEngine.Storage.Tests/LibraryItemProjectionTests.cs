@@ -138,6 +138,118 @@ public sealed class LibraryItemProjectionTests : IDisposable
     }
 
     [Fact]
+    public async Task LibraryItemDetail_UsesOriginalWorkDateAcrossMediaTypes()
+    {
+        var cases = new[]
+        {
+            new DetailDateCase(
+                "Books",
+                "1937",
+                "September 21, 1937",
+                new Dictionary<string, string>
+                {
+                    ["date"] = "1937-09-21",
+                    ["year"] = "2012",
+                }),
+            new DetailDateCase(
+                "Audiobooks",
+                "1937",
+                "September 21, 1937",
+                new Dictionary<string, string>
+                {
+                    ["original_release_date"] = "1937-09-21",
+                    ["edition_release_date"] = "2007-09-18",
+                    ["year"] = "2007",
+                }),
+            new DetailDateCase(
+                "Movies",
+                "2014",
+                "2014",
+                new Dictionary<string, string>
+                {
+                    ["year"] = "2014",
+                    ["release_date"] = "2025-02-14",
+                }),
+            new DetailDateCase(
+                "TV",
+                "2008",
+                "January 20, 2008",
+                new Dictionary<string, string>
+                {
+                    ["first_air_date"] = "2008-01-20",
+                    ["year"] = "2013",
+                }),
+            new DetailDateCase(
+                "Comics",
+                "1984",
+                "1984",
+                new Dictionary<string, string>
+                {
+                    ["year"] = "1984",
+                    ["release_year"] = "1988",
+                }),
+            new DetailDateCase(
+                "Music",
+                "1971",
+                "December 17, 1971",
+                new Dictionary<string, string>
+                {
+                    ["original_release_date"] = "1971-12-17",
+                    ["year"] = "2019",
+                }),
+        };
+        var repository = new LibraryItemRepository(_db);
+
+        foreach (var item in cases)
+        {
+            var (workId, assetId) = await BuildStandaloneWorkAsync(item.MediaType);
+            await InsertCanonicalAsync(assetId, "title", $"{item.MediaType} date test");
+            foreach (var (key, value) in item.Dates)
+            {
+                await InsertCanonicalAsync(assetId, key, value);
+            }
+
+            var detail = await repository.GetDetailAsync(workId);
+
+            Assert.NotNull(detail);
+            Assert.Equal(item.ExpectedYear, detail.Year);
+            Assert.Equal(item.ExpectedDate, detail.ReleaseDate);
+        }
+    }
+
+    [Fact]
+    public async Task LibraryItemDetail_AudiobookUsesOwnedBookDateWhenLegacyEditionHasNoOriginalDate()
+    {
+        var (bookWorkId, bookAssetId) = await BuildStandaloneWorkAsync("Books");
+        var (audioWorkId, audioAssetId) = await BuildStandaloneWorkAsync("Audiobooks");
+        await InsertCanonicalAsync(bookAssetId, "title", "The Hobbit");
+        await InsertCanonicalAsync(bookAssetId, "date", "1937-09-21");
+        await InsertCanonicalAsync(bookAssetId, "year", "2012");
+        await InsertCanonicalAsync(audioAssetId, "title", "The Hobbit");
+        await InsertCanonicalAsync(audioAssetId, "release_year", "2000");
+        await InsertCanonicalAsync(audioAssetId, "year", "2007");
+        await InsertCanonicalArrayAsync(bookAssetId, "author", "J. R. R. Tolkien");
+        await InsertCanonicalArrayAsync(audioAssetId, "author", "J. R. R. Tolkien");
+
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, created_at)
+                VALUES (@personId, 'J. R. R. Tolkien', CURRENT_TIMESTAMP);
+                """,
+                new { personId = Guid.NewGuid() });
+        }
+
+        var detail = await new LibraryItemRepository(_db).GetDetailAsync(audioWorkId);
+
+        Assert.NotNull(detail);
+        Assert.Equal("1937", detail.Year);
+        Assert.Equal("1937", detail.ReleaseDate);
+        Assert.NotEqual(bookWorkId, audioWorkId);
+    }
+
+    [Fact]
     public async Task LibraryItemProjection_RetailNoMatchStaysOutOfVisibleLibraryAfterReviewDismissed()
     {
         var now = DateTimeOffset.UtcNow;
@@ -509,4 +621,10 @@ public sealed class LibraryItemProjectionTests : IDisposable
             UpdatedAt = DateTimeOffset.UtcNow,
         });
     }
+
+    private sealed record DetailDateCase(
+        string MediaType,
+        string ExpectedYear,
+        string ExpectedDate,
+        IReadOnlyDictionary<string, string> Dates);
 }

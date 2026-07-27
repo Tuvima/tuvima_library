@@ -20,8 +20,13 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         }
 
         using var conn = db.CreateConnection();
+        var resolvedDisplayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            "ra.AssetId",
+            "w.media_type");
         var rows = await conn.QueryAsync<ResolvedMetadataRow>(new CommandDefinition(
-            """
+            $"""
             WITH representative_assets AS (
                 SELECT e.work_id AS WorkId, MIN(ma.id) AS AssetId
                 FROM editions e
@@ -50,9 +55,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                           AND key IN ('album_artist', 'artist', 'author', 'director')
                         ORDER BY CASE key WHEN 'album_artist' THEN 1 WHEN 'artist' THEN 2 WHEN 'author' THEN 3 ELSE 4 END, ordinal
                         LIMIT 1)) AS TEXT) AS Creator,
-                   CAST(COALESCE(
-                       (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key IN ('release_year', 'year') LIMIT 1),
-                       (SELECT value FROM canonical_values WHERE entity_id = COALESCE(gp.id, p.id, w.id) AND key IN ('release_year', 'year') LIMIT 1)) AS TEXT) AS Year
+                   CAST({resolvedDisplayYearSql} AS TEXT) AS Year
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
@@ -98,6 +101,11 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         using var conn = db.CreateConnection();
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var lookupDisplayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            "ra.AssetId",
+            "w.media_type");
         var rows = (await conn.QueryAsync<CollectionMediaLookupRow>(new CommandDefinition(
             $"""
             WITH RECURSIVE work_descendants(root_id, work_id, depth) AS (
@@ -132,7 +140,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                    ra.AssetId,
                    COALESCE(NULLIF(show_root.value, ''), NULLIF(title_root.value, ''), NULLIF(episode_title.value, ''), NULLIF(title_work.value, ''), NULLIF(title_asset.value, ''), 'Untitled') AS Title,
                    COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_root.value, ''), NULLIF(artist_work.value, ''), NULLIF(author_asset.value, ''), NULLIF(artist_asset.value, '')) AS Creator,
-                   COALESCE(NULLIF(year_work.value, ''), NULLIF(year_asset.value, ''), NULLIF(year_root.value, '')) AS Year,
+                   {lookupDisplayYearSql} AS Year,
                    COALESCE(NULLIF(cover_root.value, ''), NULLIF(cover_work.value, ''), NULLIF(cover_asset.value, '')) AS ArtworkUrl,
                    COALESCE(NULLIF(show_root.value, ''), NULLIF(show_work.value, ''), NULLIF(title_root.value, '')) AS ShowName,
                    COALESCE(NULLIF(season_work.value, ''), NULLIF(season_asset.value, '')) AS SeasonNumber,
@@ -148,8 +156,6 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             LEFT JOIN canonical_value_arrays author_work ON author_work.entity_id = w.id AND author_work.key = 'author' AND author_work.ordinal = 0
             LEFT JOIN canonical_value_arrays artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist' AND artist_work.ordinal = 0
             LEFT JOIN canonical_value_arrays artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key = 'album_artist' AND artist_root.ordinal = 0
-            LEFT JOIN canonical_values year_work ON year_work.entity_id = w.id AND year_work.key IN ('year', 'release_year')
-            LEFT JOIN canonical_values year_root ON year_root.entity_id = COALESCE(gp.id, p.id, w.id) AND year_root.key IN ('year', 'release_year')
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values show_work ON show_work.entity_id = w.id AND show_work.key = 'show_name'
@@ -160,7 +166,6 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             LEFT JOIN canonical_values title_asset ON title_asset.entity_id = ra.AssetId AND title_asset.key = 'title'
             LEFT JOIN canonical_value_arrays author_asset ON author_asset.entity_id = ra.AssetId AND author_asset.key = 'author' AND author_asset.ordinal = 0
             LEFT JOIN canonical_value_arrays artist_asset ON artist_asset.entity_id = ra.AssetId AND artist_asset.key = 'artist' AND artist_asset.ordinal = 0
-            LEFT JOIN canonical_values year_asset ON year_asset.entity_id = ra.AssetId AND year_asset.key IN ('year', 'release_year')
             LEFT JOIN canonical_values cover_asset ON cover_asset.entity_id = ra.AssetId AND cover_asset.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
             LEFT JOIN canonical_values season_asset ON season_asset.entity_id = ra.AssetId AND season_asset.key = 'season_number'
             LEFT JOIN canonical_values album_asset ON album_asset.entity_id = ra.AssetId AND album_asset.key = 'album'

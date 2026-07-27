@@ -19,6 +19,11 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
         var like = $"%{trimmed}%";
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
         var visibleAssetPredicate = HomeVisibilitySql.VisibleAssetPathPredicate("ma.file_path_root");
+        var displayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(grandparent.id, parent.id, w.id)",
+            "ma.id",
+            "w.media_type");
 
         using var conn = db.CreateConnection();
         var rows = (await conn.QueryAsync<CollectionSearchRow>(new CommandDefinition($"""
@@ -96,10 +101,7 @@ public sealed class CollectionSearchReadService(IDatabaseConnection db) : IColle
                         cover_work.value,
                         cover_url_work.value
                     ) AS CoverUrl,
-                    COALESCE(
-                        (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key IN ('original_publication_year','publication_year','release_year','premiere_year','album_release_year','year') ORDER BY CASE key WHEN 'original_publication_year' THEN 0 WHEN 'release_year' THEN 1 WHEN 'premiere_year' THEN 2 WHEN 'album_release_year' THEN 3 ELSE 4 END LIMIT 1),
-                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key IN ('original_publication_year','publication_year','release_year','premiere_year','album_release_year','year') ORDER BY CASE key WHEN 'original_publication_year' THEN 0 WHEN 'release_year' THEN 1 WHEN 'premiere_year' THEN 2 WHEN 'album_release_year' THEN 3 ELSE 4 END LIMIT 1)
-                    ) AS Year,
+                    {displayYearSql} AS Year,
                     COALESCE(
                         (SELECT value FROM canonical_values WHERE entity_id = ma.id AND key = 'description' LIMIT 1),
                         (SELECT value FROM canonical_values WHERE entity_id = COALESCE(grandparent.id, parent.id, w.id) AND key = 'description' LIMIT 1)

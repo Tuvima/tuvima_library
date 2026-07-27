@@ -5,6 +5,7 @@ using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
+using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.ReadServices;
@@ -952,9 +953,15 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         Guid personId,
         CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
+        var displayYearSql = MediaDateSql.DisplayOriginalYear(
+            "w.id",
+            "COALESCE(gp.id, p.id, w.id)",
+            "ma.id",
+            "w.media_type");
         var baseRows = (await conn.QueryAsync<PersonLibraryCreditRow>(
-            """
+            $"""
             SELECT w.id                                   AS WorkId,
                    COALESCE(gp.id, p.id, w.id)             AS RootWorkId,
                    w.collection_id                        AS CollectionId,
@@ -1008,19 +1015,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                       AND root_title.key = 'title'
                     ORDER BY root_title.last_scored_at DESC
                     LIMIT 1)                              AS RootTitle,
-                   COALESCE(
-                       MAX(CASE WHEN cv.key = 'year' THEN cv.value END),
-                       (SELECT asset_year.value
-                        FROM editions asset_edition
-                        INNER JOIN media_assets year_asset
-                            ON year_asset.edition_id = asset_edition.id
-                        INNER JOIN canonical_values asset_year
-                            ON asset_year.entity_id = year_asset.id
-                           AND asset_year.key = 'year'
-                        WHERE asset_edition.work_id = w.id
-                        ORDER BY year_asset.id, asset_year.last_scored_at DESC
-                        LIMIT 1)
-                   )                                      AS Year,
+                   {displayYearSql}                       AS Year,
                    primary_credit.role                    AS Role,
                    MIN(ma.id)                             AS FirstAssetId
             FROM primary_person_media_credits primary_credit
@@ -1038,10 +1033,10 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 ON c.id = w.collection_id
             LEFT JOIN canonical_values cv
                 ON cv.entity_id = w.id
-               AND cv.key IN ('title', 'year')
+               AND cv.key = 'title'
             WHERE primary_credit.person_id = @personId
             GROUP BY w.id, COALESCE(gp.id, p.id, w.id), w.collection_id, w.media_type, w.wikidata_qid, c.display_name, primary_credit.role
-            ORDER BY MAX(CASE WHEN cv.key = 'year' THEN cv.value END) DESC, Title, primary_credit.role;
+            ORDER BY Year DESC, Title, primary_credit.role;
             """,
             new { personId })).ToList();
 

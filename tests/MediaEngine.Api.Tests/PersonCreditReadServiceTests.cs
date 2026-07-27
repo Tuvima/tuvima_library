@@ -816,6 +816,149 @@ public sealed class PersonCreditReadServiceTests : IDisposable
         Assert.Empty(credits);
     }
 
+    [Fact]
+    public async Task GetLibraryCreditsAsync_UsesOriginalWorkDatesAcrossMediaTypes()
+    {
+        var personId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var cases = new[]
+        {
+            new DateCreditCase(
+                "The Hobbit",
+                "Books",
+                "author",
+                "1937",
+                new Dictionary<string, string>
+                {
+                    ["date"] = "1937-09-21",
+                    ["release_year"] = "1938",
+                    ["year"] = "2012",
+                }),
+            new DateCreditCase(
+                "The Hobbit",
+                "Audiobooks",
+                "author",
+                "1937",
+                new Dictionary<string, string>
+                {
+                    ["release_year"] = "2000",
+                    ["year"] = "2007",
+                }),
+            new DateCreditCase(
+                "Interstellar",
+                "Movies",
+                "cast_member",
+                "2014",
+                new Dictionary<string, string>
+                {
+                    ["year"] = "2014",
+                    ["release_year"] = "2025",
+                }),
+            new DateCreditCase(
+                "Sample TV Show",
+                "TV",
+                "director",
+                "2008",
+                new Dictionary<string, string>
+                {
+                    ["first_air_date"] = "2008-01-20",
+                    ["year"] = "2013",
+                }),
+            new DateCreditCase(
+                "Akira",
+                "Comics",
+                "author",
+                "1984",
+                new Dictionary<string, string>
+                {
+                    ["year"] = "1984",
+                    ["release_year"] = "1988",
+                }),
+            new DateCreditCase(
+                "Hunky Dory",
+                "Music",
+                "artist",
+                "1971",
+                new Dictionary<string, string>
+                {
+                    ["original_release_date"] = "1971-12-17",
+                    ["year"] = "2019",
+                }),
+        };
+
+        using (var conn = _db.CreateConnection())
+        {
+            using (var personCommand = conn.CreateCommand())
+            {
+                personCommand.CommandText = """
+                    INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'Cross-Media Person', $now);
+                    """;
+                AddGuid(personCommand, "$personId", personId);
+                personCommand.Parameters.AddWithValue("$now", now);
+                personCommand.ExecuteNonQuery();
+            }
+
+            foreach (var item in cases)
+            {
+                var workId = Guid.NewGuid();
+                var editionId = Guid.NewGuid();
+                var assetId = Guid.NewGuid();
+
+                using (var itemCommand = conn.CreateCommand())
+                {
+                    itemCommand.CommandText = """
+                        INSERT INTO works (id, media_type, work_kind)
+                        VALUES ($workId, $mediaType, 'standalone');
+                        INSERT INTO editions (id, work_id)
+                        VALUES ($editionId, $workId);
+                        INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                        VALUES ($assetId, $editionId, $hash, $path);
+                        INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                        VALUES ($assetId, 'title', $title, $now);
+                        INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                        VALUES ($assetId, $creditKey, 0, 'Cross-Media Person');
+                        """;
+                    AddGuid(itemCommand, "$workId", workId);
+                    AddGuid(itemCommand, "$editionId", editionId);
+                    AddGuid(itemCommand, "$assetId", assetId);
+                    itemCommand.Parameters.AddWithValue("$mediaType", item.MediaType);
+                    itemCommand.Parameters.AddWithValue("$hash", Guid.NewGuid().ToString("N"));
+                    itemCommand.Parameters.AddWithValue("$path", $"C:/library/{item.Title}.media");
+                    itemCommand.Parameters.AddWithValue("$title", item.Title);
+                    itemCommand.Parameters.AddWithValue("$creditKey", item.CreditKey);
+                    itemCommand.Parameters.AddWithValue("$now", now);
+                    itemCommand.ExecuteNonQuery();
+                }
+
+                foreach (var (key, value) in item.Dates)
+                {
+                    using var dateCommand = conn.CreateCommand();
+                    dateCommand.CommandText = """
+                        INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                        VALUES ($assetId, $key, $value, $now);
+                        """;
+                    AddGuid(dateCommand, "$assetId", assetId);
+                    dateCommand.Parameters.AddWithValue("$key", key);
+                    dateCommand.Parameters.AddWithValue("$value", value);
+                    dateCommand.Parameters.AddWithValue("$now", now);
+                    dateCommand.ExecuteNonQuery();
+                }
+            }
+        }
+
+        var credits = await CreateService().GetLibraryCreditsAsync(personId, CancellationToken.None);
+
+        Assert.Equal(cases.Length, credits.Count);
+        foreach (var expected in cases)
+        {
+            var credit = Assert.Single(
+                credits,
+                value => value.Title == expected.Title && value.MediaType == expected.MediaType);
+            Assert.Equal(expected.ExpectedYear, credit.Year);
+        }
+    }
+
     private PersonCreditReadService CreateService() =>
         new(new CanonicalValueArrayRepository(_db), new PersonRepository(_db), _db);
 
@@ -823,4 +966,11 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     {
         command.Parameters.AddWithValue(name, GuidSql.ToBlob(value));
     }
+
+    private sealed record DateCreditCase(
+        string Title,
+        string MediaType,
+        string CreditKey,
+        string ExpectedYear,
+        IReadOnlyDictionary<string, string> Dates);
 }
