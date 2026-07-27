@@ -326,6 +326,58 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLibraryCreditsAsync_UsesAudiobookTitleInsteadOfSeriesRootTitle()
+    {
+        var personId = Guid.NewGuid();
+        var collectionId = Guid.NewGuid();
+        var seriesRootId = Guid.NewGuid();
+        var audiobookWorkId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        {
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO persons (id, name, created_at)
+                    VALUES ($personId, 'James S. A. Corey', $now);
+                INSERT INTO collections (id, display_name, collection_type, created_at)
+                    VALUES ($collectionId, 'The Expanse', 'Series', $now);
+                INSERT INTO works (id, collection_id, media_type, work_kind)
+                    VALUES ($seriesRootId, $collectionId, 'Audiobooks', 'parent');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($seriesRootId, 'title', 'The Expanse', $now);
+                INSERT INTO works (id, parent_work_id, collection_id, media_type, work_kind)
+                    VALUES ($audiobookWorkId, $seriesRootId, $collectionId, 'Audiobooks', 'child');
+                INSERT INTO editions (id, work_id)
+                    VALUES ($editionId, $audiobookWorkId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES ($assetId, $editionId, 'leviathan-wakes-audiobook', 'C:/library/Leviathan Wakes.m4b');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES ($assetId, 'title', 'Leviathan Wakes', $now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                    VALUES ($audiobookWorkId, 'author', 0, 'James S. A. Corey');
+                """;
+            AddGuid(cmd, "$personId", personId);
+            AddGuid(cmd, "$collectionId", collectionId);
+            AddGuid(cmd, "$seriesRootId", seriesRootId);
+            AddGuid(cmd, "$audiobookWorkId", audiobookWorkId);
+            AddGuid(cmd, "$editionId", editionId);
+            AddGuid(cmd, "$assetId", assetId);
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var credit = Assert.Single(
+            await CreateService().GetLibraryCreditsAsync(personId, CancellationToken.None));
+
+        Assert.Equal("Leviathan Wakes", credit.Title);
+        Assert.NotEqual("The Expanse", credit.Title);
+        Assert.Equal("Author", credit.Role);
+    }
+
+    [Fact]
     public async Task BuildForWorkAsync_UsesTmdbCharacterClaimsWhenExplicitCharacterLinksAreMissing()
     {
         var workId = Guid.NewGuid();

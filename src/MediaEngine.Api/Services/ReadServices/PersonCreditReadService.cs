@@ -995,7 +995,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                             ? StringHelpers.FirstNonBlank(representative.CollectionTitle, representative.Title, "Untitled")!
                             : isMusicAlbumCredit
                                 ? StringHelpers.FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!
-                            : StringHelpers.FirstNonBlank(representative.RootTitle, representative.Title, "Untitled")!,
+                            : StringHelpers.FirstNonBlank(representative.Title, "Untitled")!,
                         CoverUrl = orderedRows.Select(row => row.FirstAssetId).FirstOrDefault(assetId => assetId.HasValue) is Guid assetId
                             ? $"/stream/{assetId}/cover-thumb"
                             : null,

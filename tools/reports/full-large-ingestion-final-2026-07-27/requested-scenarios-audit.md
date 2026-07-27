@@ -50,7 +50,7 @@ role such as audiobook `Artist` or music `Author`.
 | Stephen King | Books — Author | The Long Walk; The Shining; The Talisman |
 | Stephen King | Audiobooks — Author | The Shining (Unabridged) |
 | James S. A. Corey | Books — Author | Caliban's War; Leviathan Wakes |
-| James S. A. Corey | Audiobooks — Author | The Expanse |
+| James S. A. Corey | Audiobooks — Author | Leviathan Wakes |
 | David Bowie | Music — Artist | Heroes; Five Years |
 | Andy Serkis | Audiobooks — Narrator | The Hobbit |
 | Andy Serkis | Movies — Actor | Rise of the Planet of the Apes |

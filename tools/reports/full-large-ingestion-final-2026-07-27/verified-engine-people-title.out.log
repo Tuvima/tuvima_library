@@ -1,0 +1,64 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[08:10:46 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[08:10:46 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[08:10:46 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[08:10:46 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[08:10:46 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[08:10:46 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[08:10:46 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[08:10:46 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[08:10:46 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[08:10:46 INF] IngestionEngine started
+[08:10:46 INF] Running startup reconciliation...
+[08:10:46 INF] FolderHealthService started — checking every 30s
+[08:10:46 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[08:10:46 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[08:10:46 INF] RetagSweepWorker started
+[08:10:46 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[08:10:46 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[08:10:46 INF] Identity startup recovery found no interrupted jobs.
+[08:10:47 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[08:10:47 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[08:10:47 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[08:10:47 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[08:10:47 INF] QuickHydrationHostedService started
+[08:10:47 INF] RetailMatchHostedService started
+[08:10:47 INF] WikidataBridgeHostedService started
+[08:10:47 INF] Collection backfill complete: 31/31 processed, 0 assigned, 0 created, 0 already assigned, 31 skipped, 0 failed in 42ms
+[08:10:47 INF] Reconciliation: collection backfill processed 31/31 candidate work(s), assigned 0, created 0, skipped 31, failed 0
+[08:10:47 INF] Reconciliation complete: 111 scanned, 0 missing, 0 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 6 empty folders, 0 orphan people, 0 stale root sidecars, 491ms
+[08:10:47 INF] Startup reconciliation complete: 111 scanned, 0 missing
+[08:10:47 INF] Watching: C:\temp\tuvima-watch\books
+[08:10:47 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[08:10:47 INF] Watching: C:\temp\tuvima-watch\tv
+[08:10:47 INF] Watching: C:\temp\tuvima-watch\movies
+[08:10:47 INF] Watching: C:\temp\tuvima-watch\music
+[08:10:47 INF] Watching: C:\temp\tuvima-watch\comics
+[08:10:47 INF] Initial scan: skipped 26 already-known or duplicate file(s) across 6 scan target(s)
+[08:10:47 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[08:10:48 INF] Now listening on: https://localhost:61494
+[08:10:48 INF] Now listening on: http://localhost:61495
+[08:10:48 INF] Application started. Press Ctrl+C to shut down.
+[08:10:48 INF] Hosting environment: Development
+[08:10:48 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[08:10:50 INF] Artwork rendition repair completed: 0 assets repaired, 157 canonical sets refreshed.
+[08:10:51 INF] DeferredEnrichmentService started
+[08:10:56 INF] ProviderHealthMonitor started — 4 providers tracked
+[08:10:57 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[08:11:02 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[08:11:02 INF] Cover art: skipped 'Imagine' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\1b46bf58-1245-474b-8e82-55c7f87f1342\cover\e2e223c6db1c4142b2fe7d57659bdd83.jpg)
+[08:11:02 INF] Cover art: skipped 'Something' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\248b84bb-9322-4135-9568-ea8e811faa21\cover\e29ba103cd084a4bb1054ba9b03b24e2.jpg)
+[08:11:02 INF] Cover art: skipped 'Yesterday' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\6032ea79-9909-4bd1-8ed5-d41dc4887aef\cover\8b80d413c6314a1fb7402c7f92de8154.jpg)
+[08:11:02 INF] Cover art: skipped 'MMMBop' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\80fcaacf-5cc0-4a79-a533-b798c4d1e7e3\cover\8c46c4b3207f4628846b62e76c220069.jpg)
+[08:11:02 INF] Cover art: skipped '99 Luftballons' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\85a7f8c2-23ea-4186-a6b3-d13d89bbed52\cover\c959772df00647b7bd9e18513576dddb.jpg)
+[08:11:02 INF] Cover art: skipped 'Beauty and the Beast' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\92142743-1902-4f86-8cd5-9d7d0ea98ab9\cover\d1167fac0ac342f98cbd421dc982bca7.jpg)
+[08:11:02 INF] Cover art: skipped 'Nuvole bianche' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\b2be3616-bf61-4648-84f0-efae7ccdd64e\cover\46ea7851c97844b6b0e3f1223221773b.jpg)
+[08:11:02 INF] Cover art: skipped 'Lose Yourself' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\bbf3b66e-058e-4bbf-8d57-3f1a42a47318\cover\bcb549c82b21470988cd3df949fc530e.jpg)
+[08:11:02 INF] Cover art: skipped 'BLOOD.' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\c4b1d655-b39b-407b-aa5c-8a89086ec1e2\cover\4d47e271c91b443bb8ab277d403b4b4a.jpg)
+[08:11:02 INF] Cover art: skipped 'Time' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\cba20a8a-fe3c-4b67-9162-5458766649c4\cover\86903a9ef373416ab80115da3de991cc.jpg)
+[08:11:02 INF] Cover art: skipped 'Under Pressure' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\db7545db-f10f-45c7-a29a-a4bda6dc5595\cover\8c98a3cff64e4b2bb417a8318974ba37.jpg)
+[08:11:02 INF] Cover art: skipped 'Seaside Rendezvous' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\f8d9d7d6-f009-46b8-b43a-7420cd3e41a3\cover\be9206f7b10e4b578c3fc75f1e1b2324.jpg)
+[08:11:16 INF] Next activity prune at 07/28/2026 03:00:00 -05:00
+[08:11:31 INF] Next rejected-file cleanup at 07/28/2026 04:00:00 -05:00
+[08:11:46 INF] Next retag sweep at 07/28/2026 03:00:00 -05:00
+[08:11:47 INF] Next storage maintenance pass at 07/28/2026 02:00:00 -05:00
