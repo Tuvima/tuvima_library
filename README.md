@@ -6,7 +6,9 @@
   <img src="assets/images/tuvima-logo.svg" alt="Tuvima Library" height="90" />
 </picture>
 
-**Your books, films, shows, music, audiobooks, and comics—together in one private library.**
+**One library. Every story.**
+
+Your books, films, shows, music, audiobooks, and comics—together in one private library.
 
 Tuvima Library turns the media you already own into a collection that is easier to explore, understand, and enjoy.
 
@@ -317,6 +319,10 @@ Tuvima Library is built on open-source software and public-knowledge projects. S
 ## License
 
 Tuvima Library is free and open-source software under the [GNU Affero General Public License v3.0](LICENSE).
+
+That choice is part of the product promise. Your library should not depend on one maintainer, company, or organization continuing to exist. The source is available for anyone to run, study, improve, share, and preserve. If the original project ever stops, other people can carry it forward.
+
+The AGPL also keeps improvements available to the community. Anyone distributing a modified version—or making one available to users over a network—must provide its corresponding source code under the same license. Open source cannot guarantee that a project will be maintained forever, but it means no single entity has to remain the gatekeeper for Tuvima Library to continue.
 
 ---
 
