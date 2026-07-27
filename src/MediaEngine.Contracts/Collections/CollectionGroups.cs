@@ -91,7 +91,7 @@ public class CollectionGroupDetailDto
     [JsonPropertyName("artist_photo_url")]
     public string? ArtistPhotoUrl { get; set; }
 
-    /// <summary>Artist's person record ID. Populated for artist drill-down only â€” used to open the person detail drawer.</summary>
+    /// <summary>Artist's person record ID. Populated for artist drill-down only — used to open the person detail drawer.</summary>
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; init; }
 
@@ -239,7 +239,7 @@ public sealed class LibraryPipelineStageDto
 }
 
 /// <summary>
-/// A Content Group collection â€” a Universe-type collection (album, TV series, book series, movie series)
+/// A Content Group collection — a Universe-type collection (album, TV series, book series, movie series)
 /// that contains works of a single media type.
 /// </summary>
 public class ContentGroupDto
@@ -343,11 +343,11 @@ public class ContentGroupDto
     [JsonPropertyName("created_at")]
     public DateTimeOffset CreatedAt { get; init; }
 
-    /// <summary>Artist headshot URL â€” populated only when GroupByField == "artist".</summary>
+    /// <summary>Artist headshot URL — populated only when GroupByField == "artist".</summary>
     [JsonPropertyName("artist_photo_url")]
     public string? ArtistPhotoUrl { get; set; }
 
-    /// <summary>Person ID of the matched artist â€” populated alongside ArtistPhotoUrl.</summary>
+    /// <summary>Person ID of the matched artist — populated alongside ArtistPhotoUrl.</summary>
     [JsonPropertyName("artist_person_id")]
     public Guid? ArtistPersonId { get; init; }
 
@@ -363,19 +363,19 @@ public class ContentGroupDto
     [JsonPropertyName("person_roles")]
     public IReadOnlyList<string> PersonRoles { get; init; } = [];
 
-    /// <summary>Network name â€” populated for TV show groups.</summary>
+    /// <summary>Network name — populated for TV show groups.</summary>
     [JsonPropertyName("network")]
     public string? Network { get; init; }
 
-    /// <summary>Year â€” first air date year for the group.</summary>
+    /// <summary>Year — first air date year for the group.</summary>
     [JsonPropertyName("year")]
     public string? Year { get; init; }
 
-    /// <summary>Number of distinct seasons â€” populated for TV show groups.</summary>
+    /// <summary>Number of distinct seasons — populated for TV show groups.</summary>
     [JsonPropertyName("season_count")]
     public int? SeasonCount { get; init; }
 
-    /// <summary>Number of distinct albums â€” populated for Music artist groups.</summary>
+    /// <summary>Number of distinct albums — populated for Music artist groups.</summary>
     [JsonPropertyName("album_count")]
     public int? AlbumCount { get; init; }
 

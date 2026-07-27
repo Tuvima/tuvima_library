@@ -1614,7 +1614,7 @@ public static partial class MetadataEndpoints
                 await File.WriteAllBytesAsync(coverPath, imageBytes, ct);
 
                 logger.LogInformation(
-                    "Cover downloaded from URL for entity {Id}: {Size} bytes â†’ {Path}",
+                    "Cover downloaded from URL for entity {Id}: {Size} bytes → {Path}",
                     entityId, imageBytes.Length, coverPath);
 
                 var storedAsset = new EntityAsset

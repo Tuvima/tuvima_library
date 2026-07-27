@@ -19,20 +19,20 @@ namespace MediaEngine.Api.DevSupport;
 /// Registered conditionally when <c>ASPNETCORE_ENVIRONMENT == "Development"</c>.
 ///
 /// Endpoints:
-///   POST /dev/seed-library  â€” Drop test files into media-type-specific Watch Folders
-///   POST /dev/wipe           â€” Wipe DB, library root, watch folder, and reinitialize
-///   POST /dev/full-test      â€” Wipe â†’ Seed â†’ return summary
+///   POST /dev/seed-library  — Drop test files into media-type-specific Watch Folders
+///   POST /dev/wipe           — Wipe DB, library root, watch folder, and reinitialize
+///   POST /dev/full-test      — Wipe → Seed → return summary
 /// </summary>
 public static class DevSeedEndpoints
 {
     /// <summary>A seed EPUB definition.</summary>
     /// <remarks>
-    /// <para><c>ExpectedQid</c> â€” when set, the reconciliation pass asserts the
+    /// <para><c>ExpectedQid</c> — when set, the reconciliation pass asserts the
     /// resolved Wikidata QID exactly matches this value. Leave null for real
     /// fixtures where any non-placeholder QID is acceptable; no-QID outcomes
     /// are only acceptable when <c>ExpectIdentified</c> is false and the fixture
     /// declares a review trigger or known no-entity reason.</para>
-    /// <para><c>ExpectedCoverArt</c> â€” when true (default), the library display
+    /// <para><c>ExpectedCoverArt</c> — when true (default), the library display
     /// validation asserts that cover art was successfully downloaded for this
     /// item. Set to false for fixtures where no cover art is expected (e.g.
     /// placeholder titles or review-queue items).</para>
@@ -130,12 +130,12 @@ public static class DevSeedEndpoints
         string? ExpectedQid = null,
         bool ExpectedCoverArt = true);
 
-    // â”€â”€ EPUB Seed definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── EPUB Seed definitions ────────────────────────────────────────────────
     // Real ISBNs so the hydration pipeline can fetch real cover art and metadata.
 
     private static readonly SeedBook[] SeedBooks =
     [
-        // â”€â”€ Category 1: Standard Cases (clean metadata, strong Wikidata presence) â”€â”€
+        // ── Category 1: Standard Cases (clean metadata, strong Wikidata presence) ──
 
         new("Dune",
             "Frank Herbert",
@@ -158,44 +158,44 @@ public static class DevSeedEndpoints
             TestCategory: "Standard",
             ExpectedQid: "Q74287"),
 
-        // â”€â”€ Category 2: Pen Names â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 2: Pen Names ──────────────────────────────────────────
 
         new("Leviathan Wakes",
             "James S. A. Corey",
             "9780316129084", 2011,
             "Humanity has colonized the solar system. Jim Holden is XO of an ice hauler that makes a horrifying discovery in the asteroid belt.",
             Series: "The Expanse", SeriesPosition: 1,
-            TestCategory: "PenName â€” collaborative (Daniel Abraham + Ty Franck)"),
+            TestCategory: "PenName — collaborative (Daniel Abraham + Ty Franck)"),
 
         new("Caliban's War",
             "James S. A. Corey",
             "9780316129060", 2012,
             "On Ganymede, breadbasket of the outer planets, a Martian marine watches as her platoon is slaughtered by a monstrous supersoldier.",
             Series: "The Expanse", SeriesPosition: 2,
-            TestCategory: "PenName â€” same collaborative pen name, series book #2"),
+            TestCategory: "PenName — same collaborative pen name, series book #2"),
 
         new("The Shining",
             "Stephen King",
             "9780307743657", 1977,
             "Jack Torrance's new job at the Overlook Hotel is the perfect chance for a fresh start. But as the harsh winter weather sets in, the idyllic location feels ever more sinister.",
-            TestCategory: "PenName â€” author also writes as Richard Bachman",
+            TestCategory: "PenName — author also writes as Richard Bachman",
             ExpectedQid: "Q470937"),
 
         new("The Long Walk",
             "Richard Bachman",
             "9781501143823", 1979,
             "On the first day of May, one hundred teenage boys meet for an annual walking contest called The Long Walk.",
-            TestCategory: "PenName â€” Stephen King writing as Richard Bachman",
+            TestCategory: "PenName — Stephen King writing as Richard Bachman",
             ExpectedQid: "Q384160"),
 
-        // â”€â”€ Category 3: Foreign Language â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 3: Foreign Language ───────────────────────────────────
 
         new("Le Petit Prince",
             "Antoine de Saint-Exupéry",
             "9782070612758", 1943,
             "Un pilote, forcé d'atterrir dans le Sahara, rencontre un petit garçon venu d'une autre planète.",
             Language: "fr",
-            TestCategory: "Foreign â€” French, accented author name",
+            TestCategory: "Foreign — French, accented author name",
             ExpectedQid: "Q25338"),
 
         new("Cien años de soledad",
@@ -203,7 +203,7 @@ public static class DevSeedEndpoints
             "9780307474728", 1967,
             "La historia de la familia Buendía a lo largo de siete generaciones en el pueblo ficticio de Macondo.",
             Language: "es",
-            TestCategory: "Foreign â€” Spanish, special chars in title AND author",
+            TestCategory: "Foreign — Spanish, special chars in title AND author",
             ReconciliationTitle: "One Hundred Years of Solitude"),
 
         new("Die Verwandlung",
@@ -211,24 +211,24 @@ public static class DevSeedEndpoints
             "9783150091319", 1915,
             "Als Gregor Samsa eines Morgens aus unruhigen Träumen erwachte, fand er sich in seinem Bett zu einem ungeheueren Ungeziefer verwandelt.",
             Language: "de",
-            TestCategory: "Foreign â€” German"),
+            TestCategory: "Foreign — German"),
 
         new("ノルウェイの森",
             "村上春樹",
             "9784062748681", 1987,
             "ワタナベトオルが、亡き親友キズキの恋人であった直子との関係を中心に、1960年代後半の東京での大学生活を回想する。",
             Language: "ja",
-            TestCategory: "Foreign â€” Japanese, CJK title and author",
+            TestCategory: "Foreign — Japanese, CJK title and author",
             ReconciliationTitle: "Norwegian Wood"),
 
-        // â”€â”€ Category 4: Series Books (Collection grouping + sequence) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 4: Series Books (Collection grouping + sequence) ─────────────
 
         new("Harry Potter and the Philosopher's Stone",
             "J.K. Rowling",
             "9780747532699", 1997,
             "Harry Potter has never even heard of Hogwarts when the letters start dropping on the doormat at number four, Privet Drive.",
             Series: "Harry Potter", SeriesPosition: 1,
-            TestCategory: "Series â€” position 1",
+            TestCategory: "Series — position 1",
             ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed),
 
         new("Harry Potter and the Chamber of Secrets",
@@ -236,39 +236,39 @@ public static class DevSeedEndpoints
             "9780747538486", 1998,
             "Harry Potter's summer has included the worst birthday ever, doomy warnings from a house-elf called Dobby, and rescue from the Dursleys by his friend Ron Weasley in a magical flying car!",
             Series: "Harry Potter", SeriesPosition: 2,
-            TestCategory: "Series â€” position 2, same author/series as above"),
+            TestCategory: "Series — position 2, same author/series as above"),
 
         new("The Fellowship of the Ring",
             "J.R.R. Tolkien",
             "9780547928210", 1954,
             "In ancient times the Rings of Power were crafted by the Elven-smiths, and Sauron, the Dark Lord, forged the One Ring, filling it with his own power so that he could rule all others.",
             Series: "The Lord of the Rings", SeriesPosition: 1,
-            TestCategory: "Series â€” same author as The Hobbit, different series",
+            TestCategory: "Series — same author as The Hobbit, different series",
             ExpectedQid: "Q208002"),
 
-        // â”€â”€ Category 5: Multiple Authors (co-authored, not pen name) â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 5: Multiple Authors (co-authored, not pen name) ───────
 
         new("Good Omens",
             "Terry Pratchett",
             "9780060853983", 1990,
             "According to The Nice and Accurate Prophecies of Agnes Nutter, Witch, the world will end on a Saturday. Next Saturday, in fact.",
             AdditionalAuthors: ["Neil Gaiman"],
-            TestCategory: "MultiAuthor â€” two distinct real authors"),
+            TestCategory: "MultiAuthor — two distinct real authors"),
 
         new("The Talisman",
             "Stephen King",
             "9781501192272", 1984,
             "Jack Sawyer, twelve years old, is about to begin a most fantastic journey, an exhilarating, terrifying quest across the country and into another realm.",
             AdditionalAuthors: ["Peter Straub"],
-            TestCategory: "MultiAuthor â€” King again (cross-ref with pen name tests)"),
+            TestCategory: "MultiAuthor — King again (cross-ref with pen name tests)"),
 
-        // â”€â”€ Category 6: Edge Cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 6: Edge Cases ─────────────────────────────────────────
 
         new("Untitled Book",
             "Unknown",
             "", 0,
             "",
-            TestCategory: "Edge â€” minimal metadata: no ISBN, no year, no description",
+            TestCategory: "Edge — minimal metadata: no ISBN, no year, no description",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.PlaceholderTitle,
             ExpectedReason: "Placeholder title 'Untitled Book' with no real metadata should trigger review",
@@ -278,7 +278,7 @@ public static class DevSeedEndpoints
             "B",
             "", 2000,
             "A very short title.",
-            TestCategory: "Edge â€” extremely short title and author, no bridge IDs",
+            TestCategory: "Edge — extremely short title and author, no bridge IDs",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.PlaceholderTitle,
             ExpectedReason: "Single-character title with no ISBN should trigger placeholder review",
@@ -288,7 +288,7 @@ public static class DevSeedEndpoints
             "Reginald Fortescue-Pemberton IV",
             "9780000000001", 2020,
             "A book with an extraordinarily long title and author name designed to test truncation, file naming, and display in constrained UI elements.",
-            TestCategory: "Edge â€” very long title and author, special chars (& : .)",
+            TestCategory: "Edge — very long title and author, special chars (& : .)",
             ExpectIdentified: false,
             ExpectedReviewTrigger: ReviewTrigger.RetailMatchFailed,
             ExpectedReason: "Fictional book with synthetic ISBN correctly fails retail provider matching",
@@ -298,33 +298,33 @@ public static class DevSeedEndpoints
             "Haruki Murakami",
             "9780307593313", 2009,
             "A young woman named Aomame follows a taxi driver's suggestion and climbs down an emergency stairway into a world she calls 1Q84.",
-            TestCategory: "Edge â€” numeric-starting title, same author as Japanese entry"),
+            TestCategory: "Edge — numeric-starting title, same author as Japanese entry"),
 
         new("The Road",
             "Cormac McCarthy",
             "9780307387899", 2006,
             "A father and his son walk alone through burned America, heading through the ravaged landscape to the coast.",
-            TestCategory: "Edge â€” standalone, no series (single-work Collection)"),
+            TestCategory: "Edge — standalone, no series (single-work Collection)"),
 
-        // â”€â”€ Category 7: Publisher Metadata â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 7: Publisher Metadata ──────────────────────────────────
 
         new("Frankenstein",
             "Mary Shelley",
             "9780141439471", 1818,
             "Obsessed with creating life itself, Victor Frankenstein plunders graveyards for the material to fashion a new being.",
             Publisher: "Lackington, Hughes, Harding, Mavor & Jones",
-            TestCategory: "Publisher â€” very old book, long publisher name with special chars"),
+            TestCategory: "Publisher — very old book, long publisher name with special chars"),
 
-        // â”€â”€ Category 8: Standalone classics (audiobook pairing targets) â”€â”€â”€â”€â”€
+        // ── Category 8: Standalone classics (audiobook pairing targets) ─────
 
         new("Neuromancer",
             "William Gibson",
             "9780441569595", 1984,
             "The sky above the port was the color of television, tuned to a dead channel.",
-            TestCategory: "Standalone â€” cyberpunk classic, audiobook pair target"),
+            TestCategory: "Standalone — cyberpunk classic, audiobook pair target"),
     ];
 
-    // â”€â”€ MP3 Audiobook Seed definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── MP3 Audiobook Seed definitions ───────────────────────────────────────
     // Paired with EPUBs above to test cross-format Collection grouping and Stage 2
     // bridge resolution. Genre tag set to "Audiobook" for disambiguation.
 
@@ -337,65 +337,65 @@ public static class DevSeedEndpoints
             ExpectedReason: "Synthetic audiobook title should not match any retail provider",
             ExpectedCoverArt: false),
 
-        // â”€â”€ Paired with EPUB counterparts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Paired with EPUB counterparts ─────────────────────────────────────
 
         new("Dune", "Frank Herbert", "Simon Vance", 1965,
             Series: "Dune Chronicles", SeriesPosition: 1,
-            TestCategory: "Audiobook pair â€” Dune (Simon Vance narrator)"),
+            TestCategory: "Audiobook pair — Dune (Simon Vance narrator)"),
 
         new("Project Hail Mary", "Andy Weir", "Ray Porter", 2021,
-            TestCategory: "Audiobook pair â€” standalone, popular narrator"),
+            TestCategory: "Audiobook pair — standalone, popular narrator"),
 
         new("The Hobbit", "J.R.R. Tolkien", "Andy Serkis", 1937,
-            TestCategory: "Audiobook pair â€” celebrity narrator"),
+            TestCategory: "Audiobook pair — celebrity narrator"),
 
         new("Good Omens", "Terry Pratchett and Neil Gaiman", "Martin Jarvis", 1990,
-            TestCategory: "Audiobook pair â€” multi-author work"),
+            TestCategory: "Audiobook pair — multi-author work"),
 
         new("1Q84", "Haruki Murakami", "Allison Hiroto", 2009,
-            TestCategory: "Audiobook pair â€” numeric-starting title"),
+            TestCategory: "Audiobook pair — numeric-starting title"),
 
         new("The Shining", "Stephen King", "Campbell Scott", 1977,
-            TestCategory: "Audiobook pair â€” pen name author (King/Bachman)"),
+            TestCategory: "Audiobook pair — pen name author (King/Bachman)"),
 
         new("Le Petit Prince", "Antoine de Saint-Exupery", "Bernard Giraudeau", 1943,
             Language: "fra",
-            TestCategory: "Audiobook pair â€” foreign language (French)"),
+            TestCategory: "Audiobook pair — foreign language (French)"),
 
         new("Harry Potter and the Philosopher's Stone", "J.K. Rowling", "Stephen Fry", 1997,
             Series: "Harry Potter", SeriesPosition: 1,
-            TestCategory: "Audiobook pair â€” series book with famous narrator"),
+            TestCategory: "Audiobook pair — series book with famous narrator"),
 
         new("The Name of the Wind", "Patrick Rothfuss", "Nick Podehl", 2007,
             Series: "The Kingkiller Chronicle", SeriesPosition: 1,
-            TestCategory: "Audiobook pair â€” series (no EPUB counterpart in series list)"),
+            TestCategory: "Audiobook pair — series (no EPUB counterpart in series list)"),
 
         new("Leviathan Wakes", "James S. A. Corey", "Jefferson Mays", 2011,
             Series: "The Expanse", SeriesPosition: 1,
-            TestCategory: "Audiobook pair â€” pen name series"),
+            TestCategory: "Audiobook pair — pen name series"),
 
         new("Foundation", "Isaac Asimov", "Scott Brick", 1951,
             Series: "Foundation", SeriesPosition: 1,
-            TestCategory: "Audiobook pair â€” classic series (no EPUB counterpart)"),
+            TestCategory: "Audiobook pair — classic series (no EPUB counterpart)"),
 
         new("The Fellowship of the Ring", "J.R.R. Tolkien", "Rob Inglis", 1954,
             Series: "The Lord of the Rings", SeriesPosition: 1,
-            TestCategory: "Audiobook pair â€” classic series with iconic narrator"),
+            TestCategory: "Audiobook pair — classic series with iconic narrator"),
 
         new("Neuromancer", "William Gibson", "Robertson Dean", 1984,
-            TestCategory: "Audiobook pair â€” standalone classic"),
+            TestCategory: "Audiobook pair — standalone classic"),
 
         new("The Road", "Cormac McCarthy", "Tom Stechschulte", 2006,
-            TestCategory: "Audiobook pair â€” standalone"),
+            TestCategory: "Audiobook pair — standalone"),
 
-        // â”€â”€ Multiple editions test (same work, different narrator) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Multiple editions test (same work, different narrator) ──────────
 
         new("Dune", "Frank Herbert", "Scott Brick", 1965,
             Series: "Dune Chronicles", SeriesPosition: 1,
-            TestCategory: "Multiple editions â€” Dune with alternate narrator"),
+            TestCategory: "Multiple editions — Dune with alternate narrator"),
     ];
 
-    // â”€â”€ MP4 Movie / TV Seed definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── MP4 Movie / TV Seed definitions ────────────────────────────────────
     // Titles chosen for strong TMDB + Wikidata presence.
 
     private static readonly SeedVideo[] SeedVideos =
@@ -416,10 +416,10 @@ public static class DevSeedEndpoints
             ExpectedCoverArt: false,
             ReconciliationTitle: "Department of Clockwork Rain"),
 
-        // â”€â”€ Movies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Movies ──────────────────────────────────────────────────────────
 
         new("Blade Runner 2049", "Denis Villeneuve", 2017, "Movie",
-            TestCategory: "Movie â€” same director as Dune films, strong TMDB match",
+            TestCategory: "Movie — same director as Dune films, strong TMDB match",
             ExpectedQid: "Q21500755"),
 
         new("Dune: Part One", "Denis Villeneuve", 2021, "Movie",
@@ -444,48 +444,48 @@ public static class DevSeedEndpoints
             ExpectedProvider: "tmdb"),
 
         new("The Matrix", "Lana Wachowski", 1999, "Movie",
-            TestCategory: "Movie â€” classic, strong Wikidata presence",
+            TestCategory: "Movie — classic, strong Wikidata presence",
             ExpectedQid: "Q83495"),
 
         new("Arrival", "Denis Villeneuve", 2016, "Movie",
-            TestCategory: "Movie â€” same director as Blade Runner, cross-reference test",
+            TestCategory: "Movie — same director as Blade Runner, cross-reference test",
             ExpectedQid: "Q20382729"),
 
         new("Spirited Away", "Hayao Miyazaki", 2001, "Movie",
-            TestCategory: "Movie â€” Japanese film, foreign language metadata",
+            TestCategory: "Movie — Japanese film, foreign language metadata",
             ExpectedQid: "Q155653"),
 
         new("Interstellar", "Christopher Nolan", 2014, "Movie",
-            TestCategory: "Movie â€” strong TMDB match, popular film",
+            TestCategory: "Movie — strong TMDB match, popular film",
             ExpectedQid: "Q13417189"),
 
         new("The Shawshank Redemption", "Frank Darabont", 1994, "Movie",
-            TestCategory: "Movie â€” Stephen King adaptation (cross-ref with books)",
+            TestCategory: "Movie — Stephen King adaptation (cross-ref with books)",
             ExpectedQid: "Q172241"),
 
-        // â”€â”€ TV Episodes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── TV Episodes ─────────────────────────────────────────────────────
 
         new("Breaking Bad", null, 2008, "TV",
             Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 1,
-            TestCategory: "TV â€” S01E01, strong TMDB match",
+            TestCategory: "TV — S01E01, strong TMDB match",
             ExpectedProvider: "tmdb"),
 
         new("Breaking Bad", null, 2008, "TV",
             Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 2,
-            TestCategory: "TV â€” S01E02, same series grouping test",
+            TestCategory: "TV — S01E02, same series grouping test",
             ExpectedProvider: "tmdb"),
 
         new("The Expanse", null, 2015, "TV",
             Series: "The Expanse", SeasonNumber: 1, EpisodeNumber: 1,
-            TestCategory: "TV â€” cross-ref with book series (Leviathan Wakes)",
+            TestCategory: "TV — cross-ref with book series (Leviathan Wakes)",
             ExpectedProvider: "tmdb"),
 
         new("Shogun", null, 2024, "TV",
             Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
-            TestCategory: "TV â€” recent series, cross-media potential",
+            TestCategory: "TV — recent series, cross-media potential",
             ExpectedProvider: "tmdb"),
 
-        // â”€â”€ New TV fixtures: filename pattern coverage (Phase: scoring fix) â”€â”€
+        // ── New TV fixtures: filename pattern coverage (Phase: scoring fix) ──
         // Each fixture targets a different on-disk filename pattern so the
         // VideoProcessor's TV regex variants and the structural-bonus scoring
         // path are all exercised end-to-end by the integration test.
@@ -494,42 +494,42 @@ public static class DevSeedEndpoints
             Series: "Breaking Bad", SeasonNumber: 1, EpisodeNumber: 1,
             EpisodeTitle: "Pilot",
             FileNameOverride: "Breaking Bad/Season 01/Breaking Bad - S01E01 - Pilot.mp4",
-            TestCategory: "TV pattern â€” show + SxxExx + episode title in nested folder",
+            TestCategory: "TV pattern — show + SxxExx + episode title in nested folder",
             ExpectedProvider: "tmdb"),
 
         new("Anjin", null, 2024, "TV",
             Series: "Shogun", SeasonNumber: 1, EpisodeNumber: 1,
             EpisodeTitle: "Anjin",
             FileNameOverride: "Shogun (2024)/Season 01/Shogun - S01E01 - Anjin.mp4",
-            TestCategory: "TV pattern â€” show with year suffix folder + SxxExx + episode title",
+            TestCategory: "TV pattern — show with year suffix folder + SxxExx + episode title",
             ExpectedProvider: "tmdb"),
 
         new("Chapter 1: The Mandalorian", null, 2019, "TV",
             Series: "The Mandalorian", SeasonNumber: 1, EpisodeNumber: 1,
             EpisodeTitle: "Chapter 1 - The Mandalorian",
             FileNameOverride: "The Mandalorian/Season 01/S01E01 - Chapter 1 - The Mandalorian.mp4",
-            TestCategory: "TV pattern â€” leading SxxExx (no show prefix), show inferred from folder",
+            TestCategory: "TV pattern — leading SxxExx (no show prefix), show inferred from folder",
             ExpectedProvider: "tmdb"),
 
         new("The Mathematician's Ghost", null, 2021, "TV",
             Series: "Foundation", SeasonNumber: 1, EpisodeNumber: 3,
             EpisodeTitle: "The Mathematician's Ghost",
             FileNameOverride: "Foundation/Season 01/Foundation - S01E03 - The Mathematician's Ghost.mp4",
-            TestCategory: "TV pattern â€” non-pilot episode with possessive in title",
+            TestCategory: "TV pattern — non-pilot episode with possessive in title",
             ExpectedProvider: "tmdb"),
 
         new("The You You Are", null, 2022, "TV",
             Series: "Severance", SeasonNumber: 1, EpisodeNumber: 4,
             EpisodeTitle: "The You You Are",
             FileNameOverride: "Severance/Season 01/Severance.S01E04.The.You.You.Are.mp4",
-            TestCategory: "TV pattern â€” dot-separated filename convention",
+            TestCategory: "TV pattern — dot-separated filename convention",
             ExpectedProvider: "tmdb"),
 
         new("Ozymandias", null, 2013, "TV",
             Series: "Breaking Bad", SeasonNumber: 5, EpisodeNumber: 14,
             EpisodeTitle: "Ozymandias",
             FileNameOverride: "Breaking Bad/Season 05/Breaking Bad - S05E14 - Ozymandias.mp4",
-            TestCategory: "TV pattern Ã¢â‚¬â€ higher season and two-digit episode, stress late-series batching",
+            TestCategory: "TV pattern — higher season and two-digit episode, stress late-series batching",
             ExpectedProvider: "tmdb"),
 
         new("Seven Thirty-Seven", null, 2009, "TV",
@@ -554,11 +554,11 @@ public static class DevSeedEndpoints
             ExpectedProvider: "tmdb"),
 
         new("Spider-Man: Into the Spider-Verse", "Bob Persichetti", 2018, "Movie",
-            TestCategory: "Movie Ã¢â‚¬â€ colon title with subtitle and punctuation, strong TMDB match",
+            TestCategory: "Movie — colon title with subtitle and punctuation, strong TMDB match",
             ExpectedProvider: "tmdb"),
     ];
 
-    // â”€â”€ FLAC Music Seed definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── FLAC Music Seed definitions ────────────────────────────────────────
     // FLAC is unambiguously routed to Music by AudioProcessor (0.95 confidence).
 
     private static readonly SeedMusic[] SeedMusicTracks =
@@ -571,10 +571,10 @@ public static class DevSeedEndpoints
             ExpectedReason: "Synthetic music track should not match Apple Music",
             ExpectedCoverArt: false),
 
-        // â”€â”€ Category 1: Standard (strong Apple Music presence) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 1: Standard (strong Apple Music presence) ─────────────
         new("Bohemian Rhapsody", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 11,
-            TestCategory: "Music â€” classic track, strong Apple Music match"),
+            TestCategory: "Music — classic track, strong Apple Music match"),
 
         // Regression albums: incomplete ownership must still produce a complete
         // provider manifest, and repeated artists must span multiple album roots.
@@ -612,109 +612,109 @@ public static class DevSeedEndpoints
 
         new("Clair de Lune", "Claude Debussy",
             Album: "Suite bergamasque", Year: 1905, Genre: "Classical", TrackNumber: 3,
-            TestCategory: "Music â€” classical, foreign artist name â€” Apple bridge IDs lack Wikidata P-code mapping",
+            TestCategory: "Music — classical, foreign artist name — Apple bridge IDs lack Wikidata P-code mapping",
             ExpectIdentified: true),
 
         new("Lose Yourself", "Eminem",
             Album: "8 Mile: Music from and Inspired by the Motion Picture", Year: 2002, Genre: "Hip-Hop", TrackNumber: 1,
-            TestCategory: "Music â€” soundtrack, must resolve to 8 Mile OST via Apple Music"),
+            TestCategory: "Music — soundtrack, must resolve to 8 Mile OST via Apple Music"),
 
         new("Nuvole Bianche", "Ludovico Einaudi",
             Album: "Una Mattina", Year: 2004, Genre: "Classical", TrackNumber: 6,
-            TestCategory: "Music â€” contemporary classical, Italian artist"),
+            TestCategory: "Music — contemporary classical, Italian artist"),
 
         new("Across the Stars", "John Williams",
             Album: "Star Wars: Attack of the Clones", Year: 2002, Genre: "Soundtrack", TrackNumber: 3,
-            TestCategory: "Music â€” film soundtrack, franchise cross-ref"),
+            TestCategory: "Music — film soundtrack, franchise cross-ref"),
 
-        // â”€â”€ Category 2: Album grouping (multiple tracks, same album) â”€â”€â”€â”€â”€â”€
+        // ── Category 2: Album grouping (multiple tracks, same album) ──────
         new("You're My Best Friend", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 4,
-            TestCategory: "Music â€” same album as Bohemian Rhapsody, Collection grouping test"),
+            TestCategory: "Music — same album as Bohemian Rhapsody, Collection grouping test"),
 
         new("Death on Two Legs", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 1,
-            TestCategory: "Music â€” same album, track 1, Collection grouping test"),
+            TestCategory: "Music — same album, track 1, Collection grouping test"),
 
-        // â”€â”€ Category 3: Multi-artist / featured / collaboration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 3: Multi-artist / featured / collaboration ───────────
         new("Love of My Life", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 9,
-            TestCategory: "Music Ã¢â‚¬â€ expands same-album Queen batch, stresses grouped retail and Wikidata batching"),
+            TestCategory: "Music — expands same-album Queen batch, stresses grouped retail and Wikidata batching"),
 
         new("Seaside Rendezvous", "Queen",
             Album: "A Night at the Opera", Year: 1975, Genre: "Rock", TrackNumber: 7,
-            TestCategory: "Music Ã¢â‚¬â€ deep-cut same album track, stresses larger grouped album distribution"),
+            TestCategory: "Music — deep-cut same album track, stresses larger grouped album distribution"),
 
         new("Under Pressure", "Queen & David Bowie",
             Album: "Hot Space", Year: 1982, Genre: "Rock", TrackNumber: 11,
-            TestCategory: "Music â€” dual artist, ampersand separator"),
+            TestCategory: "Music — dual artist, ampersand separator"),
 
         new("Stan", "Eminem",
             Album: "The Marshall Mathers LP", Year: 2000, Genre: "Hip-Hop", TrackNumber: 3,
-            TestCategory: "Music â€” same artist as Lose Yourself, different album"),
+            TestCategory: "Music — same artist as Lose Yourself, different album"),
 
-        // â”€â”€ Category 4: Foreign language / non-Latin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 4: Foreign language / non-Latin ──────────────────────
         new("La Vie en rose", "Édith Piaf",
             Album: "La Vie en rose", Year: 1947, Genre: "Chanson", TrackNumber: 1,
-            TestCategory: "Music â€” French, accented artist name, classic",
+            TestCategory: "Music — French, accented artist name, classic",
             ExpectIdentified: true,
             ExpectedQid: "Q11986"),
 
         new("Für Elise", "Ludwig van Beethoven",
             Album: "Beethoven: Piano Pieces", Year: 1810, Genre: "Classical", TrackNumber: 1,
-            TestCategory: "Music â€” German umlaut in title, historical classical"),
+            TestCategory: "Music — German umlaut in title, historical classical"),
 
         new("99 Luftballons", "Nena",
             Album: "99 Luftballons", Year: 1983, Genre: "New Wave", TrackNumber: 1,
-            TestCategory: "Music â€” German title, one-name artist"),
+            TestCategory: "Music — German title, one-name artist"),
 
-        // â”€â”€ Category 5: Disambiguation / common titles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 5: Disambiguation / common titles ────────────────────
         new("Yesterday", "The Beatles",
             Album: "Help!", Year: 1965, Genre: "Pop", TrackNumber: 13,
-            TestCategory: "Music â€” extremely common title, must resolve to Beatles version"),
+            TestCategory: "Music — extremely common title, must resolve to Beatles version"),
 
         new("Imagine", "John Lennon",
             Album: "Imagine", Year: 1971, Genre: "Pop", TrackNumber: 1,
-            TestCategory: "Music â€” album same name as track, iconic single"),
+            TestCategory: "Music — album same name as track, iconic single"),
 
-        // â”€â”€ Category 6: Instrumental / soundtrack / orchestral â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 6: Instrumental / soundtrack / orchestral ────────────
         new("We Will Rock You", "Queen",
             Album: "News of the World", Year: 1977, Genre: "Rock", TrackNumber: 1,
-            TestCategory: "Music Ã¢â‚¬â€ same artist, second album group, stresses per-album natural-key batching"),
+            TestCategory: "Music — same artist, second album group, stresses per-album natural-key batching"),
 
         new("We Are the Champions", "Queen",
             Album: "News of the World", Year: 1977, Genre: "Rock", TrackNumber: 2,
-            TestCategory: "Music Ã¢â‚¬â€ adjacent track in second Queen album group, stresses grouped batch fan-out"),
+            TestCategory: "Music — adjacent track in second Queen album group, stresses grouped batch fan-out"),
 
         new("The Imperial March", "John Williams",
             Album: "Star Wars: The Empire Strikes Back", Year: 1980, Genre: "Soundtrack", TrackNumber: 3,
-            TestCategory: "Music â€” same artist as Across the Stars, different franchise entry"),
+            TestCategory: "Music — same artist as Across the Stars, different franchise entry"),
 
         new("In the Hall of the Mountain King", "Edvard Grieg",
             Album: "Peer Gynt Suite No. 1", Year: 1875, Genre: "Classical", TrackNumber: 4,
-            TestCategory: "Music â€” public domain classical, Norwegian composer"),
+            TestCategory: "Music — public domain classical, Norwegian composer"),
 
-        // â”€â”€ Category 7: Edge cases â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Category 7: Edge cases ────────────────────────────────────────
         new("4'33\"", "John Cage",
             Album: "John Cage: 4'33\"", Year: 1952, Genre: "Avant-Garde", TrackNumber: 1,
-            TestCategory: "Edge â€” special chars in title (apostrophe + quotes), silent piece â€” exact retail match despite punctuation",
+            TestCategory: "Edge — special chars in title (apostrophe + quotes), silent piece — exact retail match despite punctuation",
             ExpectIdentified: true),
 
         new("MMMBop", "Hanson",
             Album: "Middle of Nowhere", Year: 1997, Genre: "Pop", TrackNumber: 1,
-            TestCategory: "Edge â€” unusual capitalization, 90s one-hit wonder"),
+            TestCategory: "Edge — unusual capitalization, 90s one-hit wonder"),
 
         new("Take Five", "Dave Brubeck",
             Album: "Time Out", Year: 1959, Genre: "Jazz", TrackNumber: 4,
-            TestCategory: "Music â€” jazz standard, strong Apple Music presence"),
+            TestCategory: "Music — jazz standard, strong Apple Music presence"),
 
         new("Smells Like Teen Spirit", "Nirvana",
             Album: "Nevermind", Year: 1991, Genre: "Grunge", TrackNumber: 1,
-            TestCategory: "Music â€” 90s rock, strong Wikidata QID presence"),
+            TestCategory: "Music — 90s rock, strong Wikidata QID presence"),
     ];
 
-    // â”€â”€ CBZ Comic Seed definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Comics with ComicInfo.xml metadata â€” tests the new ComicProcessor parsing.
+    // ── CBZ Comic Seed definitions ─────────────────────────────────────────
+    // Comics with ComicInfo.xml metadata — tests the new ComicProcessor parsing.
 
     private static readonly SeedComic[] SeedComics =
     [
@@ -735,7 +735,7 @@ public static class DevSeedEndpoints
             Series: "Batman", Number: 404, Year: 1987, Genre: "Superhero",
             Summary: "Bruce Wayne returns to Gotham City after years abroad.",
             Publisher: "DC Comics", Penciller: "David Mazzucchelli",
-            TestCategory: "Comic â€” classic DC, series with issue number",
+            TestCategory: "Comic — classic DC, series with issue number",
             ExpectedReason: "When the issue item is missing on Wikidata, Stage 2 should roll up to the parent Batman comic series entity",
             ExpectedQid: "Q2633138"),
 
@@ -743,20 +743,20 @@ public static class DevSeedEndpoints
             Series: "Saga", Number: 1, Year: 2012, Genre: "Science Fiction, Fantasy",
             Summary: "A new epic from the creators of Y: The Last Man.",
             Publisher: "Image Comics", Penciller: "Fiona Staples",
-            TestCategory: "Comic â€” Image Comics, multi-genre"),
+            TestCategory: "Comic — Image Comics, multi-genre"),
 
         new("The Sandman: Sleep of the Just", Writer: "Neil Gaiman",
             Series: "The Sandman", Number: 1, Year: 1989, Genre: "Fantasy, Horror",
             Summary: "Morpheus, the King of Dreams, is captured and held prisoner for 70 years.",
             Publisher: "DC Comics/Vertigo", Penciller: "Sam Kieth",
-            TestCategory: "Comic â€” Neil Gaiman (cross-ref with Good Omens book)",
+            TestCategory: "Comic — Neil Gaiman (cross-ref with Good Omens book)",
             ExpectIdentified: true),
 
         new("Akira Vol 1", Writer: "Katsuhiro Otomo",
             Series: "Akira", Number: 1, Year: 1982, Genre: "Science Fiction",
             Summary: "In the year 2019, Neo-Tokyo has risen from the ashes of World War III.",
             Publisher: "Kodansha", Penciller: "Katsuhiro Otomo",
-            TestCategory: "Comic â€” manga, Japanese creator",
+            TestCategory: "Comic — manga, Japanese creator",
             ExpectIdentified: true),
 
         new("Batman: Year One Part 2", Writer: "Frank Miller",
@@ -797,8 +797,8 @@ public static class DevSeedEndpoints
             ExpectIdentified: true),
     ];
 
-    // â”€â”€ Supported test media types and their provider health-check URLs â”€â”€â”€â”€
-    // Provider â†’ media types it gates. If the provider's API endpoint is unreachable,
+    // ── Supported test media types and their provider health-check URLs ────
+    // Provider → media types it gates. If the provider's API endpoint is unreachable,
     // those media types are skipped with a reason in the response.
 
     private static readonly string[] AllTestableTypes = ["books", "audiobooks", "movies", "tv", "music", "comics"];
@@ -865,9 +865,9 @@ public static class DevSeedEndpoints
 
     /// <summary>
     /// Probe each provider's API endpoint in parallel. Returns a dictionary of
-    /// provider name â†’ (healthy, reason). Timeout: 8 seconds per provider.
+    /// provider name → (healthy, reason). Timeout: 8 seconds per provider.
     /// Credentials are read from the loaded provider config (secrets applied) so no
-    /// credentials are ever hardcoded here. A 2xx response is required â€” 401 is
+    /// credentials are ever hardcoded here. A 2xx response is required — 401 is
     /// treated as "key missing or invalid", not as "healthy".
     /// </summary>
     private static async Task<Dictionary<string, (bool Healthy, string Reason)>> CheckProviderHealthAsync(
@@ -882,7 +882,7 @@ public static class DevSeedEndpoints
         {
             try
             {
-                // Load provider config â€” secrets (api_key, username, password) are applied
+                // Load provider config — secrets (api_key, username, password) are applied
                 // automatically by ConfigurationDirectoryLoader.ApplySecrets().
                 var providerConfig = configLoader.LoadProvider(kvp.Key);
                 var http = providerConfig?.HttpClient;
@@ -920,9 +920,9 @@ public static class DevSeedEndpoints
                 using var response = await httpClient.SendAsync(req);
 
                 // A 2xx response confirms the endpoint is reachable AND the credentials work.
-                // 401 â†’ key missing or invalid; treat as unhealthy so the seed skips that type.
+                // 401 → key missing or invalid; treat as unhealthy so the seed skips that type.
                 bool ok = response.IsSuccessStatusCode;
-                string reason = ok ? $"HTTP {(int)response.StatusCode}" : $"HTTP {(int)response.StatusCode} â€” key missing or invalid";
+                string reason = ok ? $"HTTP {(int)response.StatusCode}" : $"HTTP {(int)response.StatusCode} — key missing or invalid";
                 return (kvp.Key, Healthy: ok, Reason: reason);
             }
             catch (Exception ex)
@@ -988,7 +988,7 @@ public static class DevSeedEndpoints
         return (active, skipped);
     }
 
-    // â”€â”€ Endpoint registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Endpoint registration ────────────────────────────────────────────────
 
     public static void MapDevSeedEndpoints(this WebApplication app)
     {
@@ -996,10 +996,10 @@ public static class DevSeedEndpoints
             .WithTags("Development");
 
         group.MapGet("/check-keys", CheckKeysAsync)
-            .WithSummary("Probe each configured provider with real credentials â€” confirms all API keys are valid before seeding");
+            .WithSummary("Probe each configured provider with real credentials — confirms all API keys are valid before seeding");
 
         group.MapPost("/seed-library", SeedLibraryAsync)
-            .WithSummary($"Drop up to {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files into Watch Folders (?types=books,comics,â€¦ to filter; providers health-checked automatically)");
+            .WithSummary($"Drop up to {SeedBooks.Length + SeedAudiobooks.Length + SeedVideos.Length + SeedMusicTracks.Length + SeedComics.Length} test files into Watch Folders (?types=books,comics,… to filter; providers health-checked automatically)");
 
         group.MapPost("/wipe", WipeAsync)
             .WithSummary("Wipe generated harness state by default; pass ?wipeScope=full for the dangerous full source wipe");
@@ -1014,7 +1014,7 @@ public static class DevSeedEndpoints
             .WithSummary("Show identity job counts by state + details of non-Completed jobs");
     }
 
-    // â”€â”€ GET /dev/check-keys â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── GET /dev/check-keys ─────────────────────────────────────────────────
 
     private static async Task<IResult> CheckKeysAsync(
         Domain.Contracts.IConfigurationLoader configLoader,
@@ -1036,7 +1036,7 @@ public static class DevSeedEndpoints
 
         bool allHealthy = health.Values.All(v => v.Healthy);
         string verdict = allHealthy
-            ? "All provider keys verified â€” ready to seed."
+            ? "All provider keys verified — ready to seed."
             : "One or more providers failed. Fill in the missing keys in config/secrets/ before seeding.";
 
         return Results.Ok(new
@@ -1047,7 +1047,7 @@ public static class DevSeedEndpoints
         });
     }
 
-    // â”€â”€ POST /dev/seed-library â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── POST /dev/seed-library ───────────────────────────────────────────────
 
     private static async Task<IResult> SeedLibraryAsync(
         HttpContext context,
@@ -1063,7 +1063,7 @@ public static class DevSeedEndpoints
         var perTypeResults = new Dictionary<string, object>();
         int skipped = 0;
 
-        // â”€â”€ Seed EPUBs â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Seed EPUBs ──────────────────────────────────────────────────────
         var booksDir = ResolveWatchDirectory(configLoader, options, "Books");
         int booksCreated = 0;
         if (activeTypes.Contains("books") && !string.IsNullOrWhiteSpace(booksDir))
@@ -1090,7 +1090,7 @@ public static class DevSeedEndpoints
             ? new { total = SeedBooks.Length, created = booksCreated, directory = booksDir ?? "not configured" }
             : (object)new { total = SeedBooks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("books", "Excluded") };
 
-        // â”€â”€ Seed MP3 Audiobooks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Seed MP3 Audiobooks ─────────────────────────────────────────────
         // Audiobooks share the Books library folder.
         int audiobooksCreated = 0;
         if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
@@ -1117,7 +1117,7 @@ public static class DevSeedEndpoints
             ? new { total = SeedAudiobooks.Length, created = audiobooksCreated, directory = booksDir ?? "not configured" }
             : (object)new { total = SeedAudiobooks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("audiobooks", "Excluded") };
 
-        // â”€â”€ Seed MP4 Videos (Movies + TV) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Seed MP4 Videos (Movies + TV) ─────────────────────────────────
         int moviesCreated = 0, tvCreated = 0;
         foreach (SeedVideo video in SeedVideos)
         {
@@ -1172,7 +1172,7 @@ public static class DevSeedEndpoints
             ? new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = tvCreated, directory = tvDir ?? "not configured" }
             : (object)new { total = SeedVideos.Count(v => v.MediaType == "TV"), created = 0, skipped_reason = skipReasons.GetValueOrDefault("tv", "Excluded") };
 
-        // â”€â”€ Seed FLAC Music â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Seed FLAC Music ───────────────────────────────────────────────
         var musicDir = ResolveWatchDirectory(configLoader, options, "Music");
         int musicCreated = 0;
         if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
@@ -1198,7 +1198,7 @@ public static class DevSeedEndpoints
             ? new { total = SeedMusicTracks.Length, created = musicCreated, directory = musicDir ?? "not configured" }
             : (object)new { total = SeedMusicTracks.Length, created = 0, skipped_reason = skipReasons.GetValueOrDefault("music", "Excluded") };
 
-        // â”€â”€ Seed CBZ Comics â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Seed CBZ Comics ──────────────────────────────────────────────
         var comicsDir = ResolveWatchDirectory(configLoader, options, "Comics");
         int comicsCreated = 0;
         if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
@@ -1244,7 +1244,7 @@ public static class DevSeedEndpoints
         });
     }
 
-    // â”€â”€ POST /dev/wipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── POST /dev/wipe ──────────────────────────────────────────────────────
 
     private static async Task<IResult> WipeAsync(
         DevHarnessResetService resetService,
@@ -1325,7 +1325,7 @@ public static class DevSeedEndpoints
             true));
     }
 
-    // â”€â”€ POST /dev/full-test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── POST /dev/full-test ─────────────────────────────────────────────────
 
     private static async Task<IResult> FullTestAsync(
         HttpContext context,
@@ -1338,7 +1338,7 @@ public static class DevSeedEndpoints
         string? wipeScope = DevHarnessResetService.GeneratedStateScopeName)
     {
         logger.LogInformation("[FullTest] Starting full ingestion test: {Mode}",
-            wipe ? "wipe â†’ seed â†’ scan â†’ start" : "seed â†’ scan â†’ start (no wipe)");
+            wipe ? "wipe → seed → scan → start" : "seed → scan → start (no wipe)");
 
         var requestedTypesForScan = ParseTypes(context);
         var healthForScan = await CheckProviderHealthAsync(logger, configLoader);
@@ -1368,14 +1368,14 @@ public static class DevSeedEndpoints
             logger.LogInformation("[FullTest] Wipe skipped (wipe=false); FSW paused before fixture seeding");
         }
 
-        // â”€â”€ Step 2: Seed files (FSW is NOT watching â€” no spurious events) â”€â”€â”€â”€â”€
+        // ── Step 2: Seed files (FSW is NOT watching — no spurious events) ─────
         var seedResult = await SeedLibraryAsync(context, options, configLoader, logger);
 
-        // â”€â”€ Step 3: Enqueue each seeded file directly into the pipeline â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Step 3: Enqueue each seeded file directly into the pipeline ────────
         // ScanDirectory bypasses the 30-second FSW quiet-period buffer because it
         // stamps each event with a BatchId before calling Enqueue. Files flow
         // directly into the debounce queue and are processed without any timing
-        // ambiguity â€” no Task.Delay, no settle uncertainty.
+        // ambiguity — no Task.Delay, no settle uncertainty.
         var libConfig = configLoader.LoadLibraries();
         var scanTargets = libConfig.Libraries
             .Where(lib =>
@@ -1415,14 +1415,14 @@ public static class DevSeedEndpoints
             }
         }
 
-        // â”€â”€ Step 4: Do NOT resume the FSW â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Step 4: Do NOT resume the FSW ─────────────────────────────────────
         // ScanDirectories already enqueued every seed file directly into the pipeline.
         // Resuming the FSW here causes a race: the watcher fires events for the
         // same files that are already being processed, and the lock probe fails
         // (the first processing attempt holds the file open), quarantining ~50
         // files. The FSW stays paused until the engine is restarted or a manual
         // POST /dev/resume-watcher is called.
-        logger.LogInformation("[FullTest] FSW intentionally left paused â€” grouped ScanDirectories handles all seed files");
+        logger.LogInformation("[FullTest] FSW intentionally left paused — grouped ScanDirectories handles all seed files");
 
         return Results.Ok(new
         {
@@ -1445,7 +1445,7 @@ public static class DevSeedEndpoints
         });
     }
 
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     /// <summary>
     /// Deletes all files and subdirectories inside a directory, preserving the directory itself.
@@ -1508,7 +1508,7 @@ public static class DevSeedEndpoints
         return sb.ToString();
     }
 
-    // â”€â”€ Seed expectation model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Seed expectation model ────────────────────────────────────────────────
 
     /// <summary>
     /// Flattened expectation derived from a seed fixture, used by the integration
@@ -1543,7 +1543,7 @@ public static class DevSeedEndpoints
     /// <para>
     /// Critical: this helper is the single source of truth for test-fixture seeding.
     /// IntegrationTestEndpoints must never maintain its own shadow copy of the seed
-    /// arrays â€” doing so causes silent "NotFound" drift when fixtures are added to
+    /// arrays — doing so causes silent "NotFound" drift when fixtures are added to
     /// <see cref="DevSeedEndpoints"/> but not mirrored in the harness.
     /// </para>
     /// </summary>
@@ -1574,7 +1574,7 @@ public static class DevSeedEndpoints
             }
         }
 
-        // Audiobooks (MP3) â€” share the Books folder so the library prior applies
+        // Audiobooks (MP3) — share the Books folder so the library prior applies
         if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
         {
             foreach (SeedAudiobook ab in SeedAudiobooks)
@@ -1592,7 +1592,7 @@ public static class DevSeedEndpoints
             }
         }
 
-        // Movies + TV (MP4) â€” SeedVideos carries MediaType = "Movie" or "TV"
+        // Movies + TV (MP4) — SeedVideos carries MediaType = "Movie" or "TV"
         foreach (SeedVideo video in SeedVideos)
         {
             string typeKey = video.MediaType == "TV" ? "tv" : "movies";
@@ -1781,7 +1781,7 @@ public static class DevSeedEndpoints
                 ExpectedQid: a.ExpectedQid,
                 ExpectedCoverArt: a.ExpectedCoverArt));
 
-        // Videos â€” split by MediaType field
+        // Videos — split by MediaType field
         foreach (var v in SeedVideos)
         {
             string mt = v.MediaType == "TV" ? "TV" : "Movies";
@@ -1827,7 +1827,7 @@ public static class DevSeedEndpoints
         return result;
     }
 
-    // â”€â”€ GET /dev/pipeline-status â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── GET /dev/pipeline-status ────────────────────────────────────────────
 
     private static async Task<IResult> PipelineStatusAsync(
         IIdentityJobRepository jobRepo,

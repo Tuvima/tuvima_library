@@ -50,7 +50,7 @@ internal sealed partial class DetailCompositionOrchestrator
     {
         if (state == (MultiFormatState)(-1))
         {
-            return "Book + Audiobook â€¢ Separate Progress";
+            return "Book + Audiobook • Separate Progress";
         }
 
         return entityType switch
@@ -59,9 +59,9 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.Audiobook => StringHelpers.FirstNonBlankOr(string.Empty, detail.Narrator, detail.Author),
             DetailEntityType.Movie => StringHelpers.FirstNonBlankOr(string.Empty, detail.Director, GetValue(values, "studio"), detail.Year, "Movie"),
             DetailEntityType.Work when detail.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
-                => string.Join(" Â· ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
+                => string.Join(" · ", new[] { detail.Artist, GetValue(values, "album") }.Where(s => !string.IsNullOrWhiteSpace(s))),
             DetailEntityType.ComicIssue => string.Join(" - ", new[] { detail.Series, FormatIssue(detail.SeriesPosition), StringHelpers.FirstNonBlankOr(string.Empty, detail.Writer, detail.Illustrator, detail.Author) }.Where(s => !string.IsNullOrWhiteSpace(s))),
-            DetailEntityType.TvEpisode => string.Join(" â€¢ ", new[] { detail.ShowName, FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber) }.Where(s => !string.IsNullOrWhiteSpace(s))),
+            DetailEntityType.TvEpisode => string.Join(" • ", new[] { detail.ShowName, FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber) }.Where(s => !string.IsNullOrWhiteSpace(s))),
             _ => FormatEntityType(entityType),
         };
     }
@@ -1047,7 +1047,7 @@ internal sealed partial class DetailCompositionOrchestrator
         {
             0 => null,
             1 => years[0].ToString(CultureInfo.InvariantCulture),
-            _ => $"{years[0].ToString(CultureInfo.InvariantCulture)}â€“{years[^1].ToString(CultureInfo.InvariantCulture)}",
+            _ => $"{years[0].ToString(CultureInfo.InvariantCulture)}–{years[^1].ToString(CultureInfo.InvariantCulture)}",
         };
         AddPlain(metadata, yearLabel, "year");
         AddPlain(

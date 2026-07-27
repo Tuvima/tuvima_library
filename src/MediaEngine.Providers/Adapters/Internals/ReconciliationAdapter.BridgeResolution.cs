@@ -315,13 +315,13 @@ public sealed partial class ReconciliationAdapter
                     if (!ValidateP31ForMediaType(parentInstanceOfQids, finalWorkQid, input.MediaType, input.ResolutionScope))
                     {
                         _logger.LogInformation(
-                            "{Provider}: Stage2 â€” rejected normalized comics parent {Key} â†’ {QID}: P31 does not match {MediaType}",
+                            "{Provider}: Stage2 — rejected normalized comics parent {Key} → {QID}: P31 does not match {MediaType}",
                             Name, correlationKey, finalWorkQid, input.MediaType);
                         continue;
                     }
 
                     _logger.LogInformation(
-                        "{Provider}: Stage2 â€” normalized comics result {Key} from {ChildQid} to parent series {ParentQid}",
+                        "{Provider}: Stage2 — normalized comics result {Key} from {ChildQid} to parent series {ParentQid}",
                         Name, correlationKey, childQid, finalQid);
                 }
             }

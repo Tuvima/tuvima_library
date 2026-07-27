@@ -387,7 +387,7 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         var types = works.Select(w => FormatEntityType(InferMediaItemEntityType(w))).Distinct(StringComparer.OrdinalIgnoreCase).Take(3);
-        return $"{FormatEntityType(entityType)} â€¢ {OwnedCollectionCountLabel(entityType, works)} â€¢ {string.Join(", ", types)}";
+        return $"{FormatEntityType(entityType)} • {OwnedCollectionCountLabel(entityType, works)} • {string.Join(", ", types)}";
     }
 
     private static string OwnedCollectionCountLabel(DetailEntityType entityType, IReadOnlyList<CollectionWorkSummary> works)
@@ -505,7 +505,7 @@ internal sealed partial class DetailCompositionOrchestrator
             Id = CreditDisplayId(representative),
             EntityType = entityType,
             Title = representative.Title,
-            Subtitle = string.Join(" Â· ", new[] { trackSummary, StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
+            Subtitle = string.Join(" · ", new[] { trackSummary, StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
             ArtworkUrl = representative.CoverUrl,
             Lane = DetailLane(entityType),
             Roles = roles,

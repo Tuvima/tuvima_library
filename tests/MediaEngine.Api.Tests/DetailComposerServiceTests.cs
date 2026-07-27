@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.Details;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
 using System.Text.Json;
@@ -1253,6 +1254,29 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("ValueQid = parsed.Qid", scoringSource);
         Assert.Contains("arrayRepo: _arrayRepo", retailWorker);
         Assert.Contains("arrayRepo: _arrayRepo", bridgeWorker);
+    }
+
+    [Fact]
+    public void PersonMediaSubtitle_UsesAValidMiddleDotSeparator()
+    {
+        var credits = new List<PersonLibraryCreditDto>
+        {
+            new()
+            {
+                WorkId = Guid.NewGuid(),
+                MediaType = "Movies",
+                Title = "Alien",
+                Year = "1979",
+                Role = "Director",
+            },
+        };
+
+        var item = InvokePrivate<MediaGroupingItemViewModel>(
+            "BuildPersonMediaItem",
+            credits,
+            DetailPresentationContext.Watch);
+
+        Assert.Equal("Director · 1979", item.Subtitle);
     }
 
     [Fact]

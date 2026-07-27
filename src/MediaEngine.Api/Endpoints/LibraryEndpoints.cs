@@ -24,7 +24,7 @@ public static class LibraryEndpoints
         var group = app.MapGroup("/library")
                        .WithTags("Library");
 
-        // â”€â”€ GET /library/overview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── GET /library/overview ─────────────────────────────────────────────
         group.MapGet("/overview", async (
             ILibraryItemRepository libraryItemRepo,
             ILibraryOverviewReadService overviewReadService,
@@ -122,7 +122,7 @@ public static class LibraryEndpoints
         .Produces<PagedResponse<LibraryWorkListItemDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // â”€â”€ POST /library/batch-edit/preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── POST /library/batch-edit/preview ────────────────────────────────
         group.MapPost("/batch-edit/preview", async (
             LibraryBatchEditRequest request,
             ICanonicalValueRepository canonicalRepo,
@@ -180,7 +180,7 @@ public static class LibraryEndpoints
         .Produces<LibraryBatchEditPreview>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ POST /library/batch-edit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── POST /library/batch-edit ────────────────────────────────────────
         group.MapPost("/batch-edit", async (
             LibraryBatchEditRequest request,
             ICanonicalValueRepository canonicalRepo,
@@ -281,7 +281,7 @@ public static class LibraryEndpoints
         .Produces<LibraryBatchEditResult>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ GET /library/universe-candidates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── GET /library/universe-candidates ───────────────────────────────
         group.MapGet("/universe-candidates", async (
             ILibraryCurationReadService curationReadService,
             CancellationToken ct) =>
@@ -303,7 +303,7 @@ public static class LibraryEndpoints
         .Produces<List<UniverseCandidateDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ POST /library/universe-candidates/{workId}/accept â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── POST /library/universe-candidates/{workId}/accept ──────────────
         group.MapPost("/universe-candidates/{workId:guid}/accept", async (
             Guid workId,
             UniverseAcceptRequest request,
@@ -340,7 +340,7 @@ public static class LibraryEndpoints
         .Produces<UniverseCandidateAcceptResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ POST /library/universe-candidates/{workId}/reject â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── POST /library/universe-candidates/{workId}/reject ──────────────
         group.MapPost("/universe-candidates/{workId:guid}/reject", async (
             Guid workId,
             ICanonicalValueRepository canonicalRepo,
@@ -373,7 +373,7 @@ public static class LibraryEndpoints
         .Produces<UniverseCandidateRejectResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ POST /library/universe-candidates/batch-accept â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── POST /library/universe-candidates/batch-accept ─────────────────
         group.MapPost("/universe-candidates/batch-accept", async (
             UniverseBatchAcceptRequest request,
             ICollectionRepository collectionRepo,
@@ -444,7 +444,7 @@ public static class LibraryEndpoints
         .Produces<UniverseBatchAcceptResult>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ GET /library/universe-unlinked â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── GET /library/universe-unlinked ─────────────────────────────────
         group.MapGet("/universe-unlinked", async (
             ILibraryCurationReadService curationReadService,
             CancellationToken ct) =>
@@ -456,7 +456,7 @@ public static class LibraryEndpoints
         .Produces<List<UnlinkedWorkDto>>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        // â”€â”€ POST /library/universe-assign â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── POST /library/universe-assign ──────────────────────────────────
         group.MapPost("/universe-assign", async (
             UniverseManualAssignRequest request,
             ICollectionRepository collectionRepo,

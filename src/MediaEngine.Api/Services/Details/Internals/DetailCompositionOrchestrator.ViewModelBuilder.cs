@@ -536,8 +536,8 @@ internal sealed partial class DetailCompositionOrchestrator
         var rounded = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 1, 99);
         var timeLeft = FormatTimeLeft(runtime, percent);
         return string.IsNullOrWhiteSpace(timeLeft)
-            ? $"Continue watching Â· {rounded}% watched"
-            : $"Continue watching Â· {rounded}% watched Â· {timeLeft} left";
+            ? $"Continue watching · {rounded}% watched"
+            : $"Continue watching · {rounded}% watched · {timeLeft} left";
     }
 
     private static string BuildListenHeroProgressLabel(double percent, string? runtime)
@@ -720,7 +720,7 @@ internal sealed partial class DetailCompositionOrchestrator
         var runtime = FormatRuntime(audiobook?.Runtime);
         return string.IsNullOrWhiteSpace(runtime)
             ? "Audiobook available"
-            : $"Audiobook available Â· {runtime}";
+            : $"Audiobook available · {runtime}";
     }
 
     private static DetailEditorTarget BuildCollectionEditorTarget(

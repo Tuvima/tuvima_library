@@ -19,7 +19,7 @@ public static class PersonEndpoints
                        .WithTags("Persons")
                        .RequireAnyRole();
 
-        // GET /persons/{id} â€” person detail including local headshot availability.
+        // GET /persons/{id} — person detail including local headshot availability.
         group.MapGet("/{id:guid}", async (
             Guid id,
             IPersonRepository personRepo,
@@ -73,7 +73,7 @@ public static class PersonEndpoints
         })
         .Produces<PersonDetailResponse>(StatusCodes.Status200OK);
 
-        // GET /persons/{id}/aliases â€” linked pseudonym and real-person entries.
+        // GET /persons/{id}/aliases — linked pseudonym and real-person entries.
         group.MapGet("/{id:guid}/aliases", async (
             Guid id,
             IPersonAliasReadService aliasReadService,
@@ -88,7 +88,7 @@ public static class PersonEndpoints
         .WithSummary("Linked pseudonym and real-person entries for a given person.")
         .Produces<PersonAliasResponse>(StatusCodes.Status200OK);
 
-        // GET /persons/{id}/headshot â€” serves the canonical person headshot asset.
+        // GET /persons/{id}/headshot — serves the canonical person headshot asset.
         // Local files resolve only from Person.LocalHeadshotPath or .data/assets/people/{personId}/headshot.*.
         // Downloads and caches if no local file exists.
         group.MapGet("/{id:guid}/headshot", async (
@@ -121,7 +121,7 @@ public static class PersonEndpoints
                 return Results.File(canonicalPath, GetImageMimeTypeOrJpeg(canonicalPath));
             }
 
-            // No local file â€” download from Wikimedia and cache locally using AssetPathService.
+            // No local file — download from Wikimedia and cache locally using AssetPathService.
             if (!string.IsNullOrEmpty(person.HeadshotUrl))
             {
                 try
@@ -156,7 +156,7 @@ public static class PersonEndpoints
                 }
                 catch
                 {
-                    // Download failed â€” fall through to 404
+                    // Download failed — fall through to 404
                 }
             }
 
@@ -173,7 +173,7 @@ public static class PersonEndpoints
         .WithName("GetPersonHeadshot")
         .Produces(StatusCodes.Status200OK);
 
-        // GET /persons/by-collection/{collectionId} â€” all persons linked to works in a collection.
+        // GET /persons/by-collection/{collectionId} — all persons linked to works in a collection.
         group.MapGet("/by-collection/{collectionId:guid}", async (
             Guid collectionId,
             IPersonAssetScopeReadService personScopeReadService,
@@ -184,7 +184,7 @@ public static class PersonEndpoints
         })
         .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK);
 
-        // GET /persons/by-work/{workId} â€” all persons linked to a specific work.
+        // GET /persons/by-work/{workId} — all persons linked to a specific work.
         group.MapGet("/by-work/{workId:guid}", async (
             Guid workId,
             IPersonAssetScopeReadService personScopeReadService,
@@ -195,7 +195,7 @@ public static class PersonEndpoints
         })
         .Produces<IReadOnlyList<PersonSummaryResponse>>(StatusCodes.Status200OK);
 
-        // GET /persons/{id}/library-credits â€” role-aware owned work credits for a person.
+        // GET /persons/{id}/library-credits — role-aware owned work credits for a person.
         group.MapGet("/{id:guid}/library-credits", async (
             Guid id,
             IPersonRepository personRepo,
@@ -215,7 +215,7 @@ public static class PersonEndpoints
         .WithSummary("Owned work credits for a person, grouped client-side by role and media type.")
         .Produces<List<PersonLibraryCreditDto>>(StatusCodes.Status200OK);
 
-        // GET /persons/{id}/works â€” all collections containing works by this person.
+        // GET /persons/{id}/works — all collections containing works by this person.
         group.MapGet("/{id:guid}/works", async (
             Guid id,
             IPersonRepository personRepo,
@@ -247,12 +247,12 @@ public static class PersonEndpoints
         .WithSummary("All collections containing works linked to this person (author/narrator/director).")
         .Produces<List<MediaEngine.Contracts.Collections.CollectionDto>>(StatusCodes.Status200OK);
 
-        // GET /persons/role-counts â€” count of persons per role.
+        // GET /persons/role-counts — count of persons per role.
         // Excludes Composer (absorbed into Artist/Performer in the UI).
         group.MapGet("/role-counts", async (IPersonRepository personRepo, CancellationToken ct) =>
         {
             var counts = await personRepo.GetRoleCountsAsync(ct);
-            // Remove Composer â€” not a UI-visible role
+            // Remove Composer — not a UI-visible role
             var filtered = counts
                 .Where(kvp => !kvp.Key.Equals("Composer", StringComparison.OrdinalIgnoreCase))
                 .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
@@ -262,7 +262,7 @@ public static class PersonEndpoints
         .WithSummary("Count of persons per role.")
         .Produces<IReadOnlyDictionary<string, int>>(StatusCodes.Status200OK);
 
-        // GET /persons/presence?ids=guid1,guid2,... â€” media type counts per person.
+        // GET /persons/presence?ids=guid1,guid2,... — media type counts per person.
         group.MapGet("/presence", async (string ids, IPersonPresenceReadService presenceReadService, CancellationToken ct) =>
         {
             var personIds = ids.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

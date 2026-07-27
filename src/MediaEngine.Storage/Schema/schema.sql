@@ -495,7 +495,7 @@ CREATE TABLE IF NOT EXISTS media_assets (
     status         TEXT NOT NULL DEFAULT 'Normal'
                        CHECK (status IN ('Normal', 'Conflicted', 'Orphaned')),
 
-    -- â”€â”€ Auto re-tag sweep state (M-084) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    -- ── Auto re-tag sweep state (M-084) ──────────────────────────────
     -- writeback_fields_hash: SHA-256 of (writeback-fields.json slice for
     -- this asset's media type) + tagger version constant. NULL when the
     -- asset has never been re-tagged through the sweep.
@@ -505,7 +505,7 @@ CREATE TABLE IF NOT EXISTS media_assets (
     writeback_status         TEXT,
     writeback_last_error     TEXT,
     writeback_attempts       INTEGER NOT NULL DEFAULT 0,
-    -- writeback_next_retry_at: unix epoch seconds â€” used by the sweep
+    -- writeback_next_retry_at: unix epoch seconds — used by the sweep
     -- worker to skip rows whose retry window hasn't opened yet.
     writeback_next_retry_at  INTEGER
 , library_id TEXT, is_orphaned INTEGER NOT NULL DEFAULT 0, orphaned_at TEXT);
@@ -567,18 +567,18 @@ CREATE TABLE IF NOT EXISTS media_operations (
 
 CREATE TABLE IF NOT EXISTS metadata_claims (
     id          BLOB NOT NULL PRIMARY KEY,  -- UUID
-    entity_id   BLOB NOT NULL,              -- FK Ã¢â€ â€™ works.id | editions.id (polymorphic)
+    entity_id   BLOB NOT NULL,              -- FK → works.id | editions.id (polymorphic)
     provider_id BLOB NOT NULL REFERENCES metadata_providers(id),
     decision_source_provider_id BLOB REFERENCES metadata_providers(id),
     claim_key   TEXT NOT NULL,
     claim_value TEXT NOT NULL,
     confidence  REAL NOT NULL DEFAULT 1.0,
     -- Timestamp used by the scoring engine for stale-claim time-decay.
-    -- Spec: Phase 6 Ã¢â‚¬â€œ Stale Claim Handling.
+    -- Spec: Phase 6 – Stale Claim Handling.
     claimed_at     TEXT    NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
     -- When 1, the scoring engine treats this claim as unconditional winner
     -- (confidence 1.0); no automated provider may set this to 1.
-    -- Spec: Phase 8 Ã¢â‚¬â€œ Field-Level Arbitration Ã‚Â§ User-Locked Claims.
+    -- Spec: Phase 8 – Field-Level Arbitration § User-Locked Claims.
     is_user_locked INTEGER NOT NULL DEFAULT 0
                        CHECK (is_user_locked IN (0, 1))
 );

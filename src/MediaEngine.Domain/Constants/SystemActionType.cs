@@ -3,7 +3,7 @@ namespace MediaEngine.Domain.Constants;
 /// <summary>
 /// String constants for the <c>action_type</c> column in <c>system_activity</c>.
 ///
-/// Stored as TEXT in SQLite for readability and extensibility � future phases
+/// Stored as TEXT in SQLite for readability and extensibility — future phases
 /// can introduce new action types without a schema migration.
 /// </summary>
 public static class SystemActionType
@@ -55,13 +55,13 @@ public static class SystemActionType
     /// <summary>A Universe QID was recovered for an item previously matched only via retail providers.</summary>
     public const string UniverseMatchRecovered = "UniverseMatchRecovered";
 
-    /// <summary>Hydration Stage 1 (Authority Match � Wikidata) completed for an entity.</summary>
+    /// <summary>Hydration Stage 1 (Authority Match — Wikidata) completed for an entity.</summary>
     public const string HydrationStage1Completed = "HydrationStage1Completed";
 
-    /// <summary>Hydration Stage 2 (Context Match � Wikipedia) completed for an entity.</summary>
+    /// <summary>Hydration Stage 2 (Context Match — Wikipedia) completed for an entity.</summary>
     public const string HydrationStage2Completed = "HydrationStage2Completed";
 
-    /// <summary>Hydration Stage 3 (Retail Match � waterfall) completed for an entity.</summary>
+    /// <summary>Hydration Stage 3 (Retail Match — waterfall) completed for an entity.</summary>
     public const string HydrationStage3Completed = "HydrationStage3Completed";
 
     /// <summary>A review queue item was created (disambiguation, low confidence, etc.).</summary>
@@ -234,10 +234,10 @@ public static class SystemActionType
     /// <summary>An ingestion batch was created when the engine began processing a queue of files.</summary>
     public const string BatchCreated = "BatchCreated";
 
-    /// <summary>An ingestion batch completed � all queued files reached a terminal state.</summary>
+    /// <summary>An ingestion batch completed — all queued files reached a terminal state.</summary>
     public const string BatchCompleted = "BatchCompleted";
 
-    /// <summary>An ingestion batch failed � processing was interrupted or could not complete.</summary>
+    /// <summary>An ingestion batch failed — processing was interrupted or could not complete.</summary>
     public const string BatchFailed = "BatchFailed";
 
     // -- User Problem Reports -----------------------------------------------

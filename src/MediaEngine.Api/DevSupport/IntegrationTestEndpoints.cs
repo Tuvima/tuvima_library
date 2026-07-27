@@ -26,18 +26,18 @@ namespace MediaEngine.Api.DevSupport;
 /// Integration test endpoint that runs a full ingestion cycle, validates each media type,
 /// tests manual search, verifies universe enrichment, and produces an HTML report.
 ///
-///   POST /dev/integration-test  â€” Full cycle: wipe â†’ seed â†’ ingest â†’ validate â†’ report (HTML)
+///   POST /dev/integration-test  — Full cycle: wipe → seed → ingest → validate → report (HTML)
 /// </summary>
 public static class IntegrationTestEndpoints
 {
-    // â”€â”€ Test case definitions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Test case definitions ──────────────────────────────────────────────
     //
     // Expectations are now read at runtime from DevSeedEndpoints.GetAllExpectations()
     // so the seed records themselves are the single source of truth. The previous
     // hardcoded TestExpectation[] arrays drifted out of sync with the seed list and
     // were never actually consulted by the reconciliation pass.
 
-    // â”€â”€ Test result models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Test result models ────────────────────────────────────────────────
 
     private sealed class TestReport
     {
@@ -287,7 +287,7 @@ public static class IntegrationTestEndpoints
         };
     }
 
-    // â”€â”€ Reconciliation models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Reconciliation models ─────────────────────────────────────────────
 
     /// <summary>Type-level evidence that Stage 3 fanart assets were stored.</summary>
     private sealed class Stage3FanartSummary
@@ -506,7 +506,7 @@ public static class IntegrationTestEndpoints
             : $"{OwnedTrackCount} owned (expected {ExpectedOwnedTrackCount}), {KnownTrackCount?.ToString() ?? "no"} known (expected {ExpectedKnownTrackCount?.ToString() ?? "provider-specific"}), manifest={HasManifest}, cover={HasCover}.";
     }
 
-    // â”€â”€ Dynamic type selection + provider health â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Dynamic type selection + provider health ─────────────────────────
 
     private sealed class CrossMediaSeriesCheckResult
     {
@@ -669,7 +669,7 @@ public static class IntegrationTestEndpoints
         return (active, skipped);
     }
 
-    // â”€â”€ Endpoint registration â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Endpoint registration ─────────────────────────────────────────────
 
     public static void MapIntegrationTestEndpoints(this WebApplication app)
     {
@@ -680,7 +680,7 @@ public static class IntegrationTestEndpoints
             .Produces(200, contentType: "text/html; charset=utf-8");
     }
 
-    // â”€â”€ POST /dev/integration-test â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── POST /dev/integration-test ────────────────────────────────────────
 
     private static async Task<IResult> RunIntegrationTestAsync(
         HttpContext context,
@@ -703,7 +703,7 @@ public static class IntegrationTestEndpoints
         var report = new TestReport();
         var sw = Stopwatch.StartNew();
 
-        // â”€â”€ Parse optional stages parameter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Parse optional stages parameter ─────────────────────────────
         // 1 = Stage 1 only (retail), 12 = Stage 1+2 (default), 123 = full pipeline
         int stages = 12;
         if (context.Request.Query.TryGetValue("stages", out var stagesParam) && int.TryParse(stagesParam, out var s))
@@ -734,7 +734,7 @@ public static class IntegrationTestEndpoints
             _ => $"Stage level {stages} (unknown - defaulting to 1+2)"
         };
 
-        // â”€â”€ Parse optional types parameter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Parse optional types parameter ──────────────────────────────
         var requestedTypes = ParseTypes(context);
         var health = await CheckProviderHealthAsync(logger);
         var (activeTypes, skipReasons) = ResolveActiveTypes(requestedTypes, health);
@@ -750,21 +750,21 @@ public static class IntegrationTestEndpoints
 
         string typesLabel = string.Join(", ", activeTypes.OrderBy(t => t));
 
-        logger.LogInformation("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
-        logger.LogInformation("â•‘   INTEGRATION TEST â€” Starting            â•‘");
-        logger.LogInformation("â•‘   {StageLabel}                           â•‘", stageLabel);
-        logger.LogInformation("â•‘   Active types: {Types}                  â•‘", typesLabel);
+        logger.LogInformation("╔══════════════════════════════════════════╗");
+        logger.LogInformation("║   INTEGRATION TEST — Starting            ║");
+        logger.LogInformation("║   {StageLabel}                           ║", stageLabel);
+        logger.LogInformation("║   Active types: {Types}                  ║", typesLabel);
         if (skipReasons.Count > 0)
         {
-            logger.LogInformation("â•‘   Skipped: {Skipped}                     â•‘",
+            logger.LogInformation("║   Skipped: {Skipped}                     ║",
                 string.Join(", ", skipReasons.Select(s => $"{s.Key} ({s.Value})")));
         }
 
-        logger.LogInformation("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+        logger.LogInformation("╚══════════════════════════════════════════╝");
 
         try
         {
-            // â”€â”€ Phase 1: Wipe â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 1: Wipe ─────────────────────────────────────────────────
             LogExpectationPreflight(report.ExpectationPreflight, logger);
             logger.LogInformation("[Phase 1] Wiping harness state ({Scope})...", wipeScope);
             try
@@ -781,7 +781,7 @@ public static class IntegrationTestEndpoints
                 report.IssuesFound.Add($"Wipe failed: {ex.Message}");
             }
 
-            // â”€â”€ Phase 2: Seed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 2: Seed ────────────────────────────────────────────────
             logger.LogInformation("[Phase 2] Seeding test files...");
             try
             {
@@ -795,7 +795,7 @@ public static class IntegrationTestEndpoints
                 report.IssuesFound.Add($"Seed failed: {ex.Message}");
             }
 
-            // â”€â”€ Phase 3: Trigger scans and wait for ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 3: Trigger scans and wait for ingestion ─────────────────
             // Brief settle to let file system flush.
             await Task.Delay(2000, ct);
 
@@ -860,15 +860,15 @@ public static class IntegrationTestEndpoints
                 logger.LogWarning("[Phase 3] Ingestion timeout - proceeding with partial results");
             }
 
-            // â”€â”€ Phase 4: Validate results per media type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 4: Validate results per media type ──────────────────────
             logger.LogInformation("[Phase 4] Validating ingestion results...");
             await ValidateResultsAsync(libraryItemRepo, report, logger, ct);
 
-            // â”€â”€ Phase 4b: Library display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 4b: Library display validation ──────────────────────────
             logger.LogInformation("[Phase 4b] Library display validation...");
             await ValidateLibraryDisplayAsync(db, libraryItemRepo, report, stages, logger, ct);
 
-            // â”€â”€ Phase 4c: File system and artwork validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 4c: File system and artwork validation ───────────────────
             if (stages < 123)
             {
                 logger.LogInformation("[Phase 4c] File system and artwork validation...");
@@ -879,11 +879,11 @@ public static class IntegrationTestEndpoints
                 logger.LogInformation("[Phase 4c] Deferring file system validation until after Stage 3 artwork completes...");
             }
 
-            // â”€â”€ Phase 4d: Stage Gating Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 4d: Stage Gating Validation ───────────────────────────
             logger.LogInformation("[Phase 4d] Stage gating validation...");
             await ValidateStageGatingAsync(libraryItemRepo, report, stages, logger, ct);
 
-            // â”€â”€ Phase 4e: Reconciliation â€” expected vs. actual outcomes â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 4e: Reconciliation — expected vs. actual outcomes ─────────
             logger.LogInformation("[Phase 4e] Running reconciliation pass...");
             await RunReconciliationAsync(db, report, activeTypes, logger, ct);
 
@@ -894,15 +894,15 @@ public static class IntegrationTestEndpoints
             await ValidateSeriesHarnessAsync(db, report, logger, ct);
             await ValidateMusicAlbumHarnessAsync(db, report, logger, ct);
 
-            // â”€â”€ Phase 5: Test manual search for review items â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 5: Test manual search for review items ──────────────────
             logger.LogInformation("[Phase 5] Testing manual search on review items...");
             await TestManualSearchAsync(libraryItemRepo, providers, report, logger, ct);
 
-            // â”€â”€ Phase 6: Check universe enrichment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 6: Check universe enrichment ────────────────────────────
             logger.LogInformation("[Phase 6] Checking universe enrichment...");
             await CheckUniversesAsync(libraryItemRepo, report, logger, ct);
 
-            // â”€â”€ Phase 7: Stage 3 â€” Universe Enrichment (conditional) â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Phase 7: Stage 3 — Universe Enrichment (conditional) ────────
             if (stages >= 123)
             {
                 logger.LogInformation("[Phase 7] Triggering Stage 3 Universe Enrichment...");
@@ -920,10 +920,10 @@ public static class IntegrationTestEndpoints
             sw.Stop();
             report.TotalDuration = sw.Elapsed;
 
-            // â”€â”€ Generate HTML report â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Generate HTML report ──────────────────────────────────────────
             string html = GenerateHtmlReport(report);
 
-            // Save to disk â€” prefer repo root tools/reports/, fall back to CWD
+            // Save to disk — prefer repo root tools/reports/, fall back to CWD
             string reportsDir = Path.Combine(
                 Path.GetDirectoryName(typeof(IntegrationTestEndpoints).Assembly.Location) ?? ".",
                 "..", "..", "..", "..", "..", "tools", "reports");
@@ -953,11 +953,11 @@ public static class IntegrationTestEndpoints
                 html = GenerateHtmlReport(report);
             }
 
-            logger.LogInformation("â•”â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•—");
-            logger.LogInformation("â•‘   INTEGRATION TEST â€” Complete            â•‘");
-            logger.LogInformation("â•‘   Duration: {Duration}                   â•‘", report.TotalDuration);
-            logger.LogInformation("â•‘   Result: {Result}                       â•‘", report.OverallPass ? "PASS" : "ISSUES FOUND");
-            logger.LogInformation("â•šâ•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•");
+            logger.LogInformation("╔══════════════════════════════════════════╗");
+            logger.LogInformation("║   INTEGRATION TEST — Complete            ║");
+            logger.LogInformation("║   Duration: {Duration}                   ║", report.TotalDuration);
+            logger.LogInformation("║   Result: {Result}                       ║", report.OverallPass ? "PASS" : "ISSUES FOUND");
+            logger.LogInformation("╚══════════════════════════════════════════╝");
 
             return Results.Content(html, "text/html; charset=utf-8", Encoding.UTF8);
         }
@@ -967,7 +967,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Internal seed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Internal seed ────────────────────────────────────────────────────
     //
     // Delegates entirely to DevSeedEndpoints.SeedAllAsync, which is the single
     // source of truth for fixture seeding. This wrapper exists only so the
@@ -1180,7 +1180,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Wait for ingestion â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Wait for ingestion ────────────────────────────────────────────────
 
     private static async Task<bool> WaitForIngestionAsync(
         IDatabaseConnection db,
@@ -1414,7 +1414,7 @@ public static class IntegrationTestEndpoints
         return sawExpectedAssetCount || lastResolvedCount > 0;
     }
 
-    // â”€â”€ Validate results â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Validate results ──────────────────────────────────────────────────
 
     private static string ResolveIngestionWaitStageKey(
         int assetCount,
@@ -1594,7 +1594,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Test manual search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Test manual search ────────────────────────────────────────────────
 
     private static async Task TestManualSearchAsync(
         ILibraryItemRepository libraryItemRepo,
@@ -1680,7 +1680,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Library display validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Library display validation ─────────────────────────────────────────
 
     private static async Task ValidateLibraryDisplayAsync(
         IDatabaseConnection db,
@@ -1834,7 +1834,7 @@ public static class IntegrationTestEndpoints
                 $"Library display validation failed for {report.LibraryChecks.Count - passCount} item(s)");
         }
 
-        // â”€â”€ Child entity validation (TV episodes, Music tracks) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Child entity validation (TV episodes, Music tracks) ──────────
         foreach (var item in validationItems)
         {
             if (string.IsNullOrWhiteSpace(item.WikidataQid))
@@ -1874,7 +1874,7 @@ public static class IntegrationTestEndpoints
                 }
                 else
                 {
-                    logger.LogInformation("  Child entities: TV '{Title}' â€” {Seasons} seasons, {Episodes} episodes",
+                    logger.LogInformation("  Child entities: TV '{Title}' — {Seasons} seasons, {Episodes} episodes",
                         item.Title, seasonCount, episodeCount);
                 }
             }
@@ -1913,14 +1913,14 @@ public static class IntegrationTestEndpoints
                 }
                 else
                 {
-                    logger.LogInformation("  Child entities: Music '{Title}' â€” {Tracks} tracks",
+                    logger.LogInformation("  Child entities: Music '{Title}' — {Tracks} tracks",
                         item.Title, Math.Max(trackCount, childCount));
                 }
             }
         }
     }
 
-    // â”€â”€ Stage gating validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Stage gating validation ──────────────────────────────────────────
 
     private static async Task ValidateFileSystemAsync(
         IDatabaseConnection db,
@@ -2188,7 +2188,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Stage 3: Universe Enrichment (conditional) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Stage 3: Universe Enrichment (conditional) ───────────────────────
 
     private static async Task RunStage3EnrichmentAsync(
         HttpContext context,
@@ -2205,12 +2205,12 @@ public static class IntegrationTestEndpoints
             if (universeService is null)
             {
                 report.IssuesFound.Add("Stage 3: UniverseEnrichmentService not registered in DI");
-                logger.LogWarning("[Phase 7] UniverseEnrichmentService not found in DI â€” skipping Stage 3");
+                logger.LogWarning("[Phase 7] UniverseEnrichmentService not found in DI — skipping Stage 3");
                 return;
             }
 
             universeService.TriggerManualSweep();
-            logger.LogInformation("[Phase 7] Stage 3 manual sweep triggered â€” waiting for completion...");
+            logger.LogInformation("[Phase 7] Stage 3 manual sweep triggered — waiting for completion...");
 
             // Poll for universe/parent collection creation (timeout: 3 minutes)
             var deadline = DateTimeOffset.UtcNow + TimeSpan.FromMinutes(3);
@@ -2288,7 +2288,7 @@ public static class IntegrationTestEndpoints
                     universeResult.WorkCount = workCount;
 
                     report.UniverseResults.Add(universeResult);
-                    logger.LogInformation("  Stage 3 Universe: '{Name}' â€” {Series} series, {Works} works, QID={Qid}",
+                    logger.LogInformation("  Stage 3 Universe: '{Name}' — {Series} series, {Works} works, QID={Qid}",
                         ph.DisplayName, childCount, workCount, ph.WikidataQid ?? "none");
                 }
 
@@ -2331,7 +2331,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Check universes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Check universes ───────────────────────────────────────────────────
 
     private static async Task WaitForArtworkActivityToSettleAsync(
         IDatabaseConnection db,
@@ -3108,7 +3108,7 @@ public static class IntegrationTestEndpoints
         }
     }
 
-    // â”€â”€ Reconciliation pass â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Reconciliation pass ───────────────────────────────────────────────
 
     /// <summary>Dapper result row for the reconciliation SQL query.</summary>
     private sealed class WorkReconRow
@@ -3141,9 +3141,9 @@ public static class IntegrationTestEndpoints
             .ToList();
         var summary = new ReconciliationSummary { ExpectedTotal = expectations.Count };
 
-        // Build a lookup of (title_lower, media_type_lower) â†’ (wikidata_qid, curator_state, review_trigger)
+        // Build a lookup of (title_lower, media_type_lower) → (wikidata_qid, curator_state, review_trigger)
         // from the live database. TV episodes share the same show title so we may have
-        // duplicates â€” we treat any row for that (title, type) pair as "one Work" for
+        // duplicates — we treat any row for that (title, type) pair as "one Work" for
         // reconciliation purposes (first resolved row wins for identified check).
 
         // Dapper anonymous class for SQL projection
@@ -3151,7 +3151,7 @@ public static class IntegrationTestEndpoints
         using (var conn = db.CreateConnection())
         {
             // For reconciliation, we need to match the seed-supplied title against
-            // ANY title we can find for the work â€” the file processor's claim,
+            // ANY title we can find for the work — the file processor's claim,
             // the canonical value (which may have been overridden by Wikidata),
             // alternate_title claims, original_title, etc. We emit one row per
             // (work, title-source) pair via UNION so the C# index can lookup
@@ -3240,7 +3240,7 @@ public static class IntegrationTestEndpoints
         }
 
         // Cover-art lookup built from the central managed asset store.
-        // Keyed by "title_lower|media_type_lower" â†’ HasStoredCoverArt flag.
+        // Keyed by "title_lower|media_type_lower" → HasStoredCoverArt flag.
         var coverArtByKey = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
         foreach (var row in dbRows)
         {
@@ -3271,7 +3271,7 @@ public static class IntegrationTestEndpoints
             }
         }
 
-        // Index by "title_lower|media_type_lower" â†’ (wikidata_qid, curator_state, review_trigger)
+        // Index by "title_lower|media_type_lower" → (wikidata_qid, curator_state, review_trigger)
         // When multiple rows share the same key (e.g. TV episodes, audiobook editions),
         // prefer rows that have a QID so "Identified" beats "Unresolved".
         var index = new Dictionary<string, (string? WikidataQid, string? CuratorState, string? ReviewTrigger)>(
@@ -3302,7 +3302,7 @@ public static class IntegrationTestEndpoints
                 ? (string.IsNullOrWhiteSpace(exp.ExpectedQid) ? "Identified" : $"Identified as {exp.ExpectedQid}")
                 : $"InReview ({exp.ExpectedReviewTrigger ?? "any"})";
 
-            // Not all active types were seeded â€” skip expectations for skipped types
+            // Not all active types were seeded — skip expectations for skipped types
             string typeKey = mediaTypeLower switch
             {
                 "audiobooks" => "audiobooks",
@@ -3314,7 +3314,7 @@ public static class IntegrationTestEndpoints
             };
             if (report.SkippedTypes.ContainsKey(typeKey))
             {
-                // Don't penalise for skipped types â€” exclude from reconciliation total
+                // Don't penalise for skipped types — exclude from reconciliation total
                 summary.ExpectedTotal--;
                 continue;
             }
@@ -3421,14 +3421,14 @@ public static class IntegrationTestEndpoints
                 }
                 else
                 {
-                    // Unresolved but expected InReview â€” treat as WrongTrigger
+                    // Unresolved but expected InReview — treat as WrongTrigger
                     classification = "WrongTrigger";
                     actualDesc = "Unresolved (no QID, no review entry)";
                 }
             }
 
-            // â”€â”€ Layered strictness checks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-            // Only run if the base classification was Match â€” a mismatched
+            // ── Layered strictness checks ────────────────────────────────────
+            // Only run if the base classification was Match — a mismatched
             // review/identified state is a bigger problem than a QID/cover drift.
             if (classification == "Match" && exp.ExpectIdentified)
             {
@@ -3502,13 +3502,13 @@ public static class IntegrationTestEndpoints
             if (classification == "Match")
             {
                 summary.Matched++;
-                logger.LogInformation("[Reconciliation] Match: '{Title}' ({Type}) â€” {Actual}",
+                logger.LogInformation("[Reconciliation] Match: '{Title}' ({Type}) — {Actual}",
                     exp.Title, exp.MediaType, actualDesc);
             }
             else
             {
                 summary.Mismatches.Add(result);
-                logger.LogWarning("[Reconciliation] {Class}: '{Title}' ({Type}) â€” expected={Expected}, actual={Actual}",
+                logger.LogWarning("[Reconciliation] {Class}: '{Title}' ({Type}) — expected={Expected}, actual={Actual}",
                     classification, exp.Title, exp.MediaType, expectedDesc, actualDesc);
             }
         }
@@ -3553,7 +3553,7 @@ public static class IntegrationTestEndpoints
             summary.Matched, summary.ExpectedTotal, summary.Mismatches.Count);
     }
 
-    // â”€â”€ HTML Report Generator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── HTML Report Generator ─────────────────────────────────────────────
 
     private static async Task ValidateDescriptionSourcesAsync(
         IDatabaseConnection db,
@@ -4259,7 +4259,7 @@ public static class IntegrationTestEndpoints
                 .Select(kv => $"{Esc(kv.Key)}: {kv.Value}")));
             sb.AppendLine("</p>");
 
-            // â”€â”€ Matched section (collapsed by default) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Matched section (collapsed by default) ──────────────────────
             var matched = recon.ExpectedTotal - mismatches;
             sb.AppendLine($"<details><summary style=\"cursor:pointer;color:#5DCAA5;font-weight:600\">&#x2713; Matched Expected ({matched})</summary>");
             // Reconstruct matched items by re-running the DB data (we only stored mismatches)
@@ -4270,7 +4270,7 @@ public static class IntegrationTestEndpoints
                 $"{matched} item(s) produced the outcome declared in their seed fixture.</p>");
             sb.AppendLine("</details>");
 
-            // â”€â”€ Mismatch sections by classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            // ── Mismatch sections by classification ─────────────────────────
             var classOrder = new[] { "UnexpectedReview", "UnexpectedIdentified", "WrongTrigger", "WrongQid", "WrongProvider", "MissingCoverArt", "NotFound" };
             var classLabels = new Dictionary<string, string>
             {
@@ -4327,7 +4327,7 @@ public static class IntegrationTestEndpoints
         return sb.ToString();
     }
 
-    // â”€â”€ HTML helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── HTML helpers ──────────────────────────────────────────────────────
 
     private static void SummaryCard(StringBuilder sb, string num, string label, string color)
     {
@@ -4469,7 +4469,7 @@ public static class IntegrationTestEndpoints
         return "status-unknown";
     }
 
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Helpers ──────────────────────────────────────────────────────────
 
     private static async Task<int> CountActiveIdentityJobsAsync(
         IDatabaseConnection db,
