@@ -32,6 +32,72 @@ Tuvima Library starts with the story.
 
 Choose the folders Tuvima Library should watch and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
 
+## See Tuvima Library
+
+Home brings the whole library together, regardless of media type.
+
+<a href="assets/screenshots/home.jpg">
+  <img src="assets/screenshots/home.jpg" alt="Tuvima Library Home showing a featured TV show and a shelf of movies" />
+</a>
+
+<sub>Home at a 1440-pixel-wide desktop viewport. Click any screenshot to view it at full size.</sub>
+
+### Explore Every Lane
+
+Read, Watch, and Listen give each kind of media an experience designed for it without splitting the collection into unrelated libraries.
+
+<table>
+  <tr>
+    <th>Read</th>
+    <th>Watch</th>
+    <th>Listen</th>
+  </tr>
+  <tr>
+    <td><a href="assets/screenshots/read.jpg"><img src="assets/screenshots/read.jpg" alt="The full Tuvima Library Read discovery page with books, comics, authors, and series" /></a></td>
+    <td><a href="assets/screenshots/watch.jpg"><img src="assets/screenshots/watch.jpg" alt="The full Tuvima Library Watch discovery page with TV shows, film series, and movies" /></a></td>
+    <td><a href="assets/screenshots/listen.jpg"><img src="assets/screenshots/listen.jpg" alt="The full Tuvima Library Listen discovery page with music albums and audiobooks" /></a></td>
+  </tr>
+</table>
+
+### One Detail Experience Across Every Kind of Media
+
+Every detail page shares a familiar structure while adapting to what matters for that medium: reading, watching, listening, sequence, tracks, episodes, credits, or connected works.
+
+<table>
+  <tr>
+    <th>Book · The Hobbit</th>
+    <th>Comic · The Sandman</th>
+  </tr>
+  <tr>
+    <td><a href="assets/screenshots/book-the-hobbit.jpg"><img src="assets/screenshots/book-the-hobbit.jpg" alt="The full detail page for the book The Hobbit" /></a></td>
+    <td><a href="assets/screenshots/comic-sleep-of-the-just.jpg"><img src="assets/screenshots/comic-sleep-of-the-just.jpg" alt="The full detail page for The Sandman comic issue Sleep of the Just" /></a></td>
+  </tr>
+  <tr>
+    <th>Movie · Dune: Part Two</th>
+    <th>TV Show · The Expanse</th>
+  </tr>
+  <tr>
+    <td><a href="assets/screenshots/movie-dune-part-two.jpg"><img src="assets/screenshots/movie-dune-part-two.jpg" alt="The full detail page for the movie Dune Part Two" /></a></td>
+    <td><a href="assets/screenshots/tv-show-the-expanse.jpg"><img src="assets/screenshots/tv-show-the-expanse.jpg" alt="The full detail page for the TV show The Expanse" /></a></td>
+  </tr>
+  <tr>
+    <th>Music Album · Abbey Road</th>
+    <th>Audiobook · The Hobbit</th>
+  </tr>
+  <tr>
+    <td><a href="assets/screenshots/music-album-abbey-road.jpg"><img src="assets/screenshots/music-album-abbey-road.jpg" alt="The full detail page for the music album Abbey Road" /></a></td>
+    <td><a href="assets/screenshots/audiobook-the-hobbit.jpg"><img src="assets/screenshots/audiobook-the-hobbit.jpg" alt="The full detail page for the audiobook The Hobbit" /></a></td>
+  </tr>
+  <tr>
+    <th>Collection · Dune</th>
+    <th>Person · J. R. R. Tolkien</th>
+  </tr>
+  <tr>
+    <td><a href="assets/screenshots/collection-dune.jpg"><img src="assets/screenshots/collection-dune.jpg" alt="The full Dune Collection detail page connecting books, audiobooks, and movies" /></a></td>
+    <td><a href="assets/screenshots/person-jrr-tolkien.jpg"><img src="assets/screenshots/person-jrr-tolkien.jpg" alt="The full J. R. R. Tolkien person detail page with biography and owned works" /></a></td>
+  </tr>
+</table>
+
 ## Why I Started Tuvima Library
 
 Tuvima Library began with a gap I felt in my own library.
