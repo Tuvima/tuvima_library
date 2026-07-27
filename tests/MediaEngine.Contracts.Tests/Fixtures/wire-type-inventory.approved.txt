@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=547; api=0; web-client=85
+# scopes: contracts=548; api=0; web-client=85
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4025,9 +4025,10 @@
   OfflineVariants: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.OfflineVariantDto> | json=offlineVariants | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Resume: MediaEngine.Contracts.Playback.PlaybackResumeDto | json=resume | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Segments: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackSegmentDto> | json=segments | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Technical: MediaEngine.Contracts.Playback.PlaybackTechnicalInfoDto | json=technical | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | json=warnings | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ConversionReason: System.String | json=conversionReason | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"assetId":"11111111-2222-3333-4444-555555555555","client":"sample","mediaType":"sample","sourceExtension":"sample","recommendedDelivery":"sample","directPlaySupported":true,"directStreamUrl":"sample","hlsUrl":"sample","profile":null,"audioTracks":[],"subtitleTracks":[],"chapters":[],"offlineVariants":[],"resume":null,"segments":[],"warnings":[],"conversionReason":"sample"}
+  sample={"assetId":"11111111-2222-3333-4444-555555555555","client":"sample","mediaType":"sample","sourceExtension":"sample","recommendedDelivery":"sample","directPlaySupported":true,"directStreamUrl":"sample","hlsUrl":"sample","profile":null,"audioTracks":[],"subtitleTracks":[],"chapters":[],"offlineVariants":[],"resume":null,"segments":[],"technical":null,"warnings":[],"conversionReason":"sample"}
 
 [contracts] MediaEngine.Contracts.Playback.PlaybackProfileDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4078,6 +4079,20 @@
   DeliveryUrl: System.String | json=deliveryUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"index":7,"language":"sample","codec":"sample","displayName":"sample","isDefault":true,"isForced":true,"deliveryUrl":"sample"}
 
+[contracts] MediaEngine.Contracts.Playback.PlaybackTechnicalInfoDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Container: System.String | json=container | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  VideoCodec: System.String | json=videoCodec | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Width: System.Int32? | json=width | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Height: System.Int32? | json=height | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FrameRate: System.Double? | json=frameRate | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AudioCodec: System.String | json=audioCodec | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AudioBitrateKbps: System.Int32? | json=audioBitrateKbps | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SampleRateHz: System.Int32? | json=sampleRateHz | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BitDepth: System.Int32? | json=bitDepth | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Channels: System.Int32? | json=channels | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  QualityLabel: System.String | json=qualityLabel | nullability=nullable | accessors=get | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
 [contracts] MediaEngine.Contracts.Playback.PlaybackTrackDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Index: System.Int32 | json=index | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4104,12 +4119,17 @@
   CanShuffle: System.Boolean | json=canShuffle | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanRepeat: System.Boolean | json=canRepeat | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanUseChapters: System.Boolean | json=canUseChapters | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CanUseCaptions: System.Boolean | json=canUseCaptions | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CanSelectAudioTrack: System.Boolean | json=canSelectAudioTrack | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CanSelectQuality: System.Boolean | json=canSelectQuality | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CanUseFullscreen: System.Boolean | json=canUseFullscreen | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CanUsePictureInPicture: System.Boolean | json=canUsePictureInPicture | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanReorderQueue: System.Boolean | json=canReorderQueue | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanTakeover: System.Boolean | json=canTakeover | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SupportedMediaTypes: System.Collections.Generic.IReadOnlyList<System.String> | json=supportedMediaTypes | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SupportedPlaybackRates: System.Collections.Generic.IReadOnlyList<System.Double> | json=supportedPlaybackRates | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SupportedScanRates: System.Collections.Generic.IReadOnlyList<System.Double> | json=supportedScanRates | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"canPlay":true,"canPause":true,"canStop":true,"canSeek":true,"canSkipNext":true,"canSkipPrevious":true,"canSetVolume":true,"canMute":true,"canSetSpeed":true,"canShuffle":true,"canRepeat":true,"canUseChapters":true,"canReorderQueue":true,"canTakeover":true,"supportedMediaTypes":[],"supportedPlaybackRates":[],"supportedScanRates":[]}
+  sample={"canPlay":true,"canPause":true,"canStop":true,"canSeek":true,"canSkipNext":true,"canSkipPrevious":true,"canSetVolume":true,"canMute":true,"canSetSpeed":true,"canShuffle":true,"canRepeat":true,"canUseChapters":true,"canUseCaptions":true,"canSelectAudioTrack":true,"canSelectQuality":true,"canUseFullscreen":true,"canUsePictureInPicture":true,"canReorderQueue":true,"canTakeover":true,"supportedMediaTypes":[],"supportedPlaybackRates":[],"supportedScanRates":[]}
 
 [contracts] MediaEngine.Contracts.Playback.PlayerCommandRequestDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4165,6 +4185,12 @@
   Artist: System.String | json=artist | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Narrator: System.String | json=narrator | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Series: System.String | json=series | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Year: System.String | json=year | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ContentRating: System.String | json=contentRating | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SeasonNumber: System.String | json=seasonNumber | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EpisodeNumber: System.String | json=episodeNumber | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EpisodeTitle: System.String | json=episodeTitle | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Quality: System.String | json=quality | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverUrl: System.String | json=coverUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DurationSeconds: System.Double? | json=durationSeconds | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PositionSeconds: System.Double? | json=positionSeconds | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4174,7 +4200,7 @@
   Chapters: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackChapterDto> | json=chapters | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Manifest: MediaEngine.Contracts.Playback.PlaybackManifestDto | json=manifest | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AddedAt: System.DateTimeOffset | json=addedAt | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"queueItemId":"11111111-2222-3333-4444-555555555555","workId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","collectionId":"11111111-2222-3333-4444-555555555555","mediaType":"sample","title":"sample","subtitle":"sample","album":"sample","author":"sample","artist":"sample","narrator":"sample","series":"sample","coverUrl":"sample","durationSeconds":7,"positionSeconds":7,"progressPct":7,"streamUrl":"sample","downloadUrl":"sample","chapters":[],"manifest":null,"addedAt":"2025-01-02T03:04:05+00:00"}
+  sample={"queueItemId":"11111111-2222-3333-4444-555555555555","workId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","collectionId":"11111111-2222-3333-4444-555555555555","mediaType":"sample","title":"sample","subtitle":"sample","album":"sample","author":"sample","artist":"sample","narrator":"sample","series":"sample","year":"sample","contentRating":"sample","seasonNumber":"sample","episodeNumber":"sample","episodeTitle":"sample","quality":"sample","coverUrl":"sample","durationSeconds":7,"positionSeconds":7,"progressPct":7,"streamUrl":"sample","downloadUrl":"sample","chapters":[],"manifest":null,"addedAt":"2025-01-02T03:04:05+00:00"}
 
 [contracts] MediaEngine.Contracts.Playback.PlayerQueueMutationDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4208,12 +4234,18 @@
   Artist: System.String | json=artist | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Narrator: System.String | json=narrator | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Series: System.String | json=series | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Year: System.String | json=year | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ContentRating: System.String | json=contentRating | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SeasonNumber: System.String | json=seasonNumber | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EpisodeNumber: System.String | json=episodeNumber | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EpisodeTitle: System.String | json=episodeTitle | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Quality: System.String | json=quality | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverUrl: System.String | json=coverUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DurationSeconds: System.Double? | json=durationSeconds | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PositionSeconds: System.Double? | json=positionSeconds | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   StreamUrl: System.String | json=streamUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DownloadUrl: System.String | json=downloadUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"workId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","collectionId":"11111111-2222-3333-4444-555555555555","mediaType":"sample","title":"sample","subtitle":"sample","album":"sample","author":"sample","artist":"sample","narrator":"sample","series":"sample","coverUrl":"sample","durationSeconds":7,"positionSeconds":7,"streamUrl":"sample","downloadUrl":"sample"}
+  sample={"workId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","collectionId":"11111111-2222-3333-4444-555555555555","mediaType":"sample","title":"sample","subtitle":"sample","album":"sample","author":"sample","artist":"sample","narrator":"sample","series":"sample","year":"sample","contentRating":"sample","seasonNumber":"sample","episodeNumber":"sample","episodeTitle":"sample","quality":"sample","coverUrl":"sample","durationSeconds":7,"positionSeconds":7,"streamUrl":"sample","downloadUrl":"sample"}
 
 [contracts] MediaEngine.Contracts.Playback.PlayerSessionTakeoverRequestDto
   kind=class | converter=default | number-handling=default | unmapped=default

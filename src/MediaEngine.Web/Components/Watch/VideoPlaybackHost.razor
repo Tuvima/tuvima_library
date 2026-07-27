@@ -1,0 +1,671 @@
+@namespace MediaEngine.Web.Components.Watch
+@using System.Globalization
+@using Microsoft.JSInterop
+@using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Services.Integration
+@using MediaEngine.Web.Services.Playback
+@inject PlaybackSessionController Playback
+@inject IEngineApiClient ApiClient
+@inject ShellActivityState Activity
+@inject IJSRuntime JS
+@inject ILogger<VideoPlaybackHost> Logger
+@implements IAsyncDisposable
+
+<section class="@StageClass"
+         aria-label="@(Playback.IsVideoMode ? "Video player" : null)"
+         aria-hidden="@(Playback.IsVideoMode ? "false" : "true")">
+    <video @ref="_videoRef"
+           id="tuvima-video-engine"
+           class="video-playback-host__media"
+           playsinline
+           preload="metadata"
+           poster="@Playback.CurrentItem?.CoverUrl"
+           @onloadedmetadata="HandleMetricsChangedAsync"
+           @ondurationchange="HandleMetricsChangedAsync"
+           @onplay="HandleStartedAsync"
+           @onpause="HandlePausedAsync"
+           @onerror="HandleErrorAsync"
+           @onended="HandleEndedAsync">
+        @foreach (var track in SubtitleTracks)
+        {
+            <track kind="subtitles"
+                   @key="@($"{track.Index}-{track.DeliveryUrl}")"
+                   src="@AbsoluteUrl(track.DeliveryUrl)"
+                   srclang="@(track.Language ?? "und")"
+                   label="@SubtitleLabel(track)"
+                   default="@track.IsDefault" />
+        }
+    </video>
+
+    @if (Playback.IsVideoMode && Playback.IsVideoExpanded && Playback.CurrentItem is not null)
+    {
+        <div class="video-playback-host__shade"></div>
+        <header class="video-playback-host__header">
+            <AppNativeButton Type="button"
+                             Class="video-playback-host__icon"
+                             OnClick="@(() => Playback.SetVideoExpanded(false))"
+                             AriaLabel="Minimize video"
+                             title="Minimize video">
+                <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" />
+            </AppNativeButton>
+            <div class="video-playback-host__identity">
+                <span>@VideoContext</span>
+                <strong>@Playback.CurrentItem.Title</strong>
+            </div>
+            <AppNativeButton Type="button"
+                             Class="video-playback-host__icon"
+                             OnClick="ClosePlayerAsync"
+                             AriaLabel="Close player"
+                             title="Close player">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" />
+            </AppNativeButton>
+        </header>
+
+        <AppNativeButton Type="button"
+                         Class="video-playback-host__center-play"
+                         OnClick="TogglePlayPauseAsync"
+                         AriaLabel="@(Playback.IsPlaying ? "Pause" : "Play")">
+            <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" />
+        </AppNativeButton>
+
+        <div class="video-playback-host__controls">
+            @if (VisibleSkipSegment is { } segment)
+            {
+                <AppNativeButton Type="button"
+                                 Class="video-playback-host__skip-segment"
+                                 OnClick="@(() => SeekOnHostAsync(segment.EndSeconds!.Value))">
+                    @SkipLabel(segment.Kind)
+                </AppNativeButton>
+            }
+
+            <div class="video-playback-host__timeline">
+                <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                <AppNativeInput Type="range"
+                                Min="0"
+                                Max="@ProgressMax"
+                                Step="1"
+                                Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
+                                Class="video-playback-host__progress"
+                                OnChange="SeekAsync"
+                                AriaLabel="Playback position"
+                                aria-valuetext="@ProgressValueText" />
+                <span>-@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
+            </div>
+
+            <div class="video-playback-host__toolbar">
+                <div class="video-playback-host__transport">
+                    <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="SkipBackAsync" AriaLabel="@($"Skip back {Playback.SkipBackSeconds} seconds")">
+                        <MudIcon Icon="@Icons.Material.Outlined.Replay10" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="video-playback-host__play" OnClick="TogglePlayPauseAsync" AriaLabel="@(Playback.IsPlaying ? "Pause" : "Play")">
+                        <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="SkipForwardAsync" AriaLabel="@($"Skip forward {Playback.SkipForwardSeconds} seconds")">
+                        <MudIcon Icon="@Icons.Material.Outlined.Forward10" />
+                    </AppNativeButton>
+                </div>
+
+                <div class="video-playback-host__tools">
+                    <AppNativeButton Type="button"
+                                     Class="video-playback-host__icon"
+                                     Disabled="@(SubtitleTracks.Count == 0)"
+                                     OnClick="ToggleCaptionsAsync"
+                                     AriaLabel="Captions and subtitles"
+                                     title="Captions and subtitles">
+                        <MudIcon Icon="@Icons.Material.Outlined.ClosedCaption" />
+                    </AppNativeButton>
+                    <span class="video-playback-host__quality" title="Source quality">@QualityLabel</span>
+                    <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute">
+                        <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" />
+                    </AppNativeButton>
+                    <AppNativeInput Type="range"
+                                    Min="0"
+                                    Max="1"
+                                    Step="0.05"
+                                    Value="@Playback.Volume"
+                                    Class="video-playback-host__volume"
+                                    OnChange="SetVolumeAsync"
+                                    AriaLabel="Volume" />
+                    <AppNativeButton Type="button" Class="video-playback-host__icon video-playback-host__mobile-optional" OnClick="TogglePictureInPictureAsync" AriaLabel="Picture in picture" title="Picture in picture">
+                        <MudIcon Icon="@Icons.Material.Outlined.PictureInPictureAlt" />
+                    </AppNativeButton>
+                    <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="ToggleFullscreenAsync" AriaLabel="Fullscreen" title="Fullscreen">
+                        <MudIcon Icon="@Icons.Material.Outlined.Fullscreen" />
+                    </AppNativeButton>
+                </div>
+            </div>
+        </div>
+    }
+</section>
+
+@if (Playback.HasQueue && Playback.IsVideoMode && !Playback.IsVideoExpanded && Playback.CurrentItem is not null)
+{
+    <section class="video-playback-dock" aria-label="Now playing video">
+        <div class="video-playback-dock__meta">
+            <div class="video-playback-dock__thumb">
+                @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
+                {
+                    <img src="@Playback.CurrentItem.CoverUrl" alt="" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Movie" />
+                }
+            </div>
+            <div class="video-playback-dock__copy">
+                <strong>@Playback.CurrentItem.Title</strong>
+                <span>@VideoContext</span>
+            </div>
+        </div>
+
+        <div class="video-playback-dock__transport">
+            <div class="video-playback-dock__buttons">
+                <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="SkipBackAsync" AriaLabel="@($"Skip back {Playback.SkipBackSeconds} seconds")">
+                    <MudIcon Icon="@Icons.Material.Outlined.Replay10" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="video-playback-dock__play" OnClick="TogglePlayPauseAsync" AriaLabel="@(Playback.IsPlaying ? "Pause" : "Play")">
+                    <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" />
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="SkipForwardAsync" AriaLabel="@($"Skip forward {Playback.SkipForwardSeconds} seconds")">
+                    <MudIcon Icon="@Icons.Material.Outlined.Forward10" />
+                </AppNativeButton>
+            </div>
+            <div class="video-playback-dock__progress-row">
+                <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                <AppNativeInput Type="range"
+                                Min="0"
+                                Max="@ProgressMax"
+                                Step="1"
+                                Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)"
+                                Class="video-playback-dock__progress"
+                                OnChange="SeekAsync"
+                                AriaLabel="Playback position"
+                                aria-valuetext="@ProgressValueText" />
+                <span>-@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
+            </div>
+        </div>
+
+        <div class="video-playback-dock__actions">
+            <span class="video-playback-host__quality">@QualityLabel</span>
+            <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute">
+                <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" />
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="@(() => Playback.SetVideoExpanded(true))" AriaLabel="Expand video" title="Expand video">
+                <MudIcon Icon="@Icons.Material.Outlined.Fullscreen" />
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="ClosePlayerAsync" AriaLabel="Close player" title="Close player">
+                <MudIcon Icon="@Icons.Material.Outlined.Close" />
+            </AppNativeButton>
+        </div>
+    </section>
+}
+
+@code {
+    private ElementReference _videoRef;
+    private DotNetObjectReference<VideoPlaybackHost>? _selfReference;
+    private bool _observerRegistered;
+    private string? _lastAppliedStreamUrl;
+    private long _lastAppliedStartVersion = -1;
+    private bool? _lastAppliedPlayingState;
+    private double? _lastAppliedVolume;
+    private bool? _lastAppliedMuteState;
+    private double? _lastAppliedPlaybackRate;
+    private Guid? _activeAssetId;
+
+    private string StageClass =>
+        Playback.IsVideoMode && Playback.IsVideoExpanded
+            ? "video-playback-host is-expanded"
+            : "video-playback-host";
+    private double ProgressMax => Playback.DurationSeconds > 0 ? Playback.DurationSeconds : 1d;
+    private string ProgressValueText => $"{FormatTimestamp(Playback.CurrentTimeSeconds)} of {FormatTimestamp(ProgressMax)}";
+    private IReadOnlyList<PlaybackSubtitleTrackDto> SubtitleTracks =>
+        (Playback.CurrentManifest?.SubtitleTracks ?? [])
+            .Where(track => !string.IsNullOrWhiteSpace(track.DeliveryUrl))
+            .ToList();
+    private string QualityLabel => StringHelpers.FirstNonBlankOr(
+        "Source",
+        Playback.CurrentItem?.Quality,
+        Playback.CurrentManifest?.Technical.QualityLabel,
+        "Source");
+    private string VideoContext
+    {
+        get
+        {
+            var item = Playback.CurrentItem;
+            if (item is null)
+            {
+                return "Now playing";
+            }
+
+            var episode = !string.IsNullOrWhiteSpace(item.SeasonNumber) && !string.IsNullOrWhiteSpace(item.EpisodeNumber)
+                ? $"S{item.SeasonNumber} E{item.EpisodeNumber}"
+                : null;
+            return StringHelpers.FirstNonBlankOr("Now playing", episode, item.Album, item.Year, "Now playing");
+        }
+    }
+    private PlaybackSegmentDto? VisibleSkipSegment =>
+        (Playback.CurrentManifest?.Segments ?? [])
+            .Where(segment => segment.IsSkippable
+                && segment.EndSeconds.HasValue
+                && segment.StartSeconds <= Playback.CurrentTimeSeconds + 1
+                && segment.EndSeconds.Value > Playback.CurrentTimeSeconds)
+            .OrderBy(segment => segment.StartSeconds)
+            .FirstOrDefault();
+
+    protected override void OnInitialized()
+    {
+        Playback.Changed += HandlePlaybackChanged;
+        Playback.TransportCommandRequested += HandleTransportCommandAsync;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfReference = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync(
+                "listenPlayback.registerAudioStateObserver",
+                _videoRef,
+                _selfReference,
+                Playback.ClientSettings.AudioObserverIntervalMilliseconds);
+            _observerRegistered = true;
+        }
+
+        if (Playback.IsVideoMode && !string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
+        {
+            await SyncVideoAsync();
+        }
+    }
+
+    private void HandlePlaybackChanged(PlaybackChangeKind changeKind)
+    {
+        _ = InvokeAsync(async () =>
+        {
+            if (!Playback.IsVideoMode && _lastAppliedStreamUrl is not null)
+            {
+                await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _videoRef);
+                if (_activeAssetId.HasValue)
+                {
+                    Activity.ClearVideoPlayback(_activeAssetId.Value);
+                    _activeAssetId = null;
+                }
+                _lastAppliedPlayingState = false;
+            }
+
+            StateHasChanged();
+        });
+    }
+
+    private async Task SyncVideoAsync()
+    {
+        var streamUrl = Playback.CurrentBrowserStreamUrl;
+        if (!string.Equals(_lastAppliedStreamUrl, streamUrl, StringComparison.Ordinal))
+        {
+            _lastAppliedStreamUrl = streamUrl;
+            _lastAppliedPlayingState = null;
+            await JS.InvokeVoidAsync("listenPlayback.ensureAudioSource", _videoRef, streamUrl);
+        }
+
+        if (_lastAppliedVolume != Playback.Volume)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.setVolume", _videoRef, Playback.Volume);
+            _lastAppliedVolume = Playback.Volume;
+        }
+
+        if (_lastAppliedMuteState != Playback.IsMuted)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.setMuted", _videoRef, Playback.IsMuted);
+            _lastAppliedMuteState = Playback.IsMuted;
+        }
+
+        if (_lastAppliedPlaybackRate != Playback.PlaybackRate)
+        {
+            await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _videoRef, Playback.PlaybackRate);
+            _lastAppliedPlaybackRate = Playback.PlaybackRate;
+        }
+
+        if (_lastAppliedStartVersion != Playback.PlaybackStartVersion)
+        {
+            _lastAppliedStartVersion = Playback.PlaybackStartVersion;
+            if (Playback.CurrentTimeSeconds > 0)
+            {
+                await JS.InvokeVoidAsync("listenPlayback.seekAudio", _videoRef, Playback.CurrentTimeSeconds);
+            }
+            _lastAppliedPlayingState = null;
+        }
+
+        if (_lastAppliedPlayingState == Playback.IsPlaying)
+        {
+            return;
+        }
+
+        if (Playback.IsPlaying)
+        {
+            var started = await JS.InvokeAsync<bool>("listenPlayback.playAudio", _videoRef);
+            if (!started)
+            {
+                Playback.MarkNeedsUserGestureToStart();
+            }
+        }
+        else
+        {
+            await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _videoRef);
+        }
+
+        _lastAppliedPlayingState = Playback.IsPlaying;
+    }
+
+    [JSInvokable]
+    public Task HandleObservedAudioState(VideoMetrics state) => ApplyMetricsAsync(state);
+
+    private async Task HandleMetricsChangedAsync()
+        => await ApplyMetricsAsync(await JS.InvokeAsync<VideoMetrics>("listenPlayback.readAudioState", _videoRef));
+
+    private async Task ApplyMetricsAsync(VideoMetrics state)
+    {
+        if (!Playback.IsVideoMode)
+        {
+            return;
+        }
+
+        Playback.UpdateTransportState(
+            currentTimeSeconds: state.CurrentTime,
+            durationSeconds: state.Duration,
+            isPlaying: !state.Paused,
+            volume: state.Volume,
+            isMuted: state.Muted,
+            playbackRate: state.PlaybackRate);
+
+        if (Playback.CurrentItem?.AssetId is Guid assetId)
+        {
+            _activeAssetId = assetId;
+            Activity.ReportVideoPlayback(
+                assetId,
+                Playback.CurrentItem.Title,
+                state.CurrentTime,
+                state.Duration,
+                isPlaying: !state.Paused,
+                ended: state.Duration > 0 && state.CurrentTime >= state.Duration - 0.5d);
+        }
+
+        await Playback.ReportHeartbeatAsync();
+    }
+
+    private async Task HandleStartedAsync()
+    {
+        if (!Playback.IsVideoMode)
+        {
+            return;
+        }
+
+        Playback.MarkPlaybackStarted();
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private async Task HandlePausedAsync()
+    {
+        if (!Playback.IsVideoMode)
+        {
+            return;
+        }
+
+        Playback.UpdateTransportState(isPlaying: false);
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private async Task HandleEndedAsync()
+    {
+        if (Playback.IsVideoMode)
+        {
+            await Playback.CompleteCurrentAsync();
+        }
+    }
+
+    private Task HandleErrorAsync()
+    {
+        if (Playback.IsVideoMode)
+        {
+            Playback.MarkCurrentFailed("This video source failed to load or play.");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleTransportCommandAsync(PlaybackTransportCommand command)
+    {
+        if (!Playback.IsVideoMode)
+        {
+            return;
+        }
+
+        switch (command.Action)
+        {
+            case "toggle-play":
+                await TogglePlayPauseAsync();
+                break;
+            case "pause":
+                await PauseAsync();
+                break;
+            case "play-next":
+                await Playback.SkipNextAsync();
+                break;
+            case "play-previous":
+                await Playback.SkipPreviousAsync();
+                break;
+            case "skip-back":
+                await SkipBackAsync();
+                break;
+            case "skip-forward":
+                await SkipForwardAsync();
+                break;
+            case "seek" when command.Value.HasValue:
+                await SeekOnHostAsync(command.Value.Value);
+                break;
+            case "start":
+                await StartVideoAsync(command);
+                break;
+            case "set-volume" when command.Value.HasValue:
+                await SetVolumeOnHostAsync(command.Value.Value);
+                break;
+            case "set-speed" when command.Value.HasValue:
+                await SetPlaybackRateAsync(command.Value.Value);
+                break;
+            case "toggle-mute":
+                await ToggleMuteAsync();
+                break;
+            case "close-player":
+                await ClosePlayerAsync();
+                break;
+        }
+    }
+
+    private async Task TogglePlayPauseAsync()
+    {
+        if (Playback.IsPlaying && !Playback.NeedsUserGestureToStart)
+        {
+            await PauseAsync();
+            return;
+        }
+
+        await StartVideoAsync(new PlaybackTransportCommand(
+            "start",
+            StreamUrl: Playback.CurrentBrowserStreamUrl,
+            PositionSeconds: Playback.CurrentTimeSeconds,
+            PlaybackRate: Playback.PlaybackRate,
+            RequestId: Playback.PlaybackStartVersion));
+    }
+
+    private async Task StartVideoAsync(PlaybackTransportCommand command)
+    {
+        var streamUrl = command.StreamUrl ?? Playback.CurrentBrowserStreamUrl;
+        var position = Math.Max(0, command.PositionSeconds ?? command.Value ?? Playback.CurrentTimeSeconds);
+        var started = await JS.InvokeAsync<bool>(
+            "listenPlayback.startAudio",
+            _videoRef,
+            new
+            {
+                streamUrl,
+                positionSeconds = position,
+                playbackRate = command.PlaybackRate ?? Playback.PlaybackRate,
+                volume = Playback.Volume,
+                muted = Playback.IsMuted,
+            });
+
+        _lastAppliedStreamUrl = streamUrl;
+        _lastAppliedStartVersion = Playback.PlaybackStartVersion;
+        _lastAppliedPlayingState = started;
+        if (started)
+        {
+            Playback.UpdateTransportState(currentTimeSeconds: position, isPlaying: true, needsUserGestureToStart: false);
+            Playback.MarkPlaybackStarted();
+            await Playback.ReportHeartbeatAsync(force: true);
+        }
+        else
+        {
+            Playback.MarkNeedsUserGestureToStart();
+        }
+    }
+
+    private async Task PauseAsync()
+    {
+        await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _videoRef);
+        _lastAppliedPlayingState = false;
+        Playback.UpdateTransportState(isPlaying: false);
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private Task SkipBackAsync() => SeekOnHostAsync(Playback.CurrentTimeSeconds - Playback.SkipBackSeconds);
+    private Task SkipForwardAsync() => SeekOnHostAsync(Playback.CurrentTimeSeconds + Playback.SkipForwardSeconds);
+
+    private async Task SeekAsync(ChangeEventArgs args)
+    {
+        if (double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var seconds))
+        {
+            await SeekOnHostAsync(seconds);
+        }
+    }
+
+    private async Task SeekOnHostAsync(double seconds)
+    {
+        var max = Playback.DurationSeconds > 0 ? Playback.DurationSeconds : double.MaxValue;
+        var next = Math.Clamp(seconds, 0, max);
+        await JS.InvokeVoidAsync("listenPlayback.seekAudio", _videoRef, next);
+        Playback.UpdateTransportState(currentTimeSeconds: next);
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private async Task SetVolumeAsync(ChangeEventArgs args)
+    {
+        if (double.TryParse(args.Value?.ToString(), NumberStyles.Float, CultureInfo.InvariantCulture, out var volume))
+        {
+            await SetVolumeOnHostAsync(volume);
+        }
+    }
+
+    private async Task SetVolumeOnHostAsync(double volume)
+    {
+        var next = Math.Clamp(volume, 0, 1);
+        await JS.InvokeVoidAsync("listenPlayback.setVolume", _videoRef, next);
+        Playback.UpdateTransportState(volume: next, isMuted: next <= 0);
+        _lastAppliedVolume = next;
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private async Task ToggleMuteAsync()
+    {
+        var next = !Playback.IsMuted;
+        await JS.InvokeVoidAsync("listenPlayback.setMuted", _videoRef, next);
+        Playback.UpdateTransportState(isMuted: next);
+        _lastAppliedMuteState = next;
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private async Task SetPlaybackRateAsync(double value)
+    {
+        var next = Math.Clamp(value, 0.5d, 3d);
+        await JS.InvokeVoidAsync("listenPlayback.setPlaybackRate", _videoRef, next);
+        Playback.UpdateTransportState(playbackRate: next);
+        _lastAppliedPlaybackRate = next;
+        await Playback.ReportHeartbeatAsync(force: true);
+    }
+
+    private Task ToggleCaptionsAsync()
+        => JS.InvokeVoidAsync("listenPlayback.toggleCaptions", _videoRef).AsTask();
+
+    private Task ToggleFullscreenAsync()
+        => JS.InvokeVoidAsync("listenPlayback.toggleFullscreen", _videoRef).AsTask();
+
+    private Task TogglePictureInPictureAsync()
+        => JS.InvokeVoidAsync("listenPlayback.togglePictureInPicture", _videoRef).AsTask();
+
+    private async Task ClosePlayerAsync()
+    {
+        await JS.InvokeVoidAsync("listenPlayback.pauseAudio", _videoRef);
+        if (Playback.CurrentItem?.AssetId is Guid assetId)
+        {
+            Activity.ClearVideoPlayback(assetId);
+        }
+        _activeAssetId = null;
+        Playback.ClosePlayer();
+    }
+
+    private string? AbsoluteUrl(string? value)
+        => string.IsNullOrWhiteSpace(value) ? null : ApiClient.ToAbsoluteEngineUrl(value);
+
+    private static string SubtitleLabel(PlaybackSubtitleTrackDto track)
+        => StringHelpers.FirstNonBlankOr(
+            "Subtitles",
+            track.DisplayName,
+            track.Language?.ToUpperInvariant(),
+            "Subtitles");
+
+    private static string SkipLabel(string kind) => kind.ToLowerInvariant() switch
+    {
+        "intro" => "Skip Intro",
+        "commercial" => "Skip Commercial",
+        "credits" => "Skip Credits",
+        "recap" => "Skip Recap",
+        "post_credits" => "Skip Post-Credits",
+        _ => "Skip Segment",
+    };
+
+    private static string FormatTimestamp(double seconds)
+    {
+        var span = TimeSpan.FromSeconds(Math.Max(0, seconds));
+        return span.TotalHours >= 1
+            ? span.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : span.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Playback.Changed -= HandlePlaybackChanged;
+        Playback.TransportCommandRequested -= HandleTransportCommandAsync;
+        if (_observerRegistered)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("listenPlayback.unregisterAudioStateObserver", _videoRef);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.LogDebug(ex, "Could not unregister the video playback observer.");
+            }
+        }
+
+        _selfReference?.Dispose();
+    }
+
+    public sealed class VideoMetrics
+    {
+        public double CurrentTime { get; set; }
+        public double Duration { get; set; }
+        public double Volume { get; set; }
+        public bool Muted { get; set; }
+        public bool Paused { get; set; }
+        public double PlaybackRate { get; set; } = 1d;
+    }
+}

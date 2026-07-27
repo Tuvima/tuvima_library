@@ -243,7 +243,7 @@ public sealed class DisplayCardBuilderSeriesPreviewTests
         Assert.Equal("Continue · S1 E3", card.Subtitle);
         Assert.Equal("/episodes/s01e03-s.jpg", card.Artwork.BackgroundSmallUrl);
         Assert.Equal("Resume S1 E3", card.Actions[0].Label);
-        Assert.Equal($"/watch/player/resolve?workId={episodeId:D}", card.Actions[0].WebUrl);
+        Assert.Equal($"/watch/player/{episodeId:D}", card.Actions[0].WebUrl);
         Assert.Equal("Details", card.Actions[1].Label);
         Assert.Equal($"/details/work/{episodeId:D}?context=watch", card.Actions[1].WebUrl);
         Assert.Equal(card.Actions[0], card.Progress?.ResumeAction);

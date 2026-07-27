@@ -61,6 +61,12 @@ public sealed class PlayerSessionRepository
                    artist AS Artist,
                    narrator AS Narrator,
                    series AS Series,
+                   year AS Year,
+                   content_rating AS ContentRating,
+                   season_number AS SeasonNumber,
+                   episode_number AS EpisodeNumber,
+                   episode_title AS EpisodeTitle,
+                   quality AS Quality,
                    cover_url AS CoverUrl,
                    duration_seconds AS DurationSeconds,
                    stream_url AS StreamUrl,
@@ -494,11 +500,13 @@ public sealed class PlayerSessionRepository
             conn.Execute("""
                 INSERT INTO player_queue_items
                     (id, profile_id, position, work_id, asset_id, collection_id, media_type, title,
-                     subtitle, album, author, artist, narrator, series, cover_url, duration_seconds,
+                     subtitle, album, author, artist, narrator, series, year, content_rating,
+                     season_number, episode_number, episode_title, quality, cover_url, duration_seconds,
                      stream_url, download_url, added_at, source_label)
                 VALUES
                     (@queueItemId, @profileId, @position, @workId, @assetId, @collectionId, @mediaType, @title,
-                     @subtitle, @album, @author, @artist, @narrator, @series, @coverUrl, @durationSeconds,
+                     @subtitle, @album, @author, @artist, @narrator, @series, @year, @contentRating,
+                     @seasonNumber, @episodeNumber, @episodeTitle, @quality, @coverUrl, @durationSeconds,
                      @streamUrl, @downloadUrl, @addedAt, @sourceLabel);
                 """, new
                 {
@@ -516,6 +524,12 @@ public sealed class PlayerSessionRepository
                     artist = item.Artist,
                     narrator = item.Narrator,
                     series = item.Series,
+                    year = item.Year,
+                    contentRating = item.ContentRating,
+                    seasonNumber = item.SeasonNumber,
+                    episodeNumber = item.EpisodeNumber,
+                    episodeTitle = item.EpisodeTitle,
+                    quality = item.Quality,
                     coverUrl = item.CoverUrl,
                     durationSeconds = item.DurationSeconds,
                     streamUrl = item.StreamUrl,
@@ -596,6 +610,12 @@ public sealed class PlayerSessionRepository
         Artist = row.Artist,
         Narrator = row.Narrator,
         Series = row.Series,
+        Year = row.Year,
+        ContentRating = row.ContentRating,
+        SeasonNumber = row.SeasonNumber,
+        EpisodeNumber = row.EpisodeNumber,
+        EpisodeTitle = row.EpisodeTitle,
+        Quality = row.Quality,
         CoverUrl = row.CoverUrl,
         DurationSeconds = row.DurationSeconds,
         StreamUrl = row.StreamUrl,
@@ -653,6 +673,12 @@ public sealed class PlayerSessionRepository
         public string? Artist { get; init; }
         public string? Narrator { get; init; }
         public string? Series { get; init; }
+        public string? Year { get; init; }
+        public string? ContentRating { get; init; }
+        public string? SeasonNumber { get; init; }
+        public string? EpisodeNumber { get; init; }
+        public string? EpisodeTitle { get; init; }
+        public string? Quality { get; init; }
         public string? CoverUrl { get; init; }
         public double? DurationSeconds { get; init; }
         public string? StreamUrl { get; init; }

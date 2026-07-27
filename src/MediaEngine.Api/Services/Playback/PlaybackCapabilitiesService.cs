@@ -4,6 +4,7 @@ using Dapper;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Aggregates;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
@@ -30,6 +31,7 @@ public sealed class PlaybackCapabilitiesService
     private readonly PlaybackStateRepository _playbackState;
     private readonly IPlaybackSegmentRepository _segments;
     private readonly IUserPlaybackSettingsService _settings;
+    private readonly ITextTrackRepository _textTracks;
     private readonly AudiobookChapterTitleOverrideRepository _chapterTitleOverrides;
     private readonly IMediaTypeExtensionCatalog _extensionCatalog;
     private readonly ILogger<PlaybackCapabilitiesService> _logger;
@@ -41,6 +43,7 @@ public sealed class PlaybackCapabilitiesService
         PlaybackStateRepository playbackState,
         IPlaybackSegmentRepository segments,
         IUserPlaybackSettingsService settings,
+        ITextTrackRepository textTracks,
         AudiobookChapterTitleOverrideRepository chapterTitleOverrides,
         IMediaTypeExtensionCatalog extensionCatalog,
         ILogger<PlaybackCapabilitiesService> logger)
@@ -51,6 +54,7 @@ public sealed class PlaybackCapabilitiesService
         _playbackState = playbackState;
         _segments = segments;
         _settings = settings;
+        _textTracks = textTracks;
         _chapterTitleOverrides = chapterTitleOverrides;
         _extensionCatalog = extensionCatalog;
         _logger = logger;
@@ -151,11 +155,12 @@ public sealed class PlaybackCapabilitiesService
             HlsUrl = null,
             Profile = profile,
             AudioTracks = BuildAudioTracks(mediaInfo, probe),
-            SubtitleTracks = BuildSubtitleTracks(mediaInfo, probe),
+            SubtitleTracks = await BuildSubtitleTracksAsync(assetId, mediaInfo, probe, ct),
             Chapters = chapters,
             OfflineVariants = variants,
             Resume = resume,
             Segments = (await _segments.ListByAssetAsync(assetId, ct)).Select(ToSegmentDto).ToList(),
+            Technical = BuildTechnicalInfo(extension, mediaInfo, probe),
             Warnings = warnings,
             ConversionReason = conversionReason,
         };
@@ -473,8 +478,52 @@ public sealed class PlaybackCapabilitiesService
         ];
     }
 
-    private static IReadOnlyList<PlaybackSubtitleTrackDto> BuildSubtitleTracks(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
+    private static PlaybackTechnicalInfoDto BuildTechnicalInfo(
+        string extension,
+        MediaInfoWrapper? mediaInfo,
+        MediaProbeResult? probe)
     {
+        var width = mediaInfo?.Width is > 0 ? mediaInfo.Width : probe?.Width;
+        var height = mediaInfo?.Height is > 0 ? mediaInfo.Height : probe?.Height;
+        return new PlaybackTechnicalInfoDto
+        {
+            Container = StringHelpers.FirstNonBlank(
+                mediaInfo?.Format,
+                extension.TrimStart('.').ToLowerInvariant()),
+            VideoCodec = NormalizeCodecName(mediaInfo?.VideoCodec ?? probe?.VideoCodec),
+            Width = width is > 0 ? width : null,
+            Height = height is > 0 ? height : null,
+            FrameRate = probe?.FrameRate is > 0 ? probe.FrameRate : null,
+            AudioCodec = NormalizeCodecName(mediaInfo?.AudioCodec ?? probe?.AudioCodec),
+            AudioBitrateKbps = probe?.AudioBitrate is > 0 ? probe.AudioBitrate : null,
+            SampleRateHz = probe?.SampleRate is > 0 ? probe.SampleRate : null,
+            Channels = probe?.Channels is > 0 ? probe.Channels : null,
+        };
+    }
+
+    private async Task<IReadOnlyList<PlaybackSubtitleTrackDto>> BuildSubtitleTracksAsync(
+        Guid assetId,
+        MediaInfoWrapper? mediaInfo,
+        MediaProbeResult? probe,
+        CancellationToken ct)
+    {
+        var managedTracks = await _textTracks.GetByAssetAsync(assetId, TextTrackKind.Subtitles, ct);
+        if (managedTracks.Count > 0)
+        {
+            return managedTracks.Select((track, index) => new PlaybackSubtitleTrackDto
+            {
+                Index = index,
+                Language = track.Language,
+                Codec = StringHelpers.FirstNonBlank(track.NormalizedFormat, track.SourceFormat),
+                DisplayName = string.Equals(track.Language, "und", StringComparison.OrdinalIgnoreCase)
+                    ? "Subtitles"
+                    : $"Subtitles ({track.Language.ToUpperInvariant()})",
+                IsDefault = track.IsPreferred,
+                IsForced = false,
+                DeliveryUrl = $"/stream/{assetId}/subtitles?language={Uri.EscapeDataString(track.Language)}",
+            }).ToList();
+        }
+
         if (mediaInfo?.Subtitles.Count > 0)
         {
             return mediaInfo.Subtitles.Select((stream, index) => new PlaybackSubtitleTrackDto

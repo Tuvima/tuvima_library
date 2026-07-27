@@ -50,6 +50,42 @@ internal sealed class SchemaMigrator
             "metadata_claims",
             "decision_source_provider_id",
             "ALTER TABLE metadata_claims ADD COLUMN decision_source_provider_id BLOB REFERENCES metadata_providers(id);");
+
+        AddColumnIfMissing(
+            conn,
+            "player_queue_items",
+            "year",
+            "ALTER TABLE player_queue_items ADD COLUMN year TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "player_queue_items",
+            "content_rating",
+            "ALTER TABLE player_queue_items ADD COLUMN content_rating TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "player_queue_items",
+            "season_number",
+            "ALTER TABLE player_queue_items ADD COLUMN season_number TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "player_queue_items",
+            "episode_number",
+            "ALTER TABLE player_queue_items ADD COLUMN episode_number TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "player_queue_items",
+            "episode_title",
+            "ALTER TABLE player_queue_items ADD COLUMN episode_title TEXT;");
+
+        AddColumnIfMissing(
+            conn,
+            "player_queue_items",
+            "quality",
+            "ALTER TABLE player_queue_items ADD COLUMN quality TEXT;");
     }
 
     private static void SeedMetadataProviders(SqliteConnection conn)

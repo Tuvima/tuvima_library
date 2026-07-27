@@ -333,7 +333,7 @@ public sealed class DisplayCardBuilder
         {
             var position = EpisodePosition(seasonNumber, episodeNumber);
             var label = $"{(isContinue ? "Resume" : isComplete ? "Play Again" : "Watch")}{(position is null ? string.Empty : $" {position}")}";
-            return new DisplayActionDto("playAsset", label, workId, assetId, collectionId, $"/watch/player/resolve?workId={workId:D}");
+            return new DisplayActionDto("playAsset", label, workId, assetId, collectionId, $"/watch/player/{workId:D}");
         }
 
         if (mediaKind is "Movie" or "Music" or "Audiobook")
@@ -374,7 +374,7 @@ public sealed class DisplayCardBuilder
         {
             return mediaKind switch
             {
-                "Movie" or "TV" => $"/watch/player/resolve?workId={workId:D}",
+                "Movie" or "TV" => $"/watch/player/{workId:D}",
                 "Music" => SongPlaybackUrl(workId),
                 "Audiobook" => $"/details/work/{workId:D}?context=listen",
                 "Comic" => $"/details/work/{workId:D}?context=comics",
@@ -385,8 +385,8 @@ public sealed class DisplayCardBuilder
 
         return mediaKind switch
         {
-            "Movie" => $"/watch/player/resolve?workId={workId:D}",
-            "TV" => $"/watch/player/resolve?workId={workId:D}",
+            "Movie" => $"/watch/player/{workId:D}",
+            "TV" => $"/watch/player/{workId:D}",
             "Music" => SongPlaybackUrl(workId),
             "Audiobook" => $"/details/work/{workId:D}?context=listen",
             "Comic" => $"/details/work/{workId:D}?context=comics",

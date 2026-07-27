@@ -674,7 +674,7 @@
         var workId = Guid.Parse(item.Id);
         if (item.EntityType is DetailEntityType.Movie or DetailEntityType.TvEpisode)
         {
-            Nav.NavigateTo($"/watch/player/resolve?workId={workId:D}");
+            Nav.NavigateTo($"/watch/player/{workId:D}");
             return;
         }
 

@@ -1,131 +1,96 @@
-﻿@page "/watch/player/{AssetId:guid}"
-@using Microsoft.AspNetCore.Components
-@using Microsoft.JSInterop
+@page "/watch/player/{WorkId:guid}"
 @using MediaEngine.Contracts.Playback
-@using MediaEngine.Contracts.Progress
-@using MediaEngine.Web.Components.Watch
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
-
-@implements IAsyncDisposable
+@using MediaEngine.Web.Services.Playback
 
 @namespace MediaEngine.Web.Components.Pages
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
-@inject ShellActivityState Activity
-@inject IJSRuntime JS
+@inject PlaybackSessionController Playback
 @inject NavigationManager Nav
-@inject ILogger<WatchPlayerPage> Logger
 
 <PageTitle>@((_detail?.Title ?? "Player")) - Tuvima</PageTitle>
 
 @if (_loading)
 {
     <AppPageState Kind="AppPageStateKind.Loading"
-                  Title="Loading player"
+                  Title="Preparing playback"
                   Class="watch-player-state" />
+}
+else if (!string.IsNullOrWhiteSpace(_loadError))
+{
+    <div class="watch-player-state">
+        <AppErrorState Title="Playable video not found"
+                       Message="Tuvima could not prepare this title for playback."
+                       Details="@_loadError"
+                       Retry="LoadPlayerAsync"
+                       Icon="@Icons.Material.Outlined.Movie" />
+    </div>
 }
 else
 {
-    <div class="watch-player-page">
-        <div class="watch-player-page__topbar">
-            <AppNativeButton Type="button" Class="watch-player-button watch-player-button--secondary" OnClick="GoBack">
-                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Class="tl-u-font-size-18px" />
-                <span>Back</span>
-            </AppNativeButton>
-
-            <div class="watch-player-page__meta">
-                <div class="watch-player-page__eyebrow">@(_detail?.ShowName ?? _detail?.Series ?? "Now playing")</div>
-                <h1>@(_detail?.Title ?? "Playback")</h1>
-                <WatchPlaybackSpecs Summary="_detail?.PlaybackSummary" />
+    <section class="watch-player-launch">
+        @if (!string.IsNullOrWhiteSpace(LaunchArtworkUrl))
+        {
+            <img class="watch-player-launch__artwork"
+                 src="@LaunchArtworkUrl"
+                 alt=""
+                 aria-hidden="true" />
+        }
+        <div class="watch-player-launch__scrim"></div>
+        <div class="watch-player-launch__content">
+            <span>@VideoContext</span>
+            <h1>@(_detail?.ShowName ?? _detail?.Title ?? "Now playing")</h1>
+            @if (!string.IsNullOrWhiteSpace(_detail?.EpisodeTitle))
+            {
+                <p>@_detail.EpisodeTitle</p>
+            }
+            <div class="watch-player-launch__actions">
+                <AppNativeButton Type="button" Class="watch-player-button watch-player-button--primary" OnClick="@(() => Playback.SetVideoExpanded(true))">
+                    <MudIcon Icon="@Icons.Material.Filled.PlayArrow" />
+                    <span>Return to video</span>
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="watch-player-button watch-player-button--secondary" OnClick="GoBack">
+                    <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" />
+                    <span>Back to details</span>
+                </AppNativeButton>
             </div>
         </div>
-
-        @if (!string.IsNullOrWhiteSpace(_streamUrl))
-        {
-            @if (_manifest?.Warnings.Count > 0)
-            {
-                <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">
-                    @string.Join(" ", _manifest.Warnings)
-                </AppAlert>
-            }
-            <div class="watch-player-page__surface">
-                <video @ref="_videoRef"
-                       class="watch-player-page__video"
-                       controls
-                       autoplay
-                       playsinline
-                       poster="@PosterUrl"
-                       src="@_streamUrl">
-                    @foreach (var track in _subtitleTracks)
-                    {
-                        <track kind="subtitles"
-                               @key="@($"{track.Language}-{track.Url}")"
-                               src="@track.Url"
-                               srclang="@track.Language"
-                               label="@SubtitleLabel(track)"
-                               default="@track.IsPreferred" />
-                    }
-                </video>
-                @if (VisibleSkipSegments.Count > 0)
-                {
-                    <div class="watch-player-page__skipbar">
-                        @foreach (var segment in VisibleSkipSegments)
-                        {
-                            <AppNativeButton Type="button" @key="@($" {segment.Kind}-{segment.StartSeconds}-{segment.EndSeconds}")" Class="watch-player-skip-chip" Title="@SkipTitle(segment)" OnClick="() => SkipSegmentAsync(segment)">
-                                <MudIcon Icon="@SkipIcon(segment.Kind)" Class="tl-u-font-size-16px" />
-                                <span>@SkipLabel(segment.Kind)</span>
-                            </AppNativeButton>
-                        }
-                    </div>
-                }
-            </div>
-        }
-        else
-        {
-            <div class="watch-player-state">
-                <AppErrorState Title="Playable video not found"
-                               Message="This asset could not be streamed from the Engine."
-                               Details="@_loadError"
-                               Retry="LoadPlayerAsync"
-                               Icon="@Icons.Material.Outlined.Movie" />
-            </div>
-        }
-    </div>
+    </section>
 }
 
 @code {
-    [Parameter] public Guid AssetId { get; set; }
-    [SupplyParameterFromQuery(Name = "workId")] public Guid? WorkId { get; set; }
+    [Parameter] public Guid WorkId { get; set; }
     [SupplyParameterFromQuery(Name = "collectionId")] public Guid? CollectionId { get; set; }
     [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
 
     private LibraryItemDetailViewModel? _detail;
-    private PlaybackManifestDto? _manifest;
-    private IReadOnlyList<TextTrackDto> _subtitleTracks = [];
-    private string? _streamUrl;
     private string? _loadError;
-    private UserStateResponse? _progress;
-    private Guid? _activeProfileId;
     private bool _loading = true;
 
-    private ElementReference _videoRef;
-    private IJSObjectReference? _module;
-    private DotNetObjectReference<WatchPlayerPage>? _dotNetRef;
-    private double _lastSavedPct = -1;
-    private DateTimeOffset _lastSaveAt = DateTimeOffset.MinValue;
+    private string VideoContext
+    {
+        get
+        {
+            if (_detail is null)
+            {
+                return "Now playing";
+            }
 
-    private string? PosterUrl => _detail?.BackgroundUrl ?? _detail?.BannerUrl ?? _detail?.HeroUrl ?? _detail?.CoverUrl;
-    private IReadOnlyList<PlaybackSegmentDto> VisibleSkipSegments =>
-        (_manifest?.Segments ?? [])
-            .Where(s => s.IsSkippable
-                && !string.Equals(s.ReviewStatus, "hidden", StringComparison.OrdinalIgnoreCase)
-                && s.EndSeconds.HasValue
-                && s.EndSeconds.Value > s.StartSeconds)
-            .OrderBy(s => s.StartSeconds)
-            .Take(6)
-            .ToList();
+            if (!string.IsNullOrWhiteSpace(_detail.SeasonNumber)
+                && !string.IsNullOrWhiteSpace(_detail.EpisodeNumber))
+            {
+                return $"S{_detail.SeasonNumber} E{_detail.EpisodeNumber}";
+            }
+
+            return StringHelpers.FirstNonBlankOr("Now playing", _detail.Year, _detail.MediaType, "Now playing");
+        }
+    }
+
+    private string? LaunchArtworkUrl
+        => _detail?.BackgroundUrl ?? _detail?.BannerUrl ?? _detail?.HeroUrl ?? _detail?.CoverUrl;
 
     protected override async Task OnParametersSetAsync()
         => await LoadPlayerAsync();
@@ -136,92 +101,70 @@ else
         _loadError = null;
         StateHasChanged();
 
-        var detailTask = WorkId.HasValue
-            ? ApiClient.GetLibraryItemDetailAsync(WorkId.Value)
-            : Task.FromResult<LibraryItemDetailViewModel?>(null);
-        var progressTask = Orchestrator.GetProgressAsync(AssetId);
-        var profileTask = Orchestrator.GetActiveProfileAsync();
-        var manifestTask = ApiClient.GetPlaybackManifestAsync(AssetId, "web");
-        var tracksTask = ApiClient.GetTextTracksAsync(AssetId);
+        if (Playback.IsVideoMode && Playback.CurrentItem?.WorkId == WorkId)
+        {
+            _detail = await ApiClient.GetLibraryItemDetailAsync(WorkId);
+            Playback.SetVideoExpanded(true);
+            _loading = false;
+            return;
+        }
 
-        await Task.WhenAll(detailTask, progressTask, profileTask, manifestTask, tracksTask);
+        var detailTask = ApiClient.GetLibraryItemDetailAsync(WorkId);
+        var assetTask = Orchestrator.ResolveWorkToAssetAsync(WorkId);
+        await Task.WhenAll(detailTask, assetTask);
 
         _detail = detailTask.Result;
-        _progress = progressTask.Result;
-        _activeProfileId = profileTask.Result?.Id;
-        _manifest = manifestTask.Result;
-        _subtitleTracks = tracksTask.Result
-            .Where(t => string.Equals(t.Kind, "Subtitles", StringComparison.OrdinalIgnoreCase))
-            .ToList();
-        _streamUrl = _manifest is null
-            ? null
-            : ApiClient.ToAbsoluteEngineUrl(_manifest.DirectStreamUrl ?? $"/stream/{AssetId}");
-        if (_streamUrl is null)
+        var assetId = assetTask.Result;
+        if (_detail is null || !assetId.HasValue)
         {
-            _loadError = ApiClient.LastError ?? Orchestrator.LastApiError;
+            _loadError = ApiClient.LastError ?? Orchestrator.LastApiError ?? "No playable local video asset is linked to this item.";
+            _loading = false;
+            return;
         }
+
+        var profile = await Orchestrator.GetActiveProfileAsync();
+        var manifest = await ApiClient.GetPlaybackManifestAsync(assetId.Value, Playback.ClientContext.Client, profile?.Id);
+        if (manifest is null)
+        {
+            _loadError = ApiClient.LastError ?? "The Engine did not return a playback manifest.";
+            _loading = false;
+            return;
+        }
+
+        var mediaType = MediaKindClassifier.IsVideo(_detail.MediaType)
+            ? _detail.MediaType
+            : "Movie";
+        var item = new ListenQueueItem
+        {
+            WorkId = WorkId,
+            CollectionId = CollectionId,
+            MediaType = mediaType,
+            Title = StringHelpers.FirstNonBlankOr("Video", _detail.ShowName, _detail.Title, "Video"),
+            Subtitle = StringHelpers.FirstNonBlank(_detail.EpisodeTitle, _detail.Director, _detail.Year),
+            Album = StringHelpers.FirstNonBlank(_detail.ShowName, _detail.Series),
+            Year = _detail.Year,
+            ContentRating = _detail.Rating,
+            SeasonNumber = _detail.SeasonNumber,
+            EpisodeNumber = _detail.EpisodeNumber,
+            EpisodeTitle = _detail.EpisodeTitle ?? (_detail.ShowName is not null ? _detail.Title : null),
+            Quality = _detail.PlaybackSummary?.VideoResolutionLabel ?? manifest.Technical.QualityLabel,
+            CoverUrl = _detail.BackgroundUrl ?? _detail.BannerUrl ?? _detail.HeroUrl ?? _detail.CoverUrl,
+            Duration = _detail.Runtime,
+            AssetId = assetId,
+            StreamUrl = manifest.DirectStreamUrl ?? $"/stream/{assetId.Value:D}",
+            InitialPositionSeconds = manifest.Resume?.PositionSeconds,
+            Manifest = manifest,
+        };
+
+        await Playback.PlayVideoAsync(item, _detail.ShowName ?? _detail.Series ?? _detail.Title);
         _loading = false;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_loading || string.IsNullOrWhiteSpace(_streamUrl))
-            return;
-
-        if (_module is null)
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/watch-player.js");
-
-        _dotNetRef ??= DotNetObjectReference.Create(this);
-        await _module.InvokeVoidAsync("attachPlayer", _videoRef, _dotNetRef);
-
-        if (_progress?.ProgressPct is > 0 and < 99.5)
-            await _module.InvokeVoidAsync("restoreProgress", _videoRef, _progress.ProgressPct);
-    }
-
-    [JSInvokable]
-    public async Task OnPlayerProgress(double currentTime, double duration, bool ended, bool paused)
-    {
-        Activity.ReportVideoPlayback(
-            AssetId,
-            _detail?.Title ?? "Video",
-            currentTime,
-            duration,
-            isPlaying: !paused && !ended,
-            ended);
-
-        if (duration <= 0)
-            return;
-
-        var progressPct = ended ? 100d : Math.Clamp((currentTime / duration) * 100d, 0d, 100d);
-        var now = DateTimeOffset.UtcNow;
-        var shouldSave = ended
-            || _lastSavedPct < 0
-            || Math.Abs(progressPct - _lastSavedPct) >= 2.5
-            || now - _lastSaveAt >= TimeSpan.FromSeconds(20);
-
-        if (!shouldSave)
-            return;
-
-        _lastSavedPct = progressPct;
-        _lastSaveAt = now;
-        await Orchestrator.SaveProgressAsync(
-            AssetId,
-            _activeProfileId,
-            progressPct,
-            new Dictionary<string, string>
-            {
-                ["position_seconds"] = Math.Max(0d, currentTime).ToString("F2"),
-                ["duration_seconds"] = Math.Max(0d, duration).ToString("F2"),
-                ["media_kind"] = "video",
-                ["completed"] = ended ? "true" : "false",
-            });
     }
 
     private void GoBack()
     {
         if (!string.IsNullOrWhiteSpace(ReturnUrl))
         {
-            Nav.NavigateTo(ReturnUrl!);
+            Nav.NavigateTo(ReturnUrl);
             return;
         }
 
@@ -231,63 +174,10 @@ else
             return;
         }
 
-        Nav.NavigateTo("/watch/tv");
-    }
-
-    private async Task SkipSegmentAsync(PlaybackSegmentDto segment)
-    {
-        if (_module is null)
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/watch-player.js");
-
-        var target = Math.Max(segment.StartSeconds, segment.EndSeconds ?? segment.StartSeconds);
-        await _module.InvokeVoidAsync("seekTo", _videoRef, target);
-    }
-
-    private static string SkipLabel(string kind) => kind.ToLowerInvariant() switch
-    {
-        "intro" => "Skip Intro",
-        "commercial" => "Skip Commercial",
-        "credits" => "Skip Credits",
-        "recap" => "Skip Recap",
-        "post_credits" => "Skip Post-Credits",
-        _ => "Skip Segment",
-    };
-
-    private static string SkipIcon(string kind) => kind.ToLowerInvariant() switch
-    {
-        "intro" => Icons.Material.Outlined.FastForward,
-        "commercial" => Icons.Material.Outlined.LiveTv,
-        "credits" => Icons.Material.Outlined.MovieFilter,
-        "recap" => Icons.Material.Outlined.Replay,
-        _ => Icons.Material.Outlined.SkipNext,
-    };
-
-    private static string SkipTitle(PlaybackSegmentDto segment) =>
-        $"{SkipLabel(segment.Kind)} ({segment.StartSeconds:0}s to {segment.EndSeconds:0}s, {segment.Confidence:P0} confidence)";
-
-    private static string SubtitleLabel(TextTrackDto track)
-    {
-        var language = string.IsNullOrWhiteSpace(track.Language) ? "Subtitles" : track.Language.ToUpperInvariant();
-        return track.IsHearingImpaired ? $"{language} SDH" : language;
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        Activity.ClearVideoPlayback(AssetId);
-
-        try
-        {
-            if (_module is not null)
-                await _module.InvokeVoidAsync("detachPlayer", _videoRef);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogDebug(ex, "Could not detach watch player during disposal for {AssetId}.", AssetId);
-        }
-
-        if (_module is not null)
-            await _module.DisposeAsync();
-
-        _dotNetRef?.Dispose();
+        var entityType = !string.IsNullOrWhiteSpace(_detail?.SeasonNumber)
+            || !string.IsNullOrWhiteSpace(_detail?.EpisodeNumber)
+                ? "tvepisode"
+                : "movie";
+        Nav.NavigateTo($"/details/{entityType}/{WorkId:D}?context=watch");
     }
 }

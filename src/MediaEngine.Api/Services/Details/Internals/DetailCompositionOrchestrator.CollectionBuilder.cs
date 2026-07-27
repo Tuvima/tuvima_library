@@ -1155,7 +1155,7 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         return BuildWatchActions(
-            $"/watch/player/resolve?workId={episodeId:D}",
+            $"/watch/player/{episodeId:D}",
             heroProgress,
             FormatSeasonEpisode(StringHelpers.FirstNonBlankOr(string.Empty, episode.Season, "1"), StringHelpers.FirstNonBlankOr(string.Empty, episode.Episode, "1")));
     }

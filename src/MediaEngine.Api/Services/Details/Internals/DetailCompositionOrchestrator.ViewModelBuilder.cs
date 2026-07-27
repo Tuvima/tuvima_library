@@ -592,8 +592,8 @@ internal sealed partial class DetailCompositionOrchestrator
     {
         return entityType switch
         {
-            DetailEntityType.Movie => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress),
-            DetailEntityType.TvEpisode => BuildWatchActions($"/watch/player/resolve?workId={id}", heroProgress, episodePosition),
+            DetailEntityType.Movie => BuildWatchActions($"/watch/player/{id}", heroProgress),
+            DetailEntityType.TvEpisode => BuildWatchActions($"/watch/player/{id}", heroProgress, episodePosition),
             DetailEntityType.TvShow or DetailEntityType.TvSeason => BuildWatchActions(null, heroProgress),
             DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", IsPrimary = true }],
             DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],

@@ -375,7 +375,7 @@ public sealed class PlayerService
 
         foreach (var requested in request.Items.Where(item => item.WorkId != Guid.Empty))
         {
-            var resolved = await ResolvePlayableWorkAsync(requested.WorkId, ct);
+            var resolved = ResolvePlayableWork(requested.WorkId, ct);
             if (resolved is null)
             {
                 continue;
@@ -387,7 +387,7 @@ public sealed class PlayerService
 
         foreach (var workId in request.WorkIds.Where(id => id != Guid.Empty).Distinct().Where(id => !explicitWorkIds.Contains(id)))
         {
-            var resolved = await ResolvePlayableWorkAsync(workId, ct);
+            var resolved = ResolvePlayableWork(workId, ct);
             if (resolved is null)
             {
                 continue;
@@ -424,6 +424,12 @@ public sealed class PlayerService
             Artist = StringHelpers.FirstNonBlank(requested.Artist, resolved.Artist),
             Narrator = StringHelpers.FirstNonBlank(requested.Narrator, resolved.Narrator),
             Series = StringHelpers.FirstNonBlank(requested.Series, resolved.Series),
+            Year = StringHelpers.FirstNonBlank(requested.Year, resolved.Year),
+            ContentRating = StringHelpers.FirstNonBlank(requested.ContentRating, resolved.ContentRating),
+            SeasonNumber = StringHelpers.FirstNonBlank(requested.SeasonNumber, resolved.SeasonNumber),
+            EpisodeNumber = StringHelpers.FirstNonBlank(requested.EpisodeNumber, resolved.EpisodeNumber),
+            EpisodeTitle = StringHelpers.FirstNonBlank(requested.EpisodeTitle, resolved.EpisodeTitle),
+            Quality = StringHelpers.FirstNonBlank(requested.Quality, resolved.Quality),
             CoverUrl = StringHelpers.FirstNonBlank(requested.CoverUrl, resolved.CoverUrl, assetId.HasValue ? $"/stream/{assetId.Value}/cover" : null),
             DurationSeconds = requested.DurationSeconds ?? resolved.DurationSeconds,
             PositionSeconds = requested.PositionSeconds.HasValue ? Math.Max(0, requested.PositionSeconds.Value) : resolved.PositionSeconds,
@@ -432,11 +438,11 @@ public sealed class PlayerService
         };
     }
 
-    private async Task<PlayerQueueItemDto?> ResolvePlayableWorkAsync(Guid workId, CancellationToken ct)
+    private PlayerQueueItemDto? ResolvePlayableWork(Guid workId, CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
         using var conn = _db.CreateConnection();
-        var row = await conn.QueryFirstOrDefaultAsync<PlayableWorkRow>("""
+        var row = conn.QueryFirstOrDefault<PlayableWorkRow>("""
             SELECT w.id AS WorkId,
                    ma.id AS AssetId,
                    w.collection_id AS CollectionId,
@@ -444,7 +450,7 @@ public sealed class PlayerService
                    COALESCE(
                        MAX(CASE WHEN wcv.key = 'title' THEN wcv.value END),
                        MAX(CASE WHEN acv.key = 'title' THEN acv.value END),
-                       'Untitled audio'
+                       'Untitled media'
                    ) AS Title,
                    COALESCE(
                        MAX(CASE WHEN wcv.key = 'subtitle' THEN wcv.value END),
@@ -472,6 +478,31 @@ public sealed class PlayerService
                        MAX(CASE WHEN acv.key = 'series' THEN acv.value END)
                    ) AS Series,
                    COALESCE(
+                       MAX(CASE WHEN wcv.key IN ('year', 'release_year', 'premiere_year') THEN wcv.value END),
+                       MAX(CASE WHEN acv.key IN ('year', 'release_year', 'premiere_year') THEN acv.value END)
+                   ) AS Year,
+                   COALESCE(
+                       MAX(CASE WHEN wcv.key IN ('content_rating', 'certification', 'rating_classification') THEN wcv.value END),
+                       MAX(CASE WHEN acv.key IN ('content_rating', 'certification', 'rating_classification') THEN acv.value END)
+                   ) AS ContentRating,
+                   COALESCE(
+                       MAX(CASE WHEN wcv.key = 'season_number' THEN wcv.value END),
+                       MAX(CASE WHEN acv.key = 'season_number' THEN acv.value END)
+                   ) AS SeasonNumber,
+                   COALESCE(
+                       MAX(CASE WHEN wcv.key = 'episode_number' THEN wcv.value END),
+                       MAX(CASE WHEN acv.key = 'episode_number' THEN acv.value END)
+                   ) AS EpisodeNumber,
+                   COALESCE(
+                       MAX(CASE WHEN wcv.key = 'episode_title' THEN wcv.value END),
+                       MAX(CASE WHEN acv.key = 'episode_title' THEN acv.value END),
+                       MAX(CASE WHEN wcv.key = 'title' THEN wcv.value END)
+                   ) AS EpisodeTitle,
+                   COALESCE(
+                       MAX(CASE WHEN acv.key IN ('quality', 'video_quality', 'resolution', 'video_resolution_label') THEN acv.value END),
+                       MAX(CASE WHEN wcv.key IN ('quality', 'video_quality', 'resolution', 'video_resolution_label') THEN wcv.value END)
+                   ) AS Quality,
+                   COALESCE(
                        MAX(CASE WHEN wcv.key = 'duration' THEN wcv.value END),
                        MAX(CASE WHEN acv.key = 'duration' THEN acv.value END),
                        MAX(CASE WHEN wcv.key = 'runtime' THEN wcv.value END),
@@ -483,7 +514,9 @@ public sealed class PlayerService
             LEFT JOIN canonical_values wcv ON wcv.entity_id = w.id
             LEFT JOIN canonical_values acv ON acv.entity_id = ma.id
             WHERE w.id = @workId
-              AND LOWER(w.media_type) IN ('music', 'audiobooks', 'audiobook', 'audio')
+              AND LOWER(REPLACE(w.media_type, ' ', '')) IN
+                  ('music', 'audiobooks', 'audiobook', 'audio', 'movie', 'movies', 'film', 'films',
+                   'tv', 'television', 'tvepisode', 'episode')
             GROUP BY w.id, ma.id
             ORDER BY ma.presented_at IS NULL, ma.presented_at DESC, ma.file_path_root
             LIMIT 1;
@@ -507,6 +540,12 @@ public sealed class PlayerService
             Artist = row.Artist,
             Narrator = row.Narrator,
             Series = row.Series,
+            Year = row.Year,
+            ContentRating = row.ContentRating,
+            SeasonNumber = row.SeasonNumber,
+            EpisodeNumber = row.EpisodeNumber,
+            EpisodeTitle = row.EpisodeTitle,
+            Quality = row.Quality,
             CoverUrl = row.AssetId.HasValue ? $"/stream/{row.AssetId.Value}/cover" : null,
             DurationSeconds = TryParseDurationSeconds(row.Duration),
             StreamUrl = row.AssetId.HasValue ? $"/stream/{row.AssetId.Value}" : null,
@@ -777,9 +816,13 @@ public sealed class PlayerService
             return;
         }
 
-        if (items.Any(item => IsAudiobook(item.MediaType)) && items.Any(item => IsMusic(item.MediaType)))
+        var experiences = items
+            .Select(item => ExperienceFor(item.MediaType))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (experiences.Count > 1)
         {
-            throw new InvalidOperationException("Music and audiobooks cannot share one player queue.");
+            throw new InvalidOperationException("Music, audiobooks, and video cannot share one player queue.");
         }
 
         if (items.Count(item => IsAudiobook(item.MediaType)) > 1)
@@ -790,9 +833,9 @@ public sealed class PlayerService
 
     private static void ValidateQueueAddition(IReadOnlyList<PlayerQueueItemDto> items)
     {
-        if (items.Any(item => IsAudiobook(item.MediaType)))
+        if (items.Any(item => IsAudiobook(item.MediaType) || IsVideo(item.MediaType)))
         {
-            throw new InvalidOperationException("Audiobooks play one title at a time. Use queue replacement to start an audiobook.");
+            throw new InvalidOperationException("Audiobooks and video use scoped queue replacement. Only music can be appended to the active queue.");
         }
     }
 
@@ -876,9 +919,15 @@ public sealed class PlayerService
     }
 
     private static string ExperienceFor(IReadOnlyList<PlayerQueueItemDto> queue) =>
-        queue.Any(item => IsAudiobook(item.MediaType))
+        queue.Select(item => ExperienceFor(item.MediaType)).FirstOrDefault()
+        ?? PlayerExperienceModes.Music;
+
+    private static string ExperienceFor(string? mediaType) =>
+        IsAudiobook(mediaType)
             ? PlayerExperienceModes.Audiobook
-            : PlayerExperienceModes.Music;
+            : IsVideo(mediaType)
+                ? PlayerExperienceModes.Video
+                : PlayerExperienceModes.Music;
 
     private static bool IsAudiobook(string? mediaType) =>
         mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true
@@ -886,6 +935,14 @@ public sealed class PlayerService
 
     private static bool IsMusic(string? mediaType) =>
         mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsVideo(string? mediaType) =>
+        mediaType?.Contains("movie", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("film", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("video", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("television", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("episode", StringComparison.OrdinalIgnoreCase) == true;
 
     private static double CalculateProgress(double? positionSeconds, double? durationSeconds)
     {
@@ -946,6 +1003,12 @@ public sealed class PlayerService
         public string? Artist { get; init; }
         public string? Narrator { get; init; }
         public string? Series { get; init; }
+        public string? Year { get; init; }
+        public string? ContentRating { get; init; }
+        public string? SeasonNumber { get; init; }
+        public string? EpisodeNumber { get; init; }
+        public string? EpisodeTitle { get; init; }
+        public string? Quality { get; init; }
         public string? Duration { get; init; }
     }
 }

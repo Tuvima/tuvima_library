@@ -36,11 +36,13 @@ public sealed class ProfileEndpointRouteTests
     public void ReadersAndPlayers_SaveProgressMetadataForOverviewStats()
     {
         var watchSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\WatchPlayerPage.razor"));
+        var videoHostSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Watch\VideoPlaybackHost.razor"));
+        var playerServiceSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Services\Playback\PlayerService.cs"));
         var readerSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\EpubReader.razor"));
 
-        Assert.Contains("[\"position_seconds\"]", watchSource, StringComparison.Ordinal);
-        Assert.Contains("[\"duration_seconds\"]", watchSource, StringComparison.Ordinal);
-        Assert.Contains("[\"media_kind\"] = \"video\"", watchSource, StringComparison.Ordinal);
+        Assert.Contains("Playback.PlayVideoAsync", watchSource, StringComparison.Ordinal);
+        Assert.Contains("Playback.ReportHeartbeatAsync", videoHostSource, StringComparison.Ordinal);
+        Assert.Contains("SaveResumeAsync(", playerServiceSource, StringComparison.Ordinal);
         Assert.Contains("[\"position_seconds\"]", readerSource, StringComparison.Ordinal);
         Assert.Contains("[\"media_kind\"] = \"reading\"", readerSource, StringComparison.Ordinal);
     }

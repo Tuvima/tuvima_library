@@ -386,7 +386,20 @@ body {
 }
 
 .listen-player {
-    border-top: 1px solid var(--app-border) !important;
+    border: 1px solid rgba(255, 255, 255, 0.24) !important;
+    border-radius: 20px !important;
+    background: rgba(6, 13, 27, 0.94) !important;
+    box-shadow: 0 20px 58px rgba(0, 0, 0, 0.46) !important;
+    backdrop-filter: blur(22px) !important;
+    -webkit-backdrop-filter: blur(22px) !important;
+}
+
+.listen-player-panel.listen-player-panel--lyrics {
+    border-color: rgba(255, 255, 255, 0.32) !important;
+    border-radius: 22px !important;
+    background:
+        radial-gradient(circle at 50% 56%, rgba(132, 83, 214, 0.11), transparent 42%),
+        rgba(12, 21, 38, 0.97) !important;
 }
 
 .listen-player-panel__header,
@@ -4013,6 +4026,68 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-overflow-menu__popover .mud-selected-item {
     color: var(--tl-accent-primary) !important;
     background: var(--tl-accent-primary-soft) !important;
+}
+
+@media (max-width: 720px) {
+    .listen-player {
+        position: relative !important;
+        min-height: 116px !important;
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        gap: 8px 10px !important;
+        padding: 10px 12px 12px !important;
+        border-radius: 16px !important;
+    }
+
+    .listen-player .listen-player__meta {
+        min-width: 0;
+        grid-column: 1;
+        grid-row: 1;
+        padding-right: 54px;
+    }
+
+    .listen-player .listen-player__thumb {
+        width: 52px !important;
+        height: 52px !important;
+    }
+
+    .listen-player .listen-player__copy {
+        min-width: 0;
+        max-width: 190px;
+    }
+
+    .listen-player .listen-player__transport {
+        grid-column: 1 / -1;
+        grid-row: 2;
+    }
+
+    .listen-player .listen-player__transport-line {
+        position: absolute;
+        top: 9px;
+        right: 50px;
+        width: auto;
+    }
+
+    .listen-player .listen-player__transport-line > .listen-player__mode-button,
+    .listen-player .listen-transport--bar > .listen-player__icon {
+        display: none !important;
+    }
+
+    .listen-player .listen-player__progress {
+        grid-template-columns: 2.7rem minmax(0, 1fr) 2.7rem;
+        gap: 6px;
+        font-size: 0.68rem;
+    }
+
+    .listen-player .listen-player__actions {
+        grid-column: 2;
+        grid-row: 1;
+        align-self: start;
+    }
+
+    .listen-player .listen-player__actions > :not(:last-child) {
+        display: none !important;
+    }
 }
 
 .app-native-select {

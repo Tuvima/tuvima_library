@@ -75,11 +75,14 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("StaleSessionWindow", serviceSource, StringComparison.Ordinal);
         Assert.Contains("position_seconds", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ProgressPct = Math.Clamp(progressPct, 0, 100)", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("LOWER(w.media_type) IN ('music', 'audiobooks', 'audiobook', 'audio')", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("'music', 'audiobooks', 'audiobook', 'audio',", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("'movie', 'movies', 'film', 'films'", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("'tv', 'television', 'tvepisode', 'episode'", serviceSource, StringComparison.Ordinal);
         Assert.Contains("PlayerQueueMutationItemDto", serviceSource, StringComparison.Ordinal);
         Assert.Contains("requested.PositionSeconds", serviceSource, StringComparison.Ordinal);
         Assert.Contains("StartIndex", serviceSource, StringComparison.Ordinal);
         Assert.Contains("PlayerExperienceModes.Audiobook", serviceSource, StringComparison.Ordinal);
+        Assert.Contains("PlayerExperienceModes.Video", serviceSource, StringComparison.Ordinal);
         Assert.Contains("TrackHeartbeatAsync", serviceSource, StringComparison.Ordinal);
     }
 

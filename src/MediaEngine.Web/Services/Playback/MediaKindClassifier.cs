@@ -34,15 +34,19 @@ public static class MediaKindClassifier
 
     public static bool IsMusic(string? mediaType) => Classify(mediaType) == PlaybackExperience.Music;
 
+    public static bool IsVideo(string? mediaType) => Classify(mediaType) == PlaybackExperience.Video;
+
     public static string ToPlayerExperienceString(PlaybackExperience experience) => experience switch
     {
         PlaybackExperience.Audiobook => PlayerExperienceModes.Audiobook,
+        PlaybackExperience.Video => PlayerExperienceModes.Video,
         _ => PlayerExperienceModes.Music,
     };
 
-    public static PlaybackExperience FromPlayerExperienceString(string? experience) =>
-        string.Equals(experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase)
-            ? PlaybackExperience.Audiobook
-            : PlaybackExperience.Music;
+    public static PlaybackExperience FromPlayerExperienceString(string? experience) => experience switch
+    {
+        var value when string.Equals(value, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase) => PlaybackExperience.Audiobook,
+        var value when string.Equals(value, PlayerExperienceModes.Video, StringComparison.OrdinalIgnoreCase) => PlaybackExperience.Video,
+        _ => PlaybackExperience.Music,
+    };
 }
-

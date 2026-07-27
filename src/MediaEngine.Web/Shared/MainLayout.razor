@@ -14,6 +14,7 @@
 @using MediaEngine.Web.Components.Listen
 @using MediaEngine.Web.Components.Search
 @using MediaEngine.Web.Components.Shared
+@using MediaEngine.Web.Components.Watch
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Resources
 @using Microsoft.Extensions.Localization
@@ -120,6 +121,7 @@
 </MudLayout>
 
 <ListenNowPlayingBar />
+<VideoPlaybackHost />
 
 @code {
     private UniversalSearchOverlay? _searchOverlay;

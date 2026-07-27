@@ -1789,6 +1789,52 @@ window.listenPlayback = (function () {
             } catch (error) {
                 console.debug("Audio playback rate was rejected.", error);
             }
+        },
+        toggleCaptions: function (element) {
+            if (!element || !element.textTracks || element.textTracks.length === 0) return false;
+            var shouldShow = true;
+            for (var index = 0; index < element.textTracks.length; index++) {
+                if (element.textTracks[index].mode === 'showing') {
+                    shouldShow = false;
+                    break;
+                }
+            }
+            for (var trackIndex = 0; trackIndex < element.textTracks.length; trackIndex++) {
+                element.textTracks[trackIndex].mode = shouldShow && trackIndex === 0 ? 'showing' : 'disabled';
+            }
+            return shouldShow;
+        },
+        toggleFullscreen: async function (element) {
+            if (!element) return false;
+            try {
+                if (document.fullscreenElement) {
+                    await document.exitFullscreen();
+                    return false;
+                }
+                if (typeof element.requestFullscreen === 'function') {
+                    await element.requestFullscreen();
+                    return true;
+                }
+            } catch (error) {
+                console.debug("Video fullscreen request was rejected.", error);
+            }
+            return false;
+        },
+        togglePictureInPicture: async function (element) {
+            if (!element || !document.pictureInPictureEnabled) return false;
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                    return false;
+                }
+                if (typeof element.requestPictureInPicture === 'function') {
+                    await element.requestPictureInPicture();
+                    return true;
+                }
+            } catch (error) {
+                console.debug("Video picture-in-picture request was rejected.", error);
+            }
+            return false;
         }
     };
 })();

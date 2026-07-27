@@ -17,8 +17,34 @@ public sealed record PlaybackManifestDto
     public IReadOnlyList<OfflineVariantDto> OfflineVariants { get; init; } = [];
     public PlaybackResumeDto? Resume { get; init; }
     public IReadOnlyList<PlaybackSegmentDto> Segments { get; init; } = [];
+    public PlaybackTechnicalInfoDto Technical { get; init; } = new();
     public IReadOnlyList<string> Warnings { get; init; } = [];
     public string? ConversionReason { get; init; }
+}
+
+public sealed record PlaybackTechnicalInfoDto
+{
+    public string? Container { get; init; }
+    public string? VideoCodec { get; init; }
+    public int? Width { get; init; }
+    public int? Height { get; init; }
+    public double? FrameRate { get; init; }
+    public string? AudioCodec { get; init; }
+    public int? AudioBitrateKbps { get; init; }
+    public int? SampleRateHz { get; init; }
+    public int? BitDepth { get; init; }
+    public int? Channels { get; init; }
+
+    public string? QualityLabel => Height switch
+    {
+        >= 2160 => "4K",
+        >= 1440 => "1440p",
+        >= 1080 => "1080p",
+        >= 720 => "720p",
+        >= 480 => "480p",
+        > 0 => $"{Height}p",
+        _ => null,
+    };
 }
 
 public sealed record ReaderManifestDto
@@ -244,6 +270,12 @@ public sealed record PlayerQueueItemDto
     public string? Artist { get; init; }
     public string? Narrator { get; init; }
     public string? Series { get; init; }
+    public string? Year { get; init; }
+    public string? ContentRating { get; init; }
+    public string? SeasonNumber { get; init; }
+    public string? EpisodeNumber { get; init; }
+    public string? EpisodeTitle { get; init; }
+    public string? Quality { get; init; }
     public string? CoverUrl { get; init; }
     public double? DurationSeconds { get; init; }
     public double? PositionSeconds { get; init; }
@@ -306,6 +338,12 @@ public sealed record PlayerQueueMutationItemDto
     public string? Artist { get; init; }
     public string? Narrator { get; init; }
     public string? Series { get; init; }
+    public string? Year { get; init; }
+    public string? ContentRating { get; init; }
+    public string? SeasonNumber { get; init; }
+    public string? EpisodeNumber { get; init; }
+    public string? EpisodeTitle { get; init; }
+    public string? Quality { get; init; }
     public string? CoverUrl { get; init; }
     public double? DurationSeconds { get; init; }
     public double? PositionSeconds { get; init; }
@@ -348,9 +386,14 @@ public sealed record PlayerCapabilitiesDto
     public bool CanShuffle { get; init; } = true;
     public bool CanRepeat { get; init; } = true;
     public bool CanUseChapters { get; init; } = true;
+    public bool CanUseCaptions { get; init; } = true;
+    public bool CanSelectAudioTrack { get; init; } = true;
+    public bool CanSelectQuality { get; init; } = true;
+    public bool CanUseFullscreen { get; init; } = true;
+    public bool CanUsePictureInPicture { get; init; } = true;
     public bool CanReorderQueue { get; init; } = true;
     public bool CanTakeover { get; init; } = true;
-    public IReadOnlyList<string> SupportedMediaTypes { get; init; } = ["Music", "Audiobooks"];
+    public IReadOnlyList<string> SupportedMediaTypes { get; init; } = ["Music", "Audiobooks", "Movie", "TV"];
     public IReadOnlyList<double> SupportedPlaybackRates { get; init; } = [0.5d, 0.75d, 1d, 1.25d, 1.5d, 2d];
     public IReadOnlyList<double> SupportedScanRates { get; init; } = [2d, 4d, 8d, 16d];
 }
@@ -569,6 +612,7 @@ public static class PlayerExperienceModes
 {
     public const string Music = "music";
     public const string Audiobook = "audiobook";
+    public const string Video = "video";
 }
 
 public static class PlayerRepeatModes

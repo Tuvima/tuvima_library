@@ -266,6 +266,73 @@ public sealed class PlaybackSessionControllerTests
     }
 
     [Fact]
+    public async Task PlayVideoAsync_UsesSharedSessionAndExpandsPersistentVideo()
+    {
+        var service = new PlaybackSessionController(null!, null!);
+        PlaybackTransportCommand? command = null;
+        service.TransportCommandRequested += next =>
+        {
+            command = next;
+            return Task.CompletedTask;
+        };
+        var video = CreateVideoItem("Inception", "stream://inception") with
+        {
+            InitialPositionSeconds = 3272,
+            Quality = "1080p",
+        };
+
+        await service.PlayVideoAsync(video, "Inception");
+
+        Assert.True(service.IsVideoMode);
+        Assert.True(service.IsVideoExpanded);
+        Assert.False(service.IsMusicMode);
+        Assert.False(service.IsAudiobookMode);
+        Assert.Single(service.Queue);
+        Assert.Equal(3272, service.CurrentTimeSeconds);
+        Assert.Equal(10, service.SkipBackSeconds);
+        Assert.Equal(30, service.SkipForwardSeconds);
+        Assert.Equal("1080p", service.CurrentItem?.Quality);
+        Assert.Equal("start", command?.Action);
+        Assert.Equal("stream://inception", command?.StreamUrl);
+    }
+
+    [Fact]
+    public async Task AddQueueItemAsync_Video_ReplacesMusicQueueInsteadOfAppending()
+    {
+        var service = new PlaybackSessionController(null!, null!);
+        await service.AddQueueItemAsync(CreateQueueItem("Current Song", "stream://song"));
+
+        await service.AddQueueItemAsync(CreateVideoItem("Inception", "stream://inception"));
+
+        Assert.True(service.IsVideoMode);
+        Assert.Single(service.Queue);
+        Assert.Equal("Inception", service.CurrentItem?.Title);
+        Assert.Single(service.History);
+        Assert.Equal("Current Song", service.History[0].Title);
+    }
+
+    [Fact]
+    public void RestoreState_RoundTripsExpandedVideoExperience()
+    {
+        var service = new PlaybackSessionController(null!, null!);
+        service.RestoreState(new ListenPlaybackSnapshot
+        {
+            Queue = [CreateVideoItem("The Expanse", "stream://episode")],
+            CurrentIndex = 0,
+            Experience = PlayerExperienceModes.Video,
+            IsVideoExpanded = true,
+            IsPlaying = true,
+        });
+
+        var snapshot = service.CreateSnapshot();
+
+        Assert.True(service.IsVideoMode);
+        Assert.True(service.IsVideoExpanded);
+        Assert.Equal(PlayerExperienceModes.Video, snapshot.Experience);
+        Assert.True(snapshot.IsVideoExpanded);
+    }
+
+    [Fact]
     public async Task PlayAudiobookAsync_NormalizesRelativeStreamUrlToEngineUrl()
     {
         var apiClient = new EngineApiClient(
@@ -382,6 +449,29 @@ public sealed class PlaybackSessionControllerTests
         Album = title,
         Duration = "11:32:00",
         StreamUrl = streamUrl,
+    };
+
+    private static ListenQueueItem CreateVideoItem(string title, string streamUrl) => new()
+    {
+        WorkId = Guid.NewGuid(),
+        AssetId = Guid.NewGuid(),
+        MediaType = "Movie",
+        Title = title,
+        Year = "2010",
+        Duration = "2:28:00",
+        StreamUrl = streamUrl,
+        Manifest = new PlaybackManifestDto
+        {
+            MediaType = "Movie",
+            DirectPlaySupported = true,
+            DirectStreamUrl = streamUrl,
+            Technical = new PlaybackTechnicalInfoDto
+            {
+                Width = 1920,
+                Height = 1080,
+                VideoCodec = "h264",
+            },
+        },
     };
 
     private sealed class PlayerSyncHandler : HttpMessageHandler

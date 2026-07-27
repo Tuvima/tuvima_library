@@ -322,11 +322,11 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetValue(values, \"video_quality\")", source);
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Rating)", source);
         Assert.Contains("FormatSeasonEpisode(detail.SeasonNumber, detail.EpisodeNumber)", source);
-        Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/resolve?workId={id}\"", source);
+        Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/{id}\"", source);
         Assert.Contains("SelectFirstOwnedTvEpisode", source);
         Assert.Contains("SelectInProgressTvEpisode", source);
         Assert.Contains("BuildTvShowWatchActions", source);
-        Assert.Contains("/watch/player/resolve?workId={episodeId:D}", source);
+        Assert.Contains("/watch/player/{episodeId:D}", source);
         Assert.Contains("var tvPlaybackEpisode = tvInProgressEpisode ??", source);
         Assert.Contains("var tvInProgressEpisode = entityType == DetailEntityType.TvShow", source);
         Assert.Contains("Tagline = entityType == DetailEntityType.TvShow", source);
@@ -384,7 +384,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("LEFT JOIN user_states us ON us.asset_id = ma.id", source);
         Assert.Contains("var verb = progress is null ? \"Watch\" : \"Resume\"", source);
         Assert.Contains("$\"{verb} {episodePosition}\"", source);
-        Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/resolve?workId={id}\"", source);
+        Assert.Contains("DetailEntityType.TvEpisode => BuildWatchActions($\"/watch/player/{id}\"", source);
         Assert.Contains("Key = \"restart\"", source);
         Assert.Contains("Continue watching", source);
         Assert.Contains("public ProgressViewModel? Progress { get; init; }", contracts);

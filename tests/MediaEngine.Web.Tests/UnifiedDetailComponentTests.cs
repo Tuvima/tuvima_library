@@ -1526,7 +1526,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions", hostCss);
         Assert.Contains("grid-template-columns: repeat(5, minmax(52px, 1fr)) !important;", hostCss);
         Assert.Contains("width: clamp(300px, 24vw, 350px) !important;", hostCss);
-        Assert.Contains("@@media (max-width: 1240px)", hostCss);
+        Assert.Contains("@media (max-width: 1240px)", hostCss);
         Assert.Contains("width: min(100%, 720px);", hostCss);
         Assert.Contains("grid-template-rows: 24px 10px 12px;", hostCss);
         Assert.Contains("min-height: 52px;", hostCss);

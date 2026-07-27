@@ -70,6 +70,7 @@ public sealed class PlaybackSessionController
     public string Experience { get; private set; } = PlayerExperienceModes.Music;
     public bool NeedsUserGestureToStart { get; private set; }
     public bool IsPopupOpen { get; private set; }
+    public bool IsVideoExpanded { get; private set; }
     public string? CurrentError { get; private set; }
     public int SkipBackSeconds { get; private set; }
     public int SkipForwardSeconds { get; private set; }
@@ -95,8 +96,10 @@ public sealed class PlaybackSessionController
 
     public string? CurrentStreamUrl => CurrentItem?.StreamUrl;
     public string? CurrentBrowserStreamUrl => ToDashboardDirectStreamUrl(CurrentStreamUrl) ?? CurrentStreamUrl;
+    public PlaybackManifestDto? CurrentManifest => CurrentItem?.Manifest;
     public bool IsAudiobookMode => string.Equals(Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase);
-    public bool IsMusicMode => !IsAudiobookMode;
+    public bool IsMusicMode => string.Equals(Experience, PlayerExperienceModes.Music, StringComparison.OrdinalIgnoreCase);
+    public bool IsVideoMode => string.Equals(Experience, PlayerExperienceModes.Video, StringComparison.OrdinalIgnoreCase);
     public PlaybackClientContext ClientContext => _clientContext;
     public ListenPlaybackClientSettings ClientSettings => _clientSettings;
     public PlaybackPhase Phase => _stateMachine.Phase;
@@ -126,6 +129,7 @@ public sealed class PlaybackSessionController
         Phase = Phase,
         NeedsUserGestureToStart = NeedsUserGestureToStart,
         IsPopupOpen = IsPopupOpen,
+        IsVideoExpanded = IsVideoExpanded,
         CurrentError = CurrentError,
         SkipBackSeconds = SkipBackSeconds,
         SkipForwardSeconds = SkipForwardSeconds,
@@ -273,12 +277,26 @@ public sealed class PlaybackSessionController
     }
 
     public Task PlayQueueItemAsync(ListenQueueItem item, string? sourceLabel = null, CancellationToken ct = default)
-        => MediaKindClassifier.IsAudiobook(item.MediaType)
-            ? PlayAudiobookAsync(item, sourceLabel, ct)
-            : PlayQueueItemCoreAsync(item, sourceLabel, ct);
+        => MediaKindClassifier.Classify(item.MediaType) switch
+        {
+            PlaybackExperience.Audiobook => PlayAudiobookAsync(item, sourceLabel, ct),
+            PlaybackExperience.Video => PlayVideoAsync(item, sourceLabel, ct),
+            _ => PlayQueueItemCoreAsync(item, sourceLabel, ct),
+        };
 
     public Task PlayAudiobookAsync(ListenQueueItem item, string? sourceLabel = null, CancellationToken ct = default)
         => StartAudiobookAsync(new AudiobookStartRequest(item, AudiobookStartKinds.Resume, item.InitialPositionSeconds, item.ChapterIndex, sourceLabel), ct);
+
+    public async Task PlayVideoAsync(ListenQueueItem item, string? sourceLabel = null, CancellationToken ct = default)
+    {
+        if (!MediaKindClassifier.IsVideo(item.MediaType))
+        {
+            throw new ArgumentException("The queue item is not a video.", nameof(item));
+        }
+
+        await PlayQueueItemCoreAsync(item, sourceLabel, ct);
+        SetVideoExpanded(true);
+    }
 
     public Task StartAudiobookAsync(AudiobookStartRequest request, CancellationToken ct = default)
     {
@@ -350,6 +368,7 @@ public sealed class PlaybackSessionController
         CurrentIndex = 0;
         SourceLabel = sourceLabel ?? item.Album ?? item.Title;
         Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(item.MediaType));
+        ApplyExperienceSettings(await PlaybackSettingsAsync(ct));
         IsDismissed = false;
         CurrentTimeSeconds = await InitialPositionForAsync(item, ct);
         DurationSeconds = 0;
@@ -405,11 +424,23 @@ public sealed class PlaybackSessionController
             return;
         }
 
+        var queueExperiences = items
+            .Select(item => MediaKindClassifier.Classify(item.MediaType))
+            .Distinct()
+            .ToList();
+        if (queueExperiences.Count > 1)
+        {
+            items = [items[Math.Clamp(startIndex, 0, items.Count - 1)]];
+            startIndex = 0;
+            shuffle = false;
+        }
+
         if (items.Any(item => MediaKindClassifier.IsAudiobook(item.MediaType)))
         {
+            var selected = items[Math.Clamp(startIndex, 0, items.Count - 1)];
             items =
             [
-                items[Math.Clamp(startIndex, 0, items.Count - 1)] with
+                selected with
                 {
                     MediaType = "Audiobooks",
                     AudiobookStartKind = AudiobookStartKinds.Resume,
@@ -434,6 +465,7 @@ public sealed class PlaybackSessionController
         CurrentIndex = Math.Clamp(startIndex, 0, _queue.Count - 1);
         SourceLabel = sourceLabel;
         Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(_queue[CurrentIndex].MediaType));
+        ApplyExperienceSettings(await PlaybackSettingsAsync(ct));
         _currentAudiobookStartKind = MediaKindClassifier.IsAudiobook(_queue[CurrentIndex].MediaType)
             ? NormalizeAudiobookStartKind(_queue[CurrentIndex].AudiobookStartKind)
             : null;
@@ -475,6 +507,7 @@ public sealed class PlaybackSessionController
             CurrentIndex = 0;
             SourceLabel = work.Album ?? work.Title;
             Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(item.MediaType));
+            ApplyExperienceSettings(await PlaybackSettingsAsync(ct));
             _currentAudiobookStartKind = MediaKindClassifier.IsAudiobook(item.MediaType)
                 ? NormalizeAudiobookStartKind(item.AudiobookStartKind)
                 : null;
@@ -510,6 +543,11 @@ public sealed class PlaybackSessionController
             await PlayAudiobookAsync(item, item.Album ?? item.Title, ct);
             return;
         }
+        if (MediaKindClassifier.IsVideo(item.MediaType))
+        {
+            await PlayVideoAsync(item, item.Album ?? item.Title, ct);
+            return;
+        }
 
         var insertIndex = Math.Clamp(CurrentIndex + 1, 0, _queue.Count);
         _queue.Insert(insertIndex, item);
@@ -534,6 +572,7 @@ public sealed class PlaybackSessionController
             CurrentIndex = 0;
             SourceLabel = item.Album ?? item.Title;
             Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(item.MediaType));
+            ApplyExperienceSettings(await PlaybackSettingsAsync(ct));
             IsDismissed = false;
             IsPlaying = true;
             NeedsUserGestureToStart = false;
@@ -558,6 +597,11 @@ public sealed class PlaybackSessionController
         if (MediaKindClassifier.IsAudiobook(item.MediaType))
         {
             await PlayAudiobookAsync(item, item.Album ?? item.Title, ct);
+            return;
+        }
+        if (MediaKindClassifier.IsVideo(item.MediaType))
+        {
+            await PlayVideoAsync(item, item.Album ?? item.Title, ct);
             return;
         }
 
@@ -591,6 +635,7 @@ public sealed class PlaybackSessionController
 
         CurrentIndex = index;
         Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(_queue[CurrentIndex].MediaType));
+        ApplyExperienceSettings(await PlaybackSettingsAsync(ct));
         CurrentTimeSeconds = await InitialPositionForAsync(_queue[CurrentIndex], ct);
         DurationSeconds = 0;
         PlaybackRate = await InitialPlaybackRateForAsync(_queue[CurrentIndex], ct);
@@ -632,6 +677,7 @@ public sealed class PlaybackSessionController
 
         CurrentIndex--;
         Experience = MediaKindClassifier.ToPlayerExperienceString(MediaKindClassifier.Classify(_queue[CurrentIndex].MediaType));
+        ApplyExperienceSettings(await PlaybackSettingsAsync(ct));
         CurrentTimeSeconds = await InitialPositionForAsync(_queue[CurrentIndex], ct);
         DurationSeconds = 0;
         PlaybackRate = await InitialPlaybackRateForAsync(_queue[CurrentIndex], ct);
@@ -917,13 +963,15 @@ public sealed class PlaybackSessionController
     public async Task SkipBackAsync(CancellationToken ct = default)
     {
         var settings = await PlaybackSettingsAsync(ct);
-        await SeekRelativeAsync(-settings.Listening.SkipBackSeconds, ct);
+        var seconds = IsVideoMode ? settings.Watching.SkipBackSeconds : settings.Listening.SkipBackSeconds;
+        await SeekRelativeAsync(-seconds, ct);
     }
 
     public async Task SkipForwardAsync(CancellationToken ct = default)
     {
         var settings = await PlaybackSettingsAsync(ct);
-        await SeekRelativeAsync(settings.Listening.SkipForwardSeconds, ct);
+        var seconds = IsVideoMode ? settings.Watching.SkipForwardSeconds : settings.Listening.SkipForwardSeconds;
+        await SeekRelativeAsync(seconds, ct);
     }
 
     public async Task SeekRelativeAsync(double deltaSeconds, CancellationToken ct = default)
@@ -1226,7 +1274,7 @@ public sealed class PlaybackSessionController
         _stateMachine.Transition(PlaybackCommandKind.MarkNeedsUserGestureToStart);
         NeedsUserGestureToStart = true;
         IsPlaying = false;
-        CurrentError = "Tap play to start this audio source.";
+        CurrentError = "Tap play to start this source.";
         NotifyChanged();
     }
 
@@ -1248,6 +1296,17 @@ public sealed class PlaybackSessionController
 
         IsPopupOpen = isOpen;
         NotifyChanged();
+    }
+
+    public void SetVideoExpanded(bool isExpanded)
+    {
+        if (!IsVideoMode || IsVideoExpanded == isExpanded)
+        {
+            return;
+        }
+
+        IsVideoExpanded = isExpanded;
+        NotifyChanged(PlaybackChangeKind.Video);
     }
 
     public void ClosePlayer()
@@ -1275,6 +1334,7 @@ public sealed class PlaybackSessionController
         NeedsUserGestureToStart = false;
         IsPlaying = false;
         IsPopupOpen = false;
+        IsVideoExpanded = false;
         CurrentError = null;
         _stateMachine.SetIdle();
         PlaybackStartVersion++;
@@ -1313,15 +1373,15 @@ public sealed class PlaybackSessionController
         PlaybackRate = snapshot.PlaybackRate is >= 0.5d and <= 32d ? snapshot.PlaybackRate : 1d;
         ShuffleEnabled = snapshot.ShuffleEnabled;
         RepeatMode = NormalizeRepeatMode(snapshot.RepeatMode);
-        Experience = string.Equals(snapshot.Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase)
-            ? PlayerExperienceModes.Audiobook
-            : PlayerExperienceModes.Music;
+        Experience = MediaKindClassifier.ToPlayerExperienceString(
+            MediaKindClassifier.FromPlayerExperienceString(snapshot.Experience));
         _currentAudiobookStartKind = IsAudiobookMode
             ? NormalizeAudiobookStartKind(CurrentItem?.AudiobookStartKind)
             : null;
         NeedsUserGestureToStart = snapshot.NeedsUserGestureToStart;
         IsPlaying = snapshot.IsPlaying && _queue.Count > 0;
         IsPopupOpen = snapshot.IsPopupOpen;
+        IsVideoExpanded = snapshot.IsVideoExpanded && IsVideoMode;
         CurrentError = snapshot.CurrentError;
         _stateMachine.SetTransportState(IsPlaying, NeedsUserGestureToStart, CurrentError);
         SkipBackSeconds = snapshot.SkipBackSeconds > 0 ? snapshot.SkipBackSeconds : 15;
@@ -1367,6 +1427,7 @@ public sealed class PlaybackSessionController
         NeedsUserGestureToStart = NeedsUserGestureToStart,
         IsPlaying = IsPlaying,
         IsPopupOpen = IsPopupOpen,
+        IsVideoExpanded = IsVideoExpanded,
         CurrentError = CurrentError,
         SkipBackSeconds = SkipBackSeconds,
         SkipForwardSeconds = SkipForwardSeconds,
@@ -1413,7 +1474,9 @@ public sealed class PlaybackSessionController
                 item = _queue[index];
             }
 
-            if (!MediaKindClassifier.IsAudiobook(item.MediaType) || item.Chapters.Count > 0)
+            if (MediaKindClassifier.IsMusic(item.MediaType)
+                || (MediaKindClassifier.IsAudiobook(item.MediaType) && item.Chapters.Count > 0)
+                || (MediaKindClassifier.IsVideo(item.MediaType) && item.Manifest is not null))
             {
                 return;
             }
@@ -1432,17 +1495,17 @@ public sealed class PlaybackSessionController
 
         if (!assetId.HasValue)
         {
-            MarkCurrentFailed("No playable audio file could be resolved for this item.");
+            MarkCurrentFailed("No playable file could be resolved for this item.");
             return;
         }
 
         var settings = _preferences is null ? null : await _preferences.GetAsync(ct);
         var profileId = settings?.ProfileId == Guid.Empty ? null : settings?.ProfileId;
         var manifest = await _apiClient.GetPlaybackManifestAsync(assetId.Value, _clientContext.Client, profileId, ct);
-        var streamUrl = manifest?.DirectStreamUrl;
+        var streamUrl = manifest?.DirectStreamUrl ?? item.StreamUrl;
         if (string.IsNullOrWhiteSpace(streamUrl))
         {
-            MarkCurrentFailed("The Engine did not return a playable audio stream for this item.");
+            MarkCurrentFailed("The Engine did not return a playable stream for this item.");
             return;
         }
 
@@ -1451,6 +1514,8 @@ public sealed class PlaybackSessionController
             AssetId = assetId,
             StreamUrl = NormalizeStreamUrl(streamUrl),
             Chapters = NormalizeChapters(manifest?.Chapters ?? []),
+            Manifest = manifest,
+            Quality = item.Quality ?? manifest?.Technical?.QualityLabel,
         };
         double? manifestDuration = manifest?.Chapters
             .Where(chapter => chapter.EndSeconds.HasValue)
@@ -1599,6 +1664,12 @@ public sealed class PlaybackSessionController
             DurationSeconds = ResolveQueueDurationSeconds(item),
             PositionSeconds = item.InitialPositionSeconds,
             StreamUrl = item.StreamUrl,
+            Year = item.Year,
+            ContentRating = item.ContentRating,
+            SeasonNumber = item.SeasonNumber,
+            EpisodeNumber = item.EpisodeNumber,
+            EpisodeTitle = item.EpisodeTitle,
+            Quality = item.Quality,
         };
 
     private static double? ResolveQueueDurationSeconds(ListenQueueItem item)
@@ -1632,12 +1703,17 @@ public sealed class PlaybackSessionController
 
     private async Task<double> InitialPlaybackRateForAsync(ListenQueueItem item, CancellationToken ct)
     {
-        if (!MediaKindClassifier.IsAudiobook(item.MediaType))
+        if (MediaKindClassifier.IsMusic(item.MediaType))
         {
             return 1d;
         }
 
         var settings = await PlaybackSettingsAsync(ct);
+        if (MediaKindClassifier.IsVideo(item.MediaType))
+        {
+            return Math.Clamp((double)settings.Watching.DefaultPlaybackSpeed, 0.5d, 3d);
+        }
+
         return Math.Clamp((double)settings.Listening.AudiobookDefaultSpeed, 0.5d, 3d);
     }
 
@@ -1646,12 +1722,12 @@ public sealed class PlaybackSessionController
         if (_preferences is null)
         {
             var defaults = UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
-            ApplyListeningSettings(defaults.Listening);
+            ApplyExperienceSettings(defaults);
             return defaults;
         }
 
         var settings = await _preferences.GetAsync(ct) ?? UserPlaybackSettingsDto.CreateDefaults(Guid.Empty);
-        ApplyListeningSettings(settings.Listening);
+        ApplyExperienceSettings(settings);
         return settings;
     }
 
@@ -1663,6 +1739,18 @@ public sealed class PlaybackSessionController
         AudiobookNearStartGuardSeconds = settings.AudiobookNearStartGuardSeconds;
         SleepTimerOptionsMinutes = NormalizeSleepTimerOptions(settings.SleepTimerOptionsMinutes);
         AllowEndOfChapterSleepTimer = settings.AllowEndOfChapterSleepTimer;
+    }
+
+    private void ApplyExperienceSettings(UserPlaybackSettingsDto settings)
+    {
+        if (IsVideoMode)
+        {
+            SkipBackSeconds = settings.Watching.SkipBackSeconds;
+            SkipForwardSeconds = settings.Watching.SkipForwardSeconds;
+            return;
+        }
+
+        ApplyListeningSettings(settings.Listening);
     }
 
     private async Task<List<double>> SupportedPlaybackRatesAsync(CancellationToken ct)
@@ -1710,9 +1798,8 @@ public sealed class PlaybackSessionController
             return;
         }
 
-        Experience = string.Equals(state.Experience, PlayerExperienceModes.Audiobook, StringComparison.OrdinalIgnoreCase)
-            ? PlayerExperienceModes.Audiobook
-            : PlayerExperienceModes.Music;
+        Experience = MediaKindClassifier.ToPlayerExperienceString(
+            MediaKindClassifier.FromPlayerExperienceString(state.Experience));
         PlaybackRate = state.PlaybackRate is >= 0.5d and <= 32d ? state.PlaybackRate : PlaybackRate;
         ShuffleEnabled = state.ShuffleEnabled;
         RepeatMode = NormalizeRepeatMode(state.RepeatMode);

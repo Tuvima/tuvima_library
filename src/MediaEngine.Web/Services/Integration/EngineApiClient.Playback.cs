@@ -56,6 +56,30 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public Task<PlayerStateDto?> GetPlayerStateAsync(
+        Guid? profileId = null,
+        string? deviceId = null,
+        string client = "web",
+        CancellationToken ct = default) =>
+        GetAsync<PlayerStateDto?>(
+            "GET /player/state",
+            "/player/state",
+            () => null,
+            new Dictionary<string, string?>
+            {
+                ["profileId"] = profileId?.ToString("D"),
+                ["deviceId"] = deviceId,
+                ["client"] = string.IsNullOrWhiteSpace(client) ? "web" : client,
+            },
+            ct: ct);
+
+    public Task<PlayerCapabilitiesDto?> GetPlayerCapabilitiesAsync(CancellationToken ct = default) =>
+        GetAsync<PlayerCapabilitiesDto?>(
+            "GET /player/capabilities",
+            "/player/capabilities",
+            () => null,
+            ct: ct);
+
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default) =>
         PostAsync<PlayerQueueMutationDto, PlayerStateDto>("POST /player/queue/replace", "/player/queue/replace", request, ct: ct);
@@ -72,6 +96,9 @@ public sealed partial class EngineApiClient
     // Migrated to the shared PostAsync<TReq,TRes> helper (stage 5B wave 1 proof).
     public Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default) =>
         PostAsync<PlayerHeartbeatDto, PlayerStateDto>("POST /player/heartbeat", "/player/heartbeat", request, ct: ct);
+
+    public Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default) =>
+        PostAsync<PlayerSessionTakeoverRequestDto, PlayerStateDto>("POST /player/session/takeover", "/player/session/takeover", request, ct: ct);
 
     // Migrated to the shared GetAsync<T> fallback-overload helper (stage 5B wave 2).
     public Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default) =>

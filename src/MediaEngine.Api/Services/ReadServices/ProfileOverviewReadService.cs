@@ -289,7 +289,7 @@ public sealed class ProfileOverviewReadService(
 
         if (normalized.Contains("movie") || normalized.Contains("show") || normalized.Contains("tv") || normalized.Contains("episode") || normalized.Contains("video"))
         {
-            return $"/watch/player/{assetId}";
+            return $"/watch/player/{workId}";
         }
 
         return null;

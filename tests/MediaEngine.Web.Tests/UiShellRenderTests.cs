@@ -699,7 +699,7 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("listen-player-shell--listen-route", hostSource, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-player-shell--listen-route {", hostCss, StringComparison.Ordinal);
         Assert.Contains("position: fixed", hostCss, StringComparison.Ordinal);
-        Assert.Contains("bottom: 0", hostCss, StringComparison.Ordinal);
+        Assert.Contains("bottom: 18px", hostCss, StringComparison.Ordinal);
     }
 
     [Fact]

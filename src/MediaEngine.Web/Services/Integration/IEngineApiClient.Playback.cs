@@ -15,6 +15,10 @@ public partial interface IEngineApiClient
 {
     Task<PlaybackManifestDto?> GetPlaybackManifestAsync(Guid assetId, string client = "web", Guid? profileId = null, CancellationToken ct = default);
 
+    Task<PlayerStateDto?> GetPlayerStateAsync(Guid? profileId = null, string? deviceId = null, string client = "web", CancellationToken ct = default);
+
+    Task<PlayerCapabilitiesDto?> GetPlayerCapabilitiesAsync(CancellationToken ct = default);
+
     Task<PlayerStateDto?> ReplacePlayerQueueAsync(PlayerQueueMutationDto request, CancellationToken ct = default);
 
     Task<PlayerStateDto?> AddPlayerQueueItemsAsync(PlayerQueueMutationDto request, CancellationToken ct = default);
@@ -22,6 +26,8 @@ public partial interface IEngineApiClient
     Task<PlayerStateDto?> SendPlayerCommandAsync(PlayerCommandRequestDto request, CancellationToken ct = default);
 
     Task<PlayerStateDto?> PostPlayerHeartbeatAsync(PlayerHeartbeatDto request, CancellationToken ct = default);
+
+    Task<PlayerStateDto?> TakeOverPlayerSessionAsync(PlayerSessionTakeoverRequestDto request, CancellationToken ct = default);
 
     Task<IReadOnlyList<AudiobookListenHistoryItemDto>> GetAudiobookListenHistoryAsync(Guid workId, Guid? profileId = null, int limit = 25, CancellationToken ct = default);
 

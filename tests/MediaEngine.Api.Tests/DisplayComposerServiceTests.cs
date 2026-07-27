@@ -482,7 +482,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("/art/severance-show.jpg", page.Hero.Artwork.BackgroundUrl);
         Assert.DoesNotContain("/art/episode-still.jpg", new[] { page.Hero.Artwork.BackgroundUrl, page.Hero.Artwork.BannerUrl });
         Assert.Equal("Resume S1 E1", page.Hero.Progress?.ResumeAction?.Label);
-        Assert.Equal($"/watch/player/resolve?workId={episodeId:D}", page.Hero.Progress?.ResumeAction?.WebUrl);
+        Assert.Equal($"/watch/player/{episodeId:D}", page.Hero.Progress?.ResumeAction?.WebUrl);
     }
 
     [Fact]
@@ -765,7 +765,7 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("/episodes/pilot-still.jpg", continueCard.Artwork.BackgroundUrl);
         Assert.Equal("Continue · S5 E1", continueCard.Subtitle);
         Assert.Equal("Resume S5 E1", continueCard.Actions[0].Label);
-        Assert.Equal($"/watch/player/resolve?workId={firstEpisode:D}", continueCard.Actions[0].WebUrl);
+        Assert.Equal($"/watch/player/{firstEpisode:D}", continueCard.Actions[0].WebUrl);
         Assert.Equal($"/details/work/{firstEpisode:D}?context=watch", continueCard.Actions[1].WebUrl);
 
         Assert.Single(page.Catalog, card => card.Title == "Severance");

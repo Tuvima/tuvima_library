@@ -3334,6 +3334,7 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackManifestDt
   OfflineVariants: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.OfflineVariantDto> | nullability=not-null | accessors=get,init
   Resume: MediaEngine.Contracts.Playback.PlaybackResumeDto | nullability=nullable | accessors=get,init
   Segments: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.PlaybackSegmentDto> | nullability=not-null | accessors=get,init
+  Technical: MediaEngine.Contracts.Playback.PlaybackTechnicalInfoDto | nullability=not-null | accessors=get,init
   Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   ConversionReason: System.String | nullability=nullable | accessors=get,init
 
@@ -3380,6 +3381,19 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackSubtitleTr
   IsForced: System.Boolean | nullability=not-null | accessors=get,init
   DeliveryUrl: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackTechnicalInfoDto
+  Container: System.String | nullability=nullable | accessors=get,init
+  VideoCodec: System.String | nullability=nullable | accessors=get,init
+  Width: System.Int32? | nullability=nullable | accessors=get,init
+  Height: System.Int32? | nullability=nullable | accessors=get,init
+  FrameRate: System.Double? | nullability=nullable | accessors=get,init
+  AudioCodec: System.String | nullability=nullable | accessors=get,init
+  AudioBitrateKbps: System.Int32? | nullability=nullable | accessors=get,init
+  SampleRateHz: System.Int32? | nullability=nullable | accessors=get,init
+  BitDepth: System.Int32? | nullability=nullable | accessors=get,init
+  Channels: System.Int32? | nullability=nullable | accessors=get,init
+  QualityLabel: System.String | nullability=nullable | accessors=get
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackTrackDto
   Index: System.Int32 | nullability=not-null | accessors=get,init
   Kind: System.String | nullability=not-null | accessors=get,init
@@ -3403,6 +3417,11 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerCapabilities
   CanShuffle: System.Boolean | nullability=not-null | accessors=get,init
   CanRepeat: System.Boolean | nullability=not-null | accessors=get,init
   CanUseChapters: System.Boolean | nullability=not-null | accessors=get,init
+  CanUseCaptions: System.Boolean | nullability=not-null | accessors=get,init
+  CanSelectAudioTrack: System.Boolean | nullability=not-null | accessors=get,init
+  CanSelectQuality: System.Boolean | nullability=not-null | accessors=get,init
+  CanUseFullscreen: System.Boolean | nullability=not-null | accessors=get,init
+  CanUsePictureInPicture: System.Boolean | nullability=not-null | accessors=get,init
   CanReorderQueue: System.Boolean | nullability=not-null | accessors=get,init
   CanTakeover: System.Boolean | nullability=not-null | accessors=get,init
   SupportedMediaTypes: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
@@ -3464,6 +3483,12 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueItemDto
   Artist: System.String | nullability=nullable | accessors=get,init
   Narrator: System.String | nullability=nullable | accessors=get,init
   Series: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  ContentRating: System.String | nullability=nullable | accessors=get,init
+  SeasonNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeTitle: System.String | nullability=nullable | accessors=get,init
+  Quality: System.String | nullability=nullable | accessors=get,init
   CoverUrl: System.String | nullability=nullable | accessors=get,init
   DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
   PositionSeconds: System.Double? | nullability=nullable | accessors=get,init
@@ -3503,6 +3528,12 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlayerQueueMutatio
   Artist: System.String | nullability=nullable | accessors=get,init
   Narrator: System.String | nullability=nullable | accessors=get,init
   Series: System.String | nullability=nullable | accessors=get,init
+  Year: System.String | nullability=nullable | accessors=get,init
+  ContentRating: System.String | nullability=nullable | accessors=get,init
+  SeasonNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeNumber: System.String | nullability=nullable | accessors=get,init
+  EpisodeTitle: System.String | nullability=nullable | accessors=get,init
+  Quality: System.String | nullability=nullable | accessors=get,init
   CoverUrl: System.String | nullability=nullable | accessors=get,init
   DurationSeconds: System.Double? | nullability=nullable | accessors=get,init
   PositionSeconds: System.Double? | nullability=nullable | accessors=get,init

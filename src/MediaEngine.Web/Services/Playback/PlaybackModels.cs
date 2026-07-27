@@ -32,6 +32,7 @@ public enum PlaybackChangeKind
     TransportState,
     Ui,
     Audiobook,
+    Video,
     Error,
 }
 
@@ -163,6 +164,7 @@ public sealed record PlaybackSessionState
     public PlaybackPhase Phase { get; init; } = PlaybackPhase.Idle;
     public bool NeedsUserGestureToStart { get; init; }
     public bool IsPopupOpen { get; init; }
+    public bool IsVideoExpanded { get; init; }
     public string? CurrentError { get; init; }
     public int SkipBackSeconds { get; init; }
     public int SkipForwardSeconds { get; init; }
@@ -181,6 +183,7 @@ public sealed record PlaybackSessionState
     public bool HasQueue => Queue.Count > 0 && !IsDismissed;
     public bool IsAudiobookMode => Experience == PlaybackExperience.Audiobook;
     public bool IsMusicMode => Experience == PlaybackExperience.Music;
+    public bool IsVideoMode => Experience == PlaybackExperience.Video;
     public string ExperienceMode => MediaKindClassifier.ToPlayerExperienceString(Experience);
 }
 
@@ -228,6 +231,24 @@ public sealed record ListenQueueItem
     [JsonPropertyName("album")]
     public string? Album { get; init; }
 
+    [JsonPropertyName("year")]
+    public string? Year { get; init; }
+
+    [JsonPropertyName("content_rating")]
+    public string? ContentRating { get; init; }
+
+    [JsonPropertyName("season_number")]
+    public string? SeasonNumber { get; init; }
+
+    [JsonPropertyName("episode_number")]
+    public string? EpisodeNumber { get; init; }
+
+    [JsonPropertyName("episode_title")]
+    public string? EpisodeTitle { get; init; }
+
+    [JsonPropertyName("quality")]
+    public string? Quality { get; init; }
+
     [JsonPropertyName("cover_url")]
     public string? CoverUrl { get; init; }
 
@@ -245,6 +266,9 @@ public sealed record ListenQueueItem
 
     [JsonPropertyName("chapters")]
     public IReadOnlyList<PlaybackChapterDto> Chapters { get; init; } = [];
+
+    [JsonPropertyName("manifest")]
+    public PlaybackManifestDto? Manifest { get; init; }
 
     [JsonPropertyName("chapter_index")]
     public int? ChapterIndex { get; init; }
@@ -325,6 +349,9 @@ public sealed record ListenPlaybackSnapshot
 
     [JsonPropertyName("is_popup_open")]
     public bool IsPopupOpen { get; init; }
+
+    [JsonPropertyName("is_video_expanded")]
+    public bool IsVideoExpanded { get; init; }
 
     [JsonPropertyName("current_error")]
     public string? CurrentError { get; init; }

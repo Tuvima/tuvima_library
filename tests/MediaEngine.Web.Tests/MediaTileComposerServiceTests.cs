@@ -422,7 +422,7 @@ public sealed class MediaTileComposerServiceTests
             Progress: null,
             Actions:
             [
-                new DisplayActionDto("playAsset", "Resume S1 E3", episodeId, WebUrl: $"/watch/player/resolve?workId={episodeId:D}"),
+                new DisplayActionDto("playAsset", "Resume S1 E3", episodeId, WebUrl: $"/watch/player/{episodeId:D}"),
                 new DisplayActionDto("openWork", "Details", episodeId, WebUrl: $"/watch/tv/show/{Guid.NewGuid():D}?episode={episodeId:D}"),
             ],
             Flags: new DisplayCardFlagsDto(true, false, true, false, false),

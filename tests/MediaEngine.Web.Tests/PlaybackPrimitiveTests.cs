@@ -210,7 +210,7 @@ public sealed class PlaybackPrimitiveTests
         Assert.Contains(".listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions", barStyles, StringComparison.Ordinal);
         Assert.Contains("grid-template-columns: repeat(5, minmax(52px, 1fr)) !important;", barStyles, StringComparison.Ordinal);
         Assert.Contains("width: clamp(300px, 24vw, 350px) !important;", barStyles, StringComparison.Ordinal);
-        Assert.Contains("@@media (max-width: 1240px)", barStyles, StringComparison.Ordinal);
+        Assert.Contains("@media (max-width: 1240px)", barStyles, StringComparison.Ordinal);
         Assert.Contains("width: min(100%, 720px);", barStyles, StringComparison.Ordinal);
         Assert.Contains("grid-template-rows: 24px 10px 12px;", barStyles, StringComparison.Ordinal);
         Assert.Contains("min-height: 52px;", barStyles, StringComparison.Ordinal);
