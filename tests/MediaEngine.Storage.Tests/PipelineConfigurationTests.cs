@@ -103,7 +103,7 @@ public sealed class PipelineConfigurationTests
 
         Assert.Equal("Sequential", pipelines.RootElement.GetProperty("Music").GetProperty("strategy").GetString());
         Assert.Equal(["musicbrainz", "apple_api"], musicProviders);
-        Assert.Equal(["identity", "enrichment"], musicPurposes);
+        Assert.Equal(["identity", "identity-fallback-enrichment"], musicPurposes);
         Assert.True(appleEntry.GetProperty("requires_identity").GetBoolean());
         Assert.True(provider.RootElement.GetProperty("enabled").GetBoolean());
         Assert.Equal([1, 3], provider.RootElement.GetProperty("hydration_stages").EnumerateArray().Select(element => element.GetInt32()).ToArray());

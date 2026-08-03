@@ -380,11 +380,43 @@ public sealed partial class RetailMatchWorker
                 identityBest = candidate;
         }
 
-        return identityBest;
+        if (identityBest?.Outcome == "AutoAccepted")
+            return identityBest;
+
+        var fallbackIdentityProviders = pipeline.Providers
+            .Where(provider => IsIdentityFallbackEnrichment(provider.Purpose))
+            .OrderBy(provider => provider.Rank)
+            .Select(provider => provider.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        RetailMatchCandidate? fallbackBest = null;
+        foreach (var candidate in candidates)
+        {
+            if (!fallbackIdentityProviders.Contains(candidate.ProviderName)
+                || GetOutcomeRank(candidate.Outcome) == 0)
+            {
+                continue;
+            }
+
+            if (IsBetterCandidate(candidate, fallbackBest))
+                fallbackBest = candidate;
+        }
+
+        if (fallbackBest?.Outcome == "AutoAccepted")
+            return fallbackBest;
+
+        return identityBest ?? fallbackBest ?? currentBest;
     }
 
     private static bool IsIdentityPurpose(string? purpose) =>
         string.Equals(purpose, "identity", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsIdentityFallbackEnrichment(string? purpose) =>
+        string.Equals(purpose, "identity-fallback-enrichment", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsEnrichmentPurpose(string? purpose) =>
+        string.Equals(purpose, "enrichment", StringComparison.OrdinalIgnoreCase)
+        || IsIdentityFallbackEnrichment(purpose);
 
     private static bool ShouldPersistProviderClaims(
         RetailDecision decision,
@@ -398,7 +430,7 @@ public sealed partial class RetailMatchWorker
 
         if (!acceptedIdentity
             || pipelineEntry?.RequiresIdentity != true
-            || !string.Equals(pipelineEntry.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+            || !IsEnrichmentPurpose(pipelineEntry.Purpose))
         {
             return false;
         }

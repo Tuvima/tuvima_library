@@ -1137,9 +1137,13 @@ public sealed class AdapterFallbackTests
     public async Task MusicBrainz_FetchAsync_SelectsReleaseFromRequestedAlbumAndEmitsCoverArt()
     {
         var config = LoadExampleConfig("musicbrainz");
+        var requestedUrls = new List<string>();
         var factory = BuildFactory(
             config.Name,
-            new RoutingStubHttpMessageHandler(_ => JsonResponse("""
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                requestedUrls.Add(request.RequestUri?.ToString() ?? string.Empty);
+                return JsonResponse("""
                 {
                   "recordings": [
                     {
@@ -1169,7 +1173,8 @@ public sealed class AdapterFallbackTests
                     }
                   ]
                 }
-                """)));
+                """);
+            }));
 
         var adapter = new ConfigDrivenAdapter(
             config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
@@ -1194,6 +1199,48 @@ public sealed class AdapterFallbackTests
             claim.Key == MetadataFieldConstants.CoverUrl
             && claim.Value == "https://coverartarchive.org/release/interstellar-release/front-500");
         Assert.DoesNotContain(claims, claim => claim.Value == "wrong-release");
+
+        var decodedUrl = Uri.UnescapeDataString(Assert.Single(requestedUrls));
+        Assert.Contains("recording:\"Cornfield Chase\"", decodedUrl, StringComparison.Ordinal);
+        Assert.Contains("artist:\"Hans Zimmer\"", decodedUrl, StringComparison.Ordinal);
+        Assert.Contains(
+            "release:\"Interstellar: Original Motion Picture Soundtrack\"",
+            decodedUrl,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MusicBrainz_FetchAsync_OmitsMissingOptionalAlbumClause()
+    {
+        var config = LoadExampleConfig("musicbrainz");
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                requestedUrls.Add(request.RequestUri?.ToString() ?? string.Empty);
+                return JsonResponse("""{ "recordings": [] }""");
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Music,
+            Title = "4'33\"",
+            Artist = "John Cage",
+            BaseUrl = "https://musicbrainz.org/ws/2",
+            Country = "us",
+            Language = "en",
+        });
+
+        var decodedUrl = Uri.UnescapeDataString(Assert.Single(requestedUrls));
+        Assert.Contains("recording:\"4'33\\\"\"", decodedUrl, StringComparison.Ordinal);
+        Assert.Contains("artist:\"John Cage\"", decodedUrl, StringComparison.Ordinal);
+        Assert.DoesNotContain("release:", decodedUrl, StringComparison.Ordinal);
     }
 
     [Fact]

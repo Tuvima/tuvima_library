@@ -143,12 +143,13 @@ public static class JsonConfigValidator
                 AddRequired(errors, provider.Name, $"{mediaType}.providers[].name");
                 AddRequired(errors, provider.Purpose, $"{mediaType}.providers[].purpose");
                 if (provider.Purpose is not null
-                    && provider.Purpose is not ("identity" or "enrichment" or "retail" or "artwork" or "text-track" or "canonical"))
+                    && provider.Purpose is not ("identity" or "enrichment" or "identity-fallback-enrichment" or "retail" or "artwork" or "text-track" or "canonical"))
                 {
                     errors.Add($"{mediaType}.providers[].purpose has unsupported value '{provider.Purpose}'.");
                 }
                 if (provider.RequiresIdentity
-                    && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+                    && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase)
+                    && !IsIdentityFallbackEnrichment(provider.Purpose))
                 {
                     errors.Add($"{mediaType}.providers[].requires_identity is only valid for enrichment providers.");
                 }
@@ -159,7 +160,8 @@ public static class JsonConfigValidator
             var ordered = pipeline.Providers.OrderBy(provider => provider.Rank).ToList();
             foreach (var provider in ordered.Where(provider => provider.RequiresIdentity))
             {
-                if (!ordered.Any(candidate => candidate.Rank < provider.Rank
+                if (!IsIdentityFallbackEnrichment(provider.Purpose)
+                    && !ordered.Any(candidate => candidate.Rank < provider.Rank
                     && string.Equals(candidate.Purpose, "identity", StringComparison.OrdinalIgnoreCase)))
                 {
                     errors.Add($"{mediaType}.providers enrichment provider '{provider.Name}' requires an earlier identity provider.");
@@ -167,6 +169,9 @@ public static class JsonConfigValidator
             }
         }
     }
+
+    private static bool IsIdentityFallbackEnrichment(string? purpose) =>
+        string.Equals(purpose, "identity-fallback-enrichment", StringComparison.OrdinalIgnoreCase);
 
     private static void ValidatePalette(PaletteConfiguration palette, List<string> errors)
     {

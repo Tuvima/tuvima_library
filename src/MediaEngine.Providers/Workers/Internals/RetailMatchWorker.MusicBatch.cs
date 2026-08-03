@@ -453,12 +453,6 @@ public sealed partial class RetailMatchWorker
 
         if (bestTrack is null || bestMatchScore < 0.30)
         {
-            if (await TryRouteMusicLocalIdentityFallbackAsync(job, fileHints, bestMatchScore, ct)
-                    .ConfigureAwait(false))
-            {
-                return;
-            }
-
             // No reasonable track match found — route to no-match.
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
             await _outcomeFactory.CreateRetailFailedAsync(
@@ -634,12 +628,6 @@ public sealed partial class RetailMatchWorker
         }
         else
         {
-            if (await TryRouteMusicLocalIdentityFallbackAsync(job, fileHints, decision.FinalScore, ct)
-                    .ConfigureAwait(false))
-            {
-                return;
-            }
-
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
             await _outcomeFactory.CreateRetailFailedAsync(
                 job.EntityId, job.MediaType, job.IngestionRunId, null, ct);

@@ -1959,8 +1959,11 @@ public sealed class WorkerPipelineTests
             && entry.IdValue == "1440806768");
     }
 
-    [Fact]
-    public async Task RetailMatchWorker_ConfiguredIdentityProviderMustOwnSelectedIdentity()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RetailMatchWorker_MusicEnrichmentProviderBecomesIdentityFallbackWhenPrimaryIsNotAccepted(
+        bool primaryReturnsAmbiguous)
     {
         var entityId = Guid.NewGuid();
         var jobId = Guid.NewGuid();
@@ -1983,7 +1986,14 @@ public sealed class WorkerPipelineTests
         {
             Name = "musicbrainz",
             ProviderId = musicBrainzProviderId,
-            Claims = [],
+            Claims = primaryReturnsAmbiguous
+                ?
+                [
+                    new ProviderClaim(MetadataFieldConstants.Title, "Example Track", 0.95),
+                    new ProviderClaim(MetadataFieldConstants.Author, "Example Artist", 0.95),
+                    new ProviderClaim(BridgeIdKeys.MusicBrainzRecordingId, "mb-recording-1", 1.0),
+                ]
+                : [],
         };
         var apple = new StubExternalMetadataProvider
         {
@@ -2009,6 +2019,17 @@ public sealed class WorkerPipelineTests
                 CompositeScore = 0.99,
             },
         };
+        if (primaryReturnsAmbiguous)
+        {
+            retailScoring.Results.Enqueue(new FieldMatchScores
+            {
+                TitleScore = 1.0,
+                AuthorScore = 1.0,
+                FormatScore = 1.0,
+                CompositeScore = 0.75,
+            });
+            retailScoring.Results.Enqueue(retailScoring.Result);
+        }
 
         var configLoader = new StubConfigurationLoader
         {
@@ -2022,7 +2043,13 @@ public sealed class WorkerPipelineTests
                         Providers =
                         [
                             new PipelineProviderEntry { Rank = 1, Name = "musicbrainz", Purpose = "identity" },
-                            new PipelineProviderEntry { Rank = 2, Name = "apple_api", Purpose = "enrichment", RequiresIdentity = true },
+                            new PipelineProviderEntry
+                            {
+                                Rank = 2,
+                                Name = "apple_api",
+                                Purpose = "identity-fallback-enrichment",
+                                RequiresIdentity = true,
+                            },
                         ],
                     },
                 },
@@ -2064,13 +2091,112 @@ public sealed class WorkerPipelineTests
 
         Assert.Equal(1, processed);
         Assert.Single(musicBrainz.Requests);
-        Assert.Empty(apple.Requests);
-        Assert.Empty(candidateRepo.Candidates);
+        Assert.Single(apple.Requests);
+        var appleCandidate = Assert.Single(
+            candidateRepo.Candidates,
+            candidate => candidate.ProviderName == "apple_api");
+        Assert.Equal("apple_api", appleCandidate.ProviderName);
+        Assert.Equal("AutoAccepted", appleCandidate.Outcome);
+        if (primaryReturnsAmbiguous)
+        {
+            Assert.Contains(candidateRepo.Candidates, candidate =>
+                candidate.ProviderName == "musicbrainz"
+                && candidate.Outcome == "Ambiguous");
+        }
 
         var updatedJob = await jobRepo.GetByIdAsync(jobId);
         Assert.NotNull(updatedJob);
-        Assert.Equal(IdentityJobState.RetailMatchedNeedsReview.ToString(), updatedJob!.State);
-        Assert.Null(updatedJob.SelectedCandidateId);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), updatedJob!.State);
+        Assert.Equal(appleCandidate.Id, updatedJob.SelectedCandidateId);
+    }
+
+    [Fact]
+    public async Task RetailMatchWorker_MusicProviderMissEndsAsRetailNoMatch()
+    {
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
+        var providerId = Guid.NewGuid();
+        var jobRepo = new StubIdentityJobRepository();
+
+        await jobRepo.CreateAsync(new IdentityJob
+        {
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Music",
+            State = "Queued",
+        });
+
+        var musicBrainz = new StubExternalMetadataProvider
+        {
+            Name = "musicbrainz",
+            ProviderId = providerId,
+            Claims = [],
+        };
+        var configLoader = new StubConfigurationLoader
+        {
+            PipelineConfiguration = new PipelineConfiguration
+            {
+                Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Music"] = new()
+                    {
+                        Strategy = ProviderStrategy.Sequential,
+                        Providers =
+                        [
+                            new PipelineProviderEntry
+                            {
+                                Rank = 1,
+                                Name = "musicbrainz",
+                                Purpose = "identity",
+                            },
+                        ],
+                    },
+                },
+            },
+            Providers =
+            [
+                new()
+                {
+                    Name = "musicbrainz",
+                    Enabled = true,
+                    ProviderId = providerId.ToString(),
+                    Weight = 0.9,
+                },
+            ],
+        };
+        var canonicalRepo = new StubCanonicalValueRepository();
+        await canonicalRepo.UpsertBatchAsync(
+        [
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Title, Value = "Unknown Track", LastScoredAt = DateTimeOffset.UtcNow },
+            new CanonicalValue { EntityId = entityId, Key = MetadataFieldConstants.Artist, Value = "Unknown Artist", LastScoredAt = DateTimeOffset.UtcNow },
+        ]);
+
+        var worker = new RetailMatchWorker(
+            jobRepo,
+            new StubRetailCandidateRepository(),
+            CreateStubStageOutcomeFactory(),
+            CreateStubTimelineRecorder(),
+            CreateStubBatchProgressService(),
+            [musicBrainz],
+            new StubRetailMatchScoringService(),
+            new StubMetadataClaimRepository(),
+            canonicalRepo,
+            new StubScoringEngine(),
+            configLoader,
+            new StubBridgeIdRepository(),
+            new StubWorkRepository(),
+            new WorkClaimRouter(),
+            new StubHttpClientFactory(),
+            null!,
+            NullLogger<RetailMatchWorker>.Instance);
+
+        var processed = await worker.PollAsync(CancellationToken.None);
+
+        Assert.Equal(1, processed);
+        var updatedJob = await jobRepo.GetByIdAsync(jobId);
+        Assert.NotNull(updatedJob);
+        Assert.Equal(IdentityJobState.RetailNoMatch.ToString(), updatedJob!.State);
     }
 
     [Fact]

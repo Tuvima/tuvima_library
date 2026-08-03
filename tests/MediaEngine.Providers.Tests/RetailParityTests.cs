@@ -177,6 +177,27 @@ public sealed class RetailParityTests
     }
 
     [Fact]
+    public void ScoreCandidate_MusicPrimaryArtistMatchesProviderFeaturedCredits()
+    {
+        var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "Stan",
+            [MetadataFieldConstants.Artist] = "Eminem",
+            [MetadataFieldConstants.Year] = "2000",
+        };
+
+        var score = _scorer.ScoreCandidate(
+            fileHints,
+            candidateTitle: "Stan",
+            candidateAuthor: "Eminem, Dido",
+            candidateYear: "2000",
+            mediaType: MediaType.Music);
+
+        Assert.Equal(1.0, score.AuthorScore);
+        Assert.True(score.CompositeScore >= 0.90);
+    }
+
+    [Fact]
     public void ScoreCandidate_ExtraRetailCreatorCannotProducePerfectOrAutoAcceptedMatch()
     {
         var fileHints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)

@@ -124,6 +124,10 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("grid-column: 2;", css);
         Assert.Contains("font-family: var(--font-ui);", accountCss);
         Assert.Contains("z-index: var(--tl-z-popover, 1600);", accountCss);
+        Assert.Contains(".top-nav-account-menu__panel ::deep .top-nav-account-menu__item", accountCss);
+        Assert.Contains("display: flex;", accountCss);
+        Assert.Contains("width: 100%;", accountCss);
+        Assert.Contains("border-radius: var(--tl-radius-lg, 12px);", accountCss);
     }
 
     [Fact]

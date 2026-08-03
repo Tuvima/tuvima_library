@@ -497,22 +497,9 @@ public sealed partial class ConfigDrivenAdapter
         var query = string.Empty;
         if (!string.IsNullOrEmpty(strategy.QueryTemplate))
         {
-            query = strategy.QueryTemplate;
-            query = ReplacePlaceholder(query, "{title}", searchTitle, encode: false);
-            query = ReplacePlaceholder(query, "{author}", request.Author, encode: false);
-            query = ReplacePlaceholder(query, "{narrator}", request.Narrator, encode: false);
-            query = ReplacePlaceholder(query, "{show_name}", request.ShowName, encode: false);
-            query = ReplacePlaceholder(query, "{album}", request.Album, encode: false);
-            query = ReplacePlaceholder(query, "{artist}", request.Artist, encode: false);
-            query = ReplacePlaceholder(query, "{director}", request.Director, encode: false);
-            query = ReplacePlaceholder(query, "{composer}", request.Composer, encode: false);
-            // Remove dangling Lucene operators when optional fields are empty.
-            // e.g. "{title} AND artist:{author}" ? "Bohemian Rhapsody AND artist:" when author is null
-            // ? becomes "Bohemian Rhapsody" after cleanup.
-            query = Regex.Replace(query, @"\s+AND\s+\w+:\s*$", string.Empty, RegexOptions.IgnoreCase);
-            query = Regex.Replace(query, @"^\s*AND\s+\w+:\s*", string.Empty, RegexOptions.IgnoreCase);
-            // Trim and collapse whitespace from unfilled placeholders.
-            query = Regex.Replace(query.Trim(), @"\s+", " ");
+            query = IsMusicBrainzRecordingSearch(strategy, request)
+                ? BuildMusicBrainzRecordingQuery(searchTitle, request.Artist ?? request.Author, request.Album)
+                : BuildConfiguredQuery(strategy.QueryTemplate, searchTitle, request);
         }
 
         // Replace all placeholders in the URL template.
@@ -580,6 +567,60 @@ public sealed partial class ConfigDrivenAdapter
         }
 
         return url;
+    }
+
+    private bool IsMusicBrainzRecordingSearch(
+        SearchStrategyConfig strategy,
+        ProviderLookupRequest request) =>
+        request.MediaType == MediaType.Music
+        && strategy.ReleaseSelection is not null
+        && string.Equals(Name, "musicbrainz", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildMusicBrainzRecordingQuery(
+        string? title,
+        string? artist,
+        string? album)
+    {
+        var clauses = new List<string>();
+        AddMusicBrainzQueryClause(clauses, "recording", title);
+        AddMusicBrainzQueryClause(clauses, "artist", artist);
+        AddMusicBrainzQueryClause(clauses, "release", album);
+        return string.Join(" AND ", clauses);
+    }
+
+    private static void AddMusicBrainzQueryClause(
+        ICollection<string> clauses,
+        string field,
+        string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        var escaped = value.Trim()
+            .Replace("\\", "\\\\", StringComparison.Ordinal)
+            .Replace("\"", "\\\"", StringComparison.Ordinal);
+        clauses.Add($"{field}:\"{escaped}\"");
+    }
+
+    private static string BuildConfiguredQuery(
+        string template,
+        string? searchTitle,
+        ProviderLookupRequest request)
+    {
+        var query = template;
+        query = ReplacePlaceholder(query, "{title}", searchTitle, encode: false);
+        query = ReplacePlaceholder(query, "{author}", request.Author, encode: false);
+        query = ReplacePlaceholder(query, "{narrator}", request.Narrator, encode: false);
+        query = ReplacePlaceholder(query, "{show_name}", request.ShowName, encode: false);
+        query = ReplacePlaceholder(query, "{album}", request.Album, encode: false);
+        query = ReplacePlaceholder(query, "{artist}", request.Artist, encode: false);
+        query = ReplacePlaceholder(query, "{director}", request.Director, encode: false);
+        query = ReplacePlaceholder(query, "{composer}", request.Composer, encode: false);
+        // Remove dangling Lucene operators when optional fields are empty.
+        // e.g. "{title} AND artist:{author}" becomes just the title.
+        query = Regex.Replace(query, @"\s+AND\s+\w+:\s*$", string.Empty, RegexOptions.IgnoreCase);
+        query = Regex.Replace(query, @"^\s*AND\s+\w+:\s*", string.Empty, RegexOptions.IgnoreCase);
+        return Regex.Replace(query.Trim(), @"\s+", " ");
     }
 
     private string ResolveBaseUrl(ProviderLookupRequest request)

@@ -67,7 +67,7 @@
       {
         "rank": 2,
         "name": "apple_api",
-        "purpose": "enrichment",
+        "purpose": "identity-fallback-enrichment",
         "requires_identity": true
       }
     ],

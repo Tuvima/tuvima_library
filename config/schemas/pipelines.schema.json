@@ -16,7 +16,7 @@
             "name": { "type": "string", "minLength": 1 },
             "purpose": {
               "type": "string",
-              "enum": ["identity", "enrichment", "retail", "artwork", "text-track", "canonical"]
+              "enum": ["identity", "enrichment", "identity-fallback-enrichment", "retail", "artwork", "text-track", "canonical"]
             },
             "requires_identity": { "type": "boolean", "default": false }
           }

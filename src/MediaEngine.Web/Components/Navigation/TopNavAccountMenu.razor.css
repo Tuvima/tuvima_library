@@ -55,15 +55,21 @@
 .top-nav-account-menu__panel {
     position: absolute;
     z-index: var(--tl-z-popover, 1600);
-    top: calc(100% + 0.45rem);
+    top: calc(100% + 0.75rem);
     right: 0;
-    width: min(20rem, calc(100vw - 1rem));
-    padding: 0.7rem 0.75rem 0.85rem;
+    width: min(19rem, calc(100vw - 1rem));
+    padding: 0.55rem;
+    overflow: hidden;
+    border: 1px solid rgba(150, 164, 192, 0.16);
+    border-radius: var(--tl-radius-lg, 12px);
     color: var(--app-text-primary, #e5edf5);
-    background: #0d0f14;
-    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
+    background:
+        radial-gradient(circle at 100% 0, rgba(124, 77, 255, 0.12), transparent 42%),
+        rgba(12, 17, 28, 0.98);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(0, 0, 0, 0.18);
+    backdrop-filter: blur(20px) saturate(125%);
     font-family: var(--font-ui);
-    font-size: 1rem;
+    font-size: 0.94rem;
 }
 
 .top-nav-account-menu__header {
@@ -71,8 +77,8 @@
     grid-template-columns: auto minmax(0, 1fr);
     align-items: center;
     gap: 0.75rem;
-    min-height: 3.2rem;
-    padding: 0.35rem 0.75rem 0.55rem;
+    min-height: 3.35rem;
+    padding: 0.45rem 0.6rem 0.65rem;
 }
 
 .top-nav-account-menu__header strong {
@@ -101,15 +107,19 @@
 }
 
 .top-nav-account-menu__panel ::deep .top-nav-account-menu__item {
-    min-height: 3rem;
+    width: 100%;
+    min-height: 2.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0;
     margin: 0;
-    padding: 0.55rem 0.75rem !important;
+    padding: 0.55rem 0.65rem !important;
     border: 0 !important;
-    border-radius: 0 !important;
+    border-radius: var(--tl-radius-md, 8px) !important;
     color: var(--app-text-primary, #dbe4ed) !important;
     background: transparent !important;
     font-family: var(--font-ui) !important;
-    font-size: 1rem !important;
+    font-size: 0.94rem !important;
     font-weight: 600 !important;
     line-height: 1.25 !important;
     text-decoration: none !important;
@@ -118,14 +128,16 @@
 .top-nav-account-menu__panel ::deep .top-nav-account-menu__item:hover,
 .top-nav-account-menu__panel ::deep .top-nav-account-menu__item:focus-visible {
     color: #fff !important;
-    background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055)) !important;
+    background: rgba(124, 77, 255, 0.14) !important;
+    outline: 1px solid rgba(159, 124, 255, 0.22);
+    outline-offset: -1px;
 }
 
 .top-nav-account-menu__panel ::deep .top-nav-account-menu__item-icon {
     width: 1.5rem;
     min-width: 1.5rem;
     height: 1.5rem;
-    margin-right: 0.85rem;
+    margin-right: 0.75rem;
     color: var(--app-text-muted, #aab0bc) !important;
 }
 
@@ -166,7 +178,7 @@
 }
 
 .top-nav-account-menu__panel ::deep .top-nav-account-menu__divider {
-    margin: 0.65rem 0 !important;
+    margin: 0.45rem 0 !important;
     border-color: var(--app-border, rgba(255, 255, 255, 0.09)) !important;
 }
 

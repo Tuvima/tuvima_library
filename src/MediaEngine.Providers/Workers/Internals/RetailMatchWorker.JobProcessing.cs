@@ -91,43 +91,6 @@ public sealed partial class RetailMatchWorker
         || key.Equals(MetadataFieldConstants.Illustrator, StringComparison.OrdinalIgnoreCase)
         || key.Equals("writer", StringComparison.OrdinalIgnoreCase);
 
-    private async Task<bool> TryRouteMusicLocalIdentityFallbackAsync(
-        IdentityJob job,
-        IReadOnlyDictionary<string, string> hints,
-        double bestRetailScore,
-        CancellationToken ct)
-    {
-        if (!Enum.TryParse<MediaType>(job.MediaType, true, out var mediaType)
-            || mediaType != MediaType.Music)
-        {
-            return false;
-        }
-
-        var title = hints.GetValueOrDefault(MetadataFieldConstants.Title);
-        var artist = GetMusicCreatorHint(hints);
-
-        if (PlaceholderTitleDetector.IsPlaceholder(title)
-            || string.IsNullOrWhiteSpace(artist))
-        {
-            return false;
-        }
-
-        await _jobRepo.UpdateStateAsync(
-            job.Id,
-            IdentityJobState.RetailMatchedNeedsReview,
-            "Retail did not accept a music match; attempting Wikidata from local title and artist.",
-            ct).ConfigureAwait(false);
-
-        _logger.LogInformation(
-            "Music identity fallback queued for entity {EntityId}: '{Title}' by '{Artist}' (best retail score {Score:F2})",
-            job.EntityId,
-            title,
-            artist,
-            bestRetailScore);
-
-        return true;
-    }
-
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {
         await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
@@ -220,7 +183,11 @@ public sealed partial class RetailMatchWorker
             providerRank++;
             var pipelineEntry = pipeline.Providers.FirstOrDefault(entry =>
                 string.Equals(entry.Name, providerName, StringComparison.OrdinalIgnoreCase));
-            if (pipelineEntry?.RequiresIdentity == true && !acceptedIdentity)
+            var isFallbackIdentityAttempt = IsIdentityFallbackEnrichment(pipelineEntry?.Purpose)
+                && !acceptedIdentity;
+            if (pipelineEntry?.RequiresIdentity == true
+                && !acceptedIdentity
+                && !isFallbackIdentityAttempt)
             {
                 _logger.LogInformation(
                     "Provider {Provider} skipped for entity {EntityId} because its configured enrichment role requires an accepted identity",
@@ -338,7 +305,7 @@ public sealed partial class RetailMatchWorker
 
                 allCandidates.Add(candidate);
 
-                if (IsIdentityPurpose(pipelineEntry?.Purpose)
+                if ((IsIdentityPurpose(pipelineEntry?.Purpose) || isFallbackIdentityAttempt)
                     && decision.Outcome == "AutoAccepted")
                 {
                     acceptedIdentity = true;
@@ -362,7 +329,8 @@ public sealed partial class RetailMatchWorker
                 // enrichment provider safely corroborates the accepted identity.
                 if (shouldPersistProviderClaims)
                 {
-                    if (string.Equals(pipelineEntry?.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+                    if (!isFallbackIdentityAttempt
+                        && IsEnrichmentPurpose(pipelineEntry?.Purpose))
                         acceptedEnrichmentProviders.Add(provider.Name);
 
                     // Phase 3c: pass lineage so parent-scope claims mirror
@@ -518,12 +486,6 @@ public sealed partial class RetailMatchWorker
         }
         else
         {
-            if (await TryRouteMusicLocalIdentityFallbackAsync(job, hints, bestScore, ct)
-                    .ConfigureAwait(false))
-            {
-                return;
-            }
-
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
 
             var titleHint = hints.GetValueOrDefault(MetadataFieldConstants.Title);
