@@ -1,15 +1,9 @@
 .top-nav-account-menu-shell {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     font-family: var(--font-ui);
-}
-
-.top-nav-account-menu-shell ::deep .top-nav-account-menu {
-    display: inline-flex;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
 }
 
 .top-nav-account-menu-shell ::deep .top-nav-account-menu__trigger {
@@ -59,10 +53,15 @@
 }
 
 .top-nav-account-menu__panel {
+    position: absolute;
+    z-index: var(--tl-z-popover, 1600);
+    top: calc(100% + 0.45rem);
+    right: 0;
     width: min(20rem, calc(100vw - 1rem));
     padding: 0.7rem 0.75rem 0.85rem;
     color: var(--app-text-primary, #e5edf5);
     background: #0d0f14;
+    box-shadow: 0 18px 42px rgba(0, 0, 0, 0.42);
     font-family: var(--font-ui);
     font-size: 1rem;
 }
@@ -113,6 +112,7 @@
     font-size: 1rem !important;
     font-weight: 600 !important;
     line-height: 1.25 !important;
+    text-decoration: none !important;
 }
 
 .top-nav-account-menu__panel ::deep .top-nav-account-menu__item:hover,
@@ -121,12 +121,15 @@
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.055)) !important;
 }
 
-.top-nav-account-menu__panel ::deep .top-nav-account-menu__item .mud-list-item-icon {
-    min-width: 2.35rem;
+.top-nav-account-menu__panel ::deep .top-nav-account-menu__item-icon {
+    width: 1.5rem;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    margin-right: 0.85rem;
     color: var(--app-text-muted, #aab0bc) !important;
 }
 
-.top-nav-account-menu__panel ::deep .top-nav-account-menu__profile-item .mud-menu-item-content {
+.top-nav-account-menu__panel ::deep .top-nav-account-menu__profile-item {
     display: flex;
     align-items: center;
     gap: 0.75rem;

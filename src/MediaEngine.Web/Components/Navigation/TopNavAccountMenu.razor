@@ -2,17 +2,13 @@
 
 @inject IStringLocalizer<SharedStrings> L
 
-<div class="top-nav-account-menu-shell">
-    <MudMenu Dense="true"
-             AnchorOrigin="Origin.BottomRight"
-             TransformOrigin="Origin.TopRight"
-             Class="top-nav-account-menu"
-             PopoverClass="top-nav-account-menu__popover">
-        <ActivatorContent>
-            <AppNativeButton Type="button"
-                             Class="top-nav-account-menu__trigger"
-                             AriaLabel="@L["TopBar_OpenProfileMenu"]"
-                             OnClick="@context.ToggleAsync">
+<div class="top-nav-account-menu-shell" @onkeydown="HandleKeyDown">
+    <AppNativeButton Type="button"
+                     Class="top-nav-account-menu__trigger"
+                     AriaLabel="@L["TopBar_OpenProfileMenu"]"
+                     aria-haspopup="menu"
+                     aria-expanded="@_open"
+                     OnClick="ToggleMenu">
                 <AppAvatar ImageUrl="@AvatarImageUrl"
                            AltText=""
                            Initials="@AvatarInitial"
@@ -21,10 +17,11 @@
                            Class="top-nav-account-menu__avatar" />
                 <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown"
                          Class="top-nav-account-menu__chevron" />
-            </AppNativeButton>
-        </ActivatorContent>
-        <ChildContent>
-            <div class="top-nav-account-menu__panel" role="presentation">
+    </AppNativeButton>
+
+    @if (_open)
+    {
+            <div class="top-nav-account-menu__panel" role="menu">
                 <header class="top-nav-account-menu__header">
                     <AppAvatar ImageUrl="@AvatarImageUrl"
                                AltText=""
@@ -40,9 +37,11 @@
                     <div class="top-nav-account-menu__profiles">
                         @foreach (var profile in OtherProfiles)
                         {
-                            <MudMenuItem Class="top-nav-account-menu__item top-nav-account-menu__profile-item"
-                                         @key="profile.Id"
-                                         OnClick="@(() => SelectProfileAsync(profile.Id))">
+                            <AppNativeButton Type="button"
+                                             Class="top-nav-account-menu__item top-nav-account-menu__profile-item"
+                                             role="menuitem"
+                                             @key="profile.Id"
+                                             OnClick="@(() => SelectProfileAsync(profile.Id))">
                                 <AppAvatar ImageUrl="@profile.AvatarImageUrl"
                                            AltText=""
                                            Initials="@AvatarInitialFor(profile.DisplayName)"
@@ -50,7 +49,7 @@
                                            ForegroundColor="@AvatarForeground"
                                            Class="top-nav-account-menu__profile-avatar" />
                                 <span>@profile.DisplayName</span>
-                            </MudMenuItem>
+                            </AppNativeButton>
                         }
                     </div>
                 }
@@ -59,33 +58,42 @@
 
                 @if (CanViewReview)
                 {
-                    <MudMenuItem Class="top-nav-account-menu__item"
-                                 Icon="@Icons.Material.Outlined.RateReview"
-                                 Href="/settings/review">
+                    <a class="top-nav-account-menu__item"
+                       href="/settings/review"
+                       role="menuitem"
+                       @onclick="CloseMenu">
+                        <MudIcon Icon="@Icons.Material.Outlined.RateReview"
+                                 Class="top-nav-account-menu__item-icon" />
                         <span class="top-nav-account-menu__item-copy">
                             <span>@L["TopBar_NeedsReview"]</span>
                             <span class="top-nav-account-menu__review-count">@ReviewCountLabel</span>
                         </span>
-                    </MudMenuItem>
+                    </a>
                 }
 
-                <MudMenuItem Class="top-nav-account-menu__item"
-                             Icon="@Icons.Material.Outlined.Settings"
-                             Href="/settings">
-                    @L["Nav_Settings"]
-                </MudMenuItem>
+                <a class="top-nav-account-menu__item"
+                   href="/settings"
+                   role="menuitem"
+                   @onclick="CloseMenu">
+                    <MudIcon Icon="@Icons.Material.Outlined.Settings"
+                             Class="top-nav-account-menu__item-icon" />
+                    <span>@L["Nav_Settings"]</span>
+                </a>
 
-                <MudMenuItem Class="top-nav-account-menu__item"
-                             Icon="@Icons.Material.Outlined.HelpOutline"
-                             Href="https://tuvima.github.io/tuvima_library/"
-                             Target="_blank"
-                             rel="noopener noreferrer">
+                <a class="top-nav-account-menu__item"
+                   href="https://tuvima.github.io/tuvima_library/"
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   role="menuitem"
+                   @onclick="CloseMenu">
+                    <MudIcon Icon="@Icons.Material.Outlined.HelpOutline"
+                             Class="top-nav-account-menu__item-icon" />
                     <span class="top-nav-account-menu__item-copy">
                         <span>@L["TopBar_Help"]</span>
                         <MudIcon Icon="@Icons.Material.Outlined.OpenInNew"
                                  Class="top-nav-account-menu__external" />
                     </span>
-                </MudMenuItem>
+                </a>
 
                 @if (ShowSignOut)
                 {
@@ -101,8 +109,7 @@
                     </form>
                 }
             </div>
-        </ChildContent>
-    </MudMenu>
+    }
 </div>
 
 @code {
@@ -119,6 +126,8 @@
     [Parameter] public bool ShowSignOut { get; set; }
     [Parameter] public EventCallback<Guid> ProfileSelected { get; set; }
 
+    private bool _open;
+
     private IReadOnlyList<ProfileViewModel> OtherProfiles => Profiles
         .Where(profile => profile.Id != ActiveProfileId)
         .OrderBy(profile => profile.DisplayName, StringComparer.OrdinalIgnoreCase)
@@ -126,7 +135,22 @@
 
     private string ReviewCountLabel => ReviewCount > 99 ? "99+" : Math.Max(0, ReviewCount).ToString();
 
-    private Task SelectProfileAsync(Guid profileId) => ProfileSelected.InvokeAsync(profileId);
+    private void ToggleMenu() => _open = !_open;
+    private void CloseMenu() => _open = false;
+
+    private async Task SelectProfileAsync(Guid profileId)
+    {
+        await ProfileSelected.InvokeAsync(profileId);
+        _open = false;
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            _open = false;
+        }
+    }
 
     private static string AvatarInitialFor(string displayName)
     {

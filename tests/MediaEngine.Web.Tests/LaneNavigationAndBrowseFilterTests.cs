@@ -78,6 +78,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("::deep .browse-multi-select__option", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("display: grid;", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("width: 100%;", multiSelectStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("<MudMenu", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("@if (_open)", multiSelect, StringComparison.Ordinal);
         Assert.DoesNotContain("/watch/series", watch, StringComparison.Ordinal);
         Assert.Contains("new(\"series\", \"Movie Series\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("new(\"collections\", \"Collections\"", watch, StringComparison.Ordinal);
@@ -132,7 +134,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("browse-multi-select__option", multiSelect, StringComparison.Ordinal);
         Assert.Contains("role=\"menuitemcheckbox\"", multiSelect, StringComparison.Ordinal);
         Assert.Contains("OnClick=\"@(() => ToggleAsync(option))\"", multiSelect, StringComparison.Ordinal);
-        Assert.Contains(".browse-multi-select ::deep .mud-menu-activator", multiSelectStyles, StringComparison.Ordinal);
+        Assert.Contains(".browse-multi-select__menu", multiSelectStyles, StringComparison.Ordinal);
+        Assert.Contains("position: relative;", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("height: 48px", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("ShowLabel=\"false\"", browseShell, StringComparison.Ordinal);
         Assert.DoesNotContain("OnClick=\"@context.ToggleAsync\"", multiSelect, StringComparison.Ordinal);

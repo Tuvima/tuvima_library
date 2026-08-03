@@ -112,8 +112,9 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("@if (CanViewReview)", accountSource);
         Assert.Contains("TopBar_NeedsReview", accountSource);
         Assert.Contains("ShowSignOut", accountSource);
-        Assert.Contains("Href=\"/settings/review\"", accountSource);
-        Assert.Contains("Href=\"/settings\"", accountSource);
+        Assert.Contains("href=\"/settings/review\"", accountSource);
+        Assert.Contains("href=\"/settings\"", accountSource);
+        Assert.DoesNotContain("<MudMenu", accountSource);
         Assert.DoesNotContain("SettingsSelected", accountSource);
         Assert.DoesNotContain("ReviewSelected", accountSource);
         Assert.DoesNotContain("NotificationsNone", accountSource);
@@ -122,7 +123,7 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);", css);
         Assert.Contains("grid-column: 2;", css);
         Assert.Contains("font-family: var(--font-ui);", accountCss);
-        Assert.Contains(".top-nav-account-menu__popover.mud-popover", globalCss);
+        Assert.Contains("z-index: var(--tl-z-popover, 1600);", accountCss);
     }
 
     [Fact]

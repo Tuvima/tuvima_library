@@ -1,29 +1,27 @@
 @namespace MediaEngine.Web.Components.Browse
 
-<div class="@RootClass">
+<div class="@RootClass" @onkeydown="HandleKeyDown">
     @if (ShowLabel)
     {
         <span class="browse-multi-select__label">@Label</span>
     }
-    <MudMenu Dense="true"
-             Open="@_open"
-             OpenChanged="OnOpenChanged"
-             AnchorOrigin="Origin.BottomLeft"
-             TransformOrigin="Origin.TopLeft"
-             Class="browse-multi-select__menu"
-             PopoverClass="browse-multi-select__popover">
-        <ActivatorContent>
-            <span class="@TriggerClass" @onclick="@context.ToggleAsync">
+    <div class="browse-multi-select__menu">
+        <AppNativeButton Type="button"
+                         Class="@TriggerClass"
+                         AriaLabel="@ButtonLabel"
+                         aria-haspopup="true"
+                         aria-expanded="@_open"
+                         OnClick="ToggleMenu">
                 <MudIcon Icon="@Icon" />
                 <span>@ButtonLabel</span>
                 <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="browse-multi-select__chevron" />
-            </span>
-        </ActivatorContent>
-        <ChildContent>
+        </AppNativeButton>
+
+        @if (_open)
+        {
             <div class="browse-multi-select__panel"
                  role="group"
-                 aria-label="@ButtonLabel"
-                 @onclick:stopPropagation="true">
+                 aria-label="@ButtonLabel">
                 @if (Searchable)
                 {
                     <label class="browse-multi-select__search">
@@ -76,8 +74,8 @@
                     <div class="browse-multi-select__help">@HelpText</div>
                 }
             </div>
-        </ChildContent>
-    </MudMenu>
+        }
+    </div>
 </div>
 
 @code {
@@ -113,11 +111,20 @@
     private static string OptionClass(bool selected) =>
         $"browse-multi-select__option {(selected ? "is-selected" : string.Empty)}";
 
-    private void OnOpenChanged(bool open)
+    private void ToggleMenu()
     {
-        _open = open;
-        if (!open)
+        _open = !_open;
+        if (!_open)
         {
+            _searchText = string.Empty;
+        }
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            _open = false;
             _searchText = string.Empty;
         }
     }
