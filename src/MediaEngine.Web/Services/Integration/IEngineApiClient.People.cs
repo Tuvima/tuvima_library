@@ -17,6 +17,18 @@ public partial interface IEngineApiClient
     /// <summary>GET /persons?role={role}&amp;limit={limit} — list persons from the shared wire contract.</summary>
     Task<IReadOnlyList<PersonListItemResponse>?> GetPersonsAsync(string? role = null, int offset = 0, int limit = 200, CancellationToken ct = default);
 
+    /// <summary>
+    /// GET /persons?catalog=true — page through canonical contributors on owned works.
+    /// </summary>
+    Task<PagedResponse<PersonListItemResponse>?> GetPersonsPageAsync(
+        string? search = null,
+        string? role = null,
+        int offset = 0,
+        int limit = 100,
+        string? lane = null,
+        string? sort = null,
+        CancellationToken ct = default);
+
     /// <summary>GET /persons?role={role}&amp;limit={limit}  -  list persons filtered by role.</summary>
     Task<List<PersonViewModel>> GetPersonsByRoleAsync(
         string role, int limit = 50, CancellationToken ct = default);

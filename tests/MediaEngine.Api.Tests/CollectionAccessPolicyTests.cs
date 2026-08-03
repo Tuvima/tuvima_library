@@ -58,6 +58,29 @@ public sealed class CollectionAccessPolicyTests
     }
 
     [Fact]
+    public void CanEdit_CuratedCollectionsRequiresAdministrator()
+    {
+        var curatedCollection = CreateCollection(
+            CollectionScope.Library,
+            collectionType: CollectionType.Custom);
+        var curator = new Profile
+        {
+            Id = OwnerProfileId,
+            Role = ProfileRole.Curator,
+        };
+        var administrator = new Profile
+        {
+            Id = OtherProfileId,
+            Role = ProfileRole.Administrator,
+        };
+
+        Assert.False(CollectionAccessPolicy.CanManageCuratedCollections(curator));
+        Assert.False(CollectionAccessPolicy.CanEdit(curatedCollection, curator));
+        Assert.True(CollectionAccessPolicy.CanManageCuratedCollections(administrator));
+        Assert.True(CollectionAccessPolicy.CanEdit(curatedCollection, administrator));
+    }
+
+    [Fact]
     public void ApplyVisibility_MapsPrivateAndSharedToExistingStorageFields()
     {
         var collection = new Collection();
@@ -75,9 +98,11 @@ public sealed class CollectionAccessPolicyTests
 
     private static Collection CreateCollection(
         CollectionScope scope,
-        Guid? profileId = null)
+        Guid? profileId = null,
+        CollectionType collectionType = CollectionType.Collection)
     {
         var collection = new Collection();
+        collection.ClassifyAs(collectionType);
         collection.SetVisibility(scope, profileId);
         return collection;
     }

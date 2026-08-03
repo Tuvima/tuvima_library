@@ -1,133 +1,656 @@
 @namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Contracts.Paging
+@using MediaEngine.Contracts.Persons
 @using MediaEngine.Web.Components.Browse
-@using MediaEngine.Web.Components.Discovery
+@using MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Services.MediaTiles
 
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject CollectionEditorLauncherService CollectionEditorLauncher
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
+@inject ILogger<CollectionsPage> Logger
 
 <BrowseShellStyles />
 
-<div class="browse-shell collections-browse">
-    <div class="browse-shell__toolbar-anchor">
-        <div class="browse-shell__toolbar-panel">
-            <div class="browse-shell__tab-row">
-                <div class="browse-shell__title-block">
-                    <div class="browse-shell__title-eyebrow">Tuvima Library</div>
-                    <div class="browse-shell__title-text">Collections</div>
-                </div>
-
+<MediaSectionShell Title="Collections"
+                   NavigationGroups="@NavigationGroups">
+    <LibrarySectionHeader Title="Collections"
+                          Modes="@CollectionsSectionConfiguration.Modes"
+                          ActiveMode="@_activeSection">
+        <Actions>
+            @if (CanManageCuratedCollections)
+            {
                 <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
-                           OnClick="OpenCollectionBuilder"
-                           Class="browse-shell__back">
+                           OnClick="OpenCollectionBuilder">
                     New Collection
                 </AppButton>
-            </div>
+            }
+        </Actions>
+    </LibrarySectionHeader>
 
-            <SurfaceTabBar Items="@CollectionFilters"
-                           ActiveKey="@_activeFilter"
-                           ActiveKeyChanged="SetCollectionFilterAsync"
-                           AriaLabel="Filter Collections"
-                           Class="collections-filter-bar"
-                           ItemClass="collections-filter-tab" />
-
-            <div class="browse-shell__toolbar">
-                <AppTextField T="string"
-                              Value="_searchText"
-                              ValueChanged="OnSearchChanged"
-                              Placeholder="Search collections"
-                              Variant="Variant.Outlined"
-                              Immediate="true"
-                              DebounceInterval="250"
-                              Adornment="Adornment.Start"
-                              AdornmentIcon="@Icons.Material.Outlined.Search"
-                              Class="browse-shell__search" />
-
-                <div class="browse-shell__controls">
-                    <AppSelect T="string"
-                               Value="_sortBy"
-                               ValueChanged="OnSortChanged"
-                               Label="Sort"
-                               Variant="Variant.Outlined"
-                               Dense="true"
-                               Class="browse-shell__sort">
-                        <MudSelectItem T="string" Value="@("recent")">Recently Updated</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("name")">Name</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("items")">Item Count</MudSelectItem>
-                        <MudSelectItem T="string" Value="@("type")">Type</MudSelectItem>
-                    </AppSelect>
+    <CollectionsSectionLayout>
+        @if (_loading)
+        {
+            <AppPageState Kind="AppPageStateKind.Loading"
+                          Title="Loading collections"
+                          Message="Organizing automatic collections, curated collections, shelves, and people." />
+        }
+        else if (_loadFailed)
+        {
+            <AppErrorState Title="Collections failed to load"
+                           Message="The Dashboard could not load the Collections section from the Engine."
+                           Details="@_loadError"
+                           Retry="ReloadAsync" />
+        }
+        else if (_activeSection == CollectionsSectionConfiguration.Overview)
+        {
+            <div class="collections-overview">
+                <div class="collections-overview__intro">
+                    <div class="collections-overview__eyebrow">Your organized library</div>
+                    <h1>Collections</h1>
+                    <p>Explore broader worlds found by Tuvima, published collections curated by administrators, lane-level shelves, and the people behind your library.</p>
                 </div>
-            </div>
-        </div>
-    </div>
 
-    @if (_loading)
-    {
-        <AppPageState Kind="AppPageStateKind.Loading"
-                      Title="Loading collections"
-                      Class="browse-shell__loading" />
-    }
-    else if (FilteredCollections.Count == 0)
-    {
-        <AppPageState Kind="AppPageStateKind.Empty"
-                      Title="No collections found"
-                      Message="Collections appear when the Engine finds Wikidata-backed universes or when you create one."
-                      Icon="@Icons.Material.Outlined.CollectionsBookmark"
-                      Class="browse-shell__empty" />
-    }
-    else if (CollectionCards.Count > 0)
-    {
-        <MediaTileGrid Items="@CollectionCards"
-                       HoverMode="@MediaTileHoverMode.Expanded"
-                       Class="browse-shell__grid" />
-    }
-</div>
+                @if (AutomaticTiles.Count > 0)
+                {
+                    <MediaTileShelf Shelf="@OverviewAutomaticShelf"
+                                    HoverMode="MediaTileHoverMode.GlowOnly"
+                                    HideMediaKindBadges="true"
+                                    HideSourceBadges="true" />
+                }
+
+                @if (CuratedTiles.Count > 0)
+                {
+                    <MediaTileShelf Shelf="@OverviewCuratedShelf"
+                                    HoverMode="MediaTileHoverMode.GlowOnly"
+                                    HideMediaKindBadges="true"
+                                    HideSourceBadges="true" />
+                }
+
+                @if (ShelfTiles.Count > 0)
+                {
+                    <MediaTileShelf Shelf="@OverviewShelvesShelf"
+                                    HoverMode="MediaTileHoverMode.GlowOnly"
+                                    HideMediaKindBadges="true"
+                                    HideSourceBadges="true" />
+                }
+
+                @if (VisiblePeopleRoles.Count > 0)
+                {
+                    <section>
+                        <div class="collections-results-heading">
+                            <div class="collections-results-heading__copy">
+                                <h1>Browse People</h1>
+                                <p>Find the authors, directors, artists, narrators, and other primary contributors represented in your library.</p>
+                            </div>
+                            <AppButton Variant="Variant.Text"
+                                       Color="Color.Default"
+                                       Href="/collections/people"
+                                       EndIcon="@Icons.Material.Outlined.ArrowForward">
+                                View all
+                            </AppButton>
+                        </div>
+                        <div class="collections-overview__roles">
+                            @foreach (var role in VisiblePeopleRoles)
+                            {
+                                <a class="collections-role-link"
+                                   href="@($"/collections/people?role={Uri.EscapeDataString(role.Key)}")"
+                                   @key="role.Key">
+                                    <span class="collections-role-link__icon">
+                                        <MudIcon Icon="@PeopleRoleIcon(role.Key)" />
+                                    </span>
+                                    <span>@RoleDisplayLabel(role.Key)</span>
+                                    <span class="collections-role-link__count">@role.Value</span>
+                                </a>
+                            }
+                        </div>
+                    </section>
+                }
+
+                @if (AutomaticTiles.Count == 0 && CuratedTiles.Count == 0 && ShelfTiles.Count == 0 && VisiblePeopleRoles.Count == 0)
+                {
+                    <AppPageState Kind="AppPageStateKind.Empty"
+                                  Title="Nothing has been grouped yet"
+                                  Message="Collections and shelves appear as Tuvima identifies relationships in your library." />
+                }
+            </div>
+        }
+        else
+        {
+            <div class="browse-shell collections-browse">
+                <div class="collections-results-heading">
+                    <div class="collections-results-heading__copy">
+                        <h1>@SectionTitle</h1>
+                        <p>@SectionDescription</p>
+                    </div>
+                    <span>@ResultCountLabel</span>
+                </div>
+
+                <div class="browse-shell__toolbar-anchor">
+                    <div class="browse-shell__toolbar-panel">
+                        <div class="browse-shell__toolbar collections-filter-toolbar">
+                            <AppTextField T="string"
+                                          Value="_searchText"
+                                          ValueChanged="OnSearchChanged"
+                                          Placeholder="@SearchPlaceholder"
+                                          Variant="Variant.Outlined"
+                                          Immediate="true"
+                                          DebounceInterval="250"
+                                          Adornment="Adornment.Start"
+                                          AdornmentIcon="@Icons.Material.Outlined.Search"
+                                          Class="browse-shell__search" />
+
+                            <div class="browse-shell__controls">
+                                <AppSelect T="string"
+                                           Value="_lane"
+                                           ValueChanged="OnLaneChanged"
+                                           Label="Lane"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Class="collections-filter-select">
+                                    <MudSelectItem T="string" Value="@("all")">All lanes</MudSelectItem>
+                                    @if (_activeSection == CollectionsSectionConfiguration.Automatic)
+                                    {
+                                        <MudSelectItem T="string" Value="@("CrossMedia")">Cross-media</MudSelectItem>
+                                    }
+                                    <MudSelectItem T="string" Value="@("Read")">Read</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("Watch")">Watch</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("Listen")">Listen</MudSelectItem>
+                                </AppSelect>
+
+                                @if (_activeSection == CollectionsSectionConfiguration.Automatic)
+                                {
+                                    <AppSelect T="string"
+                                               Value="_kind"
+                                               ValueChanged="OnKindChanged"
+                                               Label="Relationship"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="collections-filter-select collections-filter-select--wide">
+                                        <MudSelectItem T="string" Value="@("all")">All relationships</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("Universe")">Shared universes</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("Series")">Series rollups</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("ContentGroup")">Related works</MudSelectItem>
+                                    </AppSelect>
+                                }
+                                else if (_activeSection == CollectionsSectionConfiguration.Curated)
+                                {
+                                    <AppSelect T="string"
+                                               Value="_membership"
+                                               ValueChanged="OnMembershipChanged"
+                                               Label="Membership"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="collections-filter-select collections-filter-select--wide">
+                                        <MudSelectItem T="string" Value="@("all")">All membership</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("manual")">Hand-picked</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("rules")">Rule-driven</MudSelectItem>
+                                    </AppSelect>
+                                    <AppSelect T="string"
+                                               Value="_status"
+                                               ValueChanged="OnStatusChanged"
+                                               Label="Publication"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="collections-filter-select">
+                                        <MudSelectItem T="string" Value="@("all")">All states</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("published")">Published</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("unpublished")">Unpublished</MudSelectItem>
+                                    </AppSelect>
+                                }
+                                else if (_activeSection == CollectionsSectionConfiguration.Shelves)
+                                {
+                                    <AppSelect T="string"
+                                               Value="_kind"
+                                               ValueChanged="OnKindChanged"
+                                               Label="Shelf type"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="collections-filter-select collections-filter-select--wide">
+                                        <MudSelectItem T="string" Value="@("all")">All shelf types</MudSelectItem>
+                                        @foreach (var kind in Enum.GetValues<CollectionShelfKind>())
+                                        {
+                                            <MudSelectItem T="string" Value="@kind.ToString()">@ShelfKindLabel(kind)</MudSelectItem>
+                                        }
+                                    </AppSelect>
+                                }
+                                else if (_activeSection == CollectionsSectionConfiguration.People)
+                                {
+                                    <AppSelect T="string"
+                                               Value="_role"
+                                               ValueChanged="OnRoleChanged"
+                                               Label="Role"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="collections-filter-select collections-filter-select--wide">
+                                        <MudSelectItem T="string" Value="@("all")">All roles</MudSelectItem>
+                                        @foreach (var role in PeopleRoleOptions)
+                                        {
+                                            <MudSelectItem T="string" Value="@role">@RoleDisplayLabel(role)</MudSelectItem>
+                                        }
+                                    </AppSelect>
+                                }
+
+                                <AppSelect T="string"
+                                           Value="_sortBy"
+                                           ValueChanged="OnSortChanged"
+                                           Label="Sort"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Class="browse-shell__sort">
+                                    @foreach (var option in SortOptions)
+                                    {
+                                        <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                                    }
+                                </AppSelect>
+
+                                @if (_activeSection != CollectionsSectionConfiguration.People)
+                                {
+                                    <label class="collections-tile-size">
+                                        <span>Tile size</span>
+                                        <AppNativeInput Type="range"
+                                                        Value="@_tileSize"
+                                                        Min="136"
+                                                        Max="248"
+                                                        Step="8"
+                                                        AriaLabel="Collection tile size"
+                                                        OnInput="OnTileSizeChanged" />
+                                    </label>
+                                }
+                            </div>
+                        </div>
+
+                        <AppActiveFilterSummary Items="@ActiveFilterChips"
+                                                Remove="RemoveFilterAsync"
+                                                ClearAll="ClearFiltersAsync" />
+                    </div>
+                </div>
+
+                @if (_activeSection == CollectionsSectionConfiguration.People)
+                {
+                    @if (FilteredPeople.Count == 0)
+                    {
+                        <AppPageState Kind="AppPageStateKind.Empty"
+                                      Title="No people found"
+                                      Message="Try removing a role, lane, or search filter."
+                                      Class="collections-inline-empty" />
+                    }
+                    else
+                    {
+                        <PeopleCatalogList Items="@FilteredPeople" Presence="@_peoplePresence" />
+                    }
+
+                    @if (_peopleHasMore)
+                    {
+                        <div class="collections-load-more">
+                            <AppButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       OnClick="LoadMorePeopleAsync"
+                                       Disabled="@_loadingMorePeople">
+                                @(_loadingMorePeople ? "Loading..." : "Load more people")
+                            </AppButton>
+                        </div>
+                    }
+                }
+                else if (ActiveTiles.Count == 0)
+                {
+                    <AppPageState Kind="AppPageStateKind.Empty"
+                                  Title="@EmptyTitle"
+                                  Message="@EmptyMessage"
+                                  Class="collections-inline-empty" />
+                }
+                else
+                {
+                    <MediaTileGrid Items="@VisibleTiles"
+                                   HoverMode="MediaTileHoverMode.GlowOnly"
+                                   HideMediaKindBadges="true"
+                                   HideSourceBadges="true"
+                                   HideGroupIndicators="true"
+                                   ShowCompactCaptions="true"
+                                   TileSizePx="@_tileSize"
+                                   Class="browse-shell__grid" />
+
+                    @if (VisibleTiles.Count < ActiveTiles.Count)
+                    {
+                        <div class="collections-load-more">
+                            <AppButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       OnClick="ShowMoreTiles">
+                                Load more
+                            </AppButton>
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </CollectionsSectionLayout>
+</MediaSectionShell>
 
 @code {
+    private const int TilePageSize = 72;
+    private const int PeoplePageSize = 100;
+
+    [Parameter] public string? Section { get; set; }
+
     private readonly List<CollectionManagementCatalogViewModel> _collections = [];
+    private readonly List<ShelfCatalogEntry> _shelves = [];
+    private readonly List<PersonListItemResponse> _people = [];
+    private readonly Dictionary<string, Dictionary<string, int>> _peoplePresence = new(StringComparer.OrdinalIgnoreCase);
+    private Dictionary<string, int> _peopleRoleCounts = new(StringComparer.OrdinalIgnoreCase);
     private ProfileViewModel? _activeProfile;
+    private string _activeSection = CollectionsSectionConfiguration.Overview;
     private string _searchText = string.Empty;
-    private string _sortBy = "recent";
-    private string _activeFilter = "all";
-    private bool _loading;
+    private string _lane = "all";
+    private string _kind = "all";
+    private string _membership = "all";
+    private string _status = "all";
+    private string _role = "all";
+    private string _sortBy = "title";
+    private int _tileSize = 176;
+    private int _visibleTileCount = TilePageSize;
+    private int _peopleOffset;
+    private bool _peopleHasMore;
+    private bool _loading = true;
+    private bool _loadingMorePeople;
+    private bool _loaded;
+    private bool _loadFailed;
+    private string? _loadError;
+    private string? _loadedPeopleQueryKey;
 
-    private static readonly IReadOnlyList<SurfaceTabItem> CollectionFilters =
-    [
-        new("all", "All"),
-        new("broader", "Broader rollups"),
-        new("mine", "My collections"),
-        new("playlists", "Playlists"),
-    ];
+    private bool CanManageCuratedCollections =>
+        string.Equals(_activeProfile?.Role, "Administrator", StringComparison.OrdinalIgnoreCase);
 
-    private bool CanManageSharedCollections => _activeProfile?.Role is "Administrator" or "Curator";
+    private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
+        CollectionsSectionConfiguration.BuildNavigation(
+            AutomaticCollections.Count,
+            CuratedCollections.Count,
+            _shelves.Count,
+            _people.Count == 0
+                ? null
+                : $"{_people.Count}{(_peopleHasMore ? "+" : string.Empty)}");
 
-    private IReadOnlyList<CollectionManagementCatalogViewModel> FilteredCollections =>
-        Sort(FilterBySearch(FilterByCollectionType(_collections)));
-
-    private IReadOnlyList<MediaTileViewModel> CollectionCards =>
-        FilteredCollections
-            .Select(ToMediaTile)
+    private IReadOnlyList<CollectionManagementCatalogViewModel> AutomaticCollections =>
+        _collections
+            .Where(IsAutomaticCollection)
             .ToList();
 
-    protected override async Task OnInitializedAsync()
+    private IReadOnlyList<CollectionManagementCatalogViewModel> CuratedCollections =>
+        _collections
+            .Where(collection => string.Equals(collection.CollectionType, "Custom", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+    private IReadOnlyList<MediaTileViewModel> AutomaticTiles =>
+        AutomaticCollections.Select(CollectionSurfaceTileComposer.FromCollection).ToList();
+
+    private IReadOnlyList<MediaTileViewModel> CuratedTiles =>
+        CuratedCollections.Select(CollectionSurfaceTileComposer.FromCollection).ToList();
+
+    private IReadOnlyList<MediaTileViewModel> ShelfTiles =>
+        _shelves.Select(entry => CollectionSurfaceTileComposer.FromShelf(entry.Group, entry.Kind)).ToList();
+
+    private MediaTileShelfViewModel OverviewAutomaticShelf => new()
     {
-        _activeProfile = await Orchestrator.GetActiveProfileAsync();
-        await LoadCollectionsAsync();
+        Key = "automatic-collections",
+        Title = "Automatic Collections",
+        Subtitle = "Broader worlds Tuvima found by connecting trusted relationships across your shelves",
+        Items = SortCollectionTiles(AutomaticTiles).Take(12).ToList(),
+        SeeAllRoute = "/collections/automatic",
+    };
+
+    private MediaTileShelfViewModel OverviewCuratedShelf => new()
+    {
+        Key = "curated-collections",
+        Title = "Curated Collections",
+        Subtitle = "Published selections maintained by your library administrators",
+        Items = SortCollectionTiles(CuratedTiles).Take(12).ToList(),
+        SeeAllRoute = "/collections/curated",
+    };
+
+    private MediaTileShelfViewModel OverviewShelvesShelf => new()
+    {
+        Key = "library-shelves",
+        Title = "Shelves Across Your Library",
+        Subtitle = "Book series, comic volumes, movie series, TV shows, albums, and audiobook series in one place",
+        Items = SortCollectionTiles(ShelfTiles).Take(12).ToList(),
+        SeeAllRoute = "/collections/shelves",
+    };
+
+    private IReadOnlyList<KeyValuePair<string, int>> VisiblePeopleRoles =>
+        _peopleRoleCounts
+            .Where(pair => !string.Equals(pair.Key, "Composer", StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(pair => pair.Value)
+            .ThenBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .Take(8)
+            .ToList();
+
+    private IReadOnlyList<string> PeopleRoleOptions =>
+        _peopleRoleCounts
+            .Where(pair => pair.Value > 0)
+            .Select(pair => pair.Key)
+            .OrderBy(role => role, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private IReadOnlyList<MediaTileViewModel> ActiveTiles => _activeSection switch
+    {
+        CollectionsSectionConfiguration.Automatic => FilterAutomaticTiles(),
+        CollectionsSectionConfiguration.Curated => FilterCuratedTiles(),
+        CollectionsSectionConfiguration.Shelves => FilterShelfTiles(),
+        _ => [],
+    };
+
+    private IReadOnlyList<MediaTileViewModel> VisibleTiles =>
+        ActiveTiles.Take(_visibleTileCount).ToList();
+
+    private IReadOnlyList<PersonListItemResponse> FilteredPeople
+    {
+        get
+        {
+            IEnumerable<PersonListItemResponse> people = _people;
+            if (!string.IsNullOrWhiteSpace(_searchText))
+            {
+                people = people.Where(person =>
+                    person.name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                    || person.roles.Any(role => role.Contains(_searchText, StringComparison.OrdinalIgnoreCase))
+                    || (person.occupation?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+            }
+
+            if (_role != "all")
+            {
+                people = people.Where(person =>
+                    person.roles.Contains(_role, StringComparer.OrdinalIgnoreCase));
+            }
+
+            if (_lane != "all")
+            {
+                people = people.Where(person => PersonHasLane(person.id, _lane));
+            }
+
+            return (_sortBy switch
+            {
+                "count" => people,
+                _ => people.OrderBy(person => person.name, StringComparer.OrdinalIgnoreCase),
+            }).ToList();
+        }
     }
 
-    private async Task LoadCollectionsAsync()
+    private IReadOnlyList<(string Value, string Label)> SortOptions => _activeSection switch
+    {
+        CollectionsSectionConfiguration.Automatic =>
+        [
+            ("title", "A-Z"),
+            ("count", "Largest"),
+            ("newest", "Recently discovered"),
+            ("year", "Newest year"),
+        ],
+        CollectionsSectionConfiguration.Curated =>
+        [
+            ("recent", "Recently updated"),
+            ("title", "A-Z"),
+            ("count", "Item count"),
+            ("oldest", "Oldest"),
+        ],
+        CollectionsSectionConfiguration.Shelves =>
+        [
+            ("title", "A-Z"),
+            ("count", "Owned count"),
+            ("newest", "Recently added"),
+            ("year", "Newest year"),
+        ],
+        _ =>
+        [
+            ("title", "A-Z"),
+            ("count", "Most owned works"),
+        ],
+    };
+
+    private string SectionTitle => _activeSection switch
+    {
+        CollectionsSectionConfiguration.Automatic => "Automatic Collections",
+        CollectionsSectionConfiguration.Curated => "Curated Collections",
+        CollectionsSectionConfiguration.Shelves => "Shelves",
+        CollectionsSectionConfiguration.People => "People",
+        _ => "Collections",
+    };
+
+    private string SectionDescription => _activeSection switch
+    {
+        CollectionsSectionConfiguration.Automatic => "Broader franchise, universe, and related-work rollups discovered from trusted library relationships.",
+        CollectionsSectionConfiguration.Curated => "Published collections intentionally assembled or rule-maintained by administrators.",
+        CollectionsSectionConfiguration.Shelves => "Every lane-level series, volume, show, album, and audio series without promoting it to a broader collection.",
+        CollectionsSectionConfiguration.People => "Primary contributors with owned work in your library, using the same canonical credits as detail pages.",
+        _ => string.Empty,
+    };
+
+    private string SearchPlaceholder => _activeSection switch
+    {
+        CollectionsSectionConfiguration.Shelves => "Search shelves",
+        CollectionsSectionConfiguration.People => "Search people or roles",
+        _ => "Search collections",
+    };
+
+    private string ResultCountLabel => _activeSection == CollectionsSectionConfiguration.People
+        ? $"{FilteredPeople.Count}{(_peopleHasMore ? "+" : string.Empty)} people"
+        : $"{ActiveTiles.Count} {(_activeSection == CollectionsSectionConfiguration.Shelves ? "shelves" : "collections")}";
+
+    private string EmptyTitle => _activeSection switch
+    {
+        CollectionsSectionConfiguration.Automatic => "No automatic collections found",
+        CollectionsSectionConfiguration.Curated => "No curated collections found",
+        CollectionsSectionConfiguration.Shelves => "No shelves found",
+        _ => "Nothing found",
+    };
+
+    private string EmptyMessage => string.IsNullOrWhiteSpace(_searchText)
+        ? _activeSection switch
+        {
+            CollectionsSectionConfiguration.Automatic => "Automatic collections appear when trusted relationships connect multiple shelves.",
+            CollectionsSectionConfiguration.Curated => CanManageCuratedCollections
+                ? "Create and publish a collection to make it available to every profile."
+                : "An administrator has not published any curated collections yet.",
+            CollectionsSectionConfiguration.Shelves => "Shelves appear when related media is grouped into a series, show, volume, or album.",
+            _ => "Try another section.",
+        }
+        : "Clear the search or remove a filter to broaden the results.";
+
+    private IReadOnlyList<ActiveFilterChip> ActiveFilterChips =>
+    [
+        .. _lane == "all" ? [] : new[] { new ActiveFilterChip("lane", _lane) },
+        .. _kind == "all" ? [] : new[] { new ActiveFilterChip("kind", KindFilterLabel) },
+        .. _membership == "all" ? [] : new[] { new ActiveFilterChip("membership", MembershipFilterLabel) },
+        .. _status == "all" ? [] : new[] { new ActiveFilterChip("status", StatusFilterLabel) },
+        .. _role == "all" ? [] : new[] { new ActiveFilterChip("role", RoleDisplayLabel(_role)) },
+    ];
+
+    private string KindFilterLabel =>
+        Enum.TryParse<CollectionShelfKind>(_kind, true, out var shelfKind)
+            ? ShelfKindLabel(shelfKind)
+            : _kind switch
+            {
+                "Universe" => "Shared universes",
+                "Series" => "Series rollups",
+                "ContentGroup" => "Related works",
+                _ => _kind,
+            };
+
+    private string MembershipFilterLabel => _membership == "manual" ? "Hand-picked" : "Rule-driven";
+    private string StatusFilterLabel => _status == "published" ? "Published" : "Unpublished";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _activeSection = CollectionsSectionConfiguration.NormalizeSection(Section);
+        ReadUrlState();
+        if (!_loaded)
+        {
+            await LoadAsync();
+        }
+        else if (_activeSection == CollectionsSectionConfiguration.People
+                 && !string.Equals(_loadedPeopleQueryKey, CurrentPeopleQueryKey, StringComparison.Ordinal))
+        {
+            await ReloadPeopleForFiltersAsync();
+        }
+    }
+
+    private async Task LoadAsync()
     {
         _loading = true;
+        _loadFailed = false;
+        _loadError = null;
         try
         {
+            _activeProfile = await Orchestrator.GetActiveProfileAsync();
+
+            var catalogTask = ApiClient.GetCollectionCatalogAsync(_activeProfile?.Id);
+            var contentGroupsTask = ApiClient.GetContentGroupsAsync();
+            var bookSeriesTask = ApiClient.GetSystemViewGroupsAsync("Books", "series");
+            var audiobookSeriesTask = ApiClient.GetSystemViewGroupsAsync("Audiobooks", "series");
+            var albumsTask = ApiClient.GetSystemViewGroupsAsync("Music", "album");
+            var tvShowsTask = ApiClient.GetSystemViewGroupsAsync("TV", "show_name");
+            var peopleRolesTask = ApiClient.GetPersonRoleCountsAsync();
+            var peopleTask = ApiClient.GetPersonsPageAsync(
+                search: _activeSection == CollectionsSectionConfiguration.People ? NullIfBlank(_searchText) : null,
+                role: _activeSection == CollectionsSectionConfiguration.People && _role != "all" ? _role : null,
+                offset: 0,
+                limit: PeoplePageSize,
+                lane: _activeSection == CollectionsSectionConfiguration.People && _lane != "all" ? _lane : null,
+                sort: _activeSection == CollectionsSectionConfiguration.People ? _sortBy : null);
+
+            await Task.WhenAll(
+                catalogTask,
+                contentGroupsTask,
+                bookSeriesTask,
+                audiobookSeriesTask,
+                albumsTask,
+                tvShowsTask,
+                peopleRolesTask,
+                peopleTask);
+
             _collections.Clear();
-            _collections.AddRange(await ApiClient.GetCollectionCatalogAsync(_activeProfile?.Id));
+            _collections.AddRange(catalogTask.Result);
+            BuildShelves(
+                contentGroupsTask.Result,
+                bookSeriesTask.Result,
+                audiobookSeriesTask.Result,
+                albumsTask.Result,
+                tvShowsTask.Result);
+            _peopleRoleCounts = peopleRolesTask.Result;
+
+            _people.Clear();
+            _peopleOffset = 0;
+            await AppendPeoplePageAsync(peopleTask.Result ?? EmptyPeoplePage());
+            _loadedPeopleQueryKey = CurrentPeopleQueryKey;
+            _loaded = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load the Collections section.");
+            _loadFailed = true;
+            _loadError = ApiClient.LastError ?? ex.Message;
         }
         finally
         {
@@ -135,401 +658,421 @@
         }
     }
 
-    private IEnumerable<CollectionManagementCatalogViewModel> FilterBySearch(IEnumerable<CollectionManagementCatalogViewModel> collections)
+    private Task ReloadAsync()
     {
-        if (string.IsNullOrWhiteSpace(_searchText))
-            return collections;
-
-        return collections.Where(collection =>
-            collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-            || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
-            || collection.TypeLabel.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-            || collection.CollectionType.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+        _loaded = false;
+        return LoadAsync();
     }
 
-    private IEnumerable<CollectionManagementCatalogViewModel> FilterByCollectionType(
-        IEnumerable<CollectionManagementCatalogViewModel> collections) => _activeFilter switch
+    private void BuildShelves(
+        IReadOnlyList<ContentGroupViewModel> contentGroups,
+        IReadOnlyList<ContentGroupViewModel> bookSeries,
+        IReadOnlyList<ContentGroupViewModel> audiobookSeries,
+        IReadOnlyList<ContentGroupViewModel> albums,
+        IReadOnlyList<ContentGroupViewModel> tvShows)
     {
-        "broader" => collections.Where(collection =>
-            collection.IsGlobal
-            || collection.IsSystem
-            || collection.CollectionType is "Universe" or "Series" or "ContentGroup"),
-        "mine" => collections.Where(collection =>
-            !collection.IsGlobal
-            && !collection.IsSystem
-            && !string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)),
-        "playlists" => collections.Where(collection =>
-            string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase)),
-        _ => collections,
-    };
+        _shelves.Clear();
+        AddShelves(bookSeries.Where(group => group.WorkCount >= 2), CollectionShelfKind.BookSeries);
+        AddShelves(
+            contentGroups.Where(group =>
+                MediaTypeMatches(group.PrimaryMediaType, "Comics")
+                && group.WorkCount > 0),
+            CollectionShelfKind.ComicVolume);
+        AddShelves(
+            contentGroups.Where(group =>
+                MediaTypeMatches(group.PrimaryMediaType, "Movies")
+                && Math.Max(group.DistinctTitleCount ?? 0, group.WorkCount) >= 2),
+            CollectionShelfKind.MovieSeries);
+        AddShelves(tvShows.Where(group => group.WorkCount > 0), CollectionShelfKind.TvShow);
+        AddShelves(albums.Where(group => group.WorkCount > 0), CollectionShelfKind.Album);
+        AddShelves(audiobookSeries.Where(group => group.WorkCount >= 2), CollectionShelfKind.AudiobookSeries);
+    }
 
-    private IReadOnlyList<CollectionManagementCatalogViewModel> Sort(IEnumerable<CollectionManagementCatalogViewModel> collections) =>
+    private void AddShelves(IEnumerable<ContentGroupViewModel> groups, CollectionShelfKind kind)
+    {
+        foreach (var group in groups)
+        {
+            var identity = $"{kind}:{group.RootWorkId ?? group.CollectionId}:{group.DisplayName}";
+            if (_shelves.Any(existing => string.Equals(existing.Identity, identity, StringComparison.OrdinalIgnoreCase)))
+                continue;
+
+            _shelves.Add(new ShelfCatalogEntry(identity, group, kind));
+        }
+    }
+
+    private async Task AppendPeoplePageAsync(PagedResponse<PersonListItemResponse> page)
+    {
+        _peopleHasMore = page.HasMore;
+        _peopleOffset = page.Offset + page.Items.Count;
+
+        var presence = await ApiClient.GetPersonPresenceAsync(page.Items.Select(person => person.id));
+        foreach (var pair in presence)
+            _peoplePresence[pair.Key] = pair.Value;
+
+        _people.AddRange(page.Items
+            .Where(person => _peoplePresence.TryGetValue(person.id.ToString(), out var counts)
+                && counts.Values.Sum() > 0)
+            .Where(person => _people.All(existing => existing.id != person.id)));
+    }
+
+    private async Task LoadMorePeopleAsync()
+    {
+        if (_loadingMorePeople || !_peopleHasMore)
+            return;
+
+        _loadingMorePeople = true;
+        try
+        {
+            var next = await ApiClient.GetPersonsPageAsync(
+                search: _activeSection == CollectionsSectionConfiguration.People ? NullIfBlank(_searchText) : null,
+                role: _activeSection == CollectionsSectionConfiguration.People && _role != "all" ? _role : null,
+                offset: _peopleOffset,
+                limit: PeoplePageSize,
+                lane: _activeSection == CollectionsSectionConfiguration.People && _lane != "all" ? _lane : null,
+                sort: _activeSection == CollectionsSectionConfiguration.People ? _sortBy : null);
+            await AppendPeoplePageAsync(next ?? EmptyPeoplePage(_peopleOffset));
+        }
+        finally
+        {
+            _loadingMorePeople = false;
+        }
+    }
+
+    private IReadOnlyList<MediaTileViewModel> FilterAutomaticTiles()
+    {
+        var collections = AutomaticCollections.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_searchText))
+            collections = collections.Where(MatchesCollectionSearch);
+        if (_lane != "all")
+            collections = collections.Where(collection => string.Equals(collection.PrimaryLane, _lane, StringComparison.OrdinalIgnoreCase));
+        if (_kind != "all")
+            collections = collections.Where(collection => string.Equals(collection.CollectionType, _kind, StringComparison.OrdinalIgnoreCase));
+        return SortCollectionTiles(collections.Select(CollectionSurfaceTileComposer.FromCollection));
+    }
+
+    private IReadOnlyList<MediaTileViewModel> FilterCuratedTiles()
+    {
+        var collections = CuratedCollections.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_searchText))
+            collections = collections.Where(MatchesCollectionSearch);
+        if (_lane != "all")
+            collections = collections.Where(collection => string.Equals(collection.PrimaryLane, _lane, StringComparison.OrdinalIgnoreCase));
+        if (_membership == "manual")
+            collections = collections.Where(collection => string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase));
+        else if (_membership == "rules")
+            collections = collections.Where(collection => string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase));
+        if (_status == "published")
+            collections = collections.Where(collection => collection.IsGlobal);
+        else if (_status == "unpublished")
+            collections = collections.Where(collection => !collection.IsGlobal);
+        return SortCollectionTiles(collections.Select(CollectionSurfaceTileComposer.FromCollection));
+    }
+
+    private IReadOnlyList<MediaTileViewModel> FilterShelfTiles()
+    {
+        var shelves = _shelves.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_searchText))
+        {
+            shelves = shelves.Where(entry =>
+                entry.Group.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || (entry.Group.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (entry.Group.Creator?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+        }
+        if (_lane != "all")
+            shelves = shelves.Where(entry => string.Equals(ShelfLane(entry.Kind), _lane, StringComparison.OrdinalIgnoreCase));
+        if (_kind != "all" && Enum.TryParse<CollectionShelfKind>(_kind, true, out var selectedKind))
+            shelves = shelves.Where(entry => entry.Kind == selectedKind);
+        return SortCollectionTiles(shelves.Select(entry => CollectionSurfaceTileComposer.FromShelf(entry.Group, entry.Kind)));
+    }
+
+    private IReadOnlyList<MediaTileViewModel> SortCollectionTiles(IEnumerable<MediaTileViewModel> items) =>
         (_sortBy switch
         {
-            "name" => collections.OrderBy(collection => collection.Name, StringComparer.OrdinalIgnoreCase),
-            "items" => collections.OrderByDescending(collection => collection.ItemCount).ThenBy(collection => collection.Name),
-            "type" => collections.OrderBy(collection => collection.TypeLabel).ThenBy(collection => collection.Name),
-            _ => collections.OrderByDescending(collection => collection.ModifiedAt ?? collection.CreatedAt),
+            "count" => items.OrderByDescending(item => item.PreviewTotalCount).ThenBy(item => item.Title),
+            "newest" or "recent" => items.OrderByDescending(item => item.SortTimestamp).ThenBy(item => item.Title),
+            "oldest" => items.OrderBy(item => item.SortTimestamp).ThenBy(item => item.Title),
+            "year" => items.OrderByDescending(item => item.SortYear).ThenBy(item => item.Title),
+            _ => items.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase),
         }).ToList();
 
-    private Task OnSearchChanged(string value)
+    private bool MatchesCollectionSearch(CollectionManagementCatalogViewModel collection) =>
+        collection.Name.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+        || (collection.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+        || collection.CollectionType.Contains(_searchText, StringComparison.OrdinalIgnoreCase);
+
+    private void ReadUrlState()
+    {
+        var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
+        _searchText = query["q"] ?? string.Empty;
+        _lane = query["lane"] ?? "all";
+        _kind = query["kind"] ?? "all";
+        _membership = query["membership"] ?? "all";
+        _status = query["status"] ?? "all";
+        _role = query["role"] ?? "all";
+        _sortBy = ResolveSort(query["sort"]);
+        _tileSize = int.TryParse(query["tile"], out var tileSize)
+            ? Math.Clamp(tileSize, 136, 248)
+            : 176;
+        _visibleTileCount = TilePageSize;
+    }
+
+    private string ResolveSort(string? requested)
+    {
+        var allowed = SortOptions.Select(option => option.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(requested) && allowed.Contains(requested))
+            return requested;
+        return _activeSection == CollectionsSectionConfiguration.Curated ? "recent" : "title";
+    }
+
+    private async Task OnSearchChanged(string value)
     {
         _searchText = value;
+        NavigateWithFilters();
+        if (_activeSection == CollectionsSectionConfiguration.People)
+            await ReloadPeopleForFiltersAsync();
+    }
+
+    private async Task OnLaneChanged(string value)
+    {
+        _lane = value;
+        NavigateWithFilters();
+        if (_activeSection == CollectionsSectionConfiguration.People)
+            await ReloadPeopleForFiltersAsync();
+    }
+
+    private Task OnKindChanged(string value)
+    {
+        _kind = value;
+        NavigateWithFilters();
         return Task.CompletedTask;
     }
 
-    private Task OnSortChanged(string value)
+    private Task OnMembershipChanged(string value)
+    {
+        _membership = value;
+        NavigateWithFilters();
+        return Task.CompletedTask;
+    }
+
+    private Task OnStatusChanged(string value)
+    {
+        _status = value;
+        NavigateWithFilters();
+        return Task.CompletedTask;
+    }
+
+    private async Task OnRoleChanged(string value)
+    {
+        _role = value;
+        NavigateWithFilters();
+        await ReloadPeopleForFiltersAsync();
+    }
+
+    private async Task OnSortChanged(string value)
     {
         _sortBy = value;
+        NavigateWithFilters();
+        if (_activeSection == CollectionsSectionConfiguration.People)
+            await ReloadPeopleForFiltersAsync();
+    }
+
+    private void OnTileSizeChanged(ChangeEventArgs args)
+    {
+        if (int.TryParse(args.Value?.ToString(), out var tileSize))
+        {
+            _tileSize = Math.Clamp(tileSize, 136, 248);
+            NavigateWithFilters();
+        }
+    }
+
+    private void NavigateWithFilters()
+    {
+        _visibleTileCount = TilePageSize;
+        var query = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_searchText))
+            query.Add($"q={Uri.EscapeDataString(_searchText)}");
+        if (_lane != "all")
+            query.Add($"lane={Uri.EscapeDataString(_lane)}");
+        if (_kind != "all" && _activeSection is CollectionsSectionConfiguration.Automatic or CollectionsSectionConfiguration.Shelves)
+            query.Add($"kind={Uri.EscapeDataString(_kind)}");
+        if (_membership != "all" && _activeSection == CollectionsSectionConfiguration.Curated)
+            query.Add($"membership={Uri.EscapeDataString(_membership)}");
+        if (_status != "all" && _activeSection == CollectionsSectionConfiguration.Curated)
+            query.Add($"status={Uri.EscapeDataString(_status)}");
+        if (_role != "all" && _activeSection == CollectionsSectionConfiguration.People)
+            query.Add($"role={Uri.EscapeDataString(_role)}");
+        if (_sortBy != ResolveSort(null))
+            query.Add($"sort={Uri.EscapeDataString(_sortBy)}");
+        if (_tileSize != 176 && _activeSection != CollectionsSectionConfiguration.People)
+            query.Add($"tile={_tileSize}");
+
+        var route = _activeSection == CollectionsSectionConfiguration.Overview
+            ? "/collections"
+            : $"/collections/{_activeSection}";
+        Nav.NavigateTo(query.Count == 0 ? route : $"{route}?{string.Join("&", query)}");
+    }
+
+    private Task RemoveFilterAsync(string key)
+    {
+        switch (key)
+        {
+            case "lane": _lane = "all"; break;
+            case "kind": _kind = "all"; break;
+            case "membership": _membership = "all"; break;
+            case "status": _status = "all"; break;
+            case "role": _role = "all"; break;
+        }
+        NavigateWithFilters();
         return Task.CompletedTask;
     }
 
-    private Task SetCollectionFilterAsync(string filter)
+    private Task ClearFiltersAsync()
     {
-        _activeFilter = filter;
+        _lane = "all";
+        _kind = "all";
+        _membership = "all";
+        _status = "all";
+        _role = "all";
+        NavigateWithFilters();
         return Task.CompletedTask;
     }
 
-    private Task OpenCollection(CollectionManagementCatalogViewModel collection)
+    private async Task ReloadPeopleForFiltersAsync()
     {
-        Nav.NavigateTo($"/details/collection/{collection.Id:D}");
-        return Task.CompletedTask;
+        _loadingMorePeople = true;
+        try
+        {
+            _people.Clear();
+            _peoplePresence.Clear();
+            _peopleOffset = 0;
+            var page = await ApiClient.GetPersonsPageAsync(
+                search: NullIfBlank(_searchText),
+                role: _role == "all" ? null : _role,
+                offset: 0,
+                limit: PeoplePageSize,
+                lane: _lane == "all" ? null : _lane,
+                sort: _sortBy);
+            await AppendPeoplePageAsync(page ?? EmptyPeoplePage());
+            _loadedPeopleQueryKey = CurrentPeopleQueryKey;
+        }
+        finally
+        {
+            _loadingMorePeople = false;
+        }
     }
+
+    private void ShowMoreTiles() =>
+        _visibleTileCount += TilePageSize;
 
     private async Task OpenCollectionBuilder()
     {
-        if (_activeProfile is null)
+        if (_activeProfile is null || !CanManageCuratedCollections)
         {
-            Snackbar.Add("Choose an active profile before creating a collection.", Severity.Warning);
+            Snackbar.Add("Only an administrator can create a curated collection.", Severity.Warning);
             return;
         }
 
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = _activeProfile.Id,
-            CanManageSharedCollections = CanManageSharedCollections,
+            CanManageSharedCollections = true,
             InitialCollectionType = "Custom",
             InitialRulesEnabled = true,
             Mode = "Collection",
         });
 
         if (changed)
-            await LoadCollectionsAsync();
+        {
+            _loaded = false;
+            await LoadAsync();
+        }
     }
 
-    private static MediaTileViewModel ToMediaTile(CollectionManagementCatalogViewModel collection)
+    private bool PersonHasLane(Guid personId, string lane) =>
+        _peoplePresence.TryGetValue(personId.ToString(), out var presence)
+        && presence.Any(pair => string.Equals(LaneForMediaType(pair.Key), lane, StringComparison.OrdinalIgnoreCase)
+            && pair.Value > 0);
+
+    private static bool IsAutomaticCollection(CollectionManagementCatalogViewModel collection) =>
+        !collection.IsSystem
+        && collection.CollectionType is "Universe" or "Series" or "ContentGroup";
+
+    private static bool MediaTypeMatches(string value, string expected) =>
+        value.Contains(expected, StringComparison.OrdinalIgnoreCase)
+        || expected == "Movies" && value.Contains("Movie", StringComparison.OrdinalIgnoreCase);
+
+    private static string ShelfLane(CollectionShelfKind kind) => kind switch
     {
-        var navigationUrl = collection.Person is null
-            ? $"/details/collection/{collection.Id:D}"
-            : $"/details/person/{collection.Person.Id:D}";
-        var previewImages = collection.ArtworkItems
-            .Select(item => MediaTileArtworkUrl.Sized(item.CoverUrl, "s"))
-            .Where(url => !string.IsNullOrWhiteSpace(url))
-            .Cast<string>()
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Take(4)
-            .ToList();
-        var artworkStackItems = collection.ArtworkItems
-            .Select(ToArtworkStackItem)
-            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-            .ToList();
-        var primaryArtwork = PrimaryArtwork(collection);
-        var primarySmall = MediaTileArtworkUrl.Sized(primaryArtwork, "s");
-        var primaryMedium = MediaTileArtworkUrl.Sized(primaryArtwork, "m");
-        var surface = MediaTileArtworkResolver.Resolve(
-            MediaTileBucket.Other,
-            MediaTilePresentation.Default,
-            [new MediaTileArtworkVariant(ArtworkRole.Cover, primarySmall, primaryMedium)],
-            preferLandscapeTile: true);
-        var heroArtwork = HeroBackground(collection);
-        var heroSmall = MediaTileArtworkUrl.Sized(heroArtwork, "s");
-        var heroMedium = MediaTileArtworkUrl.Sized(heroArtwork, "m");
-        var paletteArtwork = PaletteArtwork(collection);
-        var accentColor = StringHelpers.FirstNonBlank(paletteArtwork?.PrimaryColor, paletteArtwork?.AccentColor, "var(--tl-accent-primary)")!;
-        var secondaryAccentColor = StringHelpers.FirstNonBlank(paletteArtwork?.SecondaryColor, paletteArtwork?.AccentColor, paletteArtwork?.PrimaryColor, "#111827")!;
-
-        return new MediaTileViewModel
-        {
-            Id = collection.Id,
-            CollectionId = collection.Id,
-            Title = collection.Name,
-            Subtitle = CollectionSubtitle(collection),
-            Description = collection.Description,
-            CoverUrl = primaryArtwork,
-            BackgroundUrl = HeroBackground(collection),
-            PreviewImages = previewImages,
-            ArtworkStackItems = artworkStackItems,
-            StatusText = collection.StatusLabel,
-            MetaText = null,
-            MediaCounts = BuildMediaCounts(collection),
-            GroupSummary = new MediaTileGroupSummaryViewModel
-            {
-                OwnedCount = collection.ItemCount,
-                EarliestYear = collection.EarliestYear,
-                LatestYear = collection.LatestYear,
-                RelationshipLabel = CollectionRelationshipLabel(collection.CollectionType),
-            },
-            ContextLines = BuildContextLines(collection),
-            HoverFacts = BuildHoverFacts(collection),
-            MediaKind = "Collection",
-            AccentColor = accentColor,
-            SecondaryAccentColor = secondaryAccentColor,
-            ArtworkPalette = collection.ArtworkPalette,
-            Shape = surface.Shape,
-            HoverArtworkShape = surface.HoverArtworkShape,
-            Presentation = MediaTilePresentation.Default,
-            SurfaceKind = surface.SurfaceKind,
-            HoverLayout = surface.HoverLayout,
-            TileTextMode = MediaTileTextMode.CoverOnly,
-            TileImageUrl = surface.TileImageUrl,
-            TileImageSrcSet = surface.TileImageSrcSet,
-            HoverImageUrl = surface.HoverImageUrl,
-            HoverImageSrcSet = surface.HoverImageSrcSet,
-            HeroBackgroundImageUrl = heroMedium,
-            NavigationUrl = navigationUrl,
-            PrimaryNavigationUrl = navigationUrl,
-            DetailsNavigationUrl = navigationUrl,
-            PrimaryActionLabel = "Open",
-            Creator = null,
-            Person = collection.Person is null
-                ? null
-                : new MediaTilePersonViewModel
-                {
-                    Id = collection.Person.Id,
-                    Name = collection.Person.Name,
-                    ImageUrl = collection.Person.HeadshotUrl,
-                    Roles = collection.Person.Roles,
-                },
-            CollectionKey = collection.CollectionType,
-            PreviewTotalCount = collection.ItemCount,
-            SortYear = collection.LatestYear ?? collection.EarliestYear ?? 0,
-            SortTimestamp = collection.ModifiedAt ?? collection.CreatedAt,
-            IsCollection = true,
-            UseLandscapeGroupTile = true,
-        };
-    }
-
-    private static IReadOnlyList<string> BuildContextLines(CollectionManagementCatalogViewModel collection)
-    {
-        var lines = new List<string>();
-        if (collection.ArtworkItems.Count > 0)
-        {
-            lines.Add(string.Join(" / ", collection.ArtworkItems.Take(3).Select(item => item.Title)));
-        }
-
-        if (!string.IsNullOrWhiteSpace(collection.Description))
-        {
-            lines.Add(collection.Description);
-        }
-
-        return lines;
-    }
-
-    private static IReadOnlyList<string> BuildHoverFacts(CollectionManagementCatalogViewModel collection) =>
-    [
-        .. BuildMediaCountLabels(collection),
-        collection.IsGlobal ? "Shared" : "Personal",
-    ];
-
-    private static IReadOnlyList<MediaTileMediaCountViewModel> BuildMediaCounts(CollectionManagementCatalogViewModel collection)
-    {
-        var mediaTypeCounts = new[]
-        {
-            ToMediaCount("Movies", collection.MovieCount),
-            ToMediaCount("TV", collection.TvCount),
-            ToMediaCount("Books", collection.BookCount),
-            ToMediaCount("Comics", collection.ComicCount),
-            ToMediaCount("Music", collection.MusicCount),
-            ToMediaCount("Audiobooks", collection.AudiobookCount),
-        }
-            .Where(count => count.Count > 0)
-            .ToList();
-        if (mediaTypeCounts.Count > 0)
-        {
-            if (collection.OtherCount > 0)
-            {
-                mediaTypeCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
-            }
-
-            return mediaTypeCounts;
-        }
-
-        // Unclassified media still has a truthful lane total even when it cannot be
-        // expressed as one of the six media-specific icon counts above.
-        var aggregateCounts = new List<MediaTileMediaCountViewModel>();
-        if (collection.WatchCount > 0)
-        {
-            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.PlayArrow, "Watch", collection.WatchCount));
-        }
-
-        if (collection.ReadCount > 0)
-        {
-            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Read", collection.ReadCount));
-        }
-
-        if (collection.ListenCount > 0)
-        {
-            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Listen", collection.ListenCount));
-        }
-
-        if (collection.OtherCount > 0)
-        {
-            aggregateCounts.Add(new MediaTileMediaCountViewModel(Icons.Material.Filled.MoreHoriz, "Other", collection.OtherCount));
-        }
-
-        if (aggregateCounts.Count > 0)
-        {
-            return aggregateCounts;
-        }
-
-        var artworkCounts = collection.ArtworkItems
-            .GroupBy(item => NormalizeMediaType(item.MediaType), StringComparer.OrdinalIgnoreCase)
-            .Where(group => !string.IsNullOrWhiteSpace(group.Key))
-            .Select(group => ToMediaCount(group.Key, group.Count()))
-            .Where(count => count.Count > 0)
-            .ToList();
-
-        if (artworkCounts.Count > 0)
-        {
-            return artworkCounts
-                .OrderBy(count => MediaCountSort(count.Label))
-                .ToList();
-        }
-
-        return [];
-    }
-
-    private static string? CollectionRelationshipLabel(string? collectionType) => collectionType?.Trim() switch
-    {
-        "Universe" => "Shared universe",
-        "Franchise" => "Franchise collection",
-        "Series" => "Series grouping",
-        "ContentGroup" => "Related works",
-        "Playlist" or "PlaylistFolder" => "Curated list",
-        "Smart" => "Smart collection",
-        "Manual" => "Curated collection",
-        _ => null,
+        CollectionShelfKind.BookSeries or CollectionShelfKind.ComicVolume => "Read",
+        CollectionShelfKind.MovieSeries or CollectionShelfKind.TvShow => "Watch",
+        CollectionShelfKind.Album or CollectionShelfKind.AudiobookSeries => "Listen",
+        _ => "CrossMedia",
     };
 
-    private static IReadOnlyList<string> BuildMediaCountLabels(CollectionManagementCatalogViewModel collection) =>
-        BuildMediaCounts(collection)
-            .Select(count => $"{count.Count} {count.Label}")
-            .ToList();
-
-    private static MediaTileMediaCountViewModel ToMediaCount(string mediaType, int count) => mediaType switch
+    private static string LaneForMediaType(string mediaType)
     {
-        "Movies" => new MediaTileMediaCountViewModel(Icons.Material.Filled.Movie, "Movies", count),
-        "TV" => new MediaTileMediaCountViewModel(Icons.Material.Filled.LiveTv, "TV", count),
-        "Music" => new MediaTileMediaCountViewModel(Icons.Material.Filled.MusicNote, "Music", count),
-        "Audiobooks" => new MediaTileMediaCountViewModel(Icons.Material.Filled.Headphones, "Audiobooks", count),
-        "Comics" => new MediaTileMediaCountViewModel(Icons.Material.Filled.AutoStories, "Comics", count),
-        "Books" => new MediaTileMediaCountViewModel(Icons.Material.Filled.MenuBook, "Books", count),
-        _ => new MediaTileMediaCountViewModel(Icons.Material.Filled.Theaters, "Media", count),
+        if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("epub", StringComparison.OrdinalIgnoreCase))
+            return "Read";
+        if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("tv", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("video", StringComparison.OrdinalIgnoreCase))
+            return "Watch";
+        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("track", StringComparison.OrdinalIgnoreCase))
+            return "Listen";
+        return "CrossMedia";
+    }
+
+    private static string ShelfKindLabel(CollectionShelfKind kind) => kind switch
+    {
+        CollectionShelfKind.BookSeries => "Book series",
+        CollectionShelfKind.ComicVolume => "Comic volumes",
+        CollectionShelfKind.MovieSeries => "Movie series",
+        CollectionShelfKind.TvShow => "TV shows",
+        CollectionShelfKind.Album => "Albums",
+        CollectionShelfKind.AudiobookSeries => "Audiobook series",
+        _ => "Shelves",
     };
 
-    private static string NormalizeMediaType(string? mediaType)
+    private static string RoleDisplayLabel(string role) => role switch
     {
-        var value = mediaType ?? string.Empty;
-        if (value.Contains("tv", StringComparison.OrdinalIgnoreCase) || value.Contains("show", StringComparison.OrdinalIgnoreCase))
-            return "TV";
-        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase) || value.Contains("film", StringComparison.OrdinalIgnoreCase))
-            return "Movies";
-        if (value.Contains("audio", StringComparison.OrdinalIgnoreCase))
-            return "Audiobooks";
-        if (value.Contains("music", StringComparison.OrdinalIgnoreCase) || value.Contains("song", StringComparison.OrdinalIgnoreCase) || value.Contains("album", StringComparison.OrdinalIgnoreCase))
-            return "Music";
-        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase))
-            return "Comics";
-        if (value.Contains("book", StringComparison.OrdinalIgnoreCase) || value.Contains("epub", StringComparison.OrdinalIgnoreCase))
-            return "Books";
-
-        return string.Empty;
-    }
-
-    private static int MediaCountSort(string label) => label switch
-    {
-        "Movies" => 0,
-        "TV" => 1,
-        "Video" => 2,
-        "Books" => 3,
-        "Audiobooks" => 4,
-        "Audio" => 5,
-        "Music" => 6,
-        "Comics" => 7,
-        _ => 8,
+        "Author" => "Authors",
+        "Director" => "Directors",
+        "Artist" => "Artists",
+        "Narrator" => "Narrators",
+        "Actor" => "Actors",
+        "Performer" => "Performers",
+        "Illustrator" => "Illustrators",
+        "Writer" => "Writers",
+        "Creator" => "Creators",
+        _ => role,
     };
 
-    private static string CollectionSubtitle(CollectionManagementCatalogViewModel collection) =>
-        string.Join(" / ", BuildMediaCountLabels(collection));
-
-    private static string? PrimaryArtwork(CollectionManagementCatalogViewModel collection) =>
-        StringHelpers.FirstNonBlank(collection.SquareArtworkUrl, collection.ArtworkItems.FirstOrDefault()?.CoverUrl);
-
-    private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
-        StringHelpers.FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));
-
-    private static ArtworkStackItem ToArtworkStackItem(CollectionArtworkItemDto item) => new()
+    private static string PeopleRoleIcon(string role) => role switch
     {
-        Id = item.WorkId.ToString("D"),
-        WorkId = item.WorkId,
-        Title = item.Title,
-        ImageUrl = MediaTileArtworkUrl.Sized(item.CoverUrl, "s") ?? string.Empty,
-        MediaType = item.MediaType,
-        NavigationUrl = CollectionItemRoute(item),
-        Shape = ToArtworkShape(item.ArtworkShape, item.MediaType),
-        Description = item.Description,
-        Facts = item.Facts,
+        "Author" or "Writer" => Icons.Material.Outlined.Edit,
+        "Director" => Icons.Material.Outlined.MovieFilter,
+        "Artist" or "Performer" => Icons.Material.Outlined.MusicNote,
+        "Narrator" => Icons.Material.Outlined.RecordVoiceOver,
+        "Actor" => Icons.Material.Outlined.TheaterComedy,
+        "Illustrator" => Icons.Material.Outlined.Brush,
+        _ => Icons.Material.Outlined.Person,
     };
 
-    private static string CollectionItemRoute(CollectionArtworkItemDto item)
-        => MediaNavigation.ForMedia(item.MediaType, item.WorkId);
+    private string CurrentPeopleQueryKey =>
+        $"{_searchText.Trim().ToLowerInvariant()}|{_role.Trim().ToLowerInvariant()}|{_lane.Trim().ToLowerInvariant()}|{_sortBy.Trim().ToLowerInvariant()}";
 
-    private static ArtworkShape ToArtworkShape(string? shape, string? mediaType)
-    {
-        if (string.Equals(shape, "square", StringComparison.OrdinalIgnoreCase))
-            return ArtworkShape.Square;
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-        if (string.Equals(shape, "wide", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(shape, "landscape", StringComparison.OrdinalIgnoreCase))
-            return ArtworkShape.Wide;
+    private static PagedResponse<PersonListItemResponse> EmptyPeoplePage(int offset = 0) =>
+        new([], offset, PeoplePageSize, false);
 
-        if (string.Equals(shape, "portrait", StringComparison.OrdinalIgnoreCase))
-            return ArtworkShape.Portrait;
-
-        var normalized = NormalizeMediaType(mediaType);
-        return normalized is "Audiobooks" or "Music"
-            ? ArtworkShape.Square
-            : ArtworkShape.Portrait;
-    }
-
-    private static CollectionArtworkItemDto? PaletteArtwork(CollectionManagementCatalogViewModel collection)
-    {
-        var candidates = collection.ArtworkItems
-            .Where(item => !string.IsNullOrWhiteSpace(item.PrimaryColor)
-                || !string.IsNullOrWhiteSpace(item.SecondaryColor)
-                || !string.IsNullOrWhiteSpace(item.AccentColor))
-            .OrderBy(item => StableHash(collection.Id, item.WorkId))
-            .ToList();
-
-        if (candidates.Count == 0)
-        {
-            return null;
-        }
-
-        var index = (StableHash(collection.Id, collection.Id) & int.MaxValue) % candidates.Count;
-        return candidates[index];
-    }
-
-    private static int StableHash(Guid collectionId, Guid valueId)
-    {
-        var bytes = collectionId.ToByteArray().Concat(valueId.ToByteArray()).ToArray();
-        unchecked
-        {
-            var hash = 17;
-            foreach (var value in bytes)
-                hash = (hash * 31) + value;
-            return hash;
-        }
-    }
-
+    private sealed record ShelfCatalogEntry(
+        string Identity,
+        ContentGroupViewModel Group,
+        CollectionShelfKind Kind);
 }

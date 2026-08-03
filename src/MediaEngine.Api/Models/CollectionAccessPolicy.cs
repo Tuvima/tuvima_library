@@ -21,6 +21,9 @@ public static class CollectionAccessPolicy
     public static bool CanManageSharedCollections(Profile? profile) =>
         profile?.Role is ProfileRole.Administrator or ProfileRole.Curator;
 
+    public static bool CanManageCuratedCollections(Profile? profile) =>
+        profile?.Role is ProfileRole.Administrator;
+
     public static bool CanAccess(Collection collection, Profile? activeProfile)
     {
         if (collection.Scope == CollectionScope.Library)
@@ -35,6 +38,9 @@ public static class CollectionAccessPolicy
     {
         if (activeProfile is null)
             return false;
+
+        if (collection.CollectionType == CollectionType.Custom)
+            return CanManageCuratedCollections(activeProfile);
 
         if (collection.Scope == CollectionScope.Library)
             return CanManageSharedCollections(activeProfile);

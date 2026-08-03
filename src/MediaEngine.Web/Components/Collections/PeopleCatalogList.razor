@@ -1,0 +1,92 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Contracts.Persons
+
+<div class="people-catalog-list" role="list" aria-label="People in your library">
+    @foreach (var person in Items)
+    {
+        var counts = Presence.TryGetValue(person.id.ToString(), out var presence)
+            ? presence
+            : EmptyPresence;
+        <a class="people-catalog-row"
+           role="listitem"
+           href="@($"/details/person/{person.id:D}")"
+           @key="person.id">
+            <span class="people-catalog-row__portrait">
+                @if (!string.IsNullOrWhiteSpace(person.headshot_url))
+                {
+                    <img src="@person.headshot_url" alt="" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.Person" />
+                }
+            </span>
+
+            <span class="people-catalog-row__identity">
+                <strong>@person.name</strong>
+                <span>@RoleLabel(person.roles)</span>
+            </span>
+
+            <span class="people-catalog-row__presence">
+                @if (LaneCount(counts, "read") is var readCount && readCount > 0)
+                {
+                    <span><MudIcon Icon="@Icons.Material.Outlined.MenuBook" />@readCount Read</span>
+                }
+                @if (LaneCount(counts, "watch") is var watchCount && watchCount > 0)
+                {
+                    <span><MudIcon Icon="@Icons.Material.Outlined.Movie" />@watchCount Watch</span>
+                }
+                @if (LaneCount(counts, "listen") is var listenCount && listenCount > 0)
+                {
+                    <span><MudIcon Icon="@Icons.Material.Outlined.Headphones" />@listenCount Listen</span>
+                }
+            </span>
+
+            <span class="people-catalog-row__total">@Total(counts) owned</span>
+            <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Class="people-catalog-row__open" />
+        </a>
+    }
+</div>
+
+@code {
+    private static readonly Dictionary<string, int> EmptyPresence = new(StringComparer.OrdinalIgnoreCase);
+
+    [Parameter] public IReadOnlyList<PersonListItemResponse> Items { get; set; } = [];
+    [Parameter] public IReadOnlyDictionary<string, Dictionary<string, int>> Presence { get; set; } =
+        new Dictionary<string, Dictionary<string, int>>();
+
+    private static string RoleLabel(IEnumerable<string> roles)
+    {
+        var values = roles
+            .Where(role => !string.IsNullOrWhiteSpace(role))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(3)
+            .ToList();
+        return values.Count == 0 ? "Contributor" : string.Join(", ", values);
+    }
+
+    private static int Total(IReadOnlyDictionary<string, int> counts) =>
+        counts.Values.Sum();
+
+    private static int LaneCount(IReadOnlyDictionary<string, int> counts, string lane) =>
+        counts
+            .Where(pair => LaneForMediaType(pair.Key) == lane)
+            .Sum(pair => pair.Value);
+
+    private static string LaneForMediaType(string mediaType)
+    {
+        if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("epub", StringComparison.OrdinalIgnoreCase))
+            return "read";
+        if (mediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("tv", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("video", StringComparison.OrdinalIgnoreCase))
+            return "watch";
+        if (mediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
+            || mediaType.Contains("track", StringComparison.OrdinalIgnoreCase))
+            return "listen";
+        return string.Empty;
+    }
+}

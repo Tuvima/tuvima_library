@@ -30,30 +30,46 @@ public sealed partial class EngineApiClient
             var safeOffset = Math.Max(0, offset);
             var safeLimit = Math.Clamp(limit <= 0 ? 200 : limit, 1, 500);
             var url = $"/persons?offset={safeOffset}&limit={safeLimit}";
+            if (!string.IsNullOrWhiteSpace(role))
+                url += $"&role={Uri.EscapeDataString(role)}";
+
+            var page = await ReadPersonPageAsync(url, ct);
+            return page?.Items;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET /persons failed");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Returns a canonical, owned-library people catalog page for presentation
+    /// surfaces such as Collections / People.
+    /// </summary>
+    public async Task<PagedResponse<PersonListItemResponse>?> GetPersonsPageAsync(
+        string? search = null,
+        string? role = null,
+        int offset = 0,
+        int limit = 100,
+        string? lane = null,
+        string? sort = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var safeOffset = Math.Max(0, offset);
+            var safeLimit = Math.Clamp(limit <= 0 ? 100 : limit, 1, 500);
+            var url = $"/persons?catalog=true&offset={safeOffset}&limit={safeLimit}";
+            if (!string.IsNullOrWhiteSpace(search))
+                url += $"&q={Uri.EscapeDataString(search)}";
             if (!string.IsNullOrEmpty(role))
                 url += $"&role={Uri.EscapeDataString(role)}";
-            var payload = await _http.GetFromJsonAsync<JsonElement>(url, ct);
-            List<PersonListItemResponse>? results;
-            if (payload.ValueKind == JsonValueKind.Array)
-            {
-                results = payload.Deserialize<List<PersonListItemResponse>>();
-            }
-            else if (payload.ValueKind == JsonValueKind.Object && payload.TryGetProperty("items", out var items))
-            {
-                results = items.Deserialize<List<PersonListItemResponse>>();
-            }
-            else
-            {
-                results = [];
-            }
-            return results?
-                .Select(p => p with
-                {
-                    headshot_url = p.has_local_headshot || !string.IsNullOrEmpty(p.headshot_url)
-                        ? AbsoluteUrl($"/persons/{p.id}/headshot")
-                        : null,
-                })
-                .ToList();
+            if (!string.IsNullOrWhiteSpace(lane))
+                url += $"&lane={Uri.EscapeDataString(lane)}";
+            if (string.Equals(sort, "count", StringComparison.OrdinalIgnoreCase))
+                url += "&sort=count";
+            return await ReadPersonPageAsync(url, ct);
         }
         catch (Exception ex)
         {
@@ -153,7 +169,9 @@ public sealed partial class EngineApiClient
     {
         try
         {
-            var result = await _http.GetFromJsonAsync<Dictionary<string, int>>("/persons/role-counts", ct);
+            var result = await _http.GetFromJsonAsync<Dictionary<string, int>>(
+                "/persons/role-counts?catalog=true",
+                ct);
             return result ?? new();
         }
         catch (Exception ex)
@@ -180,6 +198,25 @@ public sealed partial class EngineApiClient
             _logger.LogWarning(ex, "GET /persons/presence failed");
             return new();
         }
+    }
+
+    private async Task<PagedResponse<PersonListItemResponse>?> ReadPersonPageAsync(
+        string url,
+        CancellationToken ct)
+    {
+        var page = await _http.GetFromJsonAsync<PagedResponse<PersonListItemResponse>>(url, ct);
+        if (page is null)
+            return null;
+
+        var normalized = page.Items
+            .Select(person => person with
+            {
+                headshot_url = person.has_local_headshot || !string.IsNullOrEmpty(person.headshot_url)
+                    ? AbsoluteUrl($"/persons/{person.id}/headshot")
+                    : null,
+            })
+            .ToList();
+        return page with { Items = normalized };
     }
 
     // -- GET /collections/{id}/related -------------------------------------------------

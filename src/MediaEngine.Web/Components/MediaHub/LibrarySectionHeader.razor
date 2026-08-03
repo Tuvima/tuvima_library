@@ -2,14 +2,21 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
 
-<header class="media-lane-header">
+<header class="library-section-header">
     @if (Modes.Count > 0)
     {
         <SurfaceNavigationBar Items="@NavigationItems"
                               ActiveKey="@ActiveMode"
                               ActiveKeyChanged="NavigateAsync"
                               AriaLabel="@($"Browse {Title}")"
-                              Class="media-lane-header__navigation" />
+                              Class="library-section-header__navigation" />
+    }
+
+    @if (Actions is not null)
+    {
+        <div class="library-section-header__actions">
+            @Actions
+        </div>
     }
 </header>
 
@@ -17,6 +24,7 @@
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter] public string ActiveMode { get; set; } = "all";
     [Parameter] public IReadOnlyList<MediaHubModeViewModel> Modes { get; set; } = [];
+    [Parameter] public RenderFragment? Actions { get; set; }
 
     private IReadOnlyList<SurfaceTabItem> NavigationItems => Modes
         .Select(mode => new SurfaceTabItem(mode.Id, mode.Label))

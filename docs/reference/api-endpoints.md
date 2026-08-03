@@ -84,6 +84,8 @@ compatibility versions.
 | POST | `/collections/reconcile` | Dry-run or run collection shelf repair for already-ingested media. Body: `dry_run`, `batch_size`, `max_items`. Returns candidate, processed, assigned, skipped, failed, and elapsed counts. | Curator |
 | GET | `/collections/{collectionId}/series-manifest` | Ordered Wikidata series checklist with total, owned, missing, provisional, ambiguous counts and named entries | Required |
 | GET | `/collections/search?q=` | SQL-backed search across visible library works, canonical values, and collection names. Returns up to 20 work results. | Required |
+| GET | `/persons?catalog=true&q=&role=&lane=&sort=&offset=&limit=` | Paged canonical primary contributors on owned works for Collections / People | Required |
+| GET | `/persons/role-counts?catalog=true` | Canonical owned-library contributor counts grouped by role | Required |
 
 ---
 

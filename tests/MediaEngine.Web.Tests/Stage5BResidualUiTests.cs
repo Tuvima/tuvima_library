@@ -76,7 +76,7 @@ public sealed class Stage5BResidualUiTests
     }
 
     [Theory]
-    [InlineData(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor")]
+    [InlineData(@"src\MediaEngine.Web\Services\MediaTiles\CollectionSurfaceTileComposer.cs")]
     [InlineData(@"src\MediaEngine.Web\Components\Pages\MyList.razor")]
     public void ResidualTileCallers_DelegateArtworkSelection(string relativePath)
     {

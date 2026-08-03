@@ -54,6 +54,13 @@ public interface IPersonRepository
     Task<Dictionary<string, int>> GetRoleCountsAsync(CancellationToken ct = default);
 
     /// <summary>
+    /// Returns the count of distinct people per canonical primary-credit role
+    /// across owned works.
+    /// </summary>
+    Task<Dictionary<string, int>> GetCatalogRoleCountsAsync(CancellationToken ct = default) =>
+        GetRoleCountsAsync(ct);
+
+    /// <summary>
     /// Returns per-person media type counts (e.g. how many Books, Movies, etc. each person
     /// is linked to). Used by people surfaces for library presence display.
     /// </summary>
@@ -164,6 +171,20 @@ public interface IPersonRepository
         int offset,
         int limit,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Returns a bounded presentation catalog page containing only people with
+    /// canonical primary credits on owned works.
+    /// </summary>
+    Task<IReadOnlyList<Person>> ListCatalogPagedAsync(
+        string? search,
+        string? role,
+        int offset,
+        int limit,
+        string? lane = null,
+        string? sort = null,
+        CancellationToken ct = default) =>
+        ListPagedAsync(role, offset, limit, ct);
 
     /// <summary>
     /// Returns the number of media asset links for a given person.

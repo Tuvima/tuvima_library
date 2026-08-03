@@ -4,6 +4,7 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Library;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Persons;
 using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Contracts.Settings;
@@ -616,6 +617,39 @@ internal class EngineApiClientStub : DispatchProxy
                         new() { WorkId = Guid.Parse("20000000-0000-0000-0000-000000000006"), Title = "Arrival", MediaType = "Movie", CoverUrl = "/img/arrival.jpg", ArtworkShape = "poster" },
                         new() { WorkId = Guid.Parse("20000000-0000-0000-0000-000000000007"), Title = "The Left Hand of Darkness", MediaType = "Book", CoverUrl = "/img/left-hand.jpg", ArtworkShape = "book" },
                     ],
+                },
+            });
+
+        var catalogPersonId = Guid.Parse("30000000-0000-0000-0000-000000000001");
+        _handlers[nameof(IEngineApiClient.GetPersonsPageAsync)] =
+            _ => Task.FromResult<PagedResponse<PersonListItemResponse>?>(new(
+                [
+                    new PersonListItemResponse(
+                        id: catalogPersonId,
+                        name: "Octavia Butler",
+                        roles: ["Author"],
+                        wikidata_qid: "Q128820",
+                        headshot_url: "/img/octavia-butler.jpg",
+                        has_local_headshot: true,
+                        is_pseudonym: false,
+                        is_group: false,
+                        biography: "American science fiction author.",
+                        occupation: "Author"),
+                ],
+                Offset: 0,
+                Limit: 100,
+                HasMore: false));
+        _handlers[nameof(IEngineApiClient.GetPersonRoleCountsAsync)] =
+            _ => Task.FromResult(new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["Author"] = 1,
+            });
+        _handlers[nameof(IEngineApiClient.GetPersonPresenceAsync)] =
+            _ => Task.FromResult(new Dictionary<string, Dictionary<string, int>>(StringComparer.OrdinalIgnoreCase)
+            {
+                [catalogPersonId.ToString()] = new(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["Books"] = 3,
                 },
             });
 

@@ -51,7 +51,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         var laneConfiguration = ReadSource("src/MediaEngine.Web/Components/Pages/MediaLaneConfigurationBuilder.cs");
         var collections = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionsPage.razor");
         var hub = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaHubPage.razor");
-        var laneHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaLaneHeader.razor");
+        var sectionHeader = ReadSource("src/MediaEngine.Web/Components/MediaHub/LibrarySectionHeader.razor");
         var sectionShell = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor");
         var sectionShellStyles = ReadSource("src/MediaEngine.Web/Components/MediaHub/MediaSectionShell.razor.css");
         var browseShell = ReadSource("src/MediaEngine.Web/Components/Browse/MediaBrowseShell.razor");
@@ -65,10 +65,10 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("<MediaLanePage Title=\"Watch\"", watch, StringComparison.Ordinal);
         Assert.Contains("<MediaLanePage Title=\"Listen\"", listen, StringComparison.Ordinal);
         Assert.Contains("<MediaSectionShell", lanePage, StringComparison.Ordinal);
-        Assert.Contains("<MediaLaneHeader Title=\"@Title\"", lanePage, StringComparison.Ordinal);
-        Assert.Contains("<SurfaceNavigationBar", laneHeader, StringComparison.Ordinal);
-        Assert.DoesNotContain("media-lane-header__identity", laneHeader, StringComparison.Ordinal);
-        Assert.DoesNotContain("[Parameter] public string? Subtitle", laneHeader, StringComparison.Ordinal);
+        Assert.Contains("<LibrarySectionHeader Title=\"@Title\"", lanePage, StringComparison.Ordinal);
+        Assert.Contains("<SurfaceNavigationBar", sectionHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain("library-section-header__identity", sectionHeader, StringComparison.Ordinal);
+        Assert.DoesNotContain("[Parameter] public string? Subtitle", sectionHeader, StringComparison.Ordinal);
         Assert.DoesNotContain("media-section-shell__rail-title", sectionShell, StringComparison.Ordinal);
         Assert.Contains("Nav.LocationChanged += OnLocationChanged", sectionShell, StringComparison.Ordinal);
         Assert.Contains("Nav.LocationChanged -= OnLocationChanged", sectionShell, StringComparison.Ordinal);

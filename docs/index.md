@@ -140,7 +140,7 @@ The user-facing Dashboard is organized around current workflows:
 
 - **Home** for discovery and overview.
 - **Read**, **Watch**, and **Listen** for media lanes and shelves.
-- **Collections** for broader rollups that connect multiple shelves or user-managed groupings.
+- **Collections** for automatic broader rollups, administrator-curated collections, a cross-lane shelf index, and canonical people.
 - **Search** for cross-library discovery.
 - **Detail pages** for viewing items and launching inline corrections.
 - **Review Queue** for blocked or uncertain items.

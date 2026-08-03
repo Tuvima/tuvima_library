@@ -410,7 +410,7 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void CollectionsPage_RendersCentralizedBrowseShell()
+    public void CollectionsPage_RendersSharedSectionShellAndCatalogOverview()
     {
         var cut = Render(builder =>
         {
@@ -427,12 +427,13 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Empty(cut.FindAll(".mud-table"));
-            Assert.NotEmpty(cut.FindAll(".browse-shell"));
+            Assert.Single(cut.FindAll(".media-section-shell"));
+            Assert.Single(cut.FindAll(".media-section-shell__rail"));
+            Assert.Single(cut.FindAll(".library-section-header"));
+            Assert.Single(cut.FindAll(".surface-navigation-bar"));
+            Assert.NotEmpty(cut.FindAll(".collections-overview"));
             Assert.Empty(cut.FindAll(".cinematic-hero-carousel"));
             Assert.NotEmpty(cut.FindAll(".surface-tab-bar"));
-            Assert.NotEmpty(cut.FindAll(".browse-shell__search"));
-            Assert.NotEmpty(cut.FindAll(".browse-shell__sort"));
-            Assert.NotEmpty(cut.FindAll(".browse-shell__grid"));
             Assert.NotEmpty(cut.FindAll(".media-group-tile"));
             Assert.Empty(cut.FindAll(".media-tile"));
             Assert.Empty(cut.FindAll(".collections-hub__tabs"));
@@ -444,15 +445,48 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Contains("Dune Universe", cut.Markup);
             Assert.Contains("Middle-earth", cut.Markup);
             Assert.Contains("Weekend Picks", cut.Markup);
-            Assert.Contains(">Playlists<", cut.Markup);
-            Assert.Contains("Broader rollups", cut.Markup);
-            Assert.Contains("Search collections", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".app-select"));
+            Assert.Contains(">Automatic<", cut.Markup);
+            Assert.Contains(">Curated<", cut.Markup);
+            Assert.Contains(">Shelves<", cut.Markup);
+            Assert.Contains(">People<", cut.Markup);
+            Assert.Contains("Broader worlds Tuvima found by connecting trusted relationships", cut.Markup);
+            Assert.DoesNotContain(">Playlists<", cut.Markup);
             Assert.DoesNotContain("CROSS-MEDIA COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("WATCH COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("LISTEN COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("READ COLLECTIONS", cut.Markup);
             Assert.DoesNotContain("collections-hub__browse-types", cut.Markup);
+        });
+    }
+
+    [Fact]
+    public void CollectionsPeople_RendersPagedCanonicalContributorList()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<CollectionsPage>(3);
+            builder.AddAttribute(4, nameof(CollectionsPage.Section), "people");
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Single(cut.FindAll(".people-catalog-list"));
+            Assert.Single(cut.FindAll(".people-catalog-row"));
+            Assert.Contains("Octavia Butler", cut.Markup);
+            Assert.Contains("3 Read", cut.Markup);
+            Assert.Contains("3 owned", cut.Markup);
+            Assert.Contains("Search people or roles", cut.Markup);
+            Assert.Contains(">Role<", cut.Markup);
+            Assert.Contains(">Lane<", cut.Markup);
+            Assert.Empty(cut.FindAll(".media-tile"));
+            Assert.Empty(cut.FindAll(".media-group-tile"));
         });
     }
 

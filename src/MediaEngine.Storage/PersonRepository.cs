@@ -555,6 +555,111 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyList<Person>> ListCatalogPagedAsync(
+        string? search,
+        string? role,
+        int offset,
+        int limit,
+        string? lane = null,
+        string? sort = null,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var p = new DynamicParameters();
+        p.Add("search", string.IsNullOrWhiteSpace(search) ? null : search.Trim());
+        p.Add("role", string.IsNullOrWhiteSpace(role) ? null : role.Trim());
+        p.Add("lane", string.IsNullOrWhiteSpace(lane) ? null : lane.Trim());
+        p.Add("sort", string.Equals(sort, "count", StringComparison.OrdinalIgnoreCase) ? "count" : "title");
+        p.Add("offset", Math.Max(0, offset));
+        p.Add("limit", Math.Clamp(limit, 1, 501));
+
+        var rows = conn.Query<PersonWithRolesCsv>("""
+            SELECT p.id                  AS Id,
+                   p.name                AS Name,
+                   p.wikidata_qid        AS WikidataQid,
+                   p.headshot_url        AS HeadshotUrl,
+                   p.biography           AS Biography,
+                   p.created_at          AS CreatedAt,
+                   p.enriched_at         AS EnrichedAt,
+                   p.occupation          AS Occupation,
+                   p.instagram           AS Instagram,
+                   p.twitter             AS Twitter,
+                   p.tiktok              AS TikTok,
+                   p.mastodon            AS Mastodon,
+                   p.website             AS Website,
+                   p.local_headshot_path AS LocalHeadshotPath,
+                   p.date_of_birth       AS DateOfBirth,
+                   p.date_of_death       AS DateOfDeath,
+                   p.place_of_birth      AS PlaceOfBirth,
+                   p.place_of_death      AS PlaceOfDeath,
+                   p.nationality         AS Nationality,
+                   p.is_pseudonym        AS IsPseudonym,
+                   p.is_group            AS IsGroup,
+                   GROUP_CONCAT(DISTINCT primary_role.role) AS RolesCsv
+            FROM persons p
+            JOIN primary_person_media_credits primary_role
+              ON primary_role.person_id = p.id
+             AND primary_role.role <> 'Composer' COLLATE NOCASE
+             AND NOT (p.is_group = 1 AND primary_role.role = 'Narrator' COLLATE NOCASE)
+            JOIN media_assets ma ON ma.id = primary_role.media_asset_id
+            JOIN editions e ON e.id = ma.edition_id
+            JOIN works w ON w.id = e.work_id
+            WHERE w.ownership = 'Owned'
+              AND w.is_catalog_only = 0
+              AND (
+                  @search IS NULL
+                  OR p.name LIKE '%' || @search || '%' COLLATE NOCASE
+                  OR COALESCE(p.occupation, '') LIKE '%' || @search || '%' COLLATE NOCASE
+                  OR EXISTS (
+                      SELECT 1
+                      FROM primary_person_media_credits role_search
+                      JOIN media_assets role_asset ON role_asset.id = role_search.media_asset_id
+                      JOIN editions role_edition ON role_edition.id = role_asset.edition_id
+                      JOIN works role_work ON role_work.id = role_edition.work_id
+                      WHERE role_search.person_id = p.id
+                        AND role_search.role <> 'Composer' COLLATE NOCASE
+                        AND NOT (p.is_group = 1 AND role_search.role = 'Narrator' COLLATE NOCASE)
+                        AND role_search.role LIKE '%' || @search || '%' COLLATE NOCASE
+                        AND role_work.ownership = 'Owned'
+                        AND role_work.is_catalog_only = 0
+                  )
+              )
+              AND (
+                  @role IS NULL
+                  OR primary_role.role = @role COLLATE NOCASE
+              )
+              AND (
+                  @lane IS NULL
+                  OR (@lane = 'Read' COLLATE NOCASE AND (
+                      w.media_type LIKE '%book%' COLLATE NOCASE
+                      OR w.media_type LIKE '%comic%' COLLATE NOCASE
+                      OR w.media_type LIKE '%epub%' COLLATE NOCASE
+                  ))
+                  OR (@lane = 'Watch' COLLATE NOCASE AND (
+                      w.media_type LIKE '%movie%' COLLATE NOCASE
+                      OR w.media_type LIKE '%tv%' COLLATE NOCASE
+                      OR w.media_type LIKE '%video%' COLLATE NOCASE
+                  ))
+                  OR (@lane = 'Listen' COLLATE NOCASE AND (
+                      w.media_type LIKE '%audio%' COLLATE NOCASE
+                      OR w.media_type LIKE '%music%' COLLATE NOCASE
+                      OR w.media_type LIKE '%track%' COLLATE NOCASE
+                  ))
+              )
+            GROUP BY p.id
+            HAVING RolesCsv IS NOT NULL
+            ORDER BY CASE WHEN @sort = 'count' THEN COUNT(DISTINCT w.id) END DESC,
+                     p.name COLLATE NOCASE ASC
+            LIMIT @limit OFFSET @offset;
+            """, p).AsList();
+
+        var results = rows.Select(MapFromCsvRow).ToList();
+        return Task.FromResult<IReadOnlyList<Person>>(results);
+    }
+
+    /// <inheritdoc/>
     public Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
@@ -672,6 +777,34 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
+    public Task<Dictionary<string, int>> GetCatalogRoleCountsAsync(CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var rows = conn.Query<(string Role, int Count)>("""
+            SELECT primary_credit.role AS Role,
+                   COUNT(DISTINCT primary_credit.person_id) AS Count
+            FROM primary_person_media_credits primary_credit
+            JOIN persons p ON p.id = primary_credit.person_id
+            JOIN media_assets ma ON ma.id = primary_credit.media_asset_id
+            JOIN editions e ON e.id = ma.edition_id
+            JOIN works w ON w.id = e.work_id
+            WHERE primary_credit.role <> 'Composer' COLLATE NOCASE
+              AND NOT (p.is_group = 1 AND primary_credit.role = 'Narrator' COLLATE NOCASE)
+              AND w.ownership = 'Owned'
+              AND w.is_catalog_only = 0
+            GROUP BY primary_credit.role;
+            """).AsList();
+
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (role, count) in rows)
+            result[role] = count;
+
+        return Task.FromResult(result);
+    }
+
+    /// <inheritdoc/>
     public Task<Dictionary<Guid, Dictionary<string, int>>> GetPresenceBatchAsync(
         IEnumerable<Guid> personIds,
         CancellationToken ct = default)
@@ -699,6 +832,8 @@ public sealed class PersonRepository : IPersonRepository
                 JOIN editions e ON e.id = ma.edition_id
                 JOIN works w ON w.id = e.work_id
                 WHERE p.id IN ({personIdClause})
+                  AND w.ownership = 'Owned'
+                  AND w.is_catalog_only = 0
                 GROUP BY p.id, w.media_type;
                 """, p));
         }

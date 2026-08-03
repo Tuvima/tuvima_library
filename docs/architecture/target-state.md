@@ -294,7 +294,8 @@ Library statistics and personal reading/watching history charts.
 | GET | `/collections/{id}/works` | Works for a Collection with full canonical values |
 | GET | `/works/{id}/editions` | Editions for a Work with file metadata |
 | GET | `/persons/{id}` | Person detail with social links and linked works |
-| GET | `/collections` | Smart and user-created collections |
+| GET | `/collections/catalog` | Automatic broader rollups and administrator-curated collections |
+| GET | `/persons?catalog=true` | Paged canonical contributors with owned library work |
 | GET | `/collections/{id}/items` | Items in a collection |
 
 ## Related

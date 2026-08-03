@@ -81,7 +81,7 @@ public sealed class CollectionManagementCatalogViewModel : CollectionManagementC
         "Playlist" => "Playlist",
         "Smart" => "Smart",
         "Mix" => "Mix",
-        "Custom" => "Custom Collection",
+        "Custom" => "Curated Collection",
         "Universe" or "Series" or "ContentGroup" => "Generated Collection",
         _ => IsManual ? "Custom Collection" : "Generated Collection",
     };
@@ -92,7 +92,7 @@ public sealed class CollectionManagementCatalogViewModel : CollectionManagementC
         "Global" => "Global",
         "System" => "System",
         "Discover" => "Discover",
-        _ => "My Collection",
+        _ => "Curated",
     };
 
     [JsonIgnore]

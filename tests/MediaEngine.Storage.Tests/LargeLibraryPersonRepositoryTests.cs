@@ -39,6 +39,27 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task CatalogPage_UsesCanonicalOwnedCreditsForPeopleAndRoles()
+    {
+        SeedWorksAssetsAndPeople(3);
+        var repo = new PersonRepository(_db);
+
+        var page = await repo.ListCatalogPagedAsync(
+            search: "Contributor 001",
+            role: "Author",
+            offset: 0,
+            limit: 10,
+            lane: "Read",
+            sort: "count");
+        var roleCounts = await repo.GetCatalogRoleCountsAsync();
+
+        var person = Assert.Single(page);
+        Assert.Equal("Contributor 001", person.Name);
+        Assert.Equal(["Author"], person.Roles);
+        Assert.Equal(3, roleCounts["Author"]);
+    }
+
+    [Fact]
     public async Task GetByMediaAssetsAsync_LoadsPeopleForManyAssetsInOneCall()
     {
         var assetIds = SeedWorksAssetsAndPeople(40);

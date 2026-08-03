@@ -126,7 +126,7 @@
     private IBrowserFile? _artworkFile;
     private string? _artworkPreviewUrl;
     private string _collectionType = "Custom";
-    private string _visibility = "private";
+    private string _visibility = "shared";
     private bool _rulesEnabled = true;
     private List<CollectionRulePredicateViewModel> _rules = [new()];
     private string _matchMode = "all";
@@ -206,6 +206,7 @@
         {
             _name = Request.InitialTitle ?? string.Empty;
             _collectionType = Request.InitialCollectionType ?? "Custom";
+            _visibility = IsPlaylistDialog ? "private" : "shared";
             _rulesEnabled = Request.InitialRulesEnabled ?? !IsPlaylist;
             _iconName = DefaultIconForCollectionType(_collectionType);
             _liveUpdating = _rulesEnabled;
@@ -899,8 +900,7 @@
                            Variant="Variant.Outlined"
                            Disabled="@(EditingCollection is not null)"
                            Class="collection-editor-field app-dialog-field app-dialog-select">
-                    <MudSelectItem T="string" Value="@("Custom")">Collection</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("Playlist")">Playlist</MudSelectItem>
+                    <MudSelectItem T="string" Value="@("Custom")">Curated Collection</MudSelectItem>
                 </AppSelect>
 
                 <AppTextField T="string"
@@ -935,25 +935,9 @@
         @if (!IsPlaylistDialog)
         {
             <section class="collection-editor-section">
-                <div class="collection-editor-section-title">Access</div>
-
-                <MudRadioGroup T="string" @bind-Value="_visibility">
-                    <MudRadio T="string" Value="@("private")" Color="Color.Primary" Dense="true">Private</MudRadio>
-                    @if (Request.CanManageSharedCollections)
-                    {
-                        <MudRadio T="string" Value="@("shared")" Color="Color.Primary" Dense="true">Shared with all users</MudRadio>
-                    }
-                </MudRadioGroup>
-
+                <div class="collection-editor-section-title">Publication</div>
                 <div class="collection-editor-note">
-                    @if (_visibility == "shared")
-                    {
-                        <span>Shared collections are visible to every profile and should be used for staff-curated sets.</span>
-                    }
-                    else
-                    {
-                        <span>Private collections stay attached to the active profile only.</span>
-                    }
+                    <span>Curated collections are published to every profile. Only administrators can create or change them.</span>
                 </div>
             </section>
         }

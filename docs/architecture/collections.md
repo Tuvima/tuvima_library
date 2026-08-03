@@ -297,15 +297,15 @@ Personalised mixes use: genres (from Wikidata/retail), vibe tags (AI-generated),
 
 ---
 
-## Playlists & Custom Collections
+## Playlists & Curated Collections
 
-User-created, user-owned collections. Unlimited in number. Any media type.
+These are two deliberately separate products. Playlists are profile-owned Listen queues. Curated collections are administrator-authored library publications that may span any media type.
 
 ### Playlists (Materialized)
 
 Traditional playlists where the user hand-picks items. Items are explicitly linked.
 
-- **Create** - from the My Library page ("+ New Playlist") or the Collections page
+- **Create** - from the Listen playlists surface
 - **Rename / Delete** - from within the playlist detail page
 - **Add items** - from library browsing via the "Add to Playlist..." picker
 - **Remove items** - from within the playlist detail page
@@ -313,17 +313,17 @@ Traditional playlists where the user hand-picks items. Items are explicitly link
 - **Progress tracking** - optional toggle per playlist
 - **Artwork** - auto-composed from items' cover art. User can upload a custom override.
 
-### Custom Collections (Query-Resolved)
+### Curated Collections (`Custom`, Query-Resolved or Hand-Picked)
 
-Smart collections built with the collection builder. Items auto-populate from user-defined rules. This is the successor to the previous "Smart Playlist" concept - now a first-class collection type rather than a playlist sub-type.
+Administrator-curated collections built with the collection builder. Rule-driven collections auto-populate from administrator-defined rules; hand-picked collections store explicit membership. They are published to every profile by default.
 
-- **Create** - from the Collections page (`/collections`) via the collection builder
+- **Create** - administrators use the Curated route in Collections
 - **Edit rules** - from the collection detail page (opens collection builder)
 - **Rename / Delete** - from the collection detail page
 - **Live update** - items auto-add/remove as they match or stop matching rules (toggleable via `live_updating` flag, default on)
 - **Artwork** - auto-composed from matched items' cover art. User can upload a custom override.
 
-Custom collections do not support: manual add/remove of items, manual reordering (sort rules control order).
+Rule-driven curated collections do not support manual add/remove or manual reordering because their rules control membership and sort.
 
 ---
 
@@ -465,37 +465,27 @@ Each placement record contains:
 |----------|-------------------|----------------|
 | `home` | Personalised dashboard | Mix, Smart (Recently Added), System (shortcuts) |
 | `media_lane_{type}` | Category browsing by lane | Smart (filtered to media type) |
-| `my_library` | Personal collections | System, Playlist |
-| `collections_page` | Collections page (`/collections`) | All types |
+| `my_library` | Profile lists | System, Playlist |
+| `collections_page` | Collections section (`/collections`) | Automatic broader rollups and Curated |
 | `read_lane_books`, `watch_lane_video`, `listen_lane_audio` | media lane browse surfaces | ContentGroup (filtered to media type) |
 
 This model replaces hardcoded rules about where each collection type appears. Adding a new location or changing which collections appear where is a data change, not a code change.
 
 ---
 
-## The Collections Page (`/collections`)
+## The Collections Section (`/collections`)
 
-A dedicated page for browsing and managing cross-library collections. Collection management lives at the top-level `/collections` route rather than inside a separate media-fixing workspace.
+A component-driven section for browsing organization across the whole library. It shares the persistent rail, compact route navigation, filters, tiles, and page-state components used by Read, Watch, and Listen. Collection management stays in this top-level product surface rather than a separate media-fixing workspace.
 
 ### Page Layout
 
-- **Header** - "Collections" title + "New Collection" button (opens collection builder)
-- **Type filter chips** - All, Content Groups, Smart, System Lists, Mixes, Playlists, Custom
-- **Search** - filter by name
-- **Grid/List toggle**
+- **Overview** - preview rows for Automatic, Curated, and Shelves, plus role shortcuts into People
+- **Automatic** - trusted franchise, universe, and related-work rollups with search, lane, relationship, sort, and tile-size filters
+- **Curated** - administrator-authored, library-published collections with search, lane, membership, publication, sort, and tile-size filters
+- **Shelves** - one cross-lane index of book series, comic volumes, movie series, TV shows, albums, and audiobook series
+- **People** - a paged list with managed headshots, canonical roles, owned Read/Watch/Listen counts, and search, role, lane, and sort filters
 
-### Grid View
-
-Collection cards showing:
-- Auto-composed artwork (or custom override)
-- Collection name
-- Type chip (colour-coded: blue=Smart, green=System, purple=Mix, amber=Playlist, teal=Custom, slate=ContentGroup)
-- Item count
-- For ContentGroup: media type chip + creator subtitle
-
-### List View
-
-Table with columns: Artwork, Name, Type, Items, Status, Actions.
+Only administrators see **New Collection**. Playlists are intentionally absent because their sole browse and management home is Listen.
 
 ### Collection Detail
 
@@ -540,9 +530,9 @@ For performance, Smart collections cache a `rule_hash` - the hash of the seriali
 | Preview rules | `POST /collections/preview` | Evaluate rules without saving - powers the live preview in the collection builder |
 | Collections at location | `GET /collections/by-location/{location}` | All collections placed at a UI location, with display limits applied |
 | Field values | `GET /collections/field-values/{field}` | Distinct values for a field - powers autocomplete in the collection builder |
-| Create collection | `POST /collections` | Create a new collection (Playlist or Custom) |
+| Create collection | `POST /collections` | Create a profile playlist or an administrator-only, library-published Curated (`Custom`) collection |
 | Update collection | `PUT /collections/{id}` | Update collection properties or rules |
-| Delete collection | `DELETE /collections/{id}` | Delete a user-created collection (Playlist or Custom only) |
+| Delete collection | `DELETE /collections/{id}` | Delete an editable Playlist or Curated (`Custom`) collection |
 | Get placements | `GET /collections/{id}/placements` | Where a collection appears |
 | Set placements | `PUT /collections/{id}/placements` | Update collection placements |
 

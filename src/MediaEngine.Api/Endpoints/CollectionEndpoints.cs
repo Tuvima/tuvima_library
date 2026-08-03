@@ -2137,7 +2137,18 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("profileId is required to create a collection.");
             }
 
-            var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
+            var isCuratedCollection = string.Equals(
+                body.CollectionType,
+                CollectionTypeNames.Custom,
+                StringComparison.OrdinalIgnoreCase);
+            if (isCuratedCollection && !CollectionAccessPolicy.CanManageCuratedCollections(activeProfile))
+            {
+                return Results.Forbid();
+            }
+
+            var normalizedVisibility = isCuratedCollection
+                ? CollectionAccessPolicy.SharedVisibility
+                : CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
             if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
                 && !CollectionAccessPolicy.CanManageSharedCollections(activeProfile))
             {
@@ -2283,7 +2294,14 @@ public static class CollectionEndpoints
                 collection.IsFeatured = body.IsFeatured.Value;
             }
 
-            if (!string.IsNullOrWhiteSpace(body.Visibility))
+            if (collection.CollectionType == CollectionType.Custom)
+            {
+                CollectionAccessPolicy.ApplyVisibility(
+                    collection,
+                    CollectionAccessPolicy.SharedVisibility,
+                    activeProfile?.Id);
+            }
+            else if (!string.IsNullOrWhiteSpace(body.Visibility))
             {
                 var normalizedVisibility = CollectionAccessPolicy.NormalizeVisibility(body.Visibility);
                 if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)

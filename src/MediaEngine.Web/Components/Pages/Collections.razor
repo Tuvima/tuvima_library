@@ -1,5 +1,10 @@
 @page "/collections"
+@page "/collections/{Section}"
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Collections  -  Tuvima</PageTitle>
-<CollectionsPage />
+<CollectionsPage Section="@Section" />
+
+@code {
+    [Parameter] public string? Section { get; set; }
+}

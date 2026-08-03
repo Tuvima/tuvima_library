@@ -72,7 +72,7 @@ Items do not appear everywhere immediately.
 - **Watch** shows movies and TV.
 - **Listen** shows music and audiobooks.
 - **Search** finds library items across media lanes.
-- **Collections** shows broader rollups and managed collections when they are backed by real data.
+- **Collections** organizes automatic broader rollups, published curated collections, lane-level shelves, and people when they are backed by real library data.
 - **Review Queue** holds items that need human confirmation.
 
 An item is eligible for browse surfaces only after it has a real title, resolved media type, and settled artwork outcome. Items that are uncertain stay in Review Queue instead of being shown as if they were correct.

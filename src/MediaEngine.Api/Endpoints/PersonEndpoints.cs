@@ -249,9 +249,11 @@ public static class PersonEndpoints
 
         // GET /persons/role-counts — count of persons per role.
         // Excludes Composer (absorbed into Artist/Performer in the UI).
-        group.MapGet("/role-counts", async (IPersonRepository personRepo, CancellationToken ct) =>
+        group.MapGet("/role-counts", async (bool? catalog, IPersonRepository personRepo, CancellationToken ct) =>
         {
-            var counts = await personRepo.GetRoleCountsAsync(ct);
+            var counts = catalog == true
+                ? await personRepo.GetCatalogRoleCountsAsync(ct)
+                : await personRepo.GetRoleCountsAsync(ct);
             // Remove Composer — not a UI-visible role
             var filtered = counts
                 .Where(kvp => !kvp.Key.Equals("Composer", StringComparison.OrdinalIgnoreCase))
@@ -277,9 +279,13 @@ public static class PersonEndpoints
         .WithSummary("Media type counts per person.")
         .Produces<IReadOnlyDictionary<string, Dictionary<string, int>>>(StatusCodes.Status200OK);
 
-        // GET /persons?role=Author&limit=50 -- list persons filtered by role.
+        // GET /persons?catalog=true&q=Le%20Guin&role=Author&limit=50
         group.MapGet("/", async (
+            bool? catalog,
+            string? q,
             string? role,
+            string? lane,
+            string? sort,
             int? offset,
             int? limit,
             IPersonRepository personRepo,
@@ -288,7 +294,16 @@ public static class PersonEndpoints
         {
             var page = PagedRequest.From(offset, limit, defaultLimit: 100, maxLimit: 500);
             var sw = System.Diagnostics.Stopwatch.StartNew();
-            var all = await personRepo.ListPagedAsync(role, page.Offset, page.Limit + 1, ct);
+            var all = catalog == true
+                ? await personRepo.ListCatalogPagedAsync(
+                    q,
+                    role,
+                    page.Offset,
+                    page.Limit + 1,
+                    lane,
+                    sort,
+                    ct)
+                : await personRepo.ListPagedAsync(role, page.Offset, page.Limit + 1, ct);
 
             // Filter out Composer role and fix groups incorrectly tagged as Narrator
             IEnumerable<MediaEngine.Domain.Entities.Person> filtered = all
@@ -324,9 +339,10 @@ public static class PersonEndpoints
             if (sw.ElapsedMilliseconds >= 1000)
             {
                 logger.LogWarning(
-                    "Large-list read {Operation} took {ElapsedMs} ms with role {Role}, offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
-                    "persons.list",
+                    "Large-list read {Operation} took {ElapsedMs} ms with query {Query}, role {Role}, offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    catalog == true ? "persons.catalog" : "persons.list",
                     sw.ElapsedMilliseconds,
+                    q,
                     role,
                     response.Offset,
                     response.Limit,
@@ -336,9 +352,10 @@ public static class PersonEndpoints
             else
             {
                 logger.LogDebug(
-                    "Large-list read {Operation} took {ElapsedMs} ms with role {Role}, offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
-                    "persons.list",
+                    "Large-list read {Operation} took {ElapsedMs} ms with query {Query}, role {Role}, offset {Offset}, limit {Limit}, returned {ItemCount}, has_more {HasMore}",
+                    catalog == true ? "persons.catalog" : "persons.list",
                     sw.ElapsedMilliseconds,
+                    q,
                     role,
                     response.Offset,
                     response.Limit,

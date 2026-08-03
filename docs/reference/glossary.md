@@ -33,7 +33,7 @@ The winning metadata value for a field after the Priority Cascade resolves compe
 A single metadata value from a specific source with confidence and provenance. Claims are append-only so earlier source data can be audited later.
 
 **Collection**  
-A broader rollup or user-managed grouping shown on the Collections surface. A Collection should not duplicate a single lane-level shelf. For example, a book series belongs in Read; a wider world that connects novels and films can appear in Collections.
+An automatic broader rollup or an administrator-curated, library-published grouping shown on the Collections surface. A Collection should not duplicate a single lane-level shelf. For example, a book series belongs in Read and in the cross-lane Shelves index; a wider world that connects novels and films can appear in Automatic.
 
 ## D
 
