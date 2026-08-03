@@ -99,9 +99,7 @@
                                ReviewCount="@_reviewCount"
                                CanViewReview="@CanViewReview"
                                ShowSignOut="@AuthUi.SsoEnabled"
-                               ProfileSelected="SwitchProfileAsync"
-                               ReviewSelected="OpenReviewQueueAsync"
-                               SettingsSelected="OpenSettingsAsync" />
+                               ProfileSelected="SwitchProfileAsync" />
         </MudStack>
     </MudAppBar>
 
@@ -215,22 +213,6 @@
     {
         SyncLocationState();
         InvokeAsync(StateHasChanged);
-    }
-
-    private Task OpenReviewQueueAsync()
-    {
-        if (CanViewReview)
-        {
-            Nav.NavigateTo("/settings/review");
-        }
-
-        return Task.CompletedTask;
-    }
-
-    private Task OpenSettingsAsync()
-    {
-        Nav.NavigateTo("/settings");
-        return Task.CompletedTask;
     }
 
     private void OpenMyList() => Nav.NavigateTo("/my-list");

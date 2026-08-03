@@ -75,6 +75,9 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem)", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains(".media-section-shell__content", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains("overflow-y: auto", sectionShellStyles, StringComparison.Ordinal);
+        Assert.Contains("::deep .browse-multi-select__option", multiSelectStyles, StringComparison.Ordinal);
+        Assert.Contains("display: grid;", multiSelectStyles, StringComparison.Ordinal);
+        Assert.Contains("width: 100%;", multiSelectStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("/watch/series", watch, StringComparison.Ordinal);
         Assert.Contains("new(\"series\", \"Movie Series\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("new(\"collections\", \"Collections\"", watch, StringComparison.Ordinal);

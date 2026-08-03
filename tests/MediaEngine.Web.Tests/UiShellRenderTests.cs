@@ -112,6 +112,10 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("@if (CanViewReview)", accountSource);
         Assert.Contains("TopBar_NeedsReview", accountSource);
         Assert.Contains("ShowSignOut", accountSource);
+        Assert.Contains("Href=\"/settings/review\"", accountSource);
+        Assert.Contains("Href=\"/settings\"", accountSource);
+        Assert.DoesNotContain("SettingsSelected", accountSource);
+        Assert.DoesNotContain("ReviewSelected", accountSource);
         Assert.DoesNotContain("NotificationsNone", accountSource);
         Assert.DoesNotContain("top-nav-account-menu__trigger-copy", accountSource);
         Assert.Contains("font-family: var(--font-brand);", css);

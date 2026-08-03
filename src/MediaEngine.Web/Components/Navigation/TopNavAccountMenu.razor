@@ -61,7 +61,7 @@
                 {
                     <MudMenuItem Class="top-nav-account-menu__item"
                                  Icon="@Icons.Material.Outlined.RateReview"
-                                 OnClick="OpenReviewAsync">
+                                 Href="/settings/review">
                         <span class="top-nav-account-menu__item-copy">
                             <span>@L["TopBar_NeedsReview"]</span>
                             <span class="top-nav-account-menu__review-count">@ReviewCountLabel</span>
@@ -71,7 +71,7 @@
 
                 <MudMenuItem Class="top-nav-account-menu__item"
                              Icon="@Icons.Material.Outlined.Settings"
-                             OnClick="OpenSettingsAsync">
+                             Href="/settings">
                     @L["Nav_Settings"]
                 </MudMenuItem>
 
@@ -118,8 +118,6 @@
     [Parameter] public bool CanViewReview { get; set; }
     [Parameter] public bool ShowSignOut { get; set; }
     [Parameter] public EventCallback<Guid> ProfileSelected { get; set; }
-    [Parameter] public EventCallback ReviewSelected { get; set; }
-    [Parameter] public EventCallback SettingsSelected { get; set; }
 
     private IReadOnlyList<ProfileViewModel> OtherProfiles => Profiles
         .Where(profile => profile.Id != ActiveProfileId)
@@ -129,8 +127,6 @@
     private string ReviewCountLabel => ReviewCount > 99 ? "99+" : Math.Max(0, ReviewCount).ToString();
 
     private Task SelectProfileAsync(Guid profileId) => ProfileSelected.InvokeAsync(profileId);
-    private Task OpenReviewAsync() => ReviewSelected.InvokeAsync();
-    private Task OpenSettingsAsync() => SettingsSelected.InvokeAsync();
 
     private static string AvatarInitialFor(string displayName)
     {
