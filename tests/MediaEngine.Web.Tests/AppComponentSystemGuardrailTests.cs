@@ -139,9 +139,14 @@ public sealed class AppComponentSystemGuardrailTests
     public void AppSelect_OwnsPopoverStylingWithoutNestedBorders()
     {
         var appSelect = ReadRepoFile("src/MediaEngine.Web/Components/Shared/AppSelect.razor");
+        var tokens = ReadRepoFile("src/MediaEngine.Web/wwwroot/tuvima.tokens.css");
         var appCss = ReadRepoFile("src/MediaEngine.Web/wwwroot/app.css");
 
         Assert.Contains("PopoverClass=\"@PopoverClass\"", appSelect, StringComparison.Ordinal);
+        Assert.Contains("--tl-z-popover: 1600;", tokens, StringComparison.Ordinal);
+        Assert.Contains("z-index: var(--tl-z-popover, 1600) !important;", appCss, StringComparison.Ordinal);
+        Assert.Contains(".mud-popover.mud-popover-open", appCss, StringComparison.Ordinal);
+        Assert.Contains("pointer-events: auto !important;", appCss, StringComparison.Ordinal);
         Assert.Contains("app-select__popover", appCss, StringComparison.Ordinal);
         Assert.Contains(".app-select__popover.mud-popover", appCss, StringComparison.Ordinal);
         Assert.Contains(".app-select__popover .mud-paper", appCss, StringComparison.Ordinal);

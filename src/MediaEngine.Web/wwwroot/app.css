@@ -138,7 +138,11 @@ body {
 
 .mud-menu,
 .mud-popover {
-    z-index: calc(var(--app-z-modal) + 50) !important;
+    z-index: var(--tl-z-popover, 1600) !important;
+}
+
+.mud-popover.mud-popover-open {
+    pointer-events: auto !important;
 }
 
 .mud-overlay-drawer,
@@ -3439,7 +3443,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .mud-menu,
 .mud-popover,
 .mud-popover .mud-paper {
-    z-index: var(--tl-z-dropdown);
+    z-index: var(--tl-z-popover, 1600);
     color: var(--tl-text-primary) !important;
     background: var(--tl-bg-surface-elevated) !important;
     border: 0 !important;
