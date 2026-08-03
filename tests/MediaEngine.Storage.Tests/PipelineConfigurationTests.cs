@@ -1,9 +1,24 @@
 using System.Text.Json;
+using MediaEngine.Storage;
 
 namespace MediaEngine.Storage.Tests;
 
 public sealed class PipelineConfigurationTests
 {
+    [Fact]
+    public void RepositoryConfiguration_LoadsAllConfiguredPipelinesAndProviders()
+    {
+        var configDirectory = Path.GetDirectoryName(FindRepoFile("config", "pipelines.json"))!;
+        using var loader = new ConfigurationDirectoryLoader(configDirectory);
+
+        var pipelines = loader.LoadPipelines();
+        var providers = loader.LoadAllProviders();
+
+        Assert.NotEmpty(pipelines.Pipelines);
+        Assert.Contains(providers, provider => provider.Name == "musicbrainz");
+        Assert.Contains(providers, provider => provider.Name == "apple_api");
+    }
+
     [Fact]
     public void MediaPipelines_PreferWikidataDescriptionsBeforeRetailFallbacks()
     {
@@ -103,8 +118,21 @@ public sealed class PipelineConfigurationTests
 
         Assert.Equal("Sequential", pipelines.RootElement.GetProperty("Music").GetProperty("strategy").GetString());
         Assert.Equal(["musicbrainz", "apple_api"], musicProviders);
-        Assert.Equal(["identity", "identity-fallback-enrichment"], musicPurposes);
+        Assert.Equal(["identity", "enrichment"], musicPurposes);
         Assert.True(appleEntry.GetProperty("requires_identity").GetBoolean());
+        Assert.True(appleEntry.GetProperty("use_as_identity_fallback").GetBoolean());
+        Assert.Equal(
+            "musicbrainz",
+            appleEntry.GetProperty("accepted_transition").GetProperty("provider").GetString());
+        var strategies = provider.RootElement
+            .GetProperty("search_strategies")
+            .EnumerateArray()
+            .Select(element => element.GetProperty("name").GetString() ?? "")
+            .ToArray();
+        Assert.Equal("recording_id_lookup", strategies[0]);
+        Assert.Equal("isrc_lookup", strategies[1]);
+        Assert.Contains("recording_album_only_search", strategies);
+        Assert.Equal("recording_identity_search", strategies[^1]);
         Assert.True(provider.RootElement.GetProperty("enabled").GetBoolean());
         Assert.Equal([1, 3], provider.RootElement.GetProperty("hydration_stages").EnumerateArray().Select(element => element.GetInt32()).ToArray());
         Assert.Contains("musicbrainz_release_group_id", provider.RootElement.GetProperty("preferred_bridge_ids").GetProperty("Music").EnumerateArray().Select(element => element.GetString()));
@@ -176,10 +204,10 @@ public sealed class PipelineConfigurationTests
         var architecture = File.ReadAllText(FindRepoFile("docs", "architecture", "ingestion-identity-enrichment-pipeline.md"));
         var mediaTypes = File.ReadAllText(FindRepoFile("docs", "reference", "media-types.md"));
 
-        Assert.Contains("MusicBrainz first for identity, then Apple", providerGuide, StringComparison.Ordinal);
-        Assert.Contains("For music, Stage 1 is configured as MusicBrainz identity first and Apple API enrichment second.", architecture, StringComparison.Ordinal);
-        Assert.Contains("MusicBrainz - Stage 1 identity", mediaTypes, StringComparison.Ordinal);
-        Assert.Contains("Apple API - Stage 1 enrichment after MusicBrainz identity", mediaTypes, StringComparison.Ordinal);
+        Assert.Contains("MusicBrainz tries identifiers and staged text searches first", providerGuide, StringComparison.Ordinal);
+        Assert.Contains("For music, Stage 1 is a bounded configured flow", architecture, StringComparison.Ordinal);
+        Assert.Contains("MusicBrainz - Stage 1 configured identifier lookup", mediaTypes, StringComparison.Ordinal);
+        Assert.Contains("Apple API - Stage 1 enrichment or fallback identity", mediaTypes, StringComparison.Ordinal);
     }
 
     private static string[] ReadPriority(JsonDocument document, string mediaType, string field)

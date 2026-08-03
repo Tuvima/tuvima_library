@@ -132,6 +132,11 @@ public sealed class SettingsConfigContractMapperTests
             {
                 ["Books"] = new MediaEngine.Domain.Configuration.MediaTypePipeline
                 {
+                    MaxProviderAttempts = 3,
+                    Scoring = new MediaEngine.Domain.Configuration.RetailScoringPolicyConfiguration
+                    {
+                        CreatorListMode = "local-primary-containment",
+                    },
                     Providers =
                     [
                         new MediaEngine.Domain.Configuration.PipelineProviderEntry
@@ -140,6 +145,13 @@ public sealed class SettingsConfigContractMapperTests
                             Name = "open_library",
                             Purpose = "identity",
                             RequiresIdentity = true,
+                            UseAsIdentityFallback = true,
+                            AcceptedTransition = new MediaEngine.Domain.Configuration.AcceptedProviderTransitionConfiguration
+                            {
+                                Provider = "open_library",
+                                MaxAttempts = 1,
+                                HintFields = ["title", "author"],
+                            },
                         },
                     ],
                 },
@@ -158,6 +170,11 @@ public sealed class SettingsConfigContractMapperTests
         AssertJsonEqual(pipelines, pipelineContract);
         AssertJsonEqual(preferences, preferencesContract);
         Assert.True(pipelineContract.Pipelines["Books"].Providers.Single().RequiresIdentity);
+        Assert.True(pipelineContract.Pipelines["Books"].Providers.Single().UseAsIdentityFallback);
+        Assert.Equal(3, pipelineContract.Pipelines["Books"].MaxProviderAttempts);
+        Assert.Equal(
+            "open_library",
+            pipelineContract.Pipelines["Books"].Providers.Single().AcceptedTransition?.Provider);
         AssertJsonEqual(transcoding, SettingsContractMapper.ToStorage(transcodingContract));
         AssertJsonEqual(pipelines, SettingsContractMapper.ToStorage(pipelineContract));
         AssertJsonEqual(preferences, SettingsContractMapper.ToStorage(preferencesContract));

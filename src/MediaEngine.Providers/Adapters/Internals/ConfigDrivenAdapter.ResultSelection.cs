@@ -47,11 +47,8 @@ public sealed partial class ConfigDrivenAdapter
         if (comicIssueResult is not null)
             return comicIssueResult;
 
-        if (request.MediaType == MediaType.Music && strategy.ReleaseSelection is not null)
-            return TrySelectMusicRecordingWithAlbumRelease(arr, strategy.ReleaseSelection, request);
-
-        if (ShouldApplyMusicAlbumGuard(strategy, request))
-            return TrySelectMusicAlbumScopedResult(arr, request);
+        if (strategy.CandidateSelection is not null)
+            return TrySelectConfiguredCandidate(arr, strategy, request);
 
         if (!string.IsNullOrWhiteSpace(request.Title))
         {
@@ -436,100 +433,102 @@ public sealed partial class ConfigDrivenAdapter
             && AreEquivalentComicOrdinals(leftIssue, rightIssue);
     }
 
-    private static bool ShouldApplyMusicAlbumGuard(SearchStrategyConfig strategy, ProviderLookupRequest request)
-        => request.MediaType == MediaType.Music
-           && !string.IsNullOrWhiteSpace(GetRequestedAlbum(request))
-           && strategy.Name.StartsWith("music", StringComparison.OrdinalIgnoreCase);
-
-    private JsonNode? TrySelectMusicRecordingWithAlbumRelease(
-        JsonArray recordings,
-        ReleaseSelectionConfig releaseSelection,
+    private JsonNode? TrySelectConfiguredCandidate(
+        JsonArray results,
+        SearchStrategyConfig strategy,
         ProviderLookupRequest request)
     {
+        var selection = strategy.CandidateSelection!;
         var requestedTitle = CleanTitleForSearch(request.Title) ?? request.Title;
-        var requestedArtist = request.Artist ?? request.Author ?? request.Composer;
-        var candidates = new List<(JsonNode Node, double TitleScore, double ArtistScore)>();
+        var requestedCreator = selection.CreatorRequestFields
+            .Select(field => ResolveRequestField(request, field))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        var candidates = new List<(JsonNode Node, double TitleScore, double CreatorScore)>();
 
-        foreach (var recording in recordings)
+        foreach (var result in results)
         {
-            if (recording is null
-                || ApplyReleaseSelection(recording, releaseSelection, request) is null)
-            {
+            if (result is null)
                 continue;
-            }
 
-            var candidateTitle = ExtractFirstString(recording, ["title", "trackName", "name"]);
+            if (selection.RequireNestedSelection
+                && (strategy.ReleaseSelection is null
+                    || ApplyReleaseSelection(result, strategy.ReleaseSelection, request) is null))
+                continue;
+
+            if (!PassesRequestFilters(result, selection.RequestFilters, request))
+                continue;
+
+            var candidateTitle = ExtractFirstString(result, selection.TitlePaths.ToArray());
             var titleScore = !string.IsNullOrWhiteSpace(requestedTitle)
                 && !string.IsNullOrWhiteSpace(candidateTitle)
                     ? ComputeWordOverlap(requestedTitle, candidateTitle)
                     : 0;
-            if (!string.IsNullOrWhiteSpace(requestedTitle) && titleScore < 0.40)
+            if (!string.IsNullOrWhiteSpace(requestedTitle)
+                && titleScore < selection.MinimumTitleScore)
                 continue;
 
-            var candidateArtist = ExtractFirstString(recording,
-                ["artist-credit[*].name", "artist-credit[0].name", "artistName", "artist"]);
-            var artistScore = !string.IsNullOrWhiteSpace(requestedArtist)
-                && !string.IsNullOrWhiteSpace(candidateArtist)
-                    ? ComputeWordOverlap(requestedArtist, candidateArtist)
+            var candidateCreator = ExtractFirstString(result, selection.CreatorPaths.ToArray());
+            var creatorScore = !string.IsNullOrWhiteSpace(requestedCreator)
+                && !string.IsNullOrWhiteSpace(candidateCreator)
+                    ? ComputeWordOverlap(requestedCreator, candidateCreator)
                     : 0;
-            if (!string.IsNullOrWhiteSpace(requestedArtist)
-                && !string.IsNullOrWhiteSpace(candidateArtist)
-                && artistScore < 0.50)
+            if (!string.IsNullOrWhiteSpace(requestedCreator)
+                && !string.IsNullOrWhiteSpace(candidateCreator)
+                && creatorScore < selection.MinimumCreatorScore)
             {
                 continue;
             }
 
-            candidates.Add((recording, titleScore, artistScore));
+            candidates.Add((result, titleScore, creatorScore));
         }
 
         return candidates
             .OrderByDescending(candidate => candidate.TitleScore)
-            .ThenByDescending(candidate => candidate.ArtistScore)
+            .ThenByDescending(candidate => candidate.CreatorScore)
             .Select(candidate => candidate.Node)
             .FirstOrDefault();
     }
 
-    private static JsonNode? TrySelectMusicAlbumScopedResult(JsonArray arr, ProviderLookupRequest request)
+    private static bool PassesRequestFilters(
+        JsonNode candidate,
+        IReadOnlyList<RequestCandidateFilterConfig> filters,
+        ProviderLookupRequest request)
     {
-        var requestedAlbum = GetRequestedAlbum(request);
-        if (string.IsNullOrWhiteSpace(requestedAlbum))
-            return null;
-
-        var requestedTitle = CleanTitleForSearch(request.Title) ?? request.Title;
-        var requestedArtist = request.Artist ?? request.Author ?? request.Composer;
-        var scored = new List<(JsonNode Node, double AlbumScore, double TitleScore, double ArtistScore)>();
-
-        foreach (var node in arr)
+        foreach (var filter in filters)
         {
-            if (node is null)
+            var requested = ResolveRequestField(request, filter.RequestField);
+            if (string.IsNullOrWhiteSpace(requested))
+            {
+                if (filter.Required)
+                    return false;
                 continue;
+            }
 
-            var candidateAlbum = ExtractFirstString(node, ["collectionName", "album", "release.title"]);
-            if (string.IsNullOrWhiteSpace(candidateAlbum) || !IsStrongAlbumMatch(requestedAlbum, candidateAlbum))
-                continue;
-
-            var candidateTitle = ExtractFirstString(node, ["trackName", "title", "name"]);
-            var titleScore = !string.IsNullOrWhiteSpace(requestedTitle) && !string.IsNullOrWhiteSpace(candidateTitle)
-                ? ComputeWordOverlap(requestedTitle, candidateTitle)
-                : 0.0;
-            if (!string.IsNullOrWhiteSpace(candidateTitle) && titleScore < 0.40)
-                continue;
-
-            var candidateArtist = ExtractFirstString(node, ["artistName", "artist", "author"]);
-            var artistScore = !string.IsNullOrWhiteSpace(requestedArtist) && !string.IsNullOrWhiteSpace(candidateArtist)
-                ? ComputeWordOverlap(requestedArtist, candidateArtist)
-                : 0.0;
-
-            scored.Add((node, ComputeWordOverlap(requestedAlbum, candidateAlbum), titleScore, artistScore));
+            var values = filter.CandidatePaths
+                .Select(path => ExtractFirstString(candidate, [path]))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Cast<string>()
+                .ToList();
+            if (values.Count == 0 || !values.Any(value => RequestFilterMatches(requested, value, filter)))
+                return false;
         }
 
-        return scored
-            .OrderByDescending(item => item.TitleScore)
-            .ThenByDescending(item => item.ArtistScore)
-            .ThenByDescending(item => item.AlbumScore)
-            .Select(item => item.Node)
-            .FirstOrDefault();
+        return true;
     }
+
+    private static bool RequestFilterMatches(
+        string requested,
+        string candidate,
+        RequestCandidateFilterConfig filter) =>
+        filter.Operator.ToLowerInvariant() switch
+        {
+            "album_identity" => MusicAlbumIdentity.IsSameTrackList(requested, candidate),
+            "normalized_similarity" => ComputeWordOverlap(requested, candidate) >= filter.MinimumScore,
+            _ => string.Equals(
+                RetailTextSimilarity.NormalizeComparableText(requested),
+                RetailTextSimilarity.NormalizeComparableText(candidate),
+                StringComparison.Ordinal)
+        };
 
     private static string? GetRequestedAlbum(ProviderLookupRequest request)
         => request.Album

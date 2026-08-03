@@ -1210,6 +1210,64 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
+    public async Task ConfigDrivenProvider_FetchAsync_UsesConfiguredRecordingIdLookupWithoutProviderNameBranch()
+    {
+        var config = LoadExampleConfig("musicbrainz");
+        config.Name = "configured_recording_catalog";
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                requestedUrls.Add(request.RequestUri?.ToString() ?? string.Empty);
+                return JsonResponse("""
+                    {
+                      "id": "60d2246d-2761-4e1f-b30b-2784f00565b1",
+                      "title": "Stan",
+                      "artist-credit": [{ "name": "Eminem" }, { "name": "Dido" }],
+                      "isrcs": ["USIR10000594"],
+                      "releases": [
+                        {
+                          "id": "marshall-mathers-release",
+                          "title": "The Marshall Mathers LP",
+                          "status": "Official",
+                          "date": "2000-05-23",
+                          "release-group": { "id": "marshall-mathers-group", "primary-type": "Album" },
+                          "cover-art-archive": { "artwork": true }
+                        }
+                      ]
+                    }
+                    """);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Music,
+            Title = "Stan",
+            Artist = "Eminem",
+            Album = "The Marshall Mathers LP",
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [BridgeIdKeys.MusicBrainzRecordingId] = "60d2246d-2761-4e1f-b30b-2784f00565b1",
+            },
+            BaseUrl = "https://musicbrainz.org/ws/2",
+        });
+
+        Assert.Contains(claims, claim =>
+            claim.Key == BridgeIdKeys.MusicBrainzRecordingId
+            && claim.Value == "60d2246d-2761-4e1f-b30b-2784f00565b1");
+        var requestedUrl = Assert.Single(requestedUrls);
+        Assert.Contains(
+            "/recording/60d2246d-2761-4e1f-b30b-2784f00565b1?",
+            requestedUrl,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task MusicBrainz_FetchAsync_OmitsMissingOptionalAlbumClause()
     {
         var config = LoadExampleConfig("musicbrainz");
@@ -1237,10 +1295,54 @@ public sealed class AdapterFallbackTests
             Language = "en",
         });
 
-        var decodedUrl = Uri.UnescapeDataString(Assert.Single(requestedUrls));
+        var decodedUrl = Uri.UnescapeDataString(requestedUrls[0]);
         Assert.Contains("recording:\"4'33\\\"\"", decodedUrl, StringComparison.Ordinal);
         Assert.Contains("artist:\"John Cage\"", decodedUrl, StringComparison.Ordinal);
         Assert.DoesNotContain("release:", decodedUrl, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task MusicBrainz_FetchAsync_PreservesStrongRecordingIdentityWithoutReleaseSelection()
+    {
+        var config = LoadExampleConfig("musicbrainz");
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                requestedUrls.Add(request.RequestUri?.ToString() ?? string.Empty);
+                return JsonResponse("""
+                    {
+                      "recordings": [
+                        {
+                          "id": "recording-without-release",
+                          "title": "Unreleased Session",
+                          "artist-credit": [{ "name": "Example Artist" }],
+                          "releases": []
+                        }
+                      ]
+                    }
+                    """);
+            }));
+
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Music,
+            Title = "Unreleased Session",
+            Artist = "Example Artist",
+            BaseUrl = "https://musicbrainz.org/ws/2",
+        });
+
+        Assert.Contains(claims, claim =>
+            claim.Key == BridgeIdKeys.MusicBrainzRecordingId
+            && claim.Value == "recording-without-release");
+        Assert.DoesNotContain(claims, claim => claim.Key == BridgeIdKeys.MusicBrainzReleaseId);
+        Assert.True(requestedUrls.Count >= 2);
     }
 
     [Fact]

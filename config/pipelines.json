@@ -58,6 +58,10 @@
   },
   "Music": {
     "strategy": "Sequential",
+    "max_provider_attempts": 3,
+    "scoring": {
+      "creator_list_mode": "local-primary-containment"
+    },
     "providers": [
       {
         "rank": 1,
@@ -67,8 +71,25 @@
       {
         "rank": 2,
         "name": "apple_api",
-        "purpose": "identity-fallback-enrichment",
-        "requires_identity": true
+        "purpose": "enrichment",
+        "requires_identity": true,
+        "use_as_identity_fallback": true,
+        "accepted_actions": ["apple-album-manifest"],
+        "accepted_transition": {
+          "when": "identity-fallback-accepted",
+          "provider": "musicbrainz",
+          "max_attempts": 1,
+          "hint_fields": [
+            "title",
+            "author",
+            "artist",
+            "album",
+            "year",
+            "duration",
+            "track_number",
+            "disc_number"
+          ]
+        }
       }
     ],
     "field_priorities": {

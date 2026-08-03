@@ -998,12 +998,23 @@ public partial class ProviderPriorityTab
             }
 
             pipeline.Strategy = ParseProviderStrategy(GetStrategy(mediaType));
+            var existingProviders = pipeline.Providers
+                .ToDictionary(provider => provider.Name, StringComparer.OrdinalIgnoreCase);
             pipeline.Providers = GetChain(mediaType)
-                .Select((assignment, index) => new PipelineProviderEntry
+                .Select((assignment, index) =>
                 {
-                    Rank = index + 1,
-                    Name = ResolveProviderConfigName(assignment.Name),
-                    Purpose = assignment.Purpose,
+                    var providerName = ResolveProviderConfigName(assignment.Name);
+                    existingProviders.TryGetValue(providerName, out var existing);
+                    return new PipelineProviderEntry
+                    {
+                        Rank = index + 1,
+                        Name = providerName,
+                        Purpose = assignment.Purpose,
+                        RequiresIdentity = existing?.RequiresIdentity ?? false,
+                        UseAsIdentityFallback = existing?.UseAsIdentityFallback ?? false,
+                        AcceptedTransition = existing?.AcceptedTransition,
+                        AcceptedActions = existing?.AcceptedActions ?? [],
+                    };
                 })
                 .ToList();
         }

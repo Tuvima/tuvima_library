@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=548; api=0; web-client=85
+# scopes: contracts=550; api=0; web-client=85
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5310,6 +5310,14 @@
   MediaType: System.String | json=media_type | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"candidates":[],"query":"sample","media_type":"sample"}
 
+[contracts] MediaEngine.Contracts.Settings.AcceptedProviderTransitionConfiguration
+  kind=class | converter=default | number-handling=default | unmapped=default
+  When: System.String | json=when | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Provider: System.String | json=provider | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MaxAttempts: System.Int32 | json=max_attempts | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HintFields: System.Collections.Generic.List<System.String> | json=hint_fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"when":"sample","provider":"sample","max_attempts":7,"hint_fields":[]}
+
 [contracts] MediaEngine.Contracts.Settings.AuthSettingsDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Mode: System.String | json=mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -5464,8 +5472,10 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Strategy: MediaEngine.Domain.Enums.ProviderStrategy | json=strategy | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=JsonStringEnumConverter | number-handling=default | extension-data=no
   Providers: System.Collections.Generic.List<MediaEngine.Contracts.Settings.PipelineProviderEntry> | json=providers | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MaxProviderAttempts: System.Int32 | json=max_provider_attempts | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Scoring: MediaEngine.Contracts.Settings.RetailScoringPolicyConfiguration | json=scoring | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FieldPriorities: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | json=field_priorities | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"strategy":"Waterfall","providers":[],"field_priorities":{}}
+  sample={"strategy":"Waterfall","providers":[],"max_provider_attempts":7,"scoring":null,"field_priorities":{}}
 
 [contracts] MediaEngine.Contracts.Settings.MissingItemDisplayPolicy
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5502,7 +5512,10 @@
   Name: System.String | json=name | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Purpose: System.String | json=purpose | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=WhenWritingNull | converter=default | number-handling=default | extension-data=no
   RequiresIdentity: System.Boolean | json=requires_identity | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"rank":7,"name":"sample","purpose":"sample","requires_identity":true}
+  UseAsIdentityFallback: System.Boolean | json=use_as_identity_fallback | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AcceptedTransition: MediaEngine.Contracts.Settings.AcceptedProviderTransitionConfiguration | json=accepted_transition | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=WhenWritingNull | converter=default | number-handling=default | extension-data=no
+  AcceptedActions: System.Collections.Generic.List<System.String> | json=accepted_actions | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"rank":7,"name":"sample","purpose":"sample","requires_identity":true,"use_as_identity_fallback":true,"accepted_actions":[]}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderCatalogueDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5642,6 +5655,13 @@
   Shell: MediaEngine.Contracts.Settings.UIShellSettingsContract | json=shell | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Pages: MediaEngine.Contracts.Settings.UIPageSettingsContract | json=pages | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"device_class":"sample","dark_mode":true,"accent_color":"sample","content_padding":"sample","content_max_width":"sample","border_radius":7,"constraints":null,"features":null,"shell":null,"pages":null}
+
+[contracts] MediaEngine.Contracts.Settings.RetailScoringPolicyConfiguration
+  kind=class | converter=default | number-handling=default | unmapped=default
+  CreatorListMode: System.String | json=creator_list_mode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AutoAcceptThreshold: System.Double? | json=auto_accept_threshold | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AmbiguousThreshold: System.Double? | json=ambiguous_threshold | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"creator_list_mode":"sample","auto_accept_threshold":7,"ambiguous_threshold":7}
 
 [contracts] MediaEngine.Contracts.Settings.SaveSeriesMissingItemPreferenceRequest
   kind=class | converter=default | number-handling=default | unmapped=default

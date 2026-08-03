@@ -1,6 +1,24 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Tuvima provider configuration",
+  "$defs": {
+    "requestFilter": {
+      "type": "object",
+      "required": ["request_field", "candidate_paths", "operator"],
+      "properties": {
+        "request_field": { "type": "string", "minLength": 1 },
+        "candidate_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "operator": { "enum": ["exact", "normalized_similarity", "album_identity"] },
+        "minimum_score": { "type": "number", "minimum": 0, "maximum": 1 },
+        "required": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    }
+  },
   "type": "object",
   "required": ["name", "enabled", "weight"],
   "properties": {
@@ -36,6 +54,69 @@
         }
       },
       "additionalProperties": false
+    },
+    "search_strategies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "priority", "required_fields", "url_template"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "priority": { "type": "integer", "minimum": 0 },
+          "required_fields": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 }
+          },
+          "url_template": { "type": "string", "minLength": 1 },
+          "query_template": { "type": ["string", "null"] },
+          "query": {
+            "type": "object",
+            "required": ["syntax", "operator", "clauses"],
+            "properties": {
+              "syntax": { "enum": ["plain", "lucene"] },
+              "operator": { "enum": ["AND", "OR"] },
+              "clauses": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["value", "match", "required"],
+                  "properties": {
+                    "field": { "type": ["string", "null"] },
+                    "value": { "type": "string", "minLength": 1 },
+                    "match": { "enum": ["term", "phrase"] },
+                    "required": { "type": "boolean" }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "candidate_selection": {
+            "type": "object",
+            "required": ["title_paths", "creator_paths", "minimum_title_score", "minimum_creator_score"],
+            "properties": {
+              "title_paths": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+              "creator_paths": { "type": "array", "items": { "type": "string" } },
+              "creator_request_fields": { "type": "array", "items": { "type": "string" } },
+              "minimum_title_score": { "type": "number", "minimum": 0, "maximum": 1 },
+              "minimum_creator_score": { "type": "number", "minimum": 0, "maximum": 1 },
+              "require_nested_selection": { "type": "boolean" },
+              "request_filters": { "type": "array", "items": { "$ref": "#/$defs/requestFilter" } }
+            },
+            "additionalProperties": false
+          },
+          "release_selection": {
+            "type": ["object", "null"],
+            "properties": {
+              "request_filters": { "type": "array", "items": { "$ref": "#/$defs/requestFilter" } }
+            },
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      }
     },
     "http_client": {
       "type": "object",

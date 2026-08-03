@@ -18,6 +18,7 @@ public sealed partial class RetailMatchWorker
         WorkLineage lineage,
         IReadOnlyDictionary<string, string> hints,
         IReadOnlyDictionary<string, string> bridgeIds,
+        string providerName,
         CancellationToken ct)
     {
         var rootValues = await _canonicalRepo.GetByEntityAsync(lineage.TargetForParentScope, ct)
@@ -29,7 +30,7 @@ public sealed partial class RetailMatchWorker
             return;
 
         var appleProvider = _providers.FirstOrDefault(provider =>
-            string.Equals(provider.Name, "apple_api", StringComparison.OrdinalIgnoreCase));
+            string.Equals(provider.Name, providerName, StringComparison.OrdinalIgnoreCase));
         if (appleProvider is null)
             return;
 

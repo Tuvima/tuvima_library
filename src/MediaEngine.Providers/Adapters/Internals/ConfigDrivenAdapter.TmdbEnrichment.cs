@@ -495,11 +495,13 @@ public sealed partial class ConfigDrivenAdapter
 
         // Build {query} placeholder from query_template if specified.
         var query = string.Empty;
-        if (!string.IsNullOrEmpty(strategy.QueryTemplate))
+        if (strategy.Query is not null)
         {
-            query = IsMusicBrainzRecordingSearch(strategy, request)
-                ? BuildMusicBrainzRecordingQuery(searchTitle, request.Artist ?? request.Author, request.Album)
-                : BuildConfiguredQuery(strategy.QueryTemplate, searchTitle, request);
+            query = BuildConfiguredQuery(strategy.Query, searchTitle, request);
+        }
+        else if (!string.IsNullOrEmpty(strategy.QueryTemplate))
+        {
+            query = BuildConfiguredQuery(strategy.QueryTemplate, searchTitle, request);
         }
 
         // Replace all placeholders in the URL template.
@@ -569,37 +571,50 @@ public sealed partial class ConfigDrivenAdapter
         return url;
     }
 
-    private bool IsMusicBrainzRecordingSearch(
-        SearchStrategyConfig strategy,
-        ProviderLookupRequest request) =>
-        request.MediaType == MediaType.Music
-        && strategy.ReleaseSelection is not null
-        && string.Equals(Name, "musicbrainz", StringComparison.OrdinalIgnoreCase);
-
-    private static string BuildMusicBrainzRecordingQuery(
-        string? title,
-        string? artist,
-        string? album)
+    private static string BuildConfiguredQuery(
+        QueryCompositionConfig config,
+        string? searchTitle,
+        ProviderLookupRequest request)
     {
         var clauses = new List<string>();
-        AddMusicBrainzQueryClause(clauses, "recording", title);
-        AddMusicBrainzQueryClause(clauses, "artist", artist);
-        AddMusicBrainzQueryClause(clauses, "release", album);
-        return string.Join(" AND ", clauses);
+        foreach (var clause in config.Clauses)
+        {
+            var value = string.Equals(clause.Value, MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase)
+                ? searchTitle
+                : ResolveRequestField(request, clause.Value);
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                if (clause.Required)
+                    return string.Empty;
+                continue;
+            }
+
+            var formattedValue = FormatQueryValue(value, config.Syntax, clause.Match);
+            clauses.Add(string.IsNullOrWhiteSpace(clause.Field)
+                ? formattedValue
+                : $"{clause.Field}:{formattedValue}");
+        }
+
+        var separator = string.IsNullOrWhiteSpace(config.Operator)
+            ? " "
+            : $" {config.Operator.Trim()} ";
+        return string.Join(separator, clauses);
     }
 
-    private static void AddMusicBrainzQueryClause(
-        ICollection<string> clauses,
-        string field,
-        string? value)
+    private static string FormatQueryValue(string value, string syntax, string match)
     {
-        if (string.IsNullOrWhiteSpace(value))
-            return;
-
         var escaped = value.Trim()
             .Replace("\\", "\\\\", StringComparison.Ordinal)
             .Replace("\"", "\\\"", StringComparison.Ordinal);
-        clauses.Add($"{field}:\"{escaped}\"");
+        if (string.Equals(syntax, "lucene", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(match, "phrase", StringComparison.OrdinalIgnoreCase))
+        {
+            escaped = Regex.Replace(escaped, @"([+\-!(){}\[\]^~*?:/]|&&|\|\|)", @"\$1");
+        }
+
+        return string.Equals(match, "phrase", StringComparison.OrdinalIgnoreCase)
+            ? $"\"{escaped}\""
+            : escaped;
     }
 
     private static string BuildConfiguredQuery(

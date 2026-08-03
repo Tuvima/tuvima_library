@@ -431,9 +431,6 @@ public sealed partial class ConfigDrivenAdapter
         ProviderLookupRequest request,
         SearchStrategyConfig strategy)
     {
-        if (request.MediaType == MediaType.Music && !MusicAlbumClaimsMatchRequest(claims, request, strategy))
-            return false;
-
         if (string.IsNullOrWhiteSpace(request.Title))
             return true;
 
@@ -544,33 +541,6 @@ public sealed partial class ConfigDrivenAdapter
         var expectsEnglish = string.IsNullOrWhiteSpace(preferredLanguage)
             || preferredLanguage.StartsWith("en", StringComparison.OrdinalIgnoreCase);
         return !expectsEnglish || !LooksNonEnglishDescription(claim.Value);
-    }
-
-    private bool MusicAlbumClaimsMatchRequest(
-        IReadOnlyList<ProviderClaim> claims,
-        ProviderLookupRequest request,
-        SearchStrategyConfig strategy)
-    {
-        var requestedAlbum = GetRequestedAlbum(request);
-        if (string.IsNullOrWhiteSpace(requestedAlbum))
-            return true;
-
-        var candidateAlbum = claims.FirstOrDefault(c =>
-            string.Equals(c.Key, MetadataFieldConstants.Album, StringComparison.OrdinalIgnoreCase))?.Value;
-        if (string.IsNullOrWhiteSpace(candidateAlbum))
-            return true;
-
-        if (IsStrongAlbumMatch(requestedAlbum, candidateAlbum))
-            return true;
-
-        _logger.LogInformation(
-            "{Provider}/{Strategy}: rejected music result from album '{CandidateAlbum}' for requested album '{RequestedAlbum}'",
-            Name,
-            strategy.Name,
-            candidateAlbum,
-            requestedAlbum);
-
-        return false;
     }
 
     private static bool ComicClaimsMatchRequest(

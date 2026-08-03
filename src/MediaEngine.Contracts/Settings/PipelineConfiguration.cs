@@ -17,6 +17,43 @@ public sealed class PipelineProviderEntry
 
     [JsonPropertyName("requires_identity")]
     public bool RequiresIdentity { get; set; }
+
+    [JsonPropertyName("use_as_identity_fallback")]
+    public bool UseAsIdentityFallback { get; set; }
+
+    [JsonPropertyName("accepted_transition")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AcceptedProviderTransitionConfiguration? AcceptedTransition { get; set; }
+
+    [JsonPropertyName("accepted_actions")]
+    public List<string> AcceptedActions { get; set; } = [];
+}
+
+public sealed class AcceptedProviderTransitionConfiguration
+{
+    [JsonPropertyName("when")]
+    public string When { get; set; } = "identity-fallback-accepted";
+
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = string.Empty;
+
+    [JsonPropertyName("max_attempts")]
+    public int MaxAttempts { get; set; } = 1;
+
+    [JsonPropertyName("hint_fields")]
+    public List<string> HintFields { get; set; } = [];
+}
+
+public sealed class RetailScoringPolicyConfiguration
+{
+    [JsonPropertyName("creator_list_mode")]
+    public string CreatorListMode { get; set; } = "proportional";
+
+    [JsonPropertyName("auto_accept_threshold")]
+    public double? AutoAcceptThreshold { get; set; }
+
+    [JsonPropertyName("ambiguous_threshold")]
+    public double? AmbiguousThreshold { get; set; }
 }
 
 public sealed class MediaTypePipeline
@@ -27,6 +64,12 @@ public sealed class MediaTypePipeline
 
     [JsonPropertyName("providers")]
     public List<PipelineProviderEntry> Providers { get; set; } = [];
+
+    [JsonPropertyName("max_provider_attempts")]
+    public int MaxProviderAttempts { get; set; } = 8;
+
+    [JsonPropertyName("scoring")]
+    public RetailScoringPolicyConfiguration Scoring { get; set; } = new();
 
     [JsonPropertyName("field_priorities")]
     public Dictionary<string, List<string>> FieldPriorities { get; set; } = new(StringComparer.OrdinalIgnoreCase);

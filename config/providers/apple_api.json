@@ -169,6 +169,20 @@
       "media_types": [
         "Music"
       ],
+      "candidate_selection": {
+        "title_paths": ["trackName"],
+        "creator_paths": ["artistName"],
+        "minimum_title_score": 0.4,
+        "minimum_creator_score": 0.5,
+        "request_filters": [
+          {
+            "request_field": "album",
+            "candidate_paths": ["collectionName"],
+            "operator": "album_identity",
+            "required": false
+          }
+        ]
+      },
       "release_selection": null
     },
     {

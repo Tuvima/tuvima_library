@@ -197,6 +197,79 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
+    public void StructuredProviderQuery_RejectsUnsupportedConfiguredOperators()
+    {
+        var provider = new ProviderConfiguration
+        {
+            Name = "catalog",
+            SearchStrategies =
+            [
+                new SearchStrategyConfig
+                {
+                    Name = "configured-search",
+                    Priority = 1,
+                    UrlTemplate = "{base_url}?query={query}",
+                    Query = new QueryCompositionConfig
+                    {
+                        Syntax = "provider-specific-code",
+                        Operator = "THEN",
+                        Clauses =
+                        [
+                            new QueryClauseConfig
+                            {
+                                Field = "recording",
+                                Value = "title",
+                                Match = "approximately",
+                                Required = true,
+                            },
+                        ],
+                    },
+                },
+            ],
+        };
+
+        var errors = JsonConfigValidator.Validate(provider, "providers/catalog.json");
+
+        Assert.Contains(errors, error => error.Contains("query.syntax", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("query.operator", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("clauses[].match", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ProviderTransition_RequiresConfiguredTargetAndBoundedAttemptBudget()
+    {
+        var pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Music"] = new()
+            {
+                MaxProviderAttempts = 2,
+                Providers =
+                [
+                    new PipelineProviderEntry
+                    {
+                        Rank = 1,
+                        Name = "fallback",
+                        Purpose = "enrichment",
+                        RequiresIdentity = true,
+                        UseAsIdentityFallback = true,
+                        AcceptedTransition = new AcceptedProviderTransitionConfiguration
+                        {
+                            Provider = "missing-provider",
+                            MaxAttempts = 2,
+                            HintFields = ["title"],
+                        },
+                    },
+                ],
+            },
+        };
+
+        var errors = JsonConfigValidator.Validate(pipelines, "pipelines.json");
+
+        Assert.Contains(errors, error => error.Contains("not configured", StringComparison.Ordinal));
+        Assert.Contains(errors, error => error.Contains("lower than max_provider_attempts", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void SecretValues_AreNotIncludedInValidationException()
     {
         using var temp = TempConfig.Create();

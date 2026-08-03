@@ -361,7 +361,19 @@ public sealed class RetailParityTests
     {
         public ScoringSettings LoadScoring() => new();
         public IReadOnlyList<ProviderConfiguration> LoadAllProviders() => [];
-        public PipelineConfiguration LoadPipelines() => new();
+        public PipelineConfiguration LoadPipelines() => new()
+        {
+            Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
+            {
+                [nameof(MediaType.Music)] = new()
+                {
+                    Scoring = new RetailScoringPolicyConfiguration
+                    {
+                        CreatorListMode = "local-primary-containment"
+                    }
+                }
+            }
+        };
         public HydrationSettings LoadHydration() => new();
         public T? LoadConfig<T>(string subdirectory, string name) where T : class => default;
         public CoreConfiguration LoadCore() => throw new NotImplementedException();

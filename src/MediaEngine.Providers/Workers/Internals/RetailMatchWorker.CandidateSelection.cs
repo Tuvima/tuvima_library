@@ -384,7 +384,7 @@ public sealed partial class RetailMatchWorker
             return identityBest;
 
         var fallbackIdentityProviders = pipeline.Providers
-            .Where(provider => IsIdentityFallbackEnrichment(provider.Purpose))
+            .Where(provider => provider.UseAsIdentityFallback)
             .OrderBy(provider => provider.Rank)
             .Select(provider => provider.Name)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -411,12 +411,8 @@ public sealed partial class RetailMatchWorker
     private static bool IsIdentityPurpose(string? purpose) =>
         string.Equals(purpose, "identity", StringComparison.OrdinalIgnoreCase);
 
-    private static bool IsIdentityFallbackEnrichment(string? purpose) =>
-        string.Equals(purpose, "identity-fallback-enrichment", StringComparison.OrdinalIgnoreCase);
-
     private static bool IsEnrichmentPurpose(string? purpose) =>
-        string.Equals(purpose, "enrichment", StringComparison.OrdinalIgnoreCase)
-        || IsIdentityFallbackEnrichment(purpose);
+        string.Equals(purpose, "enrichment", StringComparison.OrdinalIgnoreCase);
 
     private static bool ShouldPersistProviderClaims(
         RetailDecision decision,

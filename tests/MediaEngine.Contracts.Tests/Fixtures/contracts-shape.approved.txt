@@ -4431,6 +4431,12 @@ MediaEngine.Contracts.Search.MediaEngine.Contracts.Search.SearchRetailResponseDt
   Query: System.String | nullability=not-null | accessors=get,set
   MediaType: System.String | nullability=not-null | accessors=get,set
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.AcceptedProviderTransitionConfiguration
+  When: System.String | nullability=not-null | accessors=get,set
+  Provider: System.String | nullability=not-null | accessors=get,set
+  MaxAttempts: System.Int32 | nullability=not-null | accessors=get,set
+  HintFields: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.AuthSettingsDto
   Mode: System.String | nullability=not-null | accessors=get,init
   LocalhostBypass: System.Boolean | nullability=not-null | accessors=get,init
@@ -4561,6 +4567,8 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MediaTypeDefinitio
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MediaTypePipeline
   Strategy: MediaEngine.Domain.Enums.ProviderStrategy | nullability=not-null | accessors=get,set
   Providers: System.Collections.Generic.List<MediaEngine.Contracts.Settings.PipelineProviderEntry> | nullability=not-null | accessors=get,set
+  MaxProviderAttempts: System.Int32 | nullability=not-null | accessors=get,set
+  Scoring: MediaEngine.Contracts.Settings.RetailScoringPolicyConfiguration | nullability=not-null | accessors=get,set
   FieldPriorities: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.MissingItemDisplayPolicy
@@ -4589,6 +4597,9 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.PipelineProviderEn
   Name: System.String | nullability=not-null | accessors=get,set
   Purpose: System.String | nullability=nullable | accessors=get,set
   RequiresIdentity: System.Boolean | nullability=not-null | accessors=get,set
+  UseAsIdentityFallback: System.Boolean | nullability=not-null | accessors=get,set
+  AcceptedTransition: MediaEngine.Contracts.Settings.AcceptedProviderTransitionConfiguration | nullability=nullable | accessors=get,set
+  AcceptedActions: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderCatalogueDto
   ProviderId: System.String | nullability=not-null | accessors=get,set
@@ -4708,6 +4719,11 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ResolvedUISettings
   Features: MediaEngine.Contracts.Settings.UIFeatureFlagsContract | nullability=not-null | accessors=get,set
   Shell: MediaEngine.Contracts.Settings.UIShellSettingsContract | nullability=not-null | accessors=get,set
   Pages: MediaEngine.Contracts.Settings.UIPageSettingsContract | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.RetailScoringPolicyConfiguration
+  CreatorListMode: System.String | nullability=not-null | accessors=get,set
+  AutoAcceptThreshold: System.Double? | nullability=nullable | accessors=get,set
+  AmbiguousThreshold: System.Double? | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.SaveSeriesMissingItemPreferenceRequest
   MediaType: System.String | nullability=not-null | accessors=get,init

@@ -405,6 +405,13 @@ public sealed class SearchStrategyConfig
     public string? QueryTemplate { get; set; }
 
     /// <summary>
+    /// Structured, provider-configured query composition. When present this is
+    /// used instead of <see cref="QueryTemplate"/>.
+    /// </summary>
+    [JsonPropertyName("query")]
+    public QueryCompositionConfig? Query { get; set; }
+
+    /// <summary>
     /// JSON path to the results array in the response (e.g. <c>"docs"</c>, <c>"items"</c>).
     /// When absent, the response is treated as a direct result object.
     /// </summary>
@@ -457,6 +464,90 @@ public sealed class SearchStrategyConfig
     /// </summary>
     [JsonPropertyName("release_selection")]
     public ReleaseSelectionConfig? ReleaseSelection { get; set; }
+
+    /// <summary>Optional generic scoring and filtering for result arrays.</summary>
+    [JsonPropertyName("candidate_selection")]
+    public CandidateSelectionConfig? CandidateSelection { get; set; }
+}
+
+public sealed class QueryCompositionConfig
+{
+    /// <summary>Query escaping syntax: <c>plain</c> or <c>lucene</c>.</summary>
+    [JsonPropertyName("syntax")]
+    public string Syntax { get; set; } = "plain";
+
+    /// <summary>Operator placed between emitted clauses.</summary>
+    [JsonPropertyName("operator")]
+    public string Operator { get; set; } = "AND";
+
+    /// <summary>Ordered configured query clauses.</summary>
+    [JsonPropertyName("clauses")]
+    public List<QueryClauseConfig> Clauses { get; set; } = [];
+}
+
+public sealed class QueryClauseConfig
+{
+    /// <summary>Optional provider query field name.</summary>
+    [JsonPropertyName("field")]
+    public string? Field { get; set; }
+
+    /// <summary>Lookup-request field supplying the clause value.</summary>
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Match formatting: <c>term</c> or <c>phrase</c>.</summary>
+    [JsonPropertyName("match")]
+    public string Match { get; set; } = "term";
+
+    /// <summary>Whether absence of this value suppresses the entire strategy.</summary>
+    [JsonPropertyName("required")]
+    public bool Required { get; set; }
+}
+
+public sealed class CandidateSelectionConfig
+{
+    [JsonPropertyName("title_paths")]
+    public List<string> TitlePaths { get; set; } = [];
+
+    [JsonPropertyName("creator_paths")]
+    public List<string> CreatorPaths { get; set; } = [];
+
+    [JsonPropertyName("creator_request_fields")]
+    public List<string> CreatorRequestFields { get; set; } = ["artist", "author", "composer"];
+
+    [JsonPropertyName("minimum_title_score")]
+    public double MinimumTitleScore { get; set; }
+
+    [JsonPropertyName("minimum_creator_score")]
+    public double MinimumCreatorScore { get; set; }
+
+    [JsonPropertyName("require_nested_selection")]
+    public bool RequireNestedSelection { get; set; }
+
+    [JsonPropertyName("request_filters")]
+    public List<RequestCandidateFilterConfig> RequestFilters { get; set; } = [];
+}
+
+public sealed class RequestCandidateFilterConfig
+{
+    [JsonPropertyName("request_field")]
+    public string RequestField { get; set; } = string.Empty;
+
+    [JsonPropertyName("candidate_paths")]
+    public List<string> CandidatePaths { get; set; } = [];
+
+    /// <summary>
+    /// Comparison operator: <c>exact</c>, <c>normalized_similarity</c>, or
+    /// <c>album_identity</c>.
+    /// </summary>
+    [JsonPropertyName("operator")]
+    public string Operator { get; set; } = "exact";
+
+    [JsonPropertyName("minimum_score")]
+    public double MinimumScore { get; set; } = 1.0;
+
+    [JsonPropertyName("required")]
+    public bool Required { get; set; }
 }
 
 /// <summary>
@@ -560,6 +651,12 @@ public sealed class ReleaseSelectionConfig
     /// </summary>
     [JsonPropertyName("fallback_types")]
     public List<string>? FallbackTypes { get; set; }
+
+    /// <summary>
+    /// Configured request-to-release constraints applied before sorting.
+    /// </summary>
+    [JsonPropertyName("request_filters")]
+    public List<RequestCandidateFilterConfig> RequestFilters { get; set; } = [];
 }
 
 /// <summary>

@@ -113,6 +113,71 @@ public static class JsonConfigValidator
             if (provider.SequenceManifest.Fields.Any(field => field.Contains("image", StringComparison.OrdinalIgnoreCase)))
                 errors.Add("sequence_manifest.fields must not request image fields.");
         }
+
+        var strategyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var strategy in provider.SearchStrategies ?? [])
+        {
+            AddRequired(errors, strategy.Name, "search_strategies[].name");
+            AddPositiveOrZero(errors, strategy.Priority, "search_strategies[].priority");
+            AddRequired(errors, strategy.UrlTemplate, "search_strategies[].url_template");
+            if (!strategyNames.Add(strategy.Name))
+                errors.Add("search_strategies[].name values must be unique.");
+            if (strategy.Query is not null && !string.IsNullOrWhiteSpace(strategy.QueryTemplate))
+                errors.Add($"search_strategies['{strategy.Name}'] cannot define both query and query_template.");
+            if (strategy.Query is not null)
+            {
+                if (!Allowed(strategy.Query.Syntax, "plain", "lucene"))
+                    errors.Add($"search_strategies['{strategy.Name}'].query.syntax must be plain or lucene.");
+                if (!Allowed(strategy.Query.Operator, "AND", "OR"))
+                    errors.Add($"search_strategies['{strategy.Name}'].query.operator must be AND or OR.");
+                if (strategy.Query.Clauses.Count == 0)
+                    errors.Add($"search_strategies['{strategy.Name}'].query.clauses must not be empty.");
+                foreach (var clause in strategy.Query.Clauses)
+                {
+                    AddRequired(errors, clause.Value, $"search_strategies['{strategy.Name}'].query.clauses[].value");
+                    if (!Allowed(clause.Match, "term", "phrase"))
+                        errors.Add($"search_strategies['{strategy.Name}'].query.clauses[].match must be term or phrase.");
+                }
+            }
+
+            ValidateCandidateSelection(strategy.CandidateSelection, strategy.Name, errors);
+            ValidateRequestFilters(strategy.ReleaseSelection?.RequestFilters, strategy.Name, errors);
+        }
+    }
+
+    private static void ValidateCandidateSelection(
+        CandidateSelectionConfig? selection,
+        string strategyName,
+        List<string> errors)
+    {
+        if (selection is null)
+            return;
+
+        if (selection.TitlePaths.Count == 0)
+            errors.Add($"search_strategies['{strategyName}'].candidate_selection.title_paths must not be empty.");
+        AddRange(errors, selection.MinimumTitleScore,
+            $"search_strategies['{strategyName}'].candidate_selection.minimum_title_score", 0, 1);
+        AddRange(errors, selection.MinimumCreatorScore,
+            $"search_strategies['{strategyName}'].candidate_selection.minimum_creator_score", 0, 1);
+        ValidateRequestFilters(selection.RequestFilters, strategyName, errors);
+    }
+
+    private static void ValidateRequestFilters(
+        IReadOnlyList<RequestCandidateFilterConfig>? filters,
+        string strategyName,
+        List<string> errors)
+    {
+        foreach (var filter in filters ?? [])
+        {
+            AddRequired(errors, filter.RequestField,
+                $"search_strategies['{strategyName}'].request_filters[].request_field");
+            if (filter.CandidatePaths.Count == 0)
+                errors.Add($"search_strategies['{strategyName}'].request_filters[].candidate_paths must not be empty.");
+            if (!Allowed(filter.Operator, "exact", "normalized_similarity", "album_identity"))
+                errors.Add($"search_strategies['{strategyName}'].request_filters[].operator is unsupported.");
+            AddRange(errors, filter.MinimumScore,
+                $"search_strategies['{strategyName}'].request_filters[].minimum_score", 0, 1);
+        }
     }
 
     private static void ValidateMediaTypes(MediaTypeConfiguration mediaTypes, List<string> errors)
@@ -136,6 +201,18 @@ public static class JsonConfigValidator
         foreach (var (mediaType, pipeline) in pipelines)
         {
             AddRequired(errors, mediaType, "pipeline media type key");
+            AddPositive(errors, pipeline.MaxProviderAttempts, $"{mediaType}.max_provider_attempts");
+            if (!Allowed(pipeline.Scoring.CreatorListMode, "proportional", "local-primary-containment"))
+                errors.Add($"{mediaType}.scoring.creator_list_mode is unsupported.");
+            if (pipeline.Scoring.AutoAcceptThreshold is { } autoAccept)
+                AddRange(errors, autoAccept, $"{mediaType}.scoring.auto_accept_threshold", 0, 1);
+            if (pipeline.Scoring.AmbiguousThreshold is { } ambiguous)
+                AddRange(errors, ambiguous, $"{mediaType}.scoring.ambiguous_threshold", 0, 1);
+            if (pipeline.Scoring.AutoAcceptThreshold is { } accept
+                && pipeline.Scoring.AmbiguousThreshold is { } review
+                && review >= accept)
+                errors.Add($"{mediaType}.scoring.ambiguous_threshold must be lower than auto_accept_threshold.");
+
             var ranks = new HashSet<int>();
             foreach (var provider in pipeline.Providers)
             {
@@ -143,15 +220,31 @@ public static class JsonConfigValidator
                 AddRequired(errors, provider.Name, $"{mediaType}.providers[].name");
                 AddRequired(errors, provider.Purpose, $"{mediaType}.providers[].purpose");
                 if (provider.Purpose is not null
-                    && provider.Purpose is not ("identity" or "enrichment" or "identity-fallback-enrichment" or "retail" or "artwork" or "text-track" or "canonical"))
+                    && provider.Purpose is not ("identity" or "enrichment" or "retail" or "artwork" or "text-track" or "canonical"))
                 {
                     errors.Add($"{mediaType}.providers[].purpose has unsupported value '{provider.Purpose}'.");
                 }
                 if (provider.RequiresIdentity
-                    && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase)
-                    && !IsIdentityFallbackEnrichment(provider.Purpose))
+                    && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
                 {
                     errors.Add($"{mediaType}.providers[].requires_identity is only valid for enrichment providers.");
+                }
+                if (provider.UseAsIdentityFallback
+                    && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+                    errors.Add($"{mediaType}.providers[].use_as_identity_fallback is only valid for enrichment providers.");
+                if (provider.AcceptedTransition is { } transition)
+                {
+                    AddRequired(errors, transition.Provider, $"{mediaType}.providers[].accepted_transition.provider");
+                    AddPositive(errors, transition.MaxAttempts, $"{mediaType}.providers[].accepted_transition.max_attempts");
+                    if (!Allowed(transition.When, "accepted", "identity-fallback-accepted"))
+                        errors.Add($"{mediaType}.providers[].accepted_transition.when is unsupported.");
+                    if (transition.HintFields.Count == 0)
+                        errors.Add($"{mediaType}.providers[].accepted_transition.hint_fields must not be empty.");
+                }
+                foreach (var action in provider.AcceptedActions)
+                {
+                    if (!Allowed(action, "apple-album-manifest"))
+                        errors.Add($"{mediaType}.providers[].accepted_actions contains unsupported value '{action}'.");
                 }
                 if (!ranks.Add(provider.Rank))
                     errors.Add($"{mediaType}.providers rank values must be unique.");
@@ -160,18 +253,25 @@ public static class JsonConfigValidator
             var ordered = pipeline.Providers.OrderBy(provider => provider.Rank).ToList();
             foreach (var provider in ordered.Where(provider => provider.RequiresIdentity))
             {
-                if (!IsIdentityFallbackEnrichment(provider.Purpose)
+                if (!provider.UseAsIdentityFallback
                     && !ordered.Any(candidate => candidate.Rank < provider.Rank
                     && string.Equals(candidate.Purpose, "identity", StringComparison.OrdinalIgnoreCase)))
                 {
                     errors.Add($"{mediaType}.providers enrichment provider '{provider.Name}' requires an earlier identity provider.");
                 }
             }
+
+            foreach (var provider in ordered.Where(provider => provider.AcceptedTransition is not null))
+            {
+                var transition = provider.AcceptedTransition!;
+                if (!pipeline.Providers.Any(candidate =>
+                    string.Equals(candidate.Name, transition.Provider, StringComparison.OrdinalIgnoreCase)))
+                    errors.Add($"{mediaType}.providers transition target '{transition.Provider}' is not configured in the pipeline.");
+                if (transition.MaxAttempts >= pipeline.MaxProviderAttempts)
+                    errors.Add($"{mediaType}.providers transition max_attempts must be lower than max_provider_attempts.");
+            }
         }
     }
-
-    private static bool IsIdentityFallbackEnrichment(string? purpose) =>
-        string.Equals(purpose, "identity-fallback-enrichment", StringComparison.OrdinalIgnoreCase);
 
     private static void ValidatePalette(PaletteConfiguration palette, List<string> errors)
     {

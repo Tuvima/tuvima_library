@@ -40,6 +40,63 @@ public sealed class PipelineProviderEntry
     /// </summary>
     [JsonPropertyName("requires_identity")]
     public bool RequiresIdentity { get; set; }
+
+    /// <summary>
+    /// Allows this provider to supply the identity only when no earlier identity
+    /// provider was auto-accepted. When an identity already exists it retains its
+    /// configured enrichment role.
+    /// </summary>
+    [JsonPropertyName("use_as_identity_fallback")]
+    public bool UseAsIdentityFallback { get; set; }
+
+    /// <summary>
+    /// Optional bounded follow-up provider attempt scheduled after this provider
+    /// is accepted under the configured outcome condition.
+    /// </summary>
+    [JsonPropertyName("accepted_transition")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public AcceptedProviderTransitionConfiguration? AcceptedTransition { get; set; }
+
+    /// <summary>Configured post-acceptance actions interpreted by the pipeline.</summary>
+    [JsonPropertyName("accepted_actions")]
+    public List<string> AcceptedActions { get; set; } = [];
+}
+
+public sealed class AcceptedProviderTransitionConfiguration
+{
+    /// <summary>Configured outcome that activates the transition.</summary>
+    [JsonPropertyName("when")]
+    public string When { get; set; } = "identity-fallback-accepted";
+
+    /// <summary>Provider to run with hints from the accepted candidate.</summary>
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>Maximum number of attempts scheduled by this transition.</summary>
+    [JsonPropertyName("max_attempts")]
+    public int MaxAttempts { get; set; } = 1;
+
+    /// <summary>Accepted claim keys copied into the follow-up request hints.</summary>
+    [JsonPropertyName("hint_fields")]
+    public List<string> HintFields { get; set; } = [];
+}
+
+public sealed class RetailScoringPolicyConfiguration
+{
+    /// <summary>
+    /// Creator-list comparison operator. Supported values are
+    /// <c>proportional</c> and <c>local-primary-containment</c>.
+    /// </summary>
+    [JsonPropertyName("creator_list_mode")]
+    public string CreatorListMode { get; set; } = "proportional";
+
+    /// <summary>Optional per-pipeline auto-accept threshold override.</summary>
+    [JsonPropertyName("auto_accept_threshold")]
+    public double? AutoAcceptThreshold { get; set; }
+
+    /// <summary>Optional per-pipeline ambiguous threshold override.</summary>
+    [JsonPropertyName("ambiguous_threshold")]
+    public double? AmbiguousThreshold { get; set; }
 }
 
 /// <summary>
@@ -63,6 +120,17 @@ public sealed class MediaTypePipeline
     /// </summary>
     [JsonPropertyName("providers")]
     public List<PipelineProviderEntry> Providers { get; set; } = [];
+
+    /// <summary>
+    /// Absolute provider-attempt budget, including configured transitions.
+    /// Prevents configuration cycles from producing unbounded provider calls.
+    /// </summary>
+    [JsonPropertyName("max_provider_attempts")]
+    public int MaxProviderAttempts { get; set; } = 8;
+
+    /// <summary>Media-pipeline retail scoring policy.</summary>
+    [JsonPropertyName("scoring")]
+    public RetailScoringPolicyConfiguration Scoring { get; set; } = new();
 
     /// <summary>
     /// Per-field provider priority overrides for this media type.

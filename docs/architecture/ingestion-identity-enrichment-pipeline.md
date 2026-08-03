@@ -39,7 +39,7 @@ The Ingestion page uses the numbered operational stages below. These are the pro
 
 Stages 6, 7, and 8 can run concurrently after their prerequisites are present. Grouped provider calls, including batched `Tuvima.Wikidata` work, show group labels when exact per-file labels are not available. Review/attention is a live exception metric and latest-batch delta, not a ninth progress row in the Dashboard.
 
-The internal identity model is simpler than the dashboard row model: Stage 0 reads local tags and filename hints, Stage 1 runs configured providers in `config/pipelines.json`, Stage 2 resolves Wikidata from bridge IDs, quick hydration makes the item visible, and Stage 3 runs slower enrichment. For music, Stage 1 is configured as MusicBrainz identity first and Apple API enrichment second.
+The internal identity model is simpler than the dashboard row model: Stage 0 reads local tags and filename hints, Stage 1 runs configured providers in `config/pipelines.json`, Stage 2 resolves Wikidata from bridge IDs, quick hydration makes the item visible, and Stage 3 runs slower enrichment. For music, Stage 1 is a bounded configured flow: MusicBrainz identifier and staged searches run first, Apple may supply fallback identity, and an accepted Apple fallback schedules one MusicBrainz reconciliation attempt using configured accepted-claim hints.
 
 Series order is user-facing only when it affects the local shelf. Tuvima prefers explicit order values such as local `series_pos`, retail series position, or Wikidata ordinal qualifiers. Wikidata previous/next chain warnings are kept as diagnostics because public Wikidata chains can be incomplete or one-directional; they do not create Review Queue rows by themselves.
 
@@ -131,11 +131,11 @@ Provider roles:
 
 | Provider | Stage | Media types | Primary contribution |
 | --- | --- | --- | --- |
-| Apple | Stage 1 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs; for music, runs after MusicBrainz as enrichment. |
+| Apple | Stage 1 | Books, audiobooks, music where configured | Retail title, creator, cover, descriptions, ISBN/ASIN/store IDs; for music, enriches an accepted MusicBrainz identity or supplies configured fallback identity and normalized reconciliation hints. |
 | TMDB | Stage 1 | Movies, TV | TMDB/IMDB/TVDB bridge IDs, posters, backdrops, cast/crew seeds, episode still seeds. |
 | Comic Vine | Stage 1 | Comics | Series, issue, volume, cover, publisher, issue metadata. |
 | Open Library | Disabled by default | Books | Not part of the current normal Stage 1 matrix unless explicitly enabled. |
-| MusicBrainz | Stage 1 | Music | Primary music identity provider; supplies recording, release, release-group, artist, and ISRC bridge evidence before Apple enrichment. |
+| MusicBrainz | Stage 1 | Music | Primary music identity provider; configured direct recording-ID and ISRC lookups precede album-scoped and high-confidence recording-only searches. Recording identity may be retained without inventing a release identity, and one configured post-retail reconciliation pass can attach corroborated recording/release identifiers. |
 | Fanart.tv | Stage 3 only | Movies, TV, music | Rich artwork after identity is known. It is not the Stage 1 identity gate. |
 | LRCLIB | Text-track enrichment | Music | Lyrics/timed lyrics where configured. |
 | OpenSubtitles | Text-track enrichment | Movies, TV | Subtitle candidates and local normalized text tracks. |
@@ -148,7 +148,7 @@ Provider secrets are config-file overlays. Base provider definitions live under 
 
 ## Internal Stage 2: Wikidata Lookup
 
-Stage 2 uses bridge IDs from Stage 1, not bare local filename QIDs. The old Tuvima `(Q12345)` path hint is intentionally ignored so filesystem naming cannot bypass provider gating. Supported bridge IDs include ISBN, ASIN, TMDB, IMDB, TVDB, MusicBrainz IDs, Apple IDs, and other provider-specific identifiers in `BridgeIdKeys`. Entity-scoped bridge priority is configured in `config/providers/wikidata_reconciliation.json` under `bridge_resolution.scopes`, so track, album, movie, TV, book, audiobook, and comic resolution can use different target/context ID rules.
+Stage 2 uses bridge IDs from Stage 1, not bare local filename QIDs. The old Tuvima `(Q12345)` path hint is intentionally ignored so filesystem naming cannot bypass provider gating. Supported bridge IDs include ISBN, ASIN, TMDB, IMDB, TVDB, MusicBrainz IDs, Apple IDs, and other provider-specific identifiers in `BridgeIdKeys`. Entity-scoped bridge priority is configured in `config/providers/wikidata_reconciliation.json` under `bridge_resolution.scopes`, so track, album, movie, TV, book, audiobook, and comic resolution can use different target/context ID rules. When a later high-confidence retail pass supersedes an earlier uncertain result, an absent Wikidata link no longer leaves the obsolete bridge-only review open; the item completes as retained provider identity, while genuinely low post-pipeline confidence still creates a review item.
 
 Stage 2 resolves the canonical Wikidata QID and validates it for the requested media type. If a provider bridge points to an entity of the wrong type, the result is rejected and the item remains reviewable or retryable. If no QID is found, Tuvima keeps the Stage 1 provider data and schedules periodic re-checking instead of discarding useful metadata.
 
@@ -224,7 +224,7 @@ Wikipedia/Wikidata-derived text is shown.
 | Audiobooks | Apple or audiobook retail evidence plus local audio tags. | ISBN/ASIN/store IDs to work or audiobook edition QID, pivoted to canonical work when needed. | Title, author, narrator, duration, cover, audiobook shelf. | Narrator/person detail, pseudonyms, source-work/universe links, lyrics/transcript-adjacent data when configured. |
 | Movies | TMDB identity. | TMDB/IMDB IDs to film QID. | Title, year, description, poster/backdrop, collection. | Cast/crew, characters, franchise/universe roots, Fanart.tv rich artwork, subtitles. |
 | TV | TMDB show/season/episode identity. | TMDB/IMDB/TVDB IDs to show/episode QIDs. | Show/season/episode metadata, poster/still, TV shelf. | Cast/crew, episode stills, season art, show universe/franchise graph, subtitles. |
-| Music | MusicBrainz identity first, then Apple artwork/retail enrichment. | MusicBrainz recording/release/release-group IDs first; Apple IDs as secondary hints. | Artist, album, track, cover, music shelf. Track QIDs stay track-scoped; album QIDs stay on album parents. | Artist/person detail, album artwork variants, Fanart.tv music art, LRCLIB lyrics. |
+| Music | MusicBrainz identifier and staged search first; Apple fallback/enrichment; one bounded MusicBrainz retail-assisted reconciliation attempt. | MusicBrainz recording/release/release-group IDs when corroborated; Apple IDs remain valid fallback evidence. | Artist, album, track, cover, music shelf. Track QIDs stay track-scoped; album QIDs stay on album parents. | Artist/person detail, album artwork variants, Fanart.tv music art, LRCLIB lyrics. |
 | Comics | Comic Vine. | Comic/volume/issue bridge IDs where available. | Series, issue, publisher, cover, comic shelf. | Creators, characters, teams, locations, universe/franchise links, additional artwork. |
 | Unknown | None until review or manual correction. | Not attempted. | Local facts only, review routing. | Not attempted until media type and identity are resolved. |
 

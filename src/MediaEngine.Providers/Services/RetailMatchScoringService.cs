@@ -95,7 +95,10 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
         var fileAuthor = RetailHints.GetCreatorHint(fileHints, mediaType);
         if (!string.IsNullOrWhiteSpace(fileAuthor) && !string.IsNullOrWhiteSpace(candidateAuthor))
         {
-            authorScore = ComputeCreatorScore(fileAuthor, candidateAuthor, mediaType);
+            var creatorListMode = _configLoader.LoadPipelines()
+                .GetPipelineForMediaType(mediaType)
+                .Scoring.CreatorListMode;
+            authorScore = ComputeCreatorScore(fileAuthor, candidateAuthor, creatorListMode);
         }
         else if (string.IsNullOrWhiteSpace(candidateAuthor) && !string.IsNullOrWhiteSpace(fileAuthor))
         {
@@ -364,7 +367,7 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
     private double ComputeCreatorScore(
         string fileCreator,
         string candidateCreator,
-        MediaType mediaType)
+        string creatorListMode)
     {
         if (HaveSameCreatorTokens(fileCreator, candidateCreator))
             return 1.0;
@@ -405,11 +408,10 @@ public sealed class RetailMatchScoringService : IRetailMatchScoringService
             }
         }
 
-        // Music tags commonly contain only the primary artist while provider
-        // credits also include featured performers. For music, require every
-        // locally tagged artist to be present but do not penalize additional
-        // provider credits. Other media retain strict proportional matching.
-        var denominator = mediaType == MediaType.Music
+        var denominator = string.Equals(
+            creatorListMode,
+            "local-primary-containment",
+            StringComparison.OrdinalIgnoreCase)
             ? fileCreators.Count
             : Math.Max(fileCreators.Count, candidateCreators.Count);
         return (double)matched / denominator;

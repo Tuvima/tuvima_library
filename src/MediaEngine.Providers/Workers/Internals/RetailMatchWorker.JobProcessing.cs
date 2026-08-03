@@ -21,6 +21,38 @@ namespace MediaEngine.Providers.Workers;
 
 public sealed partial class RetailMatchWorker
 {
+    private sealed record ProviderAttempt(
+        PipelineProviderEntry Entry,
+        Dictionary<string, string> Hints,
+        bool AllowAcceptedTransition,
+        string HintSource);
+
+    private static bool TransitionMatches(string configuredOutcome, bool fallbackIdentityAccepted) =>
+        configuredOutcome.ToLowerInvariant() switch
+        {
+            "accepted" => true,
+            "identity-fallback-accepted" => fallbackIdentityAccepted,
+            _ => false
+        };
+
+    private static Dictionary<string, string> BuildTransitionHints(
+        IReadOnlyDictionary<string, string> currentHints,
+        IReadOnlyList<ProviderClaim> acceptedClaims,
+        IReadOnlyCollection<string> configuredFields)
+    {
+        var merged = new Dictionary<string, string>(currentHints, StringComparer.OrdinalIgnoreCase);
+        var allowed = configuredFields.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var claim in acceptedClaims)
+        {
+            if (!allowed.Contains(claim.Key) || string.IsNullOrWhiteSpace(claim.Value))
+                continue;
+
+            merged[claim.Key] = TextEncodingRepair.RepairMojibake(claim.Value.Trim());
+        }
+
+        return merged;
+    }
+
     private async Task<Dictionary<string, string>> BuildFileHintsAsync(Guid entityId, CancellationToken ct)
     {
         var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -125,8 +157,10 @@ public sealed partial class RetailMatchWorker
         var strategy = pipeline.Strategy;
         var hydrationConfig = _configLoader.LoadHydration();
 
-        var retailAcceptThreshold = hydrationConfig.RetailAutoAcceptThreshold;
-        var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
+        var retailAcceptThreshold = pipeline.Scoring.AutoAcceptThreshold
+            ?? hydrationConfig.RetailAutoAcceptThreshold;
+        var retailAmbiguousThreshold = pipeline.Scoring.AmbiguousThreshold
+            ?? hydrationConfig.RetailAmbiguousThreshold;
 
         // Get ranked providers for this media type
         var providerConfigs = _configLoader.LoadAllProviders();
@@ -158,16 +192,6 @@ public sealed partial class RetailMatchWorker
         // processor evidence, especially authors, can be multi-valued and may
         // not have a scalar canonical yet.
         var hints = await BuildFileHintsAsync(job.EntityId, ct);
-        var authorHint = hints.GetValueOrDefault(MetadataFieldConstants.Author);
-        var artistHint = hints.GetValueOrDefault(MetadataFieldConstants.Artist);
-        var composerHint = hints.GetValueOrDefault(MetadataFieldConstants.Composer);
-        if (mediaType == MediaType.Music)
-        {
-            var musicCreatorHint = GetMusicCreatorHint(hints);
-            artistHint = musicCreatorHint;
-            authorHint = StringHelpers.FirstNonBlank(authorHint, musicCreatorHint);
-        }
-
         var allCandidates = new List<RetailMatchCandidate>();
         RetailMatchCandidate? bestCandidate = null;
         var bestScore = 0.0;
@@ -176,16 +200,35 @@ public sealed partial class RetailMatchWorker
         var sequentialBridgeIds = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         var acceptedIdentity = false;
         var acceptedEnrichmentProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var acceptedProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var providerAttempts = enabledProviders
+            .Select(providerName => new ProviderAttempt(
+                pipeline.Providers.FirstOrDefault(entry =>
+                    string.Equals(entry.Name, providerName, StringComparison.OrdinalIgnoreCase))
+                    ?? new PipelineProviderEntry
+                    {
+                        Name = providerName,
+                        Purpose = "identity"
+                    },
+                new Dictionary<string, string>(hints, StringComparer.OrdinalIgnoreCase),
+                AllowAcceptedTransition: true,
+                HintSource: "file-hints"))
+            .ToList();
+        var attemptBudget = Math.Max(1, pipeline.MaxProviderAttempts);
 
         // Iterate providers per strategy
-        foreach (var providerName in enabledProviders)
+        for (var attemptIndex = 0;
+             attemptIndex < providerAttempts.Count && providerRank < attemptBudget;
+             attemptIndex++)
         {
+            var attempt = providerAttempts[attemptIndex];
+            var pipelineEntry = attempt.Entry;
+            var providerName = pipelineEntry.Name;
+            var attemptHints = attempt.Hints;
             providerRank++;
-            var pipelineEntry = pipeline.Providers.FirstOrDefault(entry =>
-                string.Equals(entry.Name, providerName, StringComparison.OrdinalIgnoreCase));
-            var isFallbackIdentityAttempt = IsIdentityFallbackEnrichment(pipelineEntry?.Purpose)
+            var isFallbackIdentityAttempt = pipelineEntry.UseAsIdentityFallback
                 && !acceptedIdentity;
-            if (pipelineEntry?.RequiresIdentity == true
+            if (pipelineEntry.RequiresIdentity
                 && !acceptedIdentity
                 && !isFallbackIdentityAttempt)
             {
@@ -203,32 +246,42 @@ public sealed partial class RetailMatchWorker
 
             try
             {
+                var authorHint = attemptHints.GetValueOrDefault(MetadataFieldConstants.Author);
+                var artistHint = attemptHints.GetValueOrDefault(MetadataFieldConstants.Artist);
+                var composerHint = attemptHints.GetValueOrDefault(MetadataFieldConstants.Composer);
+                if (mediaType == MediaType.Music)
+                {
+                    var creatorHint = GetMusicCreatorHint(attemptHints);
+                    artistHint = creatorHint;
+                    authorHint = StringHelpers.FirstNonBlank(authorHint, creatorHint);
+                }
+
                 // Build lookup request
                 var lookupRequest = new ProviderLookupRequest
                 {
                     EntityId = job.EntityId,
                     EntityType = EntityType.MediaAsset,
                     MediaType = mediaType,
-                    Title = hints.GetValueOrDefault(MetadataFieldConstants.Title),
+                    Title = attemptHints.GetValueOrDefault(MetadataFieldConstants.Title),
                     Author = authorHint,
-                    Year = hints.GetValueOrDefault(MetadataFieldConstants.Year),
-                    Narrator = hints.GetValueOrDefault(MetadataFieldConstants.Narrator),
-                    ShowName = hints.GetValueOrDefault(MetadataFieldConstants.ShowName)
-                        ?? hints.GetValueOrDefault(MetadataFieldConstants.Series),
-                    Album = hints.GetValueOrDefault(MetadataFieldConstants.Album),
+                    Year = attemptHints.GetValueOrDefault(MetadataFieldConstants.Year),
+                    Narrator = attemptHints.GetValueOrDefault(MetadataFieldConstants.Narrator),
+                    ShowName = attemptHints.GetValueOrDefault(MetadataFieldConstants.ShowName)
+                        ?? attemptHints.GetValueOrDefault(MetadataFieldConstants.Series),
+                    Album = attemptHints.GetValueOrDefault(MetadataFieldConstants.Album),
                     Artist = artistHint,
                     Composer = composerHint,
-                    Director = hints.GetValueOrDefault(MetadataFieldConstants.Director),
-                    SeasonNumber = hints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
-                        ?? hints.GetValueOrDefault("season"),
-                    EpisodeNumber = hints.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber)
-                        ?? hints.GetValueOrDefault("episode"),
-                    TrackNumber = hints.GetValueOrDefault(MetadataFieldConstants.TrackNumber),
-                    Series = hints.GetValueOrDefault(MetadataFieldConstants.Series),
-                    Genre = hints.GetValueOrDefault(MetadataFieldConstants.Genre),
-                    Isbn = hints.GetValueOrDefault(BridgeIdKeys.Isbn),
-                    Asin = hints.GetValueOrDefault(BridgeIdKeys.Asin),
-                    Hints = hints,
+                    Director = attemptHints.GetValueOrDefault(MetadataFieldConstants.Director),
+                    SeasonNumber = attemptHints.GetValueOrDefault(MetadataFieldConstants.SeasonNumber)
+                        ?? attemptHints.GetValueOrDefault("season"),
+                    EpisodeNumber = attemptHints.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber)
+                        ?? attemptHints.GetValueOrDefault("episode"),
+                    TrackNumber = attemptHints.GetValueOrDefault(MetadataFieldConstants.TrackNumber),
+                    Series = attemptHints.GetValueOrDefault(MetadataFieldConstants.Series),
+                    Genre = attemptHints.GetValueOrDefault(MetadataFieldConstants.Genre),
+                    Isbn = attemptHints.GetValueOrDefault(BridgeIdKeys.Isbn),
+                    Asin = attemptHints.GetValueOrDefault(BridgeIdKeys.Asin),
+                    Hints = attemptHints,
                     PriorProviderBridgeIds = strategy == ProviderStrategy.Sequential
                         ? sequentialBridgeIds : null,
                 };
@@ -248,17 +301,20 @@ public sealed partial class RetailMatchWorker
                         StringComparison.OrdinalIgnoreCase))?.Value;
 
                 var (structuralBonus, structuralEvidence) = ComputeSingleItemStructuralSignal(
-                    mediaType, hints, claims);
+                    mediaType, attemptHints, claims);
+                structuralEvidence["provider_attempt"] = providerRank;
+                structuralEvidence["provider_role"] = pipelineEntry.Purpose;
+                structuralEvidence["hint_source"] = attempt.HintSource;
                 var extendedMetadata = BuildCandidateExtendedMetadata(claims);
 
                 // Score candidate
                 var retailScore = _retailScoring.ScoreCandidate(
-                    hints, candidateTitle, candidateAuthor, candidateYear, mediaType,
+                    attemptHints, candidateTitle, candidateAuthor, candidateYear, mediaType,
                     extendedMetadata: extendedMetadata,
                     structuralBonus: structuralBonus);
 
                 var decision = _candidateScorer.EvaluateDecision(
-                    hints,
+                    attemptHints,
                     candidateTitle,
                     candidateAuthor,
                     candidateYear,
@@ -305,11 +361,15 @@ public sealed partial class RetailMatchWorker
 
                 allCandidates.Add(candidate);
 
-                if ((IsIdentityPurpose(pipelineEntry?.Purpose) || isFallbackIdentityAttempt)
+                var fallbackIdentityAccepted = isFallbackIdentityAttempt
+                    && decision.Outcome == "AutoAccepted";
+                if ((IsIdentityPurpose(pipelineEntry.Purpose) || isFallbackIdentityAttempt)
                     && decision.Outcome == "AutoAccepted")
                 {
                     acceptedIdentity = true;
                 }
+                if (decision.Outcome == "AutoAccepted")
+                    acceptedProviders.Add(provider.Name);
 
                 // Track best candidate
                 if (IsBetterCandidate(candidate, bestCandidate))
@@ -330,7 +390,7 @@ public sealed partial class RetailMatchWorker
                 if (shouldPersistProviderClaims)
                 {
                     if (!isFallbackIdentityAttempt
-                        && IsEnrichmentPurpose(pipelineEntry?.Purpose))
+                        && IsEnrichmentPurpose(pipelineEntry.Purpose))
                         acceptedEnrichmentProviders.Add(provider.Name);
 
                     // Phase 3c: pass lineage so parent-scope claims mirror
@@ -391,6 +451,44 @@ public sealed partial class RetailMatchWorker
                     }
                 }
 
+                if (attempt.AllowAcceptedTransition
+                    && fallbackIdentityAccepted
+                    && pipelineEntry.AcceptedTransition is { } transition
+                    && TransitionMatches(transition.When, fallbackIdentityAccepted))
+                {
+                    var targetEntry = pipeline.Providers.FirstOrDefault(entry =>
+                        string.Equals(entry.Name, transition.Provider, StringComparison.OrdinalIgnoreCase));
+                    var targetEnabled = targetEntry is not null
+                        && enabledProviders.Contains(targetEntry.Name, StringComparer.OrdinalIgnoreCase);
+                    if (targetEnabled)
+                    {
+                        var transitionHints = BuildTransitionHints(
+                            attemptHints,
+                            claims,
+                            transition.HintFields);
+                        var transitionAttempts = Math.Min(
+                            transition.MaxAttempts,
+                            Math.Max(0, attemptBudget - providerRank));
+                        for (var transitionIndex = 0; transitionIndex < transitionAttempts; transitionIndex++)
+                        {
+                            providerAttempts.Insert(
+                                attemptIndex + 1 + transitionIndex,
+                                new ProviderAttempt(
+                                    targetEntry!,
+                                    new Dictionary<string, string>(transitionHints, StringComparer.OrdinalIgnoreCase),
+                                    AllowAcceptedTransition: false,
+                                    HintSource: $"accepted-candidate:{providerName}"));
+                        }
+
+                        _logger.LogInformation(
+                            "Provider {Provider} accepted identity fallback for {EntityId}; scheduled {Count} configured reconciliation attempt(s) with {TargetProvider}",
+                            providerName,
+                            job.EntityId,
+                            transitionAttempts,
+                            transition.Provider);
+                    }
+                }
+
                 // Waterfall: stop after first accepted candidate
                 if (strategy == ProviderStrategy.Waterfall && decision.Outcome == "AutoAccepted")
                     break;
@@ -404,12 +502,20 @@ public sealed partial class RetailMatchWorker
             }
         }
 
-        if (mediaType == MediaType.Music
-            && lineage is not null
-            && acceptedEnrichmentProviders.Contains("apple_api"))
+        if (mediaType == MediaType.Music && lineage is not null)
         {
-            await PersistAcceptedAppleAlbumManifestAsync(lineage, hints, sequentialBridgeIds, ct)
-                .ConfigureAwait(false);
+            foreach (var entry in pipeline.Providers.Where(entry =>
+                acceptedProviders.Contains(entry.Name)
+                && entry.AcceptedActions.Contains("apple-album-manifest", StringComparer.OrdinalIgnoreCase)))
+            {
+                await PersistAcceptedAppleAlbumManifestAsync(
+                        lineage,
+                        hints,
+                        sequentialBridgeIds,
+                        entry.Name,
+                        ct)
+                    .ConfigureAwait(false);
+            }
         }
 
         // Persist ALL candidates (winners and losers)

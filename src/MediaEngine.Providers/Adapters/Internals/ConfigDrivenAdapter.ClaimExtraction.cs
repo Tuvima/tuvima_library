@@ -38,20 +38,10 @@ public sealed partial class ConfigDrivenAdapter
             .Where(n => n is not null && PassesFilters(n, config.Filters))
             .ToList();
 
-        // A MusicBrainz recording can appear on compilations, live albums, cover
-        // releases, and expanded editions. Constrain the nested release to the
-        // file's album before date/artwork preferences are evaluated.
-        var requestedAlbum = request is { MediaType: MediaType.Music }
-            ? GetRequestedAlbum(request)
-            : null;
-        if (!string.IsNullOrWhiteSpace(requestedAlbum))
+        if (request is not null && config.RequestFilters.Count > 0)
         {
             candidates = candidates
-                .Where(candidate =>
-                {
-                    var candidateAlbum = ExtractFirstString(candidate!, ["title", "release.title", "collectionName"]);
-                    return MusicAlbumIdentity.IsSameTrackList(requestedAlbum, candidateAlbum);
-                })
+                .Where(candidate => PassesRequestFilters(candidate!, config.RequestFilters, request))
                 .ToList();
         }
 
@@ -68,10 +58,8 @@ public sealed partial class ConfigDrivenAdapter
                     .Where(n => n is not null
                         && MatchesJsonPath(n, "release-group.primary-type", fallbackType)
                         && MatchesJsonPath(n, "status", "Official")
-                        && (string.IsNullOrWhiteSpace(requestedAlbum)
-                            || MusicAlbumIdentity.IsSameTrackList(
-                                requestedAlbum,
-                                ExtractFirstString(n!, ["title", "release.title", "collectionName"]))))
+                        && (request is null
+                            || PassesRequestFilters(n!, config.RequestFilters, request)))
                     .ToList();
 
                 if (candidates.Count > 0)
@@ -377,6 +365,16 @@ public sealed partial class ConfigDrivenAdapter
                 return false;
             if (value.Length < 3 || GenericTerms.Contains(value.Trim()))
                 return false;
+        }
+
+        if (strategy.Query is not null)
+        {
+            foreach (var clause in strategy.Query.Clauses.Where(clause => clause.Required))
+            {
+                var value = ResolveRequestField(request, clause.Value);
+                if (string.IsNullOrWhiteSpace(value))
+                    return false;
+            }
         }
 
         return true;

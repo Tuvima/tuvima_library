@@ -250,9 +250,9 @@ Classification order:
 
 ### Providers
 
-1. MusicBrainz - Stage 1 identity for recording, release, release-group, artist, and ISRC bridge evidence
-2. Apple API - Stage 1 enrichment after MusicBrainz identity; cover art, genre/year, storefront links, and retail album metadata
-3. Wikidata - Stage 2, QID resolution only after safe Stage 1 bridge evidence, using MusicBrainz IDs first and Apple IDs as secondary hints
+1. MusicBrainz - Stage 1 configured identifier lookup and staged search for recording, release, release-group, artist, and ISRC bridge evidence
+2. Apple API - Stage 1 enrichment or fallback identity; an accepted fallback supplies configured normalized hints to one bounded MusicBrainz reconciliation attempt
+3. Wikidata - Stage 2, QID resolution only after safe Stage 1 bridge evidence, using corroborated MusicBrainz IDs first and Apple IDs as valid fallback hints
 
 ### Organization template
 

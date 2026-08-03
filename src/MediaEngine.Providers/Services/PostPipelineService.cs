@@ -48,6 +48,8 @@ public sealed class PostPipelineService
     [
         ReviewTrigger.RetailMatchFailed,
         ReviewTrigger.RetailMatchAmbiguous,
+        ReviewTrigger.WikidataBridgeFailed,
+        ReviewTrigger.MissingQid,
         ReviewTrigger.LowConfidence,
     ];
 
