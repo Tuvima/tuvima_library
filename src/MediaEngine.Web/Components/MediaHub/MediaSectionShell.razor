@@ -18,13 +18,14 @@
                         var active = IsActive(item);
                         var expanded = IsExpanded(item);
                         <div @key="item.Route" class="media-section-shell__rail-branch @(active ? "is-active" : null) @(expanded ? "is-expanded" : null)">
-                            <AppNativeButton id="@ItemId(item)"
-                                             Type="button"
-                                             Class='@($"media-section-shell__rail-item media-section-shell__rail-item--parent {(active ? "is-active" : null)}")'
-                                             aria-expanded="@(expanded ? "true" : "false")"
-                                             aria-controls="@ChildrenId(item)"
-                                             aria-current="@(IsOwnRouteActive(item, forceExact: true) ? "page" : null)"
-                                             OnClick="@(() => ToggleBranch(item))">
+                            <a id="@ItemId(item)"
+                               href="@item.Route"
+                               class="media-section-shell__rail-item media-section-shell__rail-item--parent @(active ? "is-active" : null)"
+                               aria-expanded="@(expanded ? "true" : "false")"
+                               aria-controls="@ChildrenId(item)"
+                               aria-current="@(IsOwnRouteActive(item, forceExact: true) ? "page" : null)"
+                               @onclick="@(() => ToggleBranch(item))"
+                               @onclick:preventDefault="true">
                                 <MudIcon Icon="@item.Icon" />
                                 <span>@item.Label</span>
                                 @if (!string.IsNullOrWhiteSpace(item.Meta))
@@ -34,7 +35,7 @@
                                 <MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
                                          Class="media-section-shell__rail-chevron"
                                          aria-hidden="true" />
-                            </AppNativeButton>
+                            </a>
 
                             @if (expanded)
                             {

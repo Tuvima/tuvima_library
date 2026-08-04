@@ -56,6 +56,7 @@ public sealed class SidebarShellRenderTests : TestContext
         var models = cut.Find("#media-section-nav-settings-ai-models");
 
         Assert.Contains("media-section-shell--nested", cut.Find(".media-section-shell").ClassList);
+        Assert.Equal("A", localAi.TagName);
         Assert.Equal("true", localAi.GetAttribute("aria-expanded"));
         Assert.Equal("page", models.GetAttribute("aria-current"));
         Assert.Contains("is-active", models.ClassList);
