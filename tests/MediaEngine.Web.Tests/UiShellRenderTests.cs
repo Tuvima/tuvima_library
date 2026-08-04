@@ -294,7 +294,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("<AppTabs", source);
         Assert.Contains("settings-tab-strip", source);
         Assert.Contains("settings-summary-strip", source);
-        Assert.Contains("settings-field--compact", source);
+        Assert.Contains("Size=\"AppControlSize.Compact\"", source);
+        Assert.DoesNotContain("settings-field--compact", source);
         Assert.Contains("settings-preference-row", source);
         Assert.Contains("settings-slider-block", source);
         Assert.Contains("UpdateAndSaveAsync", source);

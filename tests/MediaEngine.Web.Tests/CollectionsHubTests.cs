@@ -63,6 +63,12 @@ public sealed class CollectionsHubTests
         Assert.Contains("display: flex", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("flex-wrap: wrap", browseShellStylesSource, StringComparison.Ordinal);
         Assert.Contains("browse-shell collections-browse", source, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__filter-surface collections-filter-surface", source, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__filter-search-row", source, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__control-label\">Filter by", source, StringComparison.Ordinal);
+        Assert.Contains("browse-shell__display-label\">Display", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("collections-overview__intro", source, StringComparison.Ordinal);
+        Assert.Contains("_activeSection == CollectionsSectionConfiguration.Curated && CanManageCuratedCollections", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
         Assert.Contains("MediaTileArtworkResolver.Resolve(", composerSource, StringComparison.Ordinal);

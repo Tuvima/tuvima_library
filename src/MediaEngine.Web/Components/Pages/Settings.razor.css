@@ -242,26 +242,6 @@
     line-height: 1.25;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact {
-    margin: 2px 0 8px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-input-control {
-    margin-top: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-input-slot,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-input-outlined,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact .mud-select-input {
-    min-height: 36px !important;
-    height: 36px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-field--compact input.mud-input-root {
-    padding-top: 7px !important;
-    padding-bottom: 7px !important;
-}
-
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-slider-header {
     margin-bottom: 2px;
 }

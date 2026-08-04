@@ -18,7 +18,7 @@
                FullWidth="@FullWidth"
                Adornment="@(string.IsNullOrWhiteSpace(LeadingIcon) ? MudBlazor.Adornment.None : MudBlazor.Adornment.Start)"
                AdornmentIcon="@LeadingIcon"
-               PopoverClass="@PopoverClass"
+               PopoverClass="@EffectivePopoverClass"
                Style="@InlineStyle"
                Class="app-control app-select"
                @attributes="AdditionalAttributes">
@@ -64,7 +64,7 @@
     [Parameter] public Variant Variant { get; set; } = Variant.Outlined;
     [Parameter] public Margin Margin { get; set; } = Margin.Dense;
     [Parameter] public bool Dense { get; set; } = true;
-    [Parameter] public string PopoverClass { get; set; } = "app-select__popover";
+    [Parameter] public string? PopoverClass { get; set; }
     [Parameter] public string? T { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public string? InlineStyle { get; set; }
@@ -78,6 +78,13 @@
         !string.IsNullOrWhiteSpace(Placeholder)
             ? Placeholder
             : Options?.FirstOrDefault(option => string.Equals(option.Value, Value ?? string.Empty, StringComparison.Ordinal))?.Label;
+
+    private string EffectivePopoverClass => string.Join(
+        " ",
+        new[] { "app-select__popover", PopoverClass }
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .SelectMany(value => value!.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            .Distinct(StringComparer.Ordinal));
 
     private Task OnValueChanged(string? value) => ValueChanged.InvokeAsync(value);
 }

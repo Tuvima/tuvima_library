@@ -23,22 +23,28 @@
 
     @if (Model.EntityType == DetailEntityType.Person && Model.PersonDetails is not null)
     {
-        <div class="tl-detail-hero__inner tl-detail-person-hero__inner">
-            <div class="tl-detail-hero__copy tl-detail-person-hero__copy">
+        <div class="tl-detail-person-portrait" aria-label="@Model.Title portrait">
+            @if (!string.IsNullOrWhiteSpace(Model.Artwork.PortraitUrl))
+            {
+                <img src="@Model.Artwork.PortraitUrl" alt="@Model.Title" />
+            }
+            else
+            {
+                <GeneratedIdentity Name="@Model.Title" />
+            }
+        </div>
+
+        <DetailHeroContent Title="@Presentation.Title"
+                           Synopsis="@Model.Description"
+                           SynopsisClass="tl-detail-hero__tagline tl-detail-person-hero__summary"
+                           Class="tl-detail-person-hero__content">
+            <IdentityBeforeTitle>
                 @if (!string.IsNullOrWhiteSpace(PersonEyebrow))
                 {
                     <div class="tl-detail-hero__eyebrow">@PersonEyebrow</div>
                 }
-
-                <h1>@Presentation.Title</h1>
-
-                @if (!string.IsNullOrWhiteSpace(Model.Description))
-                {
-                    <div class="tl-detail-person-summary">
-                        <p>@Model.Description</p>
-                    </div>
-                }
-
+            </IdentityBeforeTitle>
+            <MetadataContent>
                 @if (PersonHeroFacts.Count > 0)
                 {
                     <div class="tl-detail-person-fact-row">
@@ -51,7 +57,8 @@
                         }
                     </div>
                 }
-
+            </MetadataContent>
+            <SupplementalContent>
                 @if (Model.PersonDetails.ExternalLinks.Count > 0)
                 {
                     <div class="tl-detail-person-links" aria-label="External links">
@@ -72,18 +79,8 @@
                         }
                     </div>
                 }
-            </div>
-            <div class="tl-detail-person-portrait" aria-label="@Model.Title portrait">
-                @if (!string.IsNullOrWhiteSpace(Model.Artwork.PortraitUrl))
-                {
-                    <img src="@Model.Artwork.PortraitUrl" alt="@Model.Title" />
-                }
-                else
-                {
-                    <GeneratedIdentity Name="@Model.Title" />
-                }
-            </div>
-        </div>
+            </SupplementalContent>
+        </DetailHeroContent>
     }
     else
     {
@@ -191,20 +188,7 @@
         : "tl-detail-hero-credit-stack";
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
-    private bool CanInlineEdit => Model.EntityType is DetailEntityType.Work
-        or DetailEntityType.Movie
-        or DetailEntityType.MovieSeries
-        or DetailEntityType.TvShow
-        or DetailEntityType.TvSeason
-        or DetailEntityType.TvEpisode
-        or DetailEntityType.Book
-        or DetailEntityType.BookSeries
-        or DetailEntityType.Audiobook
-        or DetailEntityType.ComicIssue
-        or DetailEntityType.ComicSeries
-        or DetailEntityType.MusicAlbum
-        or DetailEntityType.Collection;
-    private DetailAction? InlineEditAction => CanInlineEdit
+    private DetailAction? InlineEditAction => Model.EditorTarget is not null
         ? new DetailAction
         {
             Key = "edit-media",

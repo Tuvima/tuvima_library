@@ -1058,7 +1058,7 @@ internal sealed partial class DetailCompositionOrchestrator
             return BuildStandardCollectionMetadata(works);
         }
 
-        if (entityType == DetailEntityType.ComicSeries)
+        if (entityType is DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries)
         {
             return [new MetadataPill { Label = OwnedCollectionCountLabel(entityType, works), Kind = "count" }];
         }

@@ -1131,10 +1131,6 @@ body {
     margin: 0 !important;
 }
 
-.settings-admin-panel .settings-field--compact {
-    margin: 0 0 8px !important;
-}
-
 .settings-admin-panel .settings-select-row {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -1157,44 +1153,9 @@ body {
     line-height: 1.2 !important;
 }
 
-.settings-admin-panel .settings-field--compact.mud-input-control,
-.settings-admin-panel .settings-field--compact .mud-input-control {
-    margin-top: 0 !important;
-}
-
-.settings-admin-panel .settings-field--compact .mud-input-slot,
-.settings-admin-panel .settings-field--compact .mud-input-outlined,
-.settings-admin-panel .settings-field--compact .mud-select-input {
-    min-height: 38px !important;
-    height: 38px !important;
-    align-items: center !important;
-}
-
-.settings-admin-panel .settings-field--compact input.mud-input-root,
-.settings-admin-panel .settings-field--compact .mud-select-input {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    font-size: 0.9rem !important;
-    line-height: 38px !important;
-}
-
-.settings-admin-panel .settings-field--compact .mud-input-adornment {
-    height: 38px !important;
-    max-height: 38px !important;
-    align-self: center !important;
-    margin-top: 0 !important;
-}
-
-.settings-admin-panel .settings-field--compact .mud-input-control-input-container,
-.settings-admin-panel .settings-field--compact .mud-input {
-    min-height: 38px !important;
-    height: 38px !important;
-    align-items: center !important;
-}
-
 .settings-admin-panel .settings-field--row-control {
-    width: 112px !important;
-    min-width: 112px !important;
+    width: clamp(10.5rem, 14vw, 12rem) !important;
+    min-width: 10.5rem !important;
     margin-bottom: 0 !important;
 }
 
@@ -1204,22 +1165,13 @@ body {
 }
 
 .settings-admin-panel .settings-field--number-control {
-    width: 136px !important;
-    min-width: 136px !important;
+    width: clamp(9rem, 14vw, 11rem) !important;
+    min-width: 9rem !important;
 }
 
 .settings-admin-panel .settings-field--text-control {
-    width: 176px !important;
-    min-width: 176px !important;
-}
-
-.settings-admin-panel .settings-field--compact .mud-input-outlined-border {
-    border-color: transparent !important;
-}
-
-.settings-admin-panel .settings-field--compact:hover .mud-input-outlined-border,
-.settings-admin-panel .settings-field--compact .mud-input-focused .mud-input-outlined-border {
-    border-color: rgba(139, 92, 246, 0.42) !important;
+    width: clamp(11rem, 18vw, 15rem) !important;
+    min-width: 11rem !important;
 }
 
 .settings-admin-panel .settings-slider-block {
@@ -3005,30 +2957,21 @@ textarea.tl-textarea,
 .app-filter-bar .mud-input-slot,
 .app-filter-bar .mud-input-outlined,
 .app-filter-bar .mud-select,
-.app-filter-bar .mud-select-input,
-.settings-admin-panel .settings-field--compact .mud-input,
-.settings-admin-panel .settings-field--compact .mud-input-control-input-container,
-.settings-admin-panel .settings-field--compact .mud-input-slot,
-.settings-admin-panel .settings-field--compact .mud-input-outlined,
-.settings-admin-panel .settings-field--compact .mud-select,
-.settings-admin-panel .settings-field--compact .mud-select-input {
+.app-filter-bar .mud-select-input {
     height: var(--tl-control-height-sm) !important;
     min-height: var(--tl-control-height-sm) !important;
     align-items: center !important;
 }
 
 .tl-filter-bar .mud-input-control,
-.app-filter-bar .mud-input-control,
-.settings-admin-panel .settings-field--compact .mud-input-control {
+.app-filter-bar .mud-input-control {
     margin: 0 !important;
 }
 
 .tl-filter-bar .mud-input-slot,
 .tl-filter-bar .mud-select-input,
 .app-filter-bar .mud-input-slot,
-.app-filter-bar .mud-select-input,
-.settings-admin-panel .settings-field--compact .mud-input-slot,
-.settings-admin-panel .settings-field--compact .mud-select-input {
+.app-filter-bar .mud-select-input {
     display: flex !important;
     align-items: center !important;
     padding-top: 0 !important;
@@ -3037,8 +2980,7 @@ textarea.tl-textarea,
 }
 
 .tl-filter-bar .mud-input-adornment,
-.app-filter-bar .mud-input-adornment,
-.settings-admin-panel .settings-field--compact .mud-input-adornment {
+.app-filter-bar .mud-input-adornment {
     align-self: center !important;
     margin-top: 0 !important;
 }
@@ -3613,56 +3555,6 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     background: var(--app-hover-overlay, rgba(255, 255, 255, 0.035)) !important;
 }
 
-/* Settings selects intentionally use compact, borderless controls. Keep this
-   after the global MudBlazor popover/input rules because select menus render
-   outside the settings panel as app-level popovers. */
-.settings-admin-panel .settings-field--compact .mud-input-slot,
-.settings-admin-panel .settings-field--compact .mud-input-outlined,
-.settings-admin-panel .settings-field--compact .mud-select-input {
-    min-height: 34px !important;
-    height: 34px !important;
-    align-items: center !important;
-}
-
-.settings-admin-panel .settings-field--compact input.mud-input-root,
-.settings-admin-panel .settings-field--compact .mud-select-input {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
-    font-size: 0.9rem !important;
-    line-height: 34px !important;
-}
-
-.settings-admin-panel .settings-field--compact .mud-input-adornment,
-.settings-admin-panel .settings-field--compact .mud-input-control-input-container,
-.settings-admin-panel .settings-field--compact .mud-input {
-    min-height: 34px !important;
-    height: 34px !important;
-    align-items: center !important;
-}
-
-.settings-admin-panel .settings-field--compact .mud-input-outlined-border,
-.settings-admin-panel .settings-field--compact:hover .mud-input-outlined-border,
-.settings-admin-panel .settings-field--compact .mud-input-focused .mud-input-outlined-border,
-.settings-admin-panel .settings-field--compact .mud-input-outlined-border:focus-within {
-    border-color: transparent !important;
-    box-shadow: none !important;
-}
-
-.settings-admin-panel .settings-field--row-control {
-    width: 104px !important;
-    min-width: 104px !important;
-}
-
-.settings-admin-panel .settings-field--number-control {
-    width: 124px !important;
-    min-width: 124px !important;
-}
-
-.settings-admin-panel .settings-field--text-control {
-    width: 156px !important;
-    min-width: 156px !important;
-}
-
 .app-media-type-select {
     width: 168px !important;
     min-width: 168px !important;
@@ -3781,6 +3673,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     line-height: 1.4;
 }
 
+.app-control.app-control--compact,
 .app-field.app-control--compact,
 .app-control--compact .app-control,
 .app-button.app-control--compact,
@@ -3788,6 +3681,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     --app-control-height: var(--tl-control-height-sm);
 }
 
+.app-control.app-control--normal,
 .app-field.app-control--normal,
 .app-control--normal .app-control,
 .app-button.app-control--normal,
@@ -3795,6 +3689,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     --app-control-height: var(--tl-control-height-md);
 }
 
+.app-control.app-control--large,
 .app-field.app-control--large,
 .app-control--large .app-control,
 .app-button.app-control--large,

@@ -10,14 +10,14 @@
                          Class="@TriggerClass"
                          AriaLabel="@ButtonLabel"
                          aria-haspopup="true"
-                         aria-expanded="@_open"
-                         OnClick="ToggleMenu">
+                         aria-expanded="@IsOpen"
+                         OnClick="ToggleMenuAsync">
                 <MudIcon Icon="@Icon" />
                 <span>@ButtonLabel</span>
                 <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" Class="browse-multi-select__chevron" />
         </AppNativeButton>
 
-        @if (_open)
+        @if (IsOpen)
         {
             <div class="browse-multi-select__panel"
                  role="group"
@@ -82,6 +82,9 @@
     [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string ButtonLabel { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Icon { get; set; } = Icons.Material.Outlined.FilterList;
+    [Parameter, EditorRequired] public string MenuKey { get; set; } = string.Empty;
+    [Parameter] public string? OpenMenuKey { get; set; }
+    [Parameter] public EventCallback<string?> OpenMenuKeyChanged { get; set; }
     [Parameter] public string? Class { get; set; }
     [Parameter] public bool ShowLabel { get; set; } = true;
     [Parameter] public bool Searchable { get; set; } = true;
@@ -94,8 +97,10 @@
     [Parameter] public IReadOnlyList<string> SelectedValues { get; set; } = [];
     [Parameter] public EventCallback<IReadOnlyList<string>> SelectedValuesChanged { get; set; }
 
-    private bool _open;
+    private bool _wasOpen;
     private string _searchText = string.Empty;
+
+    private bool IsOpen => string.Equals(OpenMenuKey, MenuKey, StringComparison.Ordinal);
 
     private IReadOnlyList<string> FilteredOptions => Options
         .Where(option => string.IsNullOrWhiteSpace(_searchText)
@@ -111,21 +116,25 @@
     private static string OptionClass(bool selected) =>
         $"browse-multi-select__option {(selected ? "is-selected" : string.Empty)}";
 
-    private void ToggleMenu()
+    protected override void OnParametersSet()
     {
-        _open = !_open;
-        if (!_open)
+        if (_wasOpen && !IsOpen)
         {
             _searchText = string.Empty;
         }
+
+        _wasOpen = IsOpen;
     }
 
-    private void HandleKeyDown(KeyboardEventArgs args)
+    private Task ToggleMenuAsync()
+        => OpenMenuKeyChanged.InvokeAsync(IsOpen ? null : MenuKey);
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
     {
         if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
         {
-            _open = false;
             _searchText = string.Empty;
+            await OpenMenuKeyChanged.InvokeAsync(null);
         }
     }
 
@@ -143,7 +152,7 @@
         await SelectedValuesChanged.InvokeAsync(selected
             .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)
             .ToList());
-        _open = true;
+        await OpenMenuKeyChanged.InvokeAsync(MenuKey);
     }
 
     private async Task ClearAsync()
@@ -153,6 +162,6 @@
             await SelectedValuesChanged.InvokeAsync([]);
         }
 
-        _open = true;
+        await OpenMenuKeyChanged.InvokeAsync(MenuKey);
     }
 }

@@ -142,7 +142,8 @@ public sealed class AppComponentSystemGuardrailTests
         var tokens = ReadRepoFile("src/MediaEngine.Web/wwwroot/tuvima.tokens.css");
         var appCss = ReadRepoFile("src/MediaEngine.Web/wwwroot/app.css");
 
-        Assert.Contains("PopoverClass=\"@PopoverClass\"", appSelect, StringComparison.Ordinal);
+        Assert.Contains("PopoverClass=\"@EffectivePopoverClass\"", appSelect, StringComparison.Ordinal);
+        Assert.Contains("app-select__popover", appSelect, StringComparison.Ordinal);
         Assert.Contains("--tl-z-popover: 1600;", tokens, StringComparison.Ordinal);
         Assert.Contains("z-index: var(--tl-z-popover, 1600) !important;", appCss, StringComparison.Ordinal);
         Assert.Contains(".mud-popover.mud-popover-open", appCss, StringComparison.Ordinal);
@@ -159,6 +160,7 @@ public sealed class AppComponentSystemGuardrailTests
         Assert.Contains("background-image: url(\"data:image/svg+xml", appCss, StringComparison.Ordinal);
         Assert.DoesNotContain(".provider-strategy-select .mud-paper", appCss, StringComparison.Ordinal);
         Assert.DoesNotContain("settings-select-menu .mud-paper", appCss, StringComparison.Ordinal);
+        Assert.Contains("width: clamp(10.5rem, 14vw, 12rem) !important;", appCss, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath)

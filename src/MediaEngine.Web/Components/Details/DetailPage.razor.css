@@ -11217,3 +11217,54 @@
 ::deep .tl-overview-surface--collection .tl-overview-section--copy {
     max-width: 92rem;
 }
+
+/* People share the same lower-left identity renderer as every other detail.
+   Only the managed portrait remains person-specific. */
+::deep .tl-detail-hero--person .tl-detail-person-hero__content {
+    display: flex !important;
+    align-items: flex-end !important;
+    min-height: inherit;
+    padding:
+        calc(var(--app-topbar-height, 65px) + 2rem)
+        clamp(1.5rem, 5vw, 5.5rem)
+        clamp(2rem, 6vh, 4rem) !important;
+}
+
+::deep .tl-detail-hero--person .tl-detail-person-hero__content .tl-detail-hero__copy {
+    width: min(47.5rem, 52vw);
+    max-width: min(47.5rem, 52vw);
+    align-content: end;
+}
+
+::deep .tl-detail-hero--person .tl-detail-person-portrait {
+    position: absolute;
+    z-index: 4;
+    top: 50%;
+    right: clamp(3rem, 7vw, 9rem);
+    width: auto;
+    max-width: min(34vw, 34rem);
+    height: clamp(26rem, 58svh, 40rem);
+    max-height: calc(100% - var(--app-topbar-height, 65px) - 5rem);
+    transform: translateY(-50%);
+}
+
+@media (max-width: 720px) {
+    ::deep .tl-detail-hero--person .tl-detail-person-hero__content {
+        align-items: flex-end !important;
+        padding: clamp(17rem, 48svh, 25rem) 1.25rem 1.5rem !important;
+    }
+
+    ::deep .tl-detail-hero--person .tl-detail-person-hero__content .tl-detail-hero__copy {
+        width: 100%;
+        max-width: 100%;
+    }
+
+    ::deep .tl-detail-hero--person .tl-detail-person-portrait {
+        top: calc(var(--app-topbar-height, 65px) + 1rem);
+        right: 1.25rem;
+        width: min(42vw, 12rem);
+        height: auto;
+        max-height: 36svh;
+        transform: none;
+    }
+}

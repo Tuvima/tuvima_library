@@ -160,10 +160,11 @@ else if (_settings is not null)
                                           Label="Intro label"
                                           Value="@_settings.Listening.ShortIntroLabel"
                                           ValueChanged="@(v => UpdateAndSaveAsync(() => _settings.Listening.ShortIntroLabel = NormalizeIntroLabel(v)))"
-                                          Variant="Variant.Outlined"
-                                          Margin="Margin.Dense"
-                                          Disabled="@(!_settings.Listening.DetectShortIntroChapters)"
-                                          Class="settings-field--compact settings-field--text-control"
+                                           Variant="Variant.Outlined"
+                                           Margin="Margin.Dense"
+                                           Size="AppControlSize.Compact"
+                                           Disabled="@(!_settings.Listening.DetectShortIntroChapters)"
+                                           Class="settings-field--text-control"
                                           HelpText="Used only when the embedded first chapter name is blank, numeric, or generic." />
                             @BoolRow(Icons.Material.Outlined.VisibilityOff, "Hide one large chapter", "Suppress chapter UI when an audiobook only exposes one long media segment.", _settings.Listening.HideSingleLargeChapterDetails, v => UpdateAndSaveAsync(() => _settings.Listening.HideSingleLargeChapterDetails = v))
                             @IntSelect("Minimum chapter rows", _settings.Listening.MinimumChaptersForChapterDetails, ChapterDetailCountOptions, v => UpdateAndSaveAsync(() => _settings.Listening.MinimumChaptersForChapterDetails = v), " chapters")
@@ -362,7 +363,7 @@ else if (_settings is not null)
             <MudText Typo="Typo.body1">@title</MudText>
             <MudText Typo="Typo.caption" Color="Color.Secondary">@description</MudText>
         </MudStack>
-        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--row-control" PopoverClass="settings-select-menu">
+        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Size="AppControlSize.Compact" Class="settings-field--row-control">
             @foreach (var option in options)
             {
                 <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
@@ -372,7 +373,7 @@ else if (_settings is not null)
 
     private RenderFragment IntSelect(string label, int value, IReadOnlyList<int> options, Func<int, Task> changed, string suffix) => @<div class="settings-select-row">
         <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
-        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--number-control" PopoverClass="settings-select-menu">
+        <AppIntSelect Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Size="AppControlSize.Compact" Class="settings-field--menu-control settings-field--number-control">
             @foreach (var option in options)
             {
                 <MudSelectItem T="int" Value="@option">@($"{option}{suffix}")</MudSelectItem>
@@ -382,7 +383,7 @@ else if (_settings is not null)
 
     private RenderFragment StringSelect(string label, string value, IReadOnlyList<string> options, Func<string, Task> changed, Func<string, string>? formatter = null) => @<div class="settings-select-row">
         <MudText Typo="Typo.caption" Class="settings-select-row__label">@label</MudText>
-        <AppSelect T="string" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Class="settings-field--compact settings-field--menu-control settings-field--text-control" PopoverClass="settings-select-menu">
+        <AppSelect T="string" Value="@value" ValueChanged="@changed" Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true" Size="AppControlSize.Compact" Class="settings-field--menu-control settings-field--text-control">
             @foreach (var option in options)
             {
                 <MudSelectItem T="string" Value="@option">@((formatter ?? Display)(option))</MudSelectItem>

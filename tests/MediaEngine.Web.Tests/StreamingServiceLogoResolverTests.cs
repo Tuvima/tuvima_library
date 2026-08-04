@@ -123,15 +123,12 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
     [
         DetailEntityType.Work,
         DetailEntityType.Movie,
-        DetailEntityType.MovieSeries,
         DetailEntityType.TvShow,
         DetailEntityType.TvSeason,
         DetailEntityType.TvEpisode,
         DetailEntityType.Book,
-        DetailEntityType.BookSeries,
         DetailEntityType.Audiobook,
         DetailEntityType.ComicIssue,
-        DetailEntityType.ComicSeries,
         DetailEntityType.MusicAlbum,
     ];
 
@@ -248,6 +245,26 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         Assert.Contains("OnActionSelected=\"SelectAsync\"", overflowMenuSource);
     }
 
+    [Theory]
+    [InlineData(DetailEntityType.MovieSeries)]
+    [InlineData(DetailEntityType.BookSeries)]
+    [InlineData(DetailEntityType.ComicSeries)]
+    public void DetailHero_HidesEditForGeneratedSeries(DetailEntityType entityType)
+    {
+        var model = CreateEditableModel(entityType, canEdit: false);
+
+        using var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<DetailHero>(1);
+            builder.AddAttribute(2, "Model", model);
+            builder.CloseComponent();
+        });
+
+        Assert.Empty(cut.FindAll("button[aria-label='Edit']"));
+    }
+
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
@@ -257,13 +274,20 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }
 
-    private static DetailPageViewModel CreateEditableModel(DetailEntityType entityType)
+    private static DetailPageViewModel CreateEditableModel(DetailEntityType entityType, bool canEdit = true)
         => new()
         {
             Id = Guid.NewGuid().ToString("D"),
             EntityType = entityType,
             PresentationContext = PresentationContextFor(entityType),
             Title = $"{entityType} title",
+            EditorTarget = canEdit
+                ? new DetailEditorTarget
+                {
+                    EntityId = Guid.NewGuid().ToString("D"),
+                    EntityKind = "Work",
+                }
+                : null,
             Artwork = new ArtworkSet(),
             PrimaryActions =
             [

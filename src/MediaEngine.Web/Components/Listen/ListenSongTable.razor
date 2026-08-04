@@ -15,26 +15,38 @@
         {
             if (Sortable && IsSortableColumn(column.Key))
             {
-                <AppNativeButton Type="button" Class="@GetSortHeaderClass(column.Key)" role="columnheader" OnClick="@(() => ToggleSort(column.Key))">
+                <AppNativeButton Type="button" Class="@GetSortHeaderClass(column.Key)" role="columnheader" aria-sort="@AriaSort(column.Key)" OnClick="@(() => ToggleSort(column.Key))">
                     <span>@column.Label</span>
                     @if (!string.IsNullOrWhiteSpace(SortIndicator(column.Key)))
                     {
                         <MudIcon Icon="@SortIndicator(column.Key)" Size="Size.Small" />
                     }
                     <span class="listen-song-table__resizer"
+                          role="separator"
+                          aria-label="@($"Resize {column.Label} column")"
+                          aria-orientation="vertical"
+                          tabindex="0"
                           @onclick:stopPropagation="true"
                           @onmousedown:stopPropagation="true"
-                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"></span>
+                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"
+                          @onkeydown:stopPropagation="true"
+                          @onkeydown="@((args) => ResizeColumnByKeyboard(column.Key, args))"></span>
                 </AppNativeButton>
             }
             else
             {
-                <span class="@(column.Key == "song" ? "listen-song-table__song-head" : null) @(column.Key == "favorite" ? "listen-song-table__favorite-head" : null)"
+                <span class="@GetStaticHeaderClass(column.Key)"
                       role="columnheader">
-                    @column.Label
+                    <span>@column.Label</span>
                     <span class="listen-song-table__resizer"
+                          role="separator"
+                          aria-label="@($"Resize {column.Label} column")"
+                          aria-orientation="vertical"
+                          tabindex="0"
                           @onmousedown:stopPropagation="true"
-                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"></span>
+                          @onmousedown="@((args) => BeginColumnResize(column.Key, args.ClientX))"
+                          @onkeydown:stopPropagation="true"
+                          @onkeydown="@((args) => ResizeColumnByKeyboard(column.Key, args))"></span>
                 </span>
             }
         }
@@ -173,14 +185,14 @@
     private readonly List<ListenSongTableColumn> _columns =
     [
         new("song", "Song", 260, 180),
-        new("favorite", "Favorite", 46, 44),
+        new("favorite", "Favorite", 64, 56),
         new("time", "Time", 56, 52),
         new("artist", "Artist", 108, 96),
         new("album", "Album", 108, 96),
         new("genre", "Genre", 82, 72),
         new("plays", "Plays", 50, 46),
-        new("dateAdded", "Date Added", 88, 78),
-        new("queue", "Queue", 46, 42),
+        new("dateAdded", "Date Added", 112, 104),
+        new("queue", "Queue", 64, 56),
         new("editDelete", "Edit / Delete", 64, 56),
         new("options", string.Empty, 42, 40),
     ];
@@ -252,6 +264,22 @@
 
     private void EndColumnResize() => _resizingColumnKey = null;
 
+    private void ResizeColumnByKeyboard(string key, KeyboardEventArgs args)
+    {
+        var delta = args.Key switch
+        {
+            "ArrowLeft" => -8,
+            "ArrowRight" => 8,
+            _ => 0,
+        };
+        if (delta == 0)
+            return;
+
+        var column = _columns.FirstOrDefault(item => item.Key == key);
+        if (column is not null)
+            column.Width = Math.Clamp(column.Width + delta, column.MinWidth, 560);
+    }
+
     private void ToggleSort(string key)
     {
         if (!Sortable || !IsSortableColumn(key))
@@ -275,6 +303,11 @@
             ? (_sortDescending ? Icons.Material.Outlined.ArrowDownward : Icons.Material.Outlined.ArrowUpward)
             : string.Empty;
     }
+
+    private string AriaSort(string key)
+        => string.Equals(NormalizeSortColumn(_sortColumn), NormalizeSortColumn(key), StringComparison.OrdinalIgnoreCase)
+            ? _sortDescending ? "descending" : "ascending"
+            : "none";
 
     private IReadOnlyList<WorkViewModel> SortTracks(IEnumerable<WorkViewModel> tracks)
     {
@@ -331,6 +364,18 @@
         if (columnKey == "favorite")
             classes.Add("listen-song-table__favorite-head");
 
+        return string.Join(" ", classes);
+    }
+
+    private static string GetStaticHeaderClass(string columnKey)
+    {
+        var classes = new List<string> { "listen-song-table__static-header" };
+        if (columnKey == "song")
+            classes.Add("listen-song-table__song-head");
+        if (columnKey == "favorite")
+            classes.Add("listen-song-table__favorite-head");
+        if (columnKey == "queue")
+            classes.Add("listen-song-table__queue-head");
         return string.Join(" ", classes);
     }
 
@@ -409,7 +454,7 @@
            || value.Trim().StartsWith("Untitled", StringComparison.OrdinalIgnoreCase);
 
     private static string FormatDateAdded(DateTimeOffset createdAt)
-        => createdAt == default ? "-" : createdAt.LocalDateTime.ToString("M/d/yyyy", CultureInfo.CurrentCulture);
+        => createdAt == default ? "—" : createdAt.LocalDateTime.ToString("M/d/yyyy", CultureInfo.CurrentCulture);
 
     private static int GetPlayCount(WorkViewModel work)
     {
@@ -421,7 +466,7 @@
     }
 
     private static string GetPlayCountDisplay(WorkViewModel work)
-        => GetPlayCount(work) > 0 ? GetPlayCount(work).ToString(CultureInfo.InvariantCulture) : "-";
+        => GetPlayCount(work) > 0 ? GetPlayCount(work).ToString(CultureInfo.InvariantCulture) : string.Empty;
 
     private static int ParseTrackNumber(string? value)
         => int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : int.MaxValue;

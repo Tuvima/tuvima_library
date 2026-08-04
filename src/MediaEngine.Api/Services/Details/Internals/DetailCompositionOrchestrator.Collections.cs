@@ -45,6 +45,7 @@ internal sealed partial class DetailCompositionOrchestrator
             """
             SELECT c.id AS Id,
                    c.display_name AS DisplayName,
+                   c.collection_type AS CollectionType,
                    c.wikidata_qid AS WikidataQid,
                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key IN ('description', 'overview') AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS Description,
                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = c.id AND key = 'tagline' AND NULLIF(CAST(value AS TEXT), '') IS NOT NULL LIMIT 1) AS Tagline,
@@ -72,6 +73,7 @@ internal sealed partial class DetailCompositionOrchestrator
             ? new CollectionDetailRow(
                 Guid.Parse(StringValue(rawRow!.Id) ?? collectionId.ToString("D")),
                 StringValue(rawRow.DisplayName),
+                StringValue(rawRow.CollectionType),
                 StringValue(rawRow.WikidataQid),
                 StringValue(rawRow.Description),
                 StringValue(rawRow.Tagline),
@@ -87,6 +89,7 @@ internal sealed partial class DetailCompositionOrchestrator
                     ? new CollectionDetailRow(
                         collectionId,
                         musicAlbumGroup.DisplayName,
+                        null,
                         musicAlbumGroup.WikidataQid,
                         musicAlbumGroup.Description,
                         musicAlbumGroup.Tagline,
@@ -100,6 +103,7 @@ internal sealed partial class DetailCompositionOrchestrator
                         ? new CollectionDetailRow(
                             collectionId,
                             audiobookSeriesGroup.DisplayName,
+                            null,
                             audiobookSeriesGroup.WikidataQid,
                             audiobookSeriesGroup.Description,
                             audiobookSeriesGroup.Tagline,
@@ -282,15 +286,21 @@ internal sealed partial class DetailCompositionOrchestrator
         var mediaGroups = entityType == DetailEntityType.TvShow
             ? []
             : BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal);
+        var canEdit = isAdminView
+            && (string.Equals(row.CollectionType, CollectionTypeNames.Custom, StringComparison.OrdinalIgnoreCase)
+                || ((entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.MusicAlbum)
+                    && rootWorkId.HasValue));
 
         return new DetailPageViewModel
         {
             Id = collectionId.ToString("D"),
             EntityType = entityType,
             PresentationContext = context,
-            EditorTarget = audiobookSeriesGroup is not null && rootWorkId.HasValue
-                ? BuildCanonicalSystemViewEditorTarget(rootWorkId.Value)
-                : BuildCollectionEditorTarget(collectionId, entityType, rootWorkId),
+            EditorTarget = canEdit
+                ? audiobookSeriesGroup is not null && rootWorkId.HasValue
+                    ? BuildCanonicalSystemViewEditorTarget(rootWorkId.Value)
+                    : BuildCollectionEditorTarget(collectionId, entityType, rootWorkId)
+                : null,
             Title = collectionTitle,
             Subtitle = BuildCollectionSubtitle(entityType, displayWorks, values),
             Tagline = entityType == DetailEntityType.TvShow
@@ -723,6 +733,7 @@ internal sealed partial class DetailCompositionOrchestrator
             : new CollectionDetailRow(
                 Guid.Parse(StringValue(rawRow.Id) ?? rootWorkId.ToString("D")),
                 StringValue(rawRow.DisplayName),
+                null,
                 StringValue(rawRow.WikidataQid),
                 StringValue(rawRow.Description),
                 StringValue(rawRow.Tagline),

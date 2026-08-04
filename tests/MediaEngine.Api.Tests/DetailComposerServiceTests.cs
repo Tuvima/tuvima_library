@@ -251,6 +251,10 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("entityType == DetailEntityType.Collection", source);
         Assert.Contains("? []", source);
         Assert.Contains("BuildStandardCollectionMetadata(works)", source);
+        Assert.Contains("c.collection_type AS CollectionType", source);
+        Assert.Contains("CollectionTypeNames.Custom", source);
+        Assert.Contains("EditorTarget = canEdit", source);
+        Assert.Contains("DetailEntityType.BookSeries or DetailEntityType.ComicSeries or DetailEntityType.MovieSeries", source);
         Assert.Contains("Kind = $\"{lane}_count\"", source);
         Assert.DoesNotContain("BuildCollectionLaneActions", source);
         Assert.DoesNotContain("Key = $\"collection-{lane}\"", source);

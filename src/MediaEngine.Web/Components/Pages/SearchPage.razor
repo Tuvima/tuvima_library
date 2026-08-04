@@ -30,9 +30,12 @@
                       Class="search-page__input" />
 
         <div class="search-page__filters">
-            <BrowseMultiSelect Label="Media"
-                               ButtonLabel="@MediaButtonLabel"
-                               Icon="@Icons.Material.Outlined.PermMedia"
+             <BrowseMultiSelect Label="Media"
+                                ButtonLabel="@MediaButtonLabel"
+                                MenuKey="media"
+                                OpenMenuKey="@_openFilterMenuKey"
+                                OpenMenuKeyChanged="OnOpenFilterMenuChanged"
+                                Icon="@Icons.Material.Outlined.PermMedia"
                                Options="@MediaOptions"
                                SelectedValues="@_selectedMedia"
                                SelectedValuesChanged="OnMediaChanged"
@@ -168,6 +171,7 @@
     private UniversalSearchResponseDto? _response;
     private UniversalSearchResultDto? _selected;
     private string _query = string.Empty;
+    private string? _openFilterMenuKey;
     private string _resultType = "all";
     private string _sort = "relevance";
     private string _yearFrom = string.Empty;
@@ -301,6 +305,12 @@
         _selectedMedia = values;
         SyncSelectedResultToFilters();
         UpdateUrl();
+        return Task.CompletedTask;
+    }
+
+    private Task OnOpenFilterMenuChanged(string? menuKey)
+    {
+        _openFilterMenuKey = menuKey;
         return Task.CompletedTask;
     }
 

@@ -93,9 +93,12 @@
                             <div class="browse-shell__filter-selects">
                                 @if (GenreFacets.Count > 0 && SupportsFacetFilters)
                                 {
-                                    <BrowseMultiSelect Label="Filters"
-                                                       ButtonLabel="Genres"
-                                                       Icon="@Icons.Material.Outlined.LocalOffer"
+                                     <BrowseMultiSelect Label="Filters"
+                                                        ButtonLabel="Genres"
+                                                        MenuKey="genres"
+                                                        OpenMenuKey="@_openFacetMenuKey"
+                                                        OpenMenuKeyChanged="OnOpenFacetMenuChanged"
+                                                        Icon="@Icons.Material.Outlined.LocalOffer"
                                                        Options="GenreFacets"
                                                        SelectedValues="SelectedGenres"
                                                        SelectedValuesChanged="OnGenresChanged"
@@ -110,9 +113,12 @@
 
                                 @if (SupportsFacetFilters)
                                 {
-                                    <BrowseMultiSelect Label="@CreatorFilterLabel"
-                                                       ButtonLabel="@AllCreatorLabel"
-                                                       Icon="@Icons.Material.Outlined.PersonOutline"
+                                     <BrowseMultiSelect Label="@CreatorFilterLabel"
+                                                        ButtonLabel="@AllCreatorLabel"
+                                                        MenuKey="creators"
+                                                        OpenMenuKey="@_openFacetMenuKey"
+                                                        OpenMenuKeyChanged="OnOpenFacetMenuChanged"
+                                                        Icon="@Icons.Material.Outlined.PersonOutline"
                                                        Options="CreatorFacets"
                                                        SelectedValues="SelectedCreators"
                                                        SelectedValuesChanged="OnCreatorsChanged"
@@ -123,9 +129,12 @@
                                                        ShowLabel="false"
                                                        Class="browse-shell__multi-select browse-shell__multi-select--creator" />
 
-                                    <BrowseMultiSelect Label="Year"
-                                                       ButtonLabel="All years"
-                                                       Icon="@Icons.Material.Outlined.CalendarMonth"
+                                     <BrowseMultiSelect Label="Year"
+                                                        ButtonLabel="All years"
+                                                        MenuKey="years"
+                                                        OpenMenuKey="@_openFacetMenuKey"
+                                                        OpenMenuKeyChanged="OnOpenFacetMenuChanged"
+                                                        Icon="@Icons.Material.Outlined.CalendarMonth"
                                                        Options="YearFacets"
                                                        SelectedValues="SelectedYears"
                                                        SelectedValuesChanged="OnYearsChanged"
@@ -377,6 +386,7 @@
     private string _activeTabId = string.Empty;
     private string _grouping = "all";
     private string _searchText = string.Empty;
+    private string? _openFacetMenuKey;
     private int _searchInputVersion;
     private string _sortBy = "newest";
     private readonly HashSet<string> _selectedGenres = new(StringComparer.OrdinalIgnoreCase);
@@ -1405,8 +1415,15 @@
 
     private async Task OnSortChanged(string value)
     {
+        _openFacetMenuKey = null;
         _sortBy = value;
         await NavigateAndReloadAsync();
+    }
+
+    private Task OnOpenFacetMenuChanged(string? menuKey)
+    {
+        _openFacetMenuKey = menuKey;
+        return Task.CompletedTask;
     }
 
     private async Task OnGenresChanged(IReadOnlyList<string> values)

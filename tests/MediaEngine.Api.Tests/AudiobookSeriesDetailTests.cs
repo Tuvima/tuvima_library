@@ -98,8 +98,7 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
         Assert.Equal("The Expanse", detail.Title);
         Assert.Empty(detail.Facts?.Authors ?? []);
         Assert.Empty(detail.ContributorGroups);
-        Assert.Equal(rootWorkId.ToString("D"), detail.EditorTarget?.EntityId);
-        Assert.Equal("Work", detail.EditorTarget?.EntityKind);
+        Assert.Null(detail.EditorTarget);
 
         var items = Assert.Single(detail.MediaGroups).Items;
         Assert.Equal(["Leviathan Wakes", "Caliban's War"], items.Select(item => item.Title));

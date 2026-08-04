@@ -22,7 +22,7 @@
                           Modes="@CollectionsSectionConfiguration.Modes"
                           ActiveMode="@_activeSection">
         <Actions>
-            @if (CanManageCuratedCollections)
+            @if (_activeSection == CollectionsSectionConfiguration.Curated && CanManageCuratedCollections)
             {
                 <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
@@ -51,12 +51,6 @@
         else if (_activeSection == CollectionsSectionConfiguration.Overview)
         {
             <div class="collections-overview">
-                <div class="collections-overview__intro">
-                    <div class="collections-overview__eyebrow">Your organized library</div>
-                    <h1>Collections</h1>
-                    <p>Explore broader worlds found by Tuvima, published collections curated by administrators, lane-level shelves, and the people behind your library.</p>
-                </div>
-
                 @if (AutomaticTiles.Count > 0)
                 {
                     <MediaTileShelf Shelf="@OverviewAutomaticShelf"
@@ -124,31 +118,28 @@
         else
         {
             <div class="browse-shell collections-browse">
-                <div class="collections-results-heading">
-                    <div class="collections-results-heading__copy">
-                        <h1>@SectionTitle</h1>
-                        <p>@SectionDescription</p>
-                    </div>
-                    <span>@ResultCountLabel</span>
-                </div>
-
                 <div class="browse-shell__toolbar-anchor">
                     <div class="browse-shell__toolbar-panel">
-                        <div class="browse-shell__toolbar collections-filter-toolbar">
-                            <AppTextField T="string"
-                                          Value="_searchText"
-                                          ValueChanged="OnSearchChanged"
-                                          Placeholder="@SearchPlaceholder"
-                                          Variant="Variant.Outlined"
-                                          Immediate="true"
-                                          DebounceInterval="250"
-                                          Adornment="Adornment.Start"
-                                          AdornmentIcon="@Icons.Material.Outlined.Search"
-                                          Class="browse-shell__search" />
+                        <div class="browse-shell__filter-surface collections-filter-surface">
+                            <div class="browse-shell__filter-search-row">
+                                <AppTextField T="string"
+                                              Value="@_searchText"
+                                              ValueChanged="OnSearchChanged"
+                                              Placeholder="@SearchPlaceholder"
+                                              Variant="Variant.Outlined"
+                                              Immediate="true"
+                                              DebounceInterval="250"
+                                              Adornment="Adornment.Start"
+                                              AdornmentIcon="@Icons.Material.Outlined.Search"
+                                              Class="browse-shell__search" />
+                            </div>
 
-                            <div class="browse-shell__controls">
+                            <div class="browse-shell__filter-lower-row collections-filter-lower-row">
+                                <div class="browse-shell__control-group browse-shell__control-group--filters collections-filter-group">
+                                    <span class="browse-shell__control-label">Filter by</span>
+                                    <div class="collections-filter-selects">
                                 <AppSelect T="string"
-                                           Value="_lane"
+                                           Value="@_lane"
                                            ValueChanged="OnLaneChanged"
                                            Label="Lane"
                                            Variant="Variant.Outlined"
@@ -167,7 +158,7 @@
                                 @if (_activeSection == CollectionsSectionConfiguration.Automatic)
                                 {
                                     <AppSelect T="string"
-                                               Value="_kind"
+                                               Value="@_kind"
                                                ValueChanged="OnKindChanged"
                                                Label="Relationship"
                                                Variant="Variant.Outlined"
@@ -182,7 +173,7 @@
                                 else if (_activeSection == CollectionsSectionConfiguration.Curated)
                                 {
                                     <AppSelect T="string"
-                                               Value="_membership"
+                                               Value="@_membership"
                                                ValueChanged="OnMembershipChanged"
                                                Label="Membership"
                                                Variant="Variant.Outlined"
@@ -193,7 +184,7 @@
                                         <MudSelectItem T="string" Value="@("rules")">Rule-driven</MudSelectItem>
                                     </AppSelect>
                                     <AppSelect T="string"
-                                               Value="_status"
+                                               Value="@_status"
                                                ValueChanged="OnStatusChanged"
                                                Label="Publication"
                                                Variant="Variant.Outlined"
@@ -207,7 +198,7 @@
                                 else if (_activeSection == CollectionsSectionConfiguration.Shelves)
                                 {
                                     <AppSelect T="string"
-                                               Value="_kind"
+                                               Value="@_kind"
                                                ValueChanged="OnKindChanged"
                                                Label="Shelf type"
                                                Variant="Variant.Outlined"
@@ -223,7 +214,7 @@
                                 else if (_activeSection == CollectionsSectionConfiguration.People)
                                 {
                                     <AppSelect T="string"
-                                               Value="_role"
+                                               Value="@_role"
                                                ValueChanged="OnRoleChanged"
                                                Label="Role"
                                                Variant="Variant.Outlined"
@@ -236,11 +227,15 @@
                                         }
                                     </AppSelect>
                                 }
+                                    </div>
+                                </div>
 
+                                <div class="browse-shell__display-controls collections-display-controls">
+                                    <span class="browse-shell__sort-label">Sort</span>
+                                    <span class="browse-shell__display-label">Display</span>
                                 <AppSelect T="string"
-                                           Value="_sortBy"
+                                           Value="@_sortBy"
                                            ValueChanged="OnSortChanged"
-                                           Label="Sort"
                                            Variant="Variant.Outlined"
                                            Dense="true"
                                            Class="browse-shell__sort">
@@ -263,12 +258,16 @@
                                                         OnInput="OnTileSizeChanged" />
                                     </label>
                                 }
+                                </div>
+                            </div>
+
+                            <div class="collections-filter-summary">
+                                <span class="collections-result-count">@ResultCountLabel</span>
+                                <AppActiveFilterSummary Items="@ActiveFilterChips"
+                                                        Remove="RemoveFilterAsync"
+                                                        ClearAll="ClearFiltersAsync" />
                             </div>
                         </div>
-
-                        <AppActiveFilterSummary Items="@ActiveFilterChips"
-                                                Remove="RemoveFilterAsync"
-                                                ClearAll="ClearFiltersAsync" />
                     </div>
                 </div>
 

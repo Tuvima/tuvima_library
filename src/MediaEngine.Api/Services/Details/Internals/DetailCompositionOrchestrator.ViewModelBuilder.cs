@@ -728,11 +728,9 @@ internal sealed partial class DetailCompositionOrchestrator
         => IsReadableEntity(entityType)
            || IsWatchEntity(entityType)
            || entityType is DetailEntityType.MusicAlbum
-               or DetailEntityType.MovieSeries
                or DetailEntityType.TvShow
                or DetailEntityType.TvSeason
-               or DetailEntityType.BookSeries
-               or DetailEntityType.ComicSeries;
+               or DetailEntityType.TvEpisode;
 
     private static string BuildReadListenAvailabilityLabel(DetailEntityType entityType, IReadOnlyList<OwnedFormatViewModel> formats)
     {

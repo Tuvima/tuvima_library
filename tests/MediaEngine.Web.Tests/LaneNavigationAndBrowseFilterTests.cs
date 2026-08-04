@@ -79,7 +79,14 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("display: grid;", multiSelectStyles, StringComparison.Ordinal);
         Assert.Contains("width: 100%;", multiSelectStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("<MudMenu", multiSelect, StringComparison.Ordinal);
-        Assert.Contains("@if (_open)", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("@if (IsOpen)", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("[Parameter, EditorRequired] public string MenuKey", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("[Parameter] public string? OpenMenuKey", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("OpenMenuKeyChanged.InvokeAsync", multiSelect, StringComparison.Ordinal);
+        Assert.Contains("OpenMenuKey=\"@_openFacetMenuKey\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("MenuKey=\"genres\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("MenuKey=\"creators\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("MenuKey=\"years\"", browseShell, StringComparison.Ordinal);
         Assert.DoesNotContain("/watch/series", watch, StringComparison.Ordinal);
         Assert.Contains("new(\"series\", \"Movie Series\"", watch, StringComparison.Ordinal);
         Assert.DoesNotContain("new(\"collections\", \"Collections\"", watch, StringComparison.Ordinal);
