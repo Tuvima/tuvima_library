@@ -6,7 +6,8 @@ public sealed record MediaSectionNavigationItem(
     string Icon,
     string? Meta = null,
     bool Exact = false,
-    Guid? DropCollectionId = null);
+    Guid? DropCollectionId = null,
+    IReadOnlyList<MediaSectionNavigationItem>? Children = null);
 
 public sealed record MediaSectionNavigationGroup(
     string Label,

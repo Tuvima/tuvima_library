@@ -1,5 +1,5 @@
-.settings-admin-style-scope,
-::deep .settings-admin-shell {
+.settings-shell-content,
+.settings-admin-style-scope {
     --settings-card: rgba(12, 16, 27, 0.72);
     --settings-card-strong: rgba(13, 18, 31, 0.86);
     --settings-border: rgba(255, 255, 255, 0.105);
@@ -10,6 +10,11 @@
     --settings-green: #35d179;
     --settings-text: rgba(255, 255, 255, 0.94);
     --settings-muted: rgba(220, 229, 255, 0.64);
+}
+
+.settings-shell-content {
+    min-width: 0;
+    padding: 24px 28px 28px;
 }
 
 .settings-admin-style-scope ::deep .settings-admin-panel {
@@ -708,6 +713,10 @@
 }
 
 @media (max-width: 768px) {
+    .settings-shell-content {
+        padding: 20px 18px 22px;
+    }
+
     .settings-admin-style-scope ::deep .settings-admin-panel .tl-page {
         padding: 1rem;
     }

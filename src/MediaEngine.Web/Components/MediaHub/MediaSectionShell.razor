@@ -3,8 +3,9 @@
 @using Microsoft.AspNetCore.Components.Routing
 @implements IDisposable
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 
-<div class="media-section-shell">
+<div class="@ShellCssClass">
     <aside class="media-section-shell__rail" aria-label="@($"{Title} navigation")">
         @foreach (var group in NavigationGroups)
         {
@@ -12,21 +13,71 @@
                 <div id="@GroupId(group)" class="media-section-shell__rail-label">@group.Label</div>
                 @foreach (var item in group.Items)
                 {
-                    var active = IsActive(item);
-                    <a @key="item.Route"
-                       href="@item.Route"
-                       class="media-section-shell__rail-item @(active ? "is-active" : null) @(item.DropCollectionId.HasValue ? "is-drop-target" : null)"
-                       @ondragover:preventDefault="@item.DropCollectionId.HasValue"
-                       @ondrop:preventDefault="@item.DropCollectionId.HasValue"
-                       @ondrop="@(() => DropOnNavigationItemAsync(item))"
-                       aria-current="@(active ? "page" : null)">
-                        <MudIcon Icon="@item.Icon" />
-                        <span>@item.Label</span>
-                        @if (!string.IsNullOrWhiteSpace(item.Meta))
-                        {
-                            <span class="media-section-shell__rail-meta">@item.Meta</span>
-                        }
-                    </a>
+                    if (HasChildren(item))
+                    {
+                        var active = IsActive(item);
+                        var expanded = IsExpanded(item);
+                        <div @key="item.Route" class="media-section-shell__rail-branch @(active ? "is-active" : null) @(expanded ? "is-expanded" : null)">
+                            <AppNativeButton id="@ItemId(item)"
+                                             Type="button"
+                                             Class='@($"media-section-shell__rail-item media-section-shell__rail-item--parent {(active ? "is-active" : null)}")'
+                                             aria-expanded="@(expanded ? "true" : "false")"
+                                             aria-controls="@ChildrenId(item)"
+                                             aria-current="@(IsOwnRouteActive(item, forceExact: true) ? "page" : null)"
+                                             OnClick="@(() => ToggleBranch(item))">
+                                <MudIcon Icon="@item.Icon" />
+                                <span>@item.Label</span>
+                                @if (!string.IsNullOrWhiteSpace(item.Meta))
+                                {
+                                    <span class="media-section-shell__rail-meta">@item.Meta</span>
+                                }
+                                <MudIcon Icon="@(expanded ? Icons.Material.Outlined.ExpandLess : Icons.Material.Outlined.ExpandMore)"
+                                         Class="media-section-shell__rail-chevron"
+                                         aria-hidden="true" />
+                            </AppNativeButton>
+
+                            @if (expanded)
+                            {
+                                <div id="@ChildrenId(item)" class="media-section-shell__rail-children" role="group" aria-label="@($"{item.Label} subsections")">
+                                    @foreach (var child in item.Children!)
+                                    {
+                                        var childActive = IsActive(child);
+                                        <a @key="child.Route"
+                                           id="@ItemId(child)"
+                                           href="@child.Route"
+                                           class="media-section-shell__rail-item media-section-shell__rail-item--child @(childActive ? "is-active" : null)"
+                                           aria-current="@(childActive ? "page" : null)">
+                                            <span class="media-section-shell__rail-child-marker" aria-hidden="true"></span>
+                                            <span>@child.Label</span>
+                                            @if (!string.IsNullOrWhiteSpace(child.Meta))
+                                            {
+                                                <span class="media-section-shell__rail-meta">@child.Meta</span>
+                                            }
+                                        </a>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        var active = IsActive(item);
+                        <a @key="item.Route"
+                           id="@ItemId(item)"
+                           href="@item.Route"
+                           class="media-section-shell__rail-item @(active ? "is-active" : null) @(item.DropCollectionId.HasValue ? "is-drop-target" : null)"
+                           @ondragover:preventDefault="@item.DropCollectionId.HasValue"
+                           @ondrop:preventDefault="@item.DropCollectionId.HasValue"
+                           @ondrop="@(() => DropOnNavigationItemAsync(item))"
+                           aria-current="@(active ? "page" : null)">
+                            <MudIcon Icon="@item.Icon" />
+                            <span>@item.Label</span>
+                            @if (!string.IsNullOrWhiteSpace(item.Meta))
+                            {
+                                <span class="media-section-shell__rail-meta">@item.Meta</span>
+                            }
+                        </a>
+                    }
                 }
             </section>
         }
@@ -42,27 +93,57 @@
     [Parameter, EditorRequired] public IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups { get; set; } = [];
     [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
     [Parameter] public EventCallback<Guid> OnNavigationItemDrop { get; set; }
+    [Parameter] public bool AccordionNavigation { get; set; }
+
+    private readonly HashSet<string> _expandedRoutes = new(StringComparer.OrdinalIgnoreCase);
+    private bool _scrollActiveItem;
+
+    private string ShellCssClass => HasNestedNavigation
+        ? "media-section-shell media-section-shell--nested"
+        : "media-section-shell";
+
+    private bool HasNestedNavigation => NavigationGroups
+        .SelectMany(group => group.Items)
+        .Any(HasChildren);
 
     protected override void OnInitialized()
     {
         Nav.LocationChanged += OnLocationChanged;
+        ExpandActiveBranch();
+        _scrollActiveItem = true;
     }
 
     private void OnLocationChanged(object? sender, LocationChangedEventArgs args) =>
-        _ = InvokeAsync(StateHasChanged);
+        _ = InvokeAsync(() =>
+        {
+            ExpandActiveBranch();
+            _scrollActiveItem = true;
+            StateHasChanged();
+        });
 
     private Uri CurrentUri => Nav.ToAbsoluteUri(Nav.Uri);
 
     private bool IsActive(MediaSectionNavigationItem item)
     {
+        if (HasChildren(item))
+        {
+            return IsOwnRouteActive(item, forceExact: true)
+                   || item.Children!.Any(IsActive);
+        }
+
+        return IsOwnRouteActive(item);
+    }
+
+    private bool IsOwnRouteActive(MediaSectionNavigationItem item, bool forceExact = false)
+    {
         var itemUri = Nav.ToAbsoluteUri(item.Route);
-        if (item.Exact)
+        if (forceExact || item.Exact)
         {
             return string.Equals(NormalizePathAndQuery(CurrentUri), NormalizePathAndQuery(itemUri), StringComparison.OrdinalIgnoreCase);
         }
 
         var hasExactShortcut = NavigationGroups
-            .SelectMany(group => group.Items)
+            .SelectMany(group => Flatten(group.Items))
             .Where(candidate => candidate.Exact)
             .Select(candidate => Nav.ToAbsoluteUri(candidate.Route))
             .Any(candidate => string.Equals(
@@ -83,6 +164,96 @@
     private static string NormalizePathAndQuery(Uri uri) => $"{NormalizePath(uri)}{uri.Query}";
 
     private static string NormalizePath(Uri uri) => uri.AbsolutePath.TrimEnd('/');
+
+    private static bool HasChildren(MediaSectionNavigationItem item) =>
+        item.Children is { Count: > 0 };
+
+    private bool IsExpanded(MediaSectionNavigationItem item) =>
+        _expandedRoutes.Contains(item.Route);
+
+    private void ToggleBranch(MediaSectionNavigationItem item)
+    {
+        if (_expandedRoutes.Remove(item.Route))
+        {
+            return;
+        }
+
+        if (AccordionNavigation)
+        {
+            _expandedRoutes.Clear();
+        }
+
+        _expandedRoutes.Add(item.Route);
+        if (!IsActive(item))
+        {
+            Nav.NavigateTo(item.Route);
+        }
+    }
+
+    private void ExpandActiveBranch()
+    {
+        var activeBranch = NavigationGroups
+            .SelectMany(group => group.Items)
+            .FirstOrDefault(item => HasChildren(item) && IsActive(item));
+        if (activeBranch is null)
+        {
+            return;
+        }
+
+        if (AccordionNavigation)
+        {
+            _expandedRoutes.Clear();
+        }
+
+        _expandedRoutes.Add(activeBranch.Route);
+    }
+
+    private static IEnumerable<MediaSectionNavigationItem> Flatten(IEnumerable<MediaSectionNavigationItem> items)
+    {
+        foreach (var item in items)
+        {
+            yield return item;
+            if (item.Children is null)
+            {
+                continue;
+            }
+
+            foreach (var child in Flatten(item.Children))
+            {
+                yield return child;
+            }
+        }
+    }
+
+    private static string ItemId(MediaSectionNavigationItem item) =>
+        $"media-section-nav-{Slugify(item.Route)}";
+
+    private static string ChildrenId(MediaSectionNavigationItem item) =>
+        $"{ItemId(item)}-children";
+
+    private static string Slugify(string value) =>
+        new string(value
+            .ToLowerInvariant()
+            .Select(character => char.IsLetterOrDigit(character) ? character : '-')
+            .ToArray())
+        .Trim('-');
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollActiveItem)
+        {
+            return;
+        }
+
+        _scrollActiveItem = false;
+        var activeItem = NavigationGroups
+            .SelectMany(group => Flatten(group.Items))
+            .LastOrDefault(IsActive);
+        if (activeItem is not null)
+        {
+            await JS.InvokeVoidAsync("scrollToLetter", ItemId(activeItem));
+        }
+    }
 
     private Task DropOnNavigationItemAsync(MediaSectionNavigationItem item) =>
         item.DropCollectionId is Guid collectionId && OnNavigationItemDrop.HasDelegate

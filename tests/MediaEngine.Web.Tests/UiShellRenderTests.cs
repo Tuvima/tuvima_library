@@ -161,8 +161,9 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Single(cut.FindAll(".sidebar-page"));
-            Assert.Single(cut.FindAll(".sidebar-rail"));
+            Assert.Single(cut.FindAll(".media-section-shell"));
+            Assert.Single(cut.FindAll(".media-section-shell__rail"));
+            Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item--parent"));
             Assert.Empty(cut.FindAll(".mud-tabs"));
             Assert.Contains("Ingestion Progress", cut.Markup);
             Assert.Empty(cut.FindAll(".admin-review-stats"));

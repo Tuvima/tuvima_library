@@ -1,5 +1,9 @@
 using Bunit;
-using MediaEngine.Web.Components.Shared.Shell;
+using MediaEngine.Web.Components.MediaHub;
+using MediaEngine.Web.Models.ViewDTOs;
+using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using MudBlazor;
 using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
@@ -13,51 +17,87 @@ public sealed class SidebarShellRenderTests : TestContext
     }
 
     [Fact]
-    public void SidebarPageShell_RendersRailHeaderAndContentSlots()
+    public void MediaSectionShell_PreservesFlatLaneNavigation()
     {
-        var cut = RenderComponent<SidebarPageShell>(parameters => parameters
-            .Add(component => component.Rail, builder => builder.AddMarkupContent(0, "<nav id=\"rail-slot\">Rail</nav>"))
-            .Add(component => component.Header, builder => builder.AddMarkupContent(1, "<header id=\"header-slot\">Header</header>"))
+        var navigation = new[]
+        {
+            new MediaSectionNavigationGroup("Library",
+            [
+                new("Discover", "/read", Icons.Material.Outlined.Explore, Exact: true),
+                new("Books", "/read/books", Icons.Material.Outlined.MenuBook),
+            ]),
+        };
+
+        var cut = RenderComponent<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Read")
+            .Add(component => component.NavigationGroups, navigation)
             .AddChildContent("<section id=\"content-slot\">Content</section>"));
 
-        Assert.Single(cut.FindAll(".sidebar-page"));
-        Assert.Single(cut.FindAll(".sidebar-rail"));
-        Assert.Single(cut.FindAll(".sidebar-content"));
-        Assert.NotNull(cut.Find("#rail-slot"));
-        Assert.NotNull(cut.Find("#header-slot"));
+        Assert.Single(cut.FindAll(".media-section-shell"));
+        Assert.Single(cut.FindAll(".media-section-shell__rail"));
+        Assert.Single(cut.FindAll(".media-section-shell__content"));
+        Assert.Equal(2, cut.FindAll("a.media-section-shell__rail-item").Count);
+        Assert.Empty(cut.FindAll(".media-section-shell__rail-item--parent"));
+        Assert.Empty(cut.FindAll(".media-section-shell__rail-chevron"));
         Assert.NotNull(cut.Find("#content-slot"));
     }
 
     [Fact]
-    public void SidebarNavGroup_RendersExpandedChildrenAndBadge()
+    public void MediaSectionShell_ExpandsActiveBranchAndMarksDeepLink()
     {
-        var cut = RenderComponent<SidebarNavGroup>(parameters => parameters
-            .Add(component => component.Label, "Admin")
-            .Add(component => component.Icon, MudBlazor.Icons.Material.Outlined.AdminPanelSettings)
-            .Add(component => component.Expandable, true)
-            .Add(component => component.Expanded, true)
-            .Add(component => component.BadgeCount, 4)
-            .AddChildContent("<span id=\"child-item\">Child</span>"));
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/settings/ai/models");
+        var cut = RenderComponent<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Settings")
+            .Add(component => component.AccordionNavigation, true)
+            .Add(component => component.NavigationGroups, BuildNestedNavigation())
+            .AddChildContent("<section>Settings content</section>"));
 
-        Assert.Contains("Admin", cut.Markup);
-        Assert.Contains("4", cut.Markup);
-        Assert.NotNull(cut.Find("#child-item"));
-        Assert.Contains("aria-expanded", cut.Markup);
+        var localAi = cut.Find("#media-section-nav-settings-ai");
+        var models = cut.Find("#media-section-nav-settings-ai-models");
+
+        Assert.Contains("media-section-shell--nested", cut.Find(".media-section-shell").ClassList);
+        Assert.Equal("true", localAi.GetAttribute("aria-expanded"));
+        Assert.Equal("page", models.GetAttribute("aria-current"));
+        Assert.Contains("is-active", models.ClassList);
+        Assert.Equal(2, cut.FindAll(".media-section-shell__rail-item--child").Count);
+        Assert.Empty(cut.FindAll(".media-section-shell__rail-item--child .mud-icon-root"));
     }
 
     [Fact]
-    public void SidebarNavItem_RendersCompactChildWithoutDuplicatingAnIcon()
+    public void MediaSectionShell_AccordionOpensSelectedParentAndClosesPreviousBranch()
     {
-        var cut = RenderComponent<SidebarNavItem>(parameters => parameters
-            .Add(component => component.Label, "Models")
-            .Add(component => component.Icon, MudBlazor.Icons.Material.Outlined.Storage)
-            .Add(component => component.Level, 2)
-            .Add(component => component.Child, true)
-            .Add(component => component.ShowIcon, false)
-            .Add(component => component.Active, true));
+        var navigationManager = Services.GetRequiredService<NavigationManager>();
+        navigationManager.NavigateTo("/settings/ai/models");
+        var cut = RenderComponent<MediaSectionShell>(parameters => parameters
+            .Add(component => component.Title, "Settings")
+            .Add(component => component.AccordionNavigation, true)
+            .Add(component => component.NavigationGroups, BuildNestedNavigation())
+            .AddChildContent("<section>Settings content</section>"));
 
-        Assert.Contains("has-no-icon", cut.Markup);
-        Assert.Contains("aria-current=\"page\"", cut.Markup);
-        Assert.Empty(cut.FindAll(".sidebar-nav-item__icon-shell"));
+        cut.Find("#media-section-nav-settings-providers").Click();
+
+        Assert.Equal("false", cut.Find("#media-section-nav-settings-ai").GetAttribute("aria-expanded"));
+        Assert.Equal("true", cut.Find("#media-section-nav-settings-providers").GetAttribute("aria-expanded"));
+        Assert.EndsWith("/settings/providers", navigationManager.Uri, StringComparison.Ordinal);
+        Assert.Single(cut.FindAll(".media-section-shell__rail-children"));
     }
+
+    private static IReadOnlyList<MediaSectionNavigationGroup> BuildNestedNavigation() =>
+    [
+        new("Admin Settings",
+        [
+            new("Local AI", "/settings/ai", Icons.Material.Outlined.Memory,
+                Children:
+                [
+                    new("Overview", "/settings/ai/overview", Icons.Material.Outlined.Dashboard, Exact: true),
+                    new("Models", "/settings/ai/models", Icons.Material.Outlined.Storage, Exact: true),
+                ]),
+            new("Providers", "/settings/providers", Icons.Material.Outlined.Storage,
+                Children:
+                [
+                    new("Retail Lookup", "/settings/providers/retail", Icons.Material.Outlined.ShoppingBag, Exact: true),
+                    new("Canonical Identity", "/settings/providers/canonical", Icons.Material.Outlined.Hub, Exact: true),
+                ]),
+        ]),
+    ];
 }

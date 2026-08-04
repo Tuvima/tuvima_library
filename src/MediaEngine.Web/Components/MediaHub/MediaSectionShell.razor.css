@@ -47,6 +47,45 @@
     transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
 }
 
+.media-section-shell__rail-item--parent {
+    grid-template-columns: 22px minmax(0, 1fr) auto 18px;
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.media-section-shell__rail-chevron {
+    grid-column: 4;
+    font-size: 1rem !important;
+    color: rgba(203, 213, 225, 0.56);
+}
+
+.media-section-shell__rail-children {
+    display: grid;
+    gap: 2px;
+    margin: 2px 0 6px 22px;
+    padding: 2px 0 2px 13px;
+    border-left: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.media-section-shell__rail-item--child {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+    gap: 9px;
+    min-height: 34px;
+    padding: 6px 10px;
+    border-radius: calc(var(--tl-radius-md) - 2px);
+    color: rgba(203, 213, 225, 0.68);
+    font-size: 0.84rem;
+}
+
+.media-section-shell__rail-child-marker {
+    width: 5px;
+    height: 5px;
+    border-radius: 999px;
+    background: currentColor;
+}
+
 .media-section-shell__rail-item :deep(.mud-icon-root) {
     font-size: 1.15rem;
 }
@@ -62,6 +101,23 @@
 
 .media-section-shell__rail-item.is-active {
     box-shadow: inset 3px 0 0 var(--tl-accent-primary);
+}
+
+.media-section-shell__rail-item--child:hover,
+.media-section-shell__rail-item--child:focus-visible,
+.media-section-shell__rail-item--child.is-active {
+    border-color: transparent;
+    background: rgba(124, 58, 237, 0.11);
+}
+
+.media-section-shell__rail-item--child.is-active {
+    color: rgba(255, 255, 255, 0.98);
+    box-shadow: none;
+}
+
+.media-section-shell__rail-item--child.is-active .media-section-shell__rail-child-marker {
+    background: var(--tl-accent-primary);
+    box-shadow: 0 0 8px color-mix(in srgb, var(--tl-accent-primary) 70%, transparent);
 }
 
 .media-section-shell__rail-item.is-drop-target:hover {
@@ -88,5 +144,17 @@
 
     .media-section-shell__rail {
         display: none;
+    }
+
+    .media-section-shell--nested {
+        grid-template-rows: min(42svh, 360px) minmax(0, 1fr);
+    }
+
+    .media-section-shell--nested .media-section-shell__rail {
+        display: block;
+        height: 100%;
+        padding: 14px 15px 18px;
+        border-right: 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.14);
     }
 }

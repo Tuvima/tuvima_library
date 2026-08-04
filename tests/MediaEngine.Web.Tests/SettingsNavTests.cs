@@ -5,6 +5,22 @@ namespace MediaEngine.Web.Tests;
 public sealed class SettingsNavTests
 {
     [Fact]
+    public void SettingsPage_UsesTheMediaLaneShellInsteadOfAParallelSidebar()
+    {
+        var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
+        var mediaShellSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaHub\MediaSectionShell.razor"));
+
+        Assert.Contains("<MediaSectionShell Title=\"Settings\"", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("AccordionNavigation=\"true\"", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SidebarPageShell", settingsSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SidebarNavGroup", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("media-section-shell__rail-item--child", mediaShellSource, StringComparison.Ordinal);
+        Assert.False(File.Exists(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\Shell\SidebarPageShell.razor")));
+        Assert.False(File.Exists(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\Shell\SidebarNavGroup.razor")));
+        Assert.False(File.Exists(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\Shell\SidebarNavItem.razor")));
+    }
+
+    [Fact]
     public void SettingsComponents_DoNotContainLegacyFoldersTab()
     {
         var root = GetRepoFilePath("");
