@@ -34,8 +34,8 @@ else if (_settings is not null)
         <AppTabs Rounded="true"
                  Elevation="0"
                  Color="Color.Primary"
-                 Class="settings-tab-strip settings-playback-tabs"
-                 @bind-ActivePanelIndex="_activeTab">
+                 Class="settings-tab-strip settings-playback-tabs settings-tabs--sidebar-controlled"
+                 ActivePanelIndex="@ActivePanelIndex">
             <MudTabPanel Text="General" Icon="@Icons.Material.Outlined.Settings">
                 <MudStack Spacing="3" Class="settings-tab-panel">
                 <AppPanel Elevation="0" Class="tl-card settings-summary-strip settings-experience-card">
@@ -260,11 +260,20 @@ else if (_settings is not null)
     </MudStack>
 }
 @code {
+    [Parameter] public string Subsection { get; set; } = "general";
+
     private readonly JsonSerializerOptions _jsonOptions = MediaEngineJson.Web;
     private UserPlaybackSettingsDto? _settings;
     private UserPlaybackSettingsDto? _savedSettings;
     private ProfileViewModel? _activeProfile;
-    private int _activeTab;
+    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    {
+        "watching" => 1,
+        "listening" => 2,
+        "reading" => 3,
+        "subtitles" => 4,
+        _ => 0,
+    };
     private bool _loading = true;
     private string? _loadError;
     private string? _saveError;

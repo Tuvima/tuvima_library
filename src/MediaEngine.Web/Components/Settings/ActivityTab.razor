@@ -3,7 +3,8 @@
 <div class="tl-page activity-page">
     <AppTabs Elevation="0"
              Rounded="true"
-             Class="settings-tab-strip activity-page__tabs">
+             ActivePanelIndex="@ActivePanelIndex"
+             Class="settings-tab-strip activity-page__tabs settings-tabs--sidebar-controlled">
         <AppTabPanel Text="Batches" Icon="@Icons.Material.Outlined.FolderCopy">
             <ActivityBatchExplorer />
         </AppTabPanel>
@@ -17,3 +18,14 @@
 
     <ActivityMaintenancePanel />
 </div>
+
+@code {
+    [Parameter] public string Subsection { get; set; } = "batches";
+
+    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    {
+        "people" => 1,
+        "events" => 2,
+        _ => 0,
+    };
+}

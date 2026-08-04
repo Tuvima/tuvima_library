@@ -6,6 +6,8 @@
     </AppAlert>
 
     <MudGrid Spacing="4">
+        @if (IsSubsection("history"))
+        {
         <MudItem xs="12" md="6">
             <AppPanel Elevation="0" Class="tl-card pa-4">
                 <MudText Typo="Typo.overline" Color="Color.Secondary">Personal History</MudText>
@@ -20,7 +22,10 @@
                 </MudStack>
             </AppPanel>
         </MudItem>
+        }
 
+        @if (IsSubsection("tracking"))
+        {
         <MudItem xs="12" md="6">
             <AppPanel Elevation="0" Class="tl-card pa-4">
                 <MudText Typo="Typo.overline" Color="Color.Secondary">Tracking</MudText>
@@ -30,7 +35,10 @@
                 <AppSwitchRow T="bool" Value="true" Disabled="true" Color="Color.Primary" Label="Track partially played/read items" />
             </AppPanel>
         </MudItem>
+        }
 
+        @if (IsSubsection("personalization"))
+        {
         <MudItem xs="12" md="6">
             <AppPanel Elevation="0" Class="tl-card pa-4">
                 <MudText Typo="Typo.overline" Color="Color.Secondary">Personalization</MudText>
@@ -41,7 +49,10 @@
                 </AppButton>
             </AppPanel>
         </MudItem>
+        }
 
+        @if (IsSubsection("export-reset"))
+        {
         <MudItem xs="12" md="6">
             <AppPanel Elevation="0" Class="tl-card pa-4">
                 <MudText Typo="Typo.overline" Color="Color.Secondary">Export &amp; Reset</MudText>
@@ -62,5 +73,13 @@
                 </AppButton>
             </AppPanel>
         </MudItem>
+        }
     </MudGrid>
 </div>
+
+@code {
+    [Parameter] public string Subsection { get; set; } = "history";
+
+    private bool IsSubsection(string value) =>
+        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
+}

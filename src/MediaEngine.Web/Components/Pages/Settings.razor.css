@@ -156,6 +156,11 @@
     background: var(--tl-accent-primary) !important;
 }
 
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tabs--sidebar-controlled > .mud-tabs-toolbar,
+.settings-admin-style-scope ::deep .settings-admin-panel .settings-tabs--sidebar-controlled > .mud-tabs-tabbar {
+    display: none !important;
+}
+
 .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-panel {
     padding-top: 16px;
 }

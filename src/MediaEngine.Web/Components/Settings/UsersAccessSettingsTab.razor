@@ -1,7 +1,8 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page">
-    <AppTabs Class="settings-tab-strip">
+    <AppTabs ActivePanelIndex="@ActivePanelIndex"
+             Class="settings-tab-strip settings-tabs--sidebar-controlled">
         <AppTabPanel Text="Profiles & Roles" Icon="@Icons.Material.Outlined.Group">
             <UsersTab />
         </AppTabPanel>
@@ -62,6 +63,17 @@
 </div>
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "profiles";
+
+    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    {
+        "security" => 1,
+        "api-keys" => 2,
+        "rules" => 3,
+        "sessions" => 4,
+        _ => 0,
+    };
+
     private sealed record SessionRow(string Profile, string Device, string LastActive);
 
     private readonly SessionRow[] _sessions = [];

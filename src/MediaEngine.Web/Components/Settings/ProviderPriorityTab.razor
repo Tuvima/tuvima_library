@@ -8,10 +8,6 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="provider-page">
-    <ProviderStageSelector Stages="@ProviderStages"
-                           ActiveStageId="@_activeStage"
-                           ActiveStageIdChanged="SetProviderStage" />
-
     @if (!string.IsNullOrWhiteSpace(_loadError))
     {
         <AppAlert Tone="AppUiTone.Warning" Class="mb-4">

@@ -7,9 +7,12 @@
             class="@CssClass"
             aria-current="@(Active ? "page" : null)"
             @onclick="OnClick">
-        <span class="sidebar-nav-item__icon-shell">
-            <MudIcon Icon="@Icon" Class="sidebar-nav-item__icon" />
-        </span>
+        @if (ShowIcon)
+        {
+            <span class="sidebar-nav-item__icon-shell">
+                <MudIcon Icon="@Icon" Class="sidebar-nav-item__icon" />
+            </span>
+        }
         <span class="sidebar-nav-item__label">@Label</span>
         @RenderMeta()
     </button>
@@ -20,9 +23,12 @@ else
             class="@CssClass"
             aria-current="@(Active ? "page" : null)"
             @onclick="Navigate">
-        <span class="sidebar-nav-item__icon-shell">
-            <MudIcon Icon="@Icon" Class="sidebar-nav-item__icon" />
-        </span>
+        @if (ShowIcon)
+        {
+            <span class="sidebar-nav-item__icon-shell">
+                <MudIcon Icon="@Icon" Class="sidebar-nav-item__icon" />
+            </span>
+        }
         <span class="sidebar-nav-item__label">@Label</span>
         @RenderMeta()
     </button>
@@ -33,6 +39,7 @@ else
     [Parameter, EditorRequired] public string Icon { get; set; } = Icons.Material.Outlined.Circle;
     [Parameter] public string? Href { get; set; }
     [Parameter] public bool Active { get; set; }
+    [Parameter] public bool ShowIcon { get; set; } = true;
     [Parameter] public bool Child { get; set; }
     [Parameter] public int Level { get; set; }
     [Parameter] public string? Meta { get; set; }
@@ -47,6 +54,7 @@ else
             $"sidebar-nav-item--level-{Math.Clamp(Level, 0, 3)}",
             Active ? "is-active" : null,
             Child ? "is-child" : null,
+            !ShowIcon ? "has-no-icon" : null,
             string.IsNullOrWhiteSpace(Tone) ? null : $"sidebar-nav-item--tone-{Tone}"
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
 

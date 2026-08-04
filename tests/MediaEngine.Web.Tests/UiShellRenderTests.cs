@@ -155,6 +155,7 @@ public sealed class UiShellRenderTests : TestContext
             builder.CloseComponent();
             builder.OpenComponent<Settings>(3);
             builder.AddAttribute(4, nameof(Settings.Section), "admin");
+            builder.AddAttribute(5, nameof(Settings.Subsection), "ingestion");
             builder.CloseComponent();
         });
 
@@ -164,7 +165,7 @@ public sealed class UiShellRenderTests : TestContext
             Assert.Single(cut.FindAll(".sidebar-rail"));
             Assert.Empty(cut.FindAll(".mud-tabs"));
             Assert.Contains("Ingestion Progress", cut.Markup);
-            Assert.Contains("Review Queue", cut.Markup);
+            Assert.Empty(cut.FindAll(".admin-review-stats"));
             Assert.Contains("No ingestion currently running", cut.Markup);
             Assert.Contains("View run", cut.Markup);
         });
@@ -188,9 +189,9 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Change profile photo", cut.Markup);
-            Assert.Contains("Continue Your Activity", cut.Markup);
-            Assert.Contains("Recent History", cut.Markup);
-            Assert.Contains("Your Taste / Top Genres", cut.Markup);
+            Assert.Empty(cut.FindAll(".user-overview-continue-card"));
+            Assert.Empty(cut.FindAll(".user-overview-history-card"));
+            Assert.Empty(cut.FindAll(".user-overview-taste-card"));
             Assert.DoesNotContain("At a Glance", cut.Markup);
             Assert.DoesNotContain("Your Statistics", cut.Markup);
             Assert.DoesNotContain("Recently Added", cut.Markup);

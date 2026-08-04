@@ -6,7 +6,12 @@
         Local AI runs on this server. Model download URLs are only used to retrieve model files into the local model directory; inference stays local, no telemetry is sent, and provider metadata calls are separate from AI.
     </AppAlert>
 
-    <AppTabs Rounded="true" Elevation="0" Color="Color.Primary" Position="Position.Top" Class="settings-tab-strip">
+    <AppTabs Rounded="true"
+             Elevation="0"
+             Color="Color.Primary"
+             Position="Position.Top"
+             ActivePanelIndex="@ActivePanelIndex"
+             Class="settings-tab-strip settings-tabs--sidebar-controlled">
         <MudTabPanel Text="Overview" Icon="@Icons.Material.Outlined.Dashboard">
             <MudGrid Spacing="3">
                 <MudItem xs="12" md="6">
@@ -137,6 +142,8 @@
 </div>
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "overview";
+
     private AiHealthStatusDto? _status;
     private HardwareProfileDto? _profile;
     private ResourceSnapshotDto? _resources;
@@ -147,6 +154,16 @@
     private string? _benchmarkProblem;
 
     private string? LoadedModel => _status?.Models.FirstOrDefault(m => m.Loaded || m.Active)?.Role;
+    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    {
+        "models" => 1,
+        "features" => 2,
+        "runtime" => 3,
+        "vocabulary" => 4,
+        "schedule" => 5,
+        "enrichment" => 6,
+        _ => 0,
+    };
     private double ProgressPercent => _progress is { Total: > 0 } ? (double)_progress.CompletedCount / _progress.Total * 100 : 0;
 
     protected override async Task OnInitializedAsync()

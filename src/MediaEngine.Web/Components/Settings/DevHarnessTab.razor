@@ -13,6 +13,8 @@
         Temporary development harness. Use generated-state wipes for normal validation; full source wipe deletes configured source-folder contents and stays locked until explicitly enabled below.
     </AppAlert>
 
+    @if (IsSubsection("options"))
+    {
     <AppCard Title="Run Options"
              Description="Select the media types and validation depth before starting a harness run."
              Class="mb-4 dev-harness-options-card">
@@ -54,7 +56,10 @@
             </section>
         </div>
     </AppCard>
+    }
 
+    @if (IsSubsection("harnesses"))
+    {
     <AppCard Title="Harnesses"
              Description="Run synthetic fixtures, real configured-source reingestion, or the validation report harness from one place."
              Class="mb-4 dev-harness-run-card">
@@ -111,6 +116,7 @@
             </table>
         </div>
     </AppCard>
+    }
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -119,7 +125,7 @@
         </AppAlert>
     }
 
-    @if (_lastResult is not null)
+    @if (IsSubsection("result") && _lastResult is not null)
     {
         <AppCard Title="Last Result"
                  Description="@_lastCommandTitle"
@@ -154,6 +160,11 @@
 </div>
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "options";
+
+    private bool IsSubsection(string value) =>
+        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
+
     private sealed record HarnessMediaType(string Key, string Label, string Icon);
 
     private sealed record HarnessCommand(

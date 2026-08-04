@@ -1,10 +1,12 @@
 ﻿@page "/settings"
 @page "/settings/{Section}"
+@page "/settings/{Section}/{Subsection}"
 @rendermode InteractiveServer
 @namespace MediaEngine.Web.Components.Pages
 @using MediaEngine.Web.Components.Settings
 @using MediaEngine.Web.Models.ViewDTOs
 @inject NavigationManager Nav
+@inject IJSRuntime JS
 @inject DeviceContextService DeviceContext
 @inject UIOrchestratorService Orchestrator
 @implements IDisposable
@@ -24,43 +26,28 @@
                              Tone="@GetTreeGroupTone(group)">
                 @foreach (var item in GetVisibleTreeItems(group))
                 {
-                    <SidebarNavItem Label="@item.Label"
-                                    Icon="@item.Icon"
-                                    Href="@SettingsNav.RouteFor(item.Value)"
-                                    Active="@(item.Value == _activeSection)"
-                                    Child="@(group.Sections.Count > 1)"
-                                    Level="@(group.Sections.Count > 1 ? 1 : 0)"
-                                    BadgeCount="@GetBadgeCount(item)"
-                                    Meta="@(group.Sections.Count > 1 ? null : GetItemMeta(item))"
-                                    Tone="@GetItemTone(item.Value)" />
-
-                    @if (item.Value == SettingsSection.AdminOverview)
-                    {
-                        @foreach (var childGroup in GetVisibleChildTreeGroups(group))
+                    <SidebarNavGroup Label="@item.Label"
+                                     Id="@SectionDomId(item.Value)"
+                                     Icon="@item.Icon"
+                                     Expandable="true"
+                                     Expanded="@IsSectionExpanded(item.Value)"
+                                     ExpandedChanged="@(expanded => OnSectionExpandedChanged(item.Value, expanded))"
+                                     Active="@(item.Value == _activeSection)"
+                                     BadgeCount="@GetBadgeCount(item)"
+                                     Level="1"
+                                     Tone="@GetItemTone(item.Value)">
+                        @foreach (var subsection in SettingsNav.GetSubsections(item.Value))
                         {
-                            <SidebarNavGroup Label="@childGroup.Label"
-                                             Icon="@childGroup.Icon"
-                                             Expandable="@childGroup.Expandable"
-                                             Expanded="@IsTreeGroupExpanded(childGroup)"
-                                             ExpandedChanged="@(expanded => OnTreeGroupExpandedChanged(childGroup.Key, expanded))"
-                                             BadgeCount="@GetGroupBadgeCount(childGroup)"
-                                             Level="1"
-                                             Tone="@GetTreeGroupTone(childGroup)">
-                                @foreach (var childItem in GetVisibleTreeItems(childGroup))
-                                {
-                                    <SidebarNavItem Label="@childItem.Label"
-                                                    Icon="@childItem.Icon"
-                                                    Href="@SettingsNav.RouteFor(childItem.Value)"
-                                                    Active="@(childItem.Value == _activeSection)"
-                                                    Child="true"
-                                                    Level="2"
-                                                    BadgeCount="@GetBadgeCount(childItem)"
-                                                    Meta="@null"
-                                                    Tone="@GetItemTone(childItem.Value)" />
-                                }
-                            </SidebarNavGroup>
+                            <SidebarNavItem Label="@subsection.Label"
+                                            Icon="@subsection.Icon"
+                                            ShowIcon="false"
+                                            Href="@SettingsNav.RouteFor(item.Value, subsection.Slug)"
+                                            Active="@(item.Value == _activeSection && subsection.Slug == _activeSubsection)"
+                                            Child="true"
+                                            Level="2"
+                                            Tone="@GetItemTone(item.Value)" />
                         }
-                    }
+                    </SidebarNavGroup>
                 }
             </SidebarNavGroup>
         }
@@ -107,43 +94,43 @@
                     @switch (_activeSection)
                     {
                         case SettingsSection.Overview:
-                            <UserOverviewTab />
+                            <UserOverviewTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.AdminOverview:
-                            <OverviewTab ReviewCount="_reviewCount" />
+                            <OverviewTab ReviewCount="_reviewCount" Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Playback:
-                            <PlaybackTab />
+                            <PlaybackTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Privacy:
-                            <PrivacyHistoryTab />
+                            <PrivacyHistoryTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Libraries:
-                            <LibrariesTab />
+                            <LibrariesTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Ingestion:
-                            <IngestionTasksTab />
+                            <IngestionTasksTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.DevHarness:
-                            <DevHarnessTab />
+                            <DevHarnessTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Providers:
-                            <ProviderPriorityTab />
+                            <ProviderPriorityTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.LocalAi:
-                            <LocalAiSettingsTab />
+                            <LocalAiSettingsTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Plugins:
-                            <PluginSettingsTab />
+                            <PluginSettingsTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Delivery:
-                            <PlaybackDeliverySettingsTab />
+                            <PlaybackDeliverySettingsTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Access:
-                            <UsersAccessSettingsTab />
+                            <UsersAccessSettingsTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.ActivityLogs:
-                            <ActivityTab />
+                            <ActivityTab Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Review:
                             <SettingsReviewQueueTab />
@@ -169,8 +156,10 @@
 
 @code {
     [Parameter] public string? Section { get; set; }
+    [Parameter] public string? Subsection { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
+    private string _activeSubsection = "profile";
     private string _currentRole = "Administrator";
     private ProfileViewModel? _activeProfile;
     private bool _profileRoleLoaded;
@@ -187,12 +176,15 @@
         "user",
         "admin",
     };
+    private readonly HashSet<SettingsSection> _expandedSections = [];
+    private SettingsSection? _lastResolvedSection;
+    private bool _scrollActiveSection;
 
     private IReadOnlyList<SettingsTreeGroupDef> VisibleTreeGroups =>
         SettingsNav.FilteredTreeGroups(_currentRole).ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
-    private string BrowserTitle => $"{GetHeroTitle()} - Tuvima Library";
+    private string BrowserTitle => $"{GetSubsectionLabel()} - {GetHeroTitle()} - Tuvima Library";
     private bool ShouldDeferForRoleResolution =>
         !_profileRoleLoaded && SettingsNav.GetItem(_activeSection).AdminOnly;
     private bool IsEngineUnavailableForCurrentSection =>
@@ -288,12 +280,44 @@
         var resolution = SettingsNav.ResolveRoute(Section, _currentRole);
         _activeSection = resolution.Section;
 
+        if (!resolution.IsKnownRoute)
+        {
+            Nav.NavigateTo("/not-found", replace: true);
+            return;
+        }
+
+        if (!resolution.RequestedSectionAllowed)
+        {
+            Nav.NavigateTo(resolution.CanonicalRoute, replace: true);
+            return;
+        }
+
+        var subsection = SettingsNav.ResolveSubsection(_activeSection, Subsection);
+        if (subsection is null)
+        {
+            Nav.NavigateTo("/not-found", replace: true);
+            return;
+        }
+
+        _activeSubsection = subsection.Slug;
+        if (_lastResolvedSection != _activeSection)
+        {
+            _expandedSections.Clear();
+            _expandedSections.Add(_activeSection);
+            _expandedTreeGroupKeys.Add(SettingsNav.GetItem(_activeSection).GroupKey);
+            _lastResolvedSection = _activeSection;
+            _scrollActiveSection = true;
+        }
+
         var currentPath = NormalizePath(Nav.ToBaseRelativePath(Nav.Uri));
-        var targetPath = NormalizePath(resolution.CanonicalRoute);
+        var targetRoute = string.IsNullOrWhiteSpace(Subsection)
+            ? resolution.CanonicalRoute
+            : SettingsNav.RouteFor(_activeSection, subsection.Slug);
+        var targetPath = NormalizePath(targetRoute);
 
         if (!string.Equals(currentPath, targetPath, StringComparison.OrdinalIgnoreCase))
         {
-            Nav.NavigateTo(resolution.CanonicalRoute, replace: true);
+            Nav.NavigateTo(targetRoute, replace: true);
         }
     }
 
@@ -306,6 +330,15 @@
         }
 
         return "/" + relative.Trim('/').TrimEnd('/');
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!_scrollActiveSection)
+            return;
+
+        _scrollActiveSection = false;
+        await JS.InvokeVoidAsync("scrollToLetter", SectionDomId(_activeSection));
     }
 
     private void OnReviewCountChanged()
@@ -339,6 +372,26 @@
     private bool IsTreeGroupExpanded(SettingsTreeGroupDef group) =>
         _expandedTreeGroupKeys.Contains(group.Key);
 
+    private bool IsSectionExpanded(SettingsSection section) => _expandedSections.Contains(section);
+
+    private static string SectionDomId(SettingsSection section) =>
+        $"settings-section-{section.ToString().ToLowerInvariant()}";
+
+    private void OnSectionExpandedChanged(SettingsSection section, bool expanded)
+    {
+        if (expanded)
+        {
+            _expandedSections.Clear();
+            _expandedSections.Add(section);
+            if (section != _activeSection)
+                Nav.NavigateTo(SettingsNav.RouteFor(section));
+        }
+        else
+        {
+            _expandedSections.Remove(section);
+        }
+    }
+
     private void OnTreeGroupExpandedChanged(string key, bool expanded)
     {
         if (expanded)
@@ -352,17 +405,11 @@
     }
 
     private int GetGroupBadgeCount(SettingsTreeGroupDef group) =>
-        GetVisibleTreeItems(group).Sum(GetBadgeCount)
-        + GetVisibleChildTreeGroups(group).Sum(GetGroupBadgeCount);
+        GetVisibleTreeItems(group).Sum(GetBadgeCount);
 
     private IReadOnlyList<SettingsItemDef> GetVisibleTreeItems(SettingsTreeGroupDef group) =>
         SettingsNav.FilteredTreeItems(group, _currentRole)
             .Where(IsItemEnabledByUiSettings)
-            .ToList();
-
-    private IReadOnlyList<SettingsTreeGroupDef> GetVisibleChildTreeGroups(SettingsTreeGroupDef group) =>
-        SettingsNav.FilteredChildTreeGroups(group, _currentRole)
-            .Where(childGroup => GetVisibleTreeItems(childGroup).Count > 0)
             .ToList();
 
     private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch
@@ -416,6 +463,9 @@
     private string GetHeroEyebrow() => CurrentGroup.Label;
 
     private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
+
+    private string GetSubsectionLabel() =>
+        SettingsNav.ResolveSubsection(_activeSection, _activeSubsection)?.Label ?? GetHeroTitle();
 
     private SettingsStatusKind GetCurrentStatus() =>
         IsEngineUnavailableForCurrentSection

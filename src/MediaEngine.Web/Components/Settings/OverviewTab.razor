@@ -45,6 +45,8 @@
         <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">@_error</AppAlert>
     }
 
+    @if (IsSubsection("library"))
+    {
     <AppPanel Elevation="0" Class="tl-card admin-library-banner">
         <div class="admin-library-banner__content">
             <div class="admin-library-banner__main">
@@ -99,8 +101,11 @@
             </div>
         </div>
     </AppPanel>
+    }
 
     <div class="admin-overview-primary-grid">
+        @if (IsSubsection("ingestion"))
+        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--feature">
             <div class="admin-overview-card__header">
                 <div>
@@ -152,7 +157,10 @@
                 <AppButton Href="/settings/ingestion" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">View run</AppButton>
             </div>
         </AppPanel>
+        }
 
+        @if (IsSubsection("review"))
+        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -201,7 +209,10 @@
                 <AppButton Href="/settings/review" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning">Open review queue</AppButton>
             </div>
         </AppPanel>
+        }
 
+        @if (IsSubsection("streams"))
+        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -255,9 +266,12 @@
                 <AppButton Href="/settings/delivery" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">Open playback</AppButton>
             </div>
         </AppPanel>
+        }
     </div>
 
     <div class="admin-overview-bottom-grid">
+        @if (IsSubsection("ingestion"))
+        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -299,7 +313,10 @@
                 </div>
             }
         </AppPanel>
+        }
 
+        @if (IsSubsection("operations"))
+        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -315,11 +332,16 @@
                 @Metric("Recent imports", DisplayFormat.FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
             </div>
         </AppPanel>
+        }
     </div>
 </div>
 
 @code {
     [Parameter] public int ReviewCount { get; set; }
+    [Parameter] public string Subsection { get; set; } = "library";
+
+    private bool IsSubsection(string value) =>
+        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
 
     private bool _loading = true;
     private bool _startingIngestion;

@@ -12,6 +12,7 @@ namespace MediaEngine.Web.Components.Settings;
 
 public partial class ProviderPriorityTab
 {
+    [Parameter] public string Subsection { get; set; } = ProviderStageRetail;
 
     private sealed record ProviderInfo(
         string   Name,
@@ -211,6 +212,16 @@ public partial class ProviderPriorityTab
         await LoadHealthDataAsync();
         await LoadHydrationSettingsAsync();
         SelectFirstAssignmentIfNeeded();
+    }
+
+    protected override void OnParametersSet()
+    {
+        _activeStage = Subsection.ToLowerInvariant() switch
+        {
+            ProviderStageCanonical => ProviderStageCanonical,
+            ProviderStageEnrichment => ProviderStageEnrichment,
+            _ => ProviderStageRetail,
+        };
     }
 
     private async Task LoadHydrationSettingsAsync()

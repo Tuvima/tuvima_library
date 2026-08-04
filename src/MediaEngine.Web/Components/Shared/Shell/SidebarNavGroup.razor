@@ -1,6 +1,6 @@
 @namespace MediaEngine.Web.Components.Shared.Shell
 
-<section class="@CssClass">
+<section id="@Id" class="@CssClass">
     @if (Expandable)
     {
         <button type="button"
@@ -52,9 +52,11 @@
     private bool _initialized;
 
     [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter] public string? Id { get; set; }
     [Parameter] public string? Icon { get; set; }
     [Parameter] public int BadgeCount { get; set; }
     [Parameter] public bool Expandable { get; set; }
+    [Parameter] public bool Active { get; set; }
     [Parameter] public bool Expanded { get; set; }
     [Parameter] public EventCallback<bool> ExpandedChanged { get; set; }
     [Parameter] public int Level { get; set; }
@@ -66,9 +68,13 @@
         get
         {
             var level = Math.Clamp(Level, 0, 3);
-            return string.IsNullOrWhiteSpace(Tone)
-                ? $"sidebar-nav-group sidebar-nav-group--level-{level}"
-                : $"sidebar-nav-group sidebar-nav-group--level-{level} sidebar-nav-group--tone-{Tone}";
+            return string.Join(" ", new[]
+            {
+                "sidebar-nav-group",
+                $"sidebar-nav-group--level-{level}",
+                Active ? "is-active" : null,
+                string.IsNullOrWhiteSpace(Tone) ? null : $"sidebar-nav-group--tone-{Tone}",
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
         }
     }
     private string ToggleCssClass => Level > 0

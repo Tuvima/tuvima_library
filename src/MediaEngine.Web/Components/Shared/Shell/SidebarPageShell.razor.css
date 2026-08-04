@@ -74,7 +74,7 @@
     }
 
     .sidebar-page.settings-admin-shell .sidebar-content {
-        order: -1;
+        order: initial;
     }
 
     .sidebar-rail {
@@ -87,7 +87,8 @@
     .settings-admin-shell .sidebar-rail {
         position: static;
         top: auto;
-        height: auto;
+        height: min(52svh, 480px);
+        overflow: auto;
         border-right: 0;
         border-bottom: 1px solid rgba(138, 122, 255, 0.24);
     }

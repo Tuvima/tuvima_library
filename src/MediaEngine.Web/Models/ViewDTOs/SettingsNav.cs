@@ -49,6 +49,12 @@ public sealed record SettingsItemDef(
     bool Placeholder = false,
     SettingsStatusKind Status = SettingsStatusKind.Live);
 
+/// <summary>A URL-addressable destination nested beneath a settings section.</summary>
+public sealed record SettingsSubsectionDef(
+    string Slug,
+    string Label,
+    string Icon);
+
 /// <summary>A grouped sidebar node with expandable child settings routes.</summary>
 public sealed record SettingsTreeGroupDef(
     string Key,
@@ -87,7 +93,7 @@ public static class SettingsNav
 
     public static readonly SettingsItemDef[] AllItems =
     [
-        new(SettingsSection.Overview, "user", null, Icons.Material.Outlined.Person, "User Overview", false, null, [], "sqlite"),
+        new(SettingsSection.Overview, "user", null, Icons.Material.Outlined.Person, "User Overview", false, null, ["user"], "sqlite"),
         new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.MenuBook, "Playback & Reading", false, null, [], "sqlite"),
         new(SettingsSection.Privacy, "user", "privacy", Icons.Material.Outlined.PrivacyTip, "Privacy & History", false, null, [], "sqlite"),
 
@@ -125,6 +131,111 @@ public static class SettingsNav
                 SettingsSection.Access,
             ]),
     ];
+
+    public static readonly IReadOnlyDictionary<SettingsSection, IReadOnlyList<SettingsSubsectionDef>> Subsections =
+        new Dictionary<SettingsSection, IReadOnlyList<SettingsSubsectionDef>>
+        {
+            [SettingsSection.Overview] =
+            [
+                new("profile", "Profile", Icons.Material.Outlined.AccountCircle),
+                new("activity", "Activity", Icons.Material.Outlined.PlayCircleOutline),
+                new("history", "Recent History", Icons.Material.Outlined.History),
+                new("taste", "Taste", Icons.Material.Outlined.AutoAwesome),
+            ],
+            [SettingsSection.Playback] =
+            [
+                new("general", "General", Icons.Material.Outlined.Settings),
+                new("watching", "Watching", Icons.Material.Outlined.LiveTv),
+                new("listening", "Listening", Icons.Material.Outlined.Headphones),
+                new("reading", "Reading", Icons.Material.Outlined.MenuBook),
+                new("subtitles", "Subtitles", Icons.Material.Outlined.ClosedCaption),
+            ],
+            [SettingsSection.Privacy] =
+            [
+                new("history", "Personal History", Icons.Material.Outlined.History),
+                new("tracking", "Tracking", Icons.Material.Outlined.Timeline),
+                new("personalization", "Personalization", Icons.Material.Outlined.AutoAwesome),
+                new("export-reset", "Export & Reset", Icons.Material.Outlined.SettingsBackupRestore),
+            ],
+            [SettingsSection.AdminOverview] =
+            [
+                new("library", "Library", Icons.Material.Outlined.Layers),
+                new("ingestion", "Ingestion", Icons.Material.Outlined.PendingActions),
+                new("review", "Review Queue", Icons.Material.Outlined.RateReview),
+                new("streams", "Active Streams", Icons.Material.Outlined.Stream),
+                new("operations", "Operations", Icons.Material.Outlined.MonitorHeart),
+            ],
+            [SettingsSection.Libraries] =
+            [
+                new("import-folders", "Import Folders", Icons.Material.Outlined.MoveToInbox),
+                new("books", "Books", Icons.Material.Outlined.MenuBook),
+                new("movies", "Movies", Icons.Material.Outlined.Movie),
+                new("tv", "TV Shows", Icons.Material.Outlined.Tv),
+                new("music", "Music", Icons.Material.Outlined.LibraryMusic),
+                new("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
+                new("comics", "Comics", Icons.Material.Outlined.AutoStories),
+            ],
+            [SettingsSection.Ingestion] =
+            [
+                new("overview", "Overview", Icons.Material.Outlined.Dashboard),
+                new("batches", "Recent Batches", Icons.Material.Outlined.FolderCopy),
+                new("providers", "Provider Activity", Icons.Material.Outlined.Storage),
+            ],
+            [SettingsSection.DevHarness] =
+            [
+                new("options", "Run Options", Icons.Material.Outlined.Tune),
+                new("harnesses", "Harnesses", Icons.Material.Outlined.Construction),
+                new("result", "Last Result", Icons.Material.Outlined.FactCheck),
+            ],
+            [SettingsSection.Providers] =
+            [
+                new("retail", "Retail Lookup", Icons.Material.Outlined.ShoppingBag),
+                new("canonical", "Canonical Identity", Icons.Material.Outlined.Hub),
+                new("enrichment", "Enrichment & Artwork", Icons.Material.Outlined.AutoAwesome),
+            ],
+            [SettingsSection.ActivityLogs] =
+            [
+                new("batches", "Batches", Icons.Material.Outlined.FolderCopy),
+                new("people", "People", Icons.Material.Outlined.People),
+                new("events", "Events", Icons.Material.Outlined.Timeline),
+            ],
+            [SettingsSection.LocalAi] =
+            [
+                new("overview", "Overview", Icons.Material.Outlined.Dashboard),
+                new("models", "Models", Icons.Material.Outlined.Storage),
+                new("features", "Features", Icons.Material.Outlined.ToggleOn),
+                new("runtime", "Runtime", Icons.Material.Outlined.Speed),
+                new("vocabulary", "Vocabulary", Icons.Material.Outlined.Style),
+                new("schedule", "Schedule", Icons.Material.Outlined.Schedule),
+                new("enrichment", "Enrichment", Icons.Material.Outlined.Timeline),
+            ],
+            [SettingsSection.Plugins] =
+            [
+                new("settings", "Settings", Icons.Material.Outlined.Tune),
+                new("jobs-health", "Jobs & Health", Icons.Material.Outlined.HealthAndSafety),
+                new("catalog", "Approved Catalog", Icons.Material.Outlined.Verified),
+                new("help", "How to Use", Icons.Material.Outlined.MenuBook),
+                new("danger", "Danger Zone", Icons.Material.Outlined.Delete),
+            ],
+            [SettingsSection.Delivery] =
+            [
+                new("direct-play", "Direct Play", Icons.Material.Outlined.PlayArrow),
+                new("transcoding", "Transcoding", Icons.Material.Outlined.VideoSettings),
+                new("offline", "Offline Variants", Icons.Material.Outlined.DownloadForOffline),
+                new("subtitles-audio", "Subtitles & Audio", Icons.Material.Outlined.Subtitles),
+            ],
+            [SettingsSection.Access] =
+            [
+                new("profiles", "Profiles & Roles", Icons.Material.Outlined.Group),
+                new("security", "Sign-in & Security", Icons.Material.Outlined.AdminPanelSettings),
+                new("api-keys", "API Keys", Icons.Material.Outlined.Key),
+                new("rules", "Access Rules", Icons.Material.Outlined.Policy),
+                new("sessions", "Sessions", Icons.Material.Outlined.Devices),
+            ],
+            [SettingsSection.Review] = [new("overview", "Overview", Icons.Material.Outlined.RateReview)],
+            [SettingsSection.ProviderTester] = [new("overview", "Overview", Icons.Material.Outlined.Biotech)],
+            [SettingsSection.EnrichmentTester] = [new("overview", "Overview", Icons.Material.Outlined.Science)],
+        };
 
     private static readonly Dictionary<SettingsSection, SettingsItemDef> _itemsBySection =
         AllItems.ToDictionary(item => item.Value);
@@ -209,6 +320,33 @@ public static class SettingsNav
         return string.IsNullOrWhiteSpace(item.Slug)
             ? "/settings"
             : $"/settings/{item.Slug}";
+    }
+
+    public static IReadOnlyList<SettingsSubsectionDef> GetSubsections(SettingsSection section) =>
+        Subsections.TryGetValue(section, out var subsections) ? subsections : [];
+
+    public static SettingsSubsectionDef GetDefaultSubsection(SettingsSection section) =>
+        GetSubsections(section).First();
+
+    public static SettingsSubsectionDef? ResolveSubsection(SettingsSection section, string? slug)
+    {
+        var subsections = GetSubsections(section);
+        if (string.IsNullOrWhiteSpace(slug))
+            return subsections.FirstOrDefault();
+
+        var normalized = NormalizeKey(slug);
+        return subsections.FirstOrDefault(subsection =>
+            string.Equals(NormalizeKey(subsection.Slug), normalized, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public static string RouteFor(SettingsSection section, string subsectionSlug)
+    {
+        var subsection = ResolveSubsection(section, subsectionSlug)
+            ?? throw new ArgumentOutOfRangeException(nameof(subsectionSlug), subsectionSlug, "Unknown settings subsection.");
+        var sectionRoute = section == SettingsSection.Overview
+            ? "/settings/user"
+            : RouteFor(section);
+        return $"{sectionRoute}/{subsection.Slug}";
     }
 
     public static SettingsRouteResolution ResolveRoute(string? segment, string role)

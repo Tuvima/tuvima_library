@@ -163,7 +163,8 @@ else
                             }
                         </div>
 
-                        <AppTabs Class="settings-tab-strip settings-plugin-tabs">
+                        <AppTabs ActivePanelIndex="@ActivePanelIndex"
+                                 Class="settings-tab-strip settings-plugin-tabs settings-tabs--sidebar-controlled">
                             <AppTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
                                 <div class="settings-plugin-tab-body">
                                     @{
@@ -397,6 +398,17 @@ else
 }
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "settings";
+
+    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    {
+        "jobs-health" => 1,
+        "catalog" => 2,
+        "help" => 3,
+        "danger" => 4,
+        _ => 0,
+    };
+
     private readonly JsonSerializerOptions _json = MediaEngineJson.Web;
     private readonly Dictionary<string, PluginHealthResponse> _health = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, IReadOnlyList<OperationDto>> _jobs = new(StringComparer.OrdinalIgnoreCase);

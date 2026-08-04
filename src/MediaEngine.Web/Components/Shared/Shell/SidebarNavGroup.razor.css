@@ -193,3 +193,84 @@
     --nav-accent-bg-strong: rgba(96, 62, 198, 0.7);
     --nav-active-line: #b14dff;
 }
+
+/* Settings-style nested accordion: quiet at rest, explicit only when selected. */
+.sidebar-nav-group--level-0 {
+    border: 0;
+    border-bottom: 1px solid rgba(136, 139, 176, 0.14);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.sidebar-nav-group--level-0:last-child {
+    border-bottom: 0;
+}
+
+.sidebar-nav-group--level-0 > .sidebar-nav-group__toggle {
+    min-height: 58px;
+    padding: 8px 10px;
+    color: color-mix(in srgb, var(--nav-accent) 76%, white);
+    font-size: 0.88rem;
+}
+
+.sidebar-nav-group--level-0 > .sidebar-nav-group__toggle .sidebar-nav-group__icon-shell {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.sidebar-nav-group--level-0 > .sidebar-nav-group__body {
+    gap: 2px;
+    margin: 0 2px 12px;
+    padding: 0;
+    background: transparent;
+}
+
+.sidebar-nav-group--level-1 > .sidebar-nav-group__toggle {
+    min-height: 50px;
+    padding: 5px 10px;
+    border-color: transparent;
+    border-radius: 10px;
+    color: rgba(231, 234, 248, 0.86);
+    background: transparent;
+    box-shadow: none;
+}
+
+.sidebar-nav-group--level-1 > .sidebar-nav-group__toggle:hover,
+.sidebar-nav-group--level-1 > .sidebar-nav-group__toggle:focus-visible {
+    border-color: color-mix(in srgb, var(--nav-accent) 18%, transparent);
+    background: color-mix(in srgb, var(--nav-accent) 8%, transparent);
+}
+
+.sidebar-nav-group--level-1.is-active > .sidebar-nav-group__toggle,
+.sidebar-nav-group--level-1.is-active > .sidebar-nav-group__toggle[aria-expanded="true"] {
+    color: #fff;
+    border-color: color-mix(in srgb, var(--nav-accent) 24%, transparent);
+    background:
+        linear-gradient(90deg, color-mix(in srgb, var(--nav-accent) 16%, transparent), transparent 82%);
+    box-shadow: inset 2px 0 0 var(--nav-active-line);
+}
+
+.sidebar-nav-group--level-1 .sidebar-nav-group__icon-shell {
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    background: transparent;
+    box-shadow: none;
+}
+
+.sidebar-nav-group--level-1 > .sidebar-nav-group__body {
+    gap: 1px;
+    margin: 2px 4px 6px 26px;
+    padding: 0 0 2px 14px;
+    border-left-width: 1px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .sidebar-nav-group__chevron {
+        transition: transform 160ms ease;
+    }
+}

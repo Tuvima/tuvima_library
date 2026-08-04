@@ -19,7 +19,7 @@ public sealed class SettingsNavTests
         Assert.False(File.Exists(legacyPath));
 
         var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
-        Assert.Contains("<LibrariesTab />", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("<LibrariesTab Subsection=\"@_activeSubsection\" />", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("FoldersTab", settingsSource, StringComparison.Ordinal);
     }
 
@@ -43,6 +43,46 @@ public sealed class SettingsNavTests
     public void RouteFor_Overview_UsesBaseSettingsUrl()
     {
         Assert.Equal("/settings", SettingsNav.RouteFor(SettingsSection.Overview));
+    }
+
+    [Theory]
+    [InlineData(SettingsSection.Overview, "profile", "/settings/user/profile")]
+    [InlineData(SettingsSection.Playback, "watching", "/settings/playback/watching")]
+    [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
+    [InlineData(SettingsSection.Providers, "canonical", "/settings/providers/canonical")]
+    public void RouteFor_Subsection_UsesNestedCanonicalUrl(
+        SettingsSection section,
+        string subsection,
+        string expectedRoute)
+    {
+        Assert.Equal(expectedRoute, SettingsNav.RouteFor(section, subsection));
+    }
+
+    [Fact]
+    public void LocalAi_Subsections_ReplaceTheFormerTabStrip()
+    {
+        var labels = SettingsNav.GetSubsections(SettingsSection.LocalAi)
+            .Select(item => item.Label)
+            .ToArray();
+
+        Assert.Equal([
+            "Overview",
+            "Models",
+            "Features",
+            "Runtime",
+            "Vocabulary",
+            "Schedule",
+            "Enrichment",
+        ], labels);
+        Assert.Equal("overview", SettingsNav.GetDefaultSubsection(SettingsSection.LocalAi).Slug);
+        Assert.Null(SettingsNav.ResolveSubsection(SettingsSection.LocalAi, "unknown"));
+    }
+
+    [Fact]
+    public void EveryVisibleSettingsSection_HasSidebarSubsections()
+    {
+        Assert.All(SettingsNav.TreeGroups.SelectMany(group => group.Sections), section =>
+            Assert.NotEmpty(SettingsNav.GetSubsections(section)));
     }
 
     [Theory]

@@ -44,4 +44,20 @@ public sealed class SidebarShellRenderTests : TestContext
         Assert.NotNull(cut.Find("#child-item"));
         Assert.Contains("aria-expanded", cut.Markup);
     }
+
+    [Fact]
+    public void SidebarNavItem_RendersCompactChildWithoutDuplicatingAnIcon()
+    {
+        var cut = RenderComponent<SidebarNavItem>(parameters => parameters
+            .Add(component => component.Label, "Models")
+            .Add(component => component.Icon, MudBlazor.Icons.Material.Outlined.Storage)
+            .Add(component => component.Level, 2)
+            .Add(component => component.Child, true)
+            .Add(component => component.ShowIcon, false)
+            .Add(component => component.Active, true));
+
+        Assert.Contains("has-no-icon", cut.Markup);
+        Assert.Contains("aria-current=\"page\"", cut.Markup);
+        Assert.Empty(cut.FindAll(".sidebar-nav-item__icon-shell"));
+    }
 }

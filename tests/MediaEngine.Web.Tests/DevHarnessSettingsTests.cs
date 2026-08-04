@@ -9,7 +9,7 @@ public sealed class DevHarnessSettingsTests
         var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
 
         Assert.Contains("case SettingsSection.DevHarness", source, StringComparison.Ordinal);
-        Assert.Contains("<DevHarnessTab />", source, StringComparison.Ordinal);
+        Assert.Contains("<DevHarnessTab Subsection=\"@_activeSubsection\" />", source, StringComparison.Ordinal);
         Assert.Contains("dev-harness", nav, StringComparison.Ordinal);
         Assert.Contains("Test Harness", nav, StringComparison.Ordinal);
     }

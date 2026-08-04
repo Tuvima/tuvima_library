@@ -15,6 +15,8 @@
     }
     else
     {
+        @if (IsSubsection("overview") || IsSubsection("batches"))
+        {
         <section class="@MainStatusClass" aria-live="polite">
             @if (DisplayStageRows.Count > 0)
             {
@@ -138,7 +140,10 @@
                 </div>
             }
         </section>
+        }
 
+        @if (IsSubsection("batches"))
+        {
         <section class="library-update-batches">
             <div class="library-update-batches__header">
                 <span class="library-update-batches__icon" title="Recent batches show the latest scans and whether they are active or complete.">
@@ -215,8 +220,9 @@
                 <p class="library-update-batches__empty">Run a scan to see batch history here.</p>
             }
         </section>
+        }
 
-        @if (EffectiveProviderActivity.Count > 0)
+        @if (IsSubsection("providers") && EffectiveProviderActivity.Count > 0)
         {
             <section class="library-update-batches">
                 <div class="library-update-batches__header">

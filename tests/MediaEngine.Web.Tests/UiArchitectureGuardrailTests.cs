@@ -163,17 +163,17 @@ public sealed class UiArchitectureGuardrailTests
     }
 
     [Fact]
-    public void ProviderPriorityTab_UsesCodeBehindAndAccessibleStageSelector()
+    public void ProviderPriorityTab_UsesCodeBehindAndSidebarControlledStages()
     {
         var markup = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor");
         var codeBehind = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor.cs");
-        var selector = Read("src/MediaEngine.Web/Components/Settings/ProviderStageSelector.razor");
+        var settings = Read("src/MediaEngine.Web/Components/Pages/Settings.razor");
 
         Assert.DoesNotContain("@code", markup);
         Assert.Contains("public partial class ProviderPriorityTab", codeBehind);
-        Assert.Contains("<ProviderStageSelector", markup);
-        Assert.Contains("aria-label=\"Metadata provider stages\"", selector);
-        Assert.Contains("aria-pressed", selector);
+        Assert.DoesNotContain("<ProviderStageSelector", markup);
+        Assert.Contains("[Parameter] public string Subsection", codeBehind);
+        Assert.Contains("<ProviderPriorityTab Subsection=\"@_activeSubsection\" />", settings);
     }
 
     private static string Read(string relativePath) =>

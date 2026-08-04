@@ -22,11 +22,14 @@
                             Loading="Dashboard.IsLoading"
                             ScanStarting="Dashboard.IsScanStarting"
                             Error="@Dashboard.Error"
+                            Subsection="@Subsection"
                             OnRefresh="RefreshAsync"
                             OnScanNow="ScanNowAsync" />
 </div>
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "overview";
+
     protected override async Task OnInitializedAsync()
     {
         Dashboard.OnChanged += OnDashboardChanged;

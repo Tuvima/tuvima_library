@@ -59,7 +59,7 @@ else
             <AppCard Class="file-org-media-card">
                 <AppTabs ActivePanelIndex="@_activeTabIndex"
                          ActivePanelIndexChanged="@OnTabChanged"
-                         Class="settings-tab-strip settings-file-org-tabs"
+                         Class="settings-tab-strip settings-file-org-tabs settings-tabs--sidebar-controlled"
                          Rounded="true"
                          Elevation="0"
                          Color="Color.Primary">
@@ -320,6 +320,8 @@ else
 }
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "import-folders";
+
     private const string DefaultOrganizationTemplate = "{Category}/{Title} ({Year})/{Title}{Ext}";
     private const string StructureModeRecommended = "recommended";
     private const string StructureModeCustom = "custom";
@@ -381,6 +383,8 @@ else
         await LoadAsync();
     }
 
+    protected override void OnParametersSet() => ApplyRequestedSubsection();
+
     public void Dispose()
     {
         Orchestrator.OnFolderHealthChanged -= HandleFolderHealthChanged;
@@ -419,7 +423,7 @@ else
 
         var libraries = await Orchestrator.GetLibrariesAsync();
         _libraryTabs = BuildLibraryTabs(libraries ?? []);
-        _activeTabIndex = Math.Clamp(_activeTabIndex, 0, _libraryTabs.Count);
+        ApplyRequestedSubsection();
 
         await CheckInitialHealthAsync();
         SnapSavedValues();
@@ -515,6 +519,30 @@ else
     {
         _activeTabIndex = index;
         return Task.CompletedTask;
+    }
+
+    private void ApplyRequestedSubsection()
+    {
+        if (string.Equals(Subsection, "import-folders", StringComparison.OrdinalIgnoreCase))
+        {
+            _activeTabIndex = 0;
+            return;
+        }
+
+        var requestedKey = Subsection.ToLowerInvariant() switch
+        {
+            "books" => "Books",
+            "movies" => "Movies",
+            "tv" => "TV",
+            "music" => "Music",
+            "audiobooks" => "Audiobooks",
+            "comics" => "Comic",
+            _ => string.Empty,
+        };
+
+        var index = _libraryTabs.FindIndex(tab =>
+            string.Equals(tab.Key, requestedKey, StringComparison.OrdinalIgnoreCase));
+        _activeTabIndex = index >= 0 ? index + 1 : 0;
     }
 
     private void OnWatchFolderChanged(int index, string? value)

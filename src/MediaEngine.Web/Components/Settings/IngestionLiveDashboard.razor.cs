@@ -9,6 +9,7 @@ namespace MediaEngine.Web.Components.Settings;
 
 public partial class IngestionLiveDashboard
 {
+    [Parameter] public string Subsection { get; set; } = "overview";
     [Parameter] public LibraryUpdateStatusViewModel? Status { get; set; }
     [Parameter] public IngestionOperationsSnapshotDto? Snapshot { get; set; }
     [Parameter] public IngestionDashboardMetrics Metrics { get; set; } = new(0, 0, 0, 0);
@@ -28,6 +29,9 @@ public partial class IngestionLiveDashboard
     [Parameter] public string? Error { get; set; }
     [Parameter] public EventCallback OnRefresh { get; set; }
     [Parameter] public EventCallback OnScanNow { get; set; }
+
+    private bool IsSubsection(string value) =>
+        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
 
     private string? _lastRenderSignature;
     private readonly IngestionDashboardSelectionState _selection = new();

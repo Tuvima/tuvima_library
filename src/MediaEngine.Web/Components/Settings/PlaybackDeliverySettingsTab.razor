@@ -9,7 +9,8 @@
         Transcoding and offline variant policy are Engine-backed where the section exposes save controls. Direct Play, subtitle burn-in, and audio passthrough controls are visible as planned behavior and remain disabled until persistence exists.
     </AppAlert>
 
-    <AppTabs Class="settings-tab-strip">
+    <AppTabs ActivePanelIndex="@ActivePanelIndex"
+             Class="settings-tab-strip settings-tabs--sidebar-controlled">
         <AppTabPanel Text="Direct Play" Icon="@Icons.Material.Outlined.PlayArrow">
             <AppCard>
                 <AppAlert Tone="AppUiTone.Info">
@@ -62,6 +63,16 @@
 </div>
 
 @code {
+    [Parameter] public string Subsection { get; set; } = "direct-play";
+
+    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    {
+        "transcoding" => 1,
+        "offline" => 2,
+        "subtitles-audio" => 3,
+        _ => 0,
+    };
+
     private static readonly IReadOnlyList<AppSelectOption> StreamingModeOptions =
     [
         new("auto", "Auto"),
