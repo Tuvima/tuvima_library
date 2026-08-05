@@ -142,7 +142,7 @@
         </section>
         }
 
-        @if (IsSubsection("batches"))
+        @if (IsSubsection("overview") || IsSubsection("batches"))
         {
         <section class="library-update-batches">
             <div class="library-update-batches__header">
@@ -222,7 +222,7 @@
         </section>
         }
 
-        @if (IsSubsection("providers") && EffectiveProviderActivity.Count > 0)
+        @if ((IsSubsection("overview") || IsSubsection("providers")) && EffectiveProviderActivity.Count > 0)
         {
             <section class="library-update-batches">
                 <div class="library-update-batches__header">

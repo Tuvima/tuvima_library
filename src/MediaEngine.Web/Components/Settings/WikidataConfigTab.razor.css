@@ -31,7 +31,7 @@
 .wikidata-config__eyebrow {
     margin: var(--tl-space-5) 0 var(--tl-space-2);
     color: var(--tl-text-muted);
-    font-size: 0.74rem;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;

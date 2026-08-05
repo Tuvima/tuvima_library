@@ -4269,17 +4269,40 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .app-slider__bounds {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--tl-space-3);
-    width: 100%;
+    position: relative;
+    height: 22px;
+    margin: -2px 10px 0;
     color: var(--tl-text-muted);
-    font-size: 0.75rem;
+    font-size: 13px;
+    line-height: 1.2;
 }
 
-.app-slider__bounds strong {
+.app-slider__input {
+    margin: 0;
+    padding-inline: 10px !important;
+}
+
+.app-slider__mark {
+    position: absolute;
+    left: var(--app-slider-position);
+    top: 0;
+    color: var(--tl-text-muted);
+    font-weight: 500;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.app-slider__mark--first {
+    transform: none;
+}
+
+.app-slider__mark--last {
+    transform: translateX(-100%);
+}
+
+.app-slider__mark--current {
     color: var(--tl-text-primary);
+    font-weight: 700;
 }
 
 .app-progress-bar--indeterminate .app-progress-bar__fill {

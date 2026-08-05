@@ -5,7 +5,7 @@
     <AppCard Title="Authentication">
         @if (_authLoading)
         {
-            <AppSkeleton Height="180px" />
+            <AppSkeleton Size="AppControlSize.Large" Class="security-settings__skeleton" />
         }
         else if (_authSettings is null)
         {

@@ -5,13 +5,29 @@
 @using MediaEngine.Web.Services.Editing
 
 <div class="tl-page settings-review-page">
-    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
-        <AppButton Label="Refresh"
-                   Size="AppControlSize.Compact"
-                   StartIcon="@Icons.Material.Outlined.Refresh"
-                   Disabled="@_loading"
-                   OnClick="LoadAsync" />
-    </AppActionBar>
+    <AppPanel Density="AppSurfaceDensity.Compact" Class="mb-3">
+        <div class="settings-review-filter-bar">
+            <AppTextField @bind-Value="_query"
+                          Placeholder="Search review items"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Search"
+                          Immediate="true"
+                          Class="settings-review-filter-bar__search" />
+            <AppSelect T="string" @bind-Value="_mediaTypeFilter"
+                       Label="Media type"
+                       Options="@MediaTypeOptions"
+                       Class="settings-review-filter-bar__select" />
+            <AppSelect T="string" @bind-Value="_reasonFilter"
+                       Label="Reason"
+                       Options="@ReasonOptions"
+                       Class="settings-review-filter-bar__select" />
+            <AppButton Label="Refresh"
+                       Size="AppControlSize.Compact"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       Disabled="@_loading"
+                       OnClick="LoadAsync" />
+        </div>
+    </AppPanel>
 
     @if (_loading && _items.Count == 0)
     {
@@ -48,7 +64,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach (var item in _items)
+                @foreach (var item in VisibleItems)
                 {
                     var target = ReviewTargetResolver.Resolve(item.MediaType, item.Trigger);
                     <tr @key="item.Id">
@@ -115,6 +131,37 @@
     private readonly HashSet<Guid> _busyIds = [];
     private bool _loading = true;
     private string? _error;
+    private string _query = string.Empty;
+    private string _mediaTypeFilter = AllFilter;
+    private string _reasonFilter = AllFilter;
+    private const string AllFilter = "all";
+
+    private IReadOnlyList<ReviewItemViewModel> VisibleItems => _items
+        .Where(item => _mediaTypeFilter == AllFilter
+            || string.Equals(item.MediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase))
+        .Where(item => _reasonFilter == AllFilter
+            || string.Equals(item.Trigger, _reasonFilter, StringComparison.OrdinalIgnoreCase))
+        .Where(item => string.IsNullOrWhiteSpace(_query)
+            || DisplayTitle(item).Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase)
+            || item.Trigger?.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) == true
+            || item.MediaType?.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) == true)
+        .ToList();
+
+    private IReadOnlyList<AppSelectOption> MediaTypeOptions =>
+        [new(AllFilter, "All media types"), .. _items
+            .Select(item => item.MediaType)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .Select(value => new AppSelectOption(value!, value!))];
+
+    private IReadOnlyList<AppSelectOption> ReasonOptions =>
+        [new(AllFilter, "All reasons"), .. _items
+            .Select(item => item.Trigger)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .Select(value => new AppSelectOption(value!, FormatTrigger(value!)))];
 
     protected override Task OnInitializedAsync() => LoadAsync();
 

@@ -52,7 +52,7 @@
     border-radius: 7px;
     color: var(--tl-accent-primary);
     background: var(--tl-accent-primary-soft);
-    font-size: 0.78rem;
+    font-size: 13px;
     font-weight: 700;
     text-align: center;
 }

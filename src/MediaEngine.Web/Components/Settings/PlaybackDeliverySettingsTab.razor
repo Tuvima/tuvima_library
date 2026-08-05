@@ -4,7 +4,10 @@
     <AppTabs ActivePanelIndex="@ActivePanelIndex"
              Class="settings-tab-strip">
         <AppTabPanel Text="Transcoding" Icon="@Icons.Material.Outlined.VideoSettings">
-            <EncodeSettingsTab Section="transcoding" />
+            <MudStack Spacing="4" Class="settings-tab-panel playback-delivery__overview">
+                <EncodeSettingsTab Section="overview" />
+                <OfflineDownloadsTab Title="Active Jobs" />
+            </MudStack>
         </AppTabPanel>
         <AppTabPanel Text="Variant Storage" Icon="@Icons.Material.Outlined.Storage">
             <EncodeSettingsTab Section="storage" />

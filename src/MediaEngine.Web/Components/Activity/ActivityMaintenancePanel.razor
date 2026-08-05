@@ -9,11 +9,12 @@
                 <span>Keep entries for</span>
                 <strong>@_retentionDays days</strong>
             </div>
-            <AppSlider @bind-Value="_retentionDays" Min="7" Max="365" Step="7" />
-            <div class="activity-maintenance__bounds">
-                <span>7 days</span>
-                <span>1 year</span>
-            </div>
+            <AppSlider @bind-Value="_retentionDays"
+                       Min="7"
+                       Max="365"
+                       Step="1"
+                       MarkValues="@RetentionMarks"
+                       MarkFormatter="@FormatRetentionMark" />
         </div>
 
         <AppButton Label="@(_pruning ? "Pruning" : "Prune Now")"
@@ -31,9 +32,12 @@
 
 @code {
     private int _retentionDays = 60;
+    private static readonly IReadOnlyList<int> RetentionMarks = [7, 30, 90, 180, 365];
     private bool _loading = true;
     private bool _pruning;
     private ActivityStatsResponse? _stats;
+
+    private static string FormatRetentionMark(int days) => days == 365 ? "365" : days.ToString();
 
     protected override async Task OnInitializedAsync()
     {

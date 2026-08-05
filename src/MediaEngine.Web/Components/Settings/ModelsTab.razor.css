@@ -27,7 +27,7 @@
 
 .model-card__meta {
     color: var(--tl-text-muted);
-    font-size: 0.78rem;
+    font-size: 13px;
     line-height: 1.45;
 }
 

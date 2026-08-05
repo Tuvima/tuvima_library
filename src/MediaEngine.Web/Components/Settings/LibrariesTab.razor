@@ -64,7 +64,7 @@ else
                          Elevation="0"
                          Color="Color.Primary">
                     <MudTabPanel Text="Import Folders" Icon="@Icons.Material.Outlined.MoveToInbox" />
-                    @foreach (var tab in _libraryTabs)
+                    @foreach (var tab in VisibleLibraryTabs)
                     {
                         <MudTabPanel @key="tab.Key" Text="@tab.Label" Icon="@tab.Icon" />
                     }
@@ -144,34 +144,53 @@ else
                 else if (activeLibrary is not null)
                 {
                     <div class="file-org-media-grid">
-                        <section class="file-org-media-panel file-org-media-panel--folders" aria-label="@($"Folders for {activeLibrary.Label}")">
+                        <section class="file-org-media-panel file-org-media-panel--folders" aria-label="Folders for @activeLibrary.Label">
                             <div class="file-org-panel-title">
                                 <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" />
                                 <div>
-                                    <h3>Folders for @activeLibrary.Label</h3>
+                                    <h3>Configured @activeLibrary.Label Folders</h3>
                                     <p>@FolderPanelDescription(activeLibrary)</p>
                                 </div>
                             </div>
 
-                            <div class="file-org-path-list">
+                            <div class="file-org-folder-table" role="table" aria-label="Configured folders">
+                                <div class="file-org-folder-table__header" role="row">
+                                    <span role="columnheader">Name</span>
+                                    <span role="columnheader">Path</span>
+                                    <span role="columnheader">Type</span>
+                                    <span role="columnheader">Recursive</span>
+                                    <span role="columnheader">Status</span>
+                                    <span role="columnheader">Actions</span>
+                                </div>
                                 @for (var i = 0; i < activeLibrary.SourcePaths.Count; i++)
                                 {
                                     var index = i;
-                                    <div class="file-org-source-row">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" />
-                                        <AppTextField Value="@activeLibrary.SourcePaths[index]"
-                                                      ValueChanged="@((string? value) => OnSourcePathChanged(activeLibrary, index, value))"
-                                                      Placeholder="@($"/media/{activeLibrary.Label}")"
-                                                      Size="AppControlSize.Large"
-                                                      Class="file-org-source-path-input"
-                                                      ReadOnly="@(readOnly || _engineUnavailable)" />
-                                        <div class="file-org-source-row__meta">
-                                            <AppChip Text="@(activeLibrary.IncludeSubdirectories ? "Recursive" : "Top level")"
-                                                     Tone="@(activeLibrary.IncludeSubdirectories ? AppUiTone.Primary : AppUiTone.Neutral)" />
-                                            <AppChip Text="@(activeLibrary.ReadOnly ? "Read only" : "Writable")"
-                                                     Tone="@(activeLibrary.ReadOnly ? AppUiTone.Warning : AppUiTone.Success)" />
+                                    <div class="file-org-folder-table__row" role="row">
+                                        <div class="file-org-folder-name" role="cell">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Folder" Size="Size.Small" />
+                                            <strong>@FolderDisplayName(activeLibrary, index)</strong>
                                         </div>
-                                        <div class="file-org-source-row__actions">
+                                        <div class="file-org-folder-path" role="cell">
+                                            <AppTextField Value="@activeLibrary.SourcePaths[index]"
+                                                          ValueChanged="@((string? value) => OnSourcePathChanged(activeLibrary, index, value))"
+                                                          Placeholder="@($"/media/{activeLibrary.Label}")"
+                                                          Size="AppControlSize.Large"
+                                                          Class="file-org-source-path-input"
+                                                          ReadOnly="@(readOnly || _engineUnavailable)" />
+                                        </div>
+                                        <span class="file-org-folder-type" role="cell">@activeLibrary.Label</span>
+                                        <div class="file-org-folder-recursive" role="cell">
+                                            <AppSwitchRow Value="@activeLibrary.IncludeSubdirectories"
+                                                          ValueChanged="@((bool value) => SetRecursive(activeLibrary, value))"
+                                                          Disabled="@(readOnly || _engineUnavailable)"
+                                                          Tone="AppUiTone.Primary"
+                                                          AriaLabel="@($"Scan {activeLibrary.Label} recursively")" />
+                                        </div>
+                                        <div role="cell">
+                                            <AppStatusBadge Text="@FolderStatusLabel(activeLibrary.SourcePaths[index])"
+                                                            Tone="@FolderStatusTone(activeLibrary.SourcePaths[index])" />
+                                        </div>
+                                        <div class="file-org-source-row__actions" role="cell">
                                             <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen"
                                                            Tooltip="@L["Libraries_BrowseFolders"].Value"
                                                            AriaLabel="@L["Libraries_BrowseFolders"].Value"
@@ -197,12 +216,45 @@ else
                                        OnClick="@(() => AddSourceFolder(activeLibrary))" />
                         </section>
 
-                        <section class="file-org-media-panel file-org-media-panel--structure" aria-label="Naming and folder structure">
+                        <section class="file-org-media-panel file-org-media-panel--destination" aria-label="Destination rules">
+                            <div class="file-org-panel-title">
+                                <MudIcon Icon="@Icons.Material.Outlined.RuleFolder" Size="Size.Small" />
+                                <div>
+                                    <h3>Destination Rules</h3>
+                                    <p>Control where accepted @MediaFileNoun(activeLibrary) files are stored and how file changes are handled.</p>
+                                </div>
+                            </div>
+
+                            <div class="file-org-rule-list">
+                                <div class="file-org-rule-row">
+                                    <div><strong>Storage location</strong><span>@PrimarySourcePath(activeLibrary)</span></div>
+                                    <AppButton Label="Change" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact"
+                                               Disabled="@(readOnly || _engineUnavailable || activeLibrary.SourcePaths.Count == 0)"
+                                               OnClick="@(() => BrowseSourceFolderAsync(activeLibrary, 0))" />
+                                </div>
+                                <div class="file-org-rule-row">
+                                    <div><strong>File permissions</strong><span>@(activeLibrary.ReadOnly ? "Preserve source; no writes" : "Writable destination")</span></div>
+                                    <AppStatusBadge Text="@(activeLibrary.ReadOnly ? "Read only" : "Writable")"
+                                                    Tone="@(activeLibrary.ReadOnly ? AppStatusTone.Warning : AppStatusTone.Success)" />
+                                </div>
+                                <div class="file-org-rule-row">
+                                    <div><strong>Writeback behavior</strong><span>Control whether metadata changes are written back to files.</span></div>
+                                    <AppSegmentedControl Options="@WritebackOptions"
+                                                         Value="@WritebackValue(activeLibrary)"
+                                                         ValueChanged="@((string value) => SetWriteback(activeLibrary, value))"
+                                                         AriaLabel="Writeback override"
+                                                         Disabled="@(readOnly || _engineUnavailable || activeLibrary.StructureMode == StructureModeNone)"
+                                                         Class="file-org-option-segments" />
+                                </div>
+                            </div>
+                        </section>
+
+                        <section class="file-org-media-panel file-org-media-panel--organization" aria-label="Naming and Folder Structure">
                             <div class="file-org-panel-title">
                                 <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
                                 <div>
-                                    <h3>Naming and Folder Structure</h3>
-                                    <p>Choose how @MediaFileNoun(activeLibrary) files are named and organized on disk.</p>
+                                    <h3>Organization Mode</h3>
+                                    <p>Choose how new @MediaFileNoun(activeLibrary) files are named and arranged.</p>
                                 </div>
                             </div>
 
@@ -212,25 +264,56 @@ else
                                                  AriaLabel="Folder structure mode"
                                                  Class="file-org-structure-mode" />
 
+                            <AppSwitchRow Label="Scan recursively"
+                                          Description="Include all subfolders"
+                                          Value="@activeLibrary.IncludeSubdirectories"
+                                          ValueChanged="@((bool value) => SetRecursive(activeLibrary, value))"
+                                          Disabled="@(readOnly || _engineUnavailable)"
+                                          Tone="AppUiTone.Primary" />
+
                             @if (activeLibrary.StructureMode == StructureModeCustom)
                             {
-                                <div class="file-org-token-strip">
-                                    @foreach (var token in AvailableTokens)
-                                    {
-                                        <AppChip OnClick="@(() => AppendToken(activeLibrary, token))"
-                                                 Class="file-org-token-chip">
-                                            <span class="file-org-token-brace">{</span>@token<span class="file-org-token-brace">}</span>
-                                        </AppChip>
-                                    }
+                                <div class="file-org-option-block">
+                                    <div class="file-org-option-block__header">
+                                        <span>Custom naming template</span>
+                                        <small>Add tokens to define the destination path.</small>
+                                    </div>
+                                    <div class="file-org-token-strip">
+                                        @foreach (var token in AvailableTokens)
+                                        {
+                                            <AppChip OnClick="@(() => AppendToken(activeLibrary, token))"
+                                                     Class="file-org-token-chip">
+                                                <span class="file-org-token-brace">{</span>@token<span class="file-org-token-brace">}</span>
+                                            </AppChip>
+                                        }
+                                    </div>
+                                    <AppTextField Value="@GetEditableTemplate(activeLibrary)"
+                                                  ValueChanged="@((string? value) => SetTemplate(activeLibrary, value))"
+                                                  Placeholder="@RecommendedTemplate(activeLibrary)"
+                                                  ReadOnly="@(readOnly || _engineUnavailable)" />
                                 </div>
-                                <AppTextField Value="@GetEditableTemplate(activeLibrary)"
-                                              ValueChanged="@((string? value) => SetTemplate(activeLibrary, value))"
-                                              Placeholder="@RecommendedTemplate(activeLibrary)"
-                                              ReadOnly="@(readOnly || _engineUnavailable)" />
                             }
 
+                            <AppButton Label="Scan This Media Type"
+                                       StartIcon="@Icons.Material.Outlined.ManageSearch"
+                                       ButtonStyle="AppButtonStyle.Text"
+                                       Disabled="@(_engineUnavailable || activeLibrary.SourcePaths.Count == 0)"
+                                       OnClick="@(() => ScanLibraryAsync(activeLibrary))" />
+                        </section>
+
+                        <section class="file-org-media-panel file-org-media-panel--preview" aria-label="Path preview">
+                            <div class="file-org-panel-title file-org-panel-title--split">
+                                <div class="file-org-panel-title__copy">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Route" Size="Size.Small" />
+                                    <div>
+                                        <h3>Path Preview</h3>
+                                        <p>See how Tuvima will organize a representative @MediaFileNoun(activeLibrary) file.</p>
+                                    </div>
+                                </div>
+                                <span class="file-org-preview-example">Example: @PreviewExampleLabel(activeLibrary)</span>
+                            </div>
                             <AppPanel Density="AppSurfaceDensity.Compact" Class="file-org-preview">
-                                <div class="file-org-preview__label">Preview - example output</div>
+                                <div class="file-org-preview__label">Organized path (preview)</div>
                                 @if (activeLibrary.StructureMode == StructureModeNone)
                                 {
                                     <div class="file-org-preview__none">
@@ -240,54 +323,22 @@ else
                                 }
                                 else
                                 {
-                                    <div class="file-org-preview-tree">
+                                    <div class="file-org-preview-tree file-org-preview-tree--horizontal">
                                         @foreach (var part in PreviewParts(activeLibrary).Select((value, index) => (value, index)))
                                         {
                                             var isFile = part.index == PreviewParts(activeLibrary).Count - 1;
-                                            <div class="@PreviewRowClass(isFile, part.index)">
+                                            <div class="@PreviewRowClass(isFile, 0)">
                                                 <MudIcon Icon="@(isFile ? Icons.Material.Outlined.Description : Icons.Material.Outlined.Folder)" Size="Size.Small" />
                                                 <span>@part.value</span>
                                             </div>
+                                            @if (!isFile)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" Class="file-org-preview-separator" />
+                                            }
                                         }
                                     </div>
                                 }
                             </AppPanel>
-                        </section>
-
-                        <section class="file-org-media-panel file-org-media-panel--options" aria-label="Scanning options">
-                            <div class="file-org-panel-title">
-                                <MudIcon Icon="@Icons.Material.Outlined.Tune" Size="Size.Small" />
-                                <div>
-                                    <h3>Scanning Options</h3>
-                                    <p>Settings saved for this media type.</p>
-                                </div>
-                            </div>
-
-                            <AppSwitchRow Label="Scan recursively"
-                                          Description="Include all subfolders"
-                                          Value="@activeLibrary.IncludeSubdirectories"
-                                          ValueChanged="@((bool value) => SetRecursive(activeLibrary, value))"
-                                          Disabled="@(readOnly || _engineUnavailable)"
-                                          Tone="AppUiTone.Primary" />
-
-                            <div class="file-org-option-block">
-                                <div class="file-org-option-block__header">
-                                    <span>Writeback behavior</span>
-                                    <small>Control whether Tuvima writes metadata changes back to files.</small>
-                                </div>
-                                <AppSegmentedControl Options="@WritebackOptions"
-                                                     Value="@WritebackValue(activeLibrary)"
-                                                     ValueChanged="@((string value) => SetWriteback(activeLibrary, value))"
-                                                     AriaLabel="Writeback override"
-                                                     Disabled="@(readOnly || _engineUnavailable || activeLibrary.StructureMode == StructureModeNone)"
-                                                     Class="file-org-option-segments" />
-                            </div>
-
-                            <AppButton Label="Scan This Media Type"
-                                       StartIcon="@Icons.Material.Outlined.ManageSearch"
-                                       ButtonStyle="AppButtonStyle.Text"
-                                       Disabled="@(_engineUnavailable || activeLibrary.SourcePaths.Count == 0)"
-                                       OnClick="@(() => ScanLibraryAsync(activeLibrary))" />
                         </section>
                     </div>
                 }
@@ -369,9 +420,15 @@ else
 
     private bool IsImportFoldersTab => _activeTabIndex == 0;
 
+    private IReadOnlyList<LibraryEditorState> VisibleLibraryTabs =>
+        _libraryTabs
+            .Where(tab => BuiltInTabs.Any(builtIn =>
+                string.Equals(builtIn.TemplateKey, tab.Key, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+
     private LibraryEditorState? ActiveLibrary =>
-        _activeTabIndex > 0 && _activeTabIndex - 1 < _libraryTabs.Count
-            ? _libraryTabs[_activeTabIndex - 1]
+        _activeTabIndex > 0 && _activeTabIndex - 1 < VisibleLibraryTabs.Count
+            ? VisibleLibraryTabs[_activeTabIndex - 1]
             : null;
 
     private bool HasUnsavedChanges => SerializeSnapshot() != _savedSnapshot;
@@ -540,10 +597,54 @@ else
             _ => string.Empty,
         };
 
-        var index = _libraryTabs.FindIndex(tab =>
+        var index = VisibleLibraryTabs.ToList().FindIndex(tab =>
             string.Equals(tab.Key, requestedKey, StringComparison.OrdinalIgnoreCase));
         _activeTabIndex = index >= 0 ? index + 1 : 0;
     }
+
+    private static string FolderDisplayName(LibraryEditorState library, int index) =>
+        library.SourcePaths.Count == 1
+            ? $"{library.Label} Library"
+            : $"{library.Label} Folder {index + 1}";
+
+    private string FolderStatusLabel(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path)) return "Not configured";
+        if (_pathResults.TryGetValue(path, out var result))
+        {
+            if (result is null) return "Unavailable";
+            if (!result.Exists || !result.HasRead) return "Needs attention";
+            return result.HasWrite ? "Monitoring" : "Read only";
+        }
+
+        return "Configured";
+    }
+
+    private AppStatusTone FolderStatusTone(string? path)
+    {
+        var label = FolderStatusLabel(path);
+        return label switch
+        {
+            "Monitoring" or "Configured" => AppStatusTone.Success,
+            "Read only" or "Not configured" => AppStatusTone.Warning,
+            _ => AppStatusTone.Error,
+        };
+    }
+
+    private static string PrimarySourcePath(LibraryEditorState library) =>
+        library.SourcePaths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path))
+        ?? "No destination configured";
+
+    private static string PreviewExampleLabel(LibraryEditorState library) => library.Label switch
+    {
+        "Books" => "Dune (1965)",
+        "Movies" => "Dune (2021)",
+        "TV Shows" => "Andor S01E01",
+        "Music" => "Under Pressure",
+        "Audiobooks" => "Project Hail Mary",
+        "Comics" => "The Sandman #1",
+        _ => library.Label,
+    };
 
     private void OnWatchFolderChanged(int index, string? value)
     {

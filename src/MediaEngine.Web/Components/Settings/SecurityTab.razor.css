@@ -4,6 +4,10 @@
     margin: 0;
 }
 
+.security-settings__skeleton {
+    min-height: 180px;
+}
+
 .security-settings__facts > div {
     display: grid;
     grid-template-columns: minmax(150px, 1fr) minmax(0, 2fr);

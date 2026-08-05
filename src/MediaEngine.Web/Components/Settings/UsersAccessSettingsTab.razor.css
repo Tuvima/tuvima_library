@@ -1,0 +1,86 @@
+.users-access-settings,
+.users-access-settings__grid {
+    min-width: 0;
+}
+
+.users-access-settings__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+}
+
+.users-access-settings__section {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 16px;
+}
+
+.users-access-settings__heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--tl-border-subtle);
+}
+
+.users-access-settings__heading .mud-icon-root {
+    margin-top: 2px;
+    color: var(--tl-accent-primary);
+}
+
+.users-access-settings__heading h2,
+.users-access-settings__heading p {
+    margin: 0;
+}
+
+.users-access-settings__heading h2 {
+    color: var(--tl-text-primary);
+    font-size: 17px;
+    line-height: 1.3;
+}
+
+.users-access-settings__heading p {
+    margin-top: 3px;
+    color: var(--tl-text-muted);
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+::deep .users-access-settings__section .tl-page {
+    gap: 12px;
+}
+
+::deep .users-access-settings__section .security-settings > .app-card {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+::deep .users-access-settings__section .security-settings > .app-card > .app-card__header {
+    display: none;
+}
+
+::deep .users-access-settings__section--keys .tl-page > .mud-stack:first-child .mud-typography-h6,
+::deep .users-access-settings__section--keys .tl-page > .mud-stack:first-child > .mud-icon-root {
+    display: none;
+}
+
+::deep .users-access-settings__section .app-table,
+::deep .users-access-settings__section .mud-table-container {
+    overflow-x: auto;
+}
+
+@media (min-width: 1500px) {
+    .users-access-settings__grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        align-items: start;
+    }
+}
+
+@media (max-width: 700px) {
+    .users-access-settings__section {
+        padding: 16px;
+    }
+}

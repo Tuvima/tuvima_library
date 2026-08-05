@@ -220,7 +220,7 @@
     border-radius: 999px;
     color: #93c5fd;
     background: #071126;
-    font-size: 0.62rem;
+    font-size: 12.5px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     line-height: 1;
@@ -283,7 +283,7 @@
 
 ::deep .library-update-stage-card > span:last-child {
     color: rgba(226, 232, 255, 0.74);
-    font-size: 0.78rem;
+    font-size: 13px;
     font-variant-numeric: tabular-nums;
 }
 
@@ -399,7 +399,7 @@
 
 ::deep .library-update-batch__name span {
     color: rgba(226, 232, 255, 0.72);
-    font-size: 0.88rem;
+    font-size: 14px;
     font-variant-numeric: tabular-nums;
 }
 
@@ -470,7 +470,7 @@
 
 ::deep .library-update-stage-detail > span:not(.library-update-stage-detail__icon) {
     color: rgba(226, 232, 255, 0.58);
-    font-size: 0.84rem;
+    font-size: 13px;
     font-weight: 600;
 }
 
@@ -611,7 +611,7 @@
     border-radius: 999px;
     color: rgba(226, 232, 255, 0.75);
     background: rgba(255, 255, 255, 0.035);
-    font-size: 0.82rem;
+    font-size: 13px;
 }
 
 ::deep .library-update-batch-chip span {

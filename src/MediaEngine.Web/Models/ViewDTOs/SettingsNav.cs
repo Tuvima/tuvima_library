@@ -196,9 +196,9 @@ public static class SettingsNav
             ],
             [SettingsSection.ActivityLogs] =
             [
+                new("events", "Events", Icons.Material.Outlined.Timeline),
                 new("batches", "Batches", Icons.Material.Outlined.FolderCopy),
                 new("people", "People", Icons.Material.Outlined.People),
-                new("events", "Events", Icons.Material.Outlined.Timeline),
             ],
             [SettingsSection.LocalAi] =
             [

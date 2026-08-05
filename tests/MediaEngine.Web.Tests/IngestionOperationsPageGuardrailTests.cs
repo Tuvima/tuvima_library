@@ -1739,7 +1739,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Contains("Scanned", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Retail Match", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Overall progress", cut.Markup, StringComparison.Ordinal);
-        Assert.DoesNotContain("Recent batches", cut.Markup, StringComparison.Ordinal);
+        Assert.Contains("Recent batches", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Refresh", cut.Markup, StringComparison.Ordinal);
         Assert.Contains("Scan Now", cut.Markup, StringComparison.Ordinal);
         Assert.DoesNotContain("Files Found", cut.Markup, StringComparison.Ordinal);

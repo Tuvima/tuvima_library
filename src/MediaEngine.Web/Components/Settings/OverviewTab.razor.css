@@ -235,7 +235,7 @@
 
     .admin-library-media__label {
         color: rgba(235, 240, 255, 0.82);
-        font-size: 0.84rem;
+        font-size: 14px;
         font-weight: 700;
     }
 
@@ -290,7 +290,7 @@
         margin-top: -14px;
         padding: 0 1px;
         color: rgba(226, 232, 255, 0.72);
-        font-size: 0.76rem;
+        font-size: 13px;
         font-weight: 700;
         text-align: center;
     }
@@ -352,7 +352,7 @@
 
     .admin-overview-eyebrow {
         color: var(--settings-blue, #4f9dff) !important;
-        font-size: 0.72rem !important;
+        font-size: 13px !important;
         font-weight: 700 !important;
         text-transform: uppercase;
         letter-spacing: 0.08em !important;
@@ -370,7 +370,7 @@
         border: 1px solid rgba(255, 255, 255, 0.10);
         color: rgba(232, 238, 255, 0.86);
         background: rgba(255, 255, 255, 0.055);
-        font-size: 0.74rem;
+        font-size: 13px;
         font-weight: 700;
         white-space: nowrap;
     }
@@ -419,7 +419,7 @@
         justify-content: space-between;
         gap: 12px;
         color: rgba(232, 238, 255, 0.78);
-        font-size: 0.82rem;
+        font-size: 13px;
         font-weight: 700;
     }
 
@@ -453,7 +453,7 @@
     .admin-metric span {
         display: block;
         color: var(--settings-muted, rgba(220, 229, 255, 0.64));
-        font-size: 0.74rem;
+        font-size: 13px;
         font-weight: 700;
     }
 
@@ -537,13 +537,13 @@
 
     .admin-compact-row__body span {
         color: rgba(255, 255, 255, 0.94);
-        font-size: 0.86rem;
+        font-size: 14px;
         font-weight: 700;
     }
 
     .admin-compact-row__body small {
         color: var(--settings-muted, rgba(220, 229, 255, 0.64));
-        font-size: 0.74rem;
+        font-size: 13px;
     }
 
     .admin-reason-badge {
@@ -569,7 +569,7 @@
     .admin-run-table__head {
         padding: 0 10px 8px;
         color: rgba(255, 255, 255, 0.46);
-        font-size: 0.72rem;
+        font-size: 13px;
         font-weight: 700;
         text-transform: uppercase;
     }

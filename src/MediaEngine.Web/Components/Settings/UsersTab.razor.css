@@ -19,7 +19,7 @@
 
 .users-table__muted {
     color: var(--tl-text-muted);
-    font-size: 0.88rem;
+    font-size: 14px;
 }
 
 .users-table__actions {
@@ -60,14 +60,14 @@
 
 .users-linked-account__provider {
     color: var(--tl-text-primary);
-    font-size: 0.88rem;
+    font-size: 14px;
     font-weight: 700;
 }
 
 .users-linked-account__identity {
     overflow: hidden;
     color: var(--tl-text-muted);
-    font-size: 0.78rem;
+    font-size: 13px;
     text-overflow: ellipsis;
     white-space: nowrap;
 }

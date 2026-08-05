@@ -1,31 +1,41 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page users-access-settings">
-    <AppTabs ActivePanelIndex="@ActivePanelIndex"
-             Class="settings-tab-strip">
-        <AppTabPanel Text="Profiles & Roles" Icon="@Icons.Material.Outlined.Group">
+    <div class="users-access-settings__grid">
+        <AppPanel Class="users-access-settings__section users-access-settings__section--profiles">
+            <header class="users-access-settings__heading">
+                <MudIcon Icon="@Icons.Material.Outlined.Group" Size="Size.Small" />
+                <div><h2>Profiles &amp; Roles</h2><p>Manage user roles, permissions, and local profiles.</p></div>
+            </header>
             <UsersTab />
-        </AppTabPanel>
-        <AppTabPanel Text="Authentication" Icon="@Icons.Material.Outlined.AdminPanelSettings">
+        </AppPanel>
+
+        <AppPanel Class="users-access-settings__section users-access-settings__section--authentication">
+            <header class="users-access-settings__heading">
+                <MudIcon Icon="@Icons.Material.Outlined.AdminPanelSettings" Size="Size.Small" />
+                <div><h2>Authentication</h2><p>Review how users sign in to this Tuvima server.</p></div>
+            </header>
             <SecurityTab />
-        </AppTabPanel>
-        <AppTabPanel Text="Linked Accounts" Icon="@Icons.Material.Outlined.Link">
+        </AppPanel>
+
+        <AppPanel Class="users-access-settings__section users-access-settings__section--linked">
+            <header class="users-access-settings__heading">
+                <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
+                <div><h2>Linked Accounts</h2><p>Manage external identities associated with local profiles.</p></div>
+            </header>
             <UsersTab LinkedAccountsOnly="true" />
-        </AppTabPanel>
-        <AppTabPanel Text="Guest API Keys" Icon="@Icons.Material.Outlined.Key">
+        </AppPanel>
+
+        <AppPanel Class="users-access-settings__section users-access-settings__section--keys">
+            <header class="users-access-settings__heading">
+                <MudIcon Icon="@Icons.Material.Outlined.Key" Size="Size.Small" />
+                <div><h2>Guest API Keys</h2><p>Issue and revoke keys used by approved integrations.</p></div>
+            </header>
             <ApiKeysTab />
-        </AppTabPanel>
-    </AppTabs>
+        </AppPanel>
+    </div>
 </div>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "profiles";
-
-    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
-    {
-        "security" or "authentication" => 1,
-        "linked" or "linked-accounts" => 2,
-        "api-keys" => 3,
-        _ => 0,
-    };
 }

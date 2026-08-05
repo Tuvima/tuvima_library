@@ -1,6 +1,6 @@
 .provider-page {
     width: 100%;
-    padding: 24px;
+    padding: 0;
     box-sizing: border-box;
     color: rgba(245, 247, 255, 0.94);
 }
@@ -19,9 +19,17 @@
 
 .provider-layout {
     display: grid;
-    grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.55fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
     align-items: start;
+}
+
+.provider-library-panel {
+    order: 2;
+}
+
+.provider-layout > .provider-min {
+    order: 1;
 }
 
 .provider-panel {
@@ -50,7 +58,7 @@
 .provider-panel__copy {
     margin-top: 3px;
     color: rgba(220, 229, 255, 0.64);
-    font-size: 0.82rem;
+    font-size: 14px;
     line-height: 1.35;
 }
 
@@ -151,7 +159,7 @@
 .provider-settings__description,
 .provider-settings__detail {
     color: rgba(220, 229, 255, 0.68);
-    font-size: 0.8rem;
+    font-size: 13px;
     line-height: 1.35;
 }
 
@@ -163,7 +171,7 @@
 }
 
 .provider-chip {
-    font-size: 0.71rem;
+    font-size: 12.5px;
 }
 
 .provider-drag-handle {
@@ -181,7 +189,7 @@
     border-radius: 8px;
     color: rgba(220, 229, 255, 0.66);
     background: rgba(8, 14, 28, 0.54);
-    font-size: 0.78rem;
+    font-size: 13px;
 }
 
 .provider-assignment-card {
@@ -243,7 +251,7 @@
 .provider-media-slot__strategy {
     margin-left: auto;
     color: rgba(220, 229, 255, 0.58);
-    font-size: 0.72rem;
+    font-size: 13px;
 }
 
 .provider-assignment-list {
@@ -280,7 +288,7 @@
     border-radius: 999px;
     color: #fff;
     background: linear-gradient(135deg, #8357f2, #4d2dac);
-    font-size: 0.78rem;
+    font-size: 13px;
     font-weight: 700;
 }
 
@@ -298,7 +306,7 @@
     border: 1px dashed rgba(220, 229, 255, 0.22);
     border-radius: 8px;
     color: rgba(220, 229, 255, 0.48);
-    font-size: 0.78rem;
+    font-size: 13px;
 }
 
 .provider-media-slot__footer {
@@ -368,7 +376,7 @@
 .provider-enrichment-card__copy {
     margin-top: 3px;
     color: rgba(220, 229, 255, 0.66);
-    font-size: 0.8rem;
+    font-size: 13px;
     line-height: 1.4;
 }
 
@@ -397,7 +405,7 @@
     text-align: center;
     color: rgba(220, 229, 255, 0.72);
     background: rgba(255, 255, 255, 0.055);
-    font-size: 0.72rem;
+    font-size: 12.5px;
     font-weight: 700;
 }
 
@@ -438,7 +446,7 @@
 .provider-metric__label {
     margin-top: 3px;
     color: rgba(220, 229, 255, 0.58);
-    font-size: 0.72rem;
+    font-size: 13px;
     line-height: 1.25;
 }
 
@@ -498,7 +506,7 @@
     display: block;
     margin-top: 8px;
     color: rgba(220, 229, 255, 0.62);
-    font-size: 0.75rem;
+    font-size: 13px;
     line-height: 1.4;
 }
 
@@ -545,7 +553,7 @@
 .provider-add-row__meta,
 .provider-add-row__rate {
     color: rgba(220, 229, 255, 0.62);
-    font-size: 0.75rem;
+    font-size: 13px;
     line-height: 1.3;
 }
 

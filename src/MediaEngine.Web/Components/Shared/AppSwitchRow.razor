@@ -26,6 +26,7 @@
                Ripple="false"
                Disabled="@Disabled"
                Label="@SwitchLabel"
+               aria-label="@AriaLabel"
                Class="app-switch-row__control" />
 </div>
 
@@ -39,9 +40,10 @@
     [Parameter] public bool StopClickPropagation { get; set; }
     [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Primary;
     [Parameter] public Color? Color { get; set; }
-    [Parameter] public Size Size { get; set; } = Size.Small;
+    [Parameter] public Size Size { get; set; } = Size.Medium;
     [Parameter] public string? T { get; set; }
     [Parameter] public string? SwitchLabel { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public string? Class { get; set; }
 
     private Color MudColor => Color ?? AppUiMaps.ToMudColor(Tone);

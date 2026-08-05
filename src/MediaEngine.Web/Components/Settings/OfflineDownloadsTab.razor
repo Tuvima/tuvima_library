@@ -10,7 +10,7 @@
         <AppButton Label="Run cleanup" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync" />
     </AppActionBar>
 
-    <AppCard Title="Encode Queue">
+    <AppCard Title="@Title">
         @if (_loading)
         {
             <AppProgressBar Indeterminate="true" />
@@ -75,6 +75,8 @@
 </div>
 
 @code {
+    [Parameter] public string Title { get; set; } = "Encode Queue";
+
     private bool _loading;
     private List<EncodeJobDto> _jobs = [];
 

@@ -6,6 +6,19 @@
     gap: 1rem;
 }
 
+.settings-review-filter-bar {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(170px, .55fr) minmax(180px, .65fr) auto;
+    align-items: end;
+    gap: 12px;
+}
+
+.settings-review-filter-bar__search,
+.settings-review-filter-bar__select {
+    min-width: 0;
+    width: 100%;
+}
+
 .settings-review-page {
     display: grid;
     gap: 16px;
@@ -87,4 +100,25 @@
     min-height: 220px;
     padding: 2rem;
     text-align: center;
+}
+
+@media (max-width: 900px) {
+    .settings-review-filter-bar {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .settings-review-filter-bar__search {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 600px) {
+    .settings-review-filter-bar {
+        grid-template-columns: 1fr;
+        align-items: stretch;
+    }
+
+    .settings-review-filter-bar__search {
+        grid-column: 1;
+    }
 }

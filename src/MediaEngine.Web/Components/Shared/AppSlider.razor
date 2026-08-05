@@ -10,6 +10,7 @@
         <div class="app-field__help">@HelpText</div>
     }
     <MudSlider T="int"
+               Class="app-slider__input"
                Value="@Value"
                ValueChanged="@ValueChanged"
                Min="@Min"
@@ -17,16 +18,20 @@
                Step="@Step"
                Color="@MudColor"
                Disabled="@Disabled"
-               Immediate="@Immediate">
-        @if (ShowBounds)
-        {
-            <div class="app-slider__bounds">
-                <span>@Min</span>
-                <strong>@Value</strong>
-                <span>@Max</span>
-            </div>
-        }
-    </MudSlider>
+               Immediate="@Immediate" />
+    @if (ShowBounds || MarkValues is { Count: > 0 })
+    {
+        <div class="app-slider__bounds" aria-hidden="true">
+            @foreach (var mark in EffectiveMarks)
+            {
+                <AppCssElement Tag="@(mark == Value ? "strong" : "span")"
+                               Class="@SliderMarkClass(mark)"
+                               Css="@($"--app-slider-position: {PositionFor(mark).ToString(System.Globalization.CultureInfo.InvariantCulture)}%")">
+                    @FormatMark(mark)
+                </AppCssElement>
+            }
+        </div>
+    }
     @if (ChildContent is not null)
     {
         @ChildContent
@@ -44,11 +49,33 @@
     [Parameter] public bool Disabled { get; set; }
     [Parameter] public bool Immediate { get; set; } = true;
     [Parameter] public bool ShowBounds { get; set; }
+    [Parameter] public IReadOnlyList<int>? MarkValues { get; set; }
+    [Parameter] public Func<int, string>? MarkFormatter { get; set; }
     [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Primary;
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public string? Class { get; set; }
 
     private Color MudColor => AppUiMaps.ToMudColor(Tone);
+
+    private IReadOnlyList<int> EffectiveMarks =>
+        (MarkValues is { Count: > 0 } ? MarkValues : [Min, Value, Max])
+            .Select(value => Math.Clamp(value, Min, Max))
+            .Distinct()
+            .Order()
+            .ToList();
+
+    private double PositionFor(int mark) =>
+        Max <= Min ? 0 : (mark - Min) * 100d / (Max - Min);
+
+    private string FormatMark(int mark) => MarkFormatter?.Invoke(mark) ?? mark.ToString();
+
+    private string SliderMarkClass(int mark) => string.Join(" ", new[]
+    {
+        "app-slider__mark",
+        mark == Min ? "app-slider__mark--first" : null,
+        mark == Max ? "app-slider__mark--last" : null,
+        mark == Value ? "app-slider__mark--current" : null,
+    }.Where(value => !string.IsNullOrWhiteSpace(value)));
 
     private string RootClass =>
         string.Join(" ", new[] { "app-slider", AppUiMaps.ToneClass(Tone), Class }

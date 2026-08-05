@@ -11,6 +11,6 @@
 .ai-feature-table__description {
     margin-top: 3px;
     color: var(--tl-text-muted);
-    font-size: 0.76rem;
+    font-size: 13px;
     line-height: 1.35;
 }

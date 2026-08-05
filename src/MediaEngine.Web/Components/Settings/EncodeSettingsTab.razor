@@ -15,7 +15,7 @@
         <AppErrorState Title="Playback delivery settings are unavailable"
                        Message="Start the Engine or retry before changing transcoding and variant storage." />
     }
-    else if (IsSection("transcoding"))
+    else if (IsSection("transcoding") || IsSection("overview"))
     {
         <div class="encode-settings__grid">
             <AppCard Title="Scheduled Encodes">
@@ -58,7 +58,17 @@
                 </AppTable>
             </AppCard>
         </div>
-        @SaveButton("Save Transcoding Settings")
+        @if (IsSection("overview"))
+        {
+            <AppCard Title="Variant Storage" Class="encode-settings__overview-storage">
+                <AppTextField @bind-Value="_variantRoot" Label="Variant cache location" />
+                <AppNumericField @bind-Value="_cacheSizeGb" Label="Cache size limit (GB)" Min="1" Max="5000" />
+                <AppNumericField @bind-Value="_retentionDays" Label="Retention days" Min="1" Max="3650" />
+                <AppSwitchRow @bind-Value="_cleanupLru"
+                              Label="Use least-recently-used cleanup before deleting old variants" />
+            </AppCard>
+        }
+        @SaveButton(IsSection("overview") ? "Save Playback & Delivery" : "Save Transcoding Settings")
     }
     else if (IsSection("storage"))
     {
