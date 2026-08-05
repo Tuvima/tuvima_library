@@ -19,6 +19,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
     private static readonly HashSet<int> ListeningSkipBackValues = [10, 15, 30];
     private static readonly HashSet<int> ListeningSkipForwardValues = [15, 30, 60];
     private static readonly HashSet<int> ListeningResumeRewindValues = [0, 5, 10, 15, 30];
+    private static readonly HashSet<int> SyncFrequencyValues = [5, 15, 30, 60];
     private static readonly int[] DefaultSleepTimerOptionsMinutes = [5, 10, 15, 30, 45, 60];
     private static readonly HashSet<string> VideoQualityValues = BuildSet(
         PlaybackPreferenceValues.Auto,
@@ -237,6 +238,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
 
     private static void Validate(UserPlaybackSettingsDto settings)
     {
+        RequireRange(settings.General.MinimumProgressToTrackPercent, 1, 25, nameof(settings.General.MinimumProgressToTrackPercent));
         RequireRange(settings.General.MarkCompleteThresholdPercent, 50, 100, nameof(settings.General.MarkCompleteThresholdPercent));
         RequireRange(settings.Reading.FontSizePercent, 80, 160, nameof(settings.Reading.FontSizePercent));
         RequireRange(settings.Watching.DefaultPlaybackSpeed, 0.5m, 2.0m, nameof(settings.Watching.DefaultPlaybackSpeed));
@@ -260,6 +262,7 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireAllowed(settings.Listening.SkipBackSeconds, ListeningSkipBackValues, nameof(settings.Listening.SkipBackSeconds));
         RequireAllowed(settings.Listening.SkipForwardSeconds, ListeningSkipForwardValues, nameof(settings.Listening.SkipForwardSeconds));
         RequireAllowed(settings.Listening.ResumeRewindSeconds, ListeningResumeRewindValues, nameof(settings.Listening.ResumeRewindSeconds));
+        RequireAllowed(settings.General.SyncFrequencyMinutes, SyncFrequencyValues, nameof(settings.General.SyncFrequencyMinutes));
         RequireAllowed(settings.Watching.PreferredVideoQuality, VideoQualityValues, nameof(settings.Watching.PreferredVideoQuality));
         RequireAllowed(settings.Listening.DefaultSleepTimer, SleepTimerValues, nameof(settings.Listening.DefaultSleepTimer));
         RequireAllowed(settings.Listening.OutputPreference, OutputValues, nameof(settings.Listening.OutputPreference));

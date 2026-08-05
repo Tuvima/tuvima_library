@@ -4001,12 +4001,15 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   ResumePlayback: System.Boolean | json=resumePlayback | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AskBeforeResuming: System.Boolean | json=askBeforeResuming | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MinimumProgressToTrackPercent: System.Int32 | json=minimumProgressToTrackPercent | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MarkCompleteThresholdPercent: System.Int32 | json=markCompleteThresholdPercent | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TrackPartiallyPlayedItems: System.Boolean | json=trackPartiallyPlayedItems | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SyncProgressBetweenBookAndAudiobook: System.Boolean | json=syncProgressBetweenBookAndAudiobook | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SpoilerSafeProgress: System.Boolean | json=spoilerSafeProgress | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SyncAcrossDevices: System.Boolean | json=syncAcrossDevices | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SyncFrequencyMinutes: System.Int32 | json=syncFrequencyMinutes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   UseBannerArtWhenAvailable: System.Boolean | json=useBannerArtWhenAvailable | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"resumePlayback":true,"askBeforeResuming":true,"markCompleteThresholdPercent":7,"trackPartiallyPlayedItems":true,"syncProgressBetweenBookAndAudiobook":true,"spoilerSafeProgress":true,"useBannerArtWhenAvailable":true}
+  sample={"resumePlayback":true,"askBeforeResuming":true,"minimumProgressToTrackPercent":7,"markCompleteThresholdPercent":7,"trackPartiallyPlayedItems":true,"syncProgressBetweenBookAndAudiobook":true,"spoilerSafeProgress":true,"syncAcrossDevices":true,"syncFrequencyMinutes":7,"useBannerArtWhenAvailable":true}
 
 [contracts] MediaEngine.Contracts.Playback.PlaybackManifestDto
   kind=class | converter=default | number-handling=default | unmapped=default

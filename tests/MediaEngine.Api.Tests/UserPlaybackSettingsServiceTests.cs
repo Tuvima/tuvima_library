@@ -49,6 +49,9 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
 
         Assert.Equal(_profileId, settings.ProfileId);
         Assert.True(settings.General.ResumePlayback);
+        Assert.Equal(5, settings.General.MinimumProgressToTrackPercent);
+        Assert.True(settings.General.SyncAcrossDevices);
+        Assert.Equal(15, settings.General.SyncFrequencyMinutes);
         Assert.Equal(1.0m, settings.Watching.DefaultPlaybackSpeed);
         Assert.Equal(1.25m, settings.Listening.AudiobookDefaultSpeed);
         Assert.Equal(10, settings.Listening.ResumeRewindSeconds);
@@ -60,7 +63,9 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         Assert.True(settings.Listening.HideSingleLargeChapterDetails);
         Assert.Equal(2, settings.Listening.MinimumChaptersForChapterDetails);
         Assert.Equal(1800, settings.Listening.SingleLargeChapterMinSeconds);
-        Assert.Equal("Sepia", settings.Reading.Theme);
+        Assert.Equal(100, settings.Reading.FontSizePercent);
+        Assert.Equal(PlaybackPreferenceValues.System, settings.Reading.Theme);
+        Assert.True(settings.Subtitles.SubtitleBackground);
     }
 
     [Fact]
@@ -69,6 +74,8 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         var settings = await _service.GetAsync(_profileId);
         settings.Watching.DefaultPlaybackSpeed = 1.5m;
         settings.Reading.Theme = PlaybackPreferenceValues.Dark;
+        settings.General.MinimumProgressToTrackPercent = 10;
+        settings.General.SyncFrequencyMinutes = 30;
 
         await _service.UpdateAsync(_profileId, settings);
 
@@ -76,6 +83,8 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         var other = await _service.GetAsync(_otherProfileId);
         Assert.Equal(1.5m, saved.Watching.DefaultPlaybackSpeed);
         Assert.Equal(PlaybackPreferenceValues.Dark, saved.Reading.Theme);
+        Assert.Equal(10, saved.General.MinimumProgressToTrackPercent);
+        Assert.Equal(30, saved.General.SyncFrequencyMinutes);
         Assert.Equal(1.0m, other.Watching.DefaultPlaybackSpeed);
     }
 
@@ -90,6 +99,14 @@ public sealed class UserPlaybackSettingsServiceTests : IDisposable
         settings = await _service.GetAsync(_profileId);
         settings.General.MarkCompleteThresholdPercent = 25;
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _service.UpdateAsync(_profileId, settings));
+
+        settings = await _service.GetAsync(_profileId);
+        settings.General.MinimumProgressToTrackPercent = 30;
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => _service.UpdateAsync(_profileId, settings));
+
+        settings = await _service.GetAsync(_profileId);
+        settings.General.SyncFrequencyMinutes = 45;
+        await Assert.ThrowsAsync<ArgumentException>(() => _service.UpdateAsync(_profileId, settings));
 
         settings = await _service.GetAsync(_profileId);
         settings.Reading.Theme = "Neon";

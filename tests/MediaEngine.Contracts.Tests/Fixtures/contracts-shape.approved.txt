@@ -3312,10 +3312,13 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackDiagnostic
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackGeneralSettingsDto
   ResumePlayback: System.Boolean | nullability=not-null | accessors=get,set
   AskBeforeResuming: System.Boolean | nullability=not-null | accessors=get,set
+  MinimumProgressToTrackPercent: System.Int32 | nullability=not-null | accessors=get,set
   MarkCompleteThresholdPercent: System.Int32 | nullability=not-null | accessors=get,set
   TrackPartiallyPlayedItems: System.Boolean | nullability=not-null | accessors=get,set
   SyncProgressBetweenBookAndAudiobook: System.Boolean | nullability=not-null | accessors=get,set
   SpoilerSafeProgress: System.Boolean | nullability=not-null | accessors=get,set
+  SyncAcrossDevices: System.Boolean | nullability=not-null | accessors=get,set
+  SyncFrequencyMinutes: System.Int32 | nullability=not-null | accessors=get,set
   UseBannerArtWhenAvailable: System.Boolean | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.PlaybackManifestDto

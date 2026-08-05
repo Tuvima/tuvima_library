@@ -57,6 +57,11 @@
     line-height: 1.45 !important;
 }
 
+.settings-page-canvas ::deep .mud-typography.mud-secondary-text,
+.settings-page-canvas ::deep .settings-helper-text {
+    color: var(--tl-text-muted) !important;
+}
+
 /* Page-specific settings surfaces historically used 0.62-0.78rem utility
    type. Keep operational metadata readable without inflating icon glyphs. */
 .settings-page-canvas ::deep small,
@@ -208,6 +213,42 @@
     font-size: 19px !important;
 }
 
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tooltip-root {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+}
+
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tab {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding-inline: 18px !important;
+    position: relative;
+}
+
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tabs-inkbar,
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tab-slider {
+    display: none !important;
+}
+
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tab.mud-tab-active::after {
+    content: "";
+    position: absolute;
+    right: 18px;
+    bottom: 0;
+    left: 18px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--tl-accent-primary);
+}
+
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tabs-toolbar-content,
+.settings-page-canvas.settings-admin-panel ::deep .settings-playback-tabs .mud-tabs-tabbar-content {
+    justify-content: flex-start !important;
+}
+
 .settings-page-canvas ::deep .settings-tab-strip .mud-tooltip-root .mud-icon-root {
     color: currentColor !important;
 }
@@ -245,6 +286,27 @@
     min-height: 24px !important;
     gap: 10px;
     margin-bottom: var(--tl-space-4, 16px);
+}
+
+.settings-page-canvas ::deep .settings-section-card__heading {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+}
+
+.settings-page-canvas ::deep .settings-section-card__title {
+    color: var(--tl-text-primary) !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
+}
+
+.settings-page-canvas ::deep .settings-section-card__description {
+    margin-top: 3px;
+    color: var(--tl-text-muted) !important;
+    font-size: 13px !important;
+    font-weight: 400 !important;
+    line-height: 1.4 !important;
 }
 
 .settings-page-canvas ::deep .settings-section-card__header .mud-icon-root {
@@ -298,12 +360,14 @@
 }
 
 .settings-page-canvas ::deep .settings-preference-row__text .mud-typography-body1 {
+    color: var(--tl-text-primary) !important;
     font-size: 15px !important;
     font-weight: 600 !important;
     line-height: 1.3 !important;
 }
 
 .settings-page-canvas ::deep .settings-preference-row__text .mud-typography-caption {
+    color: var(--tl-text-muted) !important;
     font-size: 14px !important;
     line-height: 1.45 !important;
 }

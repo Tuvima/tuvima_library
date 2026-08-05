@@ -480,10 +480,13 @@ public sealed class PlaybackGeneralSettingsDto
 {
     public bool ResumePlayback { get; set; } = true;
     public bool AskBeforeResuming { get; set; }
+    public int MinimumProgressToTrackPercent { get; set; } = 5;
     public int MarkCompleteThresholdPercent { get; set; } = 90;
     public bool TrackPartiallyPlayedItems { get; set; } = true;
     public bool SyncProgressBetweenBookAndAudiobook { get; set; } = true;
-    public bool SpoilerSafeProgress { get; set; } = true;
+    public bool SpoilerSafeProgress { get; set; }
+    public bool SyncAcrossDevices { get; set; } = true;
+    public int SyncFrequencyMinutes { get; set; } = 15;
     public bool UseBannerArtWhenAvailable { get; set; } = true;
 }
 
@@ -531,8 +534,8 @@ public sealed class ListeningSettingsDto
 public sealed class ReadingSettingsDto
 {
     public string ReadingMode { get; set; } = PlaybackPreferenceValues.Paginated;
-    public int FontSizePercent { get; set; } = 110;
-    public string Theme { get; set; } = PlaybackPreferenceValues.Sepia;
+    public int FontSizePercent { get; set; } = 100;
+    public string Theme { get; set; } = PlaybackPreferenceValues.System;
     public string LineSpacing { get; set; } = PlaybackPreferenceValues.Comfortable;
     public string Margins { get; set; } = PlaybackPreferenceValues.Medium;
     public bool KeepScreenAwake { get; set; } = true;
@@ -547,7 +550,7 @@ public sealed class SubtitleLanguageSettingsDto
     public string ForcedSubtitlesMode { get; set; } = PlaybackPreferenceValues.Auto;
     public string AudioLanguage { get; set; } = "English";
     public string SubtitleSize { get; set; } = PlaybackPreferenceValues.Medium;
-    public bool SubtitleBackground { get; set; }
+    public bool SubtitleBackground { get; set; } = true;
     public string SubtitlePosition { get; set; } = PlaybackPreferenceValues.Bottom;
     public string SubtitleStyle { get; set; } = PlaybackPreferenceValues.Clean;
 }

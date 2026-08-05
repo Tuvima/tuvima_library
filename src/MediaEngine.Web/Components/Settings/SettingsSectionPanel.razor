@@ -3,7 +3,13 @@
 <AppCard Class="@Class">
     <div class="settings-section-card__header">
         <MudIcon Icon="@Icon" Color="Color.Primary" />
-        <span class="settings-section-card__title">@Title</span>
+        <div class="settings-section-card__heading">
+            <span class="settings-section-card__title">@Title</span>
+            @if (!string.IsNullOrWhiteSpace(Description))
+            {
+                <span class="settings-section-card__description">@Description</span>
+            }
+        </div>
     </div>
     @ChildContent
 </AppCard>
@@ -11,6 +17,7 @@
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
     [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public string? Description { get; set; }
     [Parameter] public string Class { get; set; } = "tl-card settings-section-card settings-section-card--dense";
     [Parameter] public RenderFragment? ChildContent { get; set; }
 }
