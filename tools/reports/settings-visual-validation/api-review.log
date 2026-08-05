@@ -1,0 +1,162 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[22:22:06 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[22:22:07 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[22:22:07 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[22:22:08 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[22:22:08 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[22:22:08 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[22:22:08 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[22:22:08 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[22:22:08 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[22:22:08 INF] IngestionEngine started
+[22:22:09 INF] Running startup reconciliation...
+[22:22:09 INF] FolderHealthService started — checking every 30s
+[22:22:09 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[22:22:09 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[22:22:09 INF] RetagSweepWorker started
+[22:22:09 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[22:22:09 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[22:22:09 INF] Identity startup recovery found no interrupted jobs.
+[22:22:09 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[22:22:09 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[22:22:09 INF] QuickHydrationHostedService started
+[22:22:09 INF] WikidataBridgeHostedService started
+[22:22:09 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[22:22:09 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[22:22:09 INF] RetailMatchHostedService started
+[22:22:09 INF] Collection backfill complete: 31/31 processed, 0 assigned, 0 created, 0 already assigned, 31 skipped, 0 failed in 127ms
+[22:22:09 INF] Reconciliation: collection backfill processed 31/31 candidate work(s), assigned 0, created 0, skipped 31, failed 0
+[22:22:10 INF] Reconciliation complete: 111 scanned, 0 missing, 0 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 6 empty folders, 0 orphan people, 0 stale root sidecars, 1325ms
+[22:22:10 INF] Startup reconciliation complete: 111 scanned, 0 missing
+[22:22:10 INF] Watching: C:\temp\tuvima-watch\books
+[22:22:10 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[22:22:10 INF] Watching: C:\temp\tuvima-watch\tv
+[22:22:10 INF] Watching: C:\temp\tuvima-watch\movies
+[22:22:10 INF] Watching: C:\temp\tuvima-watch\music
+[22:22:10 INF] Watching: C:\temp\tuvima-watch\comics
+[22:22:10 INF] Initial scan: skipped 13 already-known or duplicate file(s) across 6 scan target(s)
+[22:22:10 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[22:22:11 ERR] Hosting failed to start
+System.IO.IOException: Failed to bind to address https://127.0.0.1:61494: address already in use.
+ ---> Microsoft.AspNetCore.Connections.AddressInUseException: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+ ---> System.Net.Sockets.SocketException (10048): Only one usage of each socket address (protocol/network address/port) is normally permitted.
+   at System.Net.Sockets.Socket.UpdateStatusAfterSocketErrorAndThrowException(SocketError error, Boolean disconnectOnFailure, String callerName)
+   at System.Net.Sockets.Socket.DoBind(EndPoint endPointSnapshot, SocketAddress socketAddress)
+   at System.Net.Sockets.Socket.Bind(EndPoint localEP)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportOptions.CreateDefaultBoundListenSocket(EndPoint endpoint)
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketConnectionListener.Bind()
+   at Microsoft.AspNetCore.Server.Kestrel.Transport.Sockets.SocketTransportFactory.BindAsync(EndPoint endpoint, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Infrastructure.TransportManager.BindAsync(EndPoint endPoint, ConnectionDelegate connectionDelegate, EndpointConfig endpointConfig, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.<>c__DisplayClass28_0`1.<<StartAsync>g__OnBind|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   --- End of inner exception stack trace ---
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.BindEndpointAsync(ListenOptions endpoint, AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.LocalhostListenOptions.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.AddressBinder.AddressesStrategy.BindAsync(AddressBindContext context, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.BindAsync(CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelServerImpl.StartAsync[TContext](IHttpApplication`1 application, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Hosting.GenericWebHostService.StartAsync(CancellationToken cancellationToken)
+   at Microsoft.Extensions.Hosting.Internal.Host.<StartAsync>b__14_1(IHostedService service, CancellationToken token)
+   at Microsoft.Extensions.Hosting.Internal.Host.ForeachService[T](IEnumerable`1 services, CancellationToken token, Boolean concurrent, Boolean abortOnFirstException, List`1 exceptions, Func`3 operation)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.HardwareBenchmarkBackgroundService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\HardwareBenchmarkBackgroundService.cs:line 34
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.HardwareBenchmarkBackgroundService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\HardwareBenchmarkBackgroundService.cs:line 34
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.StorageMaintenanceHostedService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\StorageMaintenanceHostedService.cs:line 29
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.MissingUniverseSweepService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\MissingUniverseSweepService.cs:line 90
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.RejectedFileCleanupService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\RejectedFileCleanupService.cs:line 58
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.Plugins.PluginScheduledSegmentService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Plugins\PluginScheduledSegmentService.cs:line 36
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.ProviderHealthMonitorService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ProviderHealthMonitorService.cs:line 102
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.ModelAutoDownloadService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ModelAutoDownloadService.cs:line 68
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 ERR] BackgroundService failed
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.ActivityPruningService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ActivityPruningService.cs:line 50
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 INF] Application is shutting down...
+[22:22:11 ERR] BackgroundService failed
+System.OperationCanceledException: The operation was canceled.
+   at System.Threading.PeriodicTimer.State.Signal(Boolean stopping, CancellationToken cancellationToken)
+   at System.Threading.CancellationTokenSource.ExecuteCallbackHandlers(Boolean throwOnFirstException)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceProviderEngineScope.DisposeAsync()
+   at Microsoft.Extensions.Hosting.Internal.Host.DisposeAsync()
+   at System.Runtime.CompilerServices.AsyncMethodBuilderCore.Start[TStateMachine](TStateMachine& stateMachine)
+   at Microsoft.Extensions.Hosting.Internal.Host.DisposeAsync()
+   at Microsoft.Extensions.Hosting.HostingAbstractionsHostExtensions.RunAsync(IHost host, CancellationToken token)
+   at System.Runtime.CompilerServices.AsyncMethodBuilderCore.Start[TStateMachine](TStateMachine& stateMachine)
+   at Microsoft.Extensions.Hosting.HostingAbstractionsHostExtensions.RunAsync(IHost host, CancellationToken token)
+   at Microsoft.Extensions.Hosting.HostingAbstractionsHostExtensions.Run(IHost host)
+   at Program.<Main>$(String[] args) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Program.cs:line 311
+--- End of stack trace from previous location ---
+   at System.Threading.PeriodicTimer.State.System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult(Int16 token)
+   at MediaEngine.Api.Services.ProviderActivityBroadcastService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ProviderActivityBroadcastService.cs:line 30
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.StorageMaintenanceHostedService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\StorageMaintenanceHostedService.cs:line 29
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.MissingUniverseSweepService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\MissingUniverseSweepService.cs:line 90
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.RejectedFileCleanupService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\RejectedFileCleanupService.cs:line 58
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.Plugins.PluginScheduledSegmentService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\Plugins\PluginScheduledSegmentService.cs:line 36
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.ProviderHealthMonitorService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ProviderHealthMonitorService.cs:line 102
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.ModelAutoDownloadService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ModelAutoDownloadService.cs:line 68
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.Threading.Tasks.TaskCanceledException: A task was canceled.
+   at MediaEngine.Api.Services.ActivityPruningService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ActivityPruningService.cs:line 50
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)
+[22:22:11 FTL] The HostOptions.BackgroundServiceExceptionBehavior is configured to StopHost. A BackgroundService has thrown an unhandled exception, and the IHost instance is stopping. To avoid this behavior, configure this to Ignore; however the BackgroundService will not be restarted.
+System.OperationCanceledException: The operation was canceled.
+   at System.Threading.PeriodicTimer.State.Signal(Boolean stopping, CancellationToken cancellationToken)
+   at System.Threading.CancellationTokenSource.ExecuteCallbackHandlers(Boolean throwOnFirstException)
+   at Microsoft.Extensions.DependencyInjection.ServiceLookup.ServiceProviderEngineScope.DisposeAsync()
+   at Microsoft.Extensions.Hosting.Internal.Host.DisposeAsync()
+   at System.Runtime.CompilerServices.AsyncMethodBuilderCore.Start[TStateMachine](TStateMachine& stateMachine)
+   at Microsoft.Extensions.Hosting.Internal.Host.DisposeAsync()
+   at Microsoft.Extensions.Hosting.HostingAbstractionsHostExtensions.RunAsync(IHost host, CancellationToken token)
+   at System.Runtime.CompilerServices.AsyncMethodBuilderCore.Start[TStateMachine](TStateMachine& stateMachine)
+   at Microsoft.Extensions.Hosting.HostingAbstractionsHostExtensions.RunAsync(IHost host, CancellationToken token)
+   at Microsoft.Extensions.Hosting.HostingAbstractionsHostExtensions.Run(IHost host)
+   at Program.<Main>$(String[] args) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Program.cs:line 311
+--- End of stack trace from previous location ---
+   at System.Threading.PeriodicTimer.State.System.Threading.Tasks.Sources.IValueTaskSource<System.Boolean>.GetResult(Int16 token)
+   at MediaEngine.Api.Services.ProviderActivityBroadcastService.ExecuteAsync(CancellationToken stoppingToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api\Services\ProviderActivityBroadcastService.cs:line 30
+   at Microsoft.Extensions.Hosting.Internal.Host.TryExecuteBackgroundServiceAsync(BackgroundService backgroundService)

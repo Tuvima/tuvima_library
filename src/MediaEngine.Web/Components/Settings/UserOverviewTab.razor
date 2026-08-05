@@ -1,8 +1,10 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 @using Microsoft.AspNetCore.Components.Forms
 @using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Contracts.Settings
 @inject UIOrchestratorService Orchestrator
 @inject IEngineApiClient ApiClient
+@inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 
 <div class="tl-page user-overview-page user-overview-page--refined">
@@ -100,6 +102,33 @@
                             </MudText>
                         </MudStack>
                     </MudStack>
+                    <div class="user-overview-appearance">
+                        <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center">
+                            <div>
+                                <MudText Typo="Typo.subtitle2">Appearance</MudText>
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">Tuvima currently uses its supported dark theme. Choose the interface accent color.</MudText>
+                            </div>
+                            <AppChip Text="Dark" Icon="@Icons.Material.Outlined.DarkMode" Tone="AppUiTone.Neutral" />
+                        </MudStack>
+                        <div class="user-overview-accent-row" role="group" aria-label="Accent color">
+                            @foreach (var accent in AccentOptions)
+                            {
+                                <AppCssElement Tag="button"
+                                               Class="@AccentClass(accent)"
+                                               Css="@($"--profile-accent: {accent}")"
+                                               disabled="@_savingAppearance"
+                                               OnClick="@(_ => SaveAccentAsync(accent))"
+                                               type="button"
+                                               aria-label="@($"Use {accent} accent")"
+                                               aria-pressed="@string.Equals(_accentColor, accent, StringComparison.OrdinalIgnoreCase)" />
+                            }
+                            <AppButton Label="Reset"
+                                       StartIcon="@Icons.Material.Outlined.Restore"
+                                       Size="AppControlSize.Compact"
+                                       Disabled="@_savingAppearance"
+                                       OnClick="@(() => SaveAccentAsync(DefaultAccent))" />
+                        </div>
+                    </div>
             </AppPanel>
 
             <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
@@ -315,6 +344,7 @@
 
     private bool _loading = true;
     private bool _savingProfile;
+    private bool _savingAppearance;
     private bool _avatarDialogOpen;
     private bool _avatarDialogBusy;
     private bool _avatarRemoveRequested;
@@ -327,6 +357,9 @@
     private ProfileOverviewViewModel? _overview;
     private string _displayName = string.Empty;
     private string _savedDisplayName = string.Empty;
+    private string _accentColor = DefaultAccent;
+    private const string DefaultAccent = "#8B5CF6";
+    private static readonly string[] AccentOptions = [DefaultAccent, "#3B82F6", "#06B6D4", "#22C55E", "#F59E0B", "#EC4899", "#EF4444"];
     private static readonly DialogOptions _avatarDialogOptions = new()
     {
         CloseOnEscapeKey = true,
@@ -336,6 +369,10 @@
 
     private bool ProfileDirty =>
         !string.Equals(_displayName.Trim(), _savedDisplayName, StringComparison.Ordinal);
+
+    private string AccentClass(string accent) => string.Equals(_accentColor, accent, StringComparison.OrdinalIgnoreCase)
+        ? "user-overview-accent-swatch user-overview-accent-swatch--selected"
+        : "user-overview-accent-swatch";
 
     private bool HasActivitySummary => _overview is not null
         && (_overview.Stats.InProgress > 0
@@ -359,6 +396,8 @@
                     _overview = new ProfileOverviewViewModel { Profile = profile };
 
                 SyncProfileEditor(_overview.Profile);
+                var uiSettings = await ApiClient.GetUIProfileSettingsAsync(profile.Id.ToString());
+                _accentColor = uiSettings?.AccentColor ?? DeviceContext.Settings.AccentColor ?? DefaultAccent;
             }
         }
         catch
@@ -369,6 +408,34 @@
         {
             _loading = false;
         }
+    }
+
+    private async Task SaveAccentAsync(string accent)
+    {
+        if (_overview is null || _savingAppearance)
+            return;
+
+        _savingAppearance = true;
+        var profileId = _overview.Profile.Id.ToString();
+        var saved = await ApiClient.SaveUIProfileSettingsAsync(profileId, new UIProfileSettingsDto
+        {
+            ProfileId = profileId,
+            DarkMode = true,
+            AccentColor = accent,
+        });
+
+        if (saved is null)
+        {
+            Snackbar.Add("Could not save appearance settings.", Severity.Error);
+        }
+        else
+        {
+            _accentColor = saved.AccentColor ?? DefaultAccent;
+            await DeviceContext.SwitchDeviceAsync(DeviceContext.DeviceClass, profileId);
+            Snackbar.Add("Appearance updated.", Severity.Success);
+        }
+
+        _savingAppearance = false;
     }
 
     private void StartNameEdit()

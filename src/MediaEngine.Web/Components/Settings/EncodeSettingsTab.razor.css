@@ -11,6 +11,11 @@
     gap: var(--tl-space-5);
 }
 
+.encode-settings__save-row {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .encode-settings__diagnostics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }

@@ -144,13 +144,14 @@
     private bool IsSection(string section) =>
         string.Equals(Section, section, StringComparison.OrdinalIgnoreCase);
 
-    private RenderFragment SaveButton(string label) => @<AppButton Label="@(_saving ? "Saving..." : label)"
+    private RenderFragment SaveButton(string label) => @<div class="encode-settings__save-row">
+        <AppButton Label="@(_saving ? "Saving..." : label)"
+                   StartIcon="@Icons.Material.Outlined.Save"
                    ButtonStyle="AppButtonStyle.Filled"
                    Tone="AppUiTone.Primary"
-                   FullWidth="true"
-                   Class="mt-4"
                    Disabled="@_saving"
-                   OnClick="@SaveAsync" />;
+                   OnClick="@SaveAsync" />
+    </div>;
 
     private async Task SaveAsync()
     {

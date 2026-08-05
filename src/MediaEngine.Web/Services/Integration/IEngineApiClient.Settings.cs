@@ -245,6 +245,10 @@ public partial interface IEngineApiClient
         string? profileId = null,
         CancellationToken ct = default);
 
+    Task<UIProfileSettingsDto?> GetUIProfileSettingsAsync(string profileId, CancellationToken ct = default);
+
+    Task<UIProfileSettingsDto?> SaveUIProfileSettingsAsync(string profileId, UIProfileSettingsDto settings, CancellationToken ct = default);
+
     // ── Pipelines (/settings/pipelines) ─────────────────────────────────────
 
     /// <summary>GET /settings/pipelines — pipeline configuration per media type.</summary>

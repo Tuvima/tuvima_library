@@ -1,7 +1,7 @@
 .user-overview-page {
     width: 100%;
-    max-width: 1440px;
-    margin: 0 auto;
+    max-width: none;
+    margin: 0;
 }
 
 .user-overview-grid {
@@ -37,6 +37,46 @@
 
 .user-overview-profile-layout {
     min-height: 112px;
+}
+
+.user-overview-appearance {
+    display: grid;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--tl-divider);
+}
+
+.user-overview-accent-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+::deep .user-overview-accent-swatch {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--profile-accent);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, .12);
+    cursor: pointer;
+}
+
+::deep .user-overview-accent-swatch:hover,
+::deep .user-overview-accent-swatch:focus-visible,
+::deep .user-overview-accent-swatch--selected {
+    border-color: var(--tl-text-primary);
+    outline: 2px solid color-mix(in srgb, var(--profile-accent) 70%, transparent);
+    outline-offset: 2px;
+}
+
+::deep .user-overview-accent-swatch:disabled {
+    cursor: wait;
+    opacity: .58;
 }
 
 .user-overview-avatar-button {

@@ -1,0 +1,201 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[22:43:17 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[22:43:17 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[22:43:17 INF] PriorityCascadeEngine: loaded 6 field priority override(s): [description, short_description, biography, cover, rating, content_rating]
+[22:43:18 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[22:43:18 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[22:43:18 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[22:43:18 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[22:43:18 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[22:43:18 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[22:43:18 INF] IngestionEngine started
+[22:43:19 INF] Running startup reconciliation...
+[22:43:19 INF] FolderHealthService started — checking every 30s
+[22:43:19 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[22:43:19 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[22:43:19 INF] RetagSweepWorker started
+[22:43:19 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[22:43:19 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[22:43:19 INF] Identity startup recovery found no interrupted jobs.
+[22:43:19 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[22:43:19 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[22:43:19 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[22:43:19 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[22:43:19 INF] RetailMatchHostedService started
+[22:43:19 INF] WikidataBridgeHostedService started
+[22:43:19 INF] QuickHydrationHostedService started
+[22:43:19 INF] Collection backfill complete: 31/31 processed, 0 assigned, 0 created, 0 already assigned, 31 skipped, 0 failed in 130ms
+[22:43:19 INF] Reconciliation: collection backfill processed 31/31 candidate work(s), assigned 0, created 0, skipped 31, failed 0
+[22:43:20 INF] Reconciliation complete: 111 scanned, 0 missing, 0 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 6 empty folders, 0 orphan people, 0 stale root sidecars, 1798ms
+[22:43:20 INF] Startup reconciliation complete: 111 scanned, 0 missing
+[22:43:20 INF] Watching: C:\temp\tuvima-watch\books
+[22:43:20 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[22:43:20 INF] Watching: C:\temp\tuvima-watch\tv
+[22:43:20 INF] Watching: C:\temp\tuvima-watch\movies
+[22:43:20 INF] Watching: C:\temp\tuvima-watch\music
+[22:43:20 INF] Watching: C:\temp\tuvima-watch\comics
+[22:43:20 INF] Initial scan: skipped 13 already-known or duplicate file(s) across 6 scan target(s)
+[22:43:20 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[22:43:23 INF] Now listening on: https://localhost:61494
+[22:43:23 INF] Now listening on: http://localhost:61495
+[22:43:23 INF] Application started. Press Ctrl+C to shut down.
+[22:43:23 INF] Hosting environment: Development
+[22:43:23 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[22:43:24 INF] DeferredEnrichmentService started
+[22:43:24 INF] Artwork rendition repair completed: 0 assets repaired, 170 canonical sets refreshed.
+[22:43:29 INF] ProviderHealthMonitor started — 4 providers tracked
+[22:43:29 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[22:43:34 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[22:43:34 INF] Cover art: skipped 'Imagine' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\1b46bf58-1245-474b-8e82-55c7f87f1342\cover\e2e223c6db1c4142b2fe7d57659bdd83.jpg)
+[22:43:34 INF] Cover art: skipped 'Something' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\248b84bb-9322-4135-9568-ea8e811faa21\cover\e29ba103cd084a4bb1054ba9b03b24e2.jpg)
+[22:43:34 INF] Cover art: skipped 'We Are the Champions' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\2d14cadc-0931-4bbe-95b6-8db6da4fb283\cover\1bdc77664eef4a55925f1383a00a0c75.jpg)
+[22:43:34 INF] Cover art: skipped 'Smells Like Teen Spirit' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\3661a335-fda0-4ada-9297-763a3eb399ef\cover\7c7ec7fe93424863a123cd1008827ca6.jpg)
+[22:43:34 INF] Cover art: skipped 'Yesterday' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\6032ea79-9909-4bd1-8ed5-d41dc4887aef\cover\8b80d413c6314a1fb7402c7f92de8154.jpg)
+[22:43:34 INF] Cover art: skipped 'MMMBop' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\80fcaacf-5cc0-4a79-a533-b798c4d1e7e3\cover\8c46c4b3207f4628846b62e76c220069.jpg)
+[22:43:34 INF] Cover art: skipped 'Across the Stars' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\82360d48-d56b-4cf5-88ab-b52d67dc8b9f\cover\64efc9dc223d43b8aa7cad2f4f7a2f62.jpg)
+[22:43:34 INF] Cover art: skipped '99 Luftballons' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\85a7f8c2-23ea-4186-a6b3-d13d89bbed52\cover\c959772df00647b7bd9e18513576dddb.jpg)
+[22:43:34 INF] Cover art: skipped 'Beauty and the Beast' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\92142743-1902-4f86-8cd5-9d7d0ea98ab9\cover\d1167fac0ac342f98cbd421dc982bca7.jpg)
+[22:43:34 INF] Cover art: skipped 'Nuvole bianche' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\b2be3616-bf61-4648-84f0-efae7ccdd64e\cover\46ea7851c97844b6b0e3f1223221773b.jpg)
+[22:43:34 INF] Cover art: skipped 'Five Years' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\bba75faf-b8c6-446b-9ade-99448929c60b\cover\0c438fd566294797b17303353522043a.jpg)
+[22:43:35 INF] Cover art: skipped 'Lose Yourself' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\bbf3b66e-058e-4bbf-8d57-3f1a42a47318\cover\bcb549c82b21470988cd3df949fc530e.jpg)
+[22:43:35 INF] Cover art: skipped 'BLOOD.' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\c4b1d655-b39b-407b-aa5c-8a89086ec1e2\cover\4d47e271c91b443bb8ab277d403b4b4a.jpg)
+[22:43:35 INF] Cover art: skipped 'Take Five' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\c8e1570a-4fbe-44b1-8871-1b8a4b519d16\cover\aa202e65a3a74d75b98e7559f50ca10c.jpg)
+[22:43:35 INF] Cover art: skipped 'Time' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\cba20a8a-fe3c-4b67-9162-5458766649c4\cover\86903a9ef373416ab80115da3de991cc.jpg)
+[22:43:35 INF] Start processing HTTP request GET https://musicbrainz.org/ws/2/release/98f8ee15-e5b2-4fbe-8212-4a123894016e?*
+[22:43:35 INF] Sending HTTP request GET https://musicbrainz.org/ws/2/release/98f8ee15-e5b2-4fbe-8212-4a123894016e?*
+[22:43:36 INF] Received HTTP response headers after 869.8563ms - 200
+[22:43:36 INF] Execution attempt. Source: 'musicbrainz-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 903.5713ms
+[22:43:36 INF] End processing HTTP request after 977.8206ms - 200
+[22:43:36 INF] Cover art: skipped 'Under Pressure' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\db7545db-f10f-45c7-a29a-a4bda6dc5595\cover\8c98a3cff64e4b2bb417a8318974ba37.jpg)
+[22:43:36 INF] Cover art: skipped 'Death on Two Legs (Dedicated to…)' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\f8d9d7d6-f009-46b8-b43a-7420cd3e41a3\cover\be9206f7b10e4b578c3fc75f1e1b2324.jpg)
+[22:43:36 INF] Cover art: skipped 'The Imperial March (Darth Vader’s Theme)' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\faca3ca4-7b0e-4346-8898-add662fd4987\cover\a9482f7aea494531bdef021d4879c668.jpg)
+[22:43:49 INF] Next activity prune at 08/05/2026 03:00:00 -05:00
+[22:44:04 INF] Next rejected-file cleanup at 08/05/2026 04:00:00 -05:00
+[22:44:11 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:44:11 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:44:11 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:44:13 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:44:13 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:44:13 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:44:19 INF] Next retag sweep at 08/05/2026 03:00:00 -05:00
+[22:44:19 INF] Next storage maintenance pass at 08/05/2026 02:00:00 -05:00
+[22:44:25 INF] Start processing HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:44:25 INF] Sending HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:44:25 INF] Received HTTP response headers after 95.7103ms - 200
+[22:44:25 INF] Execution attempt. Source: 'plugin_catalog-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 96.4766ms
+[22:44:25 INF] End processing HTTP request after 97.5804ms - 200
+[22:44:25 INF] Start processing HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:44:25 INF] Sending HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:44:25 INF] Received HTTP response headers after 8.532ms - 200
+[22:44:25 INF] Execution attempt. Source: 'plugin_catalog-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 9.5156ms
+[22:44:25 INF] End processing HTTP request after 10.165ms - 200
+[22:45:19 INF] PluginScheduledSegmentService: next run in 03:14:40.7434177
+[22:45:19 INF] VibeBatchService: scanning for entities needing vibe tags
+[22:45:24 INF] VibeBatchService: tagged 0 entities
+[22:45:24 INF] VibeBatchService: next run in 05:14:35.9295537
+[22:46:19 INF] SeriesAlignmentService: scanning for unpositioned series works
+[22:46:19 INF] [DESCRIPTION-INTEL-BATCH] Next run in 00:13:40.7431479
+[22:46:24 INF] SeriesAlignmentService: attempted 0 bounded suggestion(s)
+[22:46:24 INF] SeriesAlignmentService: next run in 04:13:35.9881987
+[22:46:26 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:46:26 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:46:26 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:46:28 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:46:28 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:46:28 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:47:22 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:47:22 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:47:22 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:47:22 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:47:22 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:47:22 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:48:19 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:48:19 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:48:19 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:48:19 INF] TasteProfileService: persisted 0 profile(s)
+[22:48:19 INF] TasteProfileService: next run in 4.06:11:40.5721199
+[22:48:21 INF] Poll sweep: inspected 6, changed 0, queued 0, unchanged 6, ignored 0, missing 0 in C:\temp\tuvima-watch\books
+[22:48:21 INF] Poll sweep: inspected 0, changed 0, queued 0, unchanged 0, ignored 0, missing 0 in C:\temp\tuvima-watch\audiobooks
+[22:48:21 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\tv
+[22:48:21 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\movies
+[22:48:21 INF] Poll sweep: inspected 4, changed 0, queued 0, unchanged 4, ignored 0, missing 0 in C:\temp\tuvima-watch\music
+[22:48:21 INF] Poll sweep: inspected 1, changed 0, queued 0, unchanged 1, ignored 0, missing 0 in C:\temp\tuvima-watch\comics
+[22:48:24 INF] Start processing HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:48:24 INF] Sending HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:48:24 INF] Received HTTP response headers after 27.4166ms - 200
+[22:48:24 INF] Execution attempt. Source: 'plugin_catalog-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 29.3693ms
+[22:48:24 INF] End processing HTTP request after 31.0274ms - 200
+[22:48:25 INF] Start processing HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:48:25 INF] Sending HTTP request GET https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json
+[22:48:25 INF] Received HTTP response headers after 6.185ms - 200
+[22:48:25 INF] Execution attempt. Source: 'plugin_catalog-standard//Standard-Retry', Operation Key: 'null', Result: '200', Handled: 'False', Attempt: '0', Execution Time: 6.8916ms
+[22:48:25 INF] End processing HTTP request after 7.4405ms - 200
+[22:49:05 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:49:05 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:49:05 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118
+[22:51:37 WRN] Cannot ensure model TextFast: state is NotDownloaded
+[22:51:37 WRN] Model TextFast is unavailable
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Infrastructure.ModelLifecycleManager.AcquireInferenceLeaseAsync(AiModelRole role, CancellationToken cancellationToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Infrastructure\ModelLifecycleManager.cs:line 128
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferWithOutcomeAsync(AiModelRole role, String prompt, String gbnfGrammar, InferenceRequestOptions options, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 119
+[22:51:37 WRN] TasteProfiler: summary generation failed; using a local fallback
+System.InvalidOperationException: Model TextFast is not available for inference.
+   at MediaEngine.AI.Llama.LlamaInferenceService.GetValueOrThrow[T](InferenceOutcome`1 outcome, CancellationToken callerToken) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 227
+   at MediaEngine.AI.Llama.LlamaInferenceService.InferAsync(AiModelRole role, String prompt, String gbnfGrammar, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Llama\LlamaInferenceService.cs:line 77
+   at MediaEngine.AI.Features.TasteProfiler.GenerateSummaryAsync(IReadOnlyDictionary`2 genres, IReadOnlyDictionary`2 eras, IReadOnlyDictionary`2 mediaTypes, CancellationToken ct) in C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.AI\Features\TasteProfiler.cs:line 118

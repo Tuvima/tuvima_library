@@ -266,95 +266,6 @@ else
                                     }
                                 </div>
                             </AppTabPanel>
-                            <AppTabPanel Text="Approved catalog" Icon="@Icons.Material.Outlined.Verified">
-                                <div class="settings-plugin-tab-body">
-                                    <div class="settings-plugin-catalog-header">
-                                        <AppButton Label="Refresh GitHub catalog"
-                                                   StartIcon="@Icons.Material.Outlined.CloudDownload"
-                                                   Size="AppControlSize.Compact"
-                                                   Tone="AppUiTone.Primary"
-                                                   OnClick="@LoadApprovedCatalogAsync" />
-                                        @if (_approvedCatalog?.LastUpdated is not null)
-                                        {
-                                            <span class="settings-plugin-updated">Updated @_approvedCatalog.LastUpdated.Value.ToLocalTime().ToString("g")</span>
-                                        }
-                                    </div>
-
-                                    @if (_approvedCatalogLoading)
-                                    {
-                                        <AppSkeleton Size="AppControlSize.Large" />
-                                    }
-                                    else if (_approvedCatalog is null)
-                                    {
-                                        <AppAlert Tone="AppUiTone.Info">The approved plugin catalog has not been loaded yet.</AppAlert>
-                                    }
-                                    else
-                                    {
-                                        <AppAlert Tone="@CatalogTone(_approvedCatalog.Status)">
-                                            GitHub catalog status: @_approvedCatalog.Status
-                                            @if (!string.IsNullOrWhiteSpace(_approvedCatalog.Message))
-                                            {
-                                                <span> - @_approvedCatalog.Message</span>
-                                            }
-                                        </AppAlert>
-
-                                        @if (_approvedCatalog.Plugins.Count == 0)
-                                        {
-                                            <AppAlert Tone="AppUiTone.Info">No approved third-party plugins are listed right now.</AppAlert>
-                                        }
-                                        else
-                                        {
-                                            <AppTable Class="settings-plugin-job-table">
-                                                <thead>
-                                                    <tr>
-                                                        <th>Plugin</th>
-                                                        <th>Status</th>
-                                                        <th>Capabilities</th>
-                                                        <th>Package</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    @foreach (var item in _approvedCatalog.Plugins)
-                                                    {
-                                                        <tr>
-                                                            <td>
-                                                                <div class="settings-plugin-table-title">@item.Name</div>
-                                                                <div class="settings-plugin-table-meta">@item.Id - v@item.Version</div>
-                                                                @if (!string.IsNullOrWhiteSpace(item.Description))
-                                                                {
-                                                                    <div class="settings-plugin-table-meta">@item.Description</div>
-                                                                }
-                                                            </td>
-                                                            <td>@item.Status</td>
-                                                            <td>@string.Join(", ", item.Capabilities)</td>
-                                                            <td>
-                                                                <div class="settings-plugin-link-stack">
-                                                                    @if (!string.IsNullOrWhiteSpace(item.ReleaseUrl))
-                                                                    {
-                                                                        <MudLink Href="@item.ReleaseUrl" Target="_blank">Release</MudLink>
-                                                                    }
-                                                                    @if (!string.IsNullOrWhiteSpace(item.PackageUrl))
-                                                                    {
-                                                                        <MudLink Href="@item.PackageUrl" Target="_blank">Package</MudLink>
-                                                                    }
-                                                                    @if (!string.IsNullOrWhiteSpace(item.Sha256))
-                                                                    {
-                                                                        <span>SHA-256 pinned</span>
-                                                                    }
-                                                                    @if (!string.IsNullOrWhiteSpace(item.InstallNotes))
-                                                                    {
-                                                                        <span>@item.InstallNotes</span>
-                                                                    }
-                                                                </div>
-                                                            </td>
-                                                        </tr>
-                                                    }
-                                                </tbody>
-                                            </AppTable>
-                                        }
-                                    }
-                                </div>
-                            </AppTabPanel>
                             <AppTabPanel Text="Capabilities" Icon="@Icons.Material.Outlined.CheckCircleOutline">
                                 <div class="settings-plugin-tab-body">
                                     @if (plugin.Capabilities.Count == 0 && plugin.ToolRequirements.Count == 0 && plugin.AiPermissions.Count == 0)
@@ -379,44 +290,13 @@ else
                                     </AppTable>
                                 </div>
                             </AppTabPanel>
-                            <AppTabPanel Text="Danger" Icon="@Icons.Material.Outlined.Delete">
-                                <div class="settings-plugin-tab-body">
-                                    @if (plugin.IsBuiltIn)
-                                    {
-                                        <AppAlert Tone="AppUiTone.Info">Built-in plugins can be disabled, but they cannot be deleted from this page.</AppAlert>
-                                    }
-                                    else
-                                    {
-                                        <AppAlert Tone="AppUiTone.Warning">
-                                            Deleting this plugin removes its dynamic plugin folder and saved plugin configuration.
-                                        </AppAlert>
-                                        @if (string.Equals(_deletePluginId, plugin.Id, StringComparison.OrdinalIgnoreCase))
-                                        {
-                                            <AppActionBar Align="AppHorizontalAlignment.Start">
-                                                <AppButton Label="Confirm delete"
-                                                           StartIcon="@Icons.Material.Outlined.DeleteForever"
-                                                           ButtonStyle="AppButtonStyle.Filled"
-                                                           Tone="AppUiTone.Error"
-                                                           OnClick="@(() => DeletePluginAsync(plugin))" />
-                                                <AppButton Label="Cancel"
-                                                           OnClick="@(() => _deletePluginId = null)" />
-                                            </AppActionBar>
-                                        }
-                                        else
-                                        {
-                                            <AppButton Label="Delete plugin"
-                                                       StartIcon="@Icons.Material.Outlined.Delete"
-                                                       Tone="AppUiTone.Error"
-                                                       OnClick="@(() => _deletePluginId = plugin.Id)" />
-                                        }
-                                    }
-                                </div>
-                            </AppTabPanel>
                         </AppTabs>
+                        @DangerPanel(plugin)
                     </div>
                 }
             </AppCard>
         </div>
+        @ApprovedCatalogPanel()
     </div>
 }
 
@@ -427,9 +307,7 @@ else
     {
         "settings" => 1,
         "jobs-health" or "health" => 2,
-        "catalog" => 3,
-        "help" or "capabilities" => 4,
-        "danger" => 5,
+        "help" or "capabilities" => 3,
         _ => 0,
     };
 
@@ -449,6 +327,89 @@ else
     private IEnumerable<PluginSummaryResponse> FilteredPlugins => _plugins.Where(MatchesFilter);
 
     private PluginSummaryResponse? SelectedPlugin => _plugins.FirstOrDefault(p => string.Equals(p.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase));
+
+    private RenderFragment DangerPanel(PluginSummaryResponse plugin) => @<AppCard Class="settings-plugin-danger-card">
+        <div class="settings-plugin-danger-header">
+            <div>
+                <MudText Typo="Typo.subtitle1">Danger Zone</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Destructive plugin actions are kept separate from everyday settings.</MudText>
+            </div>
+            @if (plugin.IsBuiltIn)
+            {
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Built-in plugins can be disabled, but cannot be deleted.</MudText>
+            }
+            else if (string.Equals(_deletePluginId, plugin.Id, StringComparison.OrdinalIgnoreCase))
+            {
+                <AppActionBar Align="AppHorizontalAlignment.End">
+                    <AppButton Label="Confirm delete"
+                               StartIcon="@Icons.Material.Outlined.DeleteForever"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Tone="AppUiTone.Error"
+                               OnClick="@(() => DeletePluginAsync(plugin))" />
+                    <AppButton Label="Cancel" OnClick="@(() => _deletePluginId = null)" />
+                </AppActionBar>
+            }
+            else
+            {
+                <AppButton Label="Delete plugin"
+                           StartIcon="@Icons.Material.Outlined.Delete"
+                           Tone="AppUiTone.Error"
+                           OnClick="@(() => _deletePluginId = plugin.Id)" />
+            }
+        </div>
+    </AppCard>;
+
+    private RenderFragment ApprovedCatalogPanel() => @<AppCard Class="settings-plugin-catalog-card">
+        <div class="settings-plugin-catalog-header">
+            <div>
+                <MudText Typo="Typo.subtitle1">Approved Catalog</MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary">Discover reviewed third-party plugins from the configured GitHub catalog.</MudText>
+            </div>
+            <AppButton Label="Refresh catalog"
+                       StartIcon="@Icons.Material.Outlined.CloudDownload"
+                       Size="AppControlSize.Compact"
+                       Tone="AppUiTone.Primary"
+                       OnClick="@LoadApprovedCatalogAsync" />
+        </div>
+        @if (_approvedCatalogLoading)
+        {
+            <AppSkeleton Size="AppControlSize.Large" />
+        }
+        else if (_approvedCatalog is null)
+        {
+            <AppAlert Tone="AppUiTone.Info">The approved plugin catalog has not been loaded yet.</AppAlert>
+        }
+        else if (_approvedCatalog.Plugins.Count == 0)
+        {
+            <AppAlert Tone="@CatalogTone(_approvedCatalog.Status)">No approved third-party plugins are listed right now.</AppAlert>
+        }
+        else
+        {
+            <AppTable Class="settings-plugin-job-table">
+                <thead><tr><th>Plugin</th><th>Status</th><th>Capabilities</th><th>Package</th></tr></thead>
+                <tbody>
+                    @foreach (var item in _approvedCatalog.Plugins)
+                    {
+                        <tr>
+                            <td><div class="settings-plugin-table-title">@item.Name</div><div class="settings-plugin-table-meta">@item.Id - v@item.Version</div></td>
+                            <td>@item.Status</td>
+                            <td>@string.Join(", ", item.Capabilities)</td>
+                            <td>
+                                @if (!string.IsNullOrWhiteSpace(item.ReleaseUrl))
+                                {
+                                    <MudLink Href="@item.ReleaseUrl" Target="_blank">Release</MudLink>
+                                }
+                                else
+                                {
+                                    <span>Not published</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </AppTable>
+        }
+    </AppCard>;
 
     protected override async Task OnInitializedAsync()
     {

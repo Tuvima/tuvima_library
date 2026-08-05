@@ -1308,6 +1308,21 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public Task<UIProfileSettingsDto?> GetUIProfileSettingsAsync(string profileId, CancellationToken ct = default) =>
+        GetAsync<UIProfileSettingsDto>(
+            "GET /settings/ui/profile/{profileId}",
+            $"/settings/ui/profile/{WebUtility.UrlEncode(profileId)}",
+            ct: ct);
+
+    public async Task<UIProfileSettingsDto?> SaveUIProfileSettingsAsync(string profileId, UIProfileSettingsDto settings, CancellationToken ct = default)
+    {
+        var path = $"/settings/ui/profile/{WebUtility.UrlEncode(profileId)}";
+        if (!await PutAsync("PUT /settings/ui/profile/{profileId}", path, settings, ct: ct))
+            return null;
+
+        return await GetAsync<UIProfileSettingsDto>("GET /settings/ui/profile/{profileId}", path, ct: ct);
+    }
+
     // -- GET /ai/profile -------------------------------------------------------
 
     public async Task<AiHealthStatusDto?> GetAiStatusAsync(CancellationToken ct = default)

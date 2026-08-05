@@ -7,6 +7,7 @@
 .settings-page-canvas {
     min-width: 0;
     margin-top: var(--tl-space-5, 20px);
+    font-family: var(--font-ui, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
 }
 
 .settings-mobile-navigation {
@@ -27,14 +28,38 @@
 .settings-page-canvas ::deep .settings-tab-strip .mud-tabs-tabbar,
 .settings-page-canvas ::deep .settings-tab-strip .mud-tabs-toolbar-primary,
 .settings-page-canvas ::deep .settings-tab-strip .mud-tabs-tabbar-primary {
-    min-height: var(--tl-control-height-lg, 48px);
+    min-height: 48px !important;
+    padding: 0 8px !important;
     border-bottom: 1px solid var(--tl-border-subtle);
+    border-top: 0 !important;
+    border-right: 0 !important;
+    border-left: 0 !important;
+    border-radius: 0 !important;
     background: transparent !important;
 }
 
 .settings-page-canvas ::deep .settings-tab-strip .mud-tab {
-    min-height: var(--tl-control-height-lg, 48px);
-    padding-inline: var(--tl-space-4, 16px);
+    min-height: 46px !important;
+    padding: 0 var(--tl-space-3, 12px) !important;
+    gap: 8px !important;
+    font-size: .82rem !important;
+    font-weight: 600 !important;
+}
+
+.settings-page-canvas ::deep .settings-tab-strip .mud-tab .mud-tab-content {
+    gap: 8px !important;
+    font-weight: 600 !important;
+}
+
+.settings-page-canvas ::deep .settings-tab-strip .mud-tab .mud-icon-root {
+    width: 19px !important;
+    height: 19px !important;
+    color: currentColor !important;
+    font-size: 19px !important;
+}
+
+.settings-page-canvas ::deep .settings-tab-strip .mud-tooltip-root .mud-icon-root {
+    color: currentColor !important;
 }
 
 .settings-page-canvas ::deep .settings-plugin-tabs .mud-tabs-toolbar-content,
@@ -65,7 +90,23 @@
 }
 
 .settings-page-canvas ::deep .settings-section-card__header {
+    display: flex;
+    align-items: center;
+    min-height: 24px !important;
+    gap: 10px;
     margin-bottom: var(--tl-space-4, 16px);
+}
+
+.settings-page-canvas ::deep .settings-section-card__header .mud-icon-root {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 20px !important;
+}
+
+.settings-page-canvas ::deep .settings-section-card__header .mud-typography {
+    font-size: .96rem !important;
+    font-weight: 700 !important;
+    line-height: 1.3 !important;
 }
 
 .settings-page-canvas ::deep .settings-experience-grid {
@@ -81,12 +122,104 @@
 
 .settings-page-canvas ::deep .settings-preference-row {
     display: grid;
-    grid-template-columns: 28px minmax(0, 1fr) auto;
+    grid-template-columns: 24px minmax(0, 1fr) auto !important;
     align-items: center;
     gap: var(--tl-space-3, 12px);
-    min-height: var(--tl-control-height-lg, 48px);
-    padding: var(--tl-space-3, 12px) 0;
+    min-height: 52px !important;
+    padding: 8px 0 !important;
     border-bottom: 1px solid var(--tl-divider);
+}
+
+.settings-page-canvas ::deep .settings-preference-row__icon {
+    display: grid !important;
+    width: 22px !important;
+    height: 22px !important;
+    place-items: center !important;
+    color: var(--app-text-secondary) !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+.settings-page-canvas ::deep .settings-preference-row__icon .mud-icon-root {
+    width: 19px !important;
+    height: 19px !important;
+    color: currentColor !important;
+    font-size: 19px !important;
+}
+
+.settings-page-canvas ::deep .settings-preference-row__text .mud-typography-body1 {
+    font-size: .88rem !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+}
+
+.settings-page-canvas ::deep .settings-preference-row__text .mud-typography-caption {
+    font-size: .76rem !important;
+    line-height: 1.4 !important;
+}
+
+.settings-page-canvas ::deep .settings-preference-row .mud-switch,
+.settings-page-canvas ::deep .app-switch-row .mud-switch {
+    align-self: center;
+    justify-self: end !important;
+    margin: 0 !important;
+}
+
+/* MudBlazor's small switch button is 42px tall inside a 24px track container.
+   Center it explicitly; the global icon-button reset otherwise leaves the thumb 9px low. */
+.settings-page-canvas ::deep .mud-switch-small .mud-switch-base,
+.settings-page-canvas ::deep .mud-switch-span-small .mud-switch-base-small {
+    top: -9px !important;
+}
+
+.settings-page-canvas ::deep .mud-switch-span-small .mud-switch-base-small.mud-checked {
+    transform: translateX(16px) !important;
+}
+
+.settings-page-canvas ::deep .settings-slider-block {
+    padding: 8px 0 6px !important;
+}
+
+.settings-page-canvas ::deep .settings-slider {
+    margin: 0 !important;
+    padding: 2px 10px !important;
+}
+
+.settings-page-canvas ::deep .settings-slider-scale {
+    position: relative;
+    display: block !important;
+    height: 17px;
+    margin: 2px 10px 0 !important;
+    padding: 0 !important;
+    color: var(--app-text-muted) !important;
+    font-size: .7rem !important;
+    line-height: 1.2 !important;
+}
+
+.settings-page-canvas ::deep .settings-slider-mark {
+    position: absolute;
+    left: var(--settings-slider-position);
+    color: var(--app-text-muted);
+    font-size: .7rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    transform: translateX(-50%);
+}
+
+.settings-page-canvas ::deep .settings-slider-mark:first-child {
+    transform: none;
+}
+
+.settings-page-canvas ::deep .settings-slider-mark:last-child {
+    transform: translateX(-100%);
+}
+
+.settings-page-canvas ::deep .mud-switch .mud-ripple,
+.settings-page-canvas ::deep .mud-switch .mud-ripple-switch,
+.settings-page-canvas ::deep .mud-switch .mud-switch-base:hover,
+.settings-page-canvas ::deep .mud-switch .mud-switch-base:focus-visible {
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 .settings-page-canvas ::deep .settings-preference-row:last-child {

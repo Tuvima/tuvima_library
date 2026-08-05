@@ -930,23 +930,23 @@ body {
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(1) .mud-icon-root {
-    color: #a855f7 !important;
+    color: currentColor !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(2) .mud-icon-root {
-    color: #38bdf8 !important;
+    color: currentColor !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(3) .mud-icon-root {
-    color: #a855f7 !important;
+    color: currentColor !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(4) .mud-icon-root {
-    color: #e5e7eb !important;
+    color: currentColor !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tooltip-root:nth-child(5) .mud-icon-root {
-    color: #f59e0b !important;
+    color: currentColor !important;
 }
 
 .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
@@ -1073,38 +1073,38 @@ body {
 
 .settings-admin-panel .settings-preference-row:nth-child(3n + 1) .settings-preference-row__icon,
 .settings-admin-panel .settings-section-card--progress .settings-preference-row:nth-child(3n + 1) .settings-preference-row__icon {
-    color: #f87171 !important;
-    background: rgba(248, 113, 113, 0.13) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-preference-row:nth-child(3n + 2) .settings-preference-row__icon {
-    color: #22c55e !important;
-    background: rgba(34, 197, 94, 0.13) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-preference-row:nth-child(3n) .settings-preference-row__icon {
-    color: #38bdf8 !important;
-    background: rgba(56, 189, 248, 0.13) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(1) .settings-preference-row__icon {
-    color: #8b5cf6 !important;
-    background: rgba(139, 92, 246, 0.16) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(2) .settings-preference-row__icon {
-    color: #f59e0b !important;
-    background: rgba(245, 158, 11, 0.14) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(3) .settings-preference-row__icon {
-    color: #22d3ee !important;
-    background: rgba(34, 211, 238, 0.14) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-section-card--quick .settings-preference-row:nth-child(4) .settings-preference-row__icon {
-    color: #a855f7 !important;
-    background: rgba(168, 85, 247, 0.14) !important;
+    color: var(--app-text-secondary) !important;
+    background: transparent !important;
 }
 
 .settings-admin-panel .settings-preference-row__icon .mud-icon-root {
@@ -1366,6 +1366,30 @@ body {
     padding-top: 18px;
 }
 
+.settings-admin-panel .settings-plugin-danger-card,
+.settings-admin-panel .settings-plugin-catalog-card {
+    margin-top: 18px;
+    padding: 18px;
+}
+
+.settings-admin-panel .settings-plugin-danger-card {
+    border-color: rgba(239, 68, 68, 0.4) !important;
+    background: rgba(69, 10, 10, 0.16) !important;
+}
+
+.settings-admin-panel .settings-plugin-danger-header,
+.settings-admin-panel .settings-plugin-catalog-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 14px;
+}
+
+.settings-admin-panel .settings-plugin-danger-header {
+    margin-bottom: 0;
+}
+
 .settings-admin-panel .settings-plugin-json-editor textarea {
     font-family: Consolas, "Courier New", monospace !important;
     font-size: 0.86rem !important;
@@ -1444,6 +1468,12 @@ body {
     .settings-admin-panel .settings-plugin-detail-header > .mud-switch {
         grid-column: 1 / -1;
         justify-self: start;
+    }
+
+    .settings-admin-panel .settings-plugin-danger-header,
+    .settings-admin-panel .settings-plugin-catalog-header {
+        align-items: flex-start;
+        flex-direction: column;
     }
 }
 
@@ -3401,6 +3431,15 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .mud-switch.mud-checked .mud-switch-track,
 .mud-checkbox.mud-checked .mud-icon-root {
     color: var(--tl-accent-primary) !important;
+}
+
+/* Keep the compact switch thumb vertically centered on its 24px track. */
+.settings-admin-panel .mud-switch-span-small .mud-switch-base-small {
+    top: -9px !important;
+}
+
+.settings-admin-panel .mud-switch-span-small .mud-switch-base-small.mud-checked {
+    transform: translateX(16px) !important;
 }
 
 /* Dialog-specific overrides must stay after the global surface layer. */
