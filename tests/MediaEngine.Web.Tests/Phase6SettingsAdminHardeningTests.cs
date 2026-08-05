@@ -7,7 +7,7 @@ public sealed class Phase6SettingsAdminHardeningTests
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
-        Assert.Contains("<SettingsStatusBadge Status=\"@GetCurrentStatus()\" />", source, StringComparison.Ordinal);
+        Assert.Contains("Status=\"@GetHeaderStatusLabel()\"", source, StringComparison.Ordinal);
         Assert.Contains("Engine state could not be loaded", source, StringComparison.Ordinal);
         Assert.Contains("ShouldDeferForRoleResolution", source, StringComparison.Ordinal);
         Assert.Contains("SettingsNav.ResolveRoute(Section, _currentRole)", source, StringComparison.Ordinal);
@@ -196,9 +196,11 @@ public sealed class Phase6SettingsAdminHardeningTests
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersAccessSettingsTab.razor");
 
         Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
-        Assert.Contains("Not connected. Local network, remote access, and rate-limit controls", source, StringComparison.Ordinal);
+        Assert.Contains("Authentication", source, StringComparison.Ordinal);
+        Assert.Contains("Linked Accounts", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Owner Administrator\", \"library:read, ingest:write", source, StringComparison.Ordinal);
-        Assert.Contains("Session listing and revocation are not persisted", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Access Rules", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Sessions", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -208,8 +210,8 @@ public sealed class Phase6SettingsAdminHardeningTests
         var plugins = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\PluginSettingsTab.razor");
         var localAi = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LocalAiSettingsTab.razor");
 
-        Assert.Contains("SettingsStatusKind.Partial", delivery, StringComparison.Ordinal);
-        Assert.Contains("remain disabled until persistence exists", delivery, StringComparison.Ordinal);
+        Assert.Contains("Variant Storage", delivery, StringComparison.Ordinal);
+        Assert.Contains("Diagnostics", delivery, StringComparison.Ordinal);
         Assert.Contains("Install and update marketplace flows are planned", plugins, StringComparison.Ordinal);
         Assert.Contains("plugin-provided settings", plugins, StringComparison.Ordinal);
         Assert.Contains("Advanced settings", plugins, StringComparison.Ordinal);

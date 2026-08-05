@@ -1,85 +1,12 @@
 @namespace MediaEngine.Web.Components.Settings
 
-<div class="tl-page">
-    <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-        Privacy and history controls are not available in this build. The disabled controls below do not change, delete, export, or save any data.
-    </AppAlert>
-
-    <MudGrid Spacing="4">
-        @if (IsSubsection("history"))
-        {
-        <MudItem xs="12" md="6">
-            <AppPanel Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Personal History</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-3">
-                    Clear personal activity without changing library files or shared metadata.
-                </MudText>
-                <MudStack Row="true" Spacing="2" Class="flex-wrap">
-                    <AppButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="true">Clear watch history</AppButton>
-                    <AppButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="true">Clear reading history</AppButton>
-                    <AppButton Variant="Variant.Outlined" Color="Color.Warning" Disabled="true">Clear listening history</AppButton>
-                    <AppButton Variant="Variant.Filled" Color="Color.Error" Disabled="true">Clear all personal history</AppButton>
-                </MudStack>
-            </AppPanel>
-        </MudItem>
-        }
-
-        @if (IsSubsection("tracking"))
-        {
-        <MudItem xs="12" md="6">
-            <AppPanel Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Tracking</MudText>
-                <AppSwitchRow T="bool" Value="false" Disabled="true" Color="Color.Primary" Label="Pause progress tracking" />
-                <AppSwitchRow T="bool" Value="false" Disabled="true" Color="Color.Primary" Label="Pause history tracking" />
-                <AppSwitchRow T="bool" Value="true" Disabled="true" Color="Color.Primary" Label="Track completion status" />
-                <AppSwitchRow T="bool" Value="true" Disabled="true" Color="Color.Primary" Label="Track partially played/read items" />
-            </AppPanel>
-        </MudItem>
-        }
-
-        @if (IsSubsection("personalization"))
-        {
-        <MudItem xs="12" md="6">
-            <AppPanel Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Personalization</MudText>
-                <AppSwitchRow T="bool" Value="true" Disabled="true" Color="Color.Primary" Label="Allow history to influence recommendations" />
-                <AppSwitchRow T="bool" Value="true" Disabled="true" Color="Color.Primary" Label="Allow local AI taste profiling" />
-                <AppButton Variant="Variant.Outlined" Color="Color.Warning" StartIcon="@Icons.Material.Outlined.RestartAlt" Disabled="true" Class="mt-3">
-                    Reset personalization profile
-                </AppButton>
-            </AppPanel>
-        </MudItem>
-        }
-
-        @if (IsSubsection("export-reset"))
-        {
-        <MudItem xs="12" md="6">
-            <AppPanel Elevation="0" Class="tl-card pa-4">
-                <MudText Typo="Typo.overline" Color="Color.Secondary">Export &amp; Reset</MudText>
-                <MudStack Row="true" Spacing="2" Class="flex-wrap mt-3">
-                    <AppButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" Disabled="true">Export personal preferences</AppButton>
-                    <AppButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload" Disabled="true">Export personal history</AppButton>
-                    <AppButton Variant="Variant.Filled" Color="Color.Error" StartIcon="@Icons.Material.Outlined.DeleteSweep" Disabled="true">
-                        Reset all user preferences
-                    </AppButton>
-                </MudStack>
-            </AppPanel>
-        </MudItem>
-
-        <MudItem xs="12">
-            <AppPanel Elevation="0" Class="tl-card pa-4">
-                <AppButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Save" Disabled="true">
-                    Save Privacy Settings
-                </AppButton>
-            </AppPanel>
-        </MudItem>
-        }
-    </MudGrid>
+<div class="tl-page settings-truthful-state">
+    <AppCard>
+        <AppEmptyState Title="Privacy & Data controls are not available yet"
+                       Message="Personal history, export, tracking, personalization, and account reset controls will appear here only after they are connected to secure Engine operations." />
+    </AppCard>
 </div>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "history";
-
-    private bool IsSubsection(string value) =>
-        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
 }

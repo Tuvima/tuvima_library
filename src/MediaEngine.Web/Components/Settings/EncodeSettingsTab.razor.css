@@ -15,7 +15,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
-@media (max-width: 980px) {
+@media (max-width: 1280px) {
     .encode-settings__grid,
     .encode-settings__diagnostics {
         grid-template-columns: 1fr;

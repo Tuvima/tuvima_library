@@ -8,6 +8,11 @@
 @using MediaEngine.Web.Models.ViewDTOs
 
 <div class="provider-page">
+    <AppSegmentedControl Value="@_activeStage"
+                         ValueChanged="@NavigateToStage"
+                         Options="@ProviderStageOptions"
+                         AriaLabel="Metadata provider stages"
+                         Class="mb-4" />
     @if (!string.IsNullOrWhiteSpace(_loadError))
     {
         <AppAlert Tone="AppUiTone.Warning" Class="mb-4">
@@ -449,6 +454,7 @@
         </div>
     </div>
 </div>
+
 <AppDialog @bind-Visible="_addDialogOpen"
            Title="@($"Add Provider - {_addDialogMediaType}")"
            Size="Small"

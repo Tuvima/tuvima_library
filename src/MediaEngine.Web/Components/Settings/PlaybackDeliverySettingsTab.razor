@@ -1,104 +1,31 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page playback-delivery">
-    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
-        <SettingsStatusBadge Status="SettingsStatusKind.Partial" />
-    </AppActionBar>
-
-    <AppAlert Tone="AppUiTone.Info">
-        Transcoding and offline variant policy are Engine-backed where the section exposes save controls. Direct Play, subtitle burn-in, and audio passthrough controls are visible as planned behavior and remain disabled until persistence exists.
-    </AppAlert>
-
     <AppTabs ActivePanelIndex="@ActivePanelIndex"
-             Class="settings-tab-strip settings-tabs--sidebar-controlled">
-        <AppTabPanel Text="Direct Play" Icon="@Icons.Material.Outlined.PlayArrow">
-            <AppCard>
-                <AppAlert Tone="AppUiTone.Info">
-                    Not connected. Direct Play settings are planned, but there is no persistence API yet. These values are shown as intended defaults only.
-                </AppAlert>
-                <AppSwitchRow @bind-Value="_allowDirectPlay"
-                              Label="Allow direct play"
-                              Disabled="true" />
-                <AppTextField @bind-Value="_allowedLocalNetworks"
-                              Label="Allowed local networks"
-                              ReadOnly="true"
-                              Disabled="true" />
-                <AppSwitchRow @bind-Value="_fallbackToHls"
-                              Label="Fallback to HLS"
-                              Disabled="true" />
-                <AppSelect T="string" @bind-Value="_defaultStreamingMode"
-                           Label="Default streaming mode"
-                           Options="@StreamingModeOptions"
-                           Disabled="true" />
-            </AppCard>
-        </AppTabPanel>
+             Class="settings-tab-strip">
         <AppTabPanel Text="Transcoding" Icon="@Icons.Material.Outlined.VideoSettings">
-            <EncodeSettingsTab />
+            <EncodeSettingsTab Section="transcoding" />
         </AppTabPanel>
-        <AppTabPanel Text="Offline Variants" Icon="@Icons.Material.Outlined.DownloadForOffline">
+        <AppTabPanel Text="Variant Storage" Icon="@Icons.Material.Outlined.Storage">
+            <EncodeSettingsTab Section="storage" />
+        </AppTabPanel>
+        <AppTabPanel Text="Active Jobs" Icon="@Icons.Material.Outlined.PendingActions">
             <OfflineDownloadsTab />
         </AppTabPanel>
-        <AppTabPanel Text="Subtitles & Audio Delivery" Icon="@Icons.Material.Outlined.Subtitles">
-            <AppCard>
-                <AppAlert Tone="AppUiTone.Info">
-                    Not connected. Subtitle and audio delivery settings are planned, but there is no persistence API yet.
-                </AppAlert>
-                <AppSwitchRow @bind-Value="_extractSubtitles"
-                              Label="Subtitle extraction"
-                              Disabled="true" />
-                <AppSelect T="string" @bind-Value="_subtitleBurnInPolicy"
-                           Label="Subtitle burn-in policy"
-                           Options="@SubtitlePolicyOptions"
-                           Disabled="true" />
-                <AppSwitchRow @bind-Value="_audioPassthrough"
-                              Label="Default audio passthrough"
-                              Disabled="true" />
-                <AppSelect T="string" @bind-Value="_languageFallback"
-                           Label="Language fallback"
-                           Options="@LanguageFallbackOptions"
-                           Disabled="true" />
-            </AppCard>
+        <AppTabPanel Text="Diagnostics" Icon="@Icons.Material.Outlined.MonitorHeart">
+            <EncodeSettingsTab Section="diagnostics" />
         </AppTabPanel>
     </AppTabs>
 </div>
 
 @code {
-    [Parameter] public string Subsection { get; set; } = "direct-play";
+    [Parameter] public string Subsection { get; set; } = "transcoding";
 
     private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
     {
-        "transcoding" => 1,
-        "offline" => 2,
-        "subtitles-audio" => 3,
+        "storage" or "variant-storage" => 1,
+        "jobs" or "active-jobs" or "offline" => 2,
+        "diagnostics" => 3,
         _ => 0,
     };
-
-    private static readonly IReadOnlyList<AppSelectOption> StreamingModeOptions =
-    [
-        new("auto", "Auto"),
-        new("direct", "Direct play"),
-        new("hls", "HLS"),
-    ];
-
-    private static readonly IReadOnlyList<AppSelectOption> SubtitlePolicyOptions =
-    [
-        new("never", "Never"),
-        new("forced-only", "Forced only"),
-        new("when-required", "When required"),
-    ];
-
-    private static readonly IReadOnlyList<AppSelectOption> LanguageFallbackOptions =
-    [
-        new("profile", "Profile language"),
-        new("original", "Original language"),
-    ];
-
-    private bool _allowDirectPlay = true;
-    private string _allowedLocalNetworks = "192.168.0.0/16, 10.0.0.0/8";
-    private bool _fallbackToHls = true;
-    private string _defaultStreamingMode = "auto";
-    private bool _extractSubtitles = true;
-    private string _subtitleBurnInPolicy = "when-required";
-    private bool _audioPassthrough = true;
-    private string _languageFallback = "profile";
 }

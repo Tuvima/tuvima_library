@@ -4,14 +4,17 @@
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="tl-page users-page">
-    <AppActionBar Align="AppHorizontalAlignment.End" Class="users-page__actions mb-3">
-        <AppButton Label="@L["Users_NewProfile"].Value"
-                   StartIcon="@Icons.Material.Filled.PersonAdd"
-                   ButtonStyle="AppButtonStyle.Filled"
-                   Tone="AppUiTone.Primary"
-                   Disabled="@_loading"
-                   OnClick="@OpenCreateDialog" />
-    </AppActionBar>
+    @if (!LinkedAccountsOnly)
+    {
+        <AppActionBar Align="AppHorizontalAlignment.End" Class="users-page__actions mb-3">
+            <AppButton Label="@L["Users_NewProfile"].Value"
+                       StartIcon="@Icons.Material.Filled.PersonAdd"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@_loading"
+                       OnClick="@OpenCreateDialog" />
+        </AppActionBar>
+    }
 
     @if (_loading)
     {
@@ -23,15 +26,27 @@
     }
     else
     {
+        @if (LinkedAccountsOnly)
+        {
+            <AppAlert Tone="AppUiTone.Info" Class="mb-3">
+                External identities are linked to local Tuvima profiles. Select a profile to link or unlink an account.
+            </AppAlert>
+        }
         <AppTable Class="users-table">
             <thead>
                 <tr>
                     <th>@L["Users_ColAvatar"]</th>
                     <th>@L["Users_ColName"]</th>
-                    <th>@L["Users_ColRole"]</th>
+                    @if (!LinkedAccountsOnly)
+                    {
+                        <th>@L["Users_ColRole"]</th>
+                    }
                     <th>Sign-in</th>
-                    <th>@L["Users_ColLastActive"]</th>
-                    <th>@L["Users_ColStatus"]</th>
+                    @if (!LinkedAccountsOnly)
+                    {
+                        <th>@L["Users_ColLastActive"]</th>
+                        <th>@L["Users_ColStatus"]</th>
+                    }
                     <th class="users-table__actions">@L["Users_ColActions"]</th>
                 </tr>
             </thead>
@@ -48,30 +63,33 @@
                         <td>
                             <div class="users-table__name">@row.DisplayName</div>
                         </td>
-                        <td>
-                            <AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" />
-                        </td>
+                        @if (!LinkedAccountsOnly)
+                        {
+                            <td><AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" /></td>
+                        }
                         <td>
                             <AppChip Text="@(row.ExternalLoginCount == 0 ? "Local profile" : $"{row.ExternalLoginCount} linked")" />
                         </td>
-                        <td>
-                            <span class="users-table__muted">@row.LastActive</span>
-                        </td>
-                        <td>
-                            <AppStatusBadge Text="@row.Status" Tone="@StatusTone(row.Status)" />
-                        </td>
+                        @if (!LinkedAccountsOnly)
+                        {
+                            <td><span class="users-table__muted">@row.LastActive</span></td>
+                            <td><AppStatusBadge Text="@row.Status" Tone="@StatusTone(row.Status)" /></td>
+                        }
                         <td class="users-table__actions">
                             <AppIconButton Icon="@Icons.Material.Outlined.Link"
                                            Tooltip="Manage sign-in accounts"
                                            AriaLabel="Manage sign-in accounts"
                                            Disabled="@row.Id.Equals(Guid.Empty)"
                                            OnClick="@(() => OpenExternalLoginsDialogAsync(row))" />
-                            <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                           Tooltip="@L["Users_DeleteProfileTooltip"].Value"
-                                           AriaLabel="@L["Users_DeleteProfileTooltip"].Value"
-                                           Tone="AppUiTone.Error"
-                                           Disabled="@row.IsSeed"
-                                           OnClick="@(() => DeleteProfileAsync(row))" />
+                            @if (!LinkedAccountsOnly)
+                            {
+                                <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                               Tooltip="@L["Users_DeleteProfileTooltip"].Value"
+                                               AriaLabel="@L["Users_DeleteProfileTooltip"].Value"
+                                               Tone="AppUiTone.Error"
+                                               Disabled="@row.IsSeed"
+                                               OnClick="@(() => DeleteProfileAsync(row))" />
+                            }
                         </td>
                     </tr>
                 }
@@ -192,6 +210,8 @@
 </AppDialog>
 
 @code {
+    [Parameter] public bool LinkedAccountsOnly { get; set; }
+
     private sealed record UserRow(
         Guid   Id,
         string DisplayName,
@@ -246,7 +266,6 @@
     {
         "Administrator" => AppUiTone.Primary,
         "Curator"       => AppUiTone.Info,
-        "Reviewer"      => AppUiTone.Warning,
         _               => AppUiTone.Neutral,
     };
 
@@ -295,12 +314,7 @@
         }
         else
         {
-            _allRows =
-            [
-                new(Guid.Empty, "Bob Smith",    "BS", "#7C4DFF", "Administrator", 0, "Now",        "Active",  true),
-                new(Guid.Empty, "Alice Chen",   "AC", "#00BFA5", "Viewer",        0, "2 days ago", "Active",  false),
-                new(Guid.Empty, "Charlie Dave", "CD", "#FF8F00", "Reviewer",      0, "1 week ago", "Pending", false),
-            ];
+            _allRows = [];
         }
 
         _loading = false;

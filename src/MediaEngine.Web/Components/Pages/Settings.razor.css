@@ -1,808 +1,136 @@
-.settings-shell-content,
-.settings-admin-style-scope {
-    --settings-card: rgba(12, 16, 27, 0.72);
-    --settings-card-strong: rgba(13, 18, 31, 0.86);
-    --settings-border: rgba(255, 255, 255, 0.105);
-    --settings-divider: rgba(255, 255, 255, 0.095);
-    --settings-purple: #9a6dff;
-    --settings-blue: #4f9dff;
-    --settings-amber: #f5a400;
-    --settings-green: #35d179;
-    --settings-text: rgba(255, 255, 255, 0.94);
-    --settings-muted: rgba(220, 229, 255, 0.64);
-}
-
 .settings-shell-content {
-    min-width: 0;
-    padding: 24px 28px 28px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel {
-    min-width: 0;
-    position: relative;
-    border-radius: 14px;
-    border: 1px solid var(--settings-border);
-    background:
-        radial-gradient(circle at 30% 5%, rgba(126, 77, 255, 0.16), transparent 36%),
-        radial-gradient(circle at 86% 8%, rgba(245, 125, 49, 0.13), transparent 34%),
-        linear-gradient(180deg, rgba(8, 11, 19, 0.88), rgba(7, 10, 18, 0.78)) !important;
-    box-shadow: 0 26px 70px rgba(0, 0, 0, 0.34);
-    overflow: hidden;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-page {
-    padding: 1.25rem;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-page--refined {
     width: 100%;
-    max-width: 1320px;
-    margin: 0 auto;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-paper {
-    background: var(--settings-card) !important;
-    border-color: var(--settings-border) !important;
-    border-radius: 16px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card {
     min-width: 0;
-    color: var(--settings-text);
-    border: 1px solid var(--settings-border) !important;
-    border-radius: 18px !important;
-    background:
-        radial-gradient(circle at 18% 0%, rgba(121, 82, 255, 0.13), transparent 34%),
-        radial-gradient(circle at 92% 0%, rgba(246, 147, 43, 0.08), transparent 38%),
-        linear-gradient(145deg, rgba(17, 23, 39, 0.9), rgba(8, 12, 22, 0.76)),
-        rgba(9, 13, 23, 0.78) !important;
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.055),
-        0 18px 46px rgba(0, 0, 0, 0.24);
-    backdrop-filter: blur(18px) saturate(130%);
+    padding: var(--tl-space-6, 24px) clamp(18px, 2.5vw, 36px) var(--tl-space-8, 32px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h4,
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h5,
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h6,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-card-title {
-    color: var(--settings-text);
-    font-weight: 700;
-    letter-spacing: 0;
+.settings-page-canvas {
+    min-width: 0;
+    margin-top: var(--tl-space-5, 20px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-h6,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-card-title {
-    font-size: 1.08rem;
-    line-height: 1.25;
+.settings-mobile-navigation {
+    display: none;
+    margin-bottom: var(--tl-space-4, 16px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-body2 {
-    color: rgba(255, 255, 255, 0.88);
-    font-size: 0.92rem;
-    line-height: 1.35;
+.settings-page-canvas ::deep .tl-page {
+    min-width: 0;
+    padding: 0;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-typography-caption {
-    color: var(--settings-muted) !important;
-    font-size: 0.81rem;
-    line-height: 1.25;
+.settings-page-canvas ::deep .settings-tab-strip {
+    margin-bottom: var(--tl-space-4, 16px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .tl-card .mud-icon-root {
-    font-size: 1.1rem;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-divider {
-    border-color: var(--settings-divider) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-table {
+.settings-page-canvas ::deep .settings-tab-strip .mud-tabs-toolbar,
+.settings-page-canvas ::deep .settings-tab-strip .mud-tabs-tabbar,
+.settings-page-canvas ::deep .settings-tab-strip .mud-tabs-toolbar-primary,
+.settings-page-canvas ::deep .settings-tab-strip .mud-tabs-tabbar-primary {
+    min-height: var(--tl-control-height-lg, 48px);
+    border-bottom: 1px solid var(--tl-border-subtle);
     background: transparent !important;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-container,
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-root {
-    background: transparent !important;
+.settings-page-canvas ::deep .settings-tab-strip .mud-tab {
+    min-height: var(--tl-control-height-lg, 48px);
+    padding-inline: var(--tl-space-4, 16px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-head .mud-table-cell {
-    color: rgba(255, 255, 255, 0.46);
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-table-cell {
-    border-bottom-color: var(--tl-border-subtle) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar {
-    min-height: 60px !important;
-    padding: 0 10px !important;
-    border: 1px solid rgba(255, 255, 255, 0.08) !important;
-    border-radius: var(--app-radius-md, 8px) !important;
-    background: rgba(10, 13, 22, 0.72) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    width: 100%;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
-    display: flex;
-    flex-direction: row;
-    align-items: stretch;
-    width: 100%;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tooltip-root {
-    display: flex;
-    flex: 1 1 0;
-    min-width: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
-    max-width: none !important;
-    min-height: 58px !important;
-    justify-content: center !important;
-    gap: 10px !important;
-    padding: 0 18px !important;
-    border-radius: 0 !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-inkbar {
-    height: 3px !important;
-    border-radius: 999px;
-    background: var(--tl-accent-primary) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tabs--sidebar-controlled > .mud-tabs-toolbar,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tabs--sidebar-controlled > .mud-tabs-tabbar {
-    display: none !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-panel {
-    padding-top: 16px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-section-card {
-    height: 100%;
-    padding: 20px 24px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-section-card__header .mud-icon-root {
-    width: 28px;
-    height: 28px;
-    padding: 6px;
-    border-radius: 999px;
-    background: rgba(124, 77, 255, 0.14);
-    box-shadow: 0 0 22px rgba(124, 77, 255, 0.16);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-card {
-    padding: 20px 24px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {
-    display: grid !important;
-    grid-template-columns: minmax(260px, 1.8fr) repeat(5, minmax(110px, 1fr));
-    gap: 0;
-    width: 100%;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-profile {
-    padding-right: 24px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-summary-metric {
-    min-width: 0;
-    padding: 4px 20px;
-    border-left: 1px solid var(--tl-divider);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-summary-metric .mud-typography-caption {
-    display: block;
-    margin-top: 6px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row {
-    display: grid;
-    grid-template-columns: 32px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    min-height: 52px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--tl-divider);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row:last-child {
-    border-bottom: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row__icon {
-    display: grid;
-    width: 24px;
-    height: 24px;
-    place-items: center;
-    border-radius: 999px;
-    background: rgba(124, 77, 255, 0.13);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row__text .mud-typography-body1 {
-    font-size: 0.88rem;
-    line-height: 1.25;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-preference-row__text .mud-typography-caption {
-    line-height: 1.25;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-slider-header {
-    margin-bottom: 2px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-slider {
-    margin-top: 0;
-    margin-bottom: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-slider-scale {
-    margin-top: -8px;
-    padding: 0 8px;
-    color: var(--tl-text-muted);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-glance-item {
-    min-width: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-reading-preview,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-subtitle-preview {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 18px !important;
-    background: rgba(5, 8, 14, 0.42) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-grid {
-    display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 16px;
-    align-items: stretch;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-card {
-    min-height: 100%;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-card {
-    grid-column: span 5;
-    min-height: 164px;
-    padding: 20px 24px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-strip {
-    grid-column: span 7;
-    min-height: 164px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-continue-card {
-    grid-column: span 7;
-    min-height: 286px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-card {
-    grid-column: span 5;
-    grid-row: span 2;
-    min-height: 512px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-taste-card {
-    grid-column: span 7;
-    min-height: 226px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout {
-    height: 100%;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-button {
-    position: relative;
-    min-width: 0;
-    padding: 0 !important;
-    border-radius: 999px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar {
-    width: 106px !important;
-    height: 106px !important;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    box-shadow:
-        0 0 0 5px rgba(124, 77, 255, 0.09),
-        0 14px 36px rgba(0, 0, 0, 0.34),
-        inset 0 -10px 20px rgba(0, 0, 0, 0.18);
-    font-size: 2.15rem !important;
-    font-weight: 700;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-image {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-avatar-edit-badge {
-    position: absolute;
-    right: 5px;
-    bottom: 6px;
-    display: grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 999px;
-    background: rgba(6, 8, 15, 0.88);
-    color: #fff;
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.36);
-}
-
-::deep .user-overview-photo-dialog .mud-dialog-title {
-    padding: 14px 20px 6px !important;
-}
-
-::deep .user-overview-photo-dialog.mud-dialog {
-    overflow: visible !important;
-}
-
-::deep .user-overview-photo-dialog .mud-dialog-content {
-    padding: 6px 20px 14px !important;
-    overflow: visible !important;
-}
-
-::deep .user-overview-photo-dialog .mud-dialog-actions {
-    padding: 0 20px 14px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-photo-dialog-title {
-    width: 100%;
-}
-
-::deep .user-overview-photo-preview {
-    display: grid;
-    width: min(220px, 66vw);
-    aspect-ratio: 1;
-    place-items: center;
-    overflow: hidden;
-    border: 2px solid rgba(255, 255, 255, 0.82);
-    border-radius: 999px;
-    background: var(--tl-bg-surface-raised);
-    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
-}
-
-::deep .user-overview-photo-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transform-origin: center;
-}
-
-::deep .user-overview-photo-preview span {
-    color: var(--tl-text-primary);
-    font-size: 3rem;
-    font-weight: 700;
-}
-
-::deep .user-overview-photo-alert,
-::deep .user-overview-photo-help,
-::deep .user-overview-photo-zoom,
-::deep .user-overview-photo-actions {
-    width: 100%;
-}
-
-::deep .user-overview-photo-help {
-    margin: 0 !important;
-}
-
-::deep .user-overview-photo-zoom {
-    max-width: 320px;
-}
-
-::deep .user-overview-photo-zoom-label {
-    margin-bottom: -6px;
-}
-
-::deep .user-overview-photo-slider {
-    flex: 1 1 auto;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-name {
-    font-size: 1.62rem !important;
-    line-height: 1.1 !important;
-    font-weight: 700 !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-inline-edit {
-    width: 28px !important;
-    height: 28px !important;
-    color: rgba(255, 255, 255, 0.78) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-field {
-    width: min(320px, 100%);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-field .mud-input-control {
-    margin-top: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-field .mud-input-outlined {
-    min-height: 40px !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-role-row {
-    color: rgba(255, 255, 255, 0.9);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-joined {
-    margin-top: 2px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    align-items: center;
-    gap: 0;
-    width: 100%;
-    height: 100%;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-card {
-    display: grid !important;
-    grid-template-rows: 44px 18px 34px 18px;
-    align-content: center;
-    align-items: center;
-    justify-items: start;
-    row-gap: 4px;
-    min-width: 0;
-    height: 100%;
-    padding: 4px 22px;
-    border-left: 1px solid var(--settings-divider);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:first-child {
-    border-left: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-icon {
-    width: 44px !important;
-    height: 44px !important;
-    box-shadow: 0 0 24px rgba(124, 77, 255, 0.18);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-value {
-    font-size: 1.95rem !important;
-    line-height: 1 !important;
-    font-weight: 700 !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-value--long {
-    max-width: 132px;
-    font-size: 1.5rem !important;
-    line-height: 1.08 !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-label {
-    width: 100%;
-    color: rgba(210, 222, 255, 0.78) !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-subtitle {
-    width: 100%;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-empty-state {
-    color: rgba(221, 229, 255, 0.72) !important;
-    font-size: 0.95rem !important;
-    line-height: 1.45;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail {
-    overflow-x: auto;
-    padding-bottom: 0.25rem;
+.settings-page-canvas ::deep .settings-plugin-tabs .mud-tabs-toolbar-content,
+.settings-page-canvas ::deep .settings-plugin-tabs .mud-tabs-tabbar-content {
+    overflow-x: auto !important;
     scrollbar-width: thin;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card {
-    width: 154px;
-    min-width: 154px;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
+.settings-page-canvas ::deep .settings-plugin-tabs .mud-tooltip-root {
+    flex: 0 0 auto !important;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__content {
-    padding: 0 !important;
+.settings-page-canvas ::deep .settings-plugin-tabs .mud-tab {
+    flex: 0 0 auto;
+    width: auto !important;
+    min-width: max-content !important;
+    padding-inline: var(--tl-space-3, 12px) !important;
+    font-size: .75rem !important;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__art-shell {
-    position: relative;
-    width: 134px;
-    height: 178px;
-    margin-bottom: 8px;
+.settings-page-canvas ::deep .settings-tab-panel {
+    padding-top: var(--tl-space-4, 16px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__art,
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__fallback {
-    border-radius: 7px !important;
-    box-shadow: 0 14px 26px rgba(0, 0, 0, 0.32);
+.settings-page-canvas ::deep .settings-section-card {
+    height: 100%;
+    padding: var(--tl-space-5, 20px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__badge {
-    position: absolute;
-    top: 8px;
-    left: 8px;
+.settings-page-canvas ::deep .settings-section-card__header {
+    margin-bottom: var(--tl-space-4, 16px);
+}
+
+.settings-page-canvas ::deep .settings-experience-grid {
     display: grid;
-    width: 26px;
-    height: 26px;
-    place-items: center;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 999px;
-    color: #fff;
-    background: rgba(7, 10, 18, 0.78);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.34);
-    backdrop-filter: blur(10px);
+    grid-template-columns: minmax(240px, 1.6fr) repeat(4, minmax(112px, 1fr));
+    gap: var(--tl-space-3, 12px);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__continuation {
-    color: rgba(235, 239, 255, 0.72) !important;
+.settings-page-canvas ::deep .settings-experience-profile,
+.settings-page-canvas ::deep .settings-summary-metric {
+    min-width: 0;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__title {
-    overflow: hidden;
-    color: rgba(255, 255, 255, 0.95) !important;
-    font-weight: 700;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+.settings-page-canvas ::deep .settings-preference-row {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--tl-space-3, 12px);
+    min-height: var(--tl-control-height-lg, 48px);
+    padding: var(--tl-space-3, 12px) 0;
+    border-bottom: 1px solid var(--tl-divider);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__progress-copy {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__progress .mud-progress-linear-bars {
-    height: 5px !important;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .settings-media-rail-card__progress .mud-progress-linear-bar {
-    background: linear-gradient(90deg, #8f63ff, #bd8bff) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-card .mud-list {
-    padding: 0;
-    background: transparent;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row {
-    min-height: 62px !important;
-    padding: 7px 0 !important;
-    border-bottom: 1px solid var(--settings-divider);
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row:last-child {
+.settings-page-canvas ::deep .settings-preference-row:last-child {
     border-bottom: 0;
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row .mud-list-item-text {
-    margin: 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-item-thumb {
-    width: 48px !important;
-    height: 48px !important;
-    flex: 0 0 auto;
-    border: 1px solid rgba(255, 255, 255, 0.09);
-    border-radius: 6px !important;
-    background: rgba(124, 77, 255, 0.12) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-copy {
+.settings-page-canvas ::deep .settings-reading-preview,
+.settings-page-canvas ::deep .settings-subtitle-preview {
     overflow: hidden;
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-lg);
 }
 
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-row-title,
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-row-subtitle {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-row-title {
-    color: rgba(255, 255, 255, 0.95) !important;
-    font-weight: 700;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-meta {
-    flex: 0 0 auto;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-overflow {
-    width: 28px !important;
-    height: 28px !important;
-    color: rgba(255, 255, 255, 0.64) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-item-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-mini-bar .mud-progress-linear-bars {
-    height: 6px !important;
-    border-radius: 999px;
-    background-color: rgba(255, 255, 255, 0.09) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-mini-bar .mud-progress-linear-bar {
-    background: linear-gradient(90deg, #8e5cff, #b58cff) !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-row {
-    padding: 3px 0;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    column-gap: 34px;
-    row-gap: 14px;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-name,
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-percent {
-    color: rgba(255, 255, 255, 0.9) !important;
-    font-weight: 700;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .user-overview-taste-note {
-    display: block;
-    color: #f6ae38 !important;
-}
-
-.settings-admin-style-scope ::deep .settings-admin-panel .mud-chip {
-    border-radius: 7px !important;
-    font-size: 0.74rem !important;
-}
-
-@media (max-width: 768px) {
-    .settings-shell-content {
-        padding: 20px 18px 22px;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .tl-page {
-        padding: 1rem;
-    }
-}
-
-@media (max-width: 1200px) {
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid {
+@media (max-width: 1100px) {
+    .settings-page-canvas ::deep .settings-experience-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        row-gap: 0;
     }
 
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card {
-        min-height: 116px;
-        border-left: 1px solid var(--settings-divider);
-        border-top: 1px solid var(--settings-divider);
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(1),
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(2) {
-        border-top: 0;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:nth-child(odd) {
-        border-left: 0;
+    .settings-page-canvas ::deep .settings-experience-profile {
+        grid-column: 1 / -1;
     }
 }
 
-@media (max-width: 700px) {
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-grid {
-        grid-template-columns: 1fr;
+@media (max-width: 840px) {
+    .settings-shell-content {
+        padding: var(--tl-space-4, 16px);
     }
 
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-card,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stat-strip,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-continue-card,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-card,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-taste-card {
-        grid-column: 1;
-        grid-row: auto;
-        min-height: auto;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-genre-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {
-        grid-template-columns: 1fr 1fr;
-        row-gap: 16px;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .settings-summary-metric {
-        padding: 0;
-        border-left: 0;
+    .settings-mobile-navigation {
+        display: block;
     }
 }
 
-@media (max-width: 560px) {
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-edit,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-name-row {
-        align-items: flex-start !important;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-profile-layout {
-        flex-direction: column !important;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid {
+@media (max-width: 600px) {
+    .settings-page-canvas ::deep .settings-experience-grid {
         grid-template-columns: 1fr;
     }
 
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card {
-        border-left: 0;
-        border-top: 1px solid var(--settings-divider);
-        padding: 14px 0;
+    .settings-page-canvas ::deep .settings-tab-strip .mud-tabs-toolbar-content {
+        overflow-x: auto;
     }
 
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-stats-grid .user-overview-stat-card:first-child {
-        border-top: 0;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row > .mud-list-item-text,
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-row .mud-list-item-text > .mud-stack-row {
-        min-width: 0;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .user-overview-history-meta {
-        display: none !important;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-inner {
-        flex-direction: row;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tabs-toolbar-content {
-        flex-direction: row;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .settings-tab-strip .mud-tab {
-        justify-content: center !important;
-        min-height: 48px !important;
-        padding: 0 12px !important;
-    }
-
-    .settings-admin-style-scope ::deep .settings-admin-panel .settings-experience-grid {
-        grid-template-columns: 1fr;
+    .settings-page-canvas ::deep .settings-tab-strip .mud-tab {
+        flex: 0 0 auto;
+        min-width: max-content;
     }
 }

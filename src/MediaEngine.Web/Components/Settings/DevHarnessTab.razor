@@ -13,8 +13,6 @@
         Temporary development harness. Use generated-state wipes for normal validation; full source wipe deletes configured source-folder contents and stays locked until explicitly enabled below.
     </AppAlert>
 
-    @if (IsSubsection("options"))
-    {
     <AppCard Title="Run Options"
              Description="Select the media types and validation depth before starting a harness run."
              Class="mb-4 dev-harness-options-card">
@@ -56,11 +54,8 @@
             </section>
         </div>
     </AppCard>
-    }
 
-    @if (IsSubsection("harnesses"))
-    {
-    <AppCard Title="Harnesses"
+    <AppCard Title="Test Harness"
              Description="Run synthetic fixtures, real configured-source reingestion, or the validation report harness from one place."
              Class="mb-4 dev-harness-run-card">
         <div class="dev-harness-table-wrap">
@@ -76,7 +71,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var command in HarnessCommands)
+                    @foreach (var command in HarnessCommands.Where(command => !command.Dangerous))
                     {
                         <tr class="@(command.Dangerous ? "is-danger" : null)">
                             <td>
@@ -116,7 +111,27 @@
             </table>
         </div>
     </AppCard>
-    }
+
+    <MudGrid Spacing="3" Class="mb-4">
+        <MudItem xs="12" md="6">
+            <AppCard Title="Provider Tester"
+                     Description="Check configured metadata provider connectivity and response behavior.">
+                <AppButton Label="Open Provider Tester"
+                           Href="/settings/provider-tester"
+                           StartIcon="@Icons.Material.Outlined.Science"
+                           Size="AppControlSize.Compact" />
+            </AppCard>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <AppCard Title="Enrichment Tester"
+                     Description="Inspect enrichment output and validation evidence for a selected item.">
+                <AppButton Label="Open Enrichment Tester"
+                           Href="/settings/enrichment-tester"
+                           StartIcon="@Icons.Material.Outlined.AutoFixHigh"
+                           Size="AppControlSize.Compact" />
+            </AppCard>
+        </MudItem>
+    </MudGrid>
 
     @if (!string.IsNullOrWhiteSpace(_error))
     {
@@ -125,11 +140,16 @@
         </AppAlert>
     }
 
-    @if (IsSubsection("result") && _lastResult is not null)
-    {
-        <AppCard Title="Last Result"
+    <AppCard Title="Last Result"
                  Description="@_lastCommandTitle"
-                 Class="dev-harness-result-card">
+                 Class="dev-harness-result-card mb-4">
+        @if (_lastResult is null)
+        {
+            <AppEmptyState Title="No test result yet"
+                           Message="Run a test harness to see its endpoint, status, timing, and response here." />
+        }
+        else
+        {
             <div class="dev-harness-result-strip">
                 <AppChip Text="@(_lastResult.Succeeded ? "Accepted" : "Failed")"
                          Tone="@(_lastResult.Succeeded ? AppUiTone.Success : AppUiTone.Error)"
@@ -155,15 +175,29 @@
             }
 
             <pre class="dev-harness-result-body">@FormatBody(_lastResult)</pre>
-        </AppCard>
-    }
+        }
+    </AppCard>
+
+    <AppCard Title="Danger Zone"
+             Description="Irreversible actions intended only for disposable development environments."
+             Class="dev-harness-result-card">
+        <AppAlert Tone="AppUiTone.Error">
+            A full source wipe deletes files inside configured source folders. It remains locked until you explicitly allow it above.
+        </AppAlert>
+        @foreach (var command in HarnessCommands.Where(command => command.Dangerous))
+        {
+            <AppButton Label="@GetButtonLabel(command)"
+                       StartIcon="@command.ButtonIcon"
+                       Tone="AppUiTone.Error"
+                       ButtonStyle="AppButtonStyle.Outlined"
+                       Disabled="@IsCommandDisabled(command)"
+                       OnClick="@(() => RunHarnessAsync(command))" />
+        }
+    </AppCard>
 </div>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "options";
-
-    private bool IsSubsection(string value) =>
-        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
 
     private sealed record HarnessMediaType(string Key, string Label, string Icon);
 

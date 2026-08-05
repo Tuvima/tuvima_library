@@ -12,6 +12,8 @@ namespace MediaEngine.Web.Components.Settings;
 
 public partial class ProviderPriorityTab
 {
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+
     [Parameter] public string Subsection { get; set; } = ProviderStageRetail;
 
     private sealed record ProviderInfo(
@@ -152,6 +154,9 @@ public partial class ProviderPriorityTab
     };
 
     private string _activeStage = ProviderStageRetail;
+    private IReadOnlyList<AppSelectOption> ProviderStageOptions => ProviderStages
+        .Select(stage => new AppSelectOption(stage.Id, stage.Title))
+        .ToList();
     private string _activeTab = "Movies";
     private string? _providerSearch;
     private string _providerMediaFilter = AllProviderFilter;
@@ -196,6 +201,9 @@ public partial class ProviderPriorityTab
     private bool IsCanonicalStage => string.Equals(_activeStage, ProviderStageCanonical, StringComparison.OrdinalIgnoreCase);
     private bool IsEnrichmentStage => string.Equals(_activeStage, ProviderStageEnrichment, StringComparison.OrdinalIgnoreCase);
     private bool CanDragProviders => IsRetailStage && !_engineConfigurationUnavailable && _liveCatalogue.Count > 0;
+
+    private void NavigateToStage(string stage) =>
+        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Providers, stage));
 
     protected override async Task OnInitializedAsync()
     {

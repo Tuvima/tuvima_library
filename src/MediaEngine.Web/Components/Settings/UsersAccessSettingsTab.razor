@@ -1,63 +1,19 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 
-<div class="tl-page">
+<div class="tl-page users-access-settings">
     <AppTabs ActivePanelIndex="@ActivePanelIndex"
-             Class="settings-tab-strip settings-tabs--sidebar-controlled">
+             Class="settings-tab-strip">
         <AppTabPanel Text="Profiles & Roles" Icon="@Icons.Material.Outlined.Group">
             <UsersTab />
         </AppTabPanel>
-        <AppTabPanel Text="Sign-in & Security" Icon="@Icons.Material.Outlined.AdminPanelSettings">
+        <AppTabPanel Text="Authentication" Icon="@Icons.Material.Outlined.AdminPanelSettings">
             <SecurityTab />
         </AppTabPanel>
-        <AppTabPanel Text="API Keys" Icon="@Icons.Material.Outlined.Key">
+        <AppTabPanel Text="Linked Accounts" Icon="@Icons.Material.Outlined.Link">
+            <UsersTab LinkedAccountsOnly="true" />
+        </AppTabPanel>
+        <AppTabPanel Text="Guest API Keys" Icon="@Icons.Material.Outlined.Key">
             <ApiKeysTab />
-        </AppTabPanel>
-        <AppTabPanel Text="Access Rules" Icon="@Icons.Material.Outlined.Policy">
-            <AppCard>
-                <AppAlert Tone="AppUiTone.Warning" Class="mb-4">
-                    Not connected. Local network, remote access, and rate-limit controls are read-only here until the Engine exposes persisted access-rule settings.
-                </AppAlert>
-                <AppForm>
-                    <AppTextField @bind-Value="_allowedNetworks" Label="Allowed local networks" ReadOnly="true" Disabled="true" />
-                    <AppSwitchRow @bind-Value="_remoteAccessEnabled" Label="Remote access enabled" Disabled="true" />
-                    <AppNumericField @bind-Value="_rateLimitPerMinute" Label="Rate limit per minute" Min="10" Max="1000" Disabled="true" />
-                    <AppNumericField @bind-Value="_streamingLimit" Label="Streaming limits" Min="1" Max="20" Disabled="true" />
-                    <AppSwitchRow @bind-Value="_adminOnlyActions" Label="Restrict sensitive actions to admins" Disabled="true" />
-                </AppForm>
-            </AppCard>
-        </AppTabPanel>
-        <AppTabPanel Text="Sessions" Icon="@Icons.Material.Outlined.Devices">
-            <AppCard>
-                <AppTable>
-                    <thead>
-                        <tr>
-                            <th>Profile</th>
-                            <th>Device</th>
-                            <th>Last active</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var session in _sessions)
-                        {
-                            <tr>
-                                <td>@session.Profile</td>
-                                <td>@session.Device</td>
-                                <td>@session.LastActive</td>
-                                <td>
-                                    <AppButton Label="Revoke"
-                                               Size="AppControlSize.Compact"
-                                               Tone="AppUiTone.Warning"
-                                               Disabled="true" />
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </AppTable>
-                <AppAlert Tone="AppUiTone.Info" Class="mt-4">
-                    Planned. Session listing and revocation are not persisted by the Engine yet.
-                </AppAlert>
-            </AppCard>
         </AppTabPanel>
     </AppTabs>
 </div>
@@ -67,19 +23,9 @@
 
     private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
     {
-        "security" => 1,
-        "api-keys" => 2,
-        "rules" => 3,
-        "sessions" => 4,
+        "security" or "authentication" => 1,
+        "linked" or "linked-accounts" => 2,
+        "api-keys" => 3,
         _ => 0,
     };
-
-    private sealed record SessionRow(string Profile, string Device, string LastActive);
-
-    private readonly SessionRow[] _sessions = [];
-    private string _allowedNetworks = "192.168.0.0/16, 10.0.0.0/8";
-    private bool _remoteAccessEnabled;
-    private int _rateLimitPerMinute = 120;
-    private int _streamingLimit = 4;
-    private bool _adminOnlyActions = true;
 }

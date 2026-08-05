@@ -11,7 +11,7 @@ public sealed class DevHarnessSettingsTests
         Assert.Contains("case SettingsSection.DevHarness", source, StringComparison.Ordinal);
         Assert.Contains("<DevHarnessTab Subsection=\"@_activeSubsection\" />", source, StringComparison.Ordinal);
         Assert.Contains("dev-harness", nav, StringComparison.Ordinal);
-        Assert.Contains("Test Harness", nav, StringComparison.Ordinal);
+        Assert.Contains("Developer Tools", nav, StringComparison.Ordinal);
     }
 
     [Fact]

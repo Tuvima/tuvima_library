@@ -1,0 +1,210 @@
+.user-overview-page {
+    width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+}
+
+.user-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--tl-space-4, 16px);
+}
+
+.user-overview-grid ::deep .user-overview-card {
+    min-width: 0;
+}
+
+.user-overview-grid ::deep .user-overview-profile-card {
+    grid-column: span 5;
+    align-self: start;
+}
+
+.user-overview-grid ::deep .user-overview-stat-strip {
+    grid-column: span 7;
+}
+
+.user-overview-grid ::deep .user-overview-continue-card {
+    grid-column: 1 / -1;
+}
+
+.user-overview-grid ::deep .user-overview-history-card {
+    grid-column: span 7;
+}
+
+.user-overview-grid ::deep .user-overview-taste-card {
+    grid-column: span 5;
+}
+
+.user-overview-profile-layout {
+    min-height: 112px;
+}
+
+.user-overview-avatar-button {
+    position: relative;
+    min-width: 88px !important;
+    width: 88px;
+    height: 88px;
+    padding: 0 !important;
+    border-radius: 999px !important;
+}
+
+.user-overview-avatar {
+    width: 84px !important;
+    height: 84px !important;
+    font-size: 2rem !important;
+}
+
+.user-overview-avatar-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-overview-avatar-edit-badge {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 2px solid var(--tl-surface-1, #111827);
+    border-radius: 999px;
+    background: var(--tl-surface-3, #1f2937);
+}
+
+.user-overview-profile-name {
+    font-size: 1.25rem;
+}
+
+.user-overview-inline-edit {
+    opacity: .72;
+}
+
+.user-overview-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--tl-space-3, 12px);
+}
+
+.user-overview-stat-card {
+    min-width: 0;
+    padding: var(--tl-space-4, 16px);
+    border: 1px solid var(--tl-border-subtle);
+    border-radius: var(--tl-radius-lg);
+    background: color-mix(in srgb, var(--tl-surface-2, #111827) 78%, transparent);
+}
+
+.user-overview-stat-icon {
+    width: 34px !important;
+    height: 34px !important;
+}
+
+.user-overview-stat-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-overview-history-row {
+    border-bottom: 1px solid var(--tl-divider);
+}
+
+.user-overview-history-row:last-child {
+    border-bottom: 0;
+}
+
+.user-overview-history-copy,
+.user-overview-row-title,
+.user-overview-row-subtitle {
+    min-width: 0;
+}
+
+.user-overview-row-title,
+.user-overview-row-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.user-overview-history-meta {
+    flex: 0 0 auto;
+}
+
+.user-overview-item-thumb {
+    flex: 0 0 auto;
+    width: 48px;
+    height: 48px;
+    overflow: hidden;
+    border-radius: var(--tl-radius-sm);
+    background: var(--tl-surface-3, #1f2937);
+}
+
+.user-overview-item-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.user-overview-genre-grid {
+    display: grid;
+    gap: var(--tl-space-3, 12px);
+}
+
+.user-overview-mini-bar {
+    height: 5px !important;
+}
+
+::deep .settings-media-rail {
+    min-height: 0;
+}
+
+::deep .user-overview-photo-preview {
+    position: relative;
+    display: grid;
+    width: 220px;
+    height: 220px;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--tl-surface-3, #1f2937);
+}
+
+::deep .user-overview-photo-preview img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+@media (max-width: 1100px) {
+    .user-overview-grid ::deep .user-overview-profile-card,
+    .user-overview-grid ::deep .user-overview-stat-strip,
+    .user-overview-grid ::deep .user-overview-history-card,
+    .user-overview-grid ::deep .user-overview-taste-card {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 700px) {
+    .user-overview-grid,
+    .user-overview-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .user-overview-grid ::deep .user-overview-profile-card,
+    .user-overview-grid ::deep .user-overview-stat-strip,
+    .user-overview-grid ::deep .user-overview-continue-card,
+    .user-overview-grid ::deep .user-overview-history-card,
+    .user-overview-grid ::deep .user-overview-taste-card {
+        grid-column: 1;
+    }
+
+    .user-overview-profile-layout {
+        align-items: flex-start !important;
+    }
+
+    .user-overview-history-meta {
+        align-items: flex-end !important;
+        flex-direction: column !important;
+    }
+}

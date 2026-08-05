@@ -87,49 +87,50 @@ public static class SettingsNav
 {
     public static readonly SettingsGroupDef[] AllGroups =
     [
-        new("user", "User Settings", Icons.Material.Outlined.Person, false, SettingsSection.Overview),
-        new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, SettingsSection.AdminOverview),
+        new("personal", "Personal", Icons.Material.Outlined.Person, false, SettingsSection.Overview),
+        new("administration", "Administration", Icons.Material.Outlined.AdminPanelSettings, true, SettingsSection.AdminOverview),
+        new("advanced", "Advanced", Icons.Material.Outlined.Tune, true, SettingsSection.LocalAi),
     ];
 
     public static readonly SettingsItemDef[] AllItems =
     [
-        new(SettingsSection.Overview, "user", null, Icons.Material.Outlined.Person, "User Overview", false, null, ["user"], "sqlite"),
-        new(SettingsSection.Playback, "user", "playback", Icons.Material.Outlined.MenuBook, "Playback & Reading", false, null, [], "sqlite"),
-        new(SettingsSection.Privacy, "user", "privacy", Icons.Material.Outlined.PrivacyTip, "Privacy & History", false, null, [], "sqlite"),
+        new(SettingsSection.Overview, "personal", "profile", Icons.Material.Outlined.Person, "Profile", false, null, ["user"], "sqlite"),
+        new(SettingsSection.Playback, "personal", "playback", Icons.Material.Outlined.PlayCircleOutline, "Playback & Reading", false, null, [], "sqlite"),
+        new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
-        new(SettingsSection.AdminOverview, "admin", "admin", Icons.Material.Outlined.Dashboard, "Admin Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Libraries, "admin", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Ingestion, "admin", "ingestion", Icons.Material.Outlined.PendingActions, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.DevHarness, "admin", "dev-harness", Icons.Material.Outlined.Construction, "Test Harness", true, null, ["harness", "ingestion-harness", "test-harness"], "internal", Status: SettingsStatusKind.Partial),
-        new(SettingsSection.Providers, "admin", "providers", Icons.Material.Outlined.Storage, "Providers", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.ActivityLogs, "admin", "activity", Icons.Material.Outlined.Timeline, "Activity", true, null, ["activity-log"], "sqlite"),
-        new(SettingsSection.LocalAi, "admin", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "runtime", "vocabulary", "schedule", "enrichment"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Plugins, "admin", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, ["extensions", "commercial-skip", "intro-skip", "credits"], "sqlite", Status: SettingsStatusKind.Partial),
-        new(SettingsSection.Delivery, "admin", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
-        new(SettingsSection.Access, "admin", "access", Icons.Material.Outlined.AdminPanelSettings, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),
+        new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, ["admin"], "json+sqlite", Status: SettingsStatusKind.Live),
+        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MoveToInbox, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Providers, "administration", "providers", Icons.Material.Outlined.Inventory2, "Metadata Providers", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
+        new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, ["activity-log"], "sqlite"),
+        new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
+        new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),
 
-        new(SettingsSection.Review, "admin", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
-        new(SettingsSection.ProviderTester, "admin", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),
-        new(SettingsSection.EnrichmentTester, "admin", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal"),
+        new(SettingsSection.LocalAi, "advanced", "ai", Icons.Material.Outlined.Memory, "Local AI", true, null, ["models", "features", "runtime", "vocabulary", "schedule", "enrichment"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Plugins, "advanced", "plugins", Icons.Material.Outlined.Extension, "Plugins", true, null, ["extensions", "commercial-skip", "intro-skip", "credits"], "sqlite", Status: SettingsStatusKind.Partial),
+        new(SettingsSection.DevHarness, "advanced", "developer", Icons.Material.Outlined.Construction, "Developer Tools", true, null, ["dev-harness", "harness", "ingestion-harness", "test-harness"], "internal", Status: SettingsStatusKind.Partial),
+        new(SettingsSection.ProviderTester, "advanced", "provider-tester", Icons.Material.Outlined.Biotech, "Provider Tester", true, null, [], "internal"),
+        new(SettingsSection.EnrichmentTester, "advanced", "enrichment-tester", Icons.Material.Outlined.Science, "Enrichment Tester", true, null, ["tester"], "internal"),
     ];
 
     public static readonly SettingsTreeGroupDef[] TreeGroups =
     [
-        new("user", "User Settings", Icons.Material.Outlined.Person, false, true, SettingsSection.Overview,
+        new("personal", "Personal", Icons.Material.Outlined.Person, false, false, SettingsSection.Overview,
             [SettingsSection.Overview, SettingsSection.Playback, SettingsSection.Privacy]),
-        new("admin", "Admin Settings", Icons.Material.Outlined.AdminPanelSettings, true, true, SettingsSection.AdminOverview,
+        new("administration", "Administration", Icons.Material.Outlined.AdminPanelSettings, true, false, SettingsSection.AdminOverview,
             [
                 SettingsSection.AdminOverview,
                 SettingsSection.Libraries,
                 SettingsSection.Ingestion,
-                SettingsSection.DevHarness,
                 SettingsSection.Providers,
+                SettingsSection.Review,
                 SettingsSection.ActivityLogs,
-                SettingsSection.LocalAi,
-                SettingsSection.Plugins,
                 SettingsSection.Delivery,
                 SettingsSection.Access,
             ]),
+        new("advanced", "Advanced", Icons.Material.Outlined.Tune, true, false, SettingsSection.LocalAi,
+            [SettingsSection.LocalAi, SettingsSection.Plugins, SettingsSection.DevHarness]),
     ];
 
     public static readonly IReadOnlyDictionary<SettingsSection, IReadOnlyList<SettingsSubsectionDef>> Subsections =
@@ -177,9 +178,9 @@ public static class SettingsNav
             ],
             [SettingsSection.Ingestion] =
             [
-                new("overview", "Overview", Icons.Material.Outlined.Dashboard),
+                new("overview", "Current Run", Icons.Material.Outlined.Dashboard),
                 new("batches", "Recent Batches", Icons.Material.Outlined.FolderCopy),
-                new("providers", "Provider Activity", Icons.Material.Outlined.Storage),
+                new("providers", "Provider Activity & Errors", Icons.Material.Outlined.Storage),
             ],
             [SettingsSection.DevHarness] =
             [
@@ -202,35 +203,32 @@ public static class SettingsNav
             [SettingsSection.LocalAi] =
             [
                 new("overview", "Overview", Icons.Material.Outlined.Dashboard),
-                new("models", "Models", Icons.Material.Outlined.Storage),
-                new("features", "Features", Icons.Material.Outlined.ToggleOn),
-                new("runtime", "Runtime", Icons.Material.Outlined.Speed),
-                new("vocabulary", "Vocabulary", Icons.Material.Outlined.Style),
-                new("schedule", "Schedule", Icons.Material.Outlined.Schedule),
-                new("enrichment", "Enrichment", Icons.Material.Outlined.Timeline),
+                new("models", "Models & Runtime", Icons.Material.Outlined.Storage),
+                new("features", "Features & Vocabulary", Icons.Material.Outlined.ToggleOn),
+                new("automation", "Automation", Icons.Material.Outlined.Schedule),
             ],
             [SettingsSection.Plugins] =
             [
+                new("overview", "Overview", Icons.Material.Outlined.Info),
                 new("settings", "Settings", Icons.Material.Outlined.Tune),
-                new("jobs-health", "Jobs & Health", Icons.Material.Outlined.HealthAndSafety),
+                new("jobs-health", "Health & Jobs", Icons.Material.Outlined.HealthAndSafety),
                 new("catalog", "Approved Catalog", Icons.Material.Outlined.Verified),
-                new("help", "How to Use", Icons.Material.Outlined.MenuBook),
+                new("capabilities", "Capabilities", Icons.Material.Outlined.CheckCircleOutline),
                 new("danger", "Danger Zone", Icons.Material.Outlined.Delete),
             ],
             [SettingsSection.Delivery] =
             [
-                new("direct-play", "Direct Play", Icons.Material.Outlined.PlayArrow),
                 new("transcoding", "Transcoding", Icons.Material.Outlined.VideoSettings),
-                new("offline", "Offline Variants", Icons.Material.Outlined.DownloadForOffline),
-                new("subtitles-audio", "Subtitles & Audio", Icons.Material.Outlined.Subtitles),
+                new("storage", "Variant Storage", Icons.Material.Outlined.Storage),
+                new("active-jobs", "Active Jobs", Icons.Material.Outlined.PendingActions),
+                new("diagnostics", "Diagnostics", Icons.Material.Outlined.MonitorHeart),
             ],
             [SettingsSection.Access] =
             [
                 new("profiles", "Profiles & Roles", Icons.Material.Outlined.Group),
-                new("security", "Sign-in & Security", Icons.Material.Outlined.AdminPanelSettings),
-                new("api-keys", "API Keys", Icons.Material.Outlined.Key),
-                new("rules", "Access Rules", Icons.Material.Outlined.Policy),
-                new("sessions", "Sessions", Icons.Material.Outlined.Devices),
+                new("security", "Authentication", Icons.Material.Outlined.AdminPanelSettings),
+                new("linked-accounts", "Linked Accounts", Icons.Material.Outlined.Link),
+                new("api-keys", "Guest API Keys", Icons.Material.Outlined.Key),
             ],
             [SettingsSection.Review] = [new("overview", "Overview", Icons.Material.Outlined.RateReview)],
             [SettingsSection.ProviderTester] = [new("overview", "Overview", Icons.Material.Outlined.Biotech)],
@@ -305,21 +303,28 @@ public static class SettingsNav
 
     public static bool IsVisible(SettingsSection section, string role)
     {
-        var item = GetItem(section);
-        return !item.AdminOnly || IsAdminRole(role);
+        if (section == SettingsSection.Privacy)
+            return false;
+
+        if (IsAdministratorRole(role))
+            return true;
+
+        if (IsCuratorRole(role))
+            return section is SettingsSection.Overview
+                or SettingsSection.Playback
+                or SettingsSection.Review
+                or SettingsSection.ActivityLogs;
+
+        return section is SettingsSection.Overview or SettingsSection.Playback;
     }
 
     public static SettingsSection FirstVisibleSection(string role) =>
-        IsAdminRole(role)
-            ? SettingsSection.Overview
-            : AllItems.First(item => IsVisible(item.Value, role)).Value;
+        AllItems.First(item => IsVisible(item.Value, role)).Value;
 
     public static string RouteFor(SettingsSection section)
     {
         var item = GetItem(section);
-        return string.IsNullOrWhiteSpace(item.Slug)
-            ? "/settings"
-            : $"/settings/{item.Slug}";
+        return $"/settings/{item.Slug}";
     }
 
     public static IReadOnlyList<SettingsSubsectionDef> GetSubsections(SettingsSection section) =>
@@ -335,6 +340,18 @@ public static class SettingsNav
             return subsections.FirstOrDefault();
 
         var normalized = NormalizeKey(slug);
+        normalized = (section, normalized) switch
+        {
+            (SettingsSection.LocalAi, "runtime") => "models",
+            (SettingsSection.LocalAi, "vocabulary") => "features",
+            (SettingsSection.LocalAi, "schedule" or "enrichment") => "automation",
+            (SettingsSection.Plugins, "help") => "capabilities",
+            (SettingsSection.Delivery, "directplay") => "transcoding",
+            (SettingsSection.Delivery, "offline" or "offlinevariants") => "storage",
+            (SettingsSection.Delivery, "subtitlesaudio") => "diagnostics",
+            (SettingsSection.Access, "rules" or "sessions") => "security",
+            _ => normalized,
+        };
         return subsections.FirstOrDefault(subsection =>
             string.Equals(NormalizeKey(subsection.Slug), normalized, StringComparison.OrdinalIgnoreCase));
     }
@@ -343,10 +360,11 @@ public static class SettingsNav
     {
         var subsection = ResolveSubsection(section, subsectionSlug)
             ?? throw new ArgumentOutOfRangeException(nameof(subsectionSlug), subsectionSlug, "Unknown settings subsection.");
-        var sectionRoute = section == SettingsSection.Overview
-            ? "/settings/user"
-            : RouteFor(section);
-        return $"{sectionRoute}/{subsection.Slug}";
+
+        if (section is SettingsSection.Overview or SettingsSection.AdminOverview or SettingsSection.DevHarness)
+            return RouteFor(section);
+
+        return $"{RouteFor(section)}/{subsection.Slug}";
     }
 
     public static SettingsRouteResolution ResolveRoute(string? segment, string role)
@@ -429,6 +447,11 @@ public static class SettingsNav
     }
 
     private static bool IsAdminRole(string role) =>
-        string.Equals(role, "Administrator", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(role, "Curator", StringComparison.OrdinalIgnoreCase);
+        IsAdministratorRole(role) || IsCuratorRole(role);
+
+    private static bool IsAdministratorRole(string role) =>
+        string.Equals(role, "Administrator", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCuratorRole(string role) =>
+        string.Equals(role, "Curator", StringComparison.OrdinalIgnoreCase);
 }

@@ -13,46 +13,42 @@
 <PageTitle>@BrowserTitle</PageTitle>
 
 <MediaSectionShell Title="Settings"
-                   NavigationGroups="@SettingsNavigationGroups"
-                   AccordionNavigation="true">
+                   NavigationGroups="@SettingsNavigationGroups">
     <div class="settings-shell-content">
+        <nav class="settings-mobile-navigation" aria-label="Settings page selector">
+            <AppSelect Value="@SettingsNav.RouteFor(_activeSection)"
+                       ValueChanged="@OnMobilePageChanged"
+                       Label="Settings page"
+                       LeadingIcon="@Icons.Material.Outlined.Tune"
+                       Options="@MobileNavigationOptions" />
+        </nav>
+
         <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
                            Title="@GetHeroTitle()"
                            Subtitle="@GetSectionDescription(_activeSection)"
-                           Status="@GetStatusLabel()"
-                           Healthy="@(_systemStatus?.IsHealthy == true)">
-            <Actions>
-                <SettingsStatusBadge Status="@GetCurrentStatus()" />
-            </Actions>
-        </SidebarPageHeader>
+                           Status="@GetHeaderStatusLabel()"
+                           Healthy="@(_systemStatus?.IsHealthy == true)" />
 
-        <div class="settings-admin-style-scope">
-            <AppPanel Elevation="0" Class="settings-admin-panel">
-                @if (ShouldDeferForRoleResolution)
+                <div class="settings-page-canvas settings-admin-panel">
+            @if (ShouldDeferForRoleResolution)
+            {
+                <AppPageState Kind="AppPageStateKind.Loading"
+                              Title="Checking profile permissions"
+                              Class="py-8" />
+            }
+            else
+            {
+                @if (IsEngineUnavailableForCurrentSection)
                 {
-                    <AppPageState Kind="AppPageStateKind.Loading"
-                                  Title="Checking profile permissions"
-                                  Class="py-8" />
+                    <AppAlert Severity="Severity.Error"
+                              Variant="Variant.Outlined"
+                              Icon="@Icons.Material.Outlined.CloudOff"
+                              Class="mb-4">
+                        Engine state could not be loaded. This page is read-only, and saved values have not been replaced with sample defaults.
+                    </AppAlert>
                 }
-                else
+                @switch (_activeSection)
                 {
-                    @if (IsEngineUnavailableForCurrentSection)
-                    {
-                        <AppAlert Severity="Severity.Error"
-                                  Variant="Variant.Outlined"
-                                  Icon="@Icons.Material.Outlined.CloudOff"
-                                  Class="mb-4">
-                            Engine state could not be loaded. This Settings section is shown in a degraded read-only state, and saved values are not being replaced with sample defaults.
-                        </AppAlert>
-                    }
-                    @if (SettingsNav.GetItem(_activeSection).AdminOnly && !_profileRoleLoaded)
-                    {
-                        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-                            Checking profile permissions before showing administrator settings.
-                        </AppAlert>
-                    }
-                    @switch (_activeSection)
-                    {
                         case SettingsSection.Overview:
                             <UserOverviewTab Subsection="@_activeSubsection" />
                             break;
@@ -101,9 +97,8 @@
                         case SettingsSection.EnrichmentTester:
                             <EnrichmentTesterToolTab />
                             break;
-                    }
                 }
-            </AppPanel>
+            }
         </div>
     </div>
 </MediaSectionShell>
@@ -141,6 +136,12 @@
                 GetVisibleTreeItems(group)
                     .Select(BuildNavigationItem)
                     .ToList()))
+            .ToList();
+
+    private IReadOnlyList<AppSelectOption> MobileNavigationOptions =>
+        SettingsNavigationGroups
+            .SelectMany(group => group.Items)
+            .Select(item => new AppSelectOption(item.Route, item.Label, item.Icon))
             .ToList();
 
     private SettingsGroupDef CurrentGroup => SettingsNav.GetGroup(_activeSection);
@@ -252,6 +253,12 @@
             return;
         }
 
+        if (!IsItemEnabledByUiSettings(SettingsNav.GetItem(_activeSection)))
+        {
+            Nav.NavigateTo(SettingsNav.RouteFor(SettingsNav.FirstVisibleSection(_currentRole)), replace: true);
+            return;
+        }
+
         var subsection = SettingsNav.ResolveSubsection(_activeSection, Subsection);
         if (subsection is null)
         {
@@ -322,16 +329,12 @@
             item.Label,
             SettingsNav.RouteFor(item.Value),
             item.Icon,
-            Children: SettingsNav.GetSubsections(item.Value)
-                .Select(subsection => new MediaSectionNavigationItem(
-                    subsection.Label,
-                    SettingsNav.RouteFor(item.Value, subsection.Slug),
-                    subsection.Icon,
-                    Exact: true))
-                .ToList());
+            Exact: true);
 
     private bool IsItemEnabledByUiSettings(SettingsItemDef item) => item.Value switch
     {
+        SettingsSection.DevHarness => DeviceContext.Settings.Features.InternalTools
+            && !DeviceContext.IsFeatureDisabled("internal_tools"),
         SettingsSection.ProviderTester => DeviceContext.Settings.Features.InternalTools
             && DeviceContext.Settings.Features.ProviderTester
             && !DeviceContext.IsFeatureDisabled("internal_tools")
@@ -343,6 +346,14 @@
         _ => true,
     };
 
+    private void OnMobilePageChanged(string? route)
+    {
+        if (!string.IsNullOrWhiteSpace(route))
+        {
+            Nav.NavigateTo(route);
+        }
+    }
+
     private string GetHeroEyebrow() => CurrentGroup.Label;
 
     private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
@@ -350,13 +361,11 @@
     private string GetSubsectionLabel() =>
         SettingsNav.ResolveSubsection(_activeSection, _activeSubsection)?.Label ?? GetHeroTitle();
 
-    private SettingsStatusKind GetCurrentStatus() =>
-        IsEngineUnavailableForCurrentSection
-            ? SettingsStatusKind.EngineUnavailable
-            : SettingsNav.GetStatus(_activeSection);
-
-    private string GetStatusLabel()
+    private string? GetHeaderStatusLabel()
     {
+        if (_activeSection != SettingsSection.AdminOverview)
+            return null;
+
         if (_shellStateLoading)
         {
             return "Checking engine";
@@ -367,19 +376,19 @@
 
     private static string GetSectionDescription(SettingsSection section) => section switch
     {
-        SettingsSection.Overview => "Your profile, personal history, library habits, and playback activity.",
+        SettingsSection.Overview => "Manage your profile, preferences, and view your activity.",
         SettingsSection.Playback => "Personal defaults for watching, reading, listening, subtitles, resume, and progress behavior.",
-        SettingsSection.Privacy => "Control personal history, tracking, personalization, and reset/export options.",
-        SettingsSection.AdminOverview => "Monitor system health, library status, provider coverage, ingestion progress, and review work.",
+        SettingsSection.Privacy => "Personal history and export controls are not yet available.",
+        SettingsSection.AdminOverview => "Monitor library health, active work, and system status.",
         SettingsSection.Libraries => "Manage watched folders, library destinations, source health, organization rules, and write access.",
         SettingsSection.Ingestion => "Track current library updates, recent batches, matching progress, and items that need review.",
-        SettingsSection.DevHarness => "Run temporary development wipe, seed, reingest, and validation harnesses from Settings.",
-        SettingsSection.Providers => "Manage metadata providers, priority order, credentials, reachability, and sample lookups.",
-        SettingsSection.ActivityLogs => "Review the persistent activity stream for ingestion, provider, metadata, and system events.",
+        SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
+        SettingsSection.Providers => "Manage provider order, credentials, and coverage.",
+        SettingsSection.ActivityLogs => "Inspect batches, events, and retention.",
         SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
         SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",
-        SettingsSection.Delivery => "Configure direct play, transcoding, generated variants, offline downloads, and delivery defaults.",
-        SettingsSection.Access => "Manage profiles, roles, sign-in, API keys, HTTPS, local access, and rate limits.",
+        SettingsSection.Delivery => "Configure transcoding, prepared variants, active jobs, and delivery diagnostics.",
+        SettingsSection.Access => "Manage profiles, roles, authentication, linked accounts, and guest API keys.",
         SettingsSection.Review => "Resolve uncertain matches and keep ingestion moving.",
         SettingsSection.ProviderTester => "Internal provider testing tool.",
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",

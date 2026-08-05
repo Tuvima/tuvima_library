@@ -2,9 +2,15 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Integration
 @inject IngestionLiveDashboardState Dashboard
+@inject NavigationManager Nav
 @implements IAsyncDisposable
 
 <div class="tl-page ingestion-operations">
+    <AppSegmentedControl Value="@Subsection"
+                         ValueChanged="@NavigateToSection"
+                         Options="@SectionOptions"
+                         AriaLabel="Ingestion sections"
+                         Class="mb-4" />
     <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
                             Status="Dashboard.LibraryUpdateStatus"
                             Metrics="Dashboard.Metrics"
@@ -29,6 +35,16 @@
 
 @code {
     [Parameter] public string Subsection { get; set; } = "overview";
+
+    private static readonly IReadOnlyList<AppSelectOption> SectionOptions =
+    [
+        new("overview", "Current Run", Icons.Material.Outlined.PlayCircleOutline),
+        new("batches", "Recent Batches", Icons.Material.Outlined.FolderCopy),
+        new("providers", "Provider Activity & Errors", Icons.Material.Outlined.Storage),
+    ];
+
+    private void NavigateToSection(string section) =>
+        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Ingestion, section));
 
     protected override async Task OnInitializedAsync()
     {

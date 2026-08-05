@@ -45,8 +45,6 @@
         <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">@_error</AppAlert>
     }
 
-    @if (IsSubsection("library"))
-    {
     <AppPanel Elevation="0" Class="tl-card admin-library-banner">
         <div class="admin-library-banner__content">
             <div class="admin-library-banner__main">
@@ -101,11 +99,8 @@
             </div>
         </div>
     </AppPanel>
-    }
 
     <div class="admin-overview-primary-grid">
-        @if (IsSubsection("ingestion"))
-        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--feature">
             <div class="admin-overview-card__header">
                 <div>
@@ -157,10 +152,7 @@
                 <AppButton Href="/settings/ingestion" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">View run</AppButton>
             </div>
         </AppPanel>
-        }
 
-        @if (IsSubsection("review"))
-        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -209,15 +201,12 @@
                 <AppButton Href="/settings/review" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning">Open review queue</AppButton>
             </div>
         </AppPanel>
-        }
 
-        @if (IsSubsection("streams"))
-        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
                     <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Playback</MudText>
-                    <MudText Typo="Typo.h6">Active Streams</MudText>
+                    <MudText Typo="Typo.h6">Active Transcodes</MudText>
                 </div>
                 <span class="@(_activeTranscodes > 0 ? "admin-status admin-status--info" : "admin-status")">
                     @(_activeTranscodes > 0 ? "Transcoding" : "Idle")
@@ -225,14 +214,7 @@
             </div>
 
             <div class="admin-stream-stats">
-                @Metric("Active streams", DisplayFormat.FormatCount(_activeStreams), Icons.Material.Outlined.LiveTv)
-                @Metric("Transcodes", DisplayFormat.FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
-                @Metric("Direct play", DisplayFormat.FormatCount(_directPlayStreams), Icons.Material.Outlined.PlayCircle)
-            </div>
-
-            <div class="admin-split-bar" aria-label="Playback mode split">
-                <AppCssElement Tag="span" Class="admin-split-bar__transcode" Css="@ProgressStyle(_transcodePercent)"></AppCssElement>
-                <AppCssElement Tag="span" Class="admin-split-bar__direct" Css="@ProgressStyle(_directPlayPercent)"></AppCssElement>
+                @Metric("Active jobs", DisplayFormat.FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
             </div>
 
             @if (_activeEncodeJobs.Count == 0)
@@ -240,8 +222,8 @@
                 <div class="admin-empty-state">
                     <MudIcon Icon="@Icons.Material.Outlined.PlayCircle" />
                     <div>
-                        <MudText Typo="Typo.subtitle2">No active streams</MudText>
-                        <MudText Typo="Typo.body2" Class="admin-overview-muted">Playback session reporting is not available yet; active transcodes will appear here.</MudText>
+                        <MudText Typo="Typo.subtitle2">No active transcodes</MudText>
+                        <MudText Typo="Typo.body2" Class="admin-overview-muted">Live encoding and packaging jobs will appear here.</MudText>
                     </div>
                 </div>
             }
@@ -266,12 +248,9 @@
                 <AppButton Href="/settings/delivery" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">Open playback</AppButton>
             </div>
         </AppPanel>
-        }
     </div>
 
     <div class="admin-overview-bottom-grid">
-        @if (IsSubsection("ingestion"))
-        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -313,10 +292,7 @@
                 </div>
             }
         </AppPanel>
-        }
 
-        @if (IsSubsection("operations"))
-        {
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
                 <div>
@@ -332,16 +308,12 @@
                 @Metric("Recent imports", DisplayFormat.FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
             </div>
         </AppPanel>
-        }
     </div>
 </div>
 
 @code {
     [Parameter] public int ReviewCount { get; set; }
     [Parameter] public string Subsection { get; set; } = "library";
-
-    private bool IsSubsection(string value) =>
-        string.Equals(Subsection, value, StringComparison.OrdinalIgnoreCase);
 
     private bool _loading = true;
     private bool _startingIngestion;
@@ -360,11 +332,7 @@
     private int _newReviewTodayCount;
     private int _processedToday;
     private int _recentImportsToday;
-    private int _activeStreams;
     private int _activeTranscodes;
-    private int _directPlayStreams;
-    private double _transcodePercent;
-    private double _directPlayPercent;
     private string _oldestReviewAge = "None";
 
     private int _libraryTotal
@@ -500,11 +468,6 @@
                 || entry.ActionType.Contains("MediaAdded", StringComparison.OrdinalIgnoreCase)));
 
         _activeTranscodes = _activeEncodeJobs.Count;
-        _activeStreams = _activeTranscodes;
-        _directPlayStreams = 0;
-        var playbackTotal = _activeTranscodes + _directPlayStreams;
-        _transcodePercent = playbackTotal > 0 ? _activeTranscodes * 100d / playbackTotal : 0;
-        _directPlayPercent = playbackTotal > 0 ? _directPlayStreams * 100d / playbackTotal : 0;
 
         _currentRun = BuildCurrentRun();
     }

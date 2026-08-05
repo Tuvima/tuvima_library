@@ -1,195 +1,47 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
-@inject IStringLocalizer<SharedStrings> L
-<MudStack Spacing="4">
-<div class="tl-page">
 
-        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
-            <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
-            <MudText Typo="Typo.h6">@L["Security_Security"]</MudText>
-        </MudStack>
-        <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-6">
-            @L["Security_SecurityDescription"]
-        </MudText>
-        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-            Sign-in settings below are loaded from Engine configuration. Connection and rate-limit controls are read-only in this phase; edit the config source of truth until a save endpoint is available.
-        </AppAlert>
-<AppPanel Elevation="0" Class="tl-card mb-4">
-
-            <MudText Typo="Typo.subtitle1"  Class="mb-4 tl-u-font-weight-600">
-                @L["Security_ConnectionSettings"]
-            </MudText>
-
-            @* Localhost Bypass toggle *@
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4 tl-u-gap-16px"
-                      >
-                <MudStack Spacing="0" Class="tl-u-flex-1">
-                    <MudText Typo="Typo.body1" Class="tl-u-font-weight-500">
-                        @L["Security_LocalhostBypass"]
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @L["Security_LocalhostBypassDescription"]
-                    </MudText>
-                </MudStack>
-                <AppSwitchRow @bind-Value="_localhostBypass"
-                           Color="Color.Primary"
-                           Disabled="true"
-                           T="bool" />
-            </MudStack>
-
-            <MudDivider Class="mb-4" />
-
-            @* Require HTTPS toggle *@
-            <MudStack Row="true" AlignItems="AlignItems.Center"
-                      Class="tl-u-gap-16px">
-                <MudStack Spacing="0" Class="tl-u-flex-1">
-                    <MudText Typo="Typo.body1" Class="tl-u-font-weight-500">
-                        @L["Security_RequireHttps"]
-                    </MudText>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @L["Security_RequireHttpsDescription"]
-                    </MudText>
-                </MudStack>
-                <AppSwitchRow @bind-Value="_requireHttpsRemote"
-                           Color="Color.Primary"
-                           Disabled="true"
-                           T="bool" />
-            </MudStack>
-
-        </AppPanel>
-<AppPanel Elevation="0" Class="tl-card">
-
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Outlined.Speed"
-                         Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
-                <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">
-                    @L["Security_RateLimits"]
-                </MudText>
-                <MudSpacer />
-                <AppChip T="string" Size="Size.Small" Color="Color.Default"
-                         Class="tl-u-opacity-0-6 tl-u-font-size-0-7rem">
-                    @L["Security_ReadOnly"]
-                </AppChip>
-            </MudStack>
-
-            <MudStack Spacing="2">
-
-                <MudStack Row="true" AlignItems="AlignItems.Center"
-                          Class="tl-u-justify-content-space-between">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIcon Icon="@Icons.Material.Outlined.Key"
-                                 Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2">@L["Security_KeyGeneration"]</MudText>
-                    </MudStack>
-                    <code class="tl-u-font-family-monospace tl-u-font-size-0-8rem tl-u-background-rgba-0-0-0-0-25 tl-u-padding-2px-8px tl-u-border-radius-4px tl-u-color-mud-palette-text-secondary">
-                        5 req / min
-                    </code>
-                </MudStack>
-
-                <MudStack Row="true" AlignItems="AlignItems.Center"
-                          Class="tl-u-justify-content-space-between">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIcon Icon="@Icons.Material.Outlined.PlayCircle"
-                                 Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2">@L["Security_FileStreaming"]</MudText>
-                    </MudStack>
-                    <code class="tl-u-font-family-monospace tl-u-font-size-0-8rem tl-u-background-rgba-0-0-0-0-25 tl-u-padding-2px-8px tl-u-border-radius-4px tl-u-color-mud-palette-text-secondary">
-                        100 req / min
-                    </code>
-                </MudStack>
-
-                <MudStack Row="true" AlignItems="AlignItems.Center"
-                          Class="tl-u-justify-content-space-between">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIcon Icon="@Icons.Material.Outlined.Api"
-                                 Size="Size.Small" Color="Color.Secondary" />
-                        <MudText Typo="Typo.body2">@L["Security_GeneralApi"]</MudText>
-                    </MudStack>
-                    <code class="tl-u-font-family-monospace tl-u-font-size-0-8rem tl-u-background-rgba-0-0-0-0-25 tl-u-padding-2px-8px tl-u-border-radius-4px tl-u-color-mud-palette-text-secondary">
-                        60 req / min
-                    </code>
-                </MudStack>
-
-            </MudStack>
-
-        </AppPanel>
-
-        <AppPanel Elevation="0" Class="tl-card mt-4">
-            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
-                <MudIcon Icon="@Icons.Material.Outlined.Login"
-                         Color="Color.Secondary" Size="Size.Small" Class="mr-1" />
-                <MudText Typo="Typo.subtitle1" Class="tl-u-font-weight-600">
-                    User sign-in
-                </MudText>
-                <MudSpacer />
-                <AppChip T="string" Size="Size.Small" Color="@AuthModeColor" Class="tl-u-font-size-0-7rem">
-                    @_authMode
-                </AppChip>
-            </MudStack>
-
-            @if (_authLoading)
-            {
-                <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
-            }
-            else
-            {
-                <MudStack Spacing="2">
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="tl-u-justify-content-space-between">
-                        <MudText Typo="Typo.body2">OpenID Connect provider</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@OidcSummary</MudText>
-                    </MudStack>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="tl-u-justify-content-space-between">
-                        <MudText Typo="Typo.body2">Authority</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcAuthority ?? "Not configured")</MudText>
-                    </MudStack>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="tl-u-justify-content-space-between">
-                        <MudText Typo="Typo.body2">Client ID</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@(_authSettings?.OidcClientId ?? "Not configured")</MudText>
-                    </MudStack>
-                    <AppAlert Severity="Severity.Info" Class="mt-2">
-                        SSO accounts are linked to local Tuvima profiles in Settings > Users. OIDC sign-in can be enabled after the authority and client ID are configured.
-                    </AppAlert>
-                </MudStack>
-            }
-        </AppPanel>
-
-    </div>
-<ApiKeysTab />
-
-</MudStack>
+<div class="tl-page security-settings">
+    <AppCard Title="Authentication">
+        @if (_authLoading)
+        {
+            <AppSkeleton Height="180px" />
+        }
+        else if (_authSettings is null)
+        {
+            <AppErrorState Title="Authentication configuration is unavailable"
+                           Message="The Engine did not return the current sign-in configuration." />
+        }
+        else
+        {
+            <dl class="security-settings__facts">
+                <div><dt>Authentication mode</dt><dd>@_authSettings.Mode</dd></div>
+                <div><dt>OIDC status</dt><dd>@(_authSettings.OidcEnabled ? "Enabled" : "Disabled")</dd></div>
+                <div><dt>Provider</dt><dd>@ValueOrNotConfigured(_authSettings.OidcDisplayName)</dd></div>
+                <div><dt>Authority</dt><dd>@ValueOrNotConfigured(_authSettings.OidcAuthority)</dd></div>
+                <div><dt>Client ID</dt><dd>@ValueOrNotConfigured(_authSettings.OidcClientId)</dd></div>
+                <div><dt>Require HTTPS</dt><dd>@YesNo(_authSettings.RequireHttpsRemote)</dd></div>
+                <div><dt>Localhost bypass</dt><dd>@YesNo(_authSettings.LocalhostBypass)</dd></div>
+            </dl>
+            <AppAlert Tone="AppUiTone.Info" Class="mt-4">
+                Authentication is configured by the Engine. Linked external identities are managed from Profiles &amp; Roles.
+            </AppAlert>
+        }
+    </AppCard>
+</div>
 
 @code {
-
-    private const string InnerCardStyle =
-        "background: var(--app-glass-inner-bg); " +
-        "border: 1px solid var(--app-glass-inner-border); " +
-        "border-radius: 8px; " +
-        "padding: 24px;";
-
-    private bool _localhostBypass    = true;
-    private bool _requireHttpsRemote = false;
     private bool _authLoading = true;
     private AuthSettingsDto? _authSettings;
-
-    private string _authMode => _authSettings?.Mode ?? "DisabledLocalOnly";
-
-    private Color AuthModeColor => string.Equals(_authMode, "DisabledLocalOnly", StringComparison.OrdinalIgnoreCase)
-        ? Color.Default
-        : Color.Primary;
-
-    private string OidcSummary => _authSettings?.OidcEnabled == true
-        ? _authSettings.OidcDisplayName
-        : "Disabled";
 
     protected override async Task OnInitializedAsync()
     {
         _authSettings = await Orchestrator.GetAuthSettingsAsync();
-        if (_authSettings is not null)
-        {
-            _localhostBypass = _authSettings.LocalhostBypass;
-            _requireHttpsRemote = _authSettings.RequireHttpsRemote;
-        }
-
         _authLoading = false;
     }
+
+    private static string ValueOrNotConfigured(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "Not configured" : value;
+
+    private static string YesNo(bool value) => value ? "Yes" : "No";
 }

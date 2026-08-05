@@ -154,7 +154,7 @@ public sealed class UiShellRenderTests : TestContext
             builder.OpenComponent<MudSnackbarProvider>(2);
             builder.CloseComponent();
             builder.OpenComponent<Settings>(3);
-            builder.AddAttribute(4, nameof(Settings.Section), "admin");
+            builder.AddAttribute(4, nameof(Settings.Section), "system");
             builder.AddAttribute(5, nameof(Settings.Subsection), "ingestion");
             builder.CloseComponent();
         });
@@ -163,10 +163,9 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.Single(cut.FindAll(".media-section-shell"));
             Assert.Single(cut.FindAll(".media-section-shell__rail"));
-            Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item--parent"));
-            Assert.Empty(cut.FindAll(".mud-tabs"));
+            Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item"));
             Assert.Contains("Ingestion Progress", cut.Markup);
-            Assert.Empty(cut.FindAll(".admin-review-stats"));
+            Assert.NotEmpty(cut.FindAll(".admin-review-stats"));
             Assert.Contains("No ingestion currently running", cut.Markup);
             Assert.Contains("View run", cut.Markup);
         });
@@ -190,9 +189,9 @@ public sealed class UiShellRenderTests : TestContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Change profile photo", cut.Markup);
-            Assert.Empty(cut.FindAll(".user-overview-continue-card"));
-            Assert.Empty(cut.FindAll(".user-overview-history-card"));
-            Assert.Empty(cut.FindAll(".user-overview-taste-card"));
+            Assert.NotEmpty(cut.FindAll(".user-overview-continue-card"));
+            Assert.NotEmpty(cut.FindAll(".user-overview-history-card"));
+            Assert.NotEmpty(cut.FindAll(".user-overview-taste-card"));
             Assert.DoesNotContain("At a Glance", cut.Markup);
             Assert.DoesNotContain("Your Statistics", cut.Markup);
             Assert.DoesNotContain("Recently Added", cut.Markup);
@@ -236,10 +235,9 @@ public sealed class UiShellRenderTests : TestContext
     {
         var cut = RenderComponent<PrivacyHistoryTab>();
 
-        Assert.Contains("do not change, delete, export, or save any data", cut.Markup);
-        Assert.NotEmpty(cut.FindAll("button"));
-        Assert.All(cut.FindAll("button"), button => Assert.True(button.HasAttribute("disabled")));
-        Assert.All(cut.FindAll("input"), input => Assert.True(input.HasAttribute("disabled")));
+        Assert.Contains("not available yet", cut.Markup);
+        Assert.Empty(cut.FindAll("button"));
+        Assert.Empty(cut.FindAll("input"));
 
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PrivacyHistoryTab.razor"));
         Assert.DoesNotContain("OnClick=", source, StringComparison.Ordinal);
@@ -266,7 +264,6 @@ public sealed class UiShellRenderTests : TestContext
         {
             Assert.NotEmpty(cut.FindAll(".mud-tabs"));
             Assert.NotEmpty(cut.FindAll(".settings-tab-strip"));
-            Assert.NotEmpty(cut.FindAll(".settings-summary-strip"));
             Assert.NotEmpty(cut.FindAll(".settings-section-card--dense"));
             Assert.NotEmpty(cut.FindAll(".settings-preference-row"));
             Assert.Contains("General", cut.Markup);
@@ -293,7 +290,7 @@ public sealed class UiShellRenderTests : TestContext
 
         Assert.Contains("<AppTabs", source);
         Assert.Contains("settings-tab-strip", source);
-        Assert.Contains("settings-summary-strip", source);
+        Assert.Contains("settings-tab-strip", source);
         Assert.Contains("Size=\"AppControlSize.Compact\"", source);
         Assert.DoesNotContain("settings-field--compact", source);
         Assert.Contains("settings-preference-row", source);
@@ -321,14 +318,14 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void DeliverySettings_MarksUnpersistedControlsAsNotConnected()
+    public void DeliverySettings_HidesUnpersistedControls()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PlaybackDeliverySettingsTab.razor"));
 
-        Assert.Contains("Not connected. Direct Play settings are planned", source);
-        Assert.Contains("Not connected. Subtitle and audio delivery settings are planned", source);
-        Assert.Matches(@"<AppSwitchRow[^>]*Label=""Allow direct play""[^>]*Disabled=""true""", source);
-        Assert.Matches(@"<AppSwitchRow[^>]*Label=""Subtitle extraction""[^>]*Disabled=""true""", source);
+        Assert.Contains("Variant Storage", source);
+        Assert.Contains("Diagnostics", source);
+        Assert.DoesNotContain("Allow direct play", source);
+        Assert.DoesNotContain("Subtitle extraction", source);
         Assert.DoesNotContain("TODO: Persist direct play settings", source);
         Assert.DoesNotContain("TODO: Persist subtitle and audio delivery settings", source);
     }

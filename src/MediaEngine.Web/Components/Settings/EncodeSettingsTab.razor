@@ -1,4 +1,4 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.Playback
 @using MediaEngine.Contracts.Settings
 @using MediaEngine.Web.Services.Integration
@@ -6,22 +6,63 @@
 @inject ISnackbar Snackbar
 
 <div class="tl-page encode-settings">
-    <div class="encode-settings__grid">
-        <AppCard Title="Scheduling">
-            <AppSwitchRow @bind-Value="_scheduledEncodesEnabled"
-                          Label="Enable scheduled encodes" />
-            <AppTextField @bind-Value="_maintenanceWindow"
-                          Label="Maintenance window" />
-            <AppNumericField @bind-Value="_maxConcurrentJobs"
-                             Label="Maximum active jobs"
-                             Min="1"
-                             Max="4" />
-            <AppSelect T="string" @bind-Value="_hardwarePreference"
-                       Label="Hardware preference"
-                       Options="@HardwareOptions" />
-        </AppCard>
+    @if (_loading)
+    {
+        <AppSkeleton Size="AppControlSize.Large" />
+    }
+    else if (!_settingsAvailable)
+    {
+        <AppErrorState Title="Playback delivery settings are unavailable"
+                       Message="Start the Engine or retry before changing transcoding and variant storage." />
+    }
+    else if (IsSection("transcoding"))
+    {
+        <div class="encode-settings__grid">
+            <AppCard Title="Scheduled Encodes">
+                <AppSwitchRow @bind-Value="_scheduledEncodesEnabled"
+                              Label="Enable scheduled encodes" />
+                <AppTextField @bind-Value="_maintenanceWindow"
+                              Label="Maintenance window" />
+                <AppNumericField @bind-Value="_maxConcurrentJobs"
+                                 Label="Maximum active jobs"
+                                 Min="1"
+                                 Max="4" />
+                <AppSelect T="string" @bind-Value="_hardwarePreference"
+                           Label="CPU / GPU preference"
+                           Options="@HardwareOptions" />
+            </AppCard>
 
-        <AppCard Title="Storage Policy">
+            <AppCard Title="Encode Profiles">
+                <AppTable>
+                    <thead>
+                        <tr>
+                            <th>Profile</th>
+                            <th>Target</th>
+                            <th>Codec</th>
+                            <th>Container</th>
+                            <th>Size guidance</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var profile in _settings.QualityProfiles)
+                        {
+                            <tr>
+                                <td>@profile.Name</td>
+                                <td>@profile.Resolution</td>
+                                <td>@profile.Codec / @profile.AudioCodec</td>
+                                <td>@profile.Container</td>
+                                <td>@profile.SizeGuidance</td>
+                            </tr>
+                        }
+                    </tbody>
+                </AppTable>
+            </AppCard>
+        </div>
+        @SaveButton("Save Transcoding Settings")
+    }
+    else if (IsSection("storage"))
+    {
+        <AppCard Title="Variant Storage">
             <AppTextField @bind-Value="_variantRoot"
                           Label="Variant cache location" />
             <AppNumericField @bind-Value="_cacheSizeGb"
@@ -35,72 +76,36 @@
             <AppSwitchRow @bind-Value="_cleanupLru"
                           Label="Use least-recently-used cleanup before deleting old variants" />
         </AppCard>
-    </div>
-
-    <AppCard Title="Profiles"
-             Class="encode-settings__profiles">
-        <Actions>
-            <AppButton Label="Add profile"
-                       StartIcon="@Icons.Material.Outlined.Add"
-                       Tone="AppUiTone.Primary"
-                       OnClick="@AddProfile" />
-        </Actions>
-        <ChildContent>
-            <AppTable>
-                <thead>
-                    <tr>
-                        <th>Profile</th>
-                        <th>Target</th>
-                        <th>Codec</th>
-                        <th>Container</th>
-                        <th>Size guidance</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var profile in _settings.QualityProfiles)
-                    {
-                        <tr>
-                            <td>@profile.Name</td>
-                            <td>@profile.Resolution</td>
-                            <td>@profile.Codec / @profile.AudioCodec</td>
-                            <td>@profile.Container</td>
-                            <td>@profile.SizeGuidance</td>
-                        </tr>
-                    }
-                </tbody>
-            </AppTable>
-        </ChildContent>
-    </AppCard>
-
-    <AppCard Title="Diagnostics">
-        @if (_diagnostics is null)
-        {
-            <AppAlert Tone="AppUiTone.Info">Diagnostics unavailable.</AppAlert>
-        }
-        else
-        {
-            <div class="encode-settings__diagnostics">
-                <AppMetricCard Label="FFmpeg"
-                               Value="@(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")"
-                               Tone="@(_diagnostics.FFmpegAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
-                <AppMetricCard Label="MediaInfo"
-                               Value="@(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")"
-                               Tone="@(_diagnostics.MediaInfoAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
-                <AppMetricCard Label="Active jobs"
-                               Value="@_diagnostics.ActiveJobs.Count.ToString()" />
-            </div>
-        }
-    </AppCard>
-
-    <AppButton Label="@(_saving ? "Saving..." : "Save Encode Settings")"
-               ButtonStyle="AppButtonStyle.Filled"
-               Tone="AppUiTone.Primary"
-               FullWidth="true"
-               Disabled="@_saving"
-               OnClick="@SaveAsync" />
+        @SaveButton("Save Variant Storage")
+    }
+    else
+    {
+        <AppCard Title="Diagnostics">
+            @if (_diagnostics is null)
+            {
+                <AppEmptyState Title="Diagnostics unavailable"
+                               Message="No playback diagnostics were returned by the Engine." />
+            }
+            else
+            {
+                <div class="encode-settings__diagnostics">
+                    <AppMetricCard Label="FFmpeg"
+                                   Value="@(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")"
+                                   Tone="@(_diagnostics.FFmpegAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                    <AppMetricCard Label="MediaInfo"
+                                   Value="@(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")"
+                                   Tone="@(_diagnostics.MediaInfoAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                    <AppMetricCard Label="Active jobs"
+                                   Value="@_diagnostics.ActiveJobs.Count.ToString()" />
+                </div>
+            }
+        </AppCard>
+    }
 </div>
 
 @code {
+    [Parameter] public string Section { get; set; } = "transcoding";
+
     private static readonly IReadOnlyList<AppSelectOption> HardwareOptions =
     [
         new("auto", "Auto"),
@@ -109,29 +114,49 @@
     ];
 
     private TranscodingSettings _settings = new();
+    private bool _loading = true;
+    private bool _settingsAvailable;
     private bool _saving;
-    private bool _scheduledEncodesEnabled = true;
-    private string _maintenanceWindow = "01:00-05:00";
-    private int _maxConcurrentJobs = 1;
-    private string _hardwarePreference = "auto";
-    private string _variantRoot = ".data/variants";
-    private int _cacheSizeGb = 250;
-    private int _retentionDays = 30;
-    private bool _cleanupLru = true;
+    private bool _scheduledEncodesEnabled;
+    private string _maintenanceWindow = string.Empty;
+    private int _maxConcurrentJobs;
+    private string _hardwarePreference = string.Empty;
+    private string _variantRoot = string.Empty;
+    private int _cacheSizeGb;
+    private int _retentionDays;
+    private bool _cleanupLru;
     private PlaybackDiagnosticsDto? _diagnostics;
 
     protected override async Task OnInitializedAsync()
     {
-        _settings = await ApiClient.GetTranscodingSettingsAsync() ?? new TranscodingSettings();
-        HydrateForm(_settings);
+        var settings = await ApiClient.GetTranscodingSettingsAsync();
         _diagnostics = await ApiClient.GetPlaybackDiagnosticsAsync();
+        if (settings is not null)
+        {
+            _settings = settings;
+            _settingsAvailable = true;
+            HydrateForm(settings);
+        }
+
+        _loading = false;
     }
 
-    private void AddProfile() =>
-        Snackbar.Add("Profile creation UI is next; existing profiles now persist through config/transcoding.json.", Severity.Info);
+    private bool IsSection(string section) =>
+        string.Equals(Section, section, StringComparison.OrdinalIgnoreCase);
+
+    private RenderFragment SaveButton(string label) => @<AppButton Label="@(_saving ? "Saving..." : label)"
+                   ButtonStyle="AppButtonStyle.Filled"
+                   Tone="AppUiTone.Primary"
+                   FullWidth="true"
+                   Class="mt-4"
+                   Disabled="@_saving"
+                   OnClick="@SaveAsync" />;
 
     private async Task SaveAsync()
     {
+        if (!_settingsAvailable)
+            return;
+
         _saving = true;
         ApplyForm(_settings);
         var saved = await ApiClient.SaveTranscodingSettingsAsync(_settings);
@@ -145,7 +170,7 @@
 
         _settings = saved;
         HydrateForm(_settings);
-        Snackbar.Add("Encode settings saved.", Severity.Success);
+        Snackbar.Add("Playback delivery settings saved.", Severity.Success);
     }
 
     private void HydrateForm(TranscodingSettings settings)

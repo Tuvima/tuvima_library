@@ -23,7 +23,7 @@ Tuvima Library defines three user roles with progressively wider control:
 ### What a Consumer sees
 
 - The full library and profile-owned My List.
-- User Settings.
+- Personal Settings: Profile and Playback & Reading.
 - Profile switching, Settings, and Help in the account menu.
 - No Needs Review row, notification count, or review-count request.
 
@@ -31,12 +31,15 @@ Tuvima Library defines three user roles with progressively wider control:
 
 - Everything a Consumer sees.
 - Needs Review and its count in the account menu.
-- The Settings/Admin destinations made visible by `SettingsNav`.
+- Review Queue and Activity & Audit in addition to personal settings.
 
 ### What an Administrator sees
 
 - Everything a Curator sees.
-- All Settings/Admin destinations, including libraries, providers, users, access, diagnostics, ingestion, and Local AI.
+- The Personal, Administration, and Advanced settings groups, including libraries, providers, users, access, diagnostics, ingestion, Local AI, and Plugins.
+- Developer Tools only when the internal-tools feature flag is enabled. Provider and Enrichment testers are reached from that page rather than duplicated in navigation.
+
+Privacy & Data is hidden for every role until its operations are backed by the Engine.
 
 Sign out is independent of role: it is shown only when OIDC or hybrid authentication is enabled. Local-only users switch profiles instead.
 

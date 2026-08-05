@@ -164,7 +164,21 @@ else
                         </div>
 
                         <AppTabs ActivePanelIndex="@ActivePanelIndex"
-                                 Class="settings-tab-strip settings-plugin-tabs settings-tabs--sidebar-controlled">
+                                 Class="settings-tab-strip settings-plugin-tabs">
+                            <AppTabPanel Text="Overview" Icon="@Icons.Material.Outlined.Info">
+                                <div class="settings-plugin-tab-body">
+                                    <MudText Typo="Typo.body1">@plugin.Description</MudText>
+                                    <AppTable Class="settings-plugin-job-table">
+                                        <tbody>
+                                            <tr><td>Status</td><td>@(plugin.Enabled ? "Enabled" : "Disabled")</td></tr>
+                                            <tr><td>Source</td><td>@(plugin.IsBuiltIn ? "Built in" : "Dynamic plugin folder")</td></tr>
+                                            <tr><td>Capabilities</td><td>@plugin.Capabilities.Count</td></tr>
+                                            <tr><td>Required tools</td><td>@plugin.ToolRequirements.Count</td></tr>
+                                            <tr><td>AI permissions</td><td>@plugin.AiPermissions.Count</td></tr>
+                                        </tbody>
+                                    </AppTable>
+                                </div>
+                            </AppTabPanel>
                             <AppTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
                                 <div class="settings-plugin-tab-body">
                                     @{
@@ -197,7 +211,7 @@ else
                                     }
                                 </div>
                             </AppTabPanel>
-                            <AppTabPanel Text="Jobs & health" Icon="@Icons.Material.Outlined.HealthAndSafety">
+                            <AppTabPanel Text="Health & Jobs" Icon="@Icons.Material.Outlined.HealthAndSafety">
                                 <div class="settings-plugin-tab-body">
                                     <AppActionBar Align="AppHorizontalAlignment.Start">
                                         <AppButton Label="Check health"
@@ -341,17 +355,26 @@ else
                                     }
                                 </div>
                             </AppTabPanel>
-                            <AppTabPanel Text="How to use" Icon="@Icons.Material.Outlined.MenuBook">
+                            <AppTabPanel Text="Capabilities" Icon="@Icons.Material.Outlined.CheckCircleOutline">
                                 <div class="settings-plugin-tab-body">
-                                    <AppAlert Tone="AppUiTone.Info">
-                                        Admins use this page to enable built-in plugins, configure dynamic plugins, check health, and discover approved plugins from GitHub. Installing a downloaded plugin is still a manual dynamic-plugin folder step.
-                                    </AppAlert>
+                                    @if (plugin.Capabilities.Count == 0 && plugin.ToolRequirements.Count == 0 && plugin.AiPermissions.Count == 0)
+                                    {
+                                        <AppEmptyState Title="No declared capabilities" Message="This plugin does not publish capability metadata." />
+                                    }
                                     <AppTable Class="settings-plugin-job-table">
                                         <tbody>
-                                            <tr><td>Use a plugin</td><td>Download an approved release, verify the published SHA-256 when one is provided, extract it under the library root at .data/plugins/plugin-folder, reload the Engine, then enable it here.</td></tr>
-                                            <tr><td>Configure a plugin</td><td>Select the plugin, update the fields it exposes, then run Jobs & health before relying on scheduled work.</td></tr>
-                                            <tr><td>Build a plugin</td><td>Create a .NET class library that references MediaEngine.Plugins, implement ITuvimaPlugin, ship plugin.json beside the compiled assembly, and include settings schema metadata for every admin-facing option.</td></tr>
-                                            <tr><td>Submit for approval</td><td>Publish a GitHub release with a versioned archive, checksum, source repository, manifest, and installation notes so maintainers can add it to the approved catalog.</td></tr>
+                                            @foreach (var capability in plugin.Capabilities)
+                                            {
+                                                <tr><td>@capability.Name</td><td>@capability.Description</td></tr>
+                                            }
+                                            @foreach (var requirement in plugin.ToolRequirements)
+                                            {
+                                                <tr><td>Required tool</td><td>@requirement</td></tr>
+                                            }
+                                            @foreach (var permission in plugin.AiPermissions)
+                                            {
+                                                <tr><td>AI permission</td><td>@permission</td></tr>
+                                            }
                                         </tbody>
                                     </AppTable>
                                 </div>
@@ -398,14 +421,15 @@ else
 }
 
 @code {
-    [Parameter] public string Subsection { get; set; } = "settings";
+    [Parameter] public string Subsection { get; set; } = "overview";
 
     private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
     {
-        "jobs-health" => 1,
-        "catalog" => 2,
-        "help" => 3,
-        "danger" => 4,
+        "settings" => 1,
+        "jobs-health" or "health" => 2,
+        "catalog" => 3,
+        "help" or "capabilities" => 4,
+        "danger" => 5,
         _ => 0,
     };
 
