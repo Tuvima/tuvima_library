@@ -1,0 +1,140 @@
+using Dapper;
+using MediaEngine.Api.Services.Display;
+using MediaEngine.Storage;
+
+namespace MediaEngine.Api.Tests;
+
+public sealed class ContributorShelfReadServiceTests : IDisposable
+{
+    private readonly string _dbPath;
+    private readonly DatabaseConnection _db;
+
+    public ContributorShelfReadServiceTests()
+    {
+        DapperConfiguration.Configure();
+        _dbPath = Path.Combine(Path.GetTempPath(), $"tuvima_contributor_shelves_{Guid.NewGuid():N}.db");
+        _db = new DatabaseConnection(_dbPath);
+        _db.InitializeSchema();
+        _db.RunStartupChecks();
+    }
+
+    [Fact]
+    public async Task LoadAsync_BuildsOnlyMultiWorkCanonicalContributorShelves()
+    {
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                "INSERT INTO persons (id, name, created_at) VALUES (@id, 'Ursula Test Author', CURRENT_TIMESTAMP);",
+                new { id = Guid.NewGuid() });
+            await InsertOwnedWorkAsync(conn, "Books", "A Wizard", "author", "Ursula Test Author");
+            await InsertOwnedWorkAsync(conn, "Books", "The Tombs", "author", "Ursula Test Author");
+            await InsertOwnedWorkAsync(conn, "TV", "One Episode", "director", "Ursula Test Author");
+        }
+
+        var shelves = await CreateService().LoadAsync(CancellationToken.None);
+
+        var shelf = Assert.Single(shelves);
+        Assert.Equal("BooksByAuthor", shelf.ShelfType);
+        Assert.Equal("Books by Ursula Test Author", shelf.Title);
+        Assert.Equal(2, shelf.OwnedCount);
+        Assert.All(shelf.Items, item => Assert.Equal("Books", item.MediaType));
+    }
+
+    [Fact]
+    public async Task LoadAsync_CollapsesTracksIntoDistinctAlbums()
+    {
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                "INSERT INTO persons (id, name, created_at) VALUES (@id, 'Album Artist', CURRENT_TIMESTAMP);",
+                new { id = Guid.NewGuid() });
+            await InsertAlbumAsync(conn, "First Album", 2);
+            await InsertAlbumAsync(conn, "Second Album", 3);
+        }
+
+        var shelf = Assert.Single(await CreateService().LoadAsync(CancellationToken.None));
+
+        Assert.Equal("AlbumsByArtist", shelf.ShelfType);
+        Assert.Equal(2, shelf.OwnedCount);
+        Assert.Equal(["First Album", "Second Album"], shelf.Items.Select(item => item.Title).Order().ToArray());
+    }
+
+    private ContributorShelfReadService CreateService()
+        => new(new DisplayWorkProjectionReader(_db), _db);
+
+    private static async Task InsertOwnedWorkAsync(
+        System.Data.IDbConnection conn,
+        string mediaType,
+        string title,
+        string creditKey,
+        string personName)
+    {
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO works (id, media_type, work_kind, curator_state)
+            VALUES (@workId, @mediaType, 'standalone', 'accepted');
+            INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+            INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, presented_at)
+            VALUES (@assetId, @editionId, @hash, @path, CURRENT_TIMESTAMP);
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES (@assetId, 'title', @title, CURRENT_TIMESTAMP);
+            INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+            VALUES (@assetId, @creditKey, 0, @personName);
+            """,
+            new { workId, mediaType, editionId, assetId, hash = Guid.NewGuid().ToString("N"), path = $"C:/library/{title}.media", title, creditKey, personName });
+    }
+
+    private static async Task InsertAlbumAsync(System.Data.IDbConnection conn, string title, int trackCount)
+    {
+        var albumId = Guid.NewGuid();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO works (id, media_type, work_kind, curator_state)
+            VALUES (@albumId, 'Music', 'parent', 'accepted');
+            INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+            VALUES (@albumId, 'title', @title, CURRENT_TIMESTAMP);
+            """,
+            new { albumId, title });
+
+        for (var track = 1; track <= trackCount; track++)
+        {
+            var workId = Guid.NewGuid();
+            var editionId = Guid.NewGuid();
+            var assetId = Guid.NewGuid();
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, parent_work_id, media_type, work_kind, ordinal, curator_state)
+                VALUES (@workId, @albumId, 'Music', 'child', @track, 'accepted');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, presented_at)
+                VALUES (@assetId, @editionId, @hash, @path, CURRENT_TIMESTAMP);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@assetId, 'title', @trackTitle, CURRENT_TIMESTAMP),
+                       (@assetId, 'album', @title, CURRENT_TIMESTAMP);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@assetId, 'artist', 0, 'Album Artist');
+                """,
+                new
+                {
+                    workId,
+                    albumId,
+                    track,
+                    editionId,
+                    assetId,
+                    hash = Guid.NewGuid().ToString("N"),
+                    path = $"C:/library/{title}/{track:00}.flac",
+                    trackTitle = $"Track {track}",
+                    title,
+                });
+        }
+    }
+
+    public void Dispose()
+    {
+        try { _db.Dispose(); } catch { }
+        try { File.Delete(_dbPath); } catch { }
+    }
+}

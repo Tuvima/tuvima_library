@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
@@ -138,6 +139,38 @@ public sealed partial class EngineApiClient
             RecordExceptionFailure(endpoint, ex);
             return null;
         }
+    }
+
+    public async Task<IReadOnlyList<ContributorShelfDto>> GetContributorShelvesAsync(CancellationToken ct = default)
+    {
+        const string endpoint = "GET /api/v1/display/contributor-shelves";
+        var shelves = await GetAsync<List<ContributorShelfDto>>(
+            endpoint,
+            "/api/v1/display/contributor-shelves",
+            () => [],
+            ct: ct);
+        return shelves.Select(shelf => new ContributorShelfDto
+            {
+                Key = shelf.Key,
+                PersonId = shelf.PersonId,
+                PersonName = shelf.PersonName,
+                HeadshotUrl = string.IsNullOrWhiteSpace(shelf.HeadshotUrl) ? null : AbsoluteUrl(shelf.HeadshotUrl),
+                Role = shelf.Role,
+                Lane = shelf.Lane,
+                ShelfType = shelf.ShelfType,
+                Title = shelf.Title,
+                OwnedCount = shelf.OwnedCount,
+                EarliestYear = shelf.EarliestYear,
+                LatestYear = shelf.LatestYear,
+                Items = shelf.Items.Select(item => new ContributorShelfItemDto
+                {
+                    WorkId = item.WorkId,
+                    Title = item.Title,
+                    MediaType = item.MediaType,
+                    CoverUrl = string.IsNullOrWhiteSpace(item.CoverUrl) ? null : AbsoluteUrl(item.CoverUrl),
+                    Year = item.Year,
+                }).ToList(),
+            }).ToList();
     }
 
 }

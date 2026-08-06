@@ -493,19 +493,13 @@ internal sealed partial class DetailCompositionOrchestrator
         };
         var roleSummary = roles.Count == 0 ? null : string.Join(", ", roles);
         var entityType = MapCreditToEntityType(representative);
-        var trackCount = entityType == DetailEntityType.MusicAlbum
-            ? credits.Max(credit => credit.TrackCount)
-            : null;
-        var trackSummary = trackCount.HasValue
-            ? $"{trackCount.Value} {(trackCount.Value == 1 ? "track" : "tracks")}"
-            : null;
 
         return new MediaGroupingItemViewModel
         {
             Id = CreditDisplayId(representative),
             EntityType = entityType,
             Title = representative.Title,
-            Subtitle = string.Join(" · ", new[] { trackSummary, StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
+            Subtitle = string.Join(" · ", new[] { StringHelpers.FirstNonBlankOr(string.Empty, characterSummary, roleSummary), representative.Year }.Where(v => !string.IsNullOrWhiteSpace(v))),
             ArtworkUrl = representative.CoverUrl,
             Lane = DetailLane(entityType),
             Roles = roles,

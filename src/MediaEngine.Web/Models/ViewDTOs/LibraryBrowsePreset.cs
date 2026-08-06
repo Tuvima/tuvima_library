@@ -13,6 +13,13 @@ public enum BrowseHeroVariant
     Listen,
 }
 
+public enum TimelineAggregation
+{
+    MediaItems,
+    Albums,
+    TvShows,
+}
+
 public sealed record BrowseGroupingOption(
     string Value,
     string Label,
@@ -29,6 +36,8 @@ public sealed record BrowseTabPreset
     public string DefaultGrouping { get; init; } = "all";
     public LibraryLayoutMode DefaultLayout { get; init; } = LibraryLayoutMode.Card;
     public string YearSemantic { get; init; } = "Release / publication year";
+    public TimelineAggregation TimelineAggregation { get; init; } = TimelineAggregation.MediaItems;
+    public string TimelineItemNoun { get; init; } = "item";
 }
 
 public sealed record LibraryBrowsePreset

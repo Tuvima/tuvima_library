@@ -343,7 +343,8 @@
     {
         <AppTimelineResults Items="@_cards"
                             TileSizePx="@TileSizePx"
-                            YearSemantic="@CurrentTab.YearSemantic" />
+                            YearSemantic="@CurrentTab.YearSemantic"
+                            ItemNoun="@CurrentTab.TimelineItemNoun" />
     }
     else
     {
@@ -351,7 +352,7 @@
                        HoverMode="@GridHoverMode"
                        HideMediaKindBadges="true"
                        HideSourceBadges="true"
-                       HideGroupIndicators="true"
+                       HideGroupKind="true"
                        ShowCompactCaptions="true"
                        TileSizePx="@TileSizePx"
                        Class="browse-shell__grid" />
@@ -422,12 +423,10 @@
     private bool IsContainerGrouping => BrowseQueryBuilder.IsContainerGrouping(_grouping);
     private bool IsMusicTab => string.Equals(CurrentTab.MediaType, "Music", StringComparison.OrdinalIgnoreCase);
     private bool IsAudiobookTab => string.Equals(CurrentTab.MediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase);
-    private bool IsMusicTimelineGrouping => IsMusicTab
-                                            && string.Equals(_grouping, "timeline", StringComparison.OrdinalIgnoreCase);
-    private bool IsTvTimelineGrouping =>
-        string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(_grouping, "timeline", StringComparison.OrdinalIgnoreCase)
-        && string.Equals(CurrentTab.MediaType, "TV", StringComparison.OrdinalIgnoreCase);
+    private bool UsesAlbumTimeline => IsTimelineGrouping
+                                      && CurrentTab.TimelineAggregation == TimelineAggregation.Albums;
+    private bool UsesTvShowTimeline => IsTimelineGrouping
+                                       && CurrentTab.TimelineAggregation == TimelineAggregation.TvShows;
     private bool IsTvNetworksGrouping =>
         string.Equals(_activeTabId, "tv", StringComparison.OrdinalIgnoreCase)
         && string.Equals(_grouping, "networks", StringComparison.OrdinalIgnoreCase)
@@ -703,7 +702,7 @@
             {
                 await LoadPlaylistsAsync();
             }
-            else if (IsContainerGrouping || IsMusicTimelineGrouping || IsTvTimelineGrouping)
+            else if (IsContainerGrouping || UsesAlbumTimeline || UsesTvShowTimeline)
             {
                 if (IsTvShowsGrouping && !UseListLayout)
                 {
@@ -1886,7 +1885,7 @@
     private Guid GetGroupNavigationId(ContentGroupViewModel group) =>
         IsPersonGrouping && (group.PersonId ?? group.ArtistPersonId) is Guid personId
             ? personId
-            : IsTvTimelineGrouping
+            : UsesTvShowTimeline
                 ? GetTvShowGroupRouteId(group)
             : GetSystemViewGroupField() is not null
             ? GenerateDeterministicGuid(group.DisplayName)
@@ -1898,9 +1897,9 @@
         group.RootWorkId ?? group.CollectionId;
 
     private string? GetSystemViewGroupField() =>
-        IsMusicTimelineGrouping
+        UsesAlbumTimeline
             ? "album"
-            : IsTvTimelineGrouping
+            : UsesTvShowTimeline
                 ? "show_name"
             : BrowseQueryBuilder.GetSystemViewGroupField(_activeTabId, _grouping);
 

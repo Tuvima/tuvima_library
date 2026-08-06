@@ -219,7 +219,7 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLibraryCreditsAsync_CollapsesMusicTracksToOneAlbumWithTrackCount()
+    public async Task GetLibraryCreditsAsync_CollapsesMusicTracksToOneAlbumWithoutTrackAttribution()
     {
         var personId = Guid.NewGuid();
         var albumId = Guid.NewGuid();
@@ -278,7 +278,48 @@ public sealed class PersonCreditReadServiceTests : IDisposable
         Assert.Equal(albumId, credit.WorkId);
         Assert.Equal("The Complete Album", credit.Title);
         Assert.Equal("Artist", credit.Role);
-        Assert.Equal(2, credit.TrackCount);
+    }
+
+    [Fact]
+    public async Task GetLibraryCreditsAsync_DoesNotAttributeCollectivePseudonymWorkToLinkedIdentities()
+    {
+        var pseudonymId = Guid.NewGuid();
+        var linkedIdentityId = Guid.NewGuid();
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, is_pseudonym, created_at)
+                VALUES (@pseudonymId, 'James S. A. Corey', 1, CURRENT_TIMESTAMP),
+                       (@linkedIdentityId, 'Daniel Abraham', 0, CURRENT_TIMESTAMP);
+                INSERT INTO works (id, media_type, work_kind, curator_state)
+                VALUES (@workId, 'Books', 'standalone', 'accepted');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@assetId, @editionId, @hash, 'C:/library/Leviathan Wakes.epub');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@assetId, 'title', 'Leviathan Wakes', CURRENT_TIMESTAMP);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@assetId, 'author', 0, 'James S. A. Corey'),
+                       (@assetId, 'author', 1, 'Daniel Abraham');
+                """,
+                new
+                {
+                    pseudonymId,
+                    linkedIdentityId,
+                    workId,
+                    editionId,
+                    assetId,
+                    hash = Guid.NewGuid().ToString("N"),
+                });
+        }
+
+        var service = CreateService();
+        Assert.Single(await service.GetLibraryCreditsAsync(pseudonymId, CancellationToken.None));
+        Assert.Empty(await service.GetLibraryCreditsAsync(linkedIdentityId, CancellationToken.None));
     }
 
     [Fact]

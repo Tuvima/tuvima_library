@@ -81,14 +81,17 @@
                 </div>
             }
 
-            @if (Item.IsCollection && !HideGroupIndicators)
+            @if (Item.IsCollection && (!ShouldHideGroupKind || !ShouldHideGroupCount))
             {
                 <div class="media-tile-group-indicators">
-                    <span class="media-tile-group-kind">
-                        <MudIcon Icon="@GroupKindIcon" />
-                        <span>@GroupKindLabel</span>
-                    </span>
-                    @if (Item.PreviewTotalCount is > 0)
+                    @if (!ShouldHideGroupKind)
+                    {
+                        <span class="media-tile-group-kind">
+                            <MudIcon Icon="@GroupKindIcon" />
+                            <span>@GroupKindLabel</span>
+                        </span>
+                    }
+                    @if (!ShouldHideGroupCount && Item.PreviewTotalCount is > 0)
                     {
                         <span class="media-tile-group-count" aria-label="@GroupCountAriaLabel" title="@GroupCountAriaLabel">
                             <MudIcon Icon="@GroupCountIcon" />
@@ -292,7 +295,12 @@
     [Parameter] public bool HideMediaKindBadge { get; set; }
     [Parameter] public bool HideSourceBadge { get; set; }
     [Parameter] public bool HideGroupIndicators { get; set; }
+    [Parameter] public bool HideGroupKind { get; set; }
+    [Parameter] public bool HideGroupCount { get; set; }
     [Parameter] public bool ShowCompactCaption { get; set; }
+
+    private bool ShouldHideGroupKind => HideGroupIndicators || HideGroupKind;
+    private bool ShouldHideGroupCount => HideGroupIndicators || HideGroupCount;
 
     private bool _hoverRegistered;
     private int _hoverImageIndex;

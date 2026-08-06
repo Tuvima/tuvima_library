@@ -28,6 +28,8 @@ internal static class ListenBrowseConfiguration
                 DefaultGrouping = "songs",
                 DefaultLayout = LibraryLayoutMode.List,
                 YearSemantic = "Original album release year",
+                TimelineAggregation = TimelineAggregation.Albums,
+                TimelineItemNoun = "album",
             },
             new BrowseTabPreset
             {

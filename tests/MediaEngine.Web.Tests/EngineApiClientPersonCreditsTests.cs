@@ -70,7 +70,6 @@ public sealed class EngineApiClientPersonCreditsTests
                 "cover_url": "/stream/work-cover",
                 "year": "2021",
                 "role": "Actor",
-                "track_count": 12,
                 "characters": [
                   {
                     "fictional_entity_id": "33333333-3333-3333-3333-333333333333",
@@ -94,7 +93,6 @@ public sealed class EngineApiClientPersonCreditsTests
 
         var credit = Assert.Single(credits);
         Assert.Equal("http://localhost:61495/stream/work-cover", credit.CoverUrl);
-        Assert.Equal(12, credit.TrackCount);
         Assert.Equal("Paul Atreides", Assert.Single(credit.Characters).CharacterName);
         Assert.Equal("http://localhost:61495/stream/paul-portrait", credit.Characters[0].PortraitUrl);
     }

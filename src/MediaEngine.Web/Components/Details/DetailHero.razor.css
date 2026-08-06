@@ -19,6 +19,42 @@
     box-shadow: 0 1.7rem 3.5rem rgba(0, 0, 0, 0.62);
 }
 
+.tl-detail-person-role {
+    display: flex;
+    width: min(47.5rem, 100%);
+    align-items: stretch;
+}
+
+.tl-detail-person-fact-row {
+    display: flex;
+    width: min(47.5rem, 100%);
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.7rem;
+    color: rgba(255, 255, 255, 0.86);
+    font-family: var(--media-identity-font-family, var(--font-ui));
+    font-size: clamp(1rem, 1.3vw, 1.18rem);
+    font-weight: 600;
+}
+
+.tl-detail-person-fact {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.32rem;
+    white-space: nowrap;
+}
+
+.tl-detail-person-fact + .tl-detail-person-fact::before {
+    margin-right: 0.38rem;
+    color: rgba(255, 255, 255, 0.4);
+    content: "·";
+}
+
+.tl-detail-person-fact ::deep .mud-icon-root {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 1rem;
+}
+
 @media (max-width: 960px) {
     .tl-detail-collection-artwork {
         right: 1.5rem;

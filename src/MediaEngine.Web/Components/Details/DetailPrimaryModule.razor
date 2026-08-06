@@ -214,9 +214,10 @@
 
     private bool HasMultipleOwnedLanes => LaneOptions.Count(option => option.Key != "all") > 1;
     private bool IsPersonSurface => Model.EntityType == DetailEntityType.Person;
-    private bool ShowRoleFilter => Model.PrimaryModule.SupportsRoleFilter && RoleOptions.Count > 1;
+    private bool ShowRoleFilter => Model.PrimaryModule.SupportsRoleFilter
+        && RoleOptions.Count(option => option.Key != "all") > 1;
     private bool ShowLaneFilters => Model.PrimaryModule.SupportsLaneFilter
-        && (HasMultipleOwnedLanes || (IsPersonSurface && AllItems.Count > 0));
+        && HasMultipleOwnedLanes;
     private bool ShowModuleControls => ShowRoleFilter || ShowLaneFilters;
 
     private bool ShowHeader => Model.PrimaryModule.Kind is not DetailPrimaryModuleKind.Chapters

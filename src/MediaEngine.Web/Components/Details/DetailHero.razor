@@ -38,12 +38,17 @@
                            Synopsis="@Model.Description"
                            SynopsisClass="tl-detail-hero__tagline tl-detail-person-hero__summary"
                            Class="tl-detail-person-hero__content">
-            <IdentityBeforeTitle>
-                @if (!string.IsNullOrWhiteSpace(PersonEyebrow))
+            <IdentityAfterTitle>
+                @if (!string.IsNullOrWhiteSpace(PersonRoleLabel))
                 {
-                    <div class="tl-detail-hero__eyebrow">@PersonEyebrow</div>
+                    <div class="tl-detail-hero-credit-stack tl-detail-person-role" aria-label="Primary role">
+                        <div class="tl-detail-hero-credit-stack__line">
+                            <span class="tl-detail-hero-credit-stack__label">Role</span>
+                            <span class="tl-detail-hero-credit-stack__value">@PersonRoleLabel</span>
+                        </div>
+                    </div>
                 }
-            </IdentityBeforeTitle>
+            </IdentityAfterTitle>
             <MetadataContent>
                 @if (PersonHeroFacts.Count > 0)
                 {
@@ -240,11 +245,9 @@
 
     private Task OpenOverviewAsync() => OnTabRequested.InvokeAsync("overview");
 
-    private string? PersonEyebrow => StringHelpers.FirstNonBlank(PersonRoleLabel, Model.PersonDetails?.Occupation);
-
     private string? PersonRoleLabel => Model.PersonDetails?.Roles.Count > 0
-        ? string.Join(" / ", Model.PersonDetails.Roles.Take(3))
-        : null;
+        ? string.Join("; ", Model.PersonDetails.Roles.Take(3))
+        : Model.PersonDetails?.Occupation;
 
     private IReadOnlyList<(string Icon, string Label)> PersonHeroFacts
     {

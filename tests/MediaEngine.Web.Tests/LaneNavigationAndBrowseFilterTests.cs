@@ -125,7 +125,8 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("<AppQuickFilterToggle", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppActiveFilterSummary", browseShell, StringComparison.Ordinal);
         Assert.Contains("<AppTimelineResults", browseShell, StringComparison.Ordinal);
-        Assert.Contains("IsTvTimelineGrouping", browseShell, StringComparison.Ordinal);
+        Assert.Contains("UsesTvShowTimeline", browseShell, StringComparison.Ordinal);
+        Assert.Contains("TimelineAggregation.Albums", listenPreset, StringComparison.Ordinal);
         Assert.Contains("? \"show_name\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("GroupYearLabel(group)", browseShell, StringComparison.Ordinal);
         Assert.Contains("group.EarliestYear is int earliest && group.LatestYear is int latest", browseShell, StringComparison.Ordinal);
@@ -148,7 +149,7 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.DoesNotContain("OnClick=\"@context.ToggleAsync\"", multiSelect, StringComparison.Ordinal);
         Assert.DoesNotContain(".. IsSeriesOnly ? new[] { \"Series only\" }", browseShell, StringComparison.Ordinal);
         Assert.Contains("ShowCompactCaptions=\"true\"", browseShell, StringComparison.Ordinal);
-        Assert.Contains("HideGroupIndicators=\"true\"", browseShell, StringComparison.Ordinal);
+        Assert.Contains("HideGroupKind=\"true\"", browseShell, StringComparison.Ordinal);
         Assert.Contains("browse-shell__tile-size", browseShell, StringComparison.Ordinal);
         Assert.Contains("TileSizePx", browseShell, StringComparison.Ordinal);
         Assert.Contains("SectionType == MediaHubSectionType.Listen", mediaShelf, StringComparison.Ordinal);

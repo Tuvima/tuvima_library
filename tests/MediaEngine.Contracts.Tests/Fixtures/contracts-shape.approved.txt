@@ -867,6 +867,27 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ContentGroup
   Description: System.String | nullability=nullable | accessors=get,init
   Facts: System.Collections.Generic.IReadOnlyList<System.String> | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ContributorShelfDto
+  Key: System.String | nullability=not-null | accessors=get,init
+  PersonId: System.Guid | nullability=not-null | accessors=get,init
+  PersonName: System.String | nullability=not-null | accessors=get,init
+  HeadshotUrl: System.String | nullability=nullable | accessors=get,init
+  Role: System.String | nullability=not-null | accessors=get,init
+  Lane: System.String | nullability=not-null | accessors=get,init
+  ShelfType: System.String | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  OwnedCount: System.Int32 | nullability=not-null | accessors=get,init
+  EarliestYear: System.Int32? | nullability=nullable | accessors=get,init
+  LatestYear: System.Int32? | nullability=nullable | accessors=get,init
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Collections.ContributorShelfItemDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ContributorShelfItemDto
+  WorkId: System.Guid | nullability=not-null | accessors=get,init
+  Title: System.String | nullability=not-null | accessors=get,init
+  MediaType: System.String | nullability=not-null | accessors=get,init
+  CoverUrl: System.String | nullability=nullable | accessors=get,init
+  Year: System.Int32? | nullability=nullable | accessors=get,init
+
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.EditionAssetDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   EditionId: System.Guid | nullability=not-null | accessors=get,init
@@ -3136,7 +3157,6 @@ MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonLibraryCreditD
   CoverUrl: System.String | nullability=nullable | accessors=get,init
   Year: System.String | nullability=nullable | accessors=get,init
   Role: System.String | nullability=not-null | accessors=get,init
-  TrackCount: System.Int32? | nullability=nullable | accessors=get,init
   Characters: System.Collections.Generic.List<MediaEngine.Contracts.Persons.CharacterPortrayalDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonListItemResponse

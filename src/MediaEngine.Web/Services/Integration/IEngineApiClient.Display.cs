@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
@@ -37,5 +38,8 @@ public partial interface IEngineApiClient
         string? mediaType = null,
         int? limit = null,
         CancellationToken ct = default);
+
+    /// <summary>GET /api/v1/display/contributor-shelves - logical multi-work shelves for Collections.</summary>
+    Task<IReadOnlyList<ContributorShelfDto>> GetContributorShelvesAsync(CancellationToken ct = default);
 
 }

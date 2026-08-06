@@ -73,17 +73,6 @@
     max-height: none;
 }
 
-.cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
-    top: 50%;
-    right: clamp(2rem, 7vw, 8rem);
-    height: clamp(12rem, 18vw, 17rem);
-}
-
-.cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__foreground--album {
-    width: clamp(12rem, 18vw, 17rem);
-    aspect-ratio: 1;
-}
-
 .cinematic-hero-carousel--compactaudio ::deep .cinematic-hero__content {
     padding-bottom: clamp(10rem, 23svh, 16rem);
 }
@@ -237,10 +226,6 @@
 
     .cinematic-hero-carousel--compactaudio ::deep .tl-detail-hero__copy {
         width: 100%;
-    }
-
-    .cinematic-hero-carousel--compactaudio ::deep .tl-detail-media-stage__cover-wrap {
-        display: none;
     }
 
     .cinematic-hero-carousel__controls {

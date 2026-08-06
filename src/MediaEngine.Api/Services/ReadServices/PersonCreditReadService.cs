@@ -1035,6 +1035,15 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                 ON cv.entity_id = w.id
                AND cv.key = 'title'
             WHERE primary_credit.person_id = @personId
+              AND (primary_credit.role != 'Author' OR NOT EXISTS (
+                  SELECT 1
+                  FROM primary_person_media_credits collective_credit
+                  INNER JOIN persons collective_person ON collective_person.id = collective_credit.person_id
+                  WHERE collective_credit.media_asset_id = primary_credit.media_asset_id
+                    AND collective_credit.role = primary_credit.role
+                    AND collective_person.is_pseudonym = 1
+                    AND collective_credit.person_id != primary_credit.person_id
+              ))
             GROUP BY w.id, COALESCE(gp.id, p.id, w.id), w.collection_id, w.media_type, w.wikidata_qid, c.display_name, primary_credit.role
             ORDER BY Year DESC, Title, primary_credit.role;
             """,
@@ -1198,9 +1207,6 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                             : null,
                         Year = representative.Year,
                         Role = role,
-                        TrackCount = isMusicAlbumCredit
-                            ? orderedRows.Select(row => row.WorkId).Distinct().Count()
-                            : null,
                         Characters = includeCharacters ? characters : [],
                     };
                 });

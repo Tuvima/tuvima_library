@@ -106,14 +106,14 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = AssetId AND key = 'short_description' LIMIT 1)
                 ) AS Description,
                 COALESCE(
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal))
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('author', 'creator', 'writer') ORDER BY ordinal))
                 ) AS Author,
                 COALESCE(
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal))
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal)),
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key IN ('artist', 'album_artist', 'performer') ORDER BY ordinal))
                 ) AS Artist,
                 (SELECT primary_credit.person_id
                  FROM canonical_artist_credits primary_credit
@@ -207,9 +207,9 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('publisher', 'imprint') LIMIT 1)
                 ) AS Publisher,
                 COALESCE(
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key = 'director' ORDER BY ordinal)),
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key = 'director' ORDER BY ordinal)),
-                    (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key = 'director' ORDER BY ordinal))
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key = 'director' ORDER BY ordinal)),
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key = 'director' ORDER BY ordinal)),
+                    (SELECT group_concat(value, '; ') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key = 'director' ORDER BY ordinal))
                 ) AS Director,
                 COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('network', 'studio', 'broadcaster', 'streaming_service', 'platform') LIMIT 1),
@@ -337,8 +337,15 @@ public sealed class DisplayWorkProjectionReader
             """;
 
         var rows = (await conn.QueryAsync<DisplayWorkRow>(new CommandDefinition(sql, cancellationToken: ct))).ToList();
+        var pseudonymNames = conn.Query<string>(new CommandDefinition(
+                "SELECT name FROM persons WHERE is_pseudonym = 1 AND NULLIF(TRIM(name), '') IS NOT NULL;",
+                cancellationToken: ct))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var row in rows)
         {
+            row.Author = NormalizeContributorList(row.Author, pseudonymNames, preferCollectivePseudonym: true);
+            row.Artist = NormalizeContributorList(row.Artist, pseudonymNames, preferCollectivePseudonym: false);
+            row.Director = NormalizeContributorList(row.Director, pseudonymNames, preferCollectivePseudonym: false);
             row.CoverUrl = DisplayArtworkUrlResolver.Resolve(row.CoverUrl, row.AssetId, "cover", row.CoverState);
             row.SquareUrl = DisplayArtworkUrlResolver.Resolve(row.SquareUrl, row.AssetId, "square", row.SquareState);
             row.BannerUrl = DisplayArtworkUrlResolver.Resolve(row.BannerUrl, row.AssetId, "banner", row.BannerState);
@@ -352,5 +359,27 @@ public sealed class DisplayWorkProjectionReader
         }
 
         return rows;
+    }
+
+    private static string? NormalizeContributorList(
+        string? value,
+        IReadOnlySet<string> pseudonymNames,
+        bool preferCollectivePseudonym)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return value;
+
+        var names = value
+            .Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (preferCollectivePseudonym)
+        {
+            var pseudonyms = names.Where(pseudonymNames.Contains).ToList();
+            if (pseudonyms.Count > 0)
+                names = pseudonyms;
+        }
+
+        return string.Join("; ", names);
     }
 }

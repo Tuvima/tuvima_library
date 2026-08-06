@@ -104,6 +104,7 @@
     [Parameter, EditorRequired] public IReadOnlyList<MediaTileViewModel> Items { get; set; } = [];
     [Parameter] public int TileSizePx { get; set; } = 168;
     [Parameter] public string YearSemantic { get; set; } = "Release / publication year";
+    [Parameter] public string ItemNoun { get; set; } = "item";
 
     private int? _selectedYear;
     private int TimelineArtworkSizePx => Math.Clamp(
@@ -154,7 +155,9 @@
     private static string YearAnchor(int year) => year > 0 ? $"timeline-year-{year}" : "timeline-year-unknown";
     private static string DisplayYear(int year) => year > 0 ? year.ToString() : "Unknown year";
     private static string DecadeLabel(int startYear) => $"{startYear}s";
-    private static string CountLabel(int count) => count == 1 ? "1 item" : $"{count} items";
+    private string CountLabel(int count) => count == 1
+        ? $"1 {ItemNoun}"
+        : $"{count} {ItemNoun}s";
 
     private static string ItemNavigationUrl(MediaTileViewModel item) =>
         StringHelpers.FirstNonBlank(item.DetailsNavigationUrl, item.NavigationUrl, item.PrimaryNavigationUrl) ?? "/";

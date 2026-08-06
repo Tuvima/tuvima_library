@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.Collections;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
@@ -74,6 +75,13 @@ public static class DisplayEndpoints
             .WithName("GetDisplayContinue")
             .WithSummary("Returns cross-platform continue cards with progress.")
             .Produces<DisplayPageDto>(StatusCodes.Status200OK)
+            .RequireAnyRole();
+
+        group.MapGet("/contributor-shelves", async (ContributorShelfReadService shelves, CancellationToken ct) =>
+            Results.Ok(await shelves.LoadAsync(ct)))
+            .WithName("GetDisplayContributorShelves")
+            .WithSummary("Returns multi-work Collections shelves grouped by canonical primary contributors.")
+            .Produces<IReadOnlyList<ContributorShelfDto>>(StatusCodes.Status200OK)
             .RequireAnyRole();
 
         group.MapGet("/search", async (

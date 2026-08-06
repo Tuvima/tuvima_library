@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -13,6 +15,83 @@ namespace MediaEngine.Web.Services.MediaTiles;
 /// </summary>
 public static class CollectionSurfaceTileComposer
 {
+    public static MediaTileViewModel FromContributorShelf(ContributorShelfDto shelf)
+    {
+        var route = $"/details/person/{shelf.PersonId:D}";
+        var artworkItems = shelf.Items
+            .Where(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+            .Take(4)
+            .Select(item => new ArtworkStackItem
+            {
+                Id = item.WorkId.ToString("D"),
+                WorkId = item.WorkId,
+                Title = item.Title,
+                ImageUrl = MediaTileArtworkUrl.Sized(item.CoverUrl, "s") ?? item.CoverUrl!,
+                MediaType = item.MediaType,
+                NavigationUrl = MediaNavigation.ForMedia(item.MediaType, item.WorkId),
+                Shape = ToArtworkShape(null, item.MediaType),
+                Facts = item.Year.HasValue ? [item.Year.Value.ToString()] : [],
+            })
+            .ToList();
+        var primaryArtwork = artworkItems.FirstOrDefault()?.ImageUrl;
+        var countLabel = $"{shelf.OwnedCount} owned {(shelf.OwnedCount == 1 ? "work" : "works")}";
+
+        return new MediaTileViewModel
+        {
+            Id = StableGuid(shelf.Key),
+            Title = shelf.Title,
+            Subtitle = countLabel,
+            CoverUrl = primaryArtwork,
+            PreviewImages = artworkItems.Select(item => item.ImageUrl).ToList(),
+            ArtworkStackItems = artworkItems,
+            MediaCounts =
+            [
+                new MediaTileMediaCountViewModel(ShelfRoleIcon(shelf.Role), shelf.Lane, shelf.OwnedCount),
+            ],
+            GroupSummary = new MediaTileGroupSummaryViewModel
+            {
+                OwnedCount = shelf.OwnedCount,
+                EarliestYear = shelf.EarliestYear,
+                LatestYear = shelf.LatestYear,
+                RelationshipLabel = shelf.Role,
+            },
+            HoverFacts =
+            [
+                countLabel,
+                .. shelf.EarliestYear.HasValue && shelf.LatestYear.HasValue
+                    ? new[] { shelf.EarliestYear == shelf.LatestYear ? shelf.EarliestYear.Value.ToString() : $"{shelf.EarliestYear}-{shelf.LatestYear}" }
+                    : [],
+            ],
+            MediaKind = "Shelf",
+            AccentColor = "var(--tl-accent-primary)",
+            SecondaryAccentColor = "#111827",
+            Shape = MediaTileShape.Landscape,
+            HoverArtworkShape = MediaTileShape.Landscape,
+            Presentation = MediaTilePresentation.Default,
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            TileTextMode = MediaTileTextMode.CoverOnly,
+            TileImageUrl = primaryArtwork,
+            HoverImageUrl = primaryArtwork,
+            NavigationUrl = route,
+            PrimaryNavigationUrl = route,
+            DetailsNavigationUrl = route,
+            PrimaryActionLabel = "Open",
+            CollectionKey = shelf.ShelfType,
+            PreviewTotalCount = shelf.OwnedCount,
+            SortYear = shelf.LatestYear ?? shelf.EarliestYear ?? 0,
+            IsCollection = true,
+            UseLandscapeGroupTile = true,
+            Person = new MediaTilePersonViewModel
+            {
+                Id = shelf.PersonId,
+                Name = shelf.PersonName,
+                ImageUrl = shelf.HeadshotUrl,
+                Roles = [shelf.Role],
+            },
+        };
+    }
+
     public static MediaTileViewModel FromCollection(CollectionManagementCatalogViewModel collection)
     {
         var navigationUrl = collection.Person is null
@@ -113,124 +192,6 @@ public static class CollectionSurfaceTileComposer
             UseLandscapeGroupTile = true,
         };
     }
-
-    public static MediaTileViewModel FromShelf(ContentGroupViewModel group, CollectionShelfKind kind)
-    {
-        var route = ShelfRoute(group, kind);
-        var artworkItems = group.PreviewItems
-            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
-            .Select(item => new ArtworkStackItem
-            {
-                Id = item.WorkId.ToString("D"),
-                WorkId = item.WorkId,
-                Title = item.Title,
-                ImageUrl = MediaTileArtworkUrl.Sized(item.ImageUrl, "s") ?? item.ImageUrl,
-                MediaType = group.PrimaryMediaType,
-                NavigationUrl = MediaNavigation.ForMedia(group.PrimaryMediaType, item.WorkId),
-                Shape = ToArtworkShape(item.Shape, group.PrimaryMediaType),
-                Position = item.Position,
-                Description = item.Description,
-                Facts = item.Facts ?? [],
-            })
-            .Take(4)
-            .ToList();
-        var primaryArtwork = StringHelpers.FirstNonBlank(
-            group.CoverUrl,
-            artworkItems.FirstOrDefault()?.ImageUrl,
-            group.BackgroundUrl,
-            group.BannerUrl);
-        var presentation = kind switch
-        {
-            CollectionShelfKind.TvShow => MediaTilePresentation.TvSeries,
-            CollectionShelfKind.Album => MediaTilePresentation.Album,
-            CollectionShelfKind.MovieSeries => MediaTilePresentation.MovieSeries,
-            CollectionShelfKind.BookSeries => MediaTilePresentation.BookSeries,
-            CollectionShelfKind.ComicVolume => MediaTilePresentation.ComicSeries,
-            CollectionShelfKind.AudiobookSeries => MediaTilePresentation.AudiobookSeries,
-            _ => MediaTilePresentation.Default,
-        };
-        var shape = kind == CollectionShelfKind.Album
-            ? MediaTileShape.Square
-            : kind == CollectionShelfKind.TvShow
-                ? MediaTileShape.Portrait
-                : MediaTileShape.Landscape;
-        var countLabel = ShelfCountLabel(kind, group.WorkCount);
-
-        return new MediaTileViewModel
-        {
-            Id = group.RootWorkId ?? group.CollectionId,
-            CollectionId = group.CollectionId,
-            WorkId = group.RootWorkId,
-            Title = group.DisplayName,
-            Subtitle = countLabel,
-            Description = group.Description,
-            CoverUrl = primaryArtwork,
-            BackgroundUrl = group.BackgroundUrl,
-            BannerUrl = group.BannerUrl,
-            LogoUrl = group.LogoUrl,
-            PreviewImages = artworkItems.Select(item => item.ImageUrl).ToList(),
-            ArtworkStackItems = artworkItems,
-            MediaCounts =
-            [
-                new MediaTileMediaCountViewModel(ShelfIcon(kind), ShelfCountNoun(kind), group.WorkCount),
-            ],
-            GroupSummary = new MediaTileGroupSummaryViewModel
-            {
-                OwnedCount = group.WorkCount,
-                EarliestYear = group.EarliestYear,
-                LatestYear = group.LatestYear,
-                RelationshipLabel = ShelfLabel(kind),
-            },
-            HoverFacts =
-            [
-                countLabel,
-                .. string.IsNullOrWhiteSpace(group.Year) ? [] : new[] { group.Year },
-            ],
-            MediaKind = ShelfLabel(kind),
-            AccentColor = group.MediaTypeColor,
-            SecondaryAccentColor = "#111827",
-            Shape = shape,
-            HoverArtworkShape = kind == CollectionShelfKind.TvShow && !string.IsNullOrWhiteSpace(group.BackgroundUrl)
-                ? MediaTileShape.Landscape
-                : shape,
-            Presentation = presentation,
-            SurfaceKind = kind == CollectionShelfKind.Album
-                ? MediaTileSurfaceKind.CoverSquare
-                : kind == CollectionShelfKind.TvShow
-                    ? MediaTileSurfaceKind.CoverPortrait
-                    : MediaTileSurfaceKind.BannerLandscape,
-            HoverLayout = kind == CollectionShelfKind.TvShow && !string.IsNullOrWhiteSpace(group.BackgroundUrl)
-                ? MediaTileHoverLayout.BannerPopover
-                : MediaTileHoverLayout.ArtOnlyPopover,
-            TileTextMode = MediaTileTextMode.CoverOnly,
-            TileImageUrl = MediaTileArtworkUrl.Sized(primaryArtwork, "s"),
-            TileImageSrcSet = MediaTileArtworkUrl.SrcSet(
-                MediaTileArtworkUrl.Sized(primaryArtwork, "s"),
-                MediaTileArtworkUrl.Sized(primaryArtwork, "m")),
-            HoverImageUrl = MediaTileArtworkUrl.Sized(group.BackgroundUrl ?? primaryArtwork, "m"),
-            NavigationUrl = route,
-            PrimaryNavigationUrl = route,
-            DetailsNavigationUrl = route,
-            PrimaryActionLabel = "Open",
-            CollectionKey = kind.ToString(),
-            PreviewTotalCount = group.WorkCount,
-            SortYear = group.LatestYear ?? group.EarliestYear ?? ParseYear(group.Year),
-            SortTimestamp = group.CreatedAt,
-            IsCollection = true,
-            UseLandscapeGroupTile = kind is not (CollectionShelfKind.TvShow or CollectionShelfKind.Album),
-        };
-    }
-
-    private static string ShelfRoute(ContentGroupViewModel group, CollectionShelfKind kind) => kind switch
-    {
-        CollectionShelfKind.BookSeries => $"/details/bookseries/{group.CollectionId:D}?context=read",
-        CollectionShelfKind.ComicVolume => $"/details/comicseries/{group.CollectionId:D}?context=comics",
-        CollectionShelfKind.MovieSeries => $"/details/movieseries/{group.CollectionId:D}?context=watch",
-        CollectionShelfKind.TvShow => $"/details/tvshow/{(group.RootWorkId ?? group.CollectionId):D}?context=watch",
-        CollectionShelfKind.Album => $"/details/musicalbum/{(group.RootWorkId ?? group.CollectionId):D}?context=listen",
-        CollectionShelfKind.AudiobookSeries => $"/details/collection/{group.CollectionId:D}?context=listen",
-        _ => $"/details/collection/{group.CollectionId:D}",
-    };
 
     private static IReadOnlyList<string> BuildContextLines(CollectionManagementCatalogViewModel collection)
     {
@@ -419,52 +380,18 @@ public static class CollectionSurfaceTileComposer
         }
     }
 
-    private static string ShelfLabel(CollectionShelfKind kind) => kind switch
+    private static string ShelfRoleIcon(string role) => role switch
     {
-        CollectionShelfKind.BookSeries => "Book series",
-        CollectionShelfKind.ComicVolume => "Comic volume",
-        CollectionShelfKind.MovieSeries => "Movie series",
-        CollectionShelfKind.TvShow => "TV show",
-        CollectionShelfKind.Album => "Album",
-        CollectionShelfKind.AudiobookSeries => "Audiobook series",
-        _ => "Shelf",
+        "Director" => Icons.Material.Outlined.Movie,
+        "Artist" => Icons.Material.Outlined.Album,
+        "Narrator" => Icons.Material.Outlined.RecordVoiceOver,
+        "Writer" => Icons.Material.Outlined.AutoStories,
+        _ => Icons.Material.Outlined.MenuBook,
     };
 
-    private static string ShelfCountNoun(CollectionShelfKind kind) => kind switch
+    private static Guid StableGuid(string key)
     {
-        CollectionShelfKind.ComicVolume => "Issues",
-        CollectionShelfKind.TvShow => "Episodes",
-        CollectionShelfKind.Album => "Tracks",
-        _ => "Titles",
-    };
-
-    private static string ShelfCountLabel(CollectionShelfKind kind, int count)
-    {
-        var noun = ShelfCountNoun(kind);
-        return $"{count} {(count == 1 ? noun.TrimEnd('s') : noun).ToLowerInvariant()}";
+        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(key));
+        return new Guid(hash.AsSpan(0, 16));
     }
-
-    private static string ShelfIcon(CollectionShelfKind kind) => kind switch
-    {
-        CollectionShelfKind.BookSeries => Icons.Material.Outlined.MenuBook,
-        CollectionShelfKind.ComicVolume => Icons.Material.Outlined.AutoStories,
-        CollectionShelfKind.MovieSeries => Icons.Material.Outlined.Movie,
-        CollectionShelfKind.TvShow => Icons.Material.Outlined.LiveTv,
-        CollectionShelfKind.Album => Icons.Material.Outlined.Album,
-        CollectionShelfKind.AudiobookSeries => Icons.Material.Outlined.Headphones,
-        _ => Icons.Material.Outlined.ViewCarousel,
-    };
-
-    private static int ParseYear(string? value) =>
-        int.TryParse(value, out var year) ? year : 0;
-}
-
-public enum CollectionShelfKind
-{
-    BookSeries,
-    ComicVolume,
-    MovieSeries,
-    TvShow,
-    Album,
-    AudiobookSeries,
 }

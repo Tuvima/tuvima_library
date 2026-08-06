@@ -26,9 +26,6 @@ public sealed class PersonLibraryCreditViewModel
     [JsonPropertyName("role")]
     public string Role { get; set; } = string.Empty;
 
-    [JsonPropertyName("track_count")]
-    public int? TrackCount { get; set; }
-
     [JsonPropertyName("characters")]
     public List<CharacterPortrayalDto> Characters { get; set; } = [];
 }

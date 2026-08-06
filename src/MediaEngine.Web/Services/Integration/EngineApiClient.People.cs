@@ -395,7 +395,6 @@ public sealed partial class EngineApiClient
         CoverUrl = string.IsNullOrWhiteSpace(credit.CoverUrl) ? credit.CoverUrl : AbsoluteUrl(credit.CoverUrl),
         Year = credit.Year,
         Role = credit.Role,
-        TrackCount = credit.TrackCount,
         Characters = credit.Characters.Select(character => new CharacterPortrayalDto
         {
             FictionalEntityId = character.FictionalEntityId,

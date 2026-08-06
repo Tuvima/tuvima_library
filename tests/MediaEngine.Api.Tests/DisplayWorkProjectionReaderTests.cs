@@ -313,6 +313,70 @@ public sealed class DisplayWorkProjectionReaderTests : IDisposable
         Assert.Equal("1975", row.Year);
     }
 
+    [Fact]
+    public async Task LoadAsync_PrefersExplicitCollectivePseudonymAndFormatsRealCoauthors()
+    {
+        var pseudonymWorkId = Guid.NewGuid();
+        var coauthorWorkId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, is_pseudonym, created_at)
+                VALUES (@pseudonymId, 'James S. A. Corey', 1, CURRENT_TIMESTAMP),
+                       (@memberOneId, 'Daniel Abraham', 0, CURRENT_TIMESTAMP),
+                       (@memberTwoId, 'Ty Franck', 0, CURRENT_TIMESTAMP),
+                       (@coauthorOneId, 'Author One', 0, CURRENT_TIMESTAMP),
+                       (@coauthorTwoId, 'Author Two', 0, CURRENT_TIMESTAMP);
+                """,
+                new
+                {
+                    pseudonymId = Guid.NewGuid(),
+                    memberOneId = Guid.NewGuid(),
+                    memberTwoId = Guid.NewGuid(),
+                    coauthorOneId = Guid.NewGuid(),
+                    coauthorTwoId = Guid.NewGuid(),
+                });
+
+            await InsertBookAsync(conn, pseudonymWorkId, "Leviathan Wakes",
+                ["James S. A. Corey", "Daniel Abraham", "Ty Franck"]);
+            await InsertBookAsync(conn, coauthorWorkId, "A Shared Book", ["Author One", "Author Two"]);
+        }
+
+        var rows = await new DisplayWorkProjectionReader(_db).LoadAsync(CancellationToken.None);
+
+        Assert.Equal("James S. A. Corey", Assert.Single(rows, row => row.WorkId == pseudonymWorkId).Author);
+        Assert.Equal("Author One; Author Two", Assert.Single(rows, row => row.WorkId == coauthorWorkId).Author);
+    }
+
+    private static Task InsertBookAsync(System.Data.IDbConnection conn, Guid workId, string title, IReadOnlyList<string> authors)
+    {
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        return InsertAsync();
+
+        async Task InsertAsync()
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind, curator_state)
+                VALUES (@workId, 'Books', 'standalone', 'accepted');
+                INSERT INTO editions (id, work_id) VALUES (@editionId, @workId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root, presented_at)
+                VALUES (@assetId, @editionId, @hash, @path, CURRENT_TIMESTAMP);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@assetId, 'title', @title, CURRENT_TIMESTAMP);
+                """,
+                new { workId, editionId, assetId, hash = Guid.NewGuid().ToString("N"), path = $"C:/library/{title}.epub", title });
+            for (var index = 0; index < authors.Count; index++)
+            {
+                await conn.ExecuteAsync(
+                    "INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value) VALUES (@assetId, 'author', @index, @author);",
+                    new { assetId, index, author = authors[index] });
+            }
+        }
+    }
+
     public void Dispose()
     {
         try { _db.Dispose(); } catch { }

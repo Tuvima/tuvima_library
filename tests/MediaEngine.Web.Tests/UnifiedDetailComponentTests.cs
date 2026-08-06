@@ -945,8 +945,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Available media lanes", sequence);
         Assert.DoesNotContain("DetailLaneOptions", sequence);
         Assert.Contains("Model.PrimaryModule.SupportsLaneFilter", primaryModule);
-        Assert.Contains("HasMultipleOwnedLanes || (IsPersonSurface && AllItems.Count > 0)", primaryModule);
+        Assert.Contains("&& HasMultipleOwnedLanes", primaryModule);
         Assert.Contains("LaneOptions.Count(option => option.Key != \"all\") > 1", primaryModule);
+        Assert.Contains("RoleOptions.Count(option => option.Key != \"all\") > 1", primaryModule);
         Assert.Contains("tl-detail-primary-module__role-filters", primaryModule);
         Assert.DoesNotContain("<AppSelect Value=\"@_selectedRole\"", primaryModule);
         Assert.Contains("ownedLanes.Count == 1 ? ownedLanes[0].Key : \"all\"", primaryModule);

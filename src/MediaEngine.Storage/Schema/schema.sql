@@ -1622,7 +1622,8 @@ ON media_operations(idempotency_key);
 -- contributor source used by detail pages. person_media_links intentionally
 -- remains the broader enrichment graph and can include assistant directors,
 -- additional performers, and other non-primary relationships.
-CREATE VIEW IF NOT EXISTS primary_person_media_credits AS
+DROP VIEW IF EXISTS primary_person_media_credits;
+CREATE VIEW primary_person_media_credits AS
 WITH asset_scope AS (
     SELECT ma.id AS media_asset_id,
            w.id AS work_id,
@@ -1778,5 +1779,18 @@ FROM selected_credits credit
 INNER JOIN persons person
     ON (credit.person_qid IS NOT NULL
         AND person.wikidata_qid = credit.person_qid COLLATE NOCASE)
-    OR person.name = credit.person_name COLLATE NOCASE;
+    OR person.name = credit.person_name COLLATE NOCASE
+WHERE credit.credit_key != 'author'
+   OR NOT EXISTS (
+    SELECT 1
+    FROM selected_credits collective_credit
+    INNER JOIN persons collective_person
+        ON (collective_credit.person_qid IS NOT NULL
+            AND collective_person.wikidata_qid = collective_credit.person_qid COLLATE NOCASE)
+        OR collective_person.name = collective_credit.person_name COLLATE NOCASE
+    WHERE collective_credit.media_asset_id = credit.media_asset_id
+      AND collective_credit.credit_key = credit.credit_key
+      AND collective_person.is_pseudonym = 1
+      AND collective_person.id != person.id
+);
 

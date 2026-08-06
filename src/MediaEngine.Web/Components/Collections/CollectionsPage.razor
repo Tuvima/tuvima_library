@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Collections
 @using MediaEngine.Contracts.Paging
 @using MediaEngine.Contracts.Persons
+@using MediaEngine.Contracts.Collections
 @using MediaEngine.Web.Components.Browse
 @using MediaEngine.Web.Components.MediaHub
 @using MediaEngine.Web.Models.ViewDTOs
@@ -205,9 +206,9 @@
                                                Dense="true"
                                                Class="collections-filter-select collections-filter-select--wide">
                                         <MudSelectItem T="string" Value="@("all")">All shelf types</MudSelectItem>
-                                        @foreach (var kind in Enum.GetValues<CollectionShelfKind>())
+                                        @foreach (var kind in ShelfKindOptions)
                                         {
-                                            <MudSelectItem T="string" Value="@kind.ToString()">@ShelfKindLabel(kind)</MudSelectItem>
+                                            <MudSelectItem T="string" Value="@kind.Value">@kind.Label</MudSelectItem>
                                         }
                                     </AppSelect>
                                 }
@@ -338,7 +339,7 @@
     [Parameter] public string? Section { get; set; }
 
     private readonly List<CollectionManagementCatalogViewModel> _collections = [];
-    private readonly List<ShelfCatalogEntry> _shelves = [];
+    private readonly List<ContributorShelfDto> _shelves = [];
     private readonly List<PersonListItemResponse> _people = [];
     private readonly Dictionary<string, Dictionary<string, int>> _peoplePresence = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, int> _peopleRoleCounts = new(StringComparer.OrdinalIgnoreCase);
@@ -391,7 +392,7 @@
         CuratedCollections.Select(CollectionSurfaceTileComposer.FromCollection).ToList();
 
     private IReadOnlyList<MediaTileViewModel> ShelfTiles =>
-        _shelves.Select(entry => CollectionSurfaceTileComposer.FromShelf(entry.Group, entry.Kind)).ToList();
+        _shelves.Select(CollectionSurfaceTileComposer.FromContributorShelf).ToList();
 
     private MediaTileShelfViewModel OverviewAutomaticShelf => new()
     {
@@ -415,7 +416,7 @@
     {
         Key = "library-shelves",
         Title = "Shelves Across Your Library",
-        Subtitle = "Book series, comic volumes, movie series, TV shows, albums, and audiobook series in one place",
+        Subtitle = "Multi-title shelves organized by the authors, directors, artists, and narrators behind your library",
         Items = SortCollectionTiles(ShelfTiles).Take(12).ToList(),
         SeeAllRoute = "/collections/shelves",
     };
@@ -508,6 +509,16 @@
         ],
     };
 
+    private static IReadOnlyList<(string Value, string Label)> ShelfKindOptions { get; } =
+    [
+        ("BooksByAuthor", "Books by author"),
+        ("ComicsByCreator", "Comics by creator"),
+        ("MoviesByDirector", "Movies by director"),
+        ("AlbumsByArtist", "Albums by artist"),
+        ("AudiobooksByAuthor", "Audiobooks by author"),
+        ("AudiobooksByNarrator", "Audiobooks by narrator"),
+    ];
+
     private string SectionTitle => _activeSection switch
     {
         CollectionsSectionConfiguration.Automatic => "Automatic Collections",
@@ -521,7 +532,7 @@
     {
         CollectionsSectionConfiguration.Automatic => "Broader franchise, universe, and related-work rollups discovered from trusted library relationships.",
         CollectionsSectionConfiguration.Curated => "Published collections intentionally assembled or rule-maintained by administrators.",
-        CollectionsSectionConfiguration.Shelves => "Every lane-level series, volume, show, album, and audio series without promoting it to a broader collection.",
+        CollectionsSectionConfiguration.Shelves => "Multi-title shelves built around canonical primary contributors, with tracks, episodes, and format variants collapsed to their owned work.",
         CollectionsSectionConfiguration.People => "Primary contributors with owned work in your library, using the same canonical credits as detail pages.",
         _ => string.Empty,
     };
@@ -552,7 +563,7 @@
             CollectionsSectionConfiguration.Curated => CanManageCuratedCollections
                 ? "Create and publish a collection to make it available to every profile."
                 : "An administrator has not published any curated collections yet.",
-            CollectionsSectionConfiguration.Shelves => "Shelves appear when related media is grouped into a series, show, volume, or album.",
+            CollectionsSectionConfiguration.Shelves => "Shelves appear when a primary contributor has at least two distinct owned works in the same role.",
             _ => "Try another section.",
         }
         : "Clear the search or remove a filter to broaden the results.";
@@ -567,8 +578,9 @@
     ];
 
     private string KindFilterLabel =>
-        Enum.TryParse<CollectionShelfKind>(_kind, true, out var shelfKind)
-            ? ShelfKindLabel(shelfKind)
+        ShelfKindOptions.FirstOrDefault(option => string.Equals(option.Value, _kind, StringComparison.OrdinalIgnoreCase)).Label
+            is { Length: > 0 } shelfKindLabel
+            ? shelfKindLabel
             : _kind switch
             {
                 "Universe" => "Shared universes",
@@ -605,11 +617,7 @@
             _activeProfile = await Orchestrator.GetActiveProfileAsync();
 
             var catalogTask = ApiClient.GetCollectionCatalogAsync(_activeProfile?.Id);
-            var contentGroupsTask = ApiClient.GetContentGroupsAsync();
-            var bookSeriesTask = ApiClient.GetSystemViewGroupsAsync("Books", "series");
-            var audiobookSeriesTask = ApiClient.GetSystemViewGroupsAsync("Audiobooks", "series");
-            var albumsTask = ApiClient.GetSystemViewGroupsAsync("Music", "album");
-            var tvShowsTask = ApiClient.GetSystemViewGroupsAsync("TV", "show_name");
+            var shelvesTask = ApiClient.GetContributorShelvesAsync();
             var peopleRolesTask = ApiClient.GetPersonRoleCountsAsync();
             var peopleTask = ApiClient.GetPersonsPageAsync(
                 search: _activeSection == CollectionsSectionConfiguration.People ? NullIfBlank(_searchText) : null,
@@ -621,22 +629,13 @@
 
             await Task.WhenAll(
                 catalogTask,
-                contentGroupsTask,
-                bookSeriesTask,
-                audiobookSeriesTask,
-                albumsTask,
-                tvShowsTask,
+                shelvesTask,
                 peopleRolesTask,
                 peopleTask);
 
             _collections.Clear();
             _collections.AddRange(catalogTask.Result);
-            BuildShelves(
-                contentGroupsTask.Result,
-                bookSeriesTask.Result,
-                audiobookSeriesTask.Result,
-                albumsTask.Result,
-                tvShowsTask.Result);
+            BuildShelves(shelvesTask.Result);
             _peopleRoleCounts = peopleRolesTask.Result;
 
             _people.Clear();
@@ -663,40 +662,13 @@
         return LoadAsync();
     }
 
-    private void BuildShelves(
-        IReadOnlyList<ContentGroupViewModel> contentGroups,
-        IReadOnlyList<ContentGroupViewModel> bookSeries,
-        IReadOnlyList<ContentGroupViewModel> audiobookSeries,
-        IReadOnlyList<ContentGroupViewModel> albums,
-        IReadOnlyList<ContentGroupViewModel> tvShows)
+    private void BuildShelves(IReadOnlyList<ContributorShelfDto> shelves)
     {
         _shelves.Clear();
-        AddShelves(bookSeries.Where(group => group.WorkCount >= 2), CollectionShelfKind.BookSeries);
-        AddShelves(
-            contentGroups.Where(group =>
-                MediaTypeMatches(group.PrimaryMediaType, "Comics")
-                && group.WorkCount > 0),
-            CollectionShelfKind.ComicVolume);
-        AddShelves(
-            contentGroups.Where(group =>
-                MediaTypeMatches(group.PrimaryMediaType, "Movies")
-                && Math.Max(group.DistinctTitleCount ?? 0, group.WorkCount) >= 2),
-            CollectionShelfKind.MovieSeries);
-        AddShelves(tvShows.Where(group => group.WorkCount > 0), CollectionShelfKind.TvShow);
-        AddShelves(albums.Where(group => group.WorkCount > 0), CollectionShelfKind.Album);
-        AddShelves(audiobookSeries.Where(group => group.WorkCount >= 2), CollectionShelfKind.AudiobookSeries);
-    }
-
-    private void AddShelves(IEnumerable<ContentGroupViewModel> groups, CollectionShelfKind kind)
-    {
-        foreach (var group in groups)
-        {
-            var identity = $"{kind}:{group.RootWorkId ?? group.CollectionId}:{group.DisplayName}";
-            if (_shelves.Any(existing => string.Equals(existing.Identity, identity, StringComparison.OrdinalIgnoreCase)))
-                continue;
-
-            _shelves.Add(new ShelfCatalogEntry(identity, group, kind));
-        }
+        _shelves.AddRange(shelves
+            .Where(shelf => shelf.OwnedCount >= 2)
+            .GroupBy(shelf => shelf.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First()));
     }
 
     private async Task AppendPeoplePageAsync(PagedResponse<PersonListItemResponse> page)
@@ -773,15 +745,15 @@
         if (!string.IsNullOrWhiteSpace(_searchText))
         {
             shelves = shelves.Where(entry =>
-                entry.Group.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-                || (entry.Group.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
-                || (entry.Group.Creator?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
+                entry.Title.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || entry.PersonName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || entry.Role.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
         }
         if (_lane != "all")
-            shelves = shelves.Where(entry => string.Equals(ShelfLane(entry.Kind), _lane, StringComparison.OrdinalIgnoreCase));
-        if (_kind != "all" && Enum.TryParse<CollectionShelfKind>(_kind, true, out var selectedKind))
-            shelves = shelves.Where(entry => entry.Kind == selectedKind);
-        return SortCollectionTiles(shelves.Select(entry => CollectionSurfaceTileComposer.FromShelf(entry.Group, entry.Kind)));
+            shelves = shelves.Where(entry => string.Equals(entry.Lane, _lane, StringComparison.OrdinalIgnoreCase));
+        if (_kind != "all")
+            shelves = shelves.Where(entry => string.Equals(entry.ShelfType, _kind, StringComparison.OrdinalIgnoreCase));
+        return SortCollectionTiles(shelves.Select(CollectionSurfaceTileComposer.FromContributorShelf));
     }
 
     private IReadOnlyList<MediaTileViewModel> SortCollectionTiles(IEnumerable<MediaTileViewModel> items) =>
@@ -996,18 +968,6 @@
         !collection.IsSystem
         && collection.CollectionType is "Universe" or "Series" or "ContentGroup";
 
-    private static bool MediaTypeMatches(string value, string expected) =>
-        value.Contains(expected, StringComparison.OrdinalIgnoreCase)
-        || expected == "Movies" && value.Contains("Movie", StringComparison.OrdinalIgnoreCase);
-
-    private static string ShelfLane(CollectionShelfKind kind) => kind switch
-    {
-        CollectionShelfKind.BookSeries or CollectionShelfKind.ComicVolume => "Read",
-        CollectionShelfKind.MovieSeries or CollectionShelfKind.TvShow => "Watch",
-        CollectionShelfKind.Album or CollectionShelfKind.AudiobookSeries => "Listen",
-        _ => "CrossMedia",
-    };
-
     private static string LaneForMediaType(string mediaType)
     {
         if (mediaType.Contains("book", StringComparison.OrdinalIgnoreCase)
@@ -1024,17 +984,6 @@
             return "Listen";
         return "CrossMedia";
     }
-
-    private static string ShelfKindLabel(CollectionShelfKind kind) => kind switch
-    {
-        CollectionShelfKind.BookSeries => "Book series",
-        CollectionShelfKind.ComicVolume => "Comic volumes",
-        CollectionShelfKind.MovieSeries => "Movie series",
-        CollectionShelfKind.TvShow => "TV shows",
-        CollectionShelfKind.Album => "Albums",
-        CollectionShelfKind.AudiobookSeries => "Audiobook series",
-        _ => "Shelves",
-    };
 
     private static string RoleDisplayLabel(string role) => role switch
     {
@@ -1070,8 +1019,4 @@
     private static PagedResponse<PersonListItemResponse> EmptyPeoplePage(int offset = 0) =>
         new([], offset, PeoplePageSize, false);
 
-    private sealed record ShelfCatalogEntry(
-        string Identity,
-        ContentGroupViewModel Group,
-        CollectionShelfKind Kind);
 }

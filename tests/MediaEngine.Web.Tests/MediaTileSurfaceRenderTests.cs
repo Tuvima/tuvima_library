@@ -879,6 +879,28 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTile_CanHideRedundantTvKindWithoutHidingEpisodeCount()
+    {
+        var item = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "Foundation",
+            MediaKind = "TV",
+            Shape = MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.TvSeries,
+            IsCollection = true,
+            PreviewTotalCount = 12,
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters
+            .Add(component => component.Item, item)
+            .Add(component => component.HideGroupKind, true));
+
+        Assert.Empty(cut.FindAll(".media-tile-group-kind"));
+        Assert.Equal("12 episodes owned", cut.Find(".media-tile-group-count").GetAttribute("aria-label"));
+    }
+
+    [Fact]
     public void MediaTile_CardClickAlwaysOpensDetails()
     {
         var details = "/book/1";

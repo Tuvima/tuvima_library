@@ -29,6 +29,7 @@ public static class TuvimaDisplayServiceCollectionExtensions
         // one shared instance avoids manufacturing a graph for every API request.
         services.AddSingleton<IDisplayProjectionReadService, DisplayProjectionReadService>();
         services.AddSingleton<DisplayWorkProjectionReader>();
+        services.AddSingleton<ContributorShelfReadService>();
         services.AddSingleton<DisplayProfilePreferenceProjectionReader>();
         services.AddSingleton<DisplayJourneyProjectionReader>();
         services.AddSingleton<DisplayFavoriteProjectionReader>();
