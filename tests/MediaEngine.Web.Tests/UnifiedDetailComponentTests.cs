@@ -1663,6 +1663,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-watch-metadata-item tl-detail-person-fact", hero, StringComparison.Ordinal);
         Assert.Contains("tl-detail-hero__copy @CopyClass", heroContent, StringComparison.Ordinal);
         Assert.Contains("[Parameter] public string CopyClass", heroContent, StringComparison.Ordinal);
+        Assert.Contains(".tl-detail-person-hero__content .tl-detail-hero__copy", styles, StringComparison.Ordinal);
+        Assert.Contains("align-self: flex-end", styles, StringComparison.Ordinal);
+        Assert.Contains("justify-items: start", styles, StringComparison.Ordinal);
         Assert.True(markerIndex >= 0);
         var finalRules = styles[markerIndex..];
         Assert.Contains("font-size: clamp(3.6rem, 4vw, 4.75rem)", finalRules, StringComparison.Ordinal);

@@ -11233,7 +11233,9 @@
 ::deep .tl-detail-hero--person .tl-detail-person-hero__content .tl-detail-hero__copy {
     width: min(47.5rem, 52vw);
     max-width: min(47.5rem, 52vw);
+    align-self: flex-end;
     align-content: end;
+    justify-items: start;
 }
 
 ::deep .tl-detail-hero--person .tl-detail-person-portrait {

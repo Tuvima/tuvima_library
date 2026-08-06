@@ -391,7 +391,7 @@ That sequence explains the product, the runtime wiring, the intake flow, the enr
 - Collections uses one viewport-bounded, padded content scroller beside its anchored rail; never allow a second document scrollbar.
 - Automatic rollups prioritize trusted fictional-universe, franchise, and based-on/adaptation QIDs over lane-local parent/series structure. A cross-media identity such as Batman can therefore combine qualifying comic and film groups.
 - People presence counts distinct top-level works: tracks collapse to albums and episodes collapse to shows.
-- Person names use the exact shared media-detail title family, scale, weight, and responsive density through the rendered person copy hook. Person dates, locations, and owned-title facts reuse the standard detail metadata row/item typography used by year, runtime, and genre.
+- Person names use the exact shared media-detail title family, scale, weight, responsive density, and lower-left identity anchor through the rendered person copy hook. Person dates, locations, and owned-title facts reuse the standard detail metadata row/item typography used by year, runtime, and genre. The portrait may remain centered independently; it must not vertically center the identity column.
 - Musical groups resolve all canonical Wikidata `has parts` identities into `person_group_members` and queue incomplete people for full hydration. Collective pen names continue to use aliases; band members must never be rendered as pseudonym aliases.
 
 
