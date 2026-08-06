@@ -1,0 +1,45 @@
+@namespace MediaEngine.Web.Components.Shared
+
+<MudCheckBox T="bool"
+             Value="@Value"
+             ValueChanged="@ValueChanged"
+             Label="@Label"
+             Disabled="@Disabled"
+             ReadOnly="@ReadOnly"
+             Dense="@Dense"
+             Color="@MudColor"
+             Class="@RootClass"
+             @attributes="AdditionalAttributes">
+    @ChildContent
+</MudCheckBox>
+
+@code {
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool ReadOnly { get; set; }
+    [Parameter] public bool Dense { get; set; } = true;
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Primary;
+    [Parameter] public Color? Color { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private AppUiTone ResolvedTone => Color switch
+    {
+        MudBlazor.Color.Primary => AppUiTone.Primary,
+        MudBlazor.Color.Info => AppUiTone.Info,
+        MudBlazor.Color.Success => AppUiTone.Success,
+        MudBlazor.Color.Warning => AppUiTone.Warning,
+        MudBlazor.Color.Error => AppUiTone.Error,
+        MudBlazor.Color.Dark => AppUiTone.Neutral,
+        _ => Tone
+    };
+
+    private Color MudColor => Color ?? AppUiMaps.ToMudColor(ResolvedTone);
+
+    private string RootClass =>
+        string.Join(" ", new[] { "app-checkbox", AppUiMaps.ToneClass(ResolvedTone), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+}

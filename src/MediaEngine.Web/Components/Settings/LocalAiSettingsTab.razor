@@ -15,7 +15,7 @@
             else
             {
                 <AppStatusBadge Text="@(_status.IsReady ? "Ready" : "Limited")"
-                                Tone="@(_status.IsReady ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                                Tone="@(_status.IsReady ? AppUiTone.Success : AppUiTone.Warning)" />
                 <MudText Typo="Typo.body2" Class="mt-2">Memory profile: @_status.MemoryProfile</MudText>
                 <MudText Typo="Typo.body2">Loaded memory: @FormatMb(_status.MemoryUsedMB) / @FormatMb(_status.MemoryLimitMB)</MudText>
             }

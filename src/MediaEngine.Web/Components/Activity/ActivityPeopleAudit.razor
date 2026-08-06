@@ -73,7 +73,7 @@
                         </td>
                         <td>@(person.BatchId.HasValue ? ShortId(person.BatchId.Value) : "-")</td>
                         <td>@FormatDate(person.HydratedAt ?? person.BatchStartedAt)</td>
-                        <td><AppStatusChip Text="@person.HeadshotStatus" Tone="@HeadshotTone(person.HeadshotStatus)" /></td>
+                        <td><AppChip Text="@person.HeadshotStatus" Tone="@HeadshotTone(person.HeadshotStatus)" /></td>
                     </tr>
                 }
             </tbody>
@@ -159,8 +159,10 @@
     private static string FormatDate(DateTimeOffset? value) =>
         value?.ToLocalTime().ToString("MMM d, yyyy h:mm tt") ?? "-";
 
-    private static string HeadshotTone(string status) =>
-        string.Equals(status, "Missing", StringComparison.OrdinalIgnoreCase) ? "warning" : "success";
+    private static AppUiTone HeadshotTone(string status) =>
+        string.Equals(status, "Missing", StringComparison.OrdinalIgnoreCase)
+            ? AppUiTone.Warning
+            : AppUiTone.Success;
 
     private static string MediaIcon(string? mediaType) => mediaType?.Trim().ToLowerInvariant() switch
     {

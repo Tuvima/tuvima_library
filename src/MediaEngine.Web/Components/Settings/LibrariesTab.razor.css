@@ -96,7 +96,7 @@
     padding: var(--tl-space-3);
     border: 1px solid var(--tl-border-subtle);
     border-radius: 8px;
-    background: color-mix(in srgb, var(--tl-surface-raised) 72%, transparent);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 72%, transparent);
 }
 
 .file-org-source-row {
@@ -164,7 +164,7 @@
     padding: var(--tl-space-4);
     border: 1px solid var(--tl-border-subtle);
     border-radius: 8px;
-    background: color-mix(in srgb, var(--tl-surface-raised) 58%, transparent);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 58%, transparent);
 }
 
 .file-org-media-panel--folders {
@@ -222,7 +222,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .035em;
-    background: color-mix(in srgb, var(--tl-surface-raised) 88%, transparent);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 88%, transparent);
 }
 
 .file-org-folder-table__row {
@@ -321,7 +321,7 @@
     padding: var(--tl-space-3);
     border: 1px solid var(--tl-border-subtle);
     border-radius: 8px;
-    background: color-mix(in srgb, var(--tl-surface-raised) 58%, transparent);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 58%, transparent);
 }
 
 .file-org-option-block__header {

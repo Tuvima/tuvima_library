@@ -1612,30 +1612,12 @@ body {
     font-weight: 600 !important;
 }
 
-.app-status-badge,
 .mud-badge {
     border-radius: var(--app-radius-sm) !important;
     font-size: 11px !important;
     font-weight: 600 !important;
     line-height: 1 !important;
 }
-
-.app-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 8px;
-    color: var(--app-text-primary);
-    background: var(--app-surface-2);
-    border: 1px solid var(--app-border);
-}
-
-.app-status-badge--success { color: var(--app-success); background: var(--tl-status-success-soft); }
-.app-status-badge--warning { color: var(--app-warning); background: var(--tl-status-warning-soft); }
-.app-status-badge--danger,
-.app-status-badge--error { color: var(--app-error); background: var(--tl-status-danger-soft); }
-.app-status-badge--info { color: var(--app-info); background: var(--tl-status-info-soft); }
-.app-status-badge--primary { color: var(--tl-accent-primary); background: var(--tl-accent-primary-soft); }
 
 .app-table-shell,
 .listen-track-grid,
@@ -1988,30 +1970,8 @@ code,
 .app-progress-bar__fill { width: 0; height: 100%; background: var(--app-progress-accent, var(--app-primary)); border-radius: inherit; transition: width 0.2s ease; }
 .app-progress-bar__value { color: var(--app-text-muted); font-size: 12px; font-weight: 600; }
 
-.app-status-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    min-height: 24px;
-    padding: 4px 8px;
-    color: var(--app-text-primary);
-    background: var(--app-surface-2);
-    border: 1px solid var(--app-border);
-    border-radius: var(--app-radius-sm);
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-    white-space: nowrap;
-}
-.app-status-badge--success { color: var(--app-success); background: var(--tl-status-success-soft); }
-.app-status-badge--warning { color: var(--app-warning); background: var(--tl-status-warning-soft); }
-.app-status-badge--error { color: var(--app-error); background: var(--tl-status-danger-soft); }
-.app-status-badge--info { color: var(--app-info); background: var(--tl-status-info-soft); }
-.app-status-badge--primary { color: var(--tl-accent-primary); background: var(--tl-accent-primary-soft); }
-
 .app-metric-card { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 14px 16px; color: var(--app-text-primary); background: var(--app-surface-2); border: 1px dashed var(--app-border-strong); border-radius: var(--app-radius-lg); }
-.app-metric-card__icon { color: var(--app-primary) !important; }
+.app-metric-card__icon { color: var(--app-tone-color, var(--tl-accent-primary)) !important; }
 .app-metric-card__copy { min-width: 0; }
 .app-metric-card__label,
 .app-metric-card__description { color: var(--app-text-muted); font-size: 12px; line-height: 1.45; }
@@ -2392,14 +2352,12 @@ body,
 }
 
 .tl-status-pill,
-.app-status-badge,
 .mud-chip,
 .mud-badge {
     border-radius: var(--tl-radius-sm) !important;
     font-weight: 700 !important;
 }
 
-.app-status-badge--success,
 .tl-status-pill--success,
 .health-online {
     color: var(--tl-status-success) !important;
@@ -2407,7 +2365,6 @@ body,
     border-color: var(--tl-status-success-border) !important;
 }
 
-.app-status-badge--warning,
 .tl-status-pill--warning,
 .health-degraded {
     color: var(--tl-status-warning) !important;
@@ -2415,8 +2372,6 @@ body,
     border-color: var(--tl-status-warning-border) !important;
 }
 
-.app-status-badge--error,
-.app-status-badge--danger,
 .tl-status-pill--danger,
 .health-offline {
     color: var(--tl-status-danger) !important;
@@ -2424,14 +2379,12 @@ body,
     border-color: var(--tl-status-danger-border) !important;
 }
 
-.app-status-badge--info,
 .tl-status-pill--info {
     color: var(--tl-status-info) !important;
     background: var(--tl-status-info-soft) !important;
     border-color: var(--tl-status-info-border) !important;
 }
 
-.app-status-badge--primary,
 .tl-status-pill--primary {
     color: var(--tl-accent-primary) !important;
     background: var(--tl-accent-primary-soft) !important;
@@ -3387,7 +3340,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
   padding: 4px 8px;
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.2);
-  color: var(--app-text);
+  color: var(--tl-text-primary);
   font-family: monospace;
   font-size: 0.85rem;
   overflow-wrap: anywhere;
@@ -4236,6 +4189,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     background: var(--tl-bg-surface-raised);
     font-size: 0.76rem;
     font-weight: 700;
+}
+
+.app-status-badge {
+    justify-content: center;
+    line-height: 1;
 }
 
 .app-chip.browse-shell__grouping-chip {

@@ -5,7 +5,7 @@
 
 .bdc-inline-editor {
     min-height: 100svh;
-    background: var(--tl-page-background, #050914);
+    background: var(--tl-bg-root);
 }
 
 .book-detail-title {

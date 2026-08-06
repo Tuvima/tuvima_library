@@ -8,7 +8,7 @@
                    StartIcon="@Icons.Material.Outlined.ChevronLeft"
                    Disabled="@(Offset <= 0 || Loading)"
                    OnClick="@PreviousAsync" />
-        <AppStatusChip Text="@($"Page {CurrentPage:N0}")" Tone="primary" />
+        <AppChip Text="@($"Page {CurrentPage:N0}")" Tone="AppUiTone.Primary" />
         <AppButton Label="Next"
                    Size="AppControlSize.Compact"
                    EndIcon="@Icons.Material.Outlined.ChevronRight"

@@ -1,16 +1,16 @@
 ﻿@namespace MediaEngine.Web.Components.Shared
 
-<span class="@RootClass" title="@Title">
-    @if (!string.IsNullOrWhiteSpace(Icon))
-    {
-        <MudIcon Icon="@Icon" Size="Size.Small" />
-    }
-    <span>@Text</span>
-</span>
+<AppChip Text="@Text"
+         Icon="@Icon"
+         Title="@Title"
+         Tone="@Tone"
+         Size="@Size"
+         Class="@RootClass" />
 
 @code {
     [Parameter, EditorRequired] public string Text { get; set; } = string.Empty;
-    [Parameter] public AppStatusTone Tone { get; set; }
+    [Parameter] public AppUiTone Tone { get; set; }
+    [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Compact;
     [Parameter] public string? Icon { get; set; }
     [Parameter] public string? Title { get; set; }
     [Parameter] public string? Class { get; set; }

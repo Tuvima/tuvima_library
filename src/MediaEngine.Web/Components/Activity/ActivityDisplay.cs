@@ -1,4 +1,5 @@
 using MudBlazor;
+using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Services.Formatting;
 using MediaEngine.Web.Services.Integration;
 
@@ -85,16 +86,16 @@ public static class ActivityDisplay
         return string.IsNullOrWhiteSpace(raw) ? "Unknown" : DisplayFormat.SplitWords(raw);
     }
 
-    public static string StatusTone(string? status, string? auditStatus = null)
+    public static AppUiTone StatusTone(string? status, string? auditStatus = null)
     {
         var text = StatusText(status, auditStatus);
         return text switch
         {
-            "Complete" => "success",
-            "Needs review" => "warning",
-            "Needs attention" => "danger",
-            "Running" or "Queued" => "info",
-            _ => "neutral",
+            "Complete" => AppUiTone.Success,
+            "Needs review" => AppUiTone.Warning,
+            "Needs attention" => AppUiTone.Error,
+            "Running" or "Queued" => AppUiTone.Info,
+            _ => AppUiTone.Neutral,
         };
     }
 

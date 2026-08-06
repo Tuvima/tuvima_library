@@ -16,15 +16,15 @@
     [Parameter, EditorRequired] public LibraryStatus Status { get; set; }
     [Parameter] public int? QuarantineDays { get; set; }
 
-    private AppStatusTone _tone => Status switch
+    private AppUiTone _tone => Status switch
     {
-        LibraryStatus.Verified => AppStatusTone.Success,
-        LibraryStatus.Provisional => AppStatusTone.Warning,
-        LibraryStatus.NeedsReview => AppStatusTone.Warning,
-        LibraryStatus.Quarantined => AppStatusTone.Error,
-        LibraryStatus.WaitingForProvider => AppStatusTone.Info,
-        LibraryStatus.RetailMatched => AppStatusTone.Success,
-        _ => AppStatusTone.Neutral,
+        LibraryStatus.Verified => AppUiTone.Success,
+        LibraryStatus.Provisional => AppUiTone.Warning,
+        LibraryStatus.NeedsReview => AppUiTone.Warning,
+        LibraryStatus.Quarantined => AppUiTone.Error,
+        LibraryStatus.WaitingForProvider => AppUiTone.Info,
+        LibraryStatus.RetailMatched => AppUiTone.Success,
+        _ => AppUiTone.Neutral,
     };
 
     private string _icon => Status switch

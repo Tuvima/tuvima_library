@@ -14,13 +14,12 @@
     </div>
     @if (Retry.HasDelegate)
     {
-        <MudButton Variant="Variant.Outlined"
-                   Size="@(Compact ? Size.Small : Size.Medium)"
+        <AppButton Label="@RetryLabel"
+                   ButtonStyle="AppButtonStyle.Outlined"
+                   Size="@(Compact ? AppControlSize.Compact : AppControlSize.Normal)"
                    StartIcon="@Icons.Material.Outlined.Refresh"
                    OnClick="Retry"
-                   Class="app-error-state__retry">
-            @RetryLabel
-        </MudButton>
+                   Class="app-error-state__retry" />
     }
 </div>
 

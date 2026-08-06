@@ -20,7 +20,7 @@
     [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
     [Parameter] public string? Description { get; set; }
     [Parameter] public string? Icon { get; set; }
-    [Parameter] public AppStatusTone Tone { get; set; } = AppStatusTone.Neutral;
+    [Parameter] public AppUiTone Tone { get; set; } = AppUiTone.Neutral;
     [Parameter] public string? Class { get; set; }
     [Parameter] public AppCardHoverBehavior HoverBehavior { get; set; } = AppCardHoverBehavior.Quiet;
 
@@ -28,7 +28,7 @@
         string.Join(" ", new[]
         {
             "app-metric-card",
-            $"app-metric-card--{Tone.ToString().ToLowerInvariant()}",
+            AppUiMaps.ToneClass(Tone),
             HoverClass,
             Class,
         }.Where(value => !string.IsNullOrWhiteSpace(value)));

@@ -18,16 +18,6 @@ public enum AppCardHoverBehavior
     Media,
 }
 
-public enum AppStatusTone
-{
-    Neutral,
-    Info,
-    Success,
-    Warning,
-    Error,
-    Primary,
-}
-
 public enum AppPageStateKind
 {
     Loading,

@@ -33,7 +33,7 @@
                              Class="collection-editor-tabs">
                         @foreach (var tab in VisibleTabs)
                         {
-                            <MudTabPanel Text="@tab.Label" />
+                            <AppTabPanel Text="@tab.Label" />
                         }
                     </AppTabs>
                 }
@@ -953,7 +953,7 @@
     </div>;
 
     private RenderFragment RenderRulesSection() => @<section class="collection-editor-section">
-        <MudCheckBox T="bool"
+        <AppCheckbox
                      Value="_rulesEnabled"
                      ValueChanged="OnRulesEnabledChanged"
                      Color="Color.Primary"
@@ -1007,7 +1007,7 @@
             </div>
 
             <div class="collection-editor-rule-extras">
-                <MudCheckBox T="bool" @bind-Value="_liveUpdating" Color="Color.Primary" Dense="true" Label="Live updating" />
+                <AppCheckbox @bind-Value="_liveUpdating" Color="Color.Primary" Dense="true" Label="Live updating" />
             </div>
         }
     </section>;
@@ -1157,7 +1157,7 @@
 
         @if (!SupportsManualItems)
         {
-            <MudCheckBox T="bool" @bind-Value="_liveUpdating" Color="Color.Error" Dense="true" Label="Live updating" />
+            <AppCheckbox @bind-Value="_liveUpdating" Color="Color.Error" Dense="true" Label="Live updating" />
             <div class="collection-editor-note collection-editor-note--tight">
                 <span>When enabled, this collection re-evaluates itself as the library changes.</span>
             </div>
@@ -1172,8 +1172,8 @@
         @if (EditingCollection is not null)
         {
             <div class="collection-editor-toggle-grid">
-                <MudCheckBox T="bool" @bind-Value="_isEnabled" Color="Color.Primary" Dense="true" Label="Enabled" />
-                <MudCheckBox T="bool" @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
+                <AppCheckbox @bind-Value="_isEnabled" Color="Color.Primary" Dense="true" Label="Enabled" />
+                <AppCheckbox @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
             </div>
         }
     </section>;

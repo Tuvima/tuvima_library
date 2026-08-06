@@ -65,7 +65,7 @@
                 @if (CanShowMissingToggle)
                 {
                     <div class="tl-series-detail__missing">
-                        <MudCheckBox T="bool"
+                        <AppCheckbox
                                      Value="@_showMissing"
                                      ValueChanged="ShowMissingChangedAsync"
                                      Color="Color.Primary"
@@ -258,7 +258,7 @@ else
             @if (CanShowMissingToggle)
             {
                 <div class="tl-series-missing-preference">
-                    <MudCheckBox T="bool"
+                    <AppCheckbox
                                  Value="@_showMissing"
                                  ValueChanged="ShowMissingChangedAsync"
                                  Class="tl-series-show-missing"

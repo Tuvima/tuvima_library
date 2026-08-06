@@ -803,8 +803,8 @@
                                                      Color="Color.Primary"
                                                      Elevation="0"
                                                      Class="settings-tab-strip sme-match-search-tabs">
-                                                <MudTabPanel Text="Retail" Icon="@Icons.Material.Outlined.TravelExplore" />
-                                                <MudTabPanel Text="Wikidata" Icon="@Icons.Material.Outlined.Hub" />
+                                                <AppTabPanel Text="Retail" Icon="@Icons.Material.Outlined.TravelExplore" />
+                                                <AppTabPanel Text="Wikidata" Icon="@Icons.Material.Outlined.Hub" />
                                             </AppTabs>
                                         </div>
 
@@ -1515,14 +1515,14 @@
             <div class="sme-suggested-title">Optional fields</div>
             @foreach (var field in fields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
             {
-                <MudCheckBox T="bool"
+                <AppCheckbox
                              Value="@IsSuggestedFieldSelected(candidateId, field.Key)"
                              ValueChanged="@((bool value) => ToggleSuggestedField(candidateId, field.Key, value))"
                              Color="Color.Primary"
                              Dense="true"
                              Class="sme-suggested-field">
                     @field.Key: @field.Value
-                </MudCheckBox>
+                </AppCheckbox>
             }
         }
     </div>;

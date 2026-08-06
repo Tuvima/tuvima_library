@@ -27,7 +27,7 @@ else
     <div class="tl-page file-organization-page">
         <AppActionBar Align="AppHorizontalAlignment.End" Class="file-organization-page__actions mb-4">
             <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
-                            Tone="@(_engineUnavailable ? AppStatusTone.Error : AppStatusTone.Success)" />
+                            Tone="@(_engineUnavailable ? AppUiTone.Error : AppUiTone.Success)" />
             <AppButton Label="Folder health"
                        StartIcon="@Icons.Material.Outlined.Refresh"
                        ButtonStyle="AppButtonStyle.Text"
@@ -63,10 +63,10 @@ else
                          Rounded="true"
                          Elevation="0"
                          Color="Color.Primary">
-                    <MudTabPanel Text="Import Folders" Icon="@Icons.Material.Outlined.MoveToInbox" />
+                    <AppTabPanel Text="Import Folders" Icon="@Icons.Material.Outlined.MoveToInbox" />
                     @foreach (var tab in VisibleLibraryTabs)
                     {
-                        <MudTabPanel @key="tab.Key" Text="@tab.Label" Icon="@tab.Icon" />
+                        <AppTabPanel @key="tab.Key" Text="@tab.Label" Icon="@tab.Icon" />
                     }
                 </AppTabs>
 
@@ -235,7 +235,7 @@ else
                                 <div class="file-org-rule-row">
                                     <div><strong>File permissions</strong><span>@(activeLibrary.ReadOnly ? "Preserve source; no writes" : "Writable destination")</span></div>
                                     <AppStatusBadge Text="@(activeLibrary.ReadOnly ? "Read only" : "Writable")"
-                                                    Tone="@(activeLibrary.ReadOnly ? AppStatusTone.Warning : AppStatusTone.Success)" />
+                                                    Tone="@(activeLibrary.ReadOnly ? AppUiTone.Warning : AppUiTone.Success)" />
                                 </div>
                                 <div class="file-org-rule-row">
                                     <div><strong>Writeback behavior</strong><span>Control whether metadata changes are written back to files.</span></div>
@@ -620,14 +620,14 @@ else
         return "Configured";
     }
 
-    private AppStatusTone FolderStatusTone(string? path)
+    private AppUiTone FolderStatusTone(string? path)
     {
         var label = FolderStatusLabel(path);
         return label switch
         {
-            "Monitoring" or "Configured" => AppStatusTone.Success,
-            "Read only" or "Not configured" => AppStatusTone.Warning,
-            _ => AppStatusTone.Error,
+            "Monitoring" or "Configured" => AppUiTone.Success,
+            "Read only" or "Not configured" => AppUiTone.Warning,
+            _ => AppUiTone.Error,
         };
     }
 

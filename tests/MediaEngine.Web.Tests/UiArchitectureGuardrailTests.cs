@@ -30,6 +30,36 @@ public sealed class UiArchitectureGuardrailTests
         Assert.False(File.Exists(Path.Combine(RepoRoot, relativePath)));
     }
 
+    [Theory]
+    [InlineData("src/MediaEngine.Web/Components/MediaTiles/MediaTileOverlay.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Settings/SettingsStatusBadge.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Settings/UniverseSettingsTab.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Settings/WikidataConfigTab.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/AlphabeticalGrid.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/AmbientBackground.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/CollectionShell.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/CollectionToolbar.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/CompactHero.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/GreetingBar.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/HeroCarousel.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/LandscapeCard.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/ManualEntryForm.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/MetadataChips.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/MissingUniverseChip.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/PendingFilesAlert.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/PersonSwimlaneHeader.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/ProgressIndicator.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/SquareCard.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/SwimlaneSection.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/UniverseGuide.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/WideCard.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Universe/WorkCard.razor")]
+    [InlineData("src/MediaEngine.Web/Components/Watch/WatchPlaybackSpecs.razor")]
+    public void RetiredDuplicateUiComponents_RemainRemoved(string relativePath)
+    {
+        Assert.False(File.Exists(Path.Combine(RepoRoot, relativePath)));
+    }
+
     [Fact]
     public void ManagedCollectionClientFeature_IsolatedWithoutMovingAiMethods()
     {

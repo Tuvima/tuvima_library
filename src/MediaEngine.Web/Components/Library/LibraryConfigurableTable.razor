@@ -25,7 +25,7 @@ else
                             var groupAllSelected = group.Items.Count > 0 && group.Items.All(i => SelectedItems.Contains(i.EntityId));
                         }
                         <span @onclick:stopPropagation="true">
-                            <MudCheckBox T="bool"
+                            <AppCheckbox
                                          Value="@groupAllSelected"
                                          ValueChanged="@(_ => ToggleGroupSelection(group.Items))"
                                          Color="Color.Primary"
@@ -328,7 +328,7 @@ else
                         <AppCssElement Tag="th" Class='@($"vmt-th {alignClass}")' Css="@($"width: {col.Width}; {paddingStyle} {paddingRightStyle}")">
                             @if (col.RenderType == ColumnRenderType.Checkbox)
                             {
-                                <MudCheckBox T="bool"
+                                <AppCheckbox
                                              Value="@IsAllSelected(items)"
                                              ValueChanged="@(_ => ToggleSelectAll(items))"
                                              Color="Color.Primary"
@@ -404,7 +404,7 @@ else
                                 {
                                     case ColumnRenderType.Checkbox:
                                         <span @onclick:stopPropagation="true">
-                                            <MudCheckBox T="bool"
+                                            <AppCheckbox
                                                          Value="@isSelected"
                                                          ValueChanged="@(_ => ToggleSingleItemAsync(item))"
                                                          Color="Color.Primary"

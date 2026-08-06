@@ -108,9 +108,9 @@
     width: 30px;
     height: 30px;
     place-items: center;
-    border: 2px solid var(--tl-surface-1, #111827);
+    border: 2px solid var(--tl-bg-surface);
     border-radius: 999px;
-    background: var(--tl-surface-3, #1f2937);
+    background: var(--tl-bg-surface-hover);
 }
 
 .user-overview-profile-name {
@@ -132,7 +132,7 @@
     padding: var(--tl-space-4, 16px);
     border: 1px solid var(--tl-border-subtle);
     border-radius: var(--tl-radius-lg);
-    background: color-mix(in srgb, var(--tl-surface-2, #111827) 78%, transparent);
+    background: color-mix(in srgb, var(--tl-bg-surface-raised) 78%, transparent);
 }
 
 .user-overview-stat-icon {
@@ -177,7 +177,7 @@
     height: 48px;
     overflow: hidden;
     border-radius: var(--tl-radius-sm);
-    background: var(--tl-surface-3, #1f2937);
+    background: var(--tl-bg-surface-hover);
 }
 
 .user-overview-item-thumb img {
@@ -207,7 +207,7 @@
     place-items: center;
     overflow: hidden;
     border-radius: 999px;
-    background: var(--tl-surface-3, #1f2937);
+    background: var(--tl-bg-surface-hover);
 }
 
 ::deep .user-overview-photo-preview img {

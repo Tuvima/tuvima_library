@@ -101,10 +101,10 @@
                 <div class="encode-settings__diagnostics">
                     <AppMetricCard Label="FFmpeg"
                                    Value="@(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")"
-                                   Tone="@(_diagnostics.FFmpegAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                                   Tone="@(_diagnostics.FFmpegAvailable ? AppUiTone.Success : AppUiTone.Warning)" />
                     <AppMetricCard Label="MediaInfo"
                                    Value="@(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")"
-                                   Tone="@(_diagnostics.MediaInfoAvailable ? AppStatusTone.Success : AppStatusTone.Warning)" />
+                                   Tone="@(_diagnostics.MediaInfoAvailable ? AppUiTone.Success : AppUiTone.Warning)" />
                     <AppMetricCard Label="Active jobs"
                                    Value="@_diagnostics.ActiveJobs.Count.ToString()" />
                 </div>

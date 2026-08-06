@@ -89,7 +89,7 @@
                         </td>
                         <td>@batch.ItemCount.ToString("N0")</td>
                         <td>@StringHelpers.FirstNonBlankOr("", batch.DurationLabel, DisplayFormat.FormatDurationHoursMinutesOrNull(batch.DurationSeconds), "-")</td>
-                        <td><AppStatusChip Text="@ActivityDisplay.StatusText(batch.Status)" Tone="@ActivityDisplay.StatusTone(batch.Status)" /></td>
+                        <td><AppChip Text="@ActivityDisplay.StatusText(batch.Status)" Tone="@ActivityDisplay.StatusTone(batch.Status)" /></td>
                     </tr>
 
                     @if (expanded)

@@ -38,7 +38,7 @@ else if (_settings is not null)
                  Class="settings-tab-strip settings-playback-tabs"
                  ActivePanelIndex="@ActivePanelIndex"
                  ActivePanelIndexChanged="OnActivePanelChanged">
-            <MudTabPanel Text="General">
+            <AppTabPanel Text="General">
                 <div class="settings-tab-panel playback-general-grid">
                     <SettingsSectionPanel Title="Resume & Progress"
                                           Description="Manage how progress is tracked and resumed."
@@ -187,9 +187,9 @@ else if (_settings is not null)
                         </div>
                     </SettingsSectionPanel>
                 </div>
-            </MudTabPanel>
+            </AppTabPanel>
 
-            <MudTabPanel Text="Watching">
+            <AppTabPanel Text="Watching">
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Video Speed" Icon="@Icons.Material.Outlined.Speed">
@@ -222,9 +222,9 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
-            </MudTabPanel>
+            </AppTabPanel>
 
-            <MudTabPanel Text="Listening">
+            <AppTabPanel Text="Listening">
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Audiobook Speed" Icon="@Icons.Material.Outlined.Speed">
@@ -304,9 +304,9 @@ else if (_settings is not null)
                         </MudExpansionPanels>
                     </MudItem>
                 </MudGrid>
-            </MudTabPanel>
+            </AppTabPanel>
 
-            <MudTabPanel Text="Reading">
+            <AppTabPanel Text="Reading">
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Reading Mode" Icon="@Icons.Material.Outlined.ChromeReaderMode">
@@ -342,9 +342,9 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
-            </MudTabPanel>
+            </AppTabPanel>
 
-            <MudTabPanel Text="Subtitles">
+            <AppTabPanel Text="Subtitles">
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Language Defaults" Icon="@Icons.Material.Outlined.Translate">
@@ -370,7 +370,7 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
-            </MudTabPanel>
+            </AppTabPanel>
         </AppTabs>
     </MudStack>
 }

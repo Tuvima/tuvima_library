@@ -269,11 +269,11 @@
         _               => AppUiTone.Neutral,
     };
 
-    private static AppStatusTone StatusTone(string status) => status switch
+    private static AppUiTone StatusTone(string status) => status switch
     {
-        "Active"  => AppStatusTone.Success,
-        "Pending" => AppStatusTone.Warning,
-        _         => AppStatusTone.Neutral,
+        "Active"  => AppUiTone.Success,
+        "Pending" => AppUiTone.Warning,
+        _         => AppUiTone.Neutral,
     };
 
     private static string GetInitials(string displayName)

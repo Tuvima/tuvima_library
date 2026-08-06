@@ -13,7 +13,7 @@
                 Canonical controls for app screens in compact, normal, and large sizes.
             </p>
         </div>
-        <AppStatusBadge Text="Preview" Tone="AppStatusTone.Info" Icon="@Icons.Material.Outlined.Palette" />
+        <AppStatusBadge Text="Preview" Tone="AppUiTone.Info" Icon="@Icons.Material.Outlined.Palette" />
     </header>
 
     <div class="design-system-preview__grid">
@@ -44,6 +44,7 @@
                              SearchFunc="@SearchProvidersAsync" />
             <AppSwitchRow Label="Enabled" Description="Binary settings use row components." Value="true" />
             <AppCheckboxRow Label="Include artwork" Description="Checkbox rows share spacing with switches." Value="true" />
+            <AppCheckbox Label="Select this row" Value="true" />
         </AppCard>
 
         <AppCard Title="Actions" Description="Buttons and icon buttons share size, tone, and variant mapping.">
@@ -91,6 +92,7 @@
                 @foreach (var tone in Tones)
                 {
                     <AppChip Text="@tone.ToString()" Tone="@tone" Icon="@Icons.Material.Outlined.Circle" />
+                    <AppStatusBadge Text="@($"{tone} status")" Tone="@tone" />
                 }
             </div>
             <AppProgressBar Label="Provider sync" Value="68" ShowValue="true" />

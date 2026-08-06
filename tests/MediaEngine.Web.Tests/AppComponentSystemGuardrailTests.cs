@@ -22,7 +22,7 @@ public sealed class AppComponentSystemGuardrailTests
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex DirectMudPrimitiveRegex =
-        new(@"<Mud(?:TextField|Select|NumericField|Autocomplete|Button|IconButton|Chip|Paper|Alert|Switch|Tabs|Table|Dialog)\b",
+        new(@"<Mud(?:TextField|Select|NumericField|Autocomplete|Button|IconButton|CheckBox|Chip|Paper|Alert|Switch|Tabs|TabPanel|Table|Dialog)\b",
             RegexOptions.Compiled);
 
     private static readonly Regex InlineStyleAttributeRegex =
@@ -133,6 +133,50 @@ public sealed class AppComponentSystemGuardrailTests
         Assert.Contains(".app-button", appCss, StringComparison.Ordinal);
         Assert.Contains(".app-chip", appCss, StringComparison.Ordinal);
         Assert.Contains(".app-provider-logo", appCss, StringComparison.Ordinal);
+        Assert.Contains("--tl-focus-ring:", tokens, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StatusPresentation_UsesTheSharedChipAndToneContract()
+    {
+        var statusBadge = ReadRepoFile("src/MediaEngine.Web/Components/Shared/AppStatusBadge.razor");
+        var uiTypes = ReadRepoFile("src/MediaEngine.Web/Components/Shared/AppUiTypes.cs");
+        var componentRoot = Path.Combine(RepoRoot, "src", "MediaEngine.Web", "Components");
+        var allComponents = Directory.EnumerateFiles(componentRoot, "*.razor", SearchOption.AllDirectories)
+            .Select(File.ReadAllText)
+            .ToArray();
+
+        Assert.Contains("<AppChip", statusBadge, StringComparison.Ordinal);
+        Assert.Contains("AppUiTone Tone", statusBadge, StringComparison.Ordinal);
+        Assert.DoesNotContain("AppStatusTone", uiTypes, StringComparison.Ordinal);
+        Assert.DoesNotContain(allComponents, source => source.Contains("<AppStatusChip", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void FeatureCss_DoesNotUseRetiredTokenNames()
+    {
+        string[] retiredTokens =
+        [
+            "--tl-surface-1",
+            "--tl-surface-2",
+            "--tl-surface-3",
+            "--tl-surface-4",
+            "--tl-surface-raised",
+            "--tl-page-background",
+            "--tl-font-family-base",
+        ];
+        var webRoot = Path.Combine(RepoRoot, "src", "MediaEngine.Web");
+        var css = Directory.EnumerateFiles(webRoot, "*.css", SearchOption.AllDirectories)
+            .Select(path => new { Path = ToRelativePath(path), Contents = File.ReadAllText(path) })
+            .ToArray();
+
+        foreach (var token in retiredTokens)
+        {
+            var offenders = css.Where(file => file.Contents.Contains(token, StringComparison.Ordinal))
+                .Select(file => file.Path)
+                .ToArray();
+            Assert.True(offenders.Length == 0, $"Retired token {token} remains in: {string.Join(", ", offenders)}");
+        }
     }
 
     [Fact]

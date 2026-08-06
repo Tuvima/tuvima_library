@@ -958,7 +958,7 @@
     padding: 0.9rem 1rem;
     border: 1px solid color-mix(in srgb, var(--tl-status-warning) 42%, transparent);
     border-radius: 0.8rem;
-    background: color-mix(in srgb, var(--tl-status-warning) 10%, var(--tl-surface-2));
+    background: color-mix(in srgb, var(--tl-status-warning) 10%, var(--tl-bg-surface-raised));
 }
 
 .sme-inline-decision > div {
@@ -990,7 +990,7 @@
     padding: 0.35rem;
     border: 1px solid var(--tl-border-subtle);
     border-radius: 0.65rem;
-    background: var(--tl-surface-3);
+    background: var(--tl-bg-surface-hover);
 }
 
 .sme-membership-suggestion ::deep .mud-button-label {
@@ -1024,7 +1024,7 @@
     padding: 0.7rem 0.8rem;
     border: 1px solid var(--tl-border-subtle);
     border-radius: 0.7rem;
-    background: color-mix(in srgb, var(--tl-surface-3) 76%, transparent);
+    background: color-mix(in srgb, var(--tl-bg-surface-hover) 76%, transparent);
 }
 
 .sme-audiobook-chapter.is-editing {
@@ -1038,7 +1038,7 @@
     height: 2.1rem;
     border-radius: 999px;
     color: var(--tl-text-secondary);
-    background: var(--tl-surface-4);
+    background: var(--tl-bg-surface-elevated);
     font-variant-numeric: tabular-nums;
 }
 
@@ -1078,7 +1078,7 @@
     padding: 1rem;
     border: 1px solid var(--tl-border-subtle);
     border-radius: 0.7rem;
-    background: var(--tl-surface-3);
+    background: var(--tl-bg-surface-hover);
 }
 
 .sme-container-file-summary strong {
@@ -1102,7 +1102,7 @@
     padding: 0.35rem 0.55rem;
     border-radius: 999px;
     color: var(--tl-text-secondary);
-    background: var(--tl-surface-4);
+    background: var(--tl-bg-surface-elevated);
     font-size: 0.78rem;
 }
 

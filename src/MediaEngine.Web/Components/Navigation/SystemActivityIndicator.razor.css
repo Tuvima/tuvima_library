@@ -26,7 +26,7 @@
 }
 
 .system-activity-indicator-shell ::deep .system-activity-indicator:focus-visible {
-    outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
+    outline: 2px solid var(--tl-focus-ring);
     outline-offset: 2px;
 }
 

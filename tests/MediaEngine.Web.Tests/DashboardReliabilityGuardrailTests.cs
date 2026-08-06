@@ -13,7 +13,6 @@ public sealed class DashboardReliabilityGuardrailTests
     }
 
     [Theory]
-    [InlineData(@"src\MediaEngine.Web\Components\Universe\AlphabeticalGrid.razor", "@key=\"@GetItemKey(item)\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Universe\PosterSwimlane.razor", "@key=\"item.Id\"")]
     [InlineData(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor", "@key=\"item.Id\"")]
     [InlineData(@"src\MediaEngine.Web\Components\Library\LibraryConfigurableTable.razor", "@key=\"item.EntityId\"")]

@@ -24,19 +24,19 @@ else
                 <AppMetricCard Icon="@Icons.Material.Outlined.Extension"
                                Label="Plugins"
                                Value="@_plugins.Count.ToString()"
-                               Tone="AppStatusTone.Primary" />
+                               Tone="AppUiTone.Primary" />
                 <AppMetricCard Icon="@Icons.Material.Outlined.PowerSettingsNew"
                                Label="Enabled"
                                Value="@_plugins.Count(p => p.Enabled).ToString()"
-                               Tone="AppStatusTone.Success" />
+                               Tone="AppUiTone.Success" />
                 <AppMetricCard Icon="@Icons.Material.Outlined.DynamicFeed"
                                Label="Dynamic"
                                Value="@_plugins.Count(p => !p.IsBuiltIn).ToString()"
-                               Tone="AppStatusTone.Info" />
+                               Tone="AppUiTone.Info" />
                 <AppMetricCard Icon="@Icons.Material.Outlined.ReportProblem"
                                Label="Needs setup"
                                Value="@_plugins.Count(p => !string.IsNullOrWhiteSpace(p.LoadError)).ToString()"
-                               Tone="AppStatusTone.Warning" />
+                               Tone="AppUiTone.Warning" />
                 <div class="settings-plugin-summary__actions">
                     <AppButton Label="Reload"
                                StartIcon="@Icons.Material.Outlined.Refresh"

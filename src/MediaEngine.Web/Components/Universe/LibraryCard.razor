@@ -13,11 +13,11 @@
     <Badge>
         @if (Item.IsNew)
         {
-            <AppStatusBadge Text="NEW" Tone="AppStatusTone.Warning" />
+            <AppStatusBadge Text="NEW" Tone="AppUiTone.Warning" />
         }
         @if (!string.IsNullOrEmpty(TypeLabel))
         {
-            <AppStatusBadge Text="@TypeLabel" Tone="AppStatusTone.Primary" />
+            <AppStatusBadge Text="@TypeLabel" Tone="AppUiTone.Primary" />
         }
     </Badge>
 </AppMediaCard>

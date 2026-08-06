@@ -45,7 +45,7 @@
             </section>
 
             <section class="dev-harness-option-block dev-harness-option-block--danger">
-                <MudCheckBox T="bool"
+                <AppCheckbox
                              @bind-Value="_allowFullSourceWipe"
                              Color="Color.Warning"
                              Disabled="@(_runningCommandId is not null)"

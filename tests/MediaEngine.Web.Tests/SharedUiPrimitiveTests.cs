@@ -31,7 +31,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
             {
                 builder.OpenComponent<AppStatusBadge>(0);
                 builder.AddAttribute(1, nameof(AppStatusBadge.Text), "NEW");
-                builder.AddAttribute(2, nameof(AppStatusBadge.Tone), AppStatusTone.Warning);
+                builder.AddAttribute(2, nameof(AppStatusBadge.Tone), AppUiTone.Warning);
                 builder.CloseComponent();
             })
             .Add(component => component.OnSelected, EventCallback.Factory.Create(this, () => clicked = true)));
@@ -63,18 +63,38 @@ public sealed class SharedUiPrimitiveTests : TestContext
     }
 
     [Theory]
-    [InlineData(AppStatusTone.Neutral, "app-status-badge--neutral")]
-    [InlineData(AppStatusTone.Success, "app-status-badge--success")]
-    [InlineData(AppStatusTone.Warning, "app-status-badge--warning")]
-    [InlineData(AppStatusTone.Error, "app-status-badge--error")]
-    public void AppStatusBadge_MapsToneToClass(AppStatusTone tone, string expectedClass)
+    [InlineData(AppUiTone.Neutral, "app-status-badge--neutral")]
+    [InlineData(AppUiTone.Success, "app-status-badge--success")]
+    [InlineData(AppUiTone.Warning, "app-status-badge--warning")]
+    [InlineData(AppUiTone.Error, "app-status-badge--error")]
+    public void AppStatusBadge_MapsToneToClass(AppUiTone tone, string expectedClass)
     {
         var cut = RenderComponent<AppStatusBadge>(parameters => parameters
             .Add(component => component.Text, "Status")
             .Add(component => component.Tone, tone));
 
         Assert.Single(cut.FindAll($".{expectedClass}"));
+        Assert.Single(cut.FindAll(".app-chip"));
+        Assert.Single(cut.FindAll($".app-tone--{tone.ToString().ToLowerInvariant()}"));
         Assert.Contains("Status", cut.Markup);
+    }
+
+    [Fact]
+    public void AppCheckbox_UsesSharedToneAndSupportsTwoWayValueChanges()
+    {
+        var value = false;
+        var cut = RenderComponent<AppCheckbox>(parameters => parameters
+            .Add(component => component.Label, "Select row")
+            .Add(component => component.Value, value)
+            .Add(component => component.ValueChanged, EventCallback.Factory.Create<bool>(this, next => value = next))
+            .Add(component => component.Tone, AppUiTone.Warning));
+
+        Assert.Single(cut.FindAll(".app-checkbox"));
+        Assert.Single(cut.FindAll(".app-tone--warning"));
+        Assert.Contains("Select row", cut.Markup);
+
+        cut.Find("input[type='checkbox']").Change(true);
+        Assert.True(value);
     }
 
     [Fact]

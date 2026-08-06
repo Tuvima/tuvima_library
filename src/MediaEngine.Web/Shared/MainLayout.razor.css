@@ -213,7 +213,7 @@
 
 .layout-shell__search-action-slot ::deep .layout-shell__search-action:focus-visible,
 .layout-shell__my-list-slot ::deep .layout-shell__my-list:focus-visible {
-    outline: 2px solid var(--app-focus, var(--tl-accent-primary, #7c4dff));
+    outline: 2px solid var(--tl-focus-ring);
     outline-offset: 2px;
 }
 
