@@ -97,25 +97,17 @@ else if (_settings is not null)
                             <div class="playback-field-group">
                                 <label class="playback-field-label">Skip intervals</label>
                                 <span class="playback-field-description">Default skip amounts.</span>
-                                <div class="playback-skip-controls">
-                                    <AppButton ButtonStyle="AppButtonStyle.Text"
-                                               Size="AppControlSize.Compact"
-                                               Class="playback-skip-control"
-                                               aria-label="Configure skip back interval"
-                                               OnClick="OpenWatchingSettings">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Replay10" />
-                                        <span class="playback-skip-control__value">@($"{_settings.Watching.SkipBackSeconds}s")</span>
-                                        <span class="playback-skip-control__label">Back</span>
-                                    </AppButton>
-                                    <AppButton ButtonStyle="AppButtonStyle.Text"
-                                               Size="AppControlSize.Compact"
-                                               Class="playback-skip-control"
-                                               aria-label="Configure skip forward interval"
-                                               OnClick="OpenWatchingSettings">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Forward30" />
-                                        <span class="playback-skip-control__value">@($"{_settings.Watching.SkipForwardSeconds}s")</span>
-                                        <span class="playback-skip-control__label">Forward</span>
-                                    </AppButton>
+                                <div class="settings-interval-actions">
+                                    <SettingsIntervalAction Icon="@Icons.Material.Outlined.Replay10"
+                                                            Value="@($"{_settings.Watching.SkipBackSeconds} sec")"
+                                                            Label="Back"
+                                                            AriaLabel="Configure skip back interval"
+                                                            OnClick="OpenWatchingSettings" />
+                                    <SettingsIntervalAction Icon="@Icons.Material.Outlined.Forward30"
+                                                            Value="@($"{_settings.Watching.SkipForwardSeconds} sec")"
+                                                            Label="Forward"
+                                                            AriaLabel="Configure skip forward interval"
+                                                            OnClick="OpenWatchingSettings" />
                                 </div>
                             </div>
                         </div>

@@ -1,16 +1,10 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
 
 <AppCard Class="@Class">
-    <div class="settings-section-card__header">
-        <MudIcon Icon="@Icon" Color="Color.Primary" />
-        <div class="settings-section-card__heading">
-            <span class="settings-section-card__title">@Title</span>
-            @if (!string.IsNullOrWhiteSpace(Description))
-            {
-                <span class="settings-section-card__description">@Description</span>
-            }
-        </div>
-    </div>
+    <SettingsSectionHeader Title="@Title"
+                           Description="@Description"
+                           Icon="@Icon"
+                           HeadingTag="span" />
     @ChildContent
 </AppCard>
 

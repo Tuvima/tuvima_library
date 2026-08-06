@@ -27,37 +27,6 @@
     gap: 14px;
 }
 
-.local-ai-settings__section-heading {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--tl-border-subtle);
-}
-
-.local-ai-settings__section-heading .mud-icon-root {
-    margin-top: 2px;
-    color: var(--tl-accent-primary);
-}
-
-.local-ai-settings__section-heading h2,
-.local-ai-settings__section-heading p {
-    margin: 0;
-}
-
-.local-ai-settings__section-heading h2 {
-    color: var(--tl-text-primary);
-    font-size: 17px;
-    line-height: 1.3;
-}
-
-.local-ai-settings__section-heading p {
-    margin-top: 3px;
-    color: var(--tl-text-muted);
-    font-size: 14px;
-    line-height: 1.4;
-}
-
 .local-ai-settings__runtime-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }

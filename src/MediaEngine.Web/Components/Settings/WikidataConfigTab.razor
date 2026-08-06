@@ -3,11 +3,12 @@
 
 <div class="tl-page">
     <AppCard Class="wikidata-config__card">
-        <header class="wikidata-config__section-header">
-            <MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" />
-            <h3>@L["Wikidata_Stage2Title"]</h3>
-            <AppChip Text="@L["Wikidata_Stage2Badge"]" />
-        </header>
+        <SettingsSectionHeader Title="@L["Wikidata_Stage2Title"]"
+                               Icon="@Icons.Material.Outlined.VerifiedUser"
+                               HeadingTag="h3"
+                               Class="wikidata-config__section-header">
+            <Actions><AppChip Text="@L["Wikidata_Stage2Badge"]" /></Actions>
+        </SettingsSectionHeader>
         <p class="wikidata-config__copy">@L["Wikidata_Stage2Description"]</p>
 
         <div class="wikidata-config__eyebrow">@L["Wikidata_PropertiesFetched"]</div>
@@ -55,14 +56,17 @@
     </AppCard>
 
     <AppCard Class="wikidata-config__card">
-        <header class="wikidata-config__section-header">
-            <MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Small" />
-            <h3>@L["Wikidata_Stage3Title"]</h3>
-            <AppChip Text="@L["Wikidata_Stage3Badge"]" />
-            <AppSwitchRow @bind-Value="_stage3Enabled"
-                          Label="@L["Wikidata_Stage3Enabled"]"
-                          Class="wikidata-config__header-switch" />
-        </header>
+        <SettingsSectionHeader Title="@L["Wikidata_Stage3Title"]"
+                               Icon="@Icons.Material.Outlined.AccountTree"
+                               HeadingTag="h3"
+                               Class="wikidata-config__section-header">
+            <Actions>
+                <AppChip Text="@L["Wikidata_Stage3Badge"]" />
+                <AppSwitchRow @bind-Value="_stage3Enabled"
+                              Label="@L["Wikidata_Stage3Enabled"]"
+                              Class="wikidata-config__header-switch" />
+            </Actions>
+        </SettingsSectionHeader>
         <p class="wikidata-config__copy">@L["Wikidata_Stage3Description"]</p>
 
         <div class="wikidata-config__eyebrow">@L["Wikidata_DataGroups"]</div>

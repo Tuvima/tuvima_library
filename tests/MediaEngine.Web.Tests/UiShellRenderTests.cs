@@ -265,6 +265,8 @@ public sealed class UiShellRenderTests : TestContext
             Assert.NotEmpty(cut.FindAll(".mud-tabs"));
             Assert.NotEmpty(cut.FindAll(".settings-tab-strip"));
             Assert.NotEmpty(cut.FindAll(".playback-general-card"));
+            Assert.NotEmpty(cut.FindAll(".settings-section-header"));
+            Assert.Equal(2, cut.FindAll(".settings-interval-action").Count);
             Assert.NotEmpty(cut.FindAll(".settings-preference-row"));
             Assert.Contains("General", cut.Markup);
             Assert.Contains("Watching", cut.Markup);

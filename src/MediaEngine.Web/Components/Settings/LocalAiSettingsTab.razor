@@ -139,10 +139,10 @@
         }
     </text>;
 
-    private static RenderFragment SectionHeading(string title, string description, string icon) => @<header class="local-ai-settings__section-heading">
-        <MudIcon Icon="@icon" Size="Size.Small" />
-        <div><h2>@title</h2><p>@description</p></div>
-    </header>;
+    private static RenderFragment SectionHeading(string title, string description, string icon) => @<SettingsSectionHeader Title="@title"
+                                                                                                    Description="@description"
+                                                                                                    Icon="@icon"
+                                                                                                    Divider="true" />;
 
     private async Task RunBenchmark()
     {

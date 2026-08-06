@@ -3,34 +3,34 @@
 <div class="tl-page users-access-settings">
     <div class="users-access-settings__grid">
         <AppPanel Class="users-access-settings__section users-access-settings__section--profiles">
-            <header class="users-access-settings__heading">
-                <MudIcon Icon="@Icons.Material.Outlined.Group" Size="Size.Small" />
-                <div><h2>Profiles &amp; Roles</h2><p>Manage user roles, permissions, and local profiles.</p></div>
-            </header>
+            <SettingsSectionHeader Title="Profiles & Roles"
+                                   Description="Manage user roles, permissions, and local profiles."
+                                   Icon="@Icons.Material.Outlined.Group"
+                                   Divider="true" />
             <UsersTab />
         </AppPanel>
 
         <AppPanel Class="users-access-settings__section users-access-settings__section--authentication">
-            <header class="users-access-settings__heading">
-                <MudIcon Icon="@Icons.Material.Outlined.AdminPanelSettings" Size="Size.Small" />
-                <div><h2>Authentication</h2><p>Review how users sign in to this Tuvima server.</p></div>
-            </header>
+            <SettingsSectionHeader Title="Authentication"
+                                   Description="Review how users sign in to this Tuvima server."
+                                   Icon="@Icons.Material.Outlined.AdminPanelSettings"
+                                   Divider="true" />
             <SecurityTab />
         </AppPanel>
 
         <AppPanel Class="users-access-settings__section users-access-settings__section--linked">
-            <header class="users-access-settings__heading">
-                <MudIcon Icon="@Icons.Material.Outlined.Link" Size="Size.Small" />
-                <div><h2>Linked Accounts</h2><p>Manage external identities associated with local profiles.</p></div>
-            </header>
+            <SettingsSectionHeader Title="Linked Accounts"
+                                   Description="Manage external identities associated with local profiles."
+                                   Icon="@Icons.Material.Outlined.Link"
+                                   Divider="true" />
             <UsersTab LinkedAccountsOnly="true" />
         </AppPanel>
 
         <AppPanel Class="users-access-settings__section users-access-settings__section--keys">
-            <header class="users-access-settings__heading">
-                <MudIcon Icon="@Icons.Material.Outlined.Key" Size="Size.Small" />
-                <div><h2>Guest API Keys</h2><p>Issue and revoke keys used by approved integrations.</p></div>
-            </header>
+            <SettingsSectionHeader Title="Guest API Keys"
+                                   Description="Issue and revoke keys used by approved integrations."
+                                   Icon="@Icons.Material.Outlined.Key"
+                                   Divider="true" />
             <ApiKeysTab />
         </AppPanel>
     </div>

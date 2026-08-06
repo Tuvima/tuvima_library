@@ -5,6 +5,7 @@
 }
 
 .settings-page-canvas {
+    --settings-section-icon-size: 28px;
     min-width: 0;
     margin-top: var(--tl-space-5, 20px);
     font-family: var(--font-ui, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif);
@@ -283,8 +284,8 @@
 .settings-page-canvas ::deep .settings-section-card__header {
     display: flex;
     align-items: center;
-    min-height: 24px !important;
-    gap: 10px;
+    min-height: var(--settings-section-icon-size) !important;
+    gap: 12px;
     margin-bottom: var(--tl-space-4, 16px);
 }
 
@@ -292,6 +293,23 @@
     display: flex;
     min-width: 0;
     flex-direction: column;
+}
+
+.settings-page-canvas ::deep .settings-section-header--divided {
+    margin-bottom: 0 !important;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--tl-border-subtle);
+}
+
+.settings-page-canvas ::deep .settings-section-header__title {
+    margin: 0;
+}
+
+.settings-page-canvas ::deep .settings-section-header__actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
 }
 
 .settings-page-canvas ::deep .settings-section-card__title {
@@ -310,9 +328,81 @@
 }
 
 .settings-page-canvas ::deep .settings-section-card__header .mud-icon-root {
-    width: 20px !important;
-    height: 20px !important;
-    font-size: 20px !important;
+    flex: 0 0 var(--settings-section-icon-size);
+    width: var(--settings-section-icon-size) !important;
+    height: var(--settings-section-icon-size) !important;
+    font-size: var(--settings-section-icon-size) !important;
+}
+
+/* Shared, readable treatment for settings actions that expose a numeric
+   interval. Pages supply only the icon, value, label, and behavior. */
+.settings-page-canvas ::deep .settings-interval-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+    min-height: 58px;
+    margin-top: 10px;
+}
+
+.settings-page-canvas ::deep .settings-interval-action {
+    width: 100%;
+    min-width: 0;
+    min-height: 54px !important;
+    height: 54px !important;
+    padding: 7px 8px !important;
+    color: var(--tl-text-secondary);
+    border: 0;
+    background: transparent;
+}
+
+.settings-page-canvas ::deep .settings-interval-action .mud-button-label {
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.settings-page-canvas ::deep .settings-interval-action .mud-icon-root {
+    width: 28px !important;
+    height: 28px !important;
+    color: var(--tl-text-primary) !important;
+    font-size: 28px !important;
+}
+
+.settings-page-canvas ::deep .settings-interval-action__copy {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    flex-direction: column;
+}
+
+.settings-page-canvas ::deep .settings-interval-action__value {
+    color: var(--tl-text-primary);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.settings-page-canvas ::deep .settings-interval-action__label {
+    margin-top: 1px;
+    color: var(--tl-text-secondary);
+    font-size: 13px;
+    line-height: 1.25;
+}
+
+.settings-page-canvas ::deep .settings-interval-action:hover,
+.settings-page-canvas ::deep .settings-interval-action:focus-visible {
+    color: var(--tl-accent-primary-hover);
+}
+
+.settings-page-canvas ::deep .settings-interval-action:focus-visible {
+    outline: 2px solid var(--tl-focus-ring);
+    outline-offset: 3px;
+    border-radius: 6px;
 }
 
 .settings-page-canvas ::deep .settings-section-card__header .mud-typography {

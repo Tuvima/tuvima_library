@@ -57,24 +57,10 @@
 
 .playback-general-grid ::deep .playback-general-card .settings-section-card__header {
     align-items: flex-start !important;
-    min-height: 42px !important;
+    min-height: 48px !important;
     margin-bottom: 0 !important;
     padding-bottom: 14px;
     border-bottom: 1px solid var(--tl-divider);
-}
-
-.playback-general-grid ::deep .playback-general-card .settings-section-card__header .mud-icon-root {
-    flex: 0 0 22px;
-    width: 22px !important;
-    height: 22px !important;
-    margin-top: 1px;
-    font-size: 22px !important;
-}
-
-.settings-playback-page ::deep .settings-section-card__header .mud-icon-root {
-    width: 22px !important;
-    height: 22px !important;
-    font-size: 22px !important;
 }
 
 .playback-general-grid ::deep .settings-preference-row--plain {
@@ -189,67 +175,6 @@
 
 .playback-subtitle-style-control ::deep .app-button {
     min-width: max-content;
-}
-
-.playback-skip-controls {
-    display: flex;
-    align-items: flex-start;
-    gap: 24px;
-    min-height: 58px;
-    margin-top: 8px;
-}
-
-.playback-skip-controls ::deep .playback-skip-control {
-    position: relative;
-    display: grid;
-    min-width: 58px;
-    height: auto !important;
-    padding: 0;
-    place-items: center;
-    color: var(--tl-text-secondary);
-    font: inherit;
-    border: 0;
-    background: transparent;
-    cursor: pointer;
-}
-
-.playback-skip-controls ::deep .playback-skip-control .mud-button-label {
-    display: grid;
-    place-items: center;
-}
-
-.playback-skip-controls ::deep .playback-skip-control .mud-icon-root {
-    width: 32px !important;
-    height: 32px !important;
-    color: var(--tl-text-primary) !important;
-    font-size: 32px !important;
-}
-
-.playback-skip-control__value {
-    position: absolute;
-    top: 8px;
-    color: var(--tl-text-primary);
-    font-size: 10px;
-    font-weight: 700;
-    line-height: 1;
-}
-
-.playback-skip-control__label {
-    margin-top: 3px;
-    color: var(--tl-text-secondary);
-    font-size: 12px;
-    line-height: 1.2;
-}
-
-.playback-skip-controls ::deep .playback-skip-control:hover,
-.playback-skip-controls ::deep .playback-skip-control:focus-visible {
-    color: var(--tl-accent-primary-hover);
-}
-
-.playback-skip-controls ::deep .playback-skip-control:focus-visible {
-    outline: 2px solid var(--tl-focus-ring);
-    outline-offset: 3px;
-    border-radius: 6px;
 }
 
 .playback-default-toggle-grid {

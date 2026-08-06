@@ -10,20 +10,6 @@
     margin-bottom: var(--tl-space-4);
 }
 
-.wikidata-config__section-header {
-    display: flex;
-    align-items: center;
-    gap: var(--tl-space-2);
-}
-
-.wikidata-config__section-header h3 {
-    margin: 0;
-    color: var(--tl-text-primary);
-    font-size: 1rem;
-    line-height: 1.3;
-    font-weight: 700;
-}
-
 .wikidata-config__header-switch {
     margin-left: auto;
 }
