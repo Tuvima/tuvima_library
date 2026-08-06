@@ -175,6 +175,85 @@ public sealed class LargeLibraryPersonRepositoryTests : IDisposable
         Assert.Empty(presence);
     }
 
+    [Fact]
+    public async Task GetPresenceBatchAsync_CountsTopLevelAlbumsAndShowsInsteadOfTracksAndEpisodes()
+    {
+        var personId = Guid.NewGuid();
+        var albumId = Guid.NewGuid();
+        var firstTrackId = Guid.NewGuid();
+        var secondTrackId = Guid.NewGuid();
+        var showId = Guid.NewGuid();
+        var firstEpisodeId = Guid.NewGuid();
+        var secondEpisodeId = Guid.NewGuid();
+        var bookId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var conn = _db.CreateConnection())
+        using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = """
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                    VALUES ($personId, 'Primary Contributor', 'QPERSON', $now);
+
+                INSERT INTO works (id, media_type, work_kind) VALUES
+                    ($albumId, 'Music', 'parent'),
+                    ($showId, 'TV', 'parent'),
+                    ($bookId, 'Books', 'standalone');
+                INSERT INTO works (id, media_type, work_kind, parent_work_id, ordinal) VALUES
+                    ($firstTrackId, 'Music', 'child', $albumId, 1),
+                    ($secondTrackId, 'Music', 'child', $albumId, 2),
+                    ($firstEpisodeId, 'TV', 'child', $showId, 1),
+                    ($secondEpisodeId, 'TV', 'child', $showId, 2);
+
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid) VALUES
+                    ($albumId, 'artist', 0, 'Primary Contributor', 'QPERSON'),
+                    ($showId, 'director', 0, 'Primary Contributor', 'QPERSON'),
+                    ($bookId, 'author', 0, 'Primary Contributor', 'QPERSON');
+
+                INSERT INTO editions (id, work_id) VALUES
+                    ($firstTrackEditionId, $firstTrackId),
+                    ($secondTrackEditionId, $secondTrackId),
+                    ($firstEpisodeEditionId, $firstEpisodeId),
+                    ($secondEpisodeEditionId, $secondEpisodeId),
+                    ($bookEditionId, $bookId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root) VALUES
+                    ($firstTrackAssetId, $firstTrackEditionId, 'presence-track-1', 'C:/music/track-1.flac'),
+                    ($secondTrackAssetId, $secondTrackEditionId, 'presence-track-2', 'C:/music/track-2.flac'),
+                    ($firstEpisodeAssetId, $firstEpisodeEditionId, 'presence-episode-1', 'C:/tv/episode-1.mkv'),
+                    ($secondEpisodeAssetId, $secondEpisodeEditionId, 'presence-episode-2', 'C:/tv/episode-2.mkv'),
+                    ($bookAssetId, $bookEditionId, 'presence-book', 'C:/books/book.epub');
+                """;
+
+            AddGuid(cmd, "$personId", personId);
+            AddGuid(cmd, "$albumId", albumId);
+            AddGuid(cmd, "$firstTrackId", firstTrackId);
+            AddGuid(cmd, "$secondTrackId", secondTrackId);
+            AddGuid(cmd, "$showId", showId);
+            AddGuid(cmd, "$firstEpisodeId", firstEpisodeId);
+            AddGuid(cmd, "$secondEpisodeId", secondEpisodeId);
+            AddGuid(cmd, "$bookId", bookId);
+            foreach (var parameterName in new[]
+                     {
+                         "$firstTrackEditionId", "$secondTrackEditionId", "$firstEpisodeEditionId",
+                         "$secondEpisodeEditionId", "$bookEditionId", "$firstTrackAssetId",
+                         "$secondTrackAssetId", "$firstEpisodeAssetId", "$secondEpisodeAssetId", "$bookAssetId",
+                     })
+            {
+                AddGuid(cmd, parameterName, Guid.NewGuid());
+            }
+
+            cmd.Parameters.AddWithValue("$now", now);
+            cmd.ExecuteNonQuery();
+        }
+
+        var presence = await new PersonRepository(_db).GetPresenceBatchAsync([personId]);
+        var counts = Assert.Single(presence).Value;
+
+        Assert.Equal(1, counts["Music"]);
+        Assert.Equal(1, counts["TV"]);
+        Assert.Equal(1, counts["Books"]);
+    }
+
     private void SeedPeople(int count)
     {
         using var conn = _db.CreateConnection();

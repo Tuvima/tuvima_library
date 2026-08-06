@@ -741,3 +741,11 @@ not repeat a Show details action.
 | Engine base URL (local dev) | `http://localhost:61495` (HTTPS on `61494`) |
 | Dashboard URL (local dev) | `http://localhost:5016` (HTTPS on `7062`) |
 
+## Current Collections and linked-identity clarifications
+
+- Collections has one padded, viewport-bounded content scroller beside its anchored rail, with no second document scrollbar.
+- Automatic rollups prioritize trusted fictional-universe, franchise, and based-on/adaptation QIDs over lane-local structure, allowing qualifying comics and films such as Batman to share one rollup.
+- People counts collapse tracks to albums and episodes to shows.
+- Person names use the shared media-detail title typography.
+- Musical groups populate every canonical Wikidata `has parts` member through `person_group_members` and fully hydrate thin member identities; collective pen names remain alias relationships.
+

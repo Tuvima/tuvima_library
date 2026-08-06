@@ -386,5 +386,13 @@ That sequence explains the product, the runtime wiring, the intake flow, the enr
 - The Dashboard is mostly a client of the Engine, not the place where core business rules live.
 - Tests are organized by layer, so they are often the fastest way to confirm intended behavior once you know which project you are in.
 
+## Current Collections and linked-identity clarifications
+
+- Collections uses one viewport-bounded, padded content scroller beside its anchored rail; never allow a second document scrollbar.
+- Automatic rollups prioritize trusted fictional-universe, franchise, and based-on/adaptation QIDs over lane-local parent/series structure. A cross-media identity such as Batman can therefore combine qualifying comic and film groups.
+- People presence counts distinct top-level works: tracks collapse to albums and episodes collapse to shows.
+- Person names use the exact shared media-detail title scale and weight.
+- Musical groups resolve all canonical Wikidata `has parts` identities into `person_group_members` and queue incomplete people for full hydration. Collective pen names continue to use aliases; band members must never be rendered as pseudonym aliases.
+
 
 

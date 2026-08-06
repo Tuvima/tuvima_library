@@ -45,7 +45,12 @@ internal sealed partial class DetailCompositionOrchestrator
 
         var credits = await _personCredits.GetLibraryCreditsAsync(personId, ct);
         var characterRoles = await _personCredits.GetCharacterRolesAsync(personId, ct);
-        var aliases = await _persons.FindAliasesAsync(personId, ct);
+        // A musical group exposes members. Old P527 data may have been written
+        // as aliases before group/member semantics were separated, so group
+        // pages intentionally ignore alias rows.
+        var aliases = person.IsGroup
+            ? []
+            : await _persons.FindAliasesAsync(personId, ct);
         var groupMembers = await _personCredits.GetGroupMembersAsync(personId, person.IsGroup, ct);
         var memberOfGroups = person.IsGroup
             ? []

@@ -194,6 +194,10 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("$\"parent:{root.Id:D}\"", source, StringComparison.Ordinal);
         Assert.Contains("fictional_universe", source, StringComparison.Ordinal);
         Assert.Contains("franchise", source, StringComparison.Ordinal);
+        Assert.Contains("TryGetRelationshipAggregation(collection, \"based_on\"", source, StringComparison.Ordinal);
+        Assert.True(
+            source.IndexOf("TryGetRelationshipAggregation(collection, \"based_on\"", StringComparison.Ordinal)
+            < source.IndexOf("TryGetStructuralParentAggregation", StringComparison.Ordinal));
         Assert.Contains("TryGetRelationshipAggregation(collection, \"series\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldIncludeCatalogGroup(entries)", source, StringComparison.Ordinal);
         Assert.Contains(".Count() >= 2", source, StringComparison.Ordinal);

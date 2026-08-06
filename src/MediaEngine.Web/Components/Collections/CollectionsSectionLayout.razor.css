@@ -4,6 +4,16 @@
     color: var(--tl-text-primary);
 }
 
+/* Collections writes its browse markup directly rather than rendering
+   MediaBrowseShell, so it owns the same content gutter explicitly. */
+.collections-section ::deep .collections-browse {
+    min-height: 0;
+    padding: 10px var(--collections-content-gutter) 56px;
+    background:
+        radial-gradient(circle at 45% 0%, rgba(59, 130, 246, 0.09) 0%, transparent 34%),
+        linear-gradient(180deg, rgba(4, 9, 22, 0.24) 0%, rgba(4, 9, 22, 0) 260px);
+}
+
 .collections-section ::deep .collections-overview {
     display: flex;
     flex-direction: column;
@@ -280,5 +290,16 @@
     .collections-section ::deep .collections-filter-summary {
         align-items: flex-start;
         flex-direction: column;
+    }
+}
+
+@media (max-width: 640px) {
+    .collections-section {
+        --collections-content-gutter: 12px;
+    }
+
+    .collections-section ::deep .collections-browse {
+        padding-top: 8px;
+        padding-bottom: 48px;
     }
 }

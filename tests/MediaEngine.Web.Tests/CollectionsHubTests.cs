@@ -33,6 +33,8 @@ public sealed class CollectionsHubTests
         var tileGridSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaTileGrid.razor"));
         var groupTileSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaGroupTile.razor"));
         var groupTileStylesSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaTiles\MediaGroupTile.razor.css"));
+        var styles = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsSectionLayout.razor.css"));
+        var sectionShellStyles = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaHub\MediaSectionShell.razor.css"));
 
         Assert.Contains("@page \"/collections/{Section}\"", routeSource, StringComparison.Ordinal);
         Assert.Contains("<MediaSectionShell", source, StringComparison.Ordinal);
@@ -51,6 +53,10 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("GetSystemViewGroupsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetPersonsPageAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetPersonPresenceAsync", source, StringComparison.Ordinal);
+        Assert.Contains("padding: 10px var(--collections-content-gutter) 56px", styles, StringComparison.Ordinal);
+        Assert.Contains("--collections-content-gutter: 12px", styles, StringComparison.Ordinal);
+        Assert.Contains("height: calc(100dvh - var(--app-topbar-height, 65px) - 4rem)", sectionShellStyles, StringComparison.Ordinal);
+        Assert.Contains("overflow-x: hidden", sectionShellStyles, StringComparison.Ordinal);
         Assert.Contains("/persons?catalog=true", peopleClientSource, StringComparison.Ordinal);
         Assert.Contains("/persons/role-counts?catalog=true", peopleClientSource, StringComparison.Ordinal);
         Assert.Contains("CollectionSurfaceTileComposer.FromCollection", source, StringComparison.Ordinal);

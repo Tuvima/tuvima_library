@@ -248,4 +248,12 @@ The Settings shell uses a flat, role-aware rail grouped as **Personal**, **Admin
 - Use `MediaEditorLauncherService` and `SharedMediaEditorShell` for normal, review, and batch edit flows.
 - Refresh the current surface only after the shared editor returns a successful result; canceled edits should not mutate UI state.
 
+## Collections and person consistency
+
+- Collections uses one viewport-bounded, padded content scroller beside the anchored rail. The page itself does not create a second vertical scrollbar.
+- Automatic collection identity prioritizes trusted fictional-universe, franchise, and based-on/adaptation QIDs over lane-local parent or series structure. This permits comic and film shelves such as Batman to meet in one cross-media rollup.
+- People presence counts use distinct top-level works: music tracks collapse to their album and TV episodes collapse to their show.
+- Person names use the same canonical title size and weight as media details. Musical groups expose all canonical `has parts` members and hydrate incomplete member identities; collective pseudonyms continue to use alias relationships.
+- Person-owned music credits show the album and the person's role without exposing track counts.
+
 

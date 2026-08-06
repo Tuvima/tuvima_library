@@ -825,8 +825,8 @@ public sealed class PersonCreditReadServiceTests : IDisposable
                 UPDATE persons
                     SET headshot_url = 'https://images.example.test/amy.jpg'
                     WHERE id = $secondMemberId;
-                INSERT INTO person_group_members (group_id, member_id)
-                    VALUES ($groupId, $firstMemberId);
+                INSERT INTO person_group_members (group_id, member_id, start_date, end_date)
+                    VALUES ($groupId, $firstMemberId, '1988', '1990');
                 INSERT INTO person_group_members (group_id, member_id)
                     VALUES ($groupId, $secondMemberId);
                 """;
@@ -844,6 +844,7 @@ public sealed class PersonCreditReadServiceTests : IDisposable
 
         Assert.Equal(["Amy Member", "Zed Member"], members.Select(member => member.Name));
         Assert.All(members, member => Assert.Contains($"/persons/{member.Id:D}/headshot", member.HeadshotUrl));
+        Assert.Equal("1988 - 1990", Assert.Single(members, member => member.Id == firstMemberId).DateRange);
         Assert.Equal("The Test Group", Assert.Single(groups).Name);
     }
 

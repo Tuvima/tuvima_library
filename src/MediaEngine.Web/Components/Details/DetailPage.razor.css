@@ -11268,3 +11268,29 @@
         transform: none;
     }
 }
+
+/* Person names use the canonical media-detail title scale and weight. Keep
+   this final so older person layout rules cannot reintroduce a smaller title. */
+.tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-hero__copy h1 {
+    max-width: 15ch;
+    margin: 0;
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(3.25rem, 6vw, 6.35rem);
+    font-weight: 500;
+    line-height: .94;
+    letter-spacing: -.018em;
+    text-transform: none;
+    text-wrap: balance;
+}
+
+.tl-detail-stage ::deep .tl-detail-hero--person.tl-detail-hero--title-long .tl-detail-person-hero__copy h1 {
+    max-width: 18ch;
+    font-size: clamp(2.55rem, 4.8vw, 4.8rem);
+    line-height: .97;
+}
+
+.tl-detail-stage ::deep .tl-detail-hero--person.tl-detail-hero--title-dense .tl-detail-person-hero__copy h1 {
+    max-width: 22ch;
+    font-size: clamp(2.15rem, 3.8vw, 3.75rem);
+    line-height: 1;
+}

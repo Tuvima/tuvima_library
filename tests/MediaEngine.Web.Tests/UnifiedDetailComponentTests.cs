@@ -1649,6 +1649,21 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("<SurfaceTabBar", home);
     }
 
+    [Fact]
+    public void PersonDetailTitle_UsesCanonicalMediaTitleTypographyAsFinalRule()
+    {
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+        var marker = "/* Person names use the canonical media-detail title scale and weight.";
+        var markerIndex = styles.LastIndexOf(marker, StringComparison.Ordinal);
+
+        Assert.True(markerIndex >= 0);
+        var finalRules = styles[markerIndex..];
+        Assert.Contains("font-size: clamp(3.25rem, 6vw, 6.35rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-weight: 500", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(2.55rem, 4.8vw, 4.8rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(2.15rem, 3.8vw, 3.75rem)", finalRules, StringComparison.Ordinal);
+    }
+
     private static string ReadSource(string relativePath)
     {
         var root = FindRepoRoot();

@@ -476,39 +476,22 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         // has persisted it to the DB (which happens further down).
         //
         // A person is a pseudonym when:
-        //   1. P31 (instance_of) QID is Q127843 (pen name) or Q15632617 (fictional
-        //      human used as shared pen name), OR
+        //   1. P31 (instance_of) identifies a pen name or collective pseudonym, OR
         //   2. P1773 (attributed_to) claims exist — meaning real people stand behind
         //      this name, OR
         //   3. P527 (has_parts) claims exist with QID references — collective pen
         //      names like "James S. A. Corey" use P527 to list constituent authors
         //      (Daniel Abraham + Ty Franck). The Data Extension API may not return
         //      P31 for some entities, so P527 presence is a reliable fallback signal.
+        // P527 is interpreted as pseudonym evidence only after ruling out a
+        // musical group; bands use the same property for their actual members.
         // Check the _qid claim (stable Wikidata IDs) first; fall back to the
         // label claim for the "pen name" string in case the adapter returned
         // labels-only.
-        var isPseudonym = claims.Any(c =>
-                c.Key == "instance_of_qid" &&
-                (c.Value.Contains("Q127843", StringComparison.OrdinalIgnoreCase) ||
-                 c.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase)))
-            || claims.Any(c =>
-                c.Key == "instance_of" &&
-                c.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase))
-            || claims.Any(c =>
-                c.Key == "attributed_to_qid" &&
-                !string.IsNullOrWhiteSpace(c.Value))
-            || claims.Any(c =>
-                c.Key == "has_parts_qid" &&
-                !string.IsNullOrWhiteSpace(c.Value));
+        var isGroup = IsMusicalGroup(claims);
+        var isPseudonym = IsPseudonym(claims, isGroup);
 
         // ── Group detection from current claims ───────────────────────────────
-        // A person is a group (musical ensemble / band) when P31 (instance_of) QID
-        // is Q215380 (musical group) or Q5741069 (musical ensemble).
-        var isGroup = claims.Any(c =>
-            c.Key == "instance_of_qid" &&
-            (c.Value.Contains("Q215380", StringComparison.OrdinalIgnoreCase) ||
-             c.Value.Contains("Q5741069", StringComparison.OrdinalIgnoreCase)));
-
         // ── QID-based deduplication ───────────────────────────────────────────
         // If another person record already owns this Wikidata QID, skip creating
         // a duplicate folder.  Both DB records will end up pointing at the same
@@ -657,6 +640,11 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
         // Pseudonym resolution: link pen names to real people (and vice versa).
         await ResolvePseudonymsAsync(request.EntityId, claims, isPseudonym, ct)
+            .ConfigureAwait(false);
+
+        // Musical groups own member relationships rather than author aliases.
+        // Thin member identities are queued for full person hydration.
+        await ResolveGroupMembersAsync(request.EntityId, claims, isGroup, ct)
             .ConfigureAwait(false);
 
         // Wikipedia description is now fetched by ReconciliationAdapter.FetchPersonAsync
@@ -825,6 +813,100 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 "Pseudonym resolution failed for person {Id}; continuing", personId);
         }
     }
+
+    internal static bool IsMusicalGroup(IReadOnlyList<ProviderClaim> claims)
+        => claims.Any(claim =>
+            claim.Key == "instance_of_qid"
+            && (claim.Value.Contains("Q215380", StringComparison.OrdinalIgnoreCase)
+                || claim.Value.Contains("Q5741069", StringComparison.OrdinalIgnoreCase)));
+
+    internal static bool IsPseudonym(IReadOnlyList<ProviderClaim> claims, bool isGroup)
+        => claims.Any(claim =>
+                claim.Key == "instance_of_qid"
+                && (claim.Value.Contains("Q127843", StringComparison.OrdinalIgnoreCase)
+                    || claim.Value.Contains("Q15632617", StringComparison.OrdinalIgnoreCase)
+                    || claim.Value.Contains("Q16017119", StringComparison.OrdinalIgnoreCase)))
+            || claims.Any(claim =>
+                claim.Key == "instance_of"
+                && (claim.Value.Contains("pen name", StringComparison.OrdinalIgnoreCase)
+                    || claim.Value.Contains("pseudonym", StringComparison.OrdinalIgnoreCase)))
+            || claims.Any(claim =>
+                claim.Key == "attributed_to_qid"
+                && !string.IsNullOrWhiteSpace(claim.Value))
+            || (!isGroup && claims.Any(claim =>
+                claim.Key == "has_parts_qid"
+                && !string.IsNullOrWhiteSpace(claim.Value)));
+
+    internal static IReadOnlyList<string> GetGroupMemberQids(IReadOnlyList<ProviderClaim> claims)
+        => claims
+            .Where(claim => claim.Key == "has_parts_qid")
+            .Select(claim => claim.Value.Split("::", 2)[0].Trim())
+            .Where(qid => !string.IsNullOrWhiteSpace(qid))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private async Task ResolveGroupMembersAsync(
+        Guid groupId,
+        IReadOnlyList<ProviderClaim> claims,
+        bool isGroup,
+        CancellationToken ct)
+    {
+        if (!isGroup)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var memberQid in GetGroupMemberQids(claims))
+            {
+                var member = await _personRepo.FindByQidAsync(memberQid, ct).ConfigureAwait(false);
+                if (member is null)
+                {
+                    member = await CreateGroupMemberStubAsync(memberQid, ct).ConfigureAwait(false);
+                }
+                else if (!HasCompletePersonProfile(member))
+                {
+                    await EnqueueAsync(BuildPersonHydrationRequest(member.Id, memberQid), ct).ConfigureAwait(false);
+                }
+
+                await _personRepo.LinkGroupMemberAsync(groupId, member.Id, ct).ConfigureAwait(false);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogWarning(ex,
+                "Group-member resolution failed for person {Id}; continuing", groupId);
+        }
+    }
+
+    private async Task<Person> CreateGroupMemberStubAsync(string memberQid, CancellationToken ct)
+    {
+        var memberName = await ResolvePersonDisplayNameAsync(memberQid, null, null, ct)
+            .ConfigureAwait(false)
+            ?? $"Name pending ({memberQid})";
+        var member = new Person
+        {
+            Id = Guid.NewGuid(),
+            Name = memberName,
+            Roles = ["Artist", "Performer"],
+            WikidataQid = memberQid,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        await _personRepo.CreateAsync(member, ct).ConfigureAwait(false);
+        await EnqueueAsync(BuildPersonHydrationRequest(member.Id, memberQid), ct).ConfigureAwait(false);
+        return member;
+    }
+
+    private static HarvestRequest BuildPersonHydrationRequest(Guid personId, string qid)
+        => new()
+        {
+            EntityId = personId,
+            EntityType = EntityType.Person,
+            MediaType = MediaType.Unknown,
+            PreResolvedQid = qid,
+        };
 
     private async Task CreateAndLinkStubPersonAsync(
         Guid existingPersonId,

@@ -1,7 +1,11 @@
 .media-section-shell {
     display: grid;
     grid-template-columns: 256px minmax(0, 1fr);
-    height: calc(100dvh - var(--app-topbar-height, 65px) - 1rem);
+    /* MainLayout supplies the app-bar offset plus py-6 container gutters.
+       Subtract both so this is the sole viewport scroller instead of also
+       making the document itself scroll. */
+    height: calc(100dvh - var(--app-topbar-height, 65px) - 4rem);
+    max-height: calc(100dvh - var(--app-topbar-height, 65px) - 4rem);
     min-height: 0;
     overflow: hidden;
     background:
@@ -132,8 +136,10 @@
 
 .media-section-shell__content {
     min-width: 0;
+    min-height: 0;
     height: 100%;
     overflow-y: auto;
+    overflow-x: hidden;
     overscroll-behavior: contain;
 }
 

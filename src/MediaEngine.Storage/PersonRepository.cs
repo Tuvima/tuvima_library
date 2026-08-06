@@ -825,16 +825,30 @@ public sealed class PersonRepository : IPersonRepository
             var p = new DynamicParameters();
             var personIdClause = AddGuidBlobList(p, "personId", batch);
             rows.AddRange(conn.Query<PresenceRow>($"""
-                SELECT p.id AS PersonId, w.media_type AS MediaType, COUNT(DISTINCT w.id) AS Count
-                FROM persons p
-                JOIN primary_person_media_credits primary_credit ON primary_credit.person_id = p.id
-                JOIN media_assets ma ON ma.id = primary_credit.media_asset_id
-                JOIN editions e ON e.id = ma.edition_id
-                JOIN works w ON w.id = e.work_id
-                WHERE p.id IN ({personIdClause})
-                  AND w.ownership = 'Owned'
-                  AND w.is_catalog_only = 0
-                GROUP BY p.id, w.media_type;
+                WITH credited_works AS (
+                    SELECT p.id AS PersonId,
+                           COALESCE(gp.media_type, parent.media_type, w.media_type) AS MediaType,
+                           CASE
+                               WHEN w.work_kind = 'child' THEN COALESCE(gp.id, parent.id, w.id)
+                               WHEN w.work_kind = 'parent' AND parent.id IS NOT NULL THEN COALESCE(gp.id, parent.id, w.id)
+                               ELSE w.id
+                           END AS DisplayWorkId
+                    FROM persons p
+                    JOIN primary_person_media_credits primary_credit ON primary_credit.person_id = p.id
+                    JOIN media_assets ma ON ma.id = primary_credit.media_asset_id
+                    JOIN editions e ON e.id = ma.edition_id
+                    JOIN works w ON w.id = e.work_id
+                    LEFT JOIN works parent ON parent.id = w.parent_work_id
+                    LEFT JOIN works gp ON gp.id = parent.parent_work_id
+                    WHERE p.id IN ({personIdClause})
+                      AND w.ownership = 'Owned'
+                      AND w.is_catalog_only = 0
+                )
+                SELECT PersonId,
+                       MediaType,
+                       COUNT(DISTINCT DisplayWorkId) AS Count
+                FROM credited_works
+                GROUP BY PersonId, MediaType;
                 """, p));
         }
 

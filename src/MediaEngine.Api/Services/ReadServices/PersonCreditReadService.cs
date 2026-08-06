@@ -918,7 +918,13 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   SELECT p.id AS Id,
                          p.name AS Name,
                          p.headshot_url AS HeadshotUrl,
-                         p.local_headshot_path AS LocalHeadshotPath
+                         p.local_headshot_path AS LocalHeadshotPath,
+                         CASE
+                             WHEN pgm.start_date IS NOT NULL AND pgm.end_date IS NOT NULL THEN pgm.start_date || ' - ' || pgm.end_date
+                             WHEN pgm.start_date IS NOT NULL THEN pgm.start_date || ' - present'
+                             WHEN pgm.end_date IS NOT NULL THEN 'Until ' || pgm.end_date
+                             ELSE NULL
+                         END AS DateRange
                   FROM person_group_members pgm
                   INNER JOIN persons p ON p.id = pgm.member_id
                   WHERE pgm.group_id = @personId
@@ -928,7 +934,13 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                   SELECT p.id AS Id,
                          p.name AS Name,
                          p.headshot_url AS HeadshotUrl,
-                         p.local_headshot_path AS LocalHeadshotPath
+                         p.local_headshot_path AS LocalHeadshotPath,
+                         CASE
+                             WHEN pgm.start_date IS NOT NULL AND pgm.end_date IS NOT NULL THEN pgm.start_date || ' - ' || pgm.end_date
+                             WHEN pgm.start_date IS NOT NULL THEN pgm.start_date || ' - present'
+                             WHEN pgm.end_date IS NOT NULL THEN 'Until ' || pgm.end_date
+                             ELSE NULL
+                         END AS DateRange
                   FROM person_group_members pgm
                   INNER JOIN persons p ON p.id = pgm.group_id
                   WHERE pgm.member_id = @personId
@@ -941,6 +953,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             {
                 Id = row.Id,
                 Name = row.Name ?? string.Empty,
+                DateRange = row.DateRange,
                 HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(
                     row.Id,
                     row.LocalHeadshotPath,
@@ -1473,6 +1486,7 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
     {
         public Guid Id { get; init; }
         public string? Name { get; init; }
+        public string? DateRange { get; init; }
         public string? HeadshotUrl { get; init; }
         public string? LocalHeadshotPath { get; init; }
     }

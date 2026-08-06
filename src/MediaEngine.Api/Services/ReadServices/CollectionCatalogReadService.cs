@@ -522,15 +522,24 @@ public sealed class CollectionCatalogReadService(
             return null;
         }
 
+        // Broad, trusted relationships must win over a lane-local parent or series.
+        // For example, Batman comics and Batman films commonly meet through a
+        // shared based_on identity even though each lane also has its own series
+        // hierarchy. Choosing the hierarchy first split that cross-media rollup.
+        if (TryGetRelationshipAggregation(collection, "fictional_universe", out var aggregation)
+            || TryGetRelationshipAggregation(collection, "franchise", out aggregation)
+            || TryGetRelationshipAggregation(collection, "based_on", out aggregation))
+        {
+            return aggregation;
+        }
+
         if (accessibleCollections is not null
             && TryGetStructuralParentAggregation(collection, accessibleCollections, out var structuralAggregation))
         {
             return structuralAggregation;
         }
 
-        return TryGetRelationshipAggregation(collection, "fictional_universe", out var aggregation)
-            || TryGetRelationshipAggregation(collection, "franchise", out aggregation)
-            || TryGetRelationshipAggregation(collection, "series", out aggregation)
+        return TryGetRelationshipAggregation(collection, "series", out aggregation)
             ? aggregation
             : null;
     }

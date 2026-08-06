@@ -480,7 +480,7 @@ A component-driven section for browsing organization across the whole library. I
 ### Page Layout
 
 - **Overview** - preview rows for Automatic, Curated, and Shelves, plus role shortcuts into People
-- **Automatic** - trusted franchise, universe, and related-work rollups with search, lane, relationship, sort, and tile-size filters
+- **Automatic** - trusted fictional-universe, franchise, based-on/adaptation, and series rollups with search, lane, relationship, sort, and tile-size filters. Broad cross-media identity is evaluated before lane-local parent or series structure, so adaptations such as Batman films and comics can share one rollup when their trusted QID relationship matches.
 - **Curated** - administrator-authored, library-published collections with search, lane, membership, publication, sort, and tile-size filters
 - **Shelves** - one cross-lane index of book series, comic volumes, movie series, TV shows, albums, and audiobook series
 - **People** - a paged list with managed headshots, canonical roles, owned Read/Watch/Listen counts, and search, role, lane, and sort filters
@@ -605,3 +605,9 @@ Backfill migration converts existing collections to the new schema, generating `
 When a ContentGroup collection has a canonical Wikidata series QID, hydration can attach a factual manifest from Tuvima.Wikidata. The manifest is stored separately from owned Works: owned entries link to local `works`, while missing entries remain lightweight `series_manifest_items` rows with names, QIDs, ordering, parent collection labels, and provenance.
 
 This lets the UI show views such as "owned 2 of 18" for a series without creating fake media assets. For example, an Expanse collection can show owned novels plus missing novels, novellas, and short fiction when Wikidata models them. Manifest warnings indicate Wikidata modeling gaps or local ambiguity; user display overrides may affect presentation, but QID-based manifest facts remain canonical.
+
+## Collections and People presentation rules
+
+Collections owns one padded content scroller beside its fixed rail; the document must not add a second scrollbar. People catalog counts use distinct top-level works, so tracks count once as their album and episodes count once as their show.
+
+Person linked identities distinguish authorship aliases from music-group membership. A collective pen name uses alias relationships. A musical group uses every canonical Wikidata `has parts` identity as a `person_group_members` relationship, queues incomplete member records for full person hydration, and displays those people as linked member cards.
