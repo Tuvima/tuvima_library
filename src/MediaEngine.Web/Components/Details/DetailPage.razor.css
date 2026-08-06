@@ -11269,13 +11269,14 @@
     }
 }
 
-/* Person names use the canonical media-detail title scale and weight. Keep
-   this final so older person layout rules cannot reintroduce a smaller title. */
+/* People opt into the same copy hook, identity hierarchy, and metadata row as
+   every other detail hero. Keep these final so older person-only rules cannot
+   reintroduce a different title weight or smaller fact typography. */
 .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-hero__copy h1 {
     max-width: 15ch;
     margin: 0;
     font-family: Georgia, "Times New Roman", serif;
-    font-size: clamp(3.25rem, 6vw, 6.35rem);
+    font-size: clamp(3.6rem, 4vw, 4.75rem);
     font-weight: 500;
     line-height: .94;
     letter-spacing: -.018em;
@@ -11285,12 +11286,28 @@
 
 .tl-detail-stage ::deep .tl-detail-hero--person.tl-detail-hero--title-long .tl-detail-person-hero__copy h1 {
     max-width: 18ch;
-    font-size: clamp(2.55rem, 4.8vw, 4.8rem);
+    font-size: clamp(3rem, 3.5vw, 4.2rem);
     line-height: .97;
 }
 
 .tl-detail-stage ::deep .tl-detail-hero--person.tl-detail-hero--title-dense .tl-detail-person-hero__copy h1 {
     max-width: 22ch;
-    font-size: clamp(2.15rem, 3.8vw, 3.75rem);
+    font-size: clamp(2.4rem, 3vw, 3.6rem);
     line-height: 1;
+}
+
+.tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-fact-row {
+    width: min(47.5rem, 100%);
+    gap: 0.7rem;
+    color: rgba(255, 255, 255, 0.86);
+    font-family: var(--media-identity-font-family, var(--font-ui));
+    font-size: clamp(1rem, 1.3vw, 1.18rem);
+    font-weight: 600;
+    line-height: 1.5;
+    letter-spacing: 0;
+}
+
+.tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-fact {
+    color: inherit;
+    font: inherit;
 }

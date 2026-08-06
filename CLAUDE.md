@@ -746,6 +746,6 @@ not repeat a Show details action.
 - Collections has one padded, viewport-bounded content scroller beside its anchored rail, with no second document scrollbar.
 - Automatic rollups prioritize trusted fictional-universe, franchise, and based-on/adaptation QIDs over lane-local structure, allowing qualifying comics and films such as Batman to share one rollup.
 - People counts collapse tracks to albums and episodes to shows.
-- Person names use the shared media-detail title typography.
+- Person names use the shared media-detail title family, scale, weight, and responsive density through the rendered person copy hook. Person dates, locations, and owned-title facts reuse the standard detail metadata row/item typography used by year, runtime, and genre.
 - Musical groups populate every canonical Wikidata `has parts` member through `person_group_members` and fully hydrate thin member identities; collective pen names remain alias relationships.
 

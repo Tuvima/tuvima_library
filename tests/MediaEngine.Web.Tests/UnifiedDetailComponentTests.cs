@@ -1650,18 +1650,29 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Fact]
-    public void PersonDetailTitle_UsesCanonicalMediaTitleTypographyAsFinalRule()
+    public void PersonDetailIdentity_UsesCanonicalTitleAndMetadataTypography()
     {
+        var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var heroContent = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroContent.razor");
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
-        var marker = "/* Person names use the canonical media-detail title scale and weight.";
+        var marker = "/* People opt into the same copy hook, identity hierarchy, and metadata row";
         var markerIndex = styles.LastIndexOf(marker, StringComparison.Ordinal);
 
+        Assert.Contains("CopyClass=\"tl-detail-person-hero__copy\"", hero, StringComparison.Ordinal);
+        Assert.Contains("tl-detail-watch-metadata-row tl-detail-watch-metadata-row--facts tl-detail-person-fact-row", hero, StringComparison.Ordinal);
+        Assert.Contains("tl-detail-watch-metadata-item tl-detail-person-fact", hero, StringComparison.Ordinal);
+        Assert.Contains("tl-detail-hero__copy @CopyClass", heroContent, StringComparison.Ordinal);
+        Assert.Contains("[Parameter] public string CopyClass", heroContent, StringComparison.Ordinal);
         Assert.True(markerIndex >= 0);
         var finalRules = styles[markerIndex..];
-        Assert.Contains("font-size: clamp(3.25rem, 6vw, 6.35rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(3.6rem, 4vw, 4.75rem)", finalRules, StringComparison.Ordinal);
         Assert.Contains("font-weight: 500", finalRules, StringComparison.Ordinal);
-        Assert.Contains("font-size: clamp(2.55rem, 4.8vw, 4.8rem)", finalRules, StringComparison.Ordinal);
-        Assert.Contains("font-size: clamp(2.15rem, 3.8vw, 3.75rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(3rem, 3.5vw, 4.2rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(2.4rem, 3vw, 3.6rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-family: var(--media-identity-font-family, var(--font-ui))", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font-size: clamp(1rem, 1.3vw, 1.18rem)", finalRules, StringComparison.Ordinal);
+        Assert.Contains("line-height: 1.5", finalRules, StringComparison.Ordinal);
+        Assert.Contains("font: inherit", finalRules, StringComparison.Ordinal);
     }
 
     private static string ReadSource(string relativePath)

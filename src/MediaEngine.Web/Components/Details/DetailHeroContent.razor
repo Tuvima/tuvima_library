@@ -1,7 +1,7 @@
 @namespace MediaEngine.Web.Components.Details
 
 <div class="tl-detail-hero__inner @Class">
-    <div class="tl-detail-hero__copy">
+    <div class="tl-detail-hero__copy @CopyClass">
         <div class="tl-detail-hero__identity">
             @IdentityBeforeTitle
 
@@ -54,6 +54,7 @@
     [Parameter] public string? SynopsisHeading { get; set; }
     [Parameter] public string SynopsisClass { get; set; } = "tl-detail-hero__tagline tl-detail-hero__tagline--ai";
     [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public string CopyClass { get; set; } = string.Empty;
     [Parameter] public RenderFragment? IdentityBeforeTitle { get; set; }
     [Parameter] public RenderFragment? IdentityAfterTitle { get; set; }
     [Parameter] public RenderFragment? MetadataContent { get; set; }

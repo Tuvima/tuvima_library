@@ -37,7 +37,8 @@
         <DetailHeroContent Title="@Presentation.Title"
                            Synopsis="@Model.Description"
                            SynopsisClass="tl-detail-hero__tagline tl-detail-person-hero__summary"
-                           Class="tl-detail-person-hero__content">
+                           Class="tl-detail-person-hero__content"
+                           CopyClass="tl-detail-person-hero__copy">
             <IdentityAfterTitle>
                 @if (!string.IsNullOrWhiteSpace(PersonRoleLabel))
                 {
@@ -52,10 +53,11 @@
             <MetadataContent>
                 @if (PersonHeroFacts.Count > 0)
                 {
-                    <div class="tl-detail-person-fact-row">
+                    <div class="tl-detail-watch-metadata-row tl-detail-watch-metadata-row--facts tl-detail-person-fact-row"
+                         aria-label="Person details">
                         @foreach (var fact in PersonHeroFacts)
                         {
-                            <span class="tl-detail-person-fact">
+                            <span class="tl-detail-watch-metadata-item tl-detail-person-fact">
                                 <MudIcon Icon="@fact.Icon" Size="Size.Small" />
                                 <span>@fact.Label</span>
                             </span>
