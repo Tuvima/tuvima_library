@@ -13,7 +13,7 @@ internal static class CollectionsSectionConfiguration
 
     public static IReadOnlyList<MediaHubModeViewModel> Modes { get; } =
     [
-        new(Overview, "Overview", "/collections"),
+        new(Overview, "Discovery", "/collections"),
         new(Automatic, "Automatic", "/collections/automatic"),
         new(Curated, "Curated", "/collections/curated"),
         new(Shelves, "Shelves", "/collections/shelves"),
@@ -28,7 +28,7 @@ internal static class CollectionsSectionConfiguration
     [
         new("Collections",
         [
-            new("Overview", "/collections", Icons.Material.Outlined.Explore, Exact: true),
+            new("Discovery", "/collections", Icons.Material.Outlined.Explore, Exact: true),
             new("Automatic", "/collections/automatic", Icons.Material.Outlined.AutoAwesome, Count(automaticCount)),
             new("Curated", "/collections/curated", Icons.Material.Outlined.CollectionsBookmark, Count(curatedCount)),
         ]),

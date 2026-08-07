@@ -40,7 +40,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("<MediaSectionShell", source, StringComparison.Ordinal);
         Assert.Contains("<LibrarySectionHeader", source, StringComparison.Ordinal);
         Assert.Contains("<SurfaceNavigationBar", headerSource, StringComparison.Ordinal);
-        Assert.Contains("new(Overview, \"Overview\", \"/collections\")", configurationSource, StringComparison.Ordinal);
+        Assert.Contains("new(Overview, \"Discovery\", \"/collections\")", configurationSource, StringComparison.Ordinal);
         Assert.Contains("new(Automatic, \"Automatic\", \"/collections/automatic\")", configurationSource, StringComparison.Ordinal);
         Assert.Contains("new(Curated, \"Curated\", \"/collections/curated\")", configurationSource, StringComparison.Ordinal);
         Assert.Contains("new(Shelves, \"Shelves\", \"/collections/shelves\")", configurationSource, StringComparison.Ordinal);
@@ -109,6 +109,12 @@ public sealed class CollectionsHubTests
         Assert.Contains("browse-shell__sort", source, StringComparison.Ordinal);
         Assert.Contains("Search collections", source, StringComparison.Ordinal);
         Assert.Contains("Search shelves", source, StringComparison.Ordinal);
+        Assert.Contains("All media", source, StringComparison.Ordinal);
+        Assert.Contains("ShelfLanePreviews", source, StringComparison.Ordinal);
+        Assert.Contains("Books and comics grouped by their primary authors and creators", source, StringComparison.Ordinal);
+        Assert.Contains("Movies grouped by their primary directors", source, StringComparison.Ordinal);
+        Assert.Contains("Albums and audiobooks grouped by their primary artists", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("All shelf types", source, StringComparison.Ordinal);
         Assert.Contains("Search people or roles", source, StringComparison.Ordinal);
         Assert.Contains("Recently Updated", configurationSource, StringComparison.Ordinal);
         Assert.Contains("Item count", source, StringComparison.Ordinal);

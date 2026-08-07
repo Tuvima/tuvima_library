@@ -74,6 +74,7 @@ public static class ClaimScopeCatalog
             [MetadataFieldConstants.SequenceTotal]     = ClaimScope.Parent,
             [MetadataFieldConstants.SequenceTotalScope] = ClaimScope.Parent,
             [MetadataFieldConstants.SeriesStartYear]   = ClaimScope.Parent,
+            [MetadataFieldConstants.SeriesEndYear]     = ClaimScope.Parent,
             [MetadataFieldConstants.ChildEntitiesJson] = ClaimScope.Parent,
             [MetadataFieldConstants.SequenceManifestJson] = ClaimScope.Parent,
             ["cast_member_character"]                  = ClaimScope.Parent,

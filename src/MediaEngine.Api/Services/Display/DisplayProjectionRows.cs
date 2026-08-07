@@ -51,6 +51,7 @@ public sealed class DisplayWorkRow : IDisplayArtworkRow
     public string? ArtistPersonName { get; set; }
     public string? Album { get; set; }
     public string? Year { get; set; }
+    public string? SeriesEndYear { get; set; }
     public string? ContentRating { get; set; }
     public string? Runtime { get; set; }
     public string? Duration { get; set; }

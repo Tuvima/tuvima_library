@@ -21,6 +21,13 @@
     padding: clamp(18px, 2vw, 30px) 0 56px;
 }
 
+.collections-section ::deep .collections-shelf-lane-previews {
+    display: flex;
+    flex-direction: column;
+    gap: 34px;
+    padding-block: 18px 28px;
+}
+
 .collections-section ::deep .collections-overview > .media-tile-shelf {
     padding-inline: var(--collections-content-gutter);
 }

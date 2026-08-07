@@ -1,10 +1,7 @@
 .surface-navigation-bar {
     position: relative;
     z-index: 7;
-    margin-top: -1px;
     padding: 0 clamp(1.25rem, 4vw, 4rem);
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     background:
         linear-gradient(
             to bottom,

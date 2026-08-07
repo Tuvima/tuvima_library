@@ -281,6 +281,8 @@ public sealed class DisplayCardBuilder
         var title = StringHelpers.FirstNonBlank(representative.ShowName, representative.Series, representative.Title, representative.CollectionTitle) ?? "TV Show";
         var action = new DisplayActionDto("openShow", "Open Show", showRootWorkId, null, null, $"/details/tvshow/{showRootWorkId:D}?context=watch");
         var previewItems = BuildSeriesPreviewItems("TV", works, tvShowRootId: showRootWorkId, progressByWork: progressByWork);
+        var premiereYear = works.Select(work => ParseSortYear(work.Year)).Where(year => year > 0).DefaultIfEmpty(0).Min();
+        var endYear = works.Select(work => ParseSortYear(work.SeriesEndYear)).Where(year => year >= premiereYear && year > 0).DefaultIfEmpty(0).Max();
 
         return new DisplayCardDto(
             Id: showRootWorkId,
@@ -307,6 +309,14 @@ public sealed class DisplayCardBuilder
             Badges = BuildBadges("TV", representative.Quality, StringHelpers.FirstNonBlank(representative.Network, representative.Source)),
             PreviewItems = previewItems,
             PreviewTotalCount = works.Select(work => work.WorkId).Distinct().Count(),
+            GroupSummary = new DisplayGroupSummaryDto
+            {
+                OwnedCount = works.Select(work => work.WorkId).Distinct().Count(),
+                EarliestYear = premiereYear > 0 ? premiereYear : null,
+                LatestYear = endYear > 0 ? endYear : premiereYear > 0 ? premiereYear : null,
+                RelationshipLabel = "TV show",
+            },
+            SortYear = premiereYear,
         };
     }
 
@@ -650,7 +660,7 @@ public sealed class DisplayCardBuilder
         var facts = BuildFacts(
                 "TV",
                 title,
-                representative.Year,
+                TvShowYearRange(works, representative.Year),
                 representative.Author,
                 representative.Artist,
                 representative.ContentRating,
@@ -689,6 +699,15 @@ public sealed class DisplayCardBuilder
         }
 
         return facts;
+    }
+
+    private static string? TvShowYearRange(IReadOnlyList<DisplayWorkRow> works, string? fallbackYear)
+    {
+        var start = works.Select(work => ParseSortYear(work.Year)).Where(year => year > 0).DefaultIfEmpty(0).Min();
+        var end = works.Select(work => ParseSortYear(work.SeriesEndYear)).Where(year => year >= start && year > 0).DefaultIfEmpty(0).Max();
+        if (start <= 0)
+            return fallbackYear;
+        return end > start ? $"{start}\u2013{end}" : start.ToString(CultureInfo.InvariantCulture);
     }
 
     private static DisplayGroupSummaryDto BuildHomeCollectionSummary(DisplayHomeCollectionRow row)

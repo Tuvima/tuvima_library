@@ -59,6 +59,32 @@ public sealed class ContributorShelfReadServiceTests : IDisposable
         Assert.Equal(["First Album", "Second Album"], shelf.Items.Select(item => item.Title).Order().ToArray());
     }
 
+    [Fact]
+    public async Task LoadAsync_MergesDuplicateNamedPeopleAndPrefersTheEnrichedIdentity()
+    {
+        var enrichedPersonId = Guid.NewGuid();
+        using (var conn = _db.CreateConnection())
+        {
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO persons (id, name, wikidata_qid, headshot_url, created_at)
+                VALUES (@enrichedPersonId, 'Hans Zimmer', 'Q76364', 'https://images.example/hans.jpg', CURRENT_TIMESTAMP);
+                INSERT INTO persons (id, name, wikidata_qid, created_at)
+                VALUES (@thinPersonId, 'Hans Zimmer', 'Q999999999', CURRENT_TIMESTAMP);
+                """,
+                new { enrichedPersonId, thinPersonId = Guid.NewGuid() });
+            await InsertAlbumAsync(conn, "Dune", 2, "Hans Zimmer");
+            await InsertAlbumAsync(conn, "Interstellar", 2, "Hans Zimmer");
+        }
+
+        var shelf = Assert.Single(await CreateService().LoadAsync(CancellationToken.None));
+
+        Assert.Equal(enrichedPersonId, shelf.PersonId);
+        Assert.Equal("Albums by Hans Zimmer", shelf.Title);
+        Assert.Equal(2, shelf.OwnedCount);
+        Assert.NotNull(shelf.HeadshotUrl);
+    }
+
     private ContributorShelfReadService CreateService()
         => new(new DisplayWorkProjectionReader(_db), _db);
 
@@ -87,7 +113,11 @@ public sealed class ContributorShelfReadServiceTests : IDisposable
             new { workId, mediaType, editionId, assetId, hash = Guid.NewGuid().ToString("N"), path = $"C:/library/{title}.media", title, creditKey, personName });
     }
 
-    private static async Task InsertAlbumAsync(System.Data.IDbConnection conn, string title, int trackCount)
+    private static async Task InsertAlbumAsync(
+        System.Data.IDbConnection conn,
+        string title,
+        int trackCount,
+        string artist = "Album Artist")
     {
         var albumId = Guid.NewGuid();
         await conn.ExecuteAsync(
@@ -115,7 +145,7 @@ public sealed class ContributorShelfReadServiceTests : IDisposable
                 VALUES (@assetId, 'title', @trackTitle, CURRENT_TIMESTAMP),
                        (@assetId, 'album', @title, CURRENT_TIMESTAMP);
                 INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
-                VALUES (@assetId, 'artist', 0, 'Album Artist');
+                VALUES (@assetId, 'artist', 0, @artist);
                 """,
                 new
                 {
@@ -128,6 +158,7 @@ public sealed class ContributorShelfReadServiceTests : IDisposable
                     path = $"C:/library/{title}/{track:00}.flac",
                     trackTitle = $"Track {track}",
                     title,
+                    artist,
                 });
         }
     }

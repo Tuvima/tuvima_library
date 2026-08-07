@@ -2365,6 +2365,7 @@ public sealed class WorkerPipelineTests
             var jobRepo = new StubIdentityJobRepository();
             var candidateRepo = new StubRetailCandidateRepository();
             var canonicalRepo = new StubCanonicalValueRepository();
+            var claimRepo = new StubMetadataClaimRepository();
             var entityAssetRepo = new StubEntityAssetRepository();
             var imageCache = new StubImageCacheRepository();
             var configLoader = new StubConfigurationLoader
@@ -2418,7 +2419,7 @@ public sealed class WorkerPipelineTests
                     configLoader,
                     coverArtHash: null,
                     logger: null),
-                new StubMetadataClaimRepository(),
+                claimRepo,
                 canonicalRepo,
                 new StubScoringEngine(),
                 configLoader,
@@ -2481,6 +2482,8 @@ public sealed class WorkerPipelineTests
                               "tagline": "A test tagline.",
                               "poster_path": "/poster.jpg",
                               "first_air_date": "2024-01-01",
+                              "last_air_date": "2026-04-12",
+                              "status": "Ended",
                               "networks": [{ "name": "Test Network" }]
                             }
                             """);
@@ -2526,6 +2529,9 @@ public sealed class WorkerPipelineTests
             Assert.DoesNotContain(canonicalRepo.Values, value =>
                 string.Equals(value.Key, "episode_still_url", StringComparison.OrdinalIgnoreCase)
                 && value.Value.Contains("image.tmdb.org", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(claimRepo.Claims, claim =>
+                string.Equals(claim.ClaimKey, MetadataFieldConstants.SeriesEndYear, StringComparison.OrdinalIgnoreCase)
+                && claim.ClaimValue == "2026");
         }
         finally
         {

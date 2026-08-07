@@ -125,9 +125,9 @@
             {
                 <span class="media-tile-caption__subtitle" title="@DisplaySubtitle">@DisplaySubtitle</span>
             }
-            @if (!string.IsNullOrWhiteSpace(HoverIdentityYear))
+            @if (!string.IsNullOrWhiteSpace(CompactIdentityYear))
             {
-                <span class="media-tile-caption__year">@HoverIdentityYear</span>
+                <span class="media-tile-caption__year">@CompactIdentityYear</span>
             }
         </div>
     }
@@ -400,6 +400,22 @@
                 .Concat(Item.ContextLines)
                 .Select(FindFourDigitYear)
                 .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+        }
+    }
+
+    private string? CompactIdentityYear
+    {
+        get
+        {
+            if (Item.Presentation == MediaTilePresentation.TvSeries
+                && Item.GroupSummary?.EarliestYear is >= 1800 and <= 2200)
+            {
+                var start = Item.GroupSummary.EarliestYear.Value;
+                var end = Item.GroupSummary.LatestYear;
+                return end > start ? $"{start}\u2013{end}" : start.ToString();
+            }
+
+            return HoverIdentityYear;
         }
     }
 

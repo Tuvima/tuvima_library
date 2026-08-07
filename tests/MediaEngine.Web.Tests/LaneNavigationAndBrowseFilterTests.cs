@@ -154,7 +154,9 @@ public sealed class LaneNavigationAndBrowseFilterTests
         Assert.Contains("browse-shell__tile-size", browseShell, StringComparison.Ordinal);
         Assert.Contains("TileSizePx", browseShell, StringComparison.Ordinal);
         Assert.Contains("SectionType == MediaHubSectionType.Listen", mediaShelf, StringComparison.Ordinal);
-        Assert.Contains("ShowCompactCaptions=\"@(SectionType == MediaHubSectionType.Listen)\"", mediaShelf, StringComparison.Ordinal);
+        Assert.Contains("ShowCompactCaptions=\"true\"", mediaShelf, StringComparison.Ordinal);
+        Assert.Contains("HideGroupKind=\"@HideGroupKind\"", mediaShelf, StringComparison.Ordinal);
+        Assert.Contains("Shelf.Key, \"tv-shows\"", mediaShelf, StringComparison.Ordinal);
         Assert.Contains("MediaTileHoverMode.GlowOnly", mediaShelf, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", collections, StringComparison.Ordinal);
         Assert.Contains("Nav.NavigateTo(target.Route)", hub, StringComparison.Ordinal);

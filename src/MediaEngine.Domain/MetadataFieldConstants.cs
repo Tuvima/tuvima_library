@@ -47,6 +47,7 @@ public static class MetadataFieldConstants
     public const string SeriesPosition  = "series_position";
     public const string SeriesMembershipSource = "series_membership_source";
     public const string SeriesStartYear = "series_start_year";
+    public const string SeriesEndYear   = "series_end_year";
     public const string Runtime         = "runtime";
     public const string Album           = "album";
     public const string Artist          = "artist";

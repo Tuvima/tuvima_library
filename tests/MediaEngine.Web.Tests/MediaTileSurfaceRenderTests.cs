@@ -168,6 +168,34 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     }
 
     [Fact]
+    public void MediaTile_UsesCanonicalTvShowYearRangeInCompactCaption()
+    {
+        var show = new MediaTileViewModel
+        {
+            Id = Guid.NewGuid(),
+            Title = "The Wire",
+            SortYear = 2002,
+            MediaKind = "TV",
+            Shape = MediaTileShape.Portrait,
+            Presentation = MediaTilePresentation.TvSeries,
+            SurfaceKind = MediaTileSurfaceKind.CoverPortrait,
+            TileImageUrl = "/art/the-wire.jpg",
+            NavigationUrl = "/details/tvshow/the-wire",
+            GroupSummary = new MediaTileGroupSummaryViewModel
+            {
+                EarliestYear = 2002,
+                LatestYear = 2008,
+            },
+        };
+
+        var cut = RenderComponent<MediaTile>(parameters => parameters
+            .Add(component => component.Item, show)
+            .Add(component => component.ShowCompactCaption, true));
+
+        Assert.Equal("2002\u20132008", cut.Find(".media-tile-caption__year").TextContent);
+    }
+
+    [Fact]
     public void MediaTileGrid_CanHideRedundantTvShowGroupIndicator()
     {
         var show = new MediaTileViewModel

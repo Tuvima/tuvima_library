@@ -37,6 +37,7 @@ public sealed class ContributorShelfReadService
                    credit.person_id AS PersonId,
                    credit.person_name AS PersonName,
                    credit.role AS Role,
+                   person.wikidata_qid AS WikidataQid,
                    person.headshot_url AS HeadshotUrl,
                    person.local_headshot_path AS LocalHeadshotPath,
                    person.is_pseudonym AS IsPseudonym
@@ -62,50 +63,39 @@ public sealed class ContributorShelfReadService
             .Where(candidate => candidate is not null)
             .Cast<ContributorShelfCandidate>()
             .ToList();
+        var identityEvidence = candidates
+            .GroupBy(BuildNameScope)
+            .ToDictionary(
+                group => group.Key,
+                group => group
+                    .Select(candidate => candidate.WikidataQid?.Trim())
+                    .Where(qid => !string.IsNullOrWhiteSpace(qid))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Cast<string>()
+                    .ToList());
 
-        return candidates
-            .GroupBy(candidate => new
-            {
-                candidate.PersonId,
-                candidate.PersonName,
-                candidate.HeadshotUrl,
+        var shelves = candidates
+            .GroupBy(candidate => new ContributorShelfIdentity(
+                ResolveIdentityKey(candidate, identityEvidence[BuildNameScope(candidate)]),
                 candidate.Role,
                 candidate.Lane,
-                candidate.ShelfType,
-            })
-            .Select(group => new
-            {
-                group.Key,
-                Items = group
-                    .GroupBy(item => item.WorkId)
-                    .Select(itemGroup => itemGroup.First())
-                    .OrderBy(item => item.Year ?? int.MaxValue)
-                    .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
-                    .ToList(),
-            })
-            .Where(group => group.Items.Count >= 2)
-            .Select(group => new ContributorShelfDto
-            {
-                Key = $"{group.Key.ShelfType}:{group.Key.PersonId:D}",
-                PersonId = group.Key.PersonId,
-                PersonName = group.Key.PersonName,
-                HeadshotUrl = group.Key.HeadshotUrl,
-                Role = group.Key.Role,
-                Lane = group.Key.Lane,
-                ShelfType = group.Key.ShelfType,
-                Title = ShelfTitle(group.Key.ShelfType, group.Key.PersonName),
-                OwnedCount = group.Items.Count,
-                EarliestYear = group.Items.Where(item => item.Year.HasValue).Select(item => item.Year).Min(),
-                LatestYear = group.Items.Where(item => item.Year.HasValue).Select(item => item.Year).Max(),
-                Items = group.Items.Select(item => new ContributorShelfItemDto
-                {
-                    WorkId = item.WorkId,
-                    Title = item.Title,
-                    MediaType = item.MediaType,
-                    CoverUrl = item.CoverUrl,
-                    Year = item.Year,
-                }).ToList(),
-            })
+                candidate.ShelfType))
+            .Select(BuildShelf)
+            .Where(shelf => shelf is not null)
+            .Cast<ContributorShelfDto>()
+            .ToList();
+
+        return shelves
+            .GroupBy(shelf => new ContributorShelfPresentationIdentity(
+                NormalizeIdentityName(shelf.PersonName),
+                shelf.Role,
+                shelf.Lane,
+                shelf.ShelfType,
+                string.Join(',', shelf.Items.Select(item => item.WorkId).Order())))
+            .Select(group => group
+                .OrderByDescending(shelf => !string.IsNullOrWhiteSpace(shelf.HeadshotUrl))
+                .ThenBy(shelf => shelf.PersonId)
+                .First())
             .OrderBy(shelf => shelf.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
@@ -121,6 +111,7 @@ public sealed class ContributorShelfReadService
             credit.PersonId,
             credit.PersonName,
             ApiImageUrls.BuildPersonHeadshotUrl(credit.PersonId, credit.LocalHeadshotPath, credit.HeadshotUrl),
+            credit.WikidataQid,
             definition.Value.Role,
             definition.Value.Lane,
             definition.Value.ShelfType,
@@ -129,6 +120,79 @@ public sealed class ContributorShelfReadService
             work.MediaType,
             isMusic ? FirstNonBlank(work.RootSquareUrl, work.RootCoverUrl, work.SquareUrl, work.CoverUrl) : FirstNonBlank(work.CoverUrl, work.SquareUrl),
             ParseYear(work.Year));
+    }
+
+    private static ContributorShelfDto? BuildShelf(
+        IGrouping<ContributorShelfIdentity, ContributorShelfCandidate> group)
+    {
+        var items = group
+            .GroupBy(item => item.WorkId)
+            .Select(itemGroup => itemGroup
+                .OrderByDescending(item => !string.IsNullOrWhiteSpace(item.CoverUrl))
+                .ThenByDescending(IdentityQuality)
+                .First())
+            .OrderBy(item => item.Year ?? int.MaxValue)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        if (items.Count < 2)
+            return null;
+
+        var identity = group
+            .OrderByDescending(IdentityQuality)
+            .ThenBy(candidate => candidate.PersonId)
+            .First();
+        var years = items
+            .Where(item => item.Year.HasValue)
+            .Select(item => item.Year!.Value)
+            .ToList();
+
+        return new ContributorShelfDto
+        {
+            Key = $"{group.Key.ShelfType}:{identity.PersonId:D}",
+            PersonId = identity.PersonId,
+            PersonName = identity.PersonName,
+            HeadshotUrl = identity.HeadshotUrl,
+            Role = group.Key.Role,
+            Lane = group.Key.Lane,
+            ShelfType = group.Key.ShelfType,
+            Title = ShelfTitle(group.Key.ShelfType, identity.PersonName),
+            OwnedCount = items.Count,
+            EarliestYear = years.Count > 0 ? years.Min() : null,
+            LatestYear = years.Count > 0 ? years.Max() : null,
+            Items = items.Select(item => new ContributorShelfItemDto
+            {
+                WorkId = item.WorkId,
+                Title = item.Title,
+                MediaType = item.MediaType,
+                CoverUrl = item.CoverUrl,
+                Year = item.Year,
+            }).ToList(),
+        };
+    }
+
+    private static int IdentityQuality(ContributorShelfCandidate candidate) =>
+        (string.IsNullOrWhiteSpace(candidate.WikidataQid) ? 0 : 4)
+        + (string.IsNullOrWhiteSpace(candidate.HeadshotUrl) ? 0 : 2);
+
+    private static string NormalizeIdentityName(string name) =>
+        string.Join(' ', name.Split(' ', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .ToUpperInvariant();
+
+    private static ContributorShelfNameScope BuildNameScope(ContributorShelfCandidate candidate) => new(
+        NormalizeIdentityName(candidate.PersonName),
+        candidate.Role,
+        candidate.Lane,
+        candidate.ShelfType);
+
+    private static string ResolveIdentityKey(
+        ContributorShelfCandidate candidate,
+        IReadOnlyList<string> knownQids)
+    {
+        if (knownQids.Count == 1)
+            return $"QID:{knownQids[0].ToUpperInvariant()}";
+        if (!string.IsNullOrWhiteSpace(candidate.WikidataQid))
+            return $"QID:{candidate.WikidataQid.Trim().ToUpperInvariant()}";
+        return $"NAME:{NormalizeIdentityName(candidate.PersonName)}";
     }
 
     private static (string Role, string Lane, string ShelfType)? ShelfDefinition(string mediaType, string role)
@@ -179,6 +243,7 @@ public sealed class ContributorShelfReadService
         public Guid PersonId { get; init; }
         public string PersonName { get; init; } = string.Empty;
         public string Role { get; init; } = string.Empty;
+        public string? WikidataQid { get; init; }
         public string? HeadshotUrl { get; init; }
         public string? LocalHeadshotPath { get; init; }
         public bool IsPseudonym { get; init; }
@@ -188,6 +253,7 @@ public sealed class ContributorShelfReadService
         Guid PersonId,
         string PersonName,
         string? HeadshotUrl,
+        string? WikidataQid,
         string Role,
         string Lane,
         string ShelfType,
@@ -196,4 +262,23 @@ public sealed class ContributorShelfReadService
         string MediaType,
         string? CoverUrl,
         int? Year);
+
+    private sealed record ContributorShelfIdentity(
+        string IdentityKey,
+        string Role,
+        string Lane,
+        string ShelfType);
+
+    private sealed record ContributorShelfNameScope(
+        string PersonName,
+        string Role,
+        string Lane,
+        string ShelfType);
+
+    private sealed record ContributorShelfPresentationIdentity(
+        string PersonName,
+        string Role,
+        string Lane,
+        string ShelfType,
+        string WorkSignature);
 }

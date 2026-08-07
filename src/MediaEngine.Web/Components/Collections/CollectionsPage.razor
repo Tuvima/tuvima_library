@@ -201,12 +201,12 @@
                                     <AppSelect T="string"
                                                Value="@_kind"
                                                ValueChanged="OnKindChanged"
-                                               Label="Shelf type"
+                                               Label="Media"
                                                Variant="Variant.Outlined"
                                                Dense="true"
                                                Class="collections-filter-select collections-filter-select--wide">
-                                        <MudSelectItem T="string" Value="@("all")">All shelf types</MudSelectItem>
-                                        @foreach (var kind in ShelfKindOptions)
+                                        <MudSelectItem T="string" Value="@("all")">All media</MudSelectItem>
+                                        @foreach (var kind in ShelfMediaOptions)
                                         {
                                             <MudSelectItem T="string" Value="@kind.Value">@kind.Label</MudSelectItem>
                                         }
@@ -297,6 +297,25 @@
                             </AppButton>
                         </div>
                     }
+                }
+                else if (ShowShelfLanePreviews)
+                {
+                    <div class="collections-shelf-lane-previews">
+                        @foreach (var laneShelf in ShelfLanePreviews)
+                        {
+                            @if (laneShelf.Items.Count > 0)
+                            {
+                                <MediaTileShelf Shelf="@laneShelf"
+                                                HoverMode="MediaTileHoverMode.GlowOnly"
+                                                HideMediaKindBadges="true"
+                                                HideSourceBadges="true" />
+                            }
+                            else
+                            {
+                                <EmptyShelfState Title="@laneShelf.Title" Message="@laneShelf.Subtitle" />
+                            }
+                        }
+                    </div>
                 }
                 else if (ActiveTiles.Count == 0)
                 {
@@ -509,14 +528,32 @@
         ],
     };
 
-    private static IReadOnlyList<(string Value, string Label)> ShelfKindOptions { get; } =
+    private static IReadOnlyList<(string Value, string Label)> ShelfMediaOptions { get; } =
     [
-        ("BooksByAuthor", "Books by author"),
-        ("ComicsByCreator", "Comics by creator"),
-        ("MoviesByDirector", "Movies by director"),
-        ("AlbumsByArtist", "Albums by artist"),
-        ("AudiobooksByAuthor", "Audiobooks by author"),
-        ("AudiobooksByNarrator", "Audiobooks by narrator"),
+        ("Books", "Books"),
+        ("Comics", "Comics"),
+        ("Movies", "Movies"),
+        ("Albums", "Albums"),
+        ("Audiobooks", "Audiobooks"),
+    ];
+
+    private bool ShowShelfLanePreviews =>
+        _activeSection == CollectionsSectionConfiguration.Shelves
+        && string.IsNullOrWhiteSpace(_searchText)
+        && _lane == "all"
+        && _kind == "all";
+
+    private IReadOnlyList<MediaTileShelfViewModel> ShelfLanePreviews =>
+    [
+        BuildShelfLanePreview(
+            "Read",
+            "Books and comics grouped by their primary authors and creators"),
+        BuildShelfLanePreview(
+            "Watch",
+            "Movies grouped by their primary directors"),
+        BuildShelfLanePreview(
+            "Listen",
+            "Albums and audiobooks grouped by their primary artists, authors, and narrators"),
     ];
 
     private string SectionTitle => _activeSection switch
@@ -578,7 +615,7 @@
     ];
 
     private string KindFilterLabel =>
-        ShelfKindOptions.FirstOrDefault(option => string.Equals(option.Value, _kind, StringComparison.OrdinalIgnoreCase)).Label
+        ShelfMediaOptions.FirstOrDefault(option => string.Equals(option.Value, _kind, StringComparison.OrdinalIgnoreCase)).Label
             is { Length: > 0 } shelfKindLabel
             ? shelfKindLabel
             : _kind switch
@@ -671,6 +708,19 @@
             .Select(group => group.First()));
     }
 
+    private MediaTileShelfViewModel BuildShelfLanePreview(string lane, string subtitle) => new()
+    {
+        Key = $"{lane.ToLowerInvariant()}-shelves",
+        Title = lane,
+        Subtitle = subtitle,
+        Items = SortCollectionTiles(_shelves
+                .Where(shelf => string.Equals(shelf.Lane, lane, StringComparison.OrdinalIgnoreCase))
+                .Select(CollectionSurfaceTileComposer.FromContributorShelf))
+            .Take(12)
+            .ToList(),
+        SeeAllRoute = $"/collections/shelves?lane={lane}",
+    };
+
     private async Task AppendPeoplePageAsync(PagedResponse<PersonListItemResponse> page)
     {
         _peopleHasMore = page.HasMore;
@@ -752,9 +802,19 @@
         if (_lane != "all")
             shelves = shelves.Where(entry => string.Equals(entry.Lane, _lane, StringComparison.OrdinalIgnoreCase));
         if (_kind != "all")
-            shelves = shelves.Where(entry => string.Equals(entry.ShelfType, _kind, StringComparison.OrdinalIgnoreCase));
+            shelves = shelves.Where(entry => ShelfMatchesMedia(entry.ShelfType, _kind));
         return SortCollectionTiles(shelves.Select(CollectionSurfaceTileComposer.FromContributorShelf));
     }
+
+    private static bool ShelfMatchesMedia(string shelfType, string media) => media switch
+    {
+        "Books" => string.Equals(shelfType, "BooksByAuthor", StringComparison.OrdinalIgnoreCase),
+        "Comics" => string.Equals(shelfType, "ComicsByCreator", StringComparison.OrdinalIgnoreCase),
+        "Movies" => string.Equals(shelfType, "MoviesByDirector", StringComparison.OrdinalIgnoreCase),
+        "Albums" => string.Equals(shelfType, "AlbumsByArtist", StringComparison.OrdinalIgnoreCase),
+        "Audiobooks" => shelfType.StartsWith("AudiobooksBy", StringComparison.OrdinalIgnoreCase),
+        _ => true,
+    };
 
     private IReadOnlyList<MediaTileViewModel> SortCollectionTiles(IEnumerable<MediaTileViewModel> items) =>
         (_sortBy switch

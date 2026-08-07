@@ -400,8 +400,8 @@ public sealed class DisplayComposerServiceTests
         var secondEpisode = Guid.Parse("77777777-bbbb-9999-9999-777777777777");
         var repository = new StubDisplayProjectionRepository(
             [
-                Work(firstEpisode, "TV", "Pilot", year: "2008", genre: "Crime", season: "1", episode: "1", collectionId: collectionId, showName: "Breaking Bad", rootWorkId: showRootId),
-                Work(secondEpisode, "TV", "Cat's in the Bag...", year: "2008", genre: "Crime", season: "1", episode: "2", collectionId: collectionId, showName: "Breaking Bad", rootWorkId: showRootId),
+                Work(firstEpisode, "TV", "Pilot", year: "2008", seriesEndYear: "2013", genre: "Crime", season: "1", episode: "1", collectionId: collectionId, showName: "Breaking Bad", rootWorkId: showRootId),
+                Work(secondEpisode, "TV", "Cat's in the Bag...", year: "2008", seriesEndYear: "2013", genre: "Crime", season: "1", episode: "2", collectionId: collectionId, showName: "Breaking Bad", rootWorkId: showRootId),
             ],
             []);
         var composer = CreateComposer(repository);
@@ -415,9 +415,12 @@ public sealed class DisplayComposerServiceTests
         Assert.Equal("Breaking Bad", card.Title);
         Assert.Equal("1 season", card.Subtitle);
         Assert.Equal("tvSeries", card.Presentation);
-        Assert.Contains("2008", card.Facts);
+        Assert.Contains("2008\u20132013", card.Facts);
         Assert.Contains("2 episodes", card.Facts);
         Assert.Contains("Crime", card.Facts);
+        Assert.Equal(2008, card.GroupSummary?.EarliestYear);
+        Assert.Equal(2013, card.GroupSummary?.LatestYear);
+        Assert.Equal(2008, card.SortYear);
         Assert.Equal("Open Show", card.Actions[0].Label);
         Assert.Equal($"/details/tvshow/{showRootId:D}?context=watch", card.Actions[0].WebUrl);
         Assert.DoesNotContain(page.Catalog, item => item.Title == "Pilot");
@@ -888,6 +891,7 @@ public sealed class DisplayComposerServiceTests
         string? artist = null,
         string? album = null,
         string? year = null,
+        string? seriesEndYear = null,
         string? genre = null,
         string? narrator = null,
         string? season = null,
@@ -924,6 +928,7 @@ public sealed class DisplayComposerServiceTests
             Artist = artist,
             Album = album,
             Year = year,
+            SeriesEndYear = seriesEndYear,
             Genre = genre,
             Duration = duration,
             Series = series,

@@ -512,9 +512,10 @@ else
         }
     }
 
-    private bool ShowGroupSelector => VisibleGroups.Count > 1 && !string.IsNullOrWhiteSpace(Placement.GroupLabel);
     private bool IsSeasonContainer => string.Equals(Placement.GroupLabel, "Season", StringComparison.OrdinalIgnoreCase)
         && Placement.CurrentItem.EntityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode;
+    private bool ShowGroupSelector => IsSeasonContainer
+        || (VisibleGroups.Count > 1 && !string.IsNullOrWhiteSpace(Placement.GroupLabel));
     private string HeadingLabel => IsSeasonContainer ? "Season" : "Series";
     private string HeadingValue => IsSeasonContainer
         ? SeasonHeading

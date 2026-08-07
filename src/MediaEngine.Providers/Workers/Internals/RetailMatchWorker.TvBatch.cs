@@ -677,6 +677,16 @@ public sealed partial class RetailMatchWorker
         if (!string.IsNullOrWhiteSpace(firstAirDate) && firstAirDate.Length >= 4)
             Add(MetadataFieldConstants.Year, firstAirDate[..4], 0.85);
 
+        var showStatus = showDetails?["status"]?.GetValue<string>();
+        var lastAirDate = showDetails?["last_air_date"]?.GetValue<string>();
+        if ((string.Equals(showStatus, "Ended", StringComparison.OrdinalIgnoreCase)
+             || string.Equals(showStatus, "Canceled", StringComparison.OrdinalIgnoreCase))
+            && !string.IsNullOrWhiteSpace(lastAirDate)
+            && lastAirDate.Length >= 4)
+        {
+            Add(MetadataFieldConstants.SeriesEndYear, lastAirDate[..4], 0.85);
+        }
+
         AddTvAggregateCastClaims(claims, showDetails);
 
         return claims;

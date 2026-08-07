@@ -333,6 +333,7 @@ public sealed class UnifiedDetailComponentTests
         var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
 
         Assert.Contains("IsSeasonContainer", source);
+        Assert.Contains("ShowGroupSelector => IsSeasonContainer", source);
         Assert.Contains("HeadingLabel => IsSeasonContainer ? \"Season\" : \"Series\"", source);
         Assert.Contains("ActiveGroup?.Title", source);
         Assert.Contains("Choose season", source);

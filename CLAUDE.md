@@ -110,6 +110,8 @@ A single power user who wants complete, private control over a large media colle
 
 ---
 
+Current presentation rules: the Collections landing route is labeled **Discovery**, while Automatic, Curated, Shelves, and People retain their names. Shelves opens with Read, Watch, and Listen preview lanes and filters by concrete media (Books, Comics, Movies, Albums, and Audiobooks). Same-name duplicate contributor records collapse into one enriched shelf presentation. Discover rows show a small title and optional year for individual items, but group tiles do not repeat text they already embed. TV Shows rows keep episode counts but omit the redundant `TV Show` pill. Completed TV shows show a provider-backed premiere-to-finale year range; TV detail pages always keep the season selector visible, including when only one season is owned.
+
 ## 2. Technical Stack
 
 > When speaking to the Product Owner, always use the plain-English column.

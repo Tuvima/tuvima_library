@@ -132,6 +132,11 @@ public sealed class DisplayWorkProjectionReader
                 ) AS Album,
                 {displayYearSql} AS Year,
                 COALESCE(
+                    (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key = 'series_end_year' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key = 'series_end_year' LIMIT 1),
+                    (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'series_end_year' LIMIT 1)
+                ) AS SeriesEndYear,
+                COALESCE(
                     (SELECT value FROM canonical_values WHERE entity_id = WorkId AND key IN ('content_rating', 'certification') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = RootWorkId AND key IN ('content_rating', 'certification') LIMIT 1),
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key IN ('content_rating', 'certification') LIMIT 1)

@@ -61,6 +61,7 @@
                                        HideMediaKindBadge="@HideMediaKindBadges"
                                        HideSourceBadge="@HideSourceBadges"
                                        HideGroupIndicators="@HideGroupIndicators"
+                                       HideGroupKind="@HideGroupKind"
                                        ShowCompactCaption="@ShowCompactCaptions"
                                        @key="item.Id" />
                         }
@@ -88,6 +89,7 @@
     [Parameter] public bool HideMediaKindBadges { get; set; }
     [Parameter] public bool HideSourceBadges { get; set; }
     [Parameter] public bool HideGroupIndicators { get; set; }
+    [Parameter] public bool HideGroupKind { get; set; }
     [Parameter] public bool ShowHeader { get; set; } = true;
     [Parameter] public bool ShowCompactCaptions { get; set; }
     [Parameter] public bool UseContinueWatchingOrListeningTiles { get; set; }

@@ -223,6 +223,8 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.DoesNotContain("<SurfaceTabBar", home, StringComparison.Ordinal);
         Assert.Contains("min-height: 4.25rem", navigationStyles, StringComparison.Ordinal);
         Assert.Contains("border-bottom: 2px solid transparent", navigationStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("border-top: 1px solid", navigationStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("border-bottom: 1px solid", navigationStyles, StringComparison.Ordinal);
         Assert.Contains(".cinematic-hero-carousel ::deep .cinematic-hero__content", carouselStyles, StringComparison.Ordinal);
         Assert.Contains("height: 100%", carouselStyles, StringComparison.Ordinal);
         Assert.Contains("min-height: 100%", carouselStyles, StringComparison.Ordinal);
