@@ -1069,7 +1069,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                         LIMIT 1
                     ) AS narrator,
                     (
-                        SELECT GROUP_CONCAT(value, ';')
+                    SELECT GROUP_CONCAT(value, '; ')
                         FROM (
                             SELECT cva_genre.value
                             FROM canonical_value_arrays cva_genre
@@ -1107,7 +1107,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                     ) AS top_cast,
                     COALESCE(
                         (
-                            SELECT GROUP_CONCAT(value, ';')
+                    SELECT GROUP_CONCAT(value, '; ')
                             FROM (
                                 SELECT cva_director.value
                                 FROM canonical_value_arrays cva_director
@@ -1118,7 +1118,7 @@ public sealed class LibraryItemRepository : ILibraryItemRepository
                             )
                         ),
                         (
-                            SELECT GROUP_CONCAT(value, ';')
+                    SELECT GROUP_CONCAT(value, '; ')
                             FROM (
                                 SELECT cva_director_asset.value
                                 FROM canonical_value_arrays cva_director_asset

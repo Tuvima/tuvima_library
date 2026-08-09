@@ -1,0 +1,96 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+@using System.Text.RegularExpressions
+@using Microsoft.AspNetCore.Components
+@using MudBlazor
+
+<div class="sme-tag-editor">
+    <label>@Label</label>
+    <div class="sme-tag-editor__surface">
+        @foreach (var tag in Parse(Value))
+        {
+            var capturedTag = tag;
+            <AppChip T="string"
+                     Variant="Variant.Outlined"
+                     Size="Size.Small"
+                     Class="sme-tag-editor__chip"
+                     OnClose="@(() => RemoveAsync(capturedTag))">
+                @capturedTag
+            </AppChip>
+        }
+
+        @if (_adding)
+        {
+            <AppTextField T="string"
+                          @bind-Value="_draft"
+                          Placeholder="Add tag"
+                          Variant="Variant.Text"
+                          Margin="Margin.Dense"
+                          Immediate="true"
+                          Class="sme-tag-editor__input" />
+            <AppIconButton Icon="@Icons.Material.Outlined.Check"
+                           Size="Size.Small"
+                           Color="Color.Primary"
+                           AriaLabel="Add tag"
+                           Tooltip="Add tag"
+                           OnClick="AddAsync" />
+            <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                           Size="Size.Small"
+                           Color="Color.Inherit"
+                           AriaLabel="Cancel adding tag"
+                           Tooltip="Cancel"
+                           OnClick="Cancel" />
+        }
+        else
+        {
+            <AppButton Variant="Variant.Text"
+                       Color="Color.Inherit"
+                       StartIcon="@Icons.Material.Outlined.Add"
+                       Class="sme-tag-editor__add"
+                       OnClick="@(() => _adding = true)">
+                Add tag
+            </AppButton>
+        }
+    </div>
+    <small>Tags are private library organization and are not replaced by provider refreshes.</small>
+</div>
+
+@code {
+    [Parameter] public string Label { get; set; } = "Local tags";
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    private bool _adding;
+    private string _draft = string.Empty;
+
+    private static IReadOnlyList<string> Parse(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : Regex.Split(value, @"\s*[;,|]\s*")
+                .Where(tag => !string.IsNullOrWhiteSpace(tag))
+                .Select(tag => tag.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+    private async Task AddAsync()
+    {
+        var draft = _draft.Trim();
+        if (draft.Length == 0)
+            return;
+
+        var values = Parse(Value).ToList();
+        if (!values.Contains(draft, StringComparer.OrdinalIgnoreCase))
+            values.Add(draft);
+
+        await ValueChanged.InvokeAsync(string.Join(", ", values));
+        Cancel();
+    }
+
+    private Task RemoveAsync(string tag) =>
+        ValueChanged.InvokeAsync(string.Join(", ", Parse(Value).Where(value => !string.Equals(value, tag, StringComparison.OrdinalIgnoreCase))));
+
+    private void Cancel()
+    {
+        _adding = false;
+        _draft = string.Empty;
+    }
+}

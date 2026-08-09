@@ -95,8 +95,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Title=\"My Library\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-details-grid", shell, StringComparison.Ordinal);
-        Assert.Contains("Title=\"Artwork preview\"", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-details-artwork__identity", shell, StringComparison.Ordinal);
         Assert.Contains("sme-details-grid__artwork", shell, StringComparison.Ordinal);
+        Assert.Contains("MediaEditorTagEditor", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-sidebar-artwork", shell, StringComparison.Ordinal);
         Assert.Contains("@if (!Inline)", shell, StringComparison.Ordinal);
         Assert.Contains("ActionIcon=\"@GetInlineFieldActionIcon(field.Key)\"", shell, StringComparison.Ordinal);
@@ -207,7 +208,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Change Match", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel--collapsed", shell, StringComparison.Ordinal);
         Assert.Contains("Advanced canonical identity", shell, StringComparison.Ordinal);
-        Assert.Contains("Customize changes", shell, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Customize\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
         Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
@@ -349,7 +350,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("item.TechnicalBadges", shell, StringComparison.Ordinal);
         Assert.Contains("Disabled=\"@(!item.IsClickable)\"", shell, StringComparison.Ordinal);
         Assert.Contains("SelectContentItemAsync(group, item)", shell, StringComparison.Ordinal);
-        Assert.Contains("ReturnToContainerEditorAsync", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-content-inspector", shell, StringComparison.Ordinal);
+        Assert.Contains("SaveFocusedContentItemAsync", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("await SelectNavigatorNodeAsync(item.EntityId);", code, StringComparison.Ordinal);
         Assert.Contains("CompactOrdinalLabel", dto, StringComparison.Ordinal);
         Assert.Contains("PrimaryAssetId", dto, StringComparison.Ordinal);
         Assert.Contains("IsClickable", dto, StringComparison.Ordinal);

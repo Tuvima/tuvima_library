@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.RegularExpressions;
 using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
@@ -452,15 +453,6 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     {
         ct.ThrowIfCancellationRequested();
         using var connection = db.CreateConnection();
-        var assetId = connection.QueryFirstOrDefault<Guid?>(new CommandDefinition("""
-            SELECT ma.id
-            FROM editions e
-            INNER JOIN media_assets ma ON ma.edition_id = e.id
-            WHERE e.work_id = @workId
-            ORDER BY ma.file_path_root
-            LIMIT 1;
-            """, new { workId }, cancellationToken: ct));
-
         var rows = connection.Query<HistoryRow>(new CommandDefinition("""
             SELECT id AS Id,
                    occurred_at AS OccurredAt,
@@ -468,20 +460,33 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                    entity_id AS EntityId,
                    detail AS Detail
             FROM system_activity
-            WHERE entity_id = @workId OR entity_id = @assetId
+            WHERE entity_id = @workId
+               OR entity_id IN (
+                    SELECT ma.id
+                    FROM editions e
+                    INNER JOIN media_assets ma ON ma.edition_id = e.id
+                    WHERE e.work_id = @workId
+               )
             ORDER BY occurred_at DESC
             LIMIT 200;
             """,
-            new { workId, assetId = assetId ?? workId },
+            new { workId },
             cancellationToken: ct));
 
-        IReadOnlyList<LibraryItemHistoryEntry> history = rows.Select(row => new LibraryItemHistoryEntry(
-            row.Id.ToString(),
-            row.EntityId ?? workId,
-            row.OccurredAt,
-            row.EventType ?? string.Empty,
-            FormatActionTypeLabel(row.EventType ?? string.Empty),
-            row.Detail)).ToList();
+        IReadOnlyList<LibraryItemHistoryEntry> history = rows
+            .GroupBy(row => IsRepeatableNarrativeEvent(row.EventType)
+                ? $"{row.EntityId:D}|{row.EventType}|{row.Detail}"
+                : row.Id.ToString(), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.OrderByDescending(row => row.OccurredAt).First())
+            .OrderByDescending(row => row.OccurredAt)
+            .Select(row => new LibraryItemHistoryEntry(
+                row.Id.ToString(),
+                row.EntityId ?? workId,
+                row.OccurredAt,
+                row.EventType ?? string.Empty,
+                FormatActionTypeLabel(row.EventType ?? string.Empty),
+                FormatHistoryDetail(row.EventType, row.Detail)))
+            .ToList();
         return Task.FromResult(history);
     }
 
@@ -557,8 +562,41 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         "DuplicateSkipped" => "Duplicate skipped",
         "EntityChainCreated" => "Library records created",
         "HydrationEnqueued" => "Queued for enrichment",
-        _ => actionType.Replace("_", " "),
+        "NarrativeRootResolved" => "TV show relationship confirmed",
+        "PathUpdated" => "File location updated",
+        "FileScored" => "File quality checked",
+        "IdentityResolved" => "Identity confirmed",
+        "ArtworkUpdated" => "Artwork updated",
+        "MatchUpdated" => "Match updated",
+        _ => HumanizeActionType(actionType),
     };
+
+    private static bool IsRepeatableNarrativeEvent(string? eventType) =>
+        string.Equals(eventType, "NarrativeRootResolved", StringComparison.OrdinalIgnoreCase);
+
+    private static string? FormatHistoryDetail(string? eventType, string? detail)
+    {
+        if (string.Equals(eventType, "NarrativeRootResolved", StringComparison.OrdinalIgnoreCase))
+            return "Connected this episode to its TV show using the library's identified series metadata.";
+
+        if (string.Equals(eventType, "PathUpdated", StringComparison.OrdinalIgnoreCase))
+            return "The library refreshed the stored file location.";
+
+        if (string.Equals(eventType, "FileScored", StringComparison.OrdinalIgnoreCase))
+            return "The file was checked for metadata completeness and media quality.";
+
+        return detail;
+    }
+
+    private static string HumanizeActionType(string actionType)
+    {
+        if (string.IsNullOrWhiteSpace(actionType))
+            return "Library activity";
+
+        var spaced = actionType.Replace('_', ' ').Replace('-', ' ');
+        spaced = Regex.Replace(spaced, "(?<=[a-z0-9])(?=[A-Z])", " ");
+        return char.ToUpperInvariant(spaced[0]) + spaced[1..].ToLowerInvariant();
+    }
 
     private sealed class RemovalRow
     {

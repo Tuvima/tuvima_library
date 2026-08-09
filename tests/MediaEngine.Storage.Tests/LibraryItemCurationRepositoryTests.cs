@@ -221,6 +221,31 @@ public sealed class LibraryItemCurationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task History_HumanizesAndCollapsesRepeatedNarrativeRootEvents()
+    {
+        var seeded = await SeedWorkAsync("Episode", "C:/library/show/episode.mkv", "TV");
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO system_activity (occurred_at, action_type, entity_id, entity_type, detail)
+                VALUES (@older, 'NarrativeRootResolved', @workId, 'Work', 'Resolved narrative root from technical metadata'),
+                       (@newer, 'NarrativeRootResolved', @workId, 'Work', 'Resolved narrative root from technical metadata');
+                """, new
+            {
+                older = DateTimeOffset.UtcNow.AddMinutes(-1).ToString("O"),
+                newer = DateTimeOffset.UtcNow.ToString("O"),
+                workId = seeded.WorkId,
+            });
+        }
+
+        var history = await _repository.GetHistoryAsync(seeded.WorkId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal("TV show relationship confirmed", entry.Label);
+        Assert.Equal("Connected this episode to its TV show using the library's identified series metadata.", entry.Detail);
+    }
+
+    [Fact]
     public async Task Reads_PropagateCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();

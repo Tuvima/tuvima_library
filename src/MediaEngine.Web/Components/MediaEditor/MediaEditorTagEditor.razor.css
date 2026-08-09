@@ -1,0 +1,46 @@
+.sme-tag-editor {
+    display: grid;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+}
+
+.sme-tag-editor > label {
+    color: rgba(213, 222, 239, 0.74);
+    font-size: 0.82rem;
+    font-weight: 500;
+}
+
+.sme-tag-editor__surface {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    min-height: 3rem;
+    padding: 0.45rem 0.55rem;
+    border: 1px solid rgba(151, 170, 205, 0.2);
+    border-radius: 0.5rem;
+    background: rgba(7, 16, 29, 0.25);
+}
+
+.sme-tag-editor > small {
+    color: rgba(207, 218, 236, 0.48);
+    font-size: 0.72rem;
+}
+
+::deep .sme-tag-editor__chip {
+    margin: 0;
+    background: rgba(131, 86, 239, 0.1);
+    border-color: rgba(171, 139, 255, 0.22);
+}
+
+::deep .sme-tag-editor__input {
+    flex: 1 1 8rem;
+    min-width: 7rem;
+}
+
+::deep .sme-tag-editor__add {
+    min-height: 2rem;
+    padding-inline: 0.35rem;
+    color: rgba(205, 188, 255, 0.86);
+    text-transform: none;
+}

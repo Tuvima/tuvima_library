@@ -62,7 +62,7 @@
                         <h2 class="sme-title" tabindex="-1">@HeaderTitle</h2>
                         @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
                         {
-                            <div class="sme-subtitle">@HeaderSubtitle</div>
+                            <div class="sme-subtitle">@NormalizeDisplaySpacing(HeaderSubtitle)</div>
                         }
                         @if (IsSingleItem && !string.IsNullOrWhiteSpace(_detail?.WikidataQid))
                         {
@@ -317,13 +317,22 @@
                                     <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace.">
                                         @foreach (var field in GetLibraryFields())
                                         {
-                                            <AppFormFieldRow Label="@field.Label"
-                                                             Value="@GetEditableValue(field.Key)"
-                                                             ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
-                                                             Placeholder="@GetPlaceholder(field)"
-                                                             InputKind="@field.InputKind"
-                                                             Lines="@GetFieldLineCount(field)"
-                                                             HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
+                                            @if (field.Key == "custom_tags")
+                                            {
+                                                <MediaEditorTagEditor Label="Local tags"
+                                                                      Value="@GetEditableValue(field.Key)"
+                                                                      ValueChanged="@((string? value) => OnFieldInput(field.Key, value))" />
+                                            }
+                                            else
+                                            {
+                                                <AppFormFieldRow Label="@field.Label"
+                                                                 Value="@GetEditableValue(field.Key)"
+                                                                 ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                                 Placeholder="@GetPlaceholder(field)"
+                                                                 InputKind="@field.InputKind"
+                                                                 Lines="@GetFieldLineCount(field)"
+                                                                 HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
+                                            }
                                         }
                                         @if (Request.ActiveProfileId.HasValue)
                                         {
@@ -345,10 +354,9 @@
 
                                 @if (Inline && IsSingleItem)
                                 {
-                                    <MediaEditorPanel Title="Artwork preview"
-                                                      Description="The current primary artwork shown across your library."
+                                    <MediaEditorPanel
                                                       Class="sme-details-grid__artwork">
-                                        <div class="sme-details-artwork" aria-label="Current artwork preview">
+                                        <div class="sme-details-artwork @ArtworkShapeClass" aria-label="Current artwork preview">
                                             @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
                                             {
                                                 <img src="@CurrentCoverUrl" alt="@($"{HeaderTitle} current artwork")" />
@@ -360,6 +368,28 @@
                                                     <span>No artwork yet</span>
                                                 </div>
                                             }
+
+                                            <div class="sme-details-artwork__identity">
+                                                <strong>@HeaderTitle</strong>
+                                                @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
+                                                {
+                                                    <span>@NormalizeDisplaySpacing(HeaderSubtitle)</span>
+                                                }
+                                                <div class="sme-details-artwork__facts">
+                                                    @if (!string.IsNullOrWhiteSpace(_detail?.Year))
+                                                    {
+                                                        <span><MudIcon Icon="@Icons.Material.Outlined.CalendarToday" Size="Size.Small" /> @_detail.Year</span>
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(_detail?.Language))
+                                                    {
+                                                        <span><MudIcon Icon="@Icons.Material.Outlined.Language" Size="Size.Small" /> @_detail.Language</span>
+                                                    }
+                                                    @if (!string.IsNullOrWhiteSpace(_detail?.Rating))
+                                                    {
+                                                        <span><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> @GetSourceFacts().FirstOrDefault(fact => fact.Label == "Rating").Value</span>
+                                                    }
+                                                </div>
+                                            </div>
 
                                             @if (Tabs.Any(tab => string.Equals(tab.Id, "artwork", StringComparison.OrdinalIgnoreCase)))
                                             {
@@ -383,9 +413,25 @@
                                         <dl class="sme-source-facts">
                                             @foreach (var fact in GetSourceFacts())
                                             {
-                                                <div>
+                                                <div class="@(fact.Label == "Genres" ? "sme-source-fact--genres" : null)">
                                                     <dt>@fact.Label</dt>
-                                                    <dd>@fact.Value</dd>
+                                                    @if (fact.Label == "Genres")
+                                                    {
+                                                        <dd class="sme-source-fact-chips">
+                                                            @foreach (var genre in SplitDisplayList(fact.Value))
+                                                            {
+                                                                <AppChip Text="@genre" Tone="AppUiTone.Primary" />
+                                                            }
+                                                        </dd>
+                                                    }
+                                                    else if (fact.Label == "Rating")
+                                                    {
+                                                        <dd class="sme-source-fact-rating"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> @fact.Value</dd>
+                                                    }
+                                                    else
+                                                    {
+                                                        <dd>@fact.Value</dd>
+                                                    }
                                                 </div>
                                             }
                                         </dl>
@@ -413,7 +459,7 @@
                                 <span><strong>@HeaderTitle</strong><AppChip Text="Audiobook" Tone="AppUiTone.Primary" /></span>
                                 @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
                                 {
-                                    <small>@HeaderSubtitle</small>
+                                <small>@NormalizeDisplaySpacing(HeaderSubtitle)</small>
                                 }
                                 <span class="sme-content-media-summary__facts">
                                     <span><small>Chapters</small><strong>@AudiobookChapters.Count</strong></span>
@@ -518,7 +564,7 @@
                                 <span><strong>@HeaderTitle</strong><AppChip Text="@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "Album" : "TV Show")" Tone="AppUiTone.Primary" /></span>
                                 @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
                                 {
-                                    <small>@HeaderSubtitle</small>
+                                    <small>@NormalizeDisplaySpacing(HeaderSubtitle)</small>
                                 }
                                 <span class="sme-content-media-summary__facts">
                                     <span><small>@ContentTabLabel</small><strong>@EditorContentTotalCount</strong></span>
@@ -537,7 +583,8 @@
                         }
                         else
                         {
-                            <section class="sme-group">
+                                    <div class="sme-content-master-detail @(_focusedContentItem is not null ? "has-inspector" : string.Empty)">
+                                    <section class="sme-group">
                                 <div class="sme-content-completion">
                                     <div>
                                         <div class="sme-group-title">@ContentTabLabel</div>
@@ -634,6 +681,63 @@
                                     </div>
                                 }
                             </section>
+                            @if (_focusedContentItem is { } focusedItem)
+                            {
+                                <aside class="sme-content-inspector" aria-label="@($"Edit {ContentItemSingular.ToLowerInvariant()}")">
+                                    <div class="sme-content-inspector__heading">
+                                        <div>
+                                            <span>Edit @ContentItemSingular</span>
+                                            <strong>@(_focusedContentGroup?.Title)</strong>
+                                        </div>
+                                        <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                                                       Size="Size.Small"
+                                                       Color="Color.Inherit"
+                                                       Tooltip="Close inspector"
+                                                       AriaLabel="Close inspector"
+                                                       OnClick="CloseContentInspector" />
+                                    </div>
+                                    <div class="sme-content-inspector__note">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                        <span>@(string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase)
+                                            ? "Track metadata stays in this panel. Artwork is inherited from the album, so album artwork changes apply to every track."
+                                            : "Episode metadata stays in this panel so the season list remains visible while you edit.")</span>
+                                    </div>
+                                    <label>@ContentItemSingular title</label>
+                                    <AppTextField T="string"
+                                                  Value="@_focusedContentTitle"
+                                                  ValueChanged="@((string? value) => _focusedContentTitle = value ?? string.Empty)"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Immediate="true" />
+                                    <div class="sme-content-inspector__facts">
+                                        <span><small>Number</small><strong>@GetContentOrdinalLabel(focusedItem, 0)</strong></span>
+                                        <span><small>Group</small><strong>@(_focusedContentGroup?.Title)</strong></span>
+                                        @if (!string.IsNullOrWhiteSpace(focusedItem.Subtitle))
+                                        {
+                                            <span class="is-wide"><small>Details</small><strong>@NormalizeContributorDisplay(focusedItem.Subtitle)</strong></span>
+                                        }
+                                    </div>
+                                    @if (string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase))
+                                    {
+                                        <div class="sme-content-inspector__artwork-note">
+                                            <span class="sme-content-inspector__album-art @ArtworkShapeClass">
+                                                @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
+                                                {
+                                                    <img src="@CurrentCoverUrl" alt="Album artwork" />
+                                                }
+                                            </span>
+                                            <span><strong>Inherited album artwork</strong><small>Manage it once from Artwork to update the whole album.</small></span>
+                                        </div>
+                                    }
+                                    <AppButton Label="@(_savingFocusedContent ? "Saving..." : $"Save {ContentItemSingular.ToLowerInvariant()}")"
+                                               Variant="Variant.Filled"
+                                               Color="Color.Primary"
+                                               FullWidth="true"
+                                               Disabled="@(_savingFocusedContent || string.IsNullOrWhiteSpace(_focusedContentTitle) || string.Equals(_focusedContentTitle.Trim(), focusedItem.Title, StringComparison.Ordinal))"
+                                               OnClick="SaveFocusedContentItemAsync" />
+                                </aside>
+                            }
+                            </div>
                         }
                     </div>
                 }
@@ -727,7 +831,7 @@
                                         </span>
                                     </div>
                                     <div class="sme-match-identity-card">
-                                        <div class="sme-match-identity-art">
+                                        <div class="sme-match-identity-art @ArtworkShapeClass">
                                             @if (!string.IsNullOrWhiteSpace(currentRetail.CoverUrl))
                                             {
                                                 <img src="@currentRetail.CoverUrl" alt="@currentRetail.Title" />
@@ -741,7 +845,7 @@
                                             <h3>@currentRetail.Title</h3>
                                             @if (!string.IsNullOrWhiteSpace(currentRetail.Creator))
                                             {
-                                                <p>@currentRetail.Creator</p>
+                                                <p>@NormalizeContributorDisplay(currentRetail.Creator)</p>
                                             }
                                             @if (!string.IsNullOrWhiteSpace(currentRetail.Year))
                                             {
@@ -886,25 +990,29 @@
                                                         </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
-                                                            <AppButton Label="Customize changes"
-                                                                       StartIcon="@Icons.Material.Outlined.Tune"
-                                                                       OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                            <div class="sme-match-result-actions">
+                                                                <AppButton Label="Customize"
+                                                                           StartIcon="@Icons.Material.Outlined.Tune"
+                                                                           OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                                <AppButton Variant="Variant.Filled"
+                                                                           Color="Color.Primary"
+                                                                           Class="sme-inline-btn sme-inline-btn--primary"
+                                                                           Disabled="@(!candidate.IsApplicable || _matchActionPending)"
+                                                                           OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
+                                                                    @(_matchActionPending ? "Applying..." : "Use this identity")
+                                                                </AppButton>
+                                                            </div>
                                                             @if (_customizeMatchChanges)
                                                             {
                                                                 @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
                                                             }
-                                                            <AppButton Variant="Variant.Filled"
-                                                                       Color="Color.Primary"
-                                                                       Class="sme-inline-btn sme-inline-btn--primary"
-                                                                       Disabled="@(!candidate.IsApplicable || _matchActionPending)"
-                                                                       OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                                @(_matchActionPending ? "Applying..." : "Use this identity")
-                                                            </AppButton>
                                                         }
                                                         else
                                                         {
-                                                            <AppButton Label="Select identity"
-                                                                       OnClick="@(() => SelectCandidate(candidate))" />
+                                                            <div class="sme-match-result-actions">
+                                                                <AppButton Label="Select identity"
+                                                                           OnClick="@(() => SelectCandidate(candidate))" />
+                                                            </div>
                                                         }
                                                     </div>
                                                 }
@@ -936,7 +1044,7 @@
                                                                    FullWidth="true"
                                                                    Class="sme-match-result-summary"
                                                                    OnClick="@(() => SelectCandidate(candidate))">
-                                                            <div class="sme-match-result-art">
+                                                            <div class="sme-match-result-art @ArtworkShapeClass">
                                                                 @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
                                                                 {
                                                                     <img src="@candidate.CoverUrl" alt="" />
@@ -948,7 +1056,7 @@
                                                             </div>
                                                             <div class="sme-match-result-copy">
                                                                 <div class="sme-match-result-title">@candidate.Title</div>
-                                                                <div class="sme-match-result-meta">@BuildRetailCandidateSubtitle(candidate)</div>
+                                                            <div class="sme-match-result-meta">@NormalizeDisplaySpacing(BuildRetailCandidateSubtitle(candidate))</div>
                                                                 <div class="sme-match-result-evidence">
                                                                     <span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> Title match</span>
                                                                     <span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> Creator match</span>
@@ -968,25 +1076,29 @@
                                                         </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
-                                                            <AppButton Label="Customize changes"
-                                                                       StartIcon="@Icons.Material.Outlined.Tune"
-                                                                       OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                            <div class="sme-match-result-actions">
+                                                                <AppButton Label="Customize"
+                                                                           StartIcon="@Icons.Material.Outlined.Tune"
+                                                                           OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                                <AppButton Variant="Variant.Filled"
+                                                                           Color="Color.Primary"
+                                                                           Class="sme-inline-btn sme-inline-btn--primary"
+                                                                           Disabled="@(!candidate.IsApplicable || _matchActionPending)"
+                                                                           OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                                    @(_matchActionPending ? "Applying..." : "Use this match")
+                                                                </AppButton>
+                                                            </div>
                                                             @if (_customizeMatchChanges)
                                                             {
                                                                 @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
                                                             }
-                                                            <AppButton Variant="Variant.Filled"
-                                                                       Color="Color.Primary"
-                                                                       Class="sme-inline-btn sme-inline-btn--primary"
-                                                                       Disabled="@(!candidate.IsApplicable || _matchActionPending)"
-                                                                       OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                                @(_matchActionPending ? "Applying..." : "Use this match")
-                                                            </AppButton>
                                                         }
                                                         else
                                                         {
-                                                            <AppButton Label="Select match"
-                                                                       OnClick="@(() => SelectCandidate(candidate))" />
+                                                            <div class="sme-match-result-actions">
+                                                                <AppButton Label="Select match"
+                                                                           OnClick="@(() => SelectCandidate(candidate))" />
+                                                            </div>
                                                         }
                                                     </div>
                                                 }
@@ -1203,10 +1315,10 @@
                                                     <div class="sme-artwork-variants-section">
                                                         <h4>Other @slot.Label.ToLowerInvariant() options</h4>
                                                         <div class="sme-artwork-variant-strip">
-                                                            @foreach (var item in rowItems.Where(item => focusedItem is null || item.Key != focusedItem.Key))
+                                                            @foreach (var item in rowItems)
                                                             {
                                                                 <AppNativeButton Type="button"
-                                                                                 Class="@($"sme-artwork-variant-card sme-artwork-variant-card--{slot.PreviewClass}")"
+                                                                                 Class="@($"sme-artwork-variant-card sme-artwork-variant-card--{slot.PreviewClass} {(focusedItem?.Key == item.Key ? "is-selected" : string.Empty)}")"
                                                                                  aria-label="@BuildArtworkVariantHoverLabel(slot, item)"
                                                                                  OnClick="@(() => HandleArtworkVariantClickAsync(slot, item))">
                                                                     <span class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
@@ -1290,6 +1402,7 @@
                                                         <AppButton Label="Remove artwork"
                                                                    StartIcon="@Icons.Material.Outlined.Delete"
                                                                    Tone="AppUiTone.Error"
+                                                                   Class="sme-artwork-remove-action"
                                                                    FullWidth="true"
                                                                    OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
                                                     }
@@ -1504,7 +1617,7 @@
                 {
                     <div class="sme-file-tab sme-history-tab">
                         <section class="sme-history-item-summary">
-                            <span class="sme-history-summary-art">
+                            <span class="sme-history-summary-art @ArtworkShapeClass">
                                 @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
                                 {
                                     <img src="@CurrentCoverUrl" alt="@HeaderTitle" />

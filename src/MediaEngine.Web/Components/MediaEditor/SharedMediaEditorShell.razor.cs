@@ -1,6 +1,7 @@
 ﻿using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Routing;
@@ -163,6 +164,10 @@ public partial class SharedMediaEditorShell
     private MediaEditorMembershipPreviewDto? _pendingMembershipPreview;
     private string? _fieldToFocus;
     private string? _focusedAudiobookChapterKey;
+    private MediaEditorNavigatorNodeDto? _focusedContentItem;
+    private EditorContentGroup? _focusedContentGroup;
+    private string _focusedContentTitle = string.Empty;
+    private bool _savingFocusedContent;
     private ContainerReturnState? _containerReturnState;
     private EditorAiCapability _chapterNamingCapability = new(false, "Checking local AI availability.");
 
@@ -358,7 +363,7 @@ public partial class SharedMediaEditorShell
         ?? (IsBatchMode ? $"Edit {Request.EntityIds.Count} Items" : "Edit Item");
 
     protected string? HeaderSubtitle =>
-        (IsContainerEditor && _activeTab is "tracks" or "episodes" ? Request.HeaderSubtitle : null)
+        (IsContainerEditor ? Request.HeaderSubtitle : null)
         ?? (IsContainerEditor ? ContainerRootScope?.DisplaySubtitle : ActiveScope?.DisplaySubtitle)
         ?? Request.HeaderSubtitle
         ?? (IsSingleItem ? BuildHeaderSubtitle() : string.Join(" | ", Request.PreviewItems.Take(3).Select(x => x.Title)));
@@ -839,22 +844,57 @@ public partial class SharedMediaEditorShell
         }
     }
 
-    protected async Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
+    protected Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
     {
         if (!item.IsClickable || !item.IsOwned || item.PrimaryAssetId is null)
+            return Task.CompletedTask;
+
+        _focusedContentGroup = group;
+        _focusedContentItem = item;
+        _focusedContentTitle = item.Title;
+        return Task.CompletedTask;
+    }
+
+    protected void CloseContentInspector()
+    {
+        _focusedContentItem = null;
+        _focusedContentGroup = null;
+        _focusedContentTitle = string.Empty;
+    }
+
+    protected async Task SaveFocusedContentItemAsync()
+    {
+        if (_focusedContentItem is null
+            || string.IsNullOrWhiteSpace(_focusedContentTitle)
+            || string.Equals(_focusedContentTitle.Trim(), _focusedContentItem.Title, StringComparison.Ordinal))
+        {
             return;
+        }
 
-        var parentLabel = string.IsNullOrWhiteSpace(_navigator?.ContainerTitle)
-            ? HeaderTitle
-            : _navigator!.ContainerTitle;
-        var itemLabel = string.Join(" ", new[] { GetContentOrdinalLabel(item, 0), item.Title }.Where(part => !string.IsNullOrWhiteSpace(part)));
-        _containerReturnState = new ContainerReturnState(
-            NavigatorRootNode?.EntityId ?? _navigator?.ContainerEntityId ?? LaunchEntityId,
-            _activeTab,
-            $"Back to {ContentTabLabel}",
-            $"{parentLabel} > {group.Title} > {itemLabel}");
+        _savingFocusedContent = true;
+        try
+        {
+            var saved = await ApiClient.SaveItemDisplayOverridesAsync(
+                _focusedContentItem.EntityId,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["title"] = _focusedContentTitle.Trim(),
+                });
 
-        await SelectNavigatorNodeAsync(item.EntityId);
+            if (!saved)
+            {
+                Snackbar.Add(ApiClient.LastError ?? $"The {ContentItemSingular.ToLowerInvariant()} title could not be saved.", Severity.Error);
+                return;
+            }
+
+            _focusedContentItem.Title = _focusedContentTitle.Trim();
+            _hasCommittedChanges = true;
+            Snackbar.Add($"{ContentItemSingular} title saved without leaving this {GetContainerKindLabel().ToLowerInvariant()}.", Severity.Success);
+        }
+        finally
+        {
+            _savingFocusedContent = false;
+        }
     }
 
     protected async Task ReturnToContainerEditorAsync()
@@ -1817,9 +1857,9 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<ArtworkVariantDisplayItem> GetArtworkRowItems(string assetType) =>
         GetArtworkGalleryItems(assetType)
-            .OrderByDescending(item => item.IsPreferred)
-            .ThenByDescending(item => item.IsPending)
-            .ThenByDescending(item => item.CreatedAt ?? DateTimeOffset.MinValue)
+            .OrderByDescending(item => item.IsPending)
+            .ThenBy(item => item.CreatedAt ?? DateTimeOffset.MaxValue)
+            .ThenBy(item => item.Key, StringComparer.Ordinal)
             .ToList();
 
     protected ArtworkVariantDisplayItem? GetLeadArtworkVariant(string assetType)
@@ -2559,7 +2599,7 @@ public partial class SharedMediaEditorShell
         candidate.CompositeScore > 0 ? candidate.CompositeScore : candidate.Confidence;
 
     protected static string FormatCandidateScore(double score) =>
-        score > 0 ? $"Score {score:P0}" : "Score unavailable";
+        score > 0 ? score.ToString("P0", CultureInfo.InvariantCulture) : "—";
 
     protected async Task SaveAsPreferenceOnlyAsync()
     {
@@ -2858,7 +2898,7 @@ public partial class SharedMediaEditorShell
             : [];
 
     private string GetCandidateId(ItemCanonicalRetailCandidateDto candidate) =>
-        $"retail:{candidate.CandidateId}:{candidate.ProviderName}:{candidate.ProviderItemId}";
+        $"retail:{candidate.CandidateId}:{candidate.ProviderName}:{candidate.ProviderItemId}:{string.Join('|', candidate.BridgeIds.OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase).Select(pair => $"{pair.Key}={pair.Value}"))}";
 
     private string GetCandidateId(ItemCanonicalLinkedCandidateDto candidate) =>
         $"linked:{candidate.CandidateId}:{candidate.Qid}";
@@ -3311,8 +3351,8 @@ public partial class SharedMediaEditorShell
         AddSourceFact(facts, "Release", _detail.Year);
         AddSourceFact(facts, "Runtime", _detail.Runtime);
         AddSourceFact(facts, "Language", _detail.Language);
-        AddSourceFact(facts, "Rating", _detail.Rating);
-        AddSourceFact(facts, "Genres", _detail.Genre);
+        AddSourceFact(facts, "Rating", FormatRatingValue(_detail.Rating));
+        AddSourceFact(facts, "Genres", NormalizeDelimitedDisplay(_detail.Genre, ", "));
         return facts;
     }
 
@@ -3321,6 +3361,60 @@ public partial class SharedMediaEditorShell
         if (!string.IsNullOrWhiteSpace(value))
             facts.Add((label, value.Trim()));
     }
+
+    protected static IReadOnlyList<string> SplitDisplayList(string? value) =>
+        string.IsNullOrWhiteSpace(value)
+            ? []
+            : Regex.Split(value, @"\s*[;,|]\s*")
+                .Where(part => !string.IsNullOrWhiteSpace(part))
+                .Select(part => part.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+    protected static string NormalizeContributorDisplay(string? value) =>
+        NormalizeDelimitedDisplay(value, "; ");
+
+    protected static string NormalizeDisplaySpacing(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? string.Empty : Regex.Replace(value.Trim(), @";\s*", "; ");
+
+    private static string NormalizeDelimitedDisplay(string? value, string separator) =>
+        string.Join(separator, SplitDisplayList(value));
+
+    private static string? FormatRatingValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var rating)
+            ? rating.ToString("0.0", CultureInfo.InvariantCulture)
+            : value.Trim();
+    }
+
+    protected string ArtworkShapeClass => GetArtworkShapeClass(_selectedMediaType, ActiveScope?.ScopeId);
+
+    private static string GetArtworkShapeClass(string? mediaType, string? scopeId)
+    {
+        var normalized = ReviewTargetResolver.NormalizeMediaType(mediaType);
+        if (string.Equals(normalized, "Music", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(normalized, "Audiobooks", StringComparison.OrdinalIgnoreCase))
+        {
+            return "is-square";
+        }
+
+        if (string.Equals(normalized, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(scopeId, "episode", StringComparison.OrdinalIgnoreCase))
+        {
+            return "is-landscape";
+        }
+
+        return "is-portrait";
+    }
+
+    protected string GetContainerKindLabel() =>
+        string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "Album" : "TV show";
+
+    protected string ContentItemSingular =>
+        string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase) ? "Track" : "Episode";
 
     private bool IsMultilineField(string key) =>
         GetGroupsForTab("details")
@@ -4449,7 +4543,7 @@ public partial class SharedMediaEditorShell
     }
 
     protected bool IsContentNodeSelected(MediaEditorNavigatorNodeDto node) =>
-        node.EntityId == EditorContextEntityId;
+        _focusedContentItem?.EntityId == node.EntityId || (_focusedContentItem is null && node.EntityId == EditorContextEntityId);
 
     protected string GetContentEmptyStateText() =>
         _activeTab switch
