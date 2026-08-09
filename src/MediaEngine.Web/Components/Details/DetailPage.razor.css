@@ -8190,6 +8190,25 @@
    viewport, the global app bar floats above it, and the transparent section
    navigation occupies the lower fade. */
 @media (min-width: 721px) {
+    .tl-detail-stage.tl-detail-stage--editing {
+        height: 100svh;
+        min-height: 100svh;
+        max-height: 100svh;
+    }
+
+    .tl-detail-stage.tl-detail-stage--editing .tl-detail-edit-face--editor {
+        inset:
+            var(--app-topbar-height, 65px)
+            0
+            0;
+        z-index: 12;
+    }
+
+    .tl-detail-stage.tl-detail-stage--editing .tl-detail-stage__navigation {
+        visibility: hidden;
+        pointer-events: none;
+    }
+
     .tl-detail-stage {
         --detail-navigation-height: 3.75rem;
         height: 95svh;

@@ -286,10 +286,10 @@ internal sealed partial class DetailCompositionOrchestrator
         var mediaGroups = entityType == DetailEntityType.TvShow
             ? []
             : BuildCollectionMediaGroups(entityType, displayWorks, favoriteWorkIds, expectedTotal);
-        var canEdit = isAdminView
-            && (string.Equals(row.CollectionType, CollectionTypeNames.Custom, StringComparison.OrdinalIgnoreCase)
-                || ((entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.MusicAlbum)
-                    && rootWorkId.HasValue));
+        var canEdit = ((entityType is DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.MusicAlbum)
+                       && rootWorkId.HasValue)
+                      || (isAdminView
+                          && string.Equals(row.CollectionType, CollectionTypeNames.Custom, StringComparison.OrdinalIgnoreCase));
 
         return new DetailPageViewModel
         {

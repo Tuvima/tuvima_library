@@ -37,34 +37,61 @@
 .settings-review-filter-bar__search,
 .settings-review-filter-bar__select { min-width: 0; width: 100%; }
 
+.settings-review-category-tabs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--tl-border-subtle);
+}
+
 .settings-review-workspace { position: relative; display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(340px, .75fr); gap: 12px; min-height: 560px; }
 .settings-review-workspace.is-refreshing { opacity: .8; }
 .settings-review-refresh-bar { position: absolute; inset: 0 0 auto; z-index: 3; }
 .settings-review-list,
 .settings-review-inspector { border: 1px solid var(--tl-border-subtle); border-radius: 12px; background: var(--tl-bg-surface); overflow: hidden; }
 .settings-review-list { align-self: start; }
-::deep .settings-review-row {
-    width: 100%;
-    gap: 14px;
+ .settings-review-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
     min-height: 78px;
-    padding: 10px 14px;
+    padding: 8px 10px;
     color: var(--tl-text-primary);
-    text-align: left;
     border: 0;
     border-bottom: 1px solid var(--tl-border-subtle);
     background: transparent;
+}
+.settings-review-row:hover { background: var(--tl-bg-hover); }
+.settings-review-row.is-selected { background: var(--tl-accent-primary-soft); box-shadow: inset 2px 0 var(--tl-accent-primary), inset 0 0 0 1px var(--tl-accent-primary-border); }
+
+::deep .settings-review-row__selector {
+    display: grid;
+    grid-template-columns: 44px minmax(12rem, .9fr) auto minmax(12rem, 1.1fr) 70px;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    color: var(--tl-text-primary);
+    text-align: left;
+    border: 0;
+    background: transparent;
     cursor: pointer;
 }
-::deep .settings-review-row:hover,
-::deep .settings-review-row:focus-visible { background: var(--tl-bg-hover); outline: none; }
-::deep .settings-review-row.is-selected { background: var(--tl-accent-primary-soft); box-shadow: inset 3px 0 var(--tl-accent-primary); }
+
+::deep .settings-review-row__selector:focus-visible { outline: 2px solid var(--tl-accent-primary-border); outline-offset: 2px; }
 .settings-review-cover { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 56px; overflow: hidden; border-radius: 7px; color: var(--tl-text-secondary); background: var(--tl-border-subtle); }
 .settings-review-cover img { width: 100%; height: 100%; object-fit: cover; }
 .settings-review-row__identity { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.settings-review-row__identity > span { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .settings-review-row__identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-review-row__identity small,
 .settings-review-row__evidence small { color: var(--tl-text-secondary); }
 .settings-review-row__evidence { display: grid; gap: 4px; min-width: 94px; text-align: right; }
+.settings-review-row__reason { overflow: hidden; color: var(--tl-text-secondary); font-size: .78rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
 .settings-review-list footer { padding: 12px 14px; color: var(--tl-text-secondary); font-size: .8rem; }
 
 .settings-review-inspector { align-self: stretch; padding: 18px; overflow-y: auto; }
@@ -90,9 +117,11 @@
 @media (max-width: 760px) {
     .settings-review-filter-bar { grid-template-columns: 1fr 1fr; }
     .settings-review-filter-bar__search { grid-column: 1 / -1; }
-    ::deep .settings-review-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; }
-    ::deep .settings-review-row .app-chip,
-    .settings-review-row__evidence { grid-column: 2; text-align: left; }
+    .settings-review-row { grid-template-columns: minmax(0, 1fr); }
+    ::deep .settings-review-row__selector { grid-template-columns: 44px minmax(0, 1fr) auto; }
+    .settings-review-row__reason,
+    ::deep .settings-review-row__selector > .app-chip { grid-column: 2; }
+    .settings-review-row__evidence { grid-column: 3; grid-row: 1; text-align: right; }
 }
 
 @media (max-width: 560px) {

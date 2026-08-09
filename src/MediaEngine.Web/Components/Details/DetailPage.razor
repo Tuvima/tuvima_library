@@ -211,7 +211,8 @@
         $"{(IsMusicAlbumDetail ? " tl-detail-stage--music-album" : string.Empty)}" +
         $"{(IsAudiobookDetail ? " tl-detail-stage--audiobook" : string.Empty)}" +
         $"{(IsAudiobookDetail && HasPrimaryModuleBeforeNavigation ? " tl-detail-stage--audiobook-with-chapters" : string.Empty)}" +
-        $"{(Model?.EntityType == DetailEntityType.Person ? " tl-detail-stage--person" : string.Empty)}";
+        $"{(Model?.EntityType == DetailEntityType.Person ? " tl-detail-stage--person" : string.Empty)}" +
+        $"{(_inlineEditorSession is not null ? " tl-detail-stage--editing" : string.Empty)}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
 
@@ -344,6 +345,7 @@
                 ContainerMode = target.ContainerMode,
                 ActiveProfileId = activeProfile?.Id,
                 InitialMediaGroups = Model.MediaGroups,
+                InitialSequencePlacement = Model.SequencePlacement,
                 Mode = SharedMediaEditorMode.Normal,
                 InitialTab = target.InitialTab ?? "details",
                 InitialScope = target.InitialScope,

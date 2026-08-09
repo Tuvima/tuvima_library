@@ -33,6 +33,7 @@ public sealed class MediaEditorLaunchRequest
     public Guid? SelectedCollectionId { get; init; }
     public Guid? ActiveProfileId { get; init; }
     public IReadOnlyList<MediaGroupingViewModel> InitialMediaGroups { get; init; } = [];
+    public SequencePlacementViewModel? InitialSequencePlacement { get; init; }
     public SharedMediaEditorMode Mode { get; init; } = SharedMediaEditorMode.Normal;
     public MediaEditorIdentityIntent IdentityIntent { get; init; } = MediaEditorIdentityIntent.None;
     public string? InitialScope { get; init; }

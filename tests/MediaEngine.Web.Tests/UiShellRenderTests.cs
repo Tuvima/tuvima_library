@@ -224,9 +224,9 @@ public sealed class UiShellRenderTests : TestContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.Contains("Review Queue", cut.Markup);
+            Assert.Contains("Needs Review", cut.Markup);
             Assert.Contains("Unmatched Album", cut.Markup);
-            Assert.Contains("Review Metadata", cut.Markup);
+            Assert.Contains("Review", cut.Markup);
         });
     }
 

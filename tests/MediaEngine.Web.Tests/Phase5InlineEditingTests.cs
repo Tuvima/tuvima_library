@@ -173,7 +173,7 @@ public sealed class Phase5InlineEditingTests
         var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
 
         Assert.Contains("else if (_activeTab == \"contents\")", shell, StringComparison.Ordinal);
-        Assert.Contains("Rename chapter labels without changing file-derived timing or boundaries", shell, StringComparison.Ordinal);
+        Assert.Contains("This chapter boundary is embedded in the audiobook file. Timing remains read-only.", shell, StringComparison.Ordinal);
         Assert.Contains("QueueAudiobookChapterReset", shell, StringComparison.Ordinal);
         Assert.Contains("UpsertAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);
         Assert.Contains("DeleteAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);
@@ -200,16 +200,15 @@ public sealed class Phase5InlineEditingTests
         var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
         var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.css");
 
-        Assert.Contains("sme-match-status-strip", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-current-panel", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel", shell, StringComparison.Ordinal);
-        Assert.Contains("Current Identity", shell, StringComparison.Ordinal);
+        Assert.Contains("Current match", shell, StringComparison.Ordinal);
+        Assert.Contains("Canonical identity", shell, StringComparison.Ordinal);
         Assert.Contains("Change Match", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel--collapsed", shell, StringComparison.Ordinal);
-        Assert.Contains("Advanced Wikidata", shell, StringComparison.Ordinal);
+        Assert.Contains("Advanced canonical identity", shell, StringComparison.Ordinal);
         Assert.Contains("Customize changes", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
-        Assert.Contains("Change Type", shell, StringComparison.Ordinal);
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
         Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-type-select", shell, StringComparison.Ordinal);
@@ -217,13 +216,9 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Keep Match", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep QID", shell, StringComparison.Ordinal);
         Assert.Contains("Clear QID", shell, StringComparison.Ordinal);
-        Assert.Contains("Use This Match", shell, StringComparison.Ordinal);
-        Assert.Contains("Use This QID", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-current-identity-links", shell, StringComparison.Ordinal);
-        Assert.Contains("currentRetail.Links", shell, StringComparison.Ordinal);
-        Assert.Contains("currentQid.Links", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("currentRetail.Description", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("currentQid.Description", shell, StringComparison.Ordinal);
+        Assert.Contains("Use this match", shell, StringComparison.Ordinal);
+        Assert.Contains("Use this identity", shell, StringComparison.Ordinal);
+        Assert.Contains("Select match", shell, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentRetailMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentWikidataMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);
@@ -391,7 +386,7 @@ public sealed class Phase5InlineEditingTests
         var filePanel = shell[fileStart..historyStart];
         Assert.DoesNotContain("Recent History", filePanel, StringComparison.Ordinal);
         Assert.DoesNotContain("Canonical Snapshot", filePanel, StringComparison.Ordinal);
-        Assert.Contains("Change History", shell[historyStart..], StringComparison.Ordinal);
+        Assert.Contains("Change history", shell[historyStart..], StringComparison.Ordinal);
 
         Assert.DoesNotContain("Field(\"edition\", \"Edition\")", schema, StringComparison.Ordinal);
         Assert.Contains("Field(\"custom_tags\", \"Local tags\")", schema, StringComparison.Ordinal);
@@ -435,7 +430,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("aria-label=\"Edit level\"", shell, StringComparison.Ordinal);
         Assert.Contains("SelectScopeAsync(scope.ScopeId)", shell, StringComparison.Ordinal);
         Assert.Contains("Change identity for", shell, StringComparison.Ordinal);
-        Assert.Contains("GetIdentityTargetImpactText", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-section-heading", shell, StringComparison.Ordinal);
         Assert.Contains("Open @scope.Label Artwork", shell, StringComparison.Ordinal);
         Assert.Contains("private Guid CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);
         Assert.Contains("CoverUrl = candidate.CoverUrl", code, StringComparison.Ordinal);

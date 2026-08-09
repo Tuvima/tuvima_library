@@ -262,7 +262,7 @@ public sealed class SettingsNavTests
             "Libraries",
             "Ingestion",
             "Metadata Providers",
-            "Review Queue",
+            "Needs Review",
             "Activity & Audit",
             "Playback & Delivery",
             "Users & Access",

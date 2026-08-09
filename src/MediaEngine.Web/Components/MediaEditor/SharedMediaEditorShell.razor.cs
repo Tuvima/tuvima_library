@@ -1,4 +1,6 @@
 ﻿using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
 using Microsoft.AspNetCore.Components.Routing;
@@ -134,6 +136,8 @@ public partial class SharedMediaEditorShell
     private bool _searchingCanonical;
     private bool _artworkUrlSubmitting;
     private bool _providerArtworkRefreshing;
+    private bool _retryingWriteback;
+    private string _historyFilter = "all";
     private bool _suggestingChapterNames;
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
@@ -200,6 +204,29 @@ public partial class SharedMediaEditorShell
     protected ArtworkSlotDefinition? ZoomArtworkSlot => _zoomArtworkSlot;
     protected ArtworkVariantDisplayItem? ZoomArtworkVariant => _zoomArtworkVariant;
     protected bool IsArtworkZoomOpen => _zoomArtworkSlot is not null && _zoomArtworkVariant is not null;
+    protected IReadOnlyList<AppSelectOption> HistoryFilterOptions =>
+    [
+        new("all", "All activity"),
+        new("match", "Matching"),
+        new("artwork", "Artwork"),
+        new("metadata", "Metadata"),
+        new("file", "Files and processing"),
+    ];
+    protected IReadOnlyList<LibraryItemHistoryDto> FilteredHistory => _history
+        .Where(entry => _historyFilter switch
+        {
+            "match" => entry.EventType.Contains("match", StringComparison.OrdinalIgnoreCase),
+            "artwork" => entry.EventType.Contains("artwork", StringComparison.OrdinalIgnoreCase),
+            "metadata" => entry.EventType.Contains("metadata", StringComparison.OrdinalIgnoreCase)
+                          || entry.EventType.Contains("write", StringComparison.OrdinalIgnoreCase),
+            "file" => entry.EventType.Contains("file", StringComparison.OrdinalIgnoreCase)
+                      || entry.EventType.Contains("ingest", StringComparison.OrdinalIgnoreCase)
+                      || entry.EventType.Contains("promot", StringComparison.OrdinalIgnoreCase)
+                      || entry.EventType.Contains("path", StringComparison.OrdinalIgnoreCase),
+            _ => true,
+        })
+        .OrderByDescending(entry => entry.OccurredAt)
+        .ToList();
     protected MediaEditorNavigatorNodeDto? NavigatorRootNode =>
         _navigator?.Nodes.FirstOrDefault(node => node.IsRoot)
         ?? _navigator?.Nodes.FirstOrDefault(node => node.ParentNodeId is null);
@@ -227,6 +254,12 @@ public partial class SharedMediaEditorShell
             .Where(item => item.AssetId is not null && item.ChapterIndex.HasValue)
             .OrderBy(item => item.ChapterIndex)
             .ToList();
+    protected MediaGroupingItemViewModel? FocusedAudiobookChapter =>
+        AudiobookChapters.FirstOrDefault(chapter => string.Equals(BuildAudiobookChapterKey(chapter), _focusedAudiobookChapterKey, StringComparison.OrdinalIgnoreCase))
+        ?? AudiobookChapters.FirstOrDefault();
+    protected bool IsFocusedAudiobookChapter(MediaGroupingItemViewModel chapter) =>
+        FocusedAudiobookChapter is { } focused
+        && string.Equals(BuildAudiobookChapterKey(focused), BuildAudiobookChapterKey(chapter), StringComparison.OrdinalIgnoreCase);
     protected IReadOnlyList<MediaEditorNavigatorNodeDto> ContentRootChildren =>
         NavigatorRootNode is null ? [] : GetNavigatorChildren(NavigatorRootNode.NodeId);
     protected IReadOnlyList<MediaEditorNavigatorNodeDto> ContainerFileItems =>
@@ -266,6 +299,25 @@ public partial class SharedMediaEditorShell
             : null;
     protected string CurrentTargetTitle => IdentityTargetScope?.DisplayTitle ?? ActiveScope?.DisplayTitle ?? HeaderTitle;
 
+    protected string GetContentTotalDurationLabel()
+    {
+        if (!string.IsNullOrWhiteSpace(_detail?.Runtime))
+            return _detail.Runtime!;
+
+        var totalSeconds = AudiobookChapters.Sum(chapter =>
+            chapter.DurationSeconds
+            ?? (chapter.StartSeconds.HasValue && chapter.EndSeconds.HasValue
+                ? Math.Max(0, chapter.EndSeconds.Value - chapter.StartSeconds.Value)
+                : 0));
+        if (totalSeconds <= 0)
+            return "Unknown";
+
+        var duration = TimeSpan.FromSeconds(totalSeconds);
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours}h {duration.Minutes}m"
+            : $"{duration.Minutes}m {duration.Seconds}s";
+    }
+
     protected MediaEditorScopeDto? ActiveScope =>
         _editorContext?.Scopes
             .OrderBy(scope => scope.Order)
@@ -299,15 +351,57 @@ public partial class SharedMediaEditorShell
         };
 
     protected string HeaderTitle =>
-        (IsContainerEditor ? ContainerRootScope?.DisplayTitle : ActiveScope?.DisplayTitle)
+        (IsContainerEditor && _activeTab is "tracks" or "episodes" ? Request.HeaderTitle : null)
+        ?? (IsContainerEditor ? ContainerRootScope?.DisplayTitle : ActiveScope?.DisplayTitle)
         ?? Request.HeaderTitle
         ?? _detail?.Title
         ?? (IsBatchMode ? $"Edit {Request.EntityIds.Count} Items" : "Edit Item");
 
     protected string? HeaderSubtitle =>
-        (IsContainerEditor ? ContainerRootScope?.DisplaySubtitle : ActiveScope?.DisplaySubtitle)
+        (IsContainerEditor && _activeTab is "tracks" or "episodes" ? Request.HeaderSubtitle : null)
+        ?? (IsContainerEditor ? ContainerRootScope?.DisplaySubtitle : ActiveScope?.DisplaySubtitle)
         ?? Request.HeaderSubtitle
         ?? (IsSingleItem ? BuildHeaderSubtitle() : string.Join(" | ", Request.PreviewItems.Take(3).Select(x => x.Title)));
+
+    protected string EditorPageTitle => _activeTab switch
+    {
+        "artwork" => "Manage Artwork",
+        "links" when _showMatchSearch => "Edit Match — Change Identity",
+        "links" => "Edit Match",
+        "file" => "Edit Files",
+        "history" => "Edit History",
+        "episodes" => "Edit TV Show",
+        "tracks" => "Edit Album",
+        "contents" => "Edit Audiobook",
+        _ => $"Edit {NormalizeEditorHeadingLabel(HeaderKicker)}",
+    };
+
+    protected string EditorHeaderDescription => _activeTab switch
+    {
+        "artwork" => "Manage artwork for this item.",
+        "links" when _showMatchSearch => "Replace the current match for this item.",
+        "links" => "Review and update this item's identity.",
+        "file" => "View and manage files and processing.",
+        "history" => "View changes and activity for this item.",
+        _ => (_selectedMediaType, ContentTabLabel) switch
+        {
+            ("TV", "Episodes") => "Manage series-level information and episodes.",
+            ("Music", "Tracks") => "Manage album information and tracks.",
+            ("Audiobooks", "Chapters") => "Manage audiobook information and chapters.",
+            _ => "Control how this item appears and behaves in your library.",
+        },
+    };
+
+    private static string NormalizeEditorHeadingLabel(string value) => value switch
+    {
+        "Books" => "Book",
+        "Movies" => "Movie",
+        "Audiobooks" => "Audiobook",
+        "Comics" => "Comic",
+        "Music" => "Album",
+        "TV" => "TV Show",
+        _ => value,
+    };
 
     protected string? CurrentCoverUrl => GetHeaderArtworkPreviewUrl();
 
@@ -608,19 +702,26 @@ public partial class SharedMediaEditorShell
 
     protected static string FormatAudiobookChapterRange(MediaGroupingItemViewModel chapter)
     {
-        static string Format(double? seconds)
-        {
-            if (!seconds.HasValue)
-                return "--:--";
-
-            var duration = TimeSpan.FromSeconds(Math.Max(0, seconds.Value));
-            return duration.TotalHours >= 1
-                ? $"{(int)duration.TotalHours}:{duration.Minutes:00}:{duration.Seconds:00}"
-                : $"{duration.Minutes}:{duration.Seconds:00}";
-        }
-
-        return $"{Format(chapter.StartSeconds)} - {Format(chapter.EndSeconds)}";
+        return $"{FormatAudiobookChapterTime(chapter.StartSeconds)} - {FormatAudiobookChapterTime(chapter.EndSeconds)}";
     }
+
+    protected static string FormatAudiobookChapterTime(double? seconds)
+    {
+        if (!seconds.HasValue)
+            return "--:--";
+
+        var duration = TimeSpan.FromSeconds(Math.Max(0, seconds.Value));
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"00:{duration.Minutes:00}:{duration.Seconds:00}";
+    }
+
+    protected static string FormatAudiobookChapterDuration(MediaGroupingItemViewModel chapter) =>
+        FormatAudiobookChapterTime(
+            chapter.DurationSeconds
+            ?? (chapter.StartSeconds.HasValue && chapter.EndSeconds.HasValue
+                ? Math.Max(0, chapter.EndSeconds.Value - chapter.StartSeconds.Value)
+                : null));
 
     private async Task LoadScopeStateAsync(bool forceReload = false)
     {
@@ -2130,6 +2231,11 @@ public partial class SharedMediaEditorShell
             {
                 _selectedSuggestedFieldKeys[GetCandidateId(candidate)] = candidate.SuggestedFields.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
+
+            if (IsWikidataSearchMode && response.LinkedCandidates.Count > 0)
+                _selectedCandidateId = GetCandidateId(response.LinkedCandidates[0]);
+            else if (!IsWikidataSearchMode && response.RetailCandidates.Count > 0)
+                _selectedCandidateId = GetCandidateId(response.RetailCandidates[0]);
         }
         finally
         {
@@ -2282,6 +2388,33 @@ public partial class SharedMediaEditorShell
                     ? "This file has a local retail identifier, but no confirmed retail provider match yet."
                 : "This file does not have a confirmed retail provider match yet.");
     }
+
+    protected string CurrentProviderId =>
+        StringHelpers.FirstNonBlank(
+            IdentityTargetSummary?.ProviderItemId,
+            GetBaselineValue("tmdb_id"),
+            GetBaselineValue("imdb_id"),
+            GetBaselineValue("comicvine_id"),
+            GetBaselineValue("musicbrainz_id"),
+            GetBaselineValue("asin"),
+            GetBaselineValue("isbn"))?.Trim() ?? "Not linked";
+
+    protected string CurrentCanonicalQid =>
+        StringHelpers.FirstNonBlank(
+            IdentityTargetSummary?.WikidataQid,
+            _detail?.WikidataQid,
+            GetBaselineValue("wikidata_qid"))?.Trim() ?? "Not linked";
+
+    protected bool HasCurrentRetailMatch =>
+        !string.Equals(CurrentProviderId, "Not linked", StringComparison.OrdinalIgnoreCase)
+        || !string.IsNullOrWhiteSpace(GetRetailMatchDisplayName(IdentityTargetSummary));
+
+    protected bool HasCurrentCanonicalIdentity =>
+        !string.Equals(CurrentCanonicalQid, "Not linked", StringComparison.OrdinalIgnoreCase);
+
+    protected string CurrentMatchStatusLabel => HasCurrentRetailMatch ? "Matched" : "Provider match pending";
+
+    protected string CurrentCanonicalStatusLabel => HasCurrentCanonicalIdentity ? "Confirmed" : "Provider only";
 
     protected MatchCardDisplay BuildCurrentWikidataMatchCard()
     {
@@ -3085,8 +3218,51 @@ public partial class SharedMediaEditorShell
         return $"{value:0.##} {units[unit]}";
     }
 
+    protected string FormatLastFileActivity() =>
+        _history.OrderByDescending(entry => entry.OccurredAt).FirstOrDefault() is { } entry
+            ? entry.OccurredAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)
+            : "Not recorded";
+
+    protected async Task RetryWritebackAsync()
+    {
+        if (_retryingWriteback || _detail is null)
+            return;
+
+        _retryingWriteback = true;
+        try
+        {
+            var assetId = SelectedNavigatorNode?.PrimaryAssetId ?? _detail.EntityId;
+            var succeeded = await ApiClient.RetryRetagForAssetAsync(assetId);
+            _matchActionStatus = succeeded
+                ? "Write-back retry queued. The review remains open until the file is updated successfully."
+                : "Write-back retry could not be queued. No review state was changed.";
+        }
+        catch (Exception ex)
+        {
+            _matchActionStatus = $"Write-back retry failed: {ex.Message}";
+        }
+        finally
+        {
+            _retryingWriteback = false;
+        }
+    }
+
     protected static string FormatHistoryDate(DateTime date) =>
         date.Date == DateTime.Today ? "Today" : date.Date == DateTime.Today.AddDays(-1) ? "Yesterday" : date.ToString("D", CultureInfo.CurrentCulture);
+
+    protected static string FormatRelativeHistoryAge(DateTimeOffset occurredAt)
+    {
+        var age = DateTimeOffset.Now - occurredAt;
+        if (age < TimeSpan.Zero)
+            age = TimeSpan.Zero;
+        if (age.TotalMinutes < 1)
+            return "just now";
+        if (age.TotalHours < 1)
+            return $"{Math.Max(1, (int)age.TotalMinutes)}m ago";
+        if (age.TotalDays < 1)
+            return $"{Math.Max(1, (int)age.TotalHours)}h ago";
+        return $"{Math.Max(1, (int)age.TotalDays)}d ago";
+    }
 
     protected static string GetHistoryIcon(string? eventType) => eventType?.ToLowerInvariant() switch
     {
@@ -3118,7 +3294,7 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetAppearanceFields() =>
         GetDetailsMetadataFields()
-            .Where(field => field.Key is not ("custom_tags" or "comment"))
+            .Where(field => field.Key is not ("custom_tags" or "comment" or "tagline"))
             .ToList();
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetLibraryFields() =>
@@ -3774,6 +3950,14 @@ public partial class SharedMediaEditorShell
 
     private IReadOnlyList<EditorContentGroup> BuildEpisodeContentGroups()
     {
+        var sequenceGroups = BuildSequenceEpisodeGroups();
+        if (sequenceGroups.Count > 0)
+            return sequenceGroups;
+
+        var initialGroups = BuildInitialMediaContentGroups("episode");
+        if (initialGroups.Count > 0)
+            return initialGroups;
+
         if (NavigatorRootNode is null)
             return [];
 
@@ -3912,6 +4096,10 @@ public partial class SharedMediaEditorShell
 
     private IReadOnlyList<EditorContentGroup> BuildTrackContentGroups()
     {
+        var initialGroups = BuildInitialMediaContentGroups("track");
+        if (initialGroups.Count > 0)
+            return initialGroups;
+
         var tracks = ContentRootChildren
             .Where(node => string.Equals(node.NodeKind, "track", StringComparison.OrdinalIgnoreCase) || node.IsLeaf)
             .ToList();
@@ -3937,6 +4125,111 @@ public partial class SharedMediaEditorShell
             .ToList();
     }
 
+    private IReadOnlyList<EditorContentGroup> BuildInitialMediaContentGroups(string nodeKind)
+    {
+        var matchingGroups = Request.InitialMediaGroups
+            .Where(group => group.Items.Count > 0)
+            .Where(group => nodeKind == "track"
+                ? group.Key.Contains("track", StringComparison.OrdinalIgnoreCase)
+                : group.Key.Contains("episode", StringComparison.OrdinalIgnoreCase)
+                  || group.Key.Contains("season", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
+        return matchingGroups
+            .Select((group, groupIndex) => new EditorContentGroup(
+                $"initial-{NormalizeTextKey(group.Key)}-{groupIndex}",
+                string.IsNullOrWhiteSpace(group.Title) ? (nodeKind == "track" ? "Tracks" : "Episodes") : group.Title,
+                null,
+                group.Items.Select((item, index) => MapInitialMediaContentItem(item, nodeKind, index)).ToList()))
+            .ToList();
+    }
+
+    private IReadOnlyList<EditorContentGroup> BuildSequenceEpisodeGroups()
+    {
+        var placement = Request.InitialSequencePlacement;
+        if (placement is null || placement.Groups.Count == 0)
+            return [];
+
+        return placement.Groups
+            .Where(group => group.Items.Count > 0)
+            .Select(group => new EditorContentGroup(
+                string.IsNullOrWhiteSpace(group.Key) ? $"sequence-{NormalizeTextKey(group.Title)}" : group.Key,
+                group.Title,
+                null,
+                group.Items.Select((item, index) => MapSequenceEpisode(item, index)).ToList()))
+            .ToList();
+    }
+
+    private static MediaEditorNavigatorNodeDto MapSequenceEpisode(SequenceItemViewModel item, int index)
+    {
+        var stableId = StableContentGuid(item.Id, "episode", index);
+        var entityId = Guid.TryParse(item.Id, out var parsedEntityId) ? parsedEntityId : stableId;
+        var ordinal = item.PositionNumber ?? (int)Math.Round(item.PositionSort ?? index + 1);
+        var subtitle = string.Join(" · ", new[] { item.Duration, item.PublicationDate }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+        return new MediaEditorNavigatorNodeDto
+        {
+            NodeId = stableId,
+            EntityId = entityId,
+            ScopeId = "episode",
+            NodeKind = "episode",
+            Label = item.Title,
+            Title = item.Title,
+            Subtitle = subtitle,
+            OrdinalLabel = item.PositionLabel ?? ordinal.ToString(CultureInfo.InvariantCulture),
+            CompactOrdinalLabel = $"E{ordinal:00}",
+            IsLeaf = true,
+            IsOwned = item.IsOwned,
+            PrimaryAssetId = item.IsOwned && Guid.TryParse(item.Id, out _) ? entityId : null,
+            IsClickable = item.IsOwned && Guid.TryParse(item.Id, out _),
+        };
+    }
+
+    private static MediaEditorNavigatorNodeDto MapInitialMediaContentItem(
+        MediaGroupingItemViewModel item,
+        string nodeKind,
+        int index)
+    {
+        var stableId = StableContentGuid(item.Id, nodeKind, index);
+        var entityId = Guid.TryParse(item.Id, out var parsedEntityId) ? parsedEntityId : stableId;
+        var primaryAssetId = Guid.TryParse(item.AssetId, out var parsedAssetId) ? parsedAssetId : (Guid?)null;
+        var number = nodeKind == "track"
+            ? item.TrackNumber
+            : item.Metadata.FirstOrDefault(metadata => metadata.Kind is "episode" or "episode_number")?.Label;
+        var compactOrdinal = int.TryParse(number, out var ordinal)
+            ? $"{(nodeKind == "track" ? "T" : "E")}{ordinal:00}"
+            : null;
+        var subtitleParts = new[]
+        {
+            nodeKind == "track" ? item.Artist ?? item.Subtitle : item.Subtitle,
+            item.Duration,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase);
+
+        return new MediaEditorNavigatorNodeDto
+        {
+            NodeId = stableId,
+            EntityId = entityId,
+            ScopeId = nodeKind,
+            NodeKind = nodeKind,
+            Label = item.Title,
+            Title = item.Title,
+            Subtitle = string.Join(" · ", subtitleParts),
+            OrdinalLabel = number,
+            CompactOrdinalLabel = compactOrdinal,
+            IsLeaf = true,
+            IsOwned = item.IsOwned,
+            PrimaryAssetId = primaryAssetId,
+            IsClickable = item.IsOwned && primaryAssetId.HasValue,
+        };
+    }
+
+    private static Guid StableContentGuid(string id, string nodeKind, int index)
+    {
+        var bytes = MD5.HashData(Encoding.UTF8.GetBytes($"{nodeKind}:{id}:{index}"));
+        return new Guid(bytes);
+    }
+
     private static string GetTrackDiscGroupTitle(MediaEditorNavigatorNodeDto node)
     {
         var label = node.CompactOrdinalLabel ?? node.OrdinalLabel ?? string.Empty;
@@ -3954,6 +4247,15 @@ public partial class SharedMediaEditorShell
     {
         if (_contentGroupExpandedOverrides.TryGetValue(group.GroupId, out var expanded))
             return !expanded;
+
+        if (string.Equals(_activeTab, "tracks", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        if (string.Equals(_activeTab, "episodes", StringComparison.OrdinalIgnoreCase)
+            && Request.InitialSequencePlacement is { } placement)
+        {
+            return !string.Equals(group.GroupId, placement.CurrentGroupKey, StringComparison.OrdinalIgnoreCase);
+        }
 
         return group.OwnedCount == 0;
     }
