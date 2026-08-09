@@ -234,6 +234,8 @@ public sealed class LibraryItemHistoryDto
     [JsonPropertyName("event_type")] public string EventType { get; init; } = string.Empty;
     [JsonPropertyName("label")] public string Label { get; init; } = string.Empty;
     [JsonPropertyName("detail")] public string? Detail { get; init; }
+    [JsonPropertyName("category")] public string Category { get; init; } = "metadata";
+    [JsonPropertyName("actor_label")] public string ActorLabel { get; init; } = "System";
 }
 
 public sealed class ProvisionalMetadataRequestDto

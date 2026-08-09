@@ -2292,6 +2292,8 @@ MediaEngine.Contracts.Items.MediaEngine.Contracts.Items.LibraryItemHistoryDto
   EventType: System.String | nullability=not-null | accessors=get,init
   Label: System.String | nullability=not-null | accessors=get,init
   Detail: System.String | nullability=nullable | accessors=get,init
+  Category: System.String | nullability=not-null | accessors=get,init
+  ActorLabel: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Items.MediaEngine.Contracts.Items.LibraryItemLifecycleCountsDto
   Identified: System.Int32 | nullability=not-null | accessors=get,init

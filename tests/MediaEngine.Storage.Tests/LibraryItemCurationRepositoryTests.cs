@@ -243,6 +243,35 @@ public sealed class LibraryItemCurationRepositoryTests : IDisposable
         var entry = Assert.Single(history);
         Assert.Equal("TV show relationship confirmed", entry.Label);
         Assert.Equal("Connected this episode to its TV show using the library's identified series metadata.", entry.Detail);
+        Assert.Equal("match", entry.Category);
+        Assert.Equal("System", entry.ActorLabel);
+    }
+
+    [Fact]
+    public async Task History_ForEpisodeDoesNotIncludeSiblingEpisodeActivity()
+    {
+        var selectedEpisode = await SeedWorkAsync("Selected episode", "C:/library/show/s01e01.mkv", "TV");
+        var siblingEpisode = await SeedWorkAsync("Sibling episode", "C:/library/show/s01e02.mkv", "TV");
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync("""
+                INSERT INTO system_activity (occurred_at, action_type, entity_id, entity_type, detail)
+                VALUES (@now, 'ArtworkUpdated', @selectedId, 'Work', 'Selected still changed'),
+                       (@now, 'ArtworkUpdated', @siblingId, 'Work', 'Sibling still changed');
+                """, new
+            {
+                now = DateTimeOffset.UtcNow.ToString("O"),
+                selectedId = selectedEpisode.WorkId,
+                siblingId = siblingEpisode.WorkId,
+            });
+        }
+
+        var history = await _repository.GetHistoryAsync(selectedEpisode.WorkId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal(selectedEpisode.WorkId, entry.EntityId);
+        Assert.Equal("Selected still changed", entry.Detail);
+        Assert.Equal("artwork", entry.Category);
     }
 
     [Fact]

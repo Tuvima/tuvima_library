@@ -70,7 +70,8 @@
             {
                 <SequencePlacementPanel Placement="Model.SequencePlacement"
                                         DetailSurface="true"
-                                        OnContainerSelected="OnContainerSelected" />
+                                        OnContainerSelected="OnContainerSelected"
+                                        OnEditItem="OnEditItem" />
             }
             else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters)
             {
@@ -121,6 +122,7 @@
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
     [Parameter] public bool Embedded { get; set; }
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+    [Parameter] public EventCallback<SequenceItemViewModel> OnEditItem { get; set; }
 
     private string _selectedLane = "all";
     private string _selectedRole = "all";

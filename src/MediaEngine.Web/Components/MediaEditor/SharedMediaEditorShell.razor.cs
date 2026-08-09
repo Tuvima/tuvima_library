@@ -184,6 +184,9 @@ public partial class SharedMediaEditorShell
     protected int MatchSearchModeIndex => string.Equals(_activeMatchSearchMode, "wikidata", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
+    protected bool UsesLandscapeHeaderArtwork =>
+        string.Equals(ActiveScope?.ScopeId, "episode", StringComparison.OrdinalIgnoreCase)
+        || string.Equals(SelectedArtworkSlot?.AssetType, "EpisodeStill", StringComparison.OrdinalIgnoreCase);
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
     protected MediaEditorIdentityIntent EffectiveIdentityIntent =>
         _identityIntent == MediaEditorIdentityIntent.None ? Request.IdentityIntent : _identityIntent;
@@ -220,14 +223,10 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<LibraryItemHistoryDto> FilteredHistory => _history
         .Where(entry => _historyFilter switch
         {
-            "match" => entry.EventType.Contains("match", StringComparison.OrdinalIgnoreCase),
-            "artwork" => entry.EventType.Contains("artwork", StringComparison.OrdinalIgnoreCase),
-            "metadata" => entry.EventType.Contains("metadata", StringComparison.OrdinalIgnoreCase)
-                          || entry.EventType.Contains("write", StringComparison.OrdinalIgnoreCase),
-            "file" => entry.EventType.Contains("file", StringComparison.OrdinalIgnoreCase)
-                      || entry.EventType.Contains("ingest", StringComparison.OrdinalIgnoreCase)
-                      || entry.EventType.Contains("promot", StringComparison.OrdinalIgnoreCase)
-                      || entry.EventType.Contains("path", StringComparison.OrdinalIgnoreCase),
+            "match" => string.Equals(entry.Category, "match", StringComparison.OrdinalIgnoreCase),
+            "artwork" => string.Equals(entry.Category, "artwork", StringComparison.OrdinalIgnoreCase),
+            "metadata" => entry.Category is "metadata" or "manual",
+            "file" => string.Equals(entry.Category, "file", StringComparison.OrdinalIgnoreCase),
             _ => true,
         })
         .OrderByDescending(entry => entry.OccurredAt)
@@ -458,7 +457,10 @@ public partial class SharedMediaEditorShell
             await LoadBatchAsync();
     }
 
-    private async Task LoadSingleItemAsync(Guid? targetEntityId = null, bool resetEditorState = false)
+    private async Task LoadSingleItemAsync(
+        Guid? targetEntityId = null,
+        bool resetEditorState = false,
+        string? preferredScopeId = null)
     {
         _loading = true;
         _loadError = null;
@@ -510,9 +512,11 @@ public partial class SharedMediaEditorShell
             {
                 _selectedMediaType = NormalizeEditorMediaType(_editorContext.MediaType);
                 _schema = MediaEditorSchemaCatalog.Resolve(_editorContext.MediaType);
-                _activeScopeId = !string.IsNullOrWhiteSpace(Request.InitialScope)
-                    ? Request.InitialScope!
-                    : _editorContext.InitialScope;
+                _activeScopeId = !string.IsNullOrWhiteSpace(preferredScopeId)
+                    ? preferredScopeId
+                    : targetEntityId is null && !string.IsNullOrWhiteSpace(Request.InitialScope)
+                        ? Request.InitialScope!
+                        : _editorContext.InitialScope;
 
                 if (!_editorContext.Scopes.Any(scope => string.Equals(scope.ScopeId, _activeScopeId, StringComparison.OrdinalIgnoreCase)))
                     _activeScopeId = _editorContext.Scopes.OrderBy(scope => scope.Order).FirstOrDefault()?.ScopeId ?? string.Empty;
@@ -844,15 +848,34 @@ public partial class SharedMediaEditorShell
         }
     }
 
-    protected Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
+    protected async Task SelectContentItemAsync(EditorContentGroup group, MediaEditorNavigatorNodeDto item)
     {
         if (!item.IsClickable || !item.IsOwned || item.PrimaryAssetId is null)
-            return Task.CompletedTask;
+            return;
+
+        if (string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+        {
+            if (IsDirty)
+            {
+                Snackbar.Add("Save or discard the current changes before editing an episode.", Severity.Warning);
+                return;
+            }
+
+            _containerReturnState = new ContainerReturnState(
+                EditorContextEntityId,
+                ContentTabId,
+                $"Back to {HeaderTitle}",
+                group.Title);
+            CloseContentInspector();
+            await LoadSingleItemAsync(item.EntityId, resetEditorState: false, preferredScopeId: "episode");
+            _tabState.Activate("details");
+            EnsureActiveTabVisible();
+            return;
+        }
 
         _focusedContentGroup = group;
         _focusedContentItem = item;
         _focusedContentTitle = item.Title;
-        return Task.CompletedTask;
     }
 
     protected void CloseContentInspector()
@@ -3304,14 +3327,26 @@ public partial class SharedMediaEditorShell
         return $"{Math.Max(1, (int)age.TotalDays)}d ago";
     }
 
-    protected static string GetHistoryIcon(string? eventType) => eventType?.ToLowerInvariant() switch
+    protected static string GetHistoryIcon(string? category) => category?.ToLowerInvariant() switch
     {
-        var value when value?.Contains("artwork") == true => Icons.Material.Outlined.Image,
-        var value when value?.Contains("match") == true => Icons.Material.Outlined.Link,
-        var value when value?.Contains("file") == true || value?.Contains("write") == true => Icons.Material.Outlined.Description,
-        var value when value?.Contains("review") == true => Icons.Material.Outlined.TaskAlt,
-        var value when value?.Contains("ai") == true => Icons.Material.Outlined.AutoAwesome,
+        "artwork" => Icons.Material.Outlined.Image,
+        "match" => Icons.Material.Outlined.Link,
+        "file" => Icons.Material.Outlined.Description,
+        "review" => Icons.Material.Outlined.TaskAlt,
+        "manual" => Icons.Material.Outlined.Notes,
+        "error" => Icons.Material.Outlined.ErrorOutline,
         _ => Icons.Material.Outlined.EditNote,
+    };
+
+    protected static string GetHistoryToneClass(string? category) => category?.ToLowerInvariant() switch
+    {
+        "artwork" => "is-artwork",
+        "match" => "is-match",
+        "file" => "is-file",
+        "review" => "is-review",
+        "manual" => "is-manual",
+        "error" => "is-error",
+        _ => "is-metadata",
     };
 
     protected string GetDirtySaveLabel() =>
@@ -3348,12 +3383,26 @@ public partial class SharedMediaEditorShell
             return [];
 
         var facts = new List<(string Label, string Value)>();
-        AddSourceFact(facts, "Release", _detail.Year);
+        AddSourceFact(facts, "Release", _detail.ReleaseDate ?? _detail.Year);
+        if (string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase)
+            && string.Equals(ActiveScope?.ScopeId, "episode", StringComparison.OrdinalIgnoreCase))
+        {
+            AddSourceFact(facts, "Episode", FormatEpisodeIdentity(_detail.SeasonNumber, _detail.EpisodeNumber));
+            AddSourceFact(facts, "Actors", NormalizeContributorDisplay(_detail.Cast));
+        }
         AddSourceFact(facts, "Runtime", _detail.Runtime);
         AddSourceFact(facts, "Language", _detail.Language);
         AddSourceFact(facts, "Rating", FormatRatingValue(_detail.Rating));
         AddSourceFact(facts, "Genres", NormalizeDelimitedDisplay(_detail.Genre, ", "));
         return facts;
+    }
+
+    private static string? FormatEpisodeIdentity(string? seasonNumber, string? episodeNumber)
+    {
+        if (string.IsNullOrWhiteSpace(seasonNumber) && string.IsNullOrWhiteSpace(episodeNumber))
+            return null;
+
+        return $"S{(string.IsNullOrWhiteSpace(seasonNumber) ? "?" : seasonNumber.Trim())} E{(string.IsNullOrWhiteSpace(episodeNumber) ? "?" : episodeNumber.Trim())}";
     }
 
     private static void AddSourceFact(List<(string Label, string Value)> facts, string label, string? value)

@@ -458,6 +458,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                    occurred_at AS OccurredAt,
                    action_type AS EventType,
                    entity_id AS EntityId,
+                   profile_id AS ProfileId,
                    detail AS Detail
             FROM system_activity
             WHERE entity_id = @workId
@@ -485,7 +486,9 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 row.OccurredAt,
                 row.EventType ?? string.Empty,
                 FormatActionTypeLabel(row.EventType ?? string.Empty),
-                FormatHistoryDetail(row.EventType, row.Detail)))
+                FormatHistoryDetail(row.EventType, row.Detail),
+                ResolveHistoryCategory(row.EventType),
+                row.ProfileId.HasValue ? "You" : "System"))
             .ToList();
         return Task.FromResult(history);
     }
@@ -574,6 +577,35 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
     private static bool IsRepeatableNarrativeEvent(string? eventType) =>
         string.Equals(eventType, "NarrativeRootResolved", StringComparison.OrdinalIgnoreCase);
 
+    private static string ResolveHistoryCategory(string? eventType)
+    {
+        var value = eventType ?? string.Empty;
+        if (value.Contains("fail", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("reject", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("error", StringComparison.OrdinalIgnoreCase))
+            return "error";
+        if (value.Contains("artwork", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("cover", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("hero", StringComparison.OrdinalIgnoreCase))
+            return "artwork";
+        if (value.Contains("match", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("identity", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("narrative", StringComparison.OrdinalIgnoreCase))
+            return "match";
+        if (value.Contains("review", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("recover", StringComparison.OrdinalIgnoreCase))
+            return "review";
+        if (value.Contains("file", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("ingest", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("path", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("hash", StringComparison.OrdinalIgnoreCase))
+            return "file";
+        if (value.Contains("manual", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("note", StringComparison.OrdinalIgnoreCase))
+            return "manual";
+        return "metadata";
+    }
+
     private static string? FormatHistoryDetail(string? eventType, string? detail)
     {
         if (string.Equals(eventType, "NarrativeRootResolved", StringComparison.OrdinalIgnoreCase))
@@ -622,6 +654,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         public DateTimeOffset OccurredAt { get; init; }
         public string? EventType { get; init; }
         public Guid? EntityId { get; init; }
+        public Guid? ProfileId { get; init; }
         public string? Detail { get; init; }
     }
 }

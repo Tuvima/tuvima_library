@@ -463,6 +463,7 @@ else
 @code {
     [Parameter, EditorRequired] public SequencePlacementViewModel Placement { get; set; } = default!;
     [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+    [Parameter] public EventCallback<SequenceItemViewModel> OnEditItem { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public bool DetailSurface { get; set; }
 
@@ -1094,15 +1095,24 @@ else
         @if (IsSeasonContainer)
         {
             <div class="tl-series-item__title-row">
-                <div class="@SequenceItemTitleClass(item)">@SequenceItemDisplayTitle(item)</div>
                 @if (EpisodeDetailRoute(item) is { } detailRoute)
                 {
-                    <AppIconButton Icon="@Icons.Material.Outlined.MoreVert"
-                                   Href="@detailRoute"
+                    <a class="@SequenceItemTitleClass(item) tl-series-episode-title-link"
+                       href="@detailRoute"
+                       aria-label="@($"Open {SequenceItemTitle(item)}")">
+                        @SequenceItemDisplayTitle(item)
+                    </a>
+                    <AppIconButton Icon="@Icons.Material.Outlined.Edit"
                                    Size="Size.Small"
-                                   Class="tl-series-episode-details"
-                                   AriaLabel="@($"Open details for {SequenceItemTitle(item)}")"
-                                   Tooltip="Episode details" />
+                                   Color="Color.Inherit"
+                                   Class="tl-series-episode-edit"
+                                   Tooltip="@($"Edit {SequenceItemTitle(item)}")"
+                                   AriaLabel="@($"Edit {SequenceItemTitle(item)}")"
+                                   OnClick="@(() => OnEditItem.InvokeAsync(item))" />
+                }
+                else
+                {
+                    <div class="@SequenceItemTitleClass(item)">@SequenceItemDisplayTitle(item)</div>
                 }
             </div>
         }

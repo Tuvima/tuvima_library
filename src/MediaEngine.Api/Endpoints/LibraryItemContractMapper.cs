@@ -203,5 +203,7 @@ internal static class LibraryItemContractMapper
         EventType = source.EventType,
         Label = source.Label,
         Detail = source.Detail,
+        Category = source.Category,
+        ActorLabel = source.ActorLabel,
     };
 }

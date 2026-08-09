@@ -14,7 +14,7 @@
             <div class="sme-header">
                 @if (!Inline)
                 {
-                    <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch")">
+                    <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch") @(UsesLandscapeHeaderArtwork ? "sme-cover-cluster--landscape" : string.Empty)">
                     @if (IsBatchMode)
                     {
                         <div class="sme-batch-cover-grid">
@@ -352,7 +352,7 @@
                                     </MediaEditorPanel>
                                 </div>
 
-                                @if (Inline && IsSingleItem)
+                                @if (IsSingleItem)
                                 {
                                     <MediaEditorPanel
                                                       Class="sme-details-grid__artwork">
@@ -1274,7 +1274,7 @@
                                                     </div>
                                                 </div>
 
-                                                <div class="sme-artwork-primary-row">
+                                                <div class="sme-artwork-primary-row sme-artwork-primary-row--@slot.PreviewClass">
                                                     @if (focusedItem is not null)
                                                     {
                                                         <div class="sme-artwork-primary-card sme-artwork-primary-card--@slot.PreviewClass">
@@ -1627,14 +1627,16 @@
                                     <MudIcon Icon="@Icons.Material.Outlined.Image" />
                                 }
                             </span>
-                            <span class="sme-history-summary-copy">
-                                <strong>@HeaderTitle</strong>
-                                <span class="sme-history-summary-facts">
-                                    <span><small>Type</small>@HeaderKicker</span>
-                                    <span><small>Provider</small>@BuildCurrentRetailMatchCard().Badge</span>
-                                    <span><small>Provider ID</small>@CurrentProviderId</span>
-                                    <span><small>Status</small><span class="sme-file-health"><MudIcon Icon="@Icons.Material.Outlined.Circle" Size="Size.Small" /> @(_detail?.Status ?? "Identified")</span></span>
-                                </span>
+                                <span class="sme-history-summary-copy">
+                                    <strong>@HeaderTitle</strong>
+                                    <span class="sme-history-summary-facts">
+                                        <span><small>Type</small>@HeaderKicker</span>
+                                        <span><small>Library</small>Local Library</span>
+                                        <span><small>Provider</small>Tuvima Library</span>
+                                        <span><small>Provider ID</small>@CurrentProviderId</span>
+                                        <span><small>Retail Provider</small>@BuildCurrentRetailMatchCard().Badge</span>
+                                        <span><small>Status</small><span class="sme-file-health"><MudIcon Icon="@Icons.Material.Outlined.Circle" Size="Size.Small" /> @(_detail?.Status ?? "Identified")</span></span>
+                                    </span>
                             </span>
                         </section>
 
@@ -1658,27 +1660,31 @@
                                 <div class="sme-history-list">
                                     @foreach (var group in FilteredHistory.GroupBy(entry => entry.OccurredAt.LocalDateTime.Date))
                                     {
-                                        <h4 class="sme-history-date">@FormatHistoryDate(group.Key)</h4>
-                                        @foreach (var entry in group)
-                                        {
-                                            <div class="sme-history-row sme-history-row--timeline">
-                                                <span class="sme-history-time">
-                                                    <strong>@entry.OccurredAt.LocalDateTime.ToString("t", CultureInfo.CurrentCulture)</strong>
-                                                    <small>@FormatRelativeHistoryAge(entry.OccurredAt)</small>
-                                                </span>
-                                                <span class="sme-history-icon" aria-hidden="true"><MudIcon Icon="@GetHistoryIcon(entry.EventType)" Size="Size.Small" /></span>
-                                                <div class="sme-history-event-card">
-                                                    <div class="sme-history-copy">
-                                                        <div class="sme-history-title">@entry.Label</div>
-                                                        @if (!string.IsNullOrWhiteSpace(entry.Detail))
-                                                        {
-                                                            <div class="sme-history-detail">@entry.Detail</div>
-                                                        }
+                                        <div class="sme-history-day">
+                                            <h4 class="sme-history-date">@FormatHistoryDate(group.Key)</h4>
+                                            <div class="sme-history-day__events">
+                                                @foreach (var entry in group)
+                                                {
+                                                    <div class="sme-history-row sme-history-row--timeline">
+                                                        <span class="sme-history-time">
+                                                            <strong>@entry.OccurredAt.LocalDateTime.ToString("t", CultureInfo.CurrentCulture)</strong>
+                                                            <small>@FormatRelativeHistoryAge(entry.OccurredAt)</small>
+                                                        </span>
+                                                        <span class="sme-history-icon @GetHistoryToneClass(entry.Category)" aria-hidden="true"><MudIcon Icon="@GetHistoryIcon(entry.Category)" Size="Size.Small" /></span>
+                                                        <div class="sme-history-event-card">
+                                                            <div class="sme-history-copy">
+                                                                <div class="sme-history-title">@entry.Label</div>
+                                                                @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                                                {
+                                                                    <div class="sme-history-detail">@entry.Detail</div>
+                                                                }
+                                                            </div>
+                                                            <span>by <strong>@entry.ActorLabel</strong></span>
+                                                        </div>
                                                     </div>
-                                                    <span>by <strong>System</strong></span>
-                                                </div>
+                                                }
                                             </div>
-                                        }
+                                        </div>
                                     }
                                 </div>
                             }

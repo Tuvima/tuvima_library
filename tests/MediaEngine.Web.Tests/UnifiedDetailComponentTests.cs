@@ -652,8 +652,13 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("padding-bottom: 1.4rem", styles);
         Assert.Contains("tl-series-episode-play", source);
         Assert.DoesNotContain("tl-series-episode-details-overlay", source);
-        Assert.Contains("tl-series-episode-details", source);
-        Assert.Contains("Icons.Material.Outlined.MoreVert", source);
+        Assert.Contains("tl-series-episode-title-link", source);
+        Assert.Contains("tl-series-episode-edit", source);
+        Assert.Contains("<AppIconButton Icon=\"@Icons.Material.Outlined.Edit\"", source);
+        Assert.Contains("Tooltip=\"@($\"Edit {SequenceItemTitle(item)}\")\"", source);
+        Assert.Contains("Icons.Material.Outlined.Edit", source);
+        Assert.Contains("OnEditItem.InvokeAsync(item)", source);
+        Assert.DoesNotContain("Icons.Material.Outlined.MoreVert", source);
         Assert.Contains("EpisodeDetailRoute", source);
         Assert.Contains("tl-series-item__description", source);
         Assert.Contains("EpisodeWatchLabel", source);
@@ -1029,6 +1034,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Save to My List", audioTable);
         Assert.DoesNotContain("Play All", audioTable);
         Assert.Contains("height: 95svh", detailStyles);
+        Assert.Contains("overflow-y: auto", ReadSource("src/MediaEngine.Web/Components/Details/DetailRouteHost.razor.css"));
+        Assert.Contains("touch-action: pan-y", ReadSource("src/MediaEngine.Web/Components/Details/DetailRouteHost.razor.css"));
         Assert.Contains("object-position: center top !important", detailStyles);
         Assert.DoesNotContain("height: clamp(34rem, 70svh, 47.5rem)", detailStyles);
         Assert.Contains("height: clamp(14rem, 28svh, 21rem)", detailStyles);

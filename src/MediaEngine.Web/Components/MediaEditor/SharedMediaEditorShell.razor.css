@@ -104,6 +104,11 @@
     height: 132px;
 }
 
+.sme-cover-cluster--single.sme-cover-cluster--landscape {
+    width: 168px;
+    height: 96px;
+}
+
 .sme-cover-cluster--batch {
     width: 92px;
     height: 92px;
@@ -353,6 +358,55 @@
     justify-content: flex-end;
     gap: 8px;
     min-width: 0;
+}
+
+/* AppButton renders its interactive root inside a child component, so the
+   shared scope-card treatment must cross the component boundary. */
+.sme-scope-switcher ::deep .sme-scope-chip {
+    min-width: 9.75rem;
+    min-height: 3.65rem;
+    padding: 0.65rem 0.85rem;
+    justify-content: flex-start;
+    border: 1px solid rgba(153, 171, 207, 0.16);
+    border-radius: 0.6rem;
+    background: rgba(255, 255, 255, 0.025) !important;
+}
+
+.sme-scope-switcher ::deep .sme-scope-chip--active {
+    border-color: rgba(157, 126, 255, 0.58);
+    background: linear-gradient(135deg, rgba(113, 65, 255, 0.27), rgba(113, 65, 255, 0.1)) !important;
+    box-shadow: inset 3px 0 0 #9a73ff !important;
+}
+
+.sme-scope-switcher ::deep .sme-scope-chip .mud-button-label {
+    display: grid;
+    justify-items: start;
+    gap: 0.2rem;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+}
+
+.sme-scope-switcher ::deep .sme-scope-chip .mud-button-label > span {
+    color: rgba(205, 213, 231, 0.68);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.075em;
+    line-height: 1.2;
+    text-transform: uppercase;
+}
+
+.sme-scope-switcher ::deep .sme-scope-chip .mud-button-label > small {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    color: rgba(246, 248, 253, 0.92);
+    font-size: 0.86rem;
+    font-weight: 600;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .sme-scope-picker-trigger {
@@ -1161,8 +1215,7 @@
 .sme-details-grid__secondary { grid-area: library; }
 .sme-details-grid ::deep .sme-details-grid__artwork {
     grid-area: artwork;
-    position: sticky;
-    top: 0;
+    position: static;
 }
 .sme-details-grid ::deep .sme-details-grid__source-facts {
     grid-area: facts;
@@ -6298,5 +6351,191 @@
     .sme-details-grid {
         grid-template-columns: 1fr;
         grid-template-areas: "artwork" "appearance" "library" "facts";
+    }
+}
+
+/* Final single-item proportions: artwork remains dominant and fields stay readable. */
+.sme-details-grid {
+    grid-template-columns: minmax(23rem, 30rem) minmax(32rem, 48rem);
+    justify-content: start;
+}
+
+/* Landscape stills keep their native geometry throughout Artwork instead of
+   inheriting the tall cover-card stage used by books and movies. */
+.sme-artwork-primary-row--landscape,
+.sme-artwork-primary-row--background {
+    grid-template-columns: repeat(2, minmax(18rem, 1fr));
+    align-items: start;
+    min-height: 0;
+}
+
+.sme-artwork-primary-row--landscape .sme-artwork-primary-card,
+.sme-artwork-primary-row--background .sme-artwork-primary-card {
+    align-self: start;
+    height: auto;
+}
+
+.sme-artwork-primary-row--landscape .sme-artwork-primary-card .sme-art-row-stage,
+.sme-artwork-primary-row--background .sme-artwork-primary-card .sme-art-row-stage {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+.sme-artwork-primary-row--landscape ::deep .sme-artwork-add-card,
+.sme-artwork-primary-row--background ::deep .sme-artwork-add-card {
+    min-height: 15rem;
+    align-self: stretch;
+}
+
+::deep .sme-artwork-variant-card--landscape,
+::deep .sme-artwork-variant-card--background {
+    flex-basis: 14rem;
+    width: 14rem;
+}
+
+::deep .sme-artwork-variant-card--landscape .sme-art-row-stage,
+::deep .sme-artwork-variant-card--background .sme-art-row-stage {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+}
+
+.sme-details-artwork img,
+.sme-details-artwork__fallback {
+    max-width: min(100%, 22rem);
+    max-height: 34rem;
+    object-fit: contain;
+}
+
+.sme-details-artwork.is-square img,
+.sme-details-artwork.is-square .sme-details-artwork__fallback {
+    width: min(100%, 24rem);
+    max-width: 24rem;
+}
+
+.sme-details-artwork.is-landscape img,
+.sme-details-artwork.is-landscape .sme-details-artwork__fallback {
+    width: 100%;
+    max-width: 30rem;
+}
+
+.sme-history-item-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 2rem;
+    min-height: 9rem;
+    padding: 1rem 1.35rem;
+}
+
+.sme-history-summary-facts {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.sme-history-toolbar {
+    margin-top: 0.85rem;
+}
+
+.sme-history-timeline-panel {
+    padding-top: 0.35rem;
+}
+
+.sme-history-day {
+    position: relative;
+    margin-top: 0.95rem;
+}
+
+.sme-history-date {
+    margin: 0 0 0.55rem;
+}
+
+.sme-history-day__events {
+    position: relative;
+    display: grid;
+    gap: 0.38rem;
+}
+
+.sme-history-day__events::before {
+    content: "";
+    position: absolute;
+    top: 1.35rem;
+    bottom: 1.35rem;
+    left: calc(8.75rem + 1.625rem);
+    width: 1px;
+    background: rgba(137, 157, 193, 0.24);
+}
+
+.sme-history-row--timeline {
+    grid-template-columns: 8.75rem 3.25rem minmax(0, 1fr);
+    gap: 0 0.85rem;
+    min-height: 4.25rem;
+}
+
+.sme-history-row--timeline::before {
+    content: none;
+}
+
+.sme-history-row--timeline .sme-history-icon {
+    width: 2.45rem;
+    height: 2.45rem;
+    border-color: rgba(158, 120, 255, 0.28);
+    background: #21164a;
+    color: #bd9cff;
+}
+
+.sme-history-row--timeline .sme-history-icon.is-artwork,
+.sme-history-row--timeline .sme-history-icon.is-review {
+    border-color: rgba(39, 201, 105, 0.3);
+    background: rgba(12, 83, 48, 0.72);
+    color: #35d477;
+}
+
+.sme-history-row--timeline .sme-history-icon.is-file {
+    border-color: rgba(66, 153, 255, 0.3);
+    background: rgba(17, 61, 111, 0.8);
+    color: #52a8ff;
+}
+
+.sme-history-row--timeline .sme-history-icon.is-manual {
+    border-color: rgba(239, 161, 40, 0.34);
+    background: rgba(91, 53, 8, 0.78);
+    color: #ffad31;
+}
+
+.sme-history-row--timeline .sme-history-icon.is-error {
+    border-color: rgba(255, 91, 112, 0.34);
+    background: rgba(100, 23, 37, 0.78);
+    color: #ff7082;
+}
+
+.sme-history-event-card {
+    min-height: 3.9rem;
+    padding: 0.72rem 0.95rem;
+    background: linear-gradient(90deg, rgba(19, 33, 55, 0.88), rgba(13, 25, 43, 0.82));
+}
+
+@media (max-width: 1180px) {
+    .sme-details-grid {
+        grid-template-columns: minmax(20rem, 25rem) minmax(0, 1fr);
+    }
+
+    .sme-history-summary-facts {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        row-gap: 0.85rem;
+    }
+
+    .sme-history-summary-facts > span:nth-child(4) {
+        padding-left: 0;
+        border-left: 0;
+    }
+}
+
+@media (max-width: 960px) {
+    .sme-details-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas: "artwork" "appearance" "library" "facts";
+    }
+
+    .sme-history-item-summary {
+        align-items: start;
     }
 }

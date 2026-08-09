@@ -7742,7 +7742,7 @@
     min-height: 0;
     padding: 0.2rem 0 0.55rem;
     overflow: hidden;
-    overscroll-behavior: contain;
+    overscroll-behavior: auto;
 }
 
 .tl-detail-stage--with-primary ::deep .tl-embedded-audio {
@@ -7858,7 +7858,7 @@
     min-height: 0;
     flex: 1 1 auto;
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior: auto;
     scrollbar-color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 56%, transparent) transparent;
 }
 
@@ -8002,7 +8002,7 @@
     height: 100%;
     max-height: 100%;
     overflow: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior: auto;
 }
 
 .tl-detail-stage--with-primary ::deep .tl-detail-primary-module--tracks .tl-detail-track-table thead {
@@ -8027,7 +8027,7 @@
 .tl-detail-stage--with-primary ::deep .tl-detail-primary-module--chapters .tl-audiobook-chapters__list {
     max-height: calc(100% - 4rem);
     overflow-y: auto;
-    overscroll-behavior: contain;
+    overscroll-behavior: auto;
 }
 
 /* Portrait covers remain restrained inside the larger identity-only hero.
@@ -8366,7 +8366,7 @@
         min-height: 0;
         flex: 1 1 auto;
         overflow-y: auto;
-        overscroll-behavior: contain;
+        overscroll-behavior: auto;
         border-top: 1px solid rgba(255, 255, 255, 0.09);
         scrollbar-color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 54%, transparent) transparent;
     }

@@ -24,14 +24,6 @@ else if (_work is null)
         Back to Home
     </AppButton>
 }
-else if (_inlineEditorSession is not null)
-{
-    <section class="bdc-inline-editor" aria-label="Book editor">
-        <SharedMediaEditorShell Request="_inlineEditorSession.Request"
-                                Inline="true"
-                                Closed="HandleInlineEditorClosedAsync" />
-    </section>
-}
 else
 {
     <div class="bdc-wrap @(Embedded ? "bdc-embedded-wrap" : "")">
@@ -568,7 +560,6 @@ else
     private bool                    _loading            = true;
     private CollectionViewModel?           _collection;
     private WorkViewModel?          _work;
-    private MediaEditorInlineSession? _inlineEditorSession;
     private Guid?                   _autoOpenEditConsumedFor;
     private List<WorkViewModel>     _siblingWorks       = [];
     private PersonViewModel?        _authorPerson;
@@ -784,7 +775,7 @@ else
             return;
 
         var activeProfile = await Orchestrator.GetActiveProfileAsync();
-        _inlineEditorSession = MediaEditorLauncher.BeginInline(new MediaEditorLaunchRequest
+        var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
         {
             EntityIds = [_work.Id],
             LaunchEntityId = _work.Id,
@@ -816,19 +807,8 @@ else
             ],
         });
 
-        await InvokeAsync(StateHasChanged);
-        await _inlineEditorSession.Completion;
-    }
-
-    private async Task HandleInlineEditorClosedAsync(bool applied)
-    {
-        var session = _inlineEditorSession;
-        _inlineEditorSession = null;
-        session?.TryComplete(applied);
         if (applied)
             await OnEditApplied();
-
-        await InvokeAsync(StateHasChanged);
     }
 
     private void ShowToast(string message)

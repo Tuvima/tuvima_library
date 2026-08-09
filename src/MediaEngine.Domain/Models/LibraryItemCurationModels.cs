@@ -29,7 +29,9 @@ public sealed record LibraryItemHistoryEntry(
     [property: JsonPropertyName("occurred_at")] DateTimeOffset OccurredAt,
     [property: JsonPropertyName("event_type")] string EventType,
     [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("detail")] string? Detail);
+    [property: JsonPropertyName("detail")] string? Detail,
+    [property: JsonPropertyName("category")] string Category,
+    [property: JsonPropertyName("actor_label")] string ActorLabel);
 
 public sealed class LibraryItemProvisionalMetadata
 {

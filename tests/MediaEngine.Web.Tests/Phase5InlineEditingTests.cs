@@ -9,30 +9,28 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("MediaEditorLauncherService MediaEditorLauncher", source, StringComparison.Ordinal);
         Assert.Contains("action.Key is \"edit-media\" or \"edit\"", source, StringComparison.Ordinal);
-        Assert.Contains("MediaEditorLauncher.BeginInline(request)", source, StringComparison.Ordinal);
-        Assert.Contains("<SharedMediaEditorShell", source, StringComparison.Ordinal);
-        Assert.Contains("Inline=\"true\"", source, StringComparison.Ordinal);
-        Assert.Contains("HeroConstrained=\"true\"", source, StringComparison.Ordinal);
+        Assert.Contains("MediaEditorLauncher.OpenAsync(request)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("MediaEditorLauncher.BeginInline", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SharedMediaEditorShell", source, StringComparison.Ordinal);
         Assert.Contains("<DetailPrimaryModule Model=\"Model\"", source, StringComparison.Ordinal);
         Assert.Contains("ActiveProfileId = activeProfile?.Id", source, StringComparison.Ordinal);
         Assert.Contains("Mode = SharedMediaEditorMode.Normal", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void DetailPage_OnlyFlipsTheHeroAndKeepsLowerDetailContentMounted()
+    public void DetailPage_KeepsDetailContentMountedWhileModalEditorIsOpen()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor");
-        var stageIndex = source.IndexOf("tl-detail-edit-stage", StringComparison.Ordinal);
-        var editorIndex = source.IndexOf("HeroConstrained=\"true\"", stageIndex, StringComparison.Ordinal);
-        var primaryIndex = source.IndexOf("<DetailPrimaryModule Model=\"Model\"", editorIndex, StringComparison.Ordinal);
+        var heroIndex = source.IndexOf("<DetailHero Model=\"Model\"", StringComparison.Ordinal);
+        var primaryIndex = source.IndexOf("<DetailPrimaryModule Model=\"Model\"", heroIndex, StringComparison.Ordinal);
         var tabsIndex = source.IndexOf("<DetailTabs Tabs=\"VisibleTabs\"", primaryIndex, StringComparison.Ordinal);
         var bodyIndex = source.IndexOf("<section id=\"@CurrentActiveTab\"", tabsIndex, StringComparison.Ordinal);
 
-        Assert.True(stageIndex >= 0);
-        Assert.True(editorIndex > stageIndex);
-        Assert.True(primaryIndex > editorIndex);
+        Assert.True(heroIndex >= 0);
+        Assert.True(primaryIndex > heroIndex);
         Assert.True(tabsIndex > primaryIndex);
         Assert.True(bodyIndex > tabsIndex);
+        Assert.DoesNotContain("tl-detail-edit-stage", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -90,6 +88,7 @@ public sealed class Phase5InlineEditingTests
     public void SharedEditor_DetailsTabUsesInlineMetadataOverrideLayout()
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.css");
 
         Assert.Contains("Title=\"Appearance\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"My Library\"", shell, StringComparison.Ordinal);
@@ -97,6 +96,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("sme-details-grid", shell, StringComparison.Ordinal);
         Assert.Contains("sme-details-artwork__identity", shell, StringComparison.Ordinal);
         Assert.Contains("sme-details-grid__artwork", shell, StringComparison.Ordinal);
+        Assert.Contains(".sme-details-grid ::deep .sme-details-grid__artwork", styles, StringComparison.Ordinal);
+        Assert.Contains("position: static", styles, StringComparison.Ordinal);
         Assert.Contains("MediaEditorTagEditor", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-sidebar-artwork", shell, StringComparison.Ordinal);
         Assert.Contains("@if (!Inline)", shell, StringComparison.Ordinal);
@@ -352,7 +353,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("SelectContentItemAsync(group, item)", shell, StringComparison.Ordinal);
         Assert.Contains("sme-content-inspector", shell, StringComparison.Ordinal);
         Assert.Contains("SaveFocusedContentItemAsync", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("await SelectNavigatorNodeAsync(item.EntityId);", code, StringComparison.Ordinal);
+        Assert.Contains("LoadSingleItemAsync(item.EntityId, resetEditorState: false, preferredScopeId: \"episode\")", code, StringComparison.Ordinal);
+        Assert.Contains("_focusedContentItem = item;", code, StringComparison.Ordinal);
+        Assert.Contains("string.Equals(_selectedMediaType, \"TV\"", code, StringComparison.Ordinal);
         Assert.Contains("CompactOrdinalLabel", dto, StringComparison.Ordinal);
         Assert.Contains("PrimaryAssetId", dto, StringComparison.Ordinal);
         Assert.Contains("IsClickable", dto, StringComparison.Ordinal);

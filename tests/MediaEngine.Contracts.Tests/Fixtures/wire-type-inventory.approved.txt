@@ -2807,7 +2807,9 @@
   EventType: System.String | json=event_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Label: System.String | json=label | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Detail: System.String | json=detail | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"sample","entity_id":"11111111-2222-3333-4444-555555555555","occurred_at":"2025-01-02T03:04:05+00:00","event_type":"sample","label":"sample","detail":"sample"}
+  Category: System.String | json=category | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ActorLabel: System.String | json=actor_label | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"sample","entity_id":"11111111-2222-3333-4444-555555555555","occurred_at":"2025-01-02T03:04:05+00:00","event_type":"sample","label":"sample","detail":"sample","category":"sample","actor_label":"sample"}
 
 [contracts] MediaEngine.Contracts.Items.LibraryItemLifecycleCountsDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6724,7 +6726,9 @@
   EventType: System.String | json=event_type | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Label: System.String | json=label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Detail: System.String | json=detail | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"sample","entity_id":"11111111-2222-3333-4444-555555555555","occurred_at":"2025-01-02T03:04:05+00:00","event_type":"sample","label":"sample","detail":"sample"}
+  Category: System.String | json=category | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ActorLabel: System.String | json=actor_label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"sample","entity_id":"11111111-2222-3333-4444-555555555555","occurred_at":"2025-01-02T03:04:05+00:00","event_type":"sample","label":"sample","detail":"sample","category":"sample","actor_label":"sample"}
 
 [web-client] MediaEngine.Web.Models.ViewDTOs.LibraryItemLifecycleCountsDto
   kind=class | converter=default | number-handling=default | unmapped=default

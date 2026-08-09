@@ -978,6 +978,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
                 EventType = item.EventType,
                 Label = item.Label,
                 Detail = item.Detail,
+                Category = item.Category,
+                ActorLabel = item.ActorLabel,
             }).ToList() ?? [];
         }
         catch (OperationCanceledException) { return []; }

@@ -513,6 +513,12 @@ public sealed class LibraryItemHistoryDto
 
     [JsonPropertyName("detail")]
     public string? Detail { get; set; }
+
+    [JsonPropertyName("category")]
+    public string Category { get; set; } = "metadata";
+
+    [JsonPropertyName("actor_label")]
+    public string ActorLabel { get; set; } = "System";
 }
 
 /// <summary>Four-state counts for the LibraryItem lifecycle: Identified, InReview, Provisional, Rejected.</summary>
