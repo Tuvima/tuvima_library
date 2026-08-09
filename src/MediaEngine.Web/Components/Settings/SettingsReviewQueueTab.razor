@@ -1,11 +1,32 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject MediaEditorLauncherService MediaEditorLauncher
 @inject ISnackbar Snackbar
 @using MediaEngine.Web.Services.Editing
 
 <div class="tl-page settings-review-page">
-    <AppPanel Density="AppSurfaceDensity.Compact" Class="mb-3">
+    <div class="settings-review-toolbar">
+        <AppButton Label="Refresh"
+                   Size="AppControlSize.Compact"
+                   StartIcon="@Icons.Material.Outlined.Refresh"
+                   Disabled="@_loading"
+                   OnClick="LoadAsync" />
+    </div>
+
+    <div class="settings-review-summary" aria-label="Review queue summary">
+        @foreach (var summary in SummaryCards)
+        {
+            <AppNativeButton Type="button"
+                             Class="@($"settings-review-summary__card {(summary.Bucket == _bucketFilter ? "is-active" : string.Empty)}")"
+                             aria-pressed="@(summary.Bucket == _bucketFilter)"
+                             OnClick="@(() => _bucketFilter = summary.Bucket)">
+                <span class="settings-review-summary__icon"><MudIcon Icon="@summary.Icon" /></span>
+                <span><small>@summary.Label</small><strong>@summary.Count</strong></span>
+            </AppNativeButton>
+        }
+    </div>
+
+    <AppPanel Density="AppSurfaceDensity.Compact">
         <div class="settings-review-filter-bar">
             <AppTextField @bind-Value="_query"
                           Placeholder="Search review items"
@@ -21,11 +42,10 @@
                        Label="Reason"
                        Options="@ReasonOptions"
                        Class="settings-review-filter-bar__select" />
-            <AppButton Label="Refresh"
-                       Size="AppControlSize.Compact"
-                       StartIcon="@Icons.Material.Outlined.Refresh"
-                       Disabled="@_loading"
-                       OnClick="LoadAsync" />
+            <AppSelect T="string" @bind-Value="_sortOrder"
+                       Label="Sort"
+                       Options="@SortOptions"
+                       Class="settings-review-filter-bar__select" />
         </div>
     </AppPanel>
 
@@ -39,89 +59,132 @@
     }
     else if (_items.Count == 0)
     {
-        <AppEmptyState Title="No pending review items"
-                       Message="The ingestion safety queue is clear." />
+        <AppEmptyState Title="No pending review items" Message="The ingestion safety queue is clear." />
     }
     else
     {
-        <div class="settings-review-table-shell @(_loading ? "is-refreshing" : null)">
-        @if (!string.IsNullOrWhiteSpace(_error))
-        {
-            <AppAlert Tone="AppUiTone.Warning" Class="settings-review-refresh-error">@_error</AppAlert>
-        }
-        @if (_loading)
-        {
-            <AppProgressBar Indeterminate="true" Class="settings-review-refresh-bar" />
-        }
-        <AppTable Class="settings-review-table">
-            <thead>
-                <tr>
-                    <th>Item</th>
-                    <th>Reason</th>
-                    <th>Evidence</th>
-                    <th>Age</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
+        <div class="settings-review-workspace @(_loading ? "is-refreshing" : null)">
+            @if (_loading)
+            {
+                <AppProgressBar Indeterminate="true" Class="settings-review-refresh-bar" />
+            }
+            <section class="settings-review-list" aria-label="Pending review items">
+                @if (VisibleItems.Count == 0)
+                {
+                    <AppEmptyState Title="No matching issues" Message="Try clearing one or more filters." />
+                }
                 @foreach (var item in VisibleItems)
                 {
-                    var target = ReviewTargetResolver.Resolve(item.MediaType, item.Trigger);
-                    <tr @key="item.Id">
-                        <td>
-                            <div class="settings-review-item">
-                                <div class="settings-review-cover">
-                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
-                                    {
-                                        <img src="@item.CoverUrl" alt="" />
-                                    }
-                                    else
-                                    {
-                                        <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" />
-                                    }
-                                </div>
-                                <div>
-                                    <strong>@DisplayTitle(item)</strong>
-                                    <span class="settings-muted">@StringHelpers.FirstNonBlankOr("", item.MediaType, item.EntityType, "Unknown")</span>
-                                </div>
-                            </div>
-                        </td>
-                        <td>
-                            <AppChip Text="@FormatTrigger(item.Trigger)" Tone="AppUiTone.Warning" />
-                        </td>
-                        <td>
-                            <div class="settings-review-evidence">
-                                <span>@ConfidenceLabel(item.ConfidenceScore)</span>
-                                <span class="settings-muted">@BridgeSummary(item)</span>
-                            </div>
-                        </td>
-                        <td>@RelativeAge(item.CreatedAt)</td>
-                        <td>
-                            <AppActionBar Align="AppHorizontalAlignment.Start" Class="settings-review-actions">
-                                <AppButton Label="@target.PrimaryActionLabel"
-                                           Size="AppControlSize.Compact"
-                                           ButtonStyle="AppButtonStyle.Filled"
-                                           Tone="AppUiTone.Warning"
-                                           Disabled="@_busyIds.Contains(item.Id)"
-                                           OnClick="@(() => OpenReviewEditorAsync(item))" />
-                                <AppButton Label="Dismiss"
-                                           Size="AppControlSize.Compact"
-                                           Tone="AppUiTone.Warning"
-                                           Disabled="@_busyIds.Contains(item.Id)"
-                                           OnClick="@(() => DismissAsync(item))" />
-                                @if (IsWikidataReview(item.Trigger))
-                                {
-                                    <AppButton Label="Mark Provider-Only"
-                                               Size="AppControlSize.Compact"
-                                               Disabled="@_busyIds.Contains(item.Id)"
-                                               OnClick="@(() => SkipUniverseAsync(item))" />
-                                }
-                            </AppActionBar>
-                        </td>
-                    </tr>
+                    var presentation = ReviewIssueClassifier.Classify(item.Trigger);
+                    <AppNativeButton Type="button"
+                                     Class="@($"settings-review-row {(SelectedItem?.Id == item.Id ? "is-selected" : string.Empty)}")"
+                                     aria-pressed="@(SelectedItem?.Id == item.Id)"
+                                     @key="item.Id"
+                                     OnClick="@(() => SelectItem(item))">
+                        <span class="settings-review-cover">
+                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                            {
+                                <img src="@item.CoverUrl" alt="" />
+                            }
+                            else
+                            {
+                                <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" />
+                            }
+                        </span>
+                        <span class="settings-review-row__identity">
+                            <strong>@DisplayTitle(item)</strong>
+                            <small>@StringHelpers.FirstNonBlankOr("", item.MediaType, item.EntityType, "Unknown")</small>
+                        </span>
+                        <AppChip Text="@presentation.Label" Tone="@(presentation.HighPriority ? AppUiTone.Error : AppUiTone.Warning)" />
+                        <span class="settings-review-row__evidence">
+                            <span>@ConfidenceLabel(item.ConfidenceScore)</span>
+                            <small>@RelativeAge(item.CreatedAt)</small>
+                        </span>
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
+                    </AppNativeButton>
                 }
-            </tbody>
-        </AppTable>
+                <footer>Showing @VisibleItems.Count of @_items.Count open issues</footer>
+            </section>
+
+            <aside class="settings-review-inspector" aria-live="polite">
+                @if (SelectedItem is not { } selected)
+                {
+                    <AppEmptyState Title="Select an issue" Message="Choose an item to inspect its evidence and available actions." />
+                }
+                else
+                {
+                    var presentation = ReviewIssueClassifier.Classify(selected.Trigger);
+                    var target = ReviewTargetResolver.Resolve(selected.MediaType, selected.Trigger);
+                    <header class="settings-review-inspector__header">
+                        <div>
+                            <small>Issue details</small>
+                            <h3>@DisplayTitle(selected)</h3>
+                        </div>
+                        <AppChip Text="@presentation.Label" Tone="@(presentation.HighPriority ? AppUiTone.Error : AppUiTone.Warning)" />
+                    </header>
+
+                    <section>
+                        <h4>Why this needs review</h4>
+                        <p>@presentation.Explanation</p>
+                        @if (!string.IsNullOrWhiteSpace(selected.Detail))
+                        {
+                            <p class="settings-muted">@selected.Detail</p>
+                        }
+                    </section>
+
+                    <dl class="settings-review-inspector__facts">
+                        <div><dt>Detected</dt><dd>@RelativeAge(selected.CreatedAt) ago</dd></div>
+                        <div><dt>Confidence</dt><dd>@ConfidenceLabel(selected.ConfidenceScore)</dd></div>
+                        <div><dt>Media type</dt><dd>@StringHelpers.FirstNonBlankOr("", selected.MediaType, selected.EntityType, "Unknown")</dd></div>
+                        <div><dt>Status</dt><dd>@selected.Status</dd></div>
+                    </dl>
+
+                    @if (selected.BridgeIdentifiers.Count > 0)
+                    {
+                        <section>
+                            <h4>Identity evidence</h4>
+                            <div class="settings-review-inspector__chips">
+                                @foreach (var identifier in selected.BridgeIdentifiers)
+                                {
+                                    <AppChip Text="@($"{FormatTrigger(identifier.Key)}: {identifier.Value}")" />
+                                }
+                            </div>
+                        </section>
+                    }
+
+                    <div class="settings-review-inspector__actions">
+                        @if (selected.Trigger == "WritebackFailed")
+                        {
+                            <AppButton Label="Retry write-back"
+                                       ButtonStyle="AppButtonStyle.Filled"
+                                       Tone="AppUiTone.Primary"
+                                       StartIcon="@Icons.Material.Outlined.Refresh"
+                                       Disabled="@_busyIds.Contains(selected.Id)"
+                                       OnClick="@(() => RetryWritebackAsync(selected))" />
+                        }
+                        <AppButton Label="@target.PrimaryActionLabel"
+                                   ButtonStyle="AppButtonStyle.Filled"
+                                   Tone="AppUiTone.Primary"
+                                   StartIcon="@Icons.Material.Outlined.Build"
+                                   Disabled="@_busyIds.Contains(selected.Id)"
+                                   OnClick="@(() => OpenReviewEditorAsync(selected))" />
+                        <AppButton Label="Open full editor"
+                                   StartIcon="@Icons.Material.Outlined.OpenInNew"
+                                   Disabled="@_busyIds.Contains(selected.Id)"
+                                   OnClick="@(() => OpenReviewEditorAsync(selected))" />
+                        @if (IsWikidataReview(selected.Trigger))
+                        {
+                            <AppButton Label="Keep provider match"
+                                       Disabled="@_busyIds.Contains(selected.Id)"
+                                       OnClick="@(() => SkipUniverseAsync(selected))" />
+                        }
+                        <AppButton Label="Dismiss issue"
+                                   Tone="AppUiTone.Warning"
+                                   Disabled="@_busyIds.Contains(selected.Id)"
+                                   OnClick="@(() => DismissAsync(selected))" />
+                    </div>
+                }
+            </aside>
         </div>
     }
 </div>
@@ -131,37 +194,41 @@
     private readonly HashSet<Guid> _busyIds = [];
     private bool _loading = true;
     private string? _error;
+    private Guid? _selectedId;
     private string _query = string.Empty;
     private string _mediaTypeFilter = AllFilter;
     private string _reasonFilter = AllFilter;
+    private string _sortOrder = "oldest";
+    private ReviewIssueBucket _bucketFilter = ReviewIssueBucket.All;
     private const string AllFilter = "all";
 
-    private IReadOnlyList<ReviewItemViewModel> VisibleItems => _items
-        .Where(item => _mediaTypeFilter == AllFilter
-            || string.Equals(item.MediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase))
-        .Where(item => _reasonFilter == AllFilter
-            || string.Equals(item.Trigger, _reasonFilter, StringComparison.OrdinalIgnoreCase))
-        .Where(item => string.IsNullOrWhiteSpace(_query)
-            || DisplayTitle(item).Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase)
-            || item.Trigger?.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) == true
-            || item.MediaType?.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) == true)
-        .ToList();
+    private ReviewItemViewModel? SelectedItem => _items.FirstOrDefault(item => item.Id == _selectedId);
+    private IReadOnlyList<ReviewItemViewModel> VisibleItems => FilterItems().ToList();
+    private IEnumerable<ReviewItemViewModel> FilterItems()
+    {
+        var filtered = _items
+            .Where(item => _bucketFilter == ReviewIssueBucket.All || ReviewIssueClassifier.Classify(item.Trigger).Bucket == _bucketFilter)
+            .Where(item => _mediaTypeFilter == AllFilter || string.Equals(item.MediaType, _mediaTypeFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(item => _reasonFilter == AllFilter || string.Equals(item.Trigger, _reasonFilter, StringComparison.OrdinalIgnoreCase))
+            .Where(item => string.IsNullOrWhiteSpace(_query)
+                || DisplayTitle(item).Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase)
+                || item.Trigger.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase)
+                || item.MediaType?.Contains(_query.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+        return _sortOrder == "newest" ? filtered.OrderByDescending(item => item.CreatedAt) : filtered.OrderBy(item => item.CreatedAt);
+    }
 
-    private IReadOnlyList<AppSelectOption> MediaTypeOptions =>
-        [new(AllFilter, "All media types"), .. _items
-            .Select(item => item.MediaType)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .Select(value => new AppSelectOption(value!, value!))];
+    private IReadOnlyList<(ReviewIssueBucket Bucket, string Label, int Count, string Icon)> SummaryCards =>
+    [
+        (ReviewIssueBucket.All, "Open issues", _items.Count, Icons.Material.Outlined.AssignmentLate),
+        (ReviewIssueBucket.QuickFix, "Quick fixes", Count(ReviewIssueBucket.QuickFix), Icons.Material.Outlined.Bolt),
+        (ReviewIssueBucket.ManualReview, "Manual review", Count(ReviewIssueBucket.ManualReview), Icons.Material.Outlined.PersonSearch),
+        (ReviewIssueBucket.HighPriority, "High priority", Count(ReviewIssueBucket.HighPriority), Icons.Material.Outlined.Flag),
+    ];
+    private int Count(ReviewIssueBucket bucket) => _items.Count(item => ReviewIssueClassifier.Classify(item.Trigger).Bucket == bucket);
 
-    private IReadOnlyList<AppSelectOption> ReasonOptions =>
-        [new(AllFilter, "All reasons"), .. _items
-            .Select(item => item.Trigger)
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .Order(StringComparer.OrdinalIgnoreCase)
-            .Select(value => new AppSelectOption(value!, FormatTrigger(value!)))];
+    private IReadOnlyList<AppSelectOption> MediaTypeOptions => [new(AllFilter, "All media types"), .. _items.Select(item => item.MediaType).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).Select(value => new AppSelectOption(value!, value!))];
+    private IReadOnlyList<AppSelectOption> ReasonOptions => [new(AllFilter, "All reasons"), .. _items.Select(item => item.Trigger).Where(value => !string.IsNullOrWhiteSpace(value)).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).Select(value => new AppSelectOption(value, FormatTrigger(value)))];
+    private static IReadOnlyList<AppSelectOption> SortOptions => [new("oldest", "Oldest first"), new("newest", "Newest first")];
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -169,22 +236,17 @@
     {
         _loading = true;
         _error = null;
-
         try
         {
+            var previous = _selectedId;
             _items = await Orchestrator.GetPendingReviewsAsync(200);
+            _selectedId = _items.Any(item => item.Id == previous) ? previous : _items.FirstOrDefault()?.Id;
         }
-        catch (Exception ex)
-        {
-            _error = $"Review queue could not load: {ex.Message}";
-            if (_items.Count == 0)
-                _items = [];
-        }
-        finally
-        {
-            _loading = false;
-        }
+        catch (Exception ex) { _error = $"Review queue could not load: {ex.Message}"; }
+        finally { _loading = false; }
     }
+
+    private void SelectItem(ReviewItemViewModel item) => _selectedId = item.Id;
 
     private async Task DismissAsync(ReviewItemViewModel item)
     {
@@ -194,17 +256,12 @@
             if (await Orchestrator.DismissReviewAsync(item.Id))
             {
                 _items.Remove(item);
+                _selectedId = _items.FirstOrDefault()?.Id;
                 Snackbar.Add("Review item dismissed.", Severity.Success);
             }
-            else
-            {
-                Snackbar.Add("Review item could not be dismissed.", Severity.Warning);
-            }
+            else Snackbar.Add("Review item could not be dismissed.", Severity.Warning);
         }
-        finally
-        {
-            _busyIds.Remove(item.Id);
-        }
+        finally { _busyIds.Remove(item.Id); }
     }
 
     private async Task OpenReviewEditorAsync(ReviewItemViewModel item)
@@ -216,45 +273,18 @@
             var title = DisplayTitle(item);
             var applied = await MediaEditorLauncher.OpenAsync(new MediaEditorLaunchRequest
             {
-                EntityIds = [item.EntityId],
-                LaunchEntityId = item.EntityId,
+                EntityIds = [item.EntityId], LaunchEntityId = item.EntityId,
                 LaunchEntityKind = StringHelpers.FirstNonBlankOr("", item.EntityType, "review"),
-                Mode = SharedMediaEditorMode.Review,
-                IdentityIntent = target.Intent,
-                InitialTab = target.InitialTab,
-                InitialCanonicalTargetGroup = target.CanonicalTargetGroup,
-                ReviewItemId = item.Id,
-                ReviewTrigger = item.Trigger,
-                MediaType = item.MediaType,
-                HeaderTitle = title,
-                HeaderSubtitle = FormatTrigger(item.Trigger),
-                CoverUrl = item.CoverUrl,
-                PreviewItems =
-                [
-                    new MediaEditorPreviewItem
-                    {
-                        EntityId = item.EntityId,
-                        Title = title,
-                        CoverUrl = item.CoverUrl,
-                        MediaType = item.MediaType,
-                    },
-                ],
+                Mode = SharedMediaEditorMode.Review, IdentityIntent = target.Intent,
+                InitialTab = target.InitialTab, InitialCanonicalTargetGroup = target.CanonicalTargetGroup,
+                ReviewItemId = item.Id, ReviewTrigger = item.Trigger, MediaType = item.MediaType,
+                HeaderTitle = title, HeaderSubtitle = FormatTrigger(item.Trigger), CoverUrl = item.CoverUrl,
+                PreviewItems = [new MediaEditorPreviewItem { EntityId = item.EntityId, Title = title, CoverUrl = item.CoverUrl, MediaType = item.MediaType }],
             });
-
-            if (applied)
-            {
-                await LoadAsync();
-                Snackbar.Add("Review changes applied.", Severity.Success);
-            }
+            if (applied) { await LoadAsync(); Snackbar.Add("Review changes applied.", Severity.Success); }
         }
-        catch (Exception ex)
-        {
-            Snackbar.Add($"Review editor could not open: {ex.Message}", Severity.Error);
-        }
-        finally
-        {
-            _busyIds.Remove(item.Id);
-        }
+        catch (Exception ex) { Snackbar.Add($"Review editor could not open: {ex.Message}", Severity.Error); }
+        finally { _busyIds.Remove(item.Id); }
     }
 
     private async Task SkipUniverseAsync(ReviewItemViewModel item)
@@ -264,54 +294,34 @@
         {
             if (await Orchestrator.SkipUniverseAsync(item.Id))
             {
-                _items.Remove(item);
-                Snackbar.Add("Universe matching skipped for this item.", Severity.Success);
+                _items.Remove(item); _selectedId = _items.FirstOrDefault()?.Id;
+                Snackbar.Add("Provider match kept and canonical matching skipped.", Severity.Success);
             }
-            else
-            {
-                Snackbar.Add("Universe matching could not be skipped.", Severity.Warning);
-            }
+            else Snackbar.Add("The issue could not be resolved.", Severity.Warning);
         }
-        finally
-        {
-            _busyIds.Remove(item.Id);
-        }
+        finally { _busyIds.Remove(item.Id); }
     }
 
-    private static string DisplayTitle(ReviewItemViewModel item) =>
-        StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
-
-    private static string FormatTrigger(string trigger) =>
-        string.IsNullOrWhiteSpace(trigger)
-            ? "Review"
-            : string.Concat(trigger.Select((c, i) => i > 0 && char.IsUpper(c) ? $" {c}" : c.ToString()));
-
-    private static string ConfidenceLabel(double? confidence) =>
-        confidence.HasValue ? $"{confidence.Value:P0} confidence" : "No confidence score";
-
-    private static string BridgeSummary(ReviewItemViewModel item)
+    private async Task RetryWritebackAsync(ReviewItemViewModel item)
     {
-        if (item.BridgeIdentifiers.Count == 0)
+        _busyIds.Add(item.Id);
+        try
         {
-            return "No bridge IDs";
+            if (await Orchestrator.RetryRetagForAssetAsync(item.EntityId))
+                Snackbar.Add("Write-back retry queued. This issue will remain open until the file is written successfully.", Severity.Info);
+            else
+                Snackbar.Add("Write-back retry could not be queued.", Severity.Warning);
         }
-
-        return string.Join(", ", item.BridgeIdentifiers.Take(3).Select(kv => $"{kv.Key}: {kv.Value}"));
+        finally { _busyIds.Remove(item.Id); }
     }
 
-    private static bool IsWikidataReview(string? trigger) =>
-        trigger is "WikidataBridgeFailed" or "MissingQid" or "MultipleQidMatches" or "QidNoMatch";
-
+    private static string DisplayTitle(ReviewItemViewModel item) => StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
+    private static string FormatTrigger(string trigger) => string.IsNullOrWhiteSpace(trigger) ? "Review" : string.Concat(trigger.Select((c, i) => i > 0 && char.IsUpper(c) ? $" {c}" : c.ToString())).Replace('_', ' ');
+    private static string ConfidenceLabel(double? confidence) => confidence.HasValue ? $"{confidence.Value:P0} confidence" : "Not scored";
+    private static bool IsWikidataReview(string? trigger) => trigger is "WikidataBridgeFailed" or "MissingQid" or "MultipleQidMatches" or "QidNoMatch";
     private static string RelativeAge(DateTimeOffset createdAt)
     {
         var elapsed = DateTimeOffset.UtcNow - createdAt;
-        return elapsed.TotalMinutes switch
-        {
-            < 1 => "just now",
-            < 60 => $"{(int)elapsed.TotalMinutes}m",
-            < 1440 => $"{(int)elapsed.TotalHours}h",
-            _ => $"{(int)elapsed.TotalDays}d",
-        };
+        return elapsed.TotalMinutes switch { < 1 => "just now", < 60 => $"{(int)elapsed.TotalMinutes}m", < 1440 => $"{(int)elapsed.TotalHours}h", _ => $"{(int)elapsed.TotalDays}d" };
     }
-
 }

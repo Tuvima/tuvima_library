@@ -1,5 +1,7 @@
 ﻿@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Services.Editing
 @inject UIOrchestratorService Orchestrator
+@inject EditorAiCapabilityService EditorAiCapabilities
 
 <div class="tl-page">
     <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
@@ -78,6 +80,7 @@
     private bool _saving;
     private string? _message;
     private Severity _messageSeverity = Severity.Info;
+    private EditorAiCapability? _chapterNamingCapability;
     private AppUiTone MessageTone => ToTone(_messageSeverity);
 
     protected override async Task OnInitializedAsync()
@@ -85,6 +88,7 @@
         _config = await Orchestrator.GetAiConfigAsync();
         _status = await Orchestrator.GetAiStatusAsync();
         _models = (await Orchestrator.GetAiModelStatusesAsync()).ToList();
+        _chapterNamingCapability = await EditorAiCapabilities.GetAudiobookChapterNamingAsync();
     }
 
     private bool IsEnabled(string key) => _config?.Features.TryGetValue(key, out var enabled) == true && enabled;
@@ -111,6 +115,11 @@
 
     private DependencyStatus GetDependency(FeatureDefinition feature)
     {
+        if (feature.Key == EditorAiFeatureKeys.AudiobookChapterNaming && _chapterNamingCapability is { } editorCapability)
+            return editorCapability.IsAvailable
+                ? new("Ready", editorCapability.Explanation, AppUiTone.Success)
+                : new("Unavailable", editorCapability.Explanation, AppUiTone.Warning);
+
         if (!feature.Connected)
             return new("Not connected", "This setting is saved but the Engine does not use it yet.", AppUiTone.Neutral);
 
@@ -169,6 +178,7 @@
 
     private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
     [
+        new(EditorAiFeatureKeys.AudiobookChapterNaming, "Audiobook chapter naming", "Suggests display-only chapter titles for review in the media editor.", "text_quality", "medium", true),
         new("smart_labeling", "Smart labeling", "Cleans filenames and extracts initial metadata during ingestion.", "text_fast", "low", true),
         new("type_logic", "Type logic", "Classifies ambiguous media types during ingestion.", "text_fast", "low", true),
         new("audio_language_detection", "Audio language detection", "Uses Whisper to detect audio language.", "audio", "medium", true),

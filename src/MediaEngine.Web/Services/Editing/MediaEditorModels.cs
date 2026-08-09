@@ -452,8 +452,8 @@ public static class MediaEditorSchemaCatalog
     private static readonly MediaEditorSchema Audiobooks = new()
     {
         MediaType = "Audiobooks",
-        DefaultTargetGroup = "narrator",
-        QuickSearchTargets = [("narrator", "Narrator"), ("audiobook_identity", "Audiobook")],
+        DefaultTargetGroup = "audiobook_identity",
+        QuickSearchTargets = [("audiobook_identity", "Audiobook"), ("narrator", "Narrator")],
         Groups =
         [
             Group("audiobook_details", "Details", "details",

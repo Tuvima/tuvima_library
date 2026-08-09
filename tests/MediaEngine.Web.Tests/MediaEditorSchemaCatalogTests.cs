@@ -7,6 +7,16 @@ namespace MediaEngine.Web.Tests;
 public sealed class MediaEditorSchemaCatalogTests
 {
     [Fact]
+    public void Resolve_AudiobookUsesWorkIdentityBeforeNarrator()
+    {
+        var schema = MediaEditorSchemaCatalog.Resolve("Audiobooks");
+
+        Assert.Equal("audiobook_identity", schema.DefaultTargetGroup);
+        Assert.Equal(("audiobook_identity", "Audiobook"), schema.QuickSearchTargets[0]);
+        Assert.Equal(("narrator", "Narrator"), schema.QuickSearchTargets[1]);
+    }
+
+    [Fact]
     public void BuildValueMap_ComicItemUsesIssueDescriptionInsteadOfInheritedSeriesDescription()
     {
         var detail = new LibraryItemDetailViewModel

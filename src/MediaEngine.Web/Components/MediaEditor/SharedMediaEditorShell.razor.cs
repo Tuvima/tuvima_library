@@ -69,6 +69,7 @@ public partial class SharedMediaEditorShell
     [Inject] protected UIOrchestratorService Orchestrator { get; set; } = null!;
     [Inject] protected ISnackbar Snackbar { get; set; } = null!;
     [Inject] protected IJSRuntime JS { get; set; } = null!;
+    [Inject] protected EditorAiCapabilityService EditorAiCapabilities { get; set; } = null!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -133,6 +134,7 @@ public partial class SharedMediaEditorShell
     private bool _searchingCanonical;
     private bool _artworkUrlSubmitting;
     private bool _providerArtworkRefreshing;
+    private bool _suggestingChapterNames;
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
     private string? _dragTargetArtworkType;
@@ -148,6 +150,9 @@ public partial class SharedMediaEditorShell
     private string _lastNonFileTab => _tabState.LastNonFileTab;
     private bool _showArtworkUrlInput;
     private bool _matchActionPending;
+    private bool _showMatchSearch;
+    private bool _showAdvancedMatch;
+    private bool _customizeMatchChanges;
     private bool _hasCommittedChanges;
     private string? _matchActionStatus;
     private Guid? _matchIdentityJobId;
@@ -155,6 +160,7 @@ public partial class SharedMediaEditorShell
     private string? _fieldToFocus;
     private string? _focusedAudiobookChapterKey;
     private ContainerReturnState? _containerReturnState;
+    private EditorAiCapability _chapterNamingCapability = new(false, "Checking local AI availability.");
 
     protected IReadOnlyList<(string Id, string Label, string Icon)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
@@ -326,7 +332,7 @@ public partial class SharedMediaEditorShell
         public double CompletionPercent => TotalCount == 0 ? 0 : OwnedCount * 100.0 / TotalCount;
     }
 
-    private sealed record AudiobookChapterEdit(Guid AssetId, int ChapterIndex, string Title);
+    private sealed record AudiobookChapterEdit(Guid AssetId, int ChapterIndex, string Title, string TitleSource);
 
     private sealed record ContainerReturnState(Guid EntityId, string TabId, string Label, string? Context);
 
@@ -417,6 +423,8 @@ public partial class SharedMediaEditorShell
 
             await LoadProfilePreferencesAsync(CurrentEntityId);
             await LoadAudiobookChapterOverrideStateAsync(CurrentEntityId);
+            if (string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
+                _chapterNamingCapability = await EditorAiCapabilities.GetAudiobookChapterNamingAsync();
 
             _dragTargetArtworkType = null;
             _showQuarantineConfirm = false;
@@ -526,7 +534,7 @@ public partial class SharedMediaEditorShell
         if (string.IsNullOrWhiteSpace(normalized) || string.Equals(normalized, chapter.Title, StringComparison.Ordinal))
             _audiobookChapterEdits.Remove(key);
         else
-            _audiobookChapterEdits[key] = new AudiobookChapterEdit(assetId, chapter.ChapterIndex.Value, normalized);
+            _audiobookChapterEdits[key] = new AudiobookChapterEdit(assetId, chapter.ChapterIndex.Value, normalized, PlaybackChapterTitleSources.Override);
     }
 
     protected void QueueAudiobookChapterReset(MediaGroupingItemViewModel chapter)
@@ -535,6 +543,67 @@ public partial class SharedMediaEditorShell
         _audiobookChapterEdits.Remove(key);
         _audiobookChapterResetKeys.Add(key);
         _focusedAudiobookChapterKey = null;
+    }
+
+    protected async Task SuggestAudiobookChapterNamesAsync()
+    {
+        if (!_chapterNamingCapability.IsAvailable || _suggestingChapterNames)
+            return;
+
+        var assetId = AudiobookChapters
+            .Select(chapter => Guid.TryParse(chapter.AssetId, out var parsed) ? parsed : Guid.Empty)
+            .FirstOrDefault(id => id != Guid.Empty);
+        if (assetId == Guid.Empty)
+        {
+            Snackbar.Add("No audiobook asset is available for chapter suggestions.", Severity.Warning);
+            return;
+        }
+
+        _suggestingChapterNames = true;
+        try
+        {
+            var suggestions = await ApiClient.SuggestAudiobookChapterNamesAsync(
+                CurrentEntityId,
+                new SuggestAudiobookChapterNamesRequestDto { ProfileId = Request.ActiveProfileId, AssetId = assetId });
+            if (suggestions is null || suggestions.Suggestions.Count == 0)
+            {
+                Snackbar.Add(suggestions?.Warnings.FirstOrDefault() ?? "No chapter suggestions were returned.", Severity.Warning);
+                return;
+            }
+
+            var parameters = new DialogParameters
+            {
+                [nameof(AudiobookChapterSuggestionDialog.Suggestions)] = suggestions,
+            };
+            var dialog = await DialogService.ShowAsync<AudiobookChapterSuggestionDialog>(
+                "Review chapter suggestions",
+                parameters,
+                new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true });
+            var result = await dialog.Result;
+            if (result?.Canceled != false || result.Data is not IReadOnlyList<AudiobookChapterNameSuggestionDto> accepted)
+                return;
+
+            foreach (var suggestion in accepted)
+            {
+                var chapter = AudiobookChapters.FirstOrDefault(item => item.ChapterIndex == suggestion.ChapterIndex);
+                if (chapter is null || !Guid.TryParse(chapter.AssetId, out var chapterAssetId))
+                    continue;
+
+                var key = BuildAudiobookChapterKey(chapter);
+                _audiobookChapterResetKeys.Remove(key);
+                _audiobookChapterEdits[key] = new AudiobookChapterEdit(
+                    chapterAssetId,
+                    suggestion.ChapterIndex,
+                    suggestion.SuggestedTitle.Trim(),
+                    PlaybackChapterTitleSources.AiSuggested);
+            }
+
+            Snackbar.Add($"Staged {accepted.Count} AI-assisted chapter title change{(accepted.Count == 1 ? string.Empty : "s")}. Save Changes to apply them.", Severity.Success);
+        }
+        finally
+        {
+            _suggestingChapterNames = false;
+        }
     }
 
     protected static string FormatAudiobookChapterRange(MediaGroupingItemViewModel chapter)
@@ -1163,7 +1232,7 @@ public partial class SharedMediaEditorShell
                             AssetId = chapterEdit.AssetId,
                             ChapterIndex = chapterEdit.ChapterIndex,
                             Title = chapterEdit.Title,
-                            TitleSource = PlaybackChapterTitleSources.Override,
+                            TitleSource = chapterEdit.TitleSource,
                         });
                     if (saved is null)
                     {
@@ -2398,8 +2467,32 @@ public partial class SharedMediaEditorShell
             qidFields: []);
     }
 
-    protected void SelectCandidate(ItemCanonicalRetailCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
-    protected void SelectCandidate(ItemCanonicalLinkedCandidateDto candidate) => _selectedCandidateId = GetCandidateId(candidate);
+    protected void SelectCandidate(ItemCanonicalRetailCandidateDto candidate)
+    {
+        _selectedCandidateId = GetCandidateId(candidate);
+        _customizeMatchChanges = false;
+    }
+
+    protected void SelectCandidate(ItemCanonicalLinkedCandidateDto candidate)
+    {
+        _selectedCandidateId = GetCandidateId(candidate);
+        _customizeMatchChanges = false;
+    }
+
+    protected void OpenMatchSearch()
+    {
+        _showMatchSearch = true;
+        _showAdvancedMatch = false;
+        _activeMatchSearchMode = "retail";
+    }
+
+    protected void ToggleAdvancedMatch()
+    {
+        _showAdvancedMatch = !_showAdvancedMatch;
+        _activeMatchSearchMode = _showAdvancedMatch ? "wikidata" : "retail";
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+    }
 
     protected bool IsCandidateSelected(string candidateId) =>
         string.Equals(_selectedCandidateId, candidateId, StringComparison.Ordinal);
@@ -2948,10 +3041,12 @@ public partial class SharedMediaEditorShell
         tabId switch
         {
             "details" => "Details",
-            "episodes" or "tracks" => "Contents",
+            "episodes" => "Episodes",
+            "tracks" => "Tracks",
+            "contents" when string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase) => "Chapters",
             "contents" => "Contents",
             "artwork" => "Artwork",
-            "links" => "Matching",
+            "links" => "Match",
             "options" => "Options",
             "file" => "Files",
             "history" => "History",
@@ -2972,6 +3067,36 @@ public partial class SharedMediaEditorShell
             "history" => Icons.Material.Outlined.History,
             _ => Icons.Material.Outlined.Tab,
         };
+
+    protected static string GetFileFormat(string? fileName)
+    {
+        var extension = Path.GetExtension(fileName);
+        return string.IsNullOrWhiteSpace(extension) ? "Unknown" : extension.TrimStart('.').ToUpperInvariant();
+    }
+
+    protected static string FormatFileSize(long? bytes)
+    {
+        if (!bytes.HasValue || bytes.Value < 0)
+            return "Unknown";
+        string[] units = ["B", "KB", "MB", "GB", "TB"];
+        var value = (double)bytes.Value;
+        var unit = 0;
+        while (value >= 1024 && unit < units.Length - 1) { value /= 1024; unit++; }
+        return $"{value:0.##} {units[unit]}";
+    }
+
+    protected static string FormatHistoryDate(DateTime date) =>
+        date.Date == DateTime.Today ? "Today" : date.Date == DateTime.Today.AddDays(-1) ? "Yesterday" : date.ToString("D", CultureInfo.CurrentCulture);
+
+    protected static string GetHistoryIcon(string? eventType) => eventType?.ToLowerInvariant() switch
+    {
+        var value when value?.Contains("artwork") == true => Icons.Material.Outlined.Image,
+        var value when value?.Contains("match") == true => Icons.Material.Outlined.Link,
+        var value when value?.Contains("file") == true || value?.Contains("write") == true => Icons.Material.Outlined.Description,
+        var value when value?.Contains("review") == true => Icons.Material.Outlined.TaskAlt,
+        var value when value?.Contains("ai") == true => Icons.Material.Outlined.AutoAwesome,
+        _ => Icons.Material.Outlined.EditNote,
+    };
 
     protected string GetDirtySaveLabel() =>
         IsBatchMode

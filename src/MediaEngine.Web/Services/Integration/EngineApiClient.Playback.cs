@@ -162,6 +162,13 @@ public sealed partial class EngineApiClient
             $"/player/audiobooks/{workId:D}/chapter-overrides/{assetId:D}/{chapterIndex}",
             ct: ct);
 
+    public Task<AudiobookChapterNameSuggestionsDto?> SuggestAudiobookChapterNamesAsync(Guid workId, SuggestAudiobookChapterNamesRequestDto request, CancellationToken ct = default) =>
+        PostAsync<SuggestAudiobookChapterNamesRequestDto, AudiobookChapterNameSuggestionsDto>(
+            "POST /player/audiobooks/{workId}/chapters/suggest-names",
+            $"/player/audiobooks/{workId:D}/chapters/suggest-names",
+            request,
+            ct: ct);
+
     public async Task<IReadOnlyList<TextTrackDto>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default)
     {
         try

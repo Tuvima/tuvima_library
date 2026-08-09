@@ -102,7 +102,7 @@ public static class SettingsNav
         new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
         new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MoveToInbox, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
         new(SettingsSection.Providers, "administration", "providers", Icons.Material.Outlined.Inventory2, "Metadata Providers", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Review Queue", true, "review", ["needsreview", "needs-review"], "mixed"),
+        new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", ["reviewqueue", "review-queue", "needsreview", "needs-review"], "mixed"),
         new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, ["activity-log"], "sqlite"),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
         new(SettingsSection.Access, "administration", "access", Icons.Material.Outlined.Group, "Users & Access", true, null, ["users", "security", "apikeys", "api-keys"], Status: SettingsStatusKind.Partial),

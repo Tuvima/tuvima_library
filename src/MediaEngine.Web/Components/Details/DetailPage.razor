@@ -165,6 +165,7 @@
     [Parameter, EditorRequired] public DetailPageViewModel? Model { get; set; }
     [Parameter] public string? ActiveTab { get; set; }
     [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
+    [Parameter] public EventCallback<bool> InlineEditorActiveChanged { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
     private MediaEditorInlineSession? _inlineEditorSession;
     private string _inlineEditorPhase = "closed";
@@ -365,6 +366,7 @@
 
             _prefersReducedMotion = await JS.InvokeAsync<bool>("tuvimaPrefersReducedMotion");
             _inlineEditorSession = MediaEditorLauncher.BeginInline(request);
+            await InlineEditorActiveChanged.InvokeAsync(true);
             _inlineEditorPhase = "entering";
             _startInlineEditorAnimation = true;
             await InvokeAsync(StateHasChanged);
@@ -408,6 +410,7 @@
             await Task.Delay(380);
 
         _inlineEditorSession = null;
+        await InlineEditorActiveChanged.InvokeAsync(false);
         _inlineEditorPhase = "closed";
         _closingInlineEditor = false;
         completedSession.TryComplete(applied);

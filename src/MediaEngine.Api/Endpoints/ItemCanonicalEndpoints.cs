@@ -867,9 +867,6 @@ public static class ItemCanonicalEndpoints
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.Retail, false, ct: ct);
             }
 
-            if (request.ReviewItemId is { } reviewItemId)
-                await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
-
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 OccurredAt = now,
@@ -946,6 +943,9 @@ public static class ItemCanonicalEndpoints
                         .Distinct(StringComparer.OrdinalIgnoreCase)
                         .ToArray()),
                 ct);
+
+            if (request.ReviewItemId is { } reviewItemId)
+                await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
 
             return Results.Ok(new ItemCanonicalApplyResponseDto
             {
@@ -1077,9 +1077,6 @@ public static class ItemCanonicalEndpoints
                 return ApiErrors.BadRequest("Unsupported Wikidata match action.");
             }
 
-            if (request.ReviewItemId is { } reviewItemId)
-                await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
-
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 OccurredAt = now,
@@ -1099,6 +1096,9 @@ public static class ItemCanonicalEndpoints
                     "user_manual",
                     [BridgeIdKeys.WikidataQid, "wikidata_status"]),
                 ct);
+
+            if (request.ReviewItemId is { } reviewItemId)
+                await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
 
             return Results.Ok(new ItemCanonicalApplyResponseDto
             {

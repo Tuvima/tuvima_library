@@ -28,7 +28,7 @@ else if (_detail is null)
 else
 {
     <div class="tl-detail-route-shell">
-        @if (Request.OriginNavigation is { } origin)
+        @if (!_inlineEditorActive && Request.OriginNavigation is { } origin)
         {
             <AppNativeButton Type="button"
                              Class="tl-detail-origin-back"
@@ -41,6 +41,7 @@ else
         <DetailPage Model="_detail"
                     ActiveTab="@_activeTab"
                     ActiveTabChanged="HandleTabChangedAsync"
+                    InlineEditorActiveChanged="HandleInlineEditorActiveChangedAsync"
                     OnActionSelected="HandleActionAsync" />
     </div>
 }
@@ -53,6 +54,7 @@ else
     private DetailPageViewModel? _detail;
     private bool _loading = true;
     private string? _activeTab;
+    private bool _inlineEditorActive;
     private int _loadVersion;
 
     private string PageTitleText =>
@@ -103,6 +105,12 @@ else
     private Task HandleTabChangedAsync(string tab)
     {
         _activeTab = tab;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleInlineEditorActiveChangedAsync(bool active)
+    {
+        _inlineEditorActive = active;
         return Task.CompletedTask;
     }
 

@@ -45,6 +45,24 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("Missing model", source, StringComparison.Ordinal);
         Assert.Contains("Hardware limited", source, StringComparison.Ordinal);
         Assert.Contains("Not connected", source, StringComparison.Ordinal);
+        Assert.Contains("Audiobook chapter naming", source, StringComparison.Ordinal);
+        Assert.Contains("EditorAiFeatureKeys.AudiobookChapterNaming", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AudiobookChapterNaming_IsReviewedAndStagedBeforeSave()
+    {
+        var shell = ReadRepoFile(@"src\MediaEngine.Web\Components\MediaEditor\SharedMediaEditorShell.razor");
+        var code = ReadRepoFile(@"src\MediaEngine.Web\Components\MediaEditor\SharedMediaEditorShell.razor.cs");
+        var dialog = ReadRepoFile(@"src\MediaEngine.Web\Components\MediaEditor\AudiobookChapterSuggestionDialog.razor");
+        var capability = ReadRepoFile(@"src\MediaEngine.Web\Services\Editing\EditorAiCapabilityService.cs");
+
+        Assert.Contains("Suggest chapter names", shell, StringComparison.Ordinal);
+        Assert.Contains("SuggestAudiobookChapterNamesAsync", code, StringComparison.Ordinal);
+        Assert.Contains("PlaybackChapterTitleSources.AiSuggested", code, StringComparison.Ordinal);
+        Assert.Contains("Nothing is written until you choose Save Changes", dialog, StringComparison.Ordinal);
+        Assert.Contains("Accept high confidence", dialog, StringComparison.Ordinal);
+        Assert.Contains("GetAudiobookChapterNamingAsync", capability, StringComparison.Ordinal);
     }
 
     [Fact]

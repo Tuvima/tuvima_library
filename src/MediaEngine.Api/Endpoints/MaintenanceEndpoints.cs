@@ -69,25 +69,17 @@ public static class MaintenanceEndpoints
 
         // ── POST /maintenance/retag-sweep/retry/{assetId} ─────────────────
         // Clears the terminal failure flag on a single asset so the next
-        // sweep pass picks it up. Also resolves any WritebackFailed review
-        // item pointing at that asset.
+        // sweep pass picks it up. The review remains pending until the worker
+        // successfully writes the file.
         app.MapPost("/maintenance/retag-sweep/retry/{assetId:guid}", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,
-            IReviewQueueRepository reviewRepo,
             CancellationToken ct) =>
         {
             // Setting the next-retry timestamp to "now" and clearing the
             // failure status unblocks the next GetStaleForRetagAsync sweep.
             var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             await assetRepo.ScheduleRetagRetryAsync(assetId, now, "manual retry", ct);
-
-            // Best-effort resolution of any pending WritebackFailed review items for this asset.
-            var pending = await reviewRepo.GetPendingByEntityAsync(assetId, ct);
-            foreach (var entry in pending.Where(e => e.Trigger == ReviewTrigger.WritebackFailed))
-            {
-                await reviewRepo.UpdateStatusAsync(entry.Id, ReviewStatus.Resolved, "manual retry", ct);
-            }
 
             return Results.Ok(new RetagSweepRetryResponse(Requeued: true));
         })

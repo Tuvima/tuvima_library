@@ -43,38 +43,32 @@
         @if (ConfirmingAction)
         {
             <div class="tl-field-confirm-actions">
-                <MudTooltip Text="@ConfirmLabel" Placement="Placement.Left">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Check"
-                                   Size="Size.Small"
-                                   Color="Color.Success"
-                                   Variant="Variant.Filled"
-                                   aria-label="@ConfirmLabel"
-                                   OnClick="@(() => OnConfirmAction.InvokeAsync())"
-                                   Class="tl-field-confirm-button tl-field-confirm-button--accept" />
-                </MudTooltip>
-                <MudTooltip Text="@CancelLabel" Placement="Placement.Left">
-                    <MudIconButton Icon="@Icons.Material.Outlined.Close"
-                                   Size="Size.Small"
-                                   Color="Color.Error"
-                                   Variant="Variant.Filled"
-                                   aria-label="@CancelLabel"
-                                   OnClick="@(() => OnCancelAction.InvokeAsync())"
-                                   Class="tl-field-confirm-button tl-field-confirm-button--cancel" />
-                </MudTooltip>
+                <AppIconButton Icon="@Icons.Material.Outlined.Check"
+                               Size="Size.Small"
+                               Color="Color.Success"
+                               Tooltip="@ConfirmLabel"
+                               aria-label="@ConfirmLabel"
+                               OnClick="@(() => OnConfirmAction.InvokeAsync())"
+                               Class="tl-field-confirm-button tl-field-confirm-button--accept" />
+                <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                               Size="Size.Small"
+                               Color="Color.Error"
+                               Tooltip="@CancelLabel"
+                               aria-label="@CancelLabel"
+                               OnClick="@(() => OnCancelAction.InvokeAsync())"
+                               Class="tl-field-confirm-button tl-field-confirm-button--cancel" />
             </div>
         }
         else if (!string.IsNullOrWhiteSpace(ActionIcon))
         {
-            <MudTooltip Text="@ActionLabel" Placement="Placement.Left">
-                <MudIconButton Icon="@ActionIcon"
-                               Size="Size.Small"
-                               Color="@ActionColor"
-                               Variant="Variant.Outlined"
-                               aria-label="@ActionLabel"
-                               Disabled="@ActionDisabled"
-                               OnClick="@(() => OnAction.InvokeAsync())"
-                               Class="tl-field-action-button" />
-            </MudTooltip>
+            <AppIconButton Icon="@ActionIcon"
+                           Size="Size.Small"
+                           Color="@ActionColor"
+                           Tooltip="@ActionLabel"
+                           aria-label="@ActionLabel"
+                           Disabled="@ActionDisabled"
+                           OnClick="@(() => OnAction.InvokeAsync())"
+                           Class="tl-field-action-button" />
         }
     </div>
 </div>

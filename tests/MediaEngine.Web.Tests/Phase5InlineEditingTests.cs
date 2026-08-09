@@ -112,7 +112,7 @@ public sealed class Phase5InlineEditingTests
         var source = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor");
 
         Assert.Contains("ActionIcon", source, StringComparison.Ordinal);
-        Assert.Contains("MudIconButton", source, StringComparison.Ordinal);
+        Assert.Contains("AppIconButton", source, StringComparison.Ordinal);
         Assert.Contains("OnAction.InvokeAsync()", source, StringComparison.Ordinal);
         Assert.Contains("ConfirmingAction", source, StringComparison.Ordinal);
         Assert.Contains("OnConfirmAction.InvokeAsync()", source, StringComparison.Ordinal);
@@ -204,9 +204,10 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("sme-match-current-panel", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel", shell, StringComparison.Ordinal);
         Assert.Contains("Current Identity", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-match-search-tabs", shell, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Retail\"", shell, StringComparison.Ordinal);
-        Assert.Contains("Text=\"Wikidata\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Change Match", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-search-panel--collapsed", shell, StringComparison.Ordinal);
+        Assert.Contains("Advanced Wikidata", shell, StringComparison.Ordinal);
+        Assert.Contains("Customize changes", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("Change Type", shell, StringComparison.Ordinal);
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
@@ -235,7 +236,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("CanonicalEndpointEntityId,", code, StringComparison.Ordinal);
         Assert.Contains("\"Unknown\" => \"Books\"", code, StringComparison.Ordinal);
         Assert.Contains("MediaType = _selectedMediaType", code, StringComparison.Ordinal);
-        Assert.Contains("OnMatchSearchModeChanged", code, StringComparison.Ordinal);
+        Assert.Contains("ToggleAdvancedMatch", code, StringComparison.Ordinal);
         Assert.Contains(".sme-match-workflow", styles, StringComparison.Ordinal);
         Assert.Contains(".sme-match-result-card--selected", styles, StringComparison.Ordinal);
     }

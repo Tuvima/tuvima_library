@@ -3,6 +3,9 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Playback;
 
 namespace MediaEngine.Api.Endpoints;
@@ -323,11 +326,25 @@ public static class PlayerEndpoints
             Guid workId,
             UpsertAudiobookChapterTitleOverrideRequestDto request,
             AudiobookChapterNamingService naming,
+            ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
             try
             {
-                return Results.Ok(await naming.UpsertOverrideAsync(workId, request, ct));
+                var saved = await naming.UpsertOverrideAsync(workId, request, ct);
+                if (string.Equals(saved.TitleSource, PlaybackChapterTitleSources.AiSuggested, StringComparison.OrdinalIgnoreCase))
+                {
+                    await activityRepo.LogAsync(new SystemActivityEntry
+                    {
+                        OccurredAt = DateTimeOffset.UtcNow,
+                        ActionType = SystemActionType.MetadataManualOverride,
+                        EntityId = workId,
+                        EntityType = "Work",
+                        Detail = $"AI-assisted chapter title applied to chapter {saved.ChapterIndex + 1}.",
+                    }, ct);
+                }
+
+                return Results.Ok(saved);
             }
             catch (ArgumentException ex)
             {

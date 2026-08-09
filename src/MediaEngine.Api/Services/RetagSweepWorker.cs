@@ -172,6 +172,7 @@ public sealed class RetagSweepWorker : BackgroundService
                 try
                 {
                     await _writeBackService.WriteMetadataAsync(stale.AssetId, "config_change", ct);
+                    await ResolveWritebackReviewsAsync(stale.AssetId, ct);
                     totalSucceeded++;
                 }
                 catch (OperationCanceledException)
@@ -253,6 +254,19 @@ public sealed class RetagSweepWorker : BackgroundService
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             _logger.LogDebug(ex, "RetagSweepWorker: progress event publish failed");
+        }
+    }
+
+    private async Task ResolveWritebackReviewsAsync(Guid assetId, CancellationToken ct)
+    {
+        var pending = await _reviewRepo.GetPendingByEntityAsync(assetId, ct);
+        foreach (var entry in pending.Where(item => item.Trigger == ReviewTrigger.WritebackFailed))
+        {
+            await _reviewRepo.UpdateStatusAsync(entry.Id, ReviewStatus.Resolved, "writeback worker", ct);
+            await _eventPublisher.PublishAsync(
+                SignalREvents.ReviewItemResolved,
+                new ReviewItemResolvedSupplementaryEvent(entry.Id, assetId, ReviewStatus.Resolved),
+                ct);
         }
     }
 

@@ -36,8 +36,10 @@ public sealed class DashboardReliabilityGuardrailTests
 
         Assert.Contains("_loading && _items.Count == 0", source, StringComparison.Ordinal);
         Assert.Contains("settings-review-refresh-bar", source, StringComparison.Ordinal);
-        Assert.Contains("if (_items.Count == 0)\n                _items = [];", normalized, StringComparison.Ordinal);
-        Assert.DoesNotContain("else if (_items.Count == 0)\n    {\n        _items = [];", normalized, StringComparison.Ordinal);
+        var catchStart = normalized.IndexOf("catch (Exception ex)", StringComparison.Ordinal);
+        var finallyStart = normalized.IndexOf("finally", catchStart, StringComparison.Ordinal);
+        Assert.True(catchStart >= 0 && finallyStart > catchStart);
+        Assert.DoesNotContain("_items = [];", normalized[catchStart..finallyStart], StringComparison.Ordinal);
     }
 
     [Fact]

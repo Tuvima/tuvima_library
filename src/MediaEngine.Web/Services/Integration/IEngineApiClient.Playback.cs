@@ -43,6 +43,8 @@ public partial interface IEngineApiClient
 
     Task<bool> DeleteAudiobookChapterTitleOverrideAsync(Guid workId, Guid assetId, int chapterIndex, CancellationToken ct = default);
 
+    Task<AudiobookChapterNameSuggestionsDto?> SuggestAudiobookChapterNamesAsync(Guid workId, SuggestAudiobookChapterNamesRequestDto request, CancellationToken ct = default);
+
     Task<IReadOnlyList<TextTrackDto>> GetTextTracksAsync(Guid assetId, CancellationToken ct = default);
 
     Task<string?> GetLyricsAsync(Guid assetId, CancellationToken ct = default);

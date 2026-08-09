@@ -673,6 +673,7 @@
     }
   },
   "features": {
+    "audiobook_chapter_naming": false,
     "smart_labeling": false,
     "type_logic": false,
     "audio_language_detection": false,

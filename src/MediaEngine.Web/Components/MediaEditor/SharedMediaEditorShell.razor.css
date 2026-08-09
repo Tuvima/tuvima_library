@@ -325,6 +325,16 @@
     background: rgba(5,10,19,0.48);
 }
 
+.sme-chapter-ai-action {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 14px;
+    color: var(--tl-text-secondary);
+    font-size: .82rem;
+}
+
 .sme-scope-switcher-copy {
     display: flex;
     flex-direction: column;
@@ -3946,6 +3956,36 @@
 .sme-history-title {
     font-weight: 600;
 }
+
+.sme-history-date {
+    margin: 18px 0 6px;
+    color: var(--tl-accent-primary);
+    font-size: .75rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.sme-history-row--timeline {
+    display: grid;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+}
+
+.sme-history-icon {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    color: var(--tl-accent-primary);
+    background: var(--tl-accent-primary-soft);
+}
+
+.sme-history-copy { min-width: 0; }
+
+.sme-match-search-panel--collapsed { display: none; }
+.sme-match-mode-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 12px 0; }
 
 .sme-footer {
     display: flex;

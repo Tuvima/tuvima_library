@@ -101,6 +101,13 @@
                                    OnClick="SaveAsync">
                             @(_saving ? "Saving..." : "Save Changes")
                         </AppButton>
+                        <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                                       Size="Size.Small"
+                                       Color="Color.Inherit"
+                                       Class="sme-close sme-close--inline"
+                                       Tooltip="Close editor"
+                                       AriaLabel="Close editor"
+                                       OnClick="HandleClose" />
                     </div>
                 }
                 else if (CanReclassifyMediaType)
@@ -124,7 +131,8 @@
                                    Size="Size.Small"
                                    Color="Color.Inherit"
                                    Class="sme-close"
-                                   aria-label="Close media editor"
+                                   Tooltip="Close editor"
+                                   AriaLabel="Close editor"
                                    OnClick="HandleClose" />
                 }
             </div>
@@ -394,6 +402,16 @@
                 {
                     <div class="sme-content-tab sme-audiobook-contents">
                         <MediaEditorPanel Title="Chapters" Description="Rename chapter labels without changing file-derived timing or boundaries.">
+                            <div class="sme-chapter-ai-action">
+                                <AppButton Label="@(_suggestingChapterNames ? "Generating suggestions..." : "Suggest chapter names")"
+                                           StartIcon="@Icons.Material.Outlined.AutoAwesome"
+                                           ButtonStyle="AppButtonStyle.Outlined"
+                                           Tone="AppUiTone.Primary"
+                                           Disabled="@(!_chapterNamingCapability.IsAvailable || _suggestingChapterNames || AudiobookChapters.Count == 0)"
+                                           Tooltip="@_chapterNamingCapability.Explanation"
+                                           OnClick="SuggestAudiobookChapterNamesAsync" />
+                                <span>Suggestions are reviewed before they are staged.</span>
+                            </div>
                             @if (AudiobookChapters.Count == 0)
                             {
                                 <div class="sme-empty-panel">
@@ -680,6 +698,11 @@
                                             <div class="sme-group-title">Current Identity</div>
                                             <p>Current retail and Wikidata identity state for this item.</p>
                                         </div>
+                                        <AppButton Label="Change Match"
+                                                   StartIcon="@Icons.Material.Outlined.Sync"
+                                                   ButtonStyle="AppButtonStyle.Filled"
+                                                   Tone="AppUiTone.Primary"
+                                                   OnClick="OpenMatchSearch" />
                                     </div>
                                     <div class="sme-current-match-stack">
                                         <div class="sme-current-match-card">
@@ -763,7 +786,7 @@
                                     </div>
                                 </section>
 
-                                <section class="sme-match-search-panel">
+                                <section class="sme-match-search-panel @(!_showMatchSearch ? "sme-match-search-panel--collapsed" : null)" aria-hidden="@(!_showMatchSearch)">
                                     @if (SupportsCanonicalSearch)
                                     {
                                         <div class="sme-match-panel-heading sme-match-panel-heading--row">
@@ -795,17 +818,12 @@
                                         <span>@GetIdentityTargetImpactText()</span>
                                     </div>
 
-                                        <div class="settings-admin-panel">
-                                            <AppTabs ActivePanelIndex="@MatchSearchModeIndex"
-                                                     ActivePanelIndexChanged="OnMatchSearchModeChanged"
-                                                     Rounded="true"
-                                                     Border="false"
-                                                     Color="Color.Primary"
-                                                     Elevation="0"
-                                                     Class="settings-tab-strip sme-match-search-tabs">
-                                                <AppTabPanel Text="Retail" Icon="@Icons.Material.Outlined.TravelExplore" />
-                                                <AppTabPanel Text="Wikidata" Icon="@Icons.Material.Outlined.Hub" />
-                                            </AppTabs>
+                                        <div class="sme-match-mode-actions">
+                                            <AppChip Text="@(_showAdvancedMatch ? "Advanced Wikidata search" : "Provider search")"
+                                                     Tone="@(_showAdvancedMatch ? AppUiTone.Info : AppUiTone.Neutral)" />
+                                            <AppButton Label="@(_showAdvancedMatch ? "Back to provider search" : "Advanced Wikidata")"
+                                                       StartIcon="@Icons.Material.Outlined.Hub"
+                                                       OnClick="ToggleAdvancedMatch" />
                                         </div>
 
                                         <div class="sme-search-row">
@@ -875,7 +893,13 @@
                                                         </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
-                                                            @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            <AppButton Label="Customize changes"
+                                                                       StartIcon="@Icons.Material.Outlined.Tune"
+                                                                       OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                            @if (_customizeMatchChanges)
+                                                            {
+                                                                @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            }
                                                             <AppButton Variant="Variant.Filled"
                                                                        Color="Color.Primary"
                                                                        Class="sme-inline-btn sme-inline-btn--primary"
@@ -943,7 +967,13 @@
                                                         </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
-                                                            @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            <AppButton Label="Customize changes"
+                                                                       StartIcon="@Icons.Material.Outlined.Tune"
+                                                                       OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                            @if (_customizeMatchChanges)
+                                                            {
+                                                                @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            }
                                                             <AppButton Variant="Variant.Filled"
                                                                        Color="Color.Primary"
                                                                        Class="sme-inline-btn sme-inline-btn--primary"
@@ -1390,16 +1420,38 @@
                         else
                         {
                             <section class="sme-group">
-                                <div class="sme-group-title">File</div>
+                                <div class="sme-group-title">Physical file</div>
                                 <div class="sme-readonly-row"><span>Name</span><strong>@(_detail.FileName ?? "Unknown")</strong></div>
                                 <div class="sme-readonly-row"><span>Path</span><strong>@(_detail.FilePath ?? "Unknown")</strong></div>
+                                <div class="sme-readonly-row"><span>Format</span><strong>@GetFileFormat(_detail.FileName)</strong></div>
+                                <div class="sme-readonly-row"><span>Size</span><strong>@FormatFileSize(_detail.FileSizeBytes)</strong></div>
                                 <div class="sme-readonly-row"><span>Status</span><strong>@_detail.Status</strong></div>
                                 <div class="sme-readonly-row"><span>Pipeline</span><strong>@_detail.PipelineStep</strong></div>
+                                <div class="sme-readonly-row"><span>Metadata write-back</span><strong>@(_editorContext?.FileMetadataSyncStatus ?? "Unknown")</strong></div>
                                 @if (!string.IsNullOrWhiteSpace(_detail.ReviewTrigger))
                                 {
                                     <div class="sme-readonly-row"><span>Review trigger</span><strong>@_detail.ReviewTrigger</strong></div>
                                 }
                             </section>
+
+                            @if (_detail.PlaybackSummary is { } technical)
+                            {
+                                <section class="sme-group">
+                                    <div class="sme-group-title">Technical details</div>
+                                    @if (!string.IsNullOrWhiteSpace(PlaybackTechnicalSummaryDisplay.VideoChip(technical)))
+                                    {
+                                        <div class="sme-readonly-row"><span>Video</span><strong>@PlaybackTechnicalSummaryDisplay.VideoChip(technical)</strong></div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(PlaybackTechnicalSummaryDisplay.AudioChip(technical)))
+                                    {
+                                        <div class="sme-readonly-row"><span>Audio</span><strong>@PlaybackTechnicalSummaryDisplay.AudioChip(technical)</strong></div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(PlaybackTechnicalSummaryDisplay.SubtitleChip(technical)))
+                                    {
+                                        <div class="sme-readonly-row"><span>Subtitles</span><strong>@PlaybackTechnicalSummaryDisplay.SubtitleChip(technical)</strong></div>
+                                    }
+                                </section>
+                            }
 
                         }
                     </div>
@@ -1419,16 +1471,23 @@
                             else
                             {
                                 <div class="sme-history-list">
-                                    @foreach (var entry in _history)
+                                    @foreach (var group in _history.OrderByDescending(entry => entry.OccurredAt).GroupBy(entry => entry.OccurredAt.LocalDateTime.Date))
                                     {
-                                        <div class="sme-history-row sme-history-row--timeline">
-                                            <div class="sme-history-title">@entry.Label</div>
-                                            @if (!string.IsNullOrWhiteSpace(entry.Detail))
-                                            {
-                                                <div class="sme-history-detail">@entry.Detail</div>
-                                            }
-                                            <div class="sme-history-time">@entry.OccurredAt.LocalDateTime.ToString("g", CultureInfo.CurrentCulture)</div>
-                                        </div>
+                                        <h4 class="sme-history-date">@FormatHistoryDate(group.Key)</h4>
+                                        @foreach (var entry in group)
+                                        {
+                                            <div class="sme-history-row sme-history-row--timeline">
+                                                <span class="sme-history-icon" aria-hidden="true"><MudIcon Icon="@GetHistoryIcon(entry.EventType)" Size="Size.Small" /></span>
+                                                <div class="sme-history-copy">
+                                                    <div class="sme-history-title">@entry.Label</div>
+                                                    @if (!string.IsNullOrWhiteSpace(entry.Detail))
+                                                    {
+                                                        <div class="sme-history-detail">@entry.Detail</div>
+                                                    }
+                                                </div>
+                                                <div class="sme-history-time">@entry.OccurredAt.LocalDateTime.ToString("t", CultureInfo.CurrentCulture)</div>
+                                            </div>
+                                        }
                                     }
                                 </div>
                             }

@@ -1,6 +1,7 @@
 using System.Text;
 using Dapper;
 using MediaEngine.AI.Llama;
+using MediaEngine.AI.Configuration;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -30,6 +31,7 @@ public sealed class AudiobookChapterNamingService
     private readonly ILlamaInferenceService _llama;
     private readonly IEpubContentService _epub;
     private readonly ILogger<AudiobookChapterNamingService> _logger;
+    private readonly AiSettings _aiSettings;
 
     public AudiobookChapterNamingService(
         IDatabaseConnection db,
@@ -37,6 +39,7 @@ public sealed class AudiobookChapterNamingService
         AudiobookChapterTitleOverrideRepository overrides,
         ILlamaInferenceService llama,
         IEpubContentService epub,
+        AiSettings aiSettings,
         ILogger<AudiobookChapterNamingService> logger)
     {
         _db = db;
@@ -44,6 +47,7 @@ public sealed class AudiobookChapterNamingService
         _overrides = overrides;
         _llama = llama;
         _epub = epub;
+        _aiSettings = aiSettings;
         _logger = logger;
     }
 
@@ -75,6 +79,15 @@ public sealed class AudiobookChapterNamingService
         SuggestAudiobookChapterNamesRequestDto request,
         CancellationToken ct = default)
     {
+        if (!_aiSettings.Features.AudiobookChapterNaming)
+        {
+            return new AudiobookChapterNameSuggestionsDto
+            {
+                WorkId = workId,
+                Warnings = ["Audiobook chapter naming is disabled in Local AI settings."],
+            };
+        }
+
         var asset = await ResolveAudiobookAssetAsync(workId, request.AssetId, ct);
         if (asset is null)
         {
