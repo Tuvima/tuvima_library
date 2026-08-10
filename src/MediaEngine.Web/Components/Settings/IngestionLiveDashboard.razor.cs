@@ -80,6 +80,7 @@ public partial class IngestionLiveDashboard
             ScanStarting,
             Error,
             RecentBatches,
+            RecentIdentityJobs,
             DisplayStageRows,
             EffectiveProviderActivity,
             SelectionSignature);
@@ -92,6 +93,10 @@ public partial class IngestionLiveDashboard
 
     private string MainStatusClass => $"library-update-status is-{Model.PageState.ToString().ToLowerInvariant()}";
     private IReadOnlyList<IngestionOperationsBatchDto> RecentBatches => Snapshot?.RecentBatches ?? [];
+    private IReadOnlyList<IngestionOperationsJobDto> RecentIdentityJobs => Snapshot?.RecentIdentityJobs
+        .OrderByDescending(job => job.LastUpdatedTime)
+        .Take(8)
+        .ToList() ?? [];
     private IReadOnlyList<IngestionCurrentActivityDto> EffectiveCurrentActivities =>
         CurrentActivities.Count > 0 ? CurrentActivities : Snapshot?.CurrentActivities ?? [];
     private IReadOnlyList<IngestionProviderActivityDto> EffectiveProviderActivity =>
@@ -102,6 +107,7 @@ public partial class IngestionLiveDashboard
         bool scanStarting,
         string? error,
         IReadOnlyList<IngestionOperationsBatchDto> recentBatches,
+        IReadOnlyList<IngestionOperationsJobDto> recentIdentityJobs,
         IReadOnlyList<IngestionDashboardStage> stages,
         IReadOnlyList<IngestionProviderActivityDto> providerActivity,
         string expandedStageSignature)
@@ -132,6 +138,15 @@ public partial class IngestionLiveDashboard
             batch.FailedCount,
             batch.CompletedAt?.ToUnixTimeSeconds() ?? 0,
             batch.StartedAt.ToUnixTimeSeconds())));
+        var recentItems = string.Join(';', recentIdentityJobs.Select(job => string.Join(':',
+            job.JobId,
+            job.Status,
+            job.CurrentStage,
+            job.CurrentItem,
+            job.MediaType,
+            Math.Round(job.PercentComplete, 1),
+            job.LastUpdatedTime?.ToUnixTimeSeconds() ?? 0,
+            job.WarningSummary)));
         var reasons = string.Join(';', model.AttentionReasons.Select(reason => $"{reason.Label}:{reason.Count}"));
         var stageSignature = string.Join(';', stages.Select(stage => string.Join(':',
             stage.StageNumber,
@@ -194,7 +209,60 @@ public partial class IngestionLiveDashboard
             stageSignature,
             providerSignature,
             expandedStageSignature,
+            recentItems,
             recent);
+    }
+
+    private static string RecentJobTitle(IngestionOperationsJobDto job) =>
+        string.IsNullOrWhiteSpace(job.CurrentItem) ? "Matched item" : job.CurrentItem;
+
+    private static string RecentJobStatusLabel(IngestionOperationsJobDto job) =>
+        job.Status.Equals("completed", StringComparison.OrdinalIgnoreCase)
+            ? "Complete"
+            : job.Status.Equals("attention", StringComparison.OrdinalIgnoreCase)
+                ? "Attention"
+                : "Running";
+
+    private static string RecentJobStatusClass(IngestionOperationsJobDto job) =>
+        $"library-update-batch-chip is-{(job.Status.Equals("completed", StringComparison.OrdinalIgnoreCase) ? "green" : job.Status.Equals("attention", StringComparison.OrdinalIgnoreCase) ? "amber" : "blue")}";
+
+    private static string RecentJobIcon(IngestionOperationsJobDto job) =>
+        job.Status.Equals("completed", StringComparison.OrdinalIgnoreCase)
+            ? Icons.Material.Outlined.CheckCircle
+            : job.Status.Equals("attention", StringComparison.OrdinalIgnoreCase)
+                ? Icons.Material.Outlined.WarningAmber
+                : Icons.Material.Outlined.Sync;
+
+    private static string RecentJobTiming(IngestionOperationsJobDto job) =>
+        job.LastUpdatedTime.HasValue ? FormatRelative(job.LastUpdatedTime.Value) : "recently";
+
+    private static string RecentJobTooltip(IngestionOperationsJobDto job) =>
+        string.IsNullOrWhiteSpace(job.WarningSummary)
+            ? $"{RecentJobTitle(job)}: {job.CurrentStage}. Updated {RecentJobTiming(job)}."
+            : $"{RecentJobTitle(job)}: {job.WarningSummary}";
+
+    private static string RecentJobMediaLabel(IngestionOperationsJobDto job) =>
+        string.IsNullOrWhiteSpace(job.MediaType)
+            ? "Media item"
+            : CultureInfo.CurrentCulture.TextInfo.ToTitleCase(job.MediaType.Replace('_', ' '));
+
+    private static string RecentJobMediaIconClass(IngestionOperationsJobDto job) =>
+        $"library-update-batch-media-icon is-{((job.MediaType ?? string.Empty).Contains("Music", StringComparison.OrdinalIgnoreCase) ? "green" : "purple")}";
+
+    private static string RecentJobMediaIcon(IngestionOperationsJobDto job)
+    {
+        var mediaType = job.MediaType ?? string.Empty;
+        if (mediaType.Contains("Music", StringComparison.OrdinalIgnoreCase) || mediaType.Contains("Album", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.Album;
+        if (mediaType.Contains("Audiobook", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.Headphones;
+        if (mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) || mediaType.Contains("Episode", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.LiveTv;
+        if (mediaType.Contains("Movie", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.Movie;
+        if (mediaType.Contains("Comic", StringComparison.OrdinalIgnoreCase))
+            return Icons.Material.Outlined.AutoStories;
+        return Icons.Material.Outlined.MenuBook;
     }
 
     private string SelectionSignature => _selection.Signature;

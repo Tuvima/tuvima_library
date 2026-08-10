@@ -284,5 +284,35 @@
     { "claim_key": "musicbrainz_release_id", "json_path": "id",                "confidence": 1.0,  "source": "release" },
     { "claim_key": "musicbrainz_recording_id", "json_path": "id",               "confidence": 1.0, "source": "recording" },
     { "claim_key": "musicbrainz_release_group_id", "json_path": "release-group.id", "confidence": 1.0, "source": "release" }
-  ]
+  ],
+
+  "ui_metadata": {
+    "accent_color": "#BA478F",
+    "material_icon": "MusicNote",
+    "category": "Open",
+    "requires_key": false,
+    "auth_type": "none",
+    "external_links": {
+      "musicbrainz_release_id": {
+        "label": "MusicBrainz Release",
+        "url_template": "https://musicbrainz.org/release/{value}",
+        "tooltip": "Open the exact release and track listing on MusicBrainz."
+      },
+      "musicbrainz_release_group_id": {
+        "label": "MusicBrainz Release Group",
+        "url_template": "https://musicbrainz.org/release-group/{value}",
+        "tooltip": "Open the release-group identity on MusicBrainz."
+      },
+      "musicbrainz_recording_id": {
+        "label": "MusicBrainz Recording",
+        "url_template": "https://musicbrainz.org/recording/{value}",
+        "tooltip": "Open the recording identity on MusicBrainz."
+      },
+      "musicbrainz_artist_id": {
+        "label": "MusicBrainz Artist",
+        "url_template": "https://musicbrainz.org/artist/{value}",
+        "tooltip": "Open the artist identity on MusicBrainz."
+      }
+    }
+  }
 }

@@ -283,6 +283,16 @@ public sealed class ProviderUiMetadata
     [JsonPropertyName("external_url_template")]
     public string ExternalUrlTemplate { get; set; } = "";
 
+    /// <summary>
+    /// External item links keyed by the canonical or bridge identifier that
+    /// supplies the template value. Providers with more than one public entity
+    /// type (for example MusicBrainz releases, release groups, and recordings)
+    /// declare each link independently here instead of relying on UI code.
+    /// </summary>
+    [JsonPropertyName("external_links")]
+    public Dictionary<string, ProviderExternalLinkConfiguration> ExternalLinks { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Provider category: <c>"Retail"</c>, <c>"Open"</c>, <c>"Image"</c>, or <c>"Local"</c>.</summary>
     [JsonPropertyName("category")]
     public string Category { get; set; } = "Open";
@@ -308,6 +318,18 @@ public sealed class ProviderUiMetadata
     /// </summary>
     [JsonPropertyName("ranking_chips")]
     public Dictionary<string, List<string>> RankingChips { get; set; } = [];
+}
+
+public sealed class ProviderExternalLinkConfiguration
+{
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "View source";
+
+    [JsonPropertyName("url_template")]
+    public string UrlTemplate { get; set; } = "";
+
+    [JsonPropertyName("tooltip")]
+    public string? Tooltip { get; set; }
 }
 
 /// <summary>HTTP client configuration for config-driven provider adapters.</summary>

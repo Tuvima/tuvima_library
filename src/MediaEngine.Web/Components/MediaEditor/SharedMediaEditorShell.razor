@@ -852,10 +852,24 @@
                                                 <p>@currentRetail.Year</p>
                                             }
                                         </div>
-                                        <dl class="sme-match-provider-facts">
-                                            <div><dt>Provider</dt><dd>@currentRetail.Badge</dd></div>
-                                            <div><dt>Provider ID</dt><dd>@CurrentProviderId</dd></div>
-                                        </dl>
+                                        <div class="sme-match-provider-column">
+                                            <dl class="sme-match-provider-facts">
+                                                <div><dt>Provider</dt><dd>@currentRetail.Badge</dd></div>
+                                                <div><dt>Provider ID</dt><dd>@CurrentProviderId</dd></div>
+                                            </dl>
+                                            @if (currentRetail.Links.Count > 0)
+                                            {
+                                                <div class="sme-match-source-links" aria-label="Retail match sources">
+                                                    @foreach (var link in currentRetail.Links)
+                                                    {
+                                                        <a href="@link.Url" target="_blank" rel="noopener noreferrer">
+                                                            <span>@link.Label</span>
+                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                                                        </a>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
                                     </div>
                                 </section>
 
@@ -876,6 +890,18 @@
                                                 @CurrentCanonicalStatusLabel
                                             </span>
                                         </div>
+                                        @if (currentQid.Links.Count > 0)
+                                        {
+                                            <div class="sme-match-source-links" aria-label="Canonical identity sources">
+                                                @foreach (var link in currentQid.Links)
+                                                {
+                                                    <a href="@link.Url" target="_blank" rel="noopener noreferrer">
+                                                        <span>@link.Label</span>
+                                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
+                                                    </a>
+                                                }
+                                            </div>
+                                        }
                                         <div class="sme-match-primary-actions">
                                             <div>
                                                 <AppButton Label="Change Match"

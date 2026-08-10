@@ -4,6 +4,7 @@ using MediaEngine.Contracts.Items;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Canonical;
+using MediaEngine.Api.Services.Collections;
 using MediaEngine.Contracts.Matching;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
@@ -637,6 +638,7 @@ public static class ItemCanonicalEndpoints
             IWorkRepository workRepo,
             IReviewQueueRepository reviewRepo,
             IHydrationPipelineService pipeline,
+            AlbumTrackManifestService albumTrackManifestService,
             CoverArtWorker coverArtWorker,
             TimelineRecorder timeline,
             IItemCanonicalRepository itemCanonicalData,
@@ -855,6 +857,45 @@ public static class ItemCanonicalEndpoints
             }
 
             var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
+            string? albumManifestRefreshDetail = null;
+            if (string.Equals(policy.MediaType, MediaType.Music.ToString(), StringComparison.OrdinalIgnoreCase)
+                && string.Equals(policy.TargetFieldGroup, "album", StringComparison.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    var rootCanonicalValues = await canonicalRepo.GetByEntityAsync(workId, ct);
+                    var existingManifest = rootCanonicalValues.FirstOrDefault(value =>
+                        string.Equals(value.Key, MetadataFieldConstants.ChildEntitiesJson, StringComparison.OrdinalIgnoreCase))?.Value;
+                    var refreshedManifest = await albumTrackManifestService.EnsureAlbumTrackManifestAsync(
+                        workId,
+                        selectedFields.GetValueOrDefault(MetadataFieldConstants.Artist)
+                            ?? selectedFields.GetValueOrDefault("album_artist"),
+                        selectedFields.GetValueOrDefault(MetadataFieldConstants.Album),
+                        existingManifest,
+                        rootCanonicalValues,
+                        ct,
+                        forceProviderRefresh: true);
+                    if (!string.IsNullOrWhiteSpace(refreshedManifest))
+                    {
+                        var refreshedTrackCount = AlbumTrackManifestService.CountManifestTracks(refreshedManifest);
+                        albumManifestRefreshDetail = $"Refreshed the confirmed album track listing with {refreshedTrackCount} track(s).";
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    loggerFactory
+                        .CreateLogger("MediaEngine.Api.Endpoints.ItemCanonicalEndpoints")
+                        .LogWarning(
+                            ex,
+                            "Confirmed album match for {EntityId}, but the provider track manifest could not be refreshed immediately",
+                            entityId);
+                }
+            }
+
             var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
             if (request.ClearAutoAlignedWikidata
                 && !string.IsNullOrWhiteSpace(currentState?.Qid)
@@ -903,8 +944,8 @@ public static class ItemCanonicalEndpoints
                 EntityType = "MediaAsset",
                 CollectionName = context.WorkTitle,
                 Detail = artworkResult is null
-                    ? $"Retail identity changed to {request.ProviderName} {request.ProviderItemId}."
-                    : $"Retail identity changed to {request.ProviderName} {request.ProviderItemId}. {artworkResult.Message}",
+                    ? $"Retail identity changed to {request.ProviderName} {request.ProviderItemId}. {albumManifestRefreshDetail}".Trim()
+                    : $"Retail identity changed to {request.ProviderName} {request.ProviderItemId}. {artworkResult.Message} {albumManifestRefreshDetail}".Trim(),
             }, ct);
             await activityRepo.LogAsync(new SystemActivityEntry
             {

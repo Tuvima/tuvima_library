@@ -652,170 +652,60 @@ internal sealed partial class DetailCompositionOrchestrator
         string.Equals(key, MetadataFieldConstants.IssueDescription, StringComparison.OrdinalIgnoreCase)
         || string.Equals(key, "issue_overview", StringComparison.OrdinalIgnoreCase);
 
-    private static IReadOnlyList<ExternalSourceLinkViewModel> BuildExternalSourceLinks(
+    private IReadOnlyList<ExternalSourceLinkViewModel> BuildExternalSourceLinks(
         string? wikidataQid,
         string? wikipediaUrl,
         SequencePlacementViewModel? sequence,
         IReadOnlyDictionary<string, string>? values = null)
     {
-        var links = new List<ExternalSourceLinkViewModel>();
-        AddExternalSourceLink(
-            links,
-            "wikipedia",
-            "Wikipedia",
-            wikipediaUrl,
-            "Wikipedia",
-            "Description source");
+        var identifiers = values is null
+            ? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(values, StringComparer.OrdinalIgnoreCase);
+        var qid = ExtractQid(FirstText(
+            wikidataQid,
+            values is null ? null : GetValue(values, BridgeIdKeys.WikidataQid)));
+        if (!string.IsNullOrWhiteSpace(qid))
+            identifiers[BridgeIdKeys.WikidataQid] = qid;
+        if (!string.IsNullOrWhiteSpace(wikipediaUrl))
+            identifiers["wikipedia_url"] = wikipediaUrl.Trim();
 
-        var qid = ExtractQid(wikidataQid);
-        var qidScope = values is not null
-            ? GetValue(values, MetadataFieldConstants.WikidataQidScope)
+        var mediaType = values is not null
+                        && !string.IsNullOrWhiteSpace(GetValue(values, MetadataFieldConstants.ShowName))
+            ? "TV"
             : null;
-        var qidIsSeriesScoped = string.Equals(qidScope, "series", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(qidScope, "run", StringComparison.OrdinalIgnoreCase);
-        AddExternalSourceLink(
-            links,
-            "wikidata",
-            qidIsSeriesScoped ? "Series on Wikidata" : "Wikidata",
-            BuildWikidataEntityUrl(qid),
-            "Wikidata",
-            qidIsSeriesScoped ? "Series/run identity source" : "Canonical identity source");
+        var links = _providerSourceLinks.Resolve(identifiers, mediaType).ToList();
 
         var seriesQid = ExtractQid(FirstText(sequence?.SourceContainerId, sequence?.ContainerId));
         if (!string.IsNullOrWhiteSpace(seriesQid)
             && !string.Equals(seriesQid, qid, StringComparison.OrdinalIgnoreCase))
         {
-            AddExternalSourceLink(
-                links,
-                "wikidata-series",
-                "Series on Wikidata",
-                BuildWikidataEntityUrl(seriesQid),
-                "Wikidata",
-                $"Sequence source for {sequence?.ContainerTitle ?? "this series"}");
+            var seriesLink = _providerSourceLinks.Resolve(
+                    new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                    {
+                        [BridgeIdKeys.WikidataQid] = seriesQid,
+                    },
+                    mediaType)
+                .FirstOrDefault();
+            if (seriesLink is not null
+                && !links.Any(link => string.Equals(link.Url, seriesLink.Url, StringComparison.OrdinalIgnoreCase)))
+            {
+                links.Add(new ExternalSourceLinkViewModel
+                {
+                    Key = "wikidata-series",
+                    Label = "Series on Wikidata",
+                    Url = seriesLink.Url,
+                    SourceName = seriesLink.SourceName,
+                    Tooltip = $"Sequence source for {sequence?.ContainerTitle ?? "this series"}",
+                });
+            }
         }
-
-        AddExternalSourceLink(
-            links,
-            "comicvine-issue",
-            "Comic Vine",
-            ResolveComicVineIssueUrl(values),
-            "Comic Vine",
-            "Comic issue metadata source");
-
-        AddExternalSourceLink(
-            links,
-            "tmdb",
-            "TMDB",
-            BuildTmdbSourceUrl(values),
-            "TMDB",
-            "Movie or TV metadata source");
-
-        AddExternalSourceLink(
-            links,
-            "apple-music-album",
-            "Apple Music",
-            BuildAppleMusicAlbumUrl(GetOptionalValue(values, BridgeIdKeys.AppleMusicCollectionId)),
-            "Apple Music",
-            "Album metadata source");
-
-        AddExternalSourceLink(
-            links,
-            "apple-music-track",
-            "Apple Music Track",
-            BuildAppleMusicTrackUrl(GetOptionalValue(values, BridgeIdKeys.AppleMusicId)),
-            "Apple Music",
-            "Track metadata source");
-
-        AddExternalSourceLink(
-            links,
-            "musicbrainz-release-group",
-            "MusicBrainz",
-            BuildMusicBrainzUrl("release-group", GetOptionalValue(values, BridgeIdKeys.MusicBrainzReleaseGroupId)),
-            "MusicBrainz",
-            "Music release-group identity source");
-
-        AddExternalSourceLink(
-            links,
-            "musicbrainz-recording",
-            "MusicBrainz Recording",
-            BuildMusicBrainzUrl("recording", GetOptionalValue(values, BridgeIdKeys.MusicBrainzRecordingId)),
-            "MusicBrainz",
-            "Track recording identity source");
-
-        AddExternalSourceLink(
-            links,
-            "musicbrainz-release",
-            "MusicBrainz Release",
-            BuildMusicBrainzUrl("release", StringHelpers.FirstNonBlankOr(string.Empty, GetOptionalValue(values, "musicbrainz_release_id"), GetOptionalValue(values, BridgeIdKeys.MusicBrainzId))),
-            "MusicBrainz",
-            "Music release identity source");
 
         return links;
-    }
-
-    private static void AddExternalSourceLink(
-        List<ExternalSourceLinkViewModel> links,
-        string key,
-        string label,
-        string? url,
-        string sourceName,
-        string? tooltip)
-    {
-        if (string.IsNullOrWhiteSpace(url)
-            || links.Any(link => string.Equals(link.Url, url, StringComparison.OrdinalIgnoreCase)))
-        {
-            return;
-        }
-
-        links.Add(new ExternalSourceLinkViewModel
-        {
-            Key = key,
-            Label = label,
-            Url = url,
-            SourceName = sourceName,
-            Tooltip = tooltip,
-        });
     }
 
     private static string? BuildWikidataEntityUrl(string? qid)
         => IsWikidataQid(qid) ? $"https://www.wikidata.org/wiki/{NormalizeSequenceContainerId(qid)}" : null;
 
-    private static string? GetOptionalValue(IReadOnlyDictionary<string, string>? values, string key)
-        => values is null ? null : GetValue(values, key);
-
-    private static string? BuildTmdbSourceUrl(IReadOnlyDictionary<string, string>? values)
-    {
-        if (values is null)
-        {
-            return null;
-        }
-
-        var tvId = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "tmdb_tv_id"), !string.IsNullOrWhiteSpace(GetValue(values, MetadataFieldConstants.ShowName)) ? GetValue(values, BridgeIdKeys.TmdbId) : null);
-        if (!string.IsNullOrWhiteSpace(tvId))
-        {
-            return $"https://www.themoviedb.org/tv/{Uri.EscapeDataString(tvId)}";
-        }
-
-        var movieId = StringHelpers.FirstNonBlankOr(string.Empty, GetValue(values, "tmdb_movie_id"), GetValue(values, BridgeIdKeys.TmdbId));
-        return string.IsNullOrWhiteSpace(movieId)
-            ? null
-            : $"https://www.themoviedb.org/movie/{Uri.EscapeDataString(movieId)}";
-    }
-
-    private static string? BuildAppleMusicAlbumUrl(string? id)
-        => string.IsNullOrWhiteSpace(id)
-            ? null
-            : $"https://music.apple.com/us/album/{Uri.EscapeDataString(id)}";
-
-    private static string? BuildAppleMusicTrackUrl(string? id)
-        => string.IsNullOrWhiteSpace(id)
-            ? null
-            : $"https://music.apple.com/us/song/{Uri.EscapeDataString(id)}";
-
-    private static string? BuildMusicBrainzUrl(string entityType, string? id)
-        => string.IsNullOrWhiteSpace(id)
-            ? null
-            : $"https://musicbrainz.org/{entityType}/{Uri.EscapeDataString(id)}";
 
     private static string? ResolveComicVineIssueUrl(IReadOnlyDictionary<string, string>? values)
     {

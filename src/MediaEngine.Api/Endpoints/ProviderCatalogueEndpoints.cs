@@ -69,6 +69,15 @@ public static class ProviderCatalogueEndpoints
             AccentColor         = ui?.AccentColor ?? "#90A4AE",
             MaterialIcon        = ui?.MaterialIcon ?? p.CustomIconName ?? "Cloud",
             ExternalUrlTemplate = string.IsNullOrEmpty(ui?.ExternalUrlTemplate) ? null : ui.ExternalUrlTemplate,
+            ExternalLinks       = ui?.ExternalLinks.ToDictionary(
+                pair => pair.Key,
+                pair => new ProviderExternalLinkDto
+                {
+                    Label = pair.Value.Label,
+                    UrlTemplate = pair.Value.UrlTemplate,
+                    Tooltip = pair.Value.Tooltip,
+                },
+                StringComparer.OrdinalIgnoreCase) ?? new(StringComparer.OrdinalIgnoreCase),
             Category            = ui?.Category ?? "Open",
             RequiresKey         = ui?.RequiresKey ?? p.RequiresApiKey,
             AuthType            = ui?.AuthType ?? ResolveAuthType(p),

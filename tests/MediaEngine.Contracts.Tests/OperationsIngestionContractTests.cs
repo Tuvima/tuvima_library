@@ -41,6 +41,36 @@ public sealed class OperationsIngestionContractTests
     }
 
     [Fact]
+    public void RecentIdentityJobs_RoundTripThroughSharedContract()
+    {
+        var jobId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var snapshot = new IngestionOperationsSnapshotDto
+        {
+            RecentIdentityJobs =
+            [
+                new IngestionOperationsJobDto
+                {
+                    JobId = jobId,
+                    JobType = "Item enrichment",
+                    CurrentItem = "The Marshall Mathers LP",
+                    CurrentStage = "Full enrichment complete",
+                    Status = "completed",
+                },
+            ],
+        };
+
+        var json = JsonSerializer.Serialize(snapshot, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        var roundTrip = JsonSerializer.Deserialize<IngestionOperationsSnapshotDto>(
+            json,
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+        var job = Assert.Single(roundTrip!.RecentIdentityJobs);
+        Assert.Equal(jobId, job.JobId);
+        Assert.Equal("The Marshall Mathers LP", job.CurrentItem);
+        Assert.Equal("completed", job.Status);
+    }
+
+    [Fact]
     public void ActivityContracts_DoNotLeakDashboardRouteOrRelativeTimeHelpers()
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);

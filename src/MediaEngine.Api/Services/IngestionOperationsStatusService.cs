@@ -113,8 +113,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static readonly TimeSpan ActiveBatchFreshness = TimeSpan.FromMinutes(2);
     private static readonly string[] CurrentActivityStates =
     [
+        nameof(IdentityJobState.Queued),
         nameof(IdentityJobState.RetailSearching),
+        nameof(IdentityJobState.RetailMatched),
         nameof(IdentityJobState.BridgeSearching),
+        nameof(IdentityJobState.QidResolved),
         nameof(IdentityJobState.Hydrating),
         nameof(IdentityJobState.UniverseEnriching),
     ];
@@ -274,6 +277,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             lifecycle,
             projection,
             ct).ConfigureAwait(false);
+        var recentIdentityJobs = await ReadRecentIdentityJobsAsync(ct).ConfigureAwait(false);
 
         var activeWorkCount = activeJobs.Count > 0
             ? activeJobs.Count
@@ -302,6 +306,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         {
             Summary = summary,
             ActiveJobs = activeJobs,
+            RecentIdentityJobs = recentIdentityJobs,
             CurrentActivities = currentActivities,
             PipelineStages = pipelineStages,
             StageProgress = stageProgress,
@@ -314,6 +319,150 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             GeneratedAt = DateTimeOffset.UtcNow,
         };
     }
+
+    private async Task<List<IngestionOperationsJobDto>> ReadRecentIdentityJobsAsync(CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+        using var conn = _db.CreateConnection();
+        var cutoff = DateTimeOffset.UtcNow.AddDays(-7).ToString("O", CultureInfo.InvariantCulture);
+        var rows = (await conn.QueryAsync<RecentIdentityJobRow>("""
+            WITH latest_jobs AS (
+                SELECT
+                    id,
+                    entity_id,
+                    state,
+                    media_type,
+                    last_error,
+                    created_at,
+                    updated_at,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY entity_id
+                        ORDER BY updated_at DESC, created_at DESC
+                    ) AS rn
+                FROM identity_jobs
+                WHERE ingestion_run_id IS NULL
+                  AND updated_at >= @cutoff
+            )
+            SELECT
+                lj.id AS JobId,
+                lj.state AS State,
+                lj.media_type AS MediaType,
+                lj.last_error AS LastError,
+                lj.created_at AS CreatedAt,
+                lj.updated_at AS UpdatedAt,
+                ma.file_path_root AS SourcePath,
+                COALESCE(
+                    CASE
+                        WHEN LOWER(COALESCE(lj.media_type, '')) = 'music' AND parent_work.id IS NOT NULL THEN
+                            (
+                                SELECT cv.value
+                                FROM canonical_values cv
+                                WHERE cv.entity_id = parent_work.id
+                                  AND cv.key IN ('album', 'title')
+                                  AND cv.value IS NOT NULL
+                                  AND cv.value <> ''
+                                ORDER BY CASE cv.key WHEN 'album' THEN 0 ELSE 1 END
+                                LIMIT 1
+                            )
+                        ELSE NULL
+                    END,
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = lj.entity_id
+                          AND cv.key IN ('title', 'episode_title')
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        ORDER BY CASE cv.key WHEN 'title' THEN 0 ELSE 1 END
+                        LIMIT 1
+                    ),
+                    (
+                        SELECT cv.value
+                        FROM canonical_values cv
+                        WHERE cv.entity_id = w.id
+                          AND cv.key = 'title'
+                          AND cv.value IS NOT NULL
+                          AND cv.value <> ''
+                        LIMIT 1
+                    ),
+                    ''
+                ) AS Title
+            FROM latest_jobs lj
+            LEFT JOIN media_assets ma ON ma.id = lj.entity_id
+            LEFT JOIN editions e ON e.id = ma.edition_id
+            LEFT JOIN works w ON w.id = e.work_id
+            LEFT JOIN works parent_work ON parent_work.id = w.parent_work_id
+            WHERE lj.rn = 1
+            ORDER BY lj.updated_at DESC
+            LIMIT 12;
+            """, new { cutoff })).AsList();
+
+        return rows.Select(ToRecentIdentityJob).ToList();
+    }
+
+    private static IngestionOperationsJobDto ToRecentIdentityJob(RecentIdentityJobRow row)
+    {
+        var state = row.State ?? string.Empty;
+        var terminalSuccess = state.Equals(nameof(IdentityJobState.Ready), StringComparison.OrdinalIgnoreCase)
+            || state.Equals(nameof(IdentityJobState.ReadyWithoutUniverse), StringComparison.OrdinalIgnoreCase);
+        var needsAttention = state.Equals(nameof(IdentityJobState.Failed), StringComparison.OrdinalIgnoreCase)
+            || state.Equals(nameof(IdentityJobState.RetailNoMatch), StringComparison.OrdinalIgnoreCase)
+            || state.Equals(nameof(IdentityJobState.RetailMatchedNeedsReview), StringComparison.OrdinalIgnoreCase)
+            || state.Equals(nameof(IdentityJobState.QidNeedsReview), StringComparison.OrdinalIgnoreCase)
+            || state.Equals(nameof(IdentityJobState.QidNoMatch), StringComparison.OrdinalIgnoreCase);
+        var updatedAt = ParseDate(row.UpdatedAt);
+        var createdAt = ParseDate(row.CreatedAt);
+
+        return new IngestionOperationsJobDto
+        {
+            JobId = row.JobId,
+            JobType = "Item enrichment",
+            MediaType = row.MediaType,
+            SourceFolder = row.SourcePath,
+            CurrentStage = ResolveRecentIdentityStage(state),
+            CurrentItem = StringHelpers.FirstNonBlankOr("Matched item", row.Title, ShortPath(row.SourcePath)),
+            ProcessedCount = terminalSuccess || needsAttention ? 1 : 0,
+            TotalCount = 1,
+            CountUnit = "item",
+            PercentComplete = terminalSuccess || needsAttention ? 100 : ResolveRecentIdentityPercent(state),
+            Status = terminalSuccess ? "completed" : needsAttention ? "attention" : "running",
+            Elapsed = createdAt.HasValue && updatedAt.HasValue ? updatedAt.Value - createdAt.Value : null,
+            LastUpdatedTime = updatedAt,
+            WarningSummary = needsAttention
+                ? StringHelpers.FirstNonBlankOr("This item needs attention before enrichment can finish.", row.LastError)
+                : null,
+        };
+    }
+
+    private static string ResolveRecentIdentityStage(string state) => state switch
+    {
+        nameof(IdentityJobState.Queued) => "Queued for full enrichment",
+        nameof(IdentityJobState.RetailSearching) => "Confirming retail metadata",
+        nameof(IdentityJobState.RetailMatched) => "Retail match confirmed",
+        nameof(IdentityJobState.RetailMatchedNeedsReview) => "Retail match needs review",
+        nameof(IdentityJobState.RetailNoMatch) => "No retail match found",
+        nameof(IdentityJobState.BridgeSearching) => "Checking Wikidata identity",
+        nameof(IdentityJobState.QidResolved) => "Wikidata identity confirmed",
+        nameof(IdentityJobState.QidNeedsReview) => "Wikidata identity needs review",
+        nameof(IdentityJobState.QidNoMatch) => "No Wikidata identity found",
+        nameof(IdentityJobState.Hydrating) => "Adding metadata and people",
+        nameof(IdentityJobState.UniverseEnriching) => "Adding artwork and relationships",
+        nameof(IdentityJobState.Ready) or nameof(IdentityJobState.ReadyWithoutUniverse) => "Full enrichment complete",
+        nameof(IdentityJobState.Failed) => "Enrichment failed",
+        _ => "Processing item",
+    };
+
+    private static double ResolveRecentIdentityPercent(string state) => state switch
+    {
+        nameof(IdentityJobState.Queued) => 5,
+        nameof(IdentityJobState.RetailSearching) => 15,
+        nameof(IdentityJobState.RetailMatched) or nameof(IdentityJobState.RetailMatchedNeedsReview) => 30,
+        nameof(IdentityJobState.BridgeSearching) => 45,
+        nameof(IdentityJobState.QidResolved) or nameof(IdentityJobState.QidNeedsReview) or nameof(IdentityJobState.QidNoMatch) => 55,
+        nameof(IdentityJobState.Hydrating) => 75,
+        nameof(IdentityJobState.UniverseEnriching) => 90,
+        _ => 0,
+    };
 
     private IngestionExpectedOutcomesDto? LoadManifestExpectedOutcomes(int activeFileTotal)
     {
@@ -4242,6 +4391,18 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         public string? SourcePath { get; set; }
         public string? Title { get; set; }
         public int? ArtworkAssetCount { get; set; }
+    }
+
+    private sealed class RecentIdentityJobRow
+    {
+        public Guid JobId { get; set; }
+        public string? State { get; set; }
+        public string? MediaType { get; set; }
+        public string? LastError { get; set; }
+        public string? CreatedAt { get; set; }
+        public string? UpdatedAt { get; set; }
+        public string? SourcePath { get; set; }
+        public string? Title { get; set; }
     }
 
     private sealed class WorkerItemRow

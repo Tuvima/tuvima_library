@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=555; api=0; web-client=85
+# scopes: contracts=556; api=0; web-client=85
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -2379,6 +2379,7 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Summary: MediaEngine.Contracts.Ingestion.IngestionOperationsSummaryDto | json=summary | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ActiveJobs: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionOperationsJobDto> | json=active_jobs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RecentIdentityJobs: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionOperationsJobDto> | json=recent_identity_jobs | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CurrentActivities: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionCurrentActivityDto> | json=current_activities | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PipelineStages: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionPipelineStageDto> | json=pipeline_stages | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   StageProgress: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionStageProgressDto> | json=stage_progress | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -2389,7 +2390,7 @@
   RecentBatches: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionOperationsBatchDto> | json=recent_batches | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Organization: MediaEngine.Contracts.Ingestion.IngestionOrganizationRulesDto | json=organization | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   GeneratedAt: System.DateTimeOffset | json=generated_at | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"summary":null,"active_jobs":[],"current_activities":[],"pipeline_stages":[],"stage_progress":[],"review_reasons":[],"source_groups":[],"provider_health":[],"provider_activity":[],"recent_batches":[],"organization":null,"generated_at":"2025-01-02T03:04:05+00:00"}
+  sample={"summary":null,"active_jobs":[],"recent_identity_jobs":[],"current_activities":[],"pipeline_stages":[],"stage_progress":[],"review_reasons":[],"source_groups":[],"provider_health":[],"provider_activity":[],"recent_batches":[],"organization":null,"generated_at":"2025-01-02T03:04:05+00:00"}
 
 [contracts] MediaEngine.Contracts.Ingestion.IngestionOperationsSummaryDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5586,6 +5587,7 @@
   AccentColor: System.String | json=accentColor | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MaterialIcon: System.String | json=materialIcon | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ExternalUrlTemplate: System.String | json=externalUrlTemplate | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExternalLinks: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.ProviderExternalLinkDto> | json=externalLinks | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Category: System.String | json=category | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RequiresKey: System.Boolean | json=requiresKey | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AuthType: System.String | json=authType | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -5594,7 +5596,7 @@
   IconPath: System.String | json=iconPath | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   HydrationStages: System.Collections.Generic.List<System.Int32> | json=hydrationStages | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LanguageStrategy: System.String | json=languageStrategy | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"providerId":"sample","name":"sample","displayName":"sample","enabled":true,"domain":"sample","mediaTypes":[],"accentColor":"sample","materialIcon":"sample","externalUrlTemplate":"sample","category":"sample","requiresKey":true,"authType":"sample","searchChips":{},"rankingChips":{},"iconPath":"sample","hydrationStages":[],"languageStrategy":"sample"}
+  sample={"providerId":"sample","name":"sample","displayName":"sample","enabled":true,"domain":"sample","mediaTypes":[],"accentColor":"sample","materialIcon":"sample","externalUrlTemplate":"sample","externalLinks":{},"category":"sample","requiresKey":true,"authType":"sample","searchChips":{},"rankingChips":{},"iconPath":"sample","hydrationStages":[],"languageStrategy":"sample"}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderConfigUpdateDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5611,6 +5613,13 @@
   ApiKey: System.String | json=api_key | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CustomIconName: System.String | json=custom_icon_name | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"enabled":true,"weight":7,"field_weights":{},"capability_tags":[],"endpoints":{},"throttle_ms":7,"max_concurrency":7,"language_strategy":"sample","field_mappings":[],"timeout_seconds":7,"api_key":"sample","custom_icon_name":"sample"}
+
+[contracts] MediaEngine.Contracts.Settings.ProviderExternalLinkDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Label: System.String | json=label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UrlTemplate: System.String | json=urlTemplate | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Tooltip: System.String | json=tooltip | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"label":"sample","urlTemplate":"sample","tooltip":"sample"}
 
 [contracts] MediaEngine.Contracts.Settings.ProviderHealthStatusResponse
   kind=class | converter=default | number-handling=default | unmapped=default

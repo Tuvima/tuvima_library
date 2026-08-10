@@ -232,6 +232,81 @@ public sealed class AlbumTrackManifestRepairTests
             && value.WinningProviderId == WellKnownProviders.AppleApi);
     }
 
+    [Fact]
+    public async Task SelectedRelease_ReplacesCompleteStaleManifestWithExactMusicBrainzRelease()
+    {
+        const string releaseId = "d6dbf151-f092-4df7-89ab-f0da3ebe539c";
+        var rootWorkId = Guid.NewGuid();
+        var canonicalRepo = new StubCanonicalValueRepository();
+        canonicalRepo.Values.Add(new CanonicalValue
+        {
+            EntityId = rootWorkId,
+            Key = BridgeIdKeys.MusicBrainzReleaseId,
+            Value = releaseId,
+            WinningProviderId = WellKnownProviders.MusicBrainz,
+        });
+        var staleManifest = """
+            {
+              "schema": "music_album_tracks_v1",
+              "source": "apple_itunes_album",
+              "provider_collection_id": "old-five-track-edition",
+              "tracks": [
+                { "title": "The Real Slim Shady (instrumental)", "ordinal": 1 },
+                { "title": "Stan", "ordinal": 2 }
+              ]
+            }
+            """;
+        var httpFactory = new RoutingHttpClientFactory(request =>
+        {
+            Assert.Contains($"/release/{releaseId}", request.RequestUri!.ToString(), StringComparison.Ordinal);
+            return JsonResponse($$"""
+                {
+                  "id": "{{releaseId}}",
+                  "title": "The Marshall Mathers LP",
+                  "artist-credit": [{ "name": "Eminem", "joinphrase": "" }],
+                  "cover-art-archive": { "artwork": true, "front": true },
+                  "media": [{
+                    "position": 1,
+                    "tracks": [
+                      { "position": 1, "title": "Public Service Announcement 2000", "length": 25000, "recording": { "id": "11111111-1111-1111-1111-111111111111", "title": "Public Service Announcement 2000", "length": 25000 } },
+                      { "position": 2, "title": "Kill You", "length": 264000, "recording": { "id": "22222222-2222-2222-2222-222222222222", "title": "Kill You", "length": 264000 } },
+                      { "position": 3, "title": "Stan", "length": 404000, "recording": { "id": "33333333-3333-3333-3333-333333333333", "title": "Stan", "length": 404000 } }
+                    ]
+                  }]
+                }
+                """);
+        });
+        var service = new AlbumTrackManifestService(
+            canonicalRepo,
+            new AppleRetailClient(
+                httpFactory,
+                new RetailRequestBuilder(),
+                new ProviderRateLimiterCoordinator(),
+                NullLogger<AppleRetailClient>.Instance),
+            new MusicBrainzReleaseClient(
+                httpFactory,
+                new ProviderRateLimiterCoordinator(),
+                NullLogger<MusicBrainzReleaseClient>.Instance));
+
+        var result = await service.EnsureAlbumTrackManifestAsync(
+            rootWorkId,
+            "Eminem",
+            "The Marshall Mathers LP",
+            staleManifest,
+            canonicalRepo.Values,
+            CancellationToken.None);
+
+        Assert.True(MusicBrainzAlbumManifestJson.IsCompleteForRelease(result, releaseId));
+        Assert.Contains("Public Service Announcement 2000", result, StringComparison.Ordinal);
+        Assert.Contains("Kill You", result, StringComparison.Ordinal);
+        Assert.DoesNotContain("old-five-track-edition", result, StringComparison.Ordinal);
+        Assert.Contains(canonicalRepo.Values, value =>
+            value.EntityId == rootWorkId
+            && value.Key == MetadataFieldConstants.TrackCount
+            && value.Value == "3"
+            && value.WinningProviderId == WellKnownProviders.MusicBrainz);
+    }
+
     private static HttpResponseMessage JsonResponse(string json)
         => new(HttpStatusCode.OK)
         {

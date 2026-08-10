@@ -224,9 +224,11 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("BuildCurrentRetailMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentWikidataMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);
-        Assert.Contains("BuildProviderItemUrl", code, StringComparison.Ordinal);
-        Assert.Contains("https://www.themoviedb.org/", code, StringComparison.Ordinal);
-        Assert.Contains("https://www.wikidata.org/wiki/", code, StringComparison.Ordinal);
+        Assert.Contains(".GetExternalUrls(identifiers, _selectedMediaType", code, StringComparison.Ordinal);
+        Assert.Contains("BuildCurrentIdentityIdentifiers", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("BuildProviderItemUrl", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://www.themoviedb.org/", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://www.wikidata.org/wiki/", code, StringComparison.Ordinal);
         Assert.Contains("BuildCandidateChips", code, StringComparison.Ordinal);
         Assert.Contains("FormatCandidateScore", code, StringComparison.Ordinal);
         Assert.Contains("CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);

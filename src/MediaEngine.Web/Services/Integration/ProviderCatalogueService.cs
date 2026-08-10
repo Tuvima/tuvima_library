@@ -261,48 +261,71 @@ public sealed class ProviderCatalogueService
     /// </summary>
     public (string Label, string Url)? GetExternalUrl(string bridgeKey, string value, string? mediaType = null)
     {
-        if (string.IsNullOrWhiteSpace(value)) return null;
+        var match = GetExternalUrls(
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    [bridgeKey] = value,
+                },
+                mediaType)
+            .FirstOrDefault();
 
-        // Match bridge key against each provider's external_url_template
-        if (_catalogue is not null)
+        return match is null ? null : (match.Label, match.Url);
+    }
+
+    /// <summary>
+    /// Resolves every configured public source link supported by the supplied
+    /// identifiers. Link availability, labels, and URL shapes all come from the
+    /// provider catalogue rather than media-editor conditionals.
+    /// </summary>
+    public IReadOnlyList<ProviderExternalUrl> GetExternalUrls(
+        IReadOnlyDictionary<string, string> identifiers,
+        string? mediaType = null,
+        string? providerName = null)
+    {
+        if (_catalogue is null || identifiers.Count == 0)
+            return [];
+
+        var links = new List<ProviderExternalUrl>();
+        foreach (var provider in _catalogue)
         {
-            foreach (var p in _catalogue)
+            if (!string.IsNullOrWhiteSpace(providerName)
+                && !ProviderMatches(provider, providerName))
             {
-                if (string.IsNullOrEmpty(p.ExternalUrlTemplate)) continue;
+                continue;
+            }
 
-                // Check if the template uses this bridge key as a placeholder
-                var placeholder = $"{{{bridgeKey}}}";
-                if (!p.ExternalUrlTemplate.Contains(placeholder, StringComparison.OrdinalIgnoreCase))
+            foreach (var (identifierKey, linkConfig) in provider.ExternalLinks)
+            {
+                if (!identifiers.TryGetValue(identifierKey, out var value)
+                    || string.IsNullOrWhiteSpace(value)
+                    || string.IsNullOrWhiteSpace(linkConfig.UrlTemplate))
+                {
                     continue;
+                }
 
-                // For TMDB, resolve media_type placeholder
-                var url = p.ExternalUrlTemplate
-                    .Replace(placeholder, value)
-                    .Replace("{media_type}", ResolveMediaTypePath(mediaType));
+                var url = ExpandExternalUrlTemplate(
+                    linkConfig.UrlTemplate,
+                    identifierKey,
+                    value,
+                    mediaType);
+                if (string.IsNullOrWhiteSpace(url)
+                    || links.Any(existing => string.Equals(existing.Url, url, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
 
-                return ($"View on {p.DisplayName}", url);
+                links.Add(new ProviderExternalUrl(
+                    identifierKey,
+                    string.IsNullOrWhiteSpace(linkConfig.Label)
+                        ? $"View on {provider.DisplayName}"
+                        : linkConfig.Label,
+                    url,
+                    provider.DisplayName,
+                    linkConfig.Tooltip));
             }
         }
 
-        // Hardcoded fallback for well-known bridge IDs (matching LibraryHelpers.BuildProviderUrl)
-        return bridgeKey.ToLowerInvariant() switch
-        {
-            "tmdb_id" when (mediaType ?? "").Contains("TV", StringComparison.OrdinalIgnoreCase)
-                => ("View on TMDB", $"https://www.themoviedb.org/tv/{value}"),
-            "tmdb_id"
-                => ("View on TMDB", $"https://www.themoviedb.org/movie/{value}"),
-            "open_library_id" or "olid"
-                => ("View on Open Library", $"https://openlibrary.org/works/{value}"),
-            "musicbrainz_id"
-                => ("View on MusicBrainz", $"https://musicbrainz.org/release/{value}"),
-            "wikidata_qid" when value.StartsWith("Q", StringComparison.OrdinalIgnoreCase)
-                => ("View on Wikidata", $"https://www.wikidata.org/wiki/{value}"),
-            "imdb_id" when value.StartsWith("tt", StringComparison.OrdinalIgnoreCase)
-                => ("View on IMDb", $"https://www.imdb.com/title/{value}"),
-            "apple_books_id"
-                => ("View on Apple Books", $"https://books.apple.com/book/id{value}"),
-            _ => null,
-        };
+        return links;
     }
 
     /// <summary>Returns search chip labels for a provider and media type.</summary>
@@ -345,6 +368,36 @@ public sealed class ProviderCatalogueService
         return mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase) ? "tv" : "movie";
     }
 
+    private static string? ExpandExternalUrlTemplate(
+        string template,
+        string identifierKey,
+        string rawValue,
+        string? mediaType)
+    {
+        var value = rawValue.Trim();
+        var templateValue = Uri.TryCreate(value, UriKind.Absolute, out var absolute)
+                            && absolute.Scheme is "http" or "https"
+            ? value
+            : Uri.EscapeDataString(value);
+        var url = template
+            .Replace($"{{{identifierKey}}}", templateValue, StringComparison.OrdinalIgnoreCase)
+            .Replace("{value}", templateValue, StringComparison.OrdinalIgnoreCase)
+            .Replace("{media_type}", ResolveMediaTypePath(mediaType), StringComparison.OrdinalIgnoreCase);
+
+        return Uri.TryCreate(url, UriKind.Absolute, out var resolved)
+               && resolved.Scheme is "http" or "https"
+            ? resolved.ToString()
+            : null;
+    }
+
+    private static bool ProviderMatches(ProviderCatalogueDto provider, string providerName)
+    {
+        var normalized = providerName.Trim().Replace('-', '_');
+        return string.Equals(provider.Name, normalized, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(provider.DisplayName, providerName, StringComparison.OrdinalIgnoreCase)
+               || string.Equals(provider.ProviderId, providerName, StringComparison.OrdinalIgnoreCase);
+    }
+
     private ProviderCatalogueDto? FindEntry(string providerName)
     {
         if (_catalogue is null) return null;
@@ -384,5 +437,12 @@ public sealed class ProviderCatalogueService
             : null;
 
     private sealed record ProviderFallback(string DisplayName, string Color, string Icon);
+
+    public sealed record ProviderExternalUrl(
+        string Key,
+        string Label,
+        string Url,
+        string ProviderName,
+        string? Tooltip);
 }
 

@@ -163,6 +163,57 @@ public sealed class ArchitecturalHardeningTests
     }
 
     [Fact]
+    public async Task ProviderCatalogueService_BuildsExactSourceLinksFromCatalogueConfiguration()
+    {
+        var api = CountingEngineApiClient.Create();
+        api.Catalogue =
+        [
+            new ProviderCatalogueDto
+            {
+                Name = "musicbrainz",
+                DisplayName = "MusicBrainz",
+                ExternalLinks = new Dictionary<string, ProviderExternalLinkDto>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["musicbrainz_release_id"] = new()
+                    {
+                        Label = "MusicBrainz Release",
+                        UrlTemplate = "https://musicbrainz.org/release/{value}",
+                    },
+                },
+            },
+            new ProviderCatalogueDto
+            {
+                Name = "wikidata_reconciliation",
+                DisplayName = "Wikidata",
+                ExternalLinks = new Dictionary<string, ProviderExternalLinkDto>(StringComparer.OrdinalIgnoreCase)
+                {
+                    ["wikidata_qid"] = new()
+                    {
+                        Label = "Wikidata",
+                        UrlTemplate = "https://www.wikidata.org/wiki/{value}",
+                    },
+                },
+            },
+        ];
+        using var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new ProviderCatalogueService(api.Client, cache);
+        await service.GetCatalogueAsync();
+
+        var links = service.GetExternalUrls(new Dictionary<string, string>
+        {
+            ["musicbrainz_release_id"] = "d6dbf151-f092-4df7-89ab-f0da3ebe539c",
+            ["wikidata_qid"] = "Q153607",
+        });
+
+        Assert.Contains(links, link =>
+            link.Label == "MusicBrainz Release"
+            && link.Url == "https://musicbrainz.org/release/d6dbf151-f092-4df7-89ab-f0da3ebe539c");
+        Assert.Contains(links, link =>
+            link.Label == "Wikidata"
+            && link.Url == "https://www.wikidata.org/wiki/Q153607");
+    }
+
+    [Fact]
     public void ProviderCatalogueService_IsScopedBecauseItUsesCircuitScopedEngineApiState()
     {
         var program = File.ReadAllText(Path.Combine(RepoRoot, "src/MediaEngine.Web/Program.cs"));
@@ -282,6 +333,7 @@ public sealed class ArchitecturalHardeningTests
     private class CountingEngineApiClient : DispatchProxy
     {
         public int CatalogueCalls { get; private set; }
+        public IReadOnlyList<ProviderCatalogueDto>? Catalogue { get; set; }
         public IEngineApiClient Client => (IEngineApiClient)(object)this;
 
         public static CountingEngineApiClient Create()
@@ -295,6 +347,10 @@ public sealed class ArchitecturalHardeningTests
             if (targetMethod?.Name == nameof(IEngineApiClient.GetProviderCatalogueAsync))
             {
                 CatalogueCalls++;
+                if (Catalogue is not null)
+                {
+                    return Task.FromResult(Catalogue);
+                }
                 return Task.FromResult<IReadOnlyList<ProviderCatalogueDto>>(
                 [
                     new ProviderCatalogueDto

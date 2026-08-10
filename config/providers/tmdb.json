@@ -267,5 +267,33 @@
   "requires_api_key": true,
   "custom_icon_name": null,
   "language_strategy": "localized",
-  "ui_metadata": null
+  "ui_metadata": {
+    "accent_color": "#01B4E4",
+    "material_icon": "Movie",
+    "category": "Open",
+    "requires_key": true,
+    "auth_type": "api_key",
+    "external_links": {
+      "tmdb_id": {
+        "label": "TMDB",
+        "url_template": "https://www.themoviedb.org/{media_type}/{value}",
+        "tooltip": "Open the matched title on TMDB."
+      },
+      "tmdb_movie_id": {
+        "label": "TMDB Movie",
+        "url_template": "https://www.themoviedb.org/movie/{value}",
+        "tooltip": "Open the matched movie on TMDB."
+      },
+      "tmdb_tv_id": {
+        "label": "TMDB TV Show",
+        "url_template": "https://www.themoviedb.org/tv/{value}",
+        "tooltip": "Open the matched TV show on TMDB."
+      },
+      "imdb_id": {
+        "label": "IMDb",
+        "url_template": "https://www.imdb.com/title/{value}",
+        "tooltip": "Open the title on IMDb."
+      }
+    }
+  }
 }

@@ -374,9 +374,9 @@ public sealed class AlbumTrackManifestService(
         string? album,
         string? existingChildEntitiesJson,
         IReadOnlyList<CanonicalValue> rootCanonicalValues,
-        CancellationToken ct)
+        CancellationToken ct,
+        bool forceProviderRefresh = false)
     {
-        var needsManifest = NeedsAlbumTrackGapFill(existingChildEntitiesJson);
         var hasCover = rootCanonicalValues.Any(value =>
             (value.Key is MetadataFieldConstants.Cover or MetadataFieldConstants.CoverUrl)
             && !string.IsNullOrWhiteSpace(value.Value));
@@ -385,16 +385,21 @@ public sealed class AlbumTrackManifestService(
                 value.Key,
                 BridgeIdKeys.MusicBrainzReleaseId,
                 StringComparison.OrdinalIgnoreCase))?.Value;
+        var needsManifest = NeedsAlbumTrackGapFill(existingChildEntitiesJson)
+            || (!string.IsNullOrWhiteSpace(releaseId)
+                && !MusicBrainzAlbumManifestJson.IsCompleteForRelease(
+                    existingChildEntitiesJson,
+                    releaseId));
 
         MusicBrainzAlbumRelease? musicBrainzRelease = null;
-        if ((!hasCover || needsManifest) && !string.IsNullOrWhiteSpace(releaseId))
+        if ((forceProviderRefresh || !hasCover || needsManifest) && !string.IsNullOrWhiteSpace(releaseId))
         {
             musicBrainzRelease = await musicBrainzReleaseClient
                 .FetchReleaseAsync(releaseId, ct)
                 .ConfigureAwait(false);
         }
 
-        if (needsManifest && musicBrainzRelease is not null)
+        if ((forceProviderRefresh || needsManifest) && musicBrainzRelease is not null)
         {
             if (rootWorkId.HasValue)
             {
@@ -417,7 +422,7 @@ public sealed class AlbumTrackManifestService(
             return musicBrainzRelease.ManifestJson;
         }
 
-        if (!needsManifest)
+        if (!forceProviderRefresh && !needsManifest)
         {
             if (rootWorkId.HasValue)
             {
@@ -454,14 +459,25 @@ public sealed class AlbumTrackManifestService(
         // Re-resolve incomplete Apple manifests by name instead of trusting an
         // older collection ID. Complete Apple manifests reuse their proven
         // collection identity when only managed cover art needs repair.
-        var collectionId = needsManifest
-            ? await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct)
-            : TryReadAppleCollectionId(existingChildEntitiesJson)
-                ?? rootCanonicalValues.FirstOrDefault(value =>
-                    string.Equals(
-                        value.Key,
-                        BridgeIdKeys.AppleMusicCollectionId,
-                        StringComparison.OrdinalIgnoreCase))?.Value;
+        if (forceProviderRefresh
+            && !string.IsNullOrWhiteSpace(releaseId)
+            && musicBrainzRelease is null)
+        {
+            return existingChildEntitiesJson;
+        }
+
+        var configuredAppleCollectionId = rootCanonicalValues.FirstOrDefault(value =>
+            string.Equals(
+                value.Key,
+                BridgeIdKeys.AppleMusicCollectionId,
+                StringComparison.OrdinalIgnoreCase))?.Value;
+        var collectionId = forceProviderRefresh
+            ? configuredAppleCollectionId
+              ?? await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct)
+            : needsManifest
+                ? await appleRetailClient.SearchAlbumAsync(artist, album, "us", "en", ct)
+                : TryReadAppleCollectionId(existingChildEntitiesJson)
+                  ?? configuredAppleCollectionId;
 
         if (string.IsNullOrWhiteSpace(collectionId))
             return existingChildEntitiesJson;
@@ -472,13 +488,13 @@ public sealed class AlbumTrackManifestService(
             return existingChildEntitiesJson;
         }
 
-        var appleManifest = needsManifest
+        var appleManifest = forceProviderRefresh || needsManifest
             ? AppleAlbumManifestJson.Build(appleTracks, collectionId, album, artist)
             : existingChildEntitiesJson;
         if (rootWorkId.HasValue)
         {
             var values = new List<CanonicalValue>();
-            if (needsManifest
+            if ((forceProviderRefresh || needsManifest)
                 && !string.Equals(appleManifest, existingChildEntitiesJson, StringComparison.Ordinal))
             {
                 values.AddRange(BuildManifestValues(
@@ -652,7 +668,7 @@ public sealed class AlbumTrackManifestService(
         }
     }
 
-    private static int CountManifestTracks(string manifestJson)
+    internal static int CountManifestTracks(string manifestJson)
     {
         try
         {

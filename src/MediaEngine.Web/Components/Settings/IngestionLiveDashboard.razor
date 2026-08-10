@@ -144,6 +144,56 @@
 
         @if (IsSubsection("overview") || IsSubsection("batches"))
         {
+        @if (RecentIdentityJobs.Count > 0)
+        {
+        <section class="library-update-batches">
+            <div class="library-update-batches__header">
+                <span class="library-update-batches__icon" title="Recent item enrichment shows matches and corrections sent through the full metadata pipeline.">
+                    <MudTooltip Text="Recent item enrichment shows matches and corrections sent through the full metadata pipeline." Placement="Placement.Top">
+                        <MudIcon Icon="@Icons.Material.Outlined.Sync" />
+                    </MudTooltip>
+                </span>
+                <div>
+                    <h3>Recent item enrichment</h3>
+                    <p>Confirmed matches and corrections remain visible here while metadata, people, artwork, and relationships are updated.</p>
+                </div>
+            </div>
+
+            <div class="library-update-batch-list" role="list" aria-label="Recent item enrichment jobs">
+                @foreach (var job in RecentIdentityJobs)
+                {
+                    <div @key="job.JobId" class="library-update-batch is-enrichment" role="listitem">
+                        <div class="library-update-batch__select">
+                            <span class="library-update-batch__favorite" title="@RecentJobTooltip(job)">
+                                <MudTooltip Text="@RecentJobTooltip(job)" Placement="Placement.Top">
+                                    <MudIcon Icon="@RecentJobIcon(job)" />
+                                </MudTooltip>
+                            </span>
+                            <span class="library-update-batch__name">
+                                <strong>@RecentJobTitle(job)</strong>
+                                <span>@job.CurrentStage</span>
+                            </span>
+                            <span class="library-update-batch__media" aria-label="@RecentJobMediaLabel(job)">
+                                <span class="@RecentJobMediaIconClass(job)" title="@RecentJobMediaLabel(job)" aria-label="@RecentJobMediaLabel(job)">
+                                    <MudTooltip Text="@RecentJobMediaLabel(job)" Placement="Placement.Top">
+                                        <MudIcon Icon="@RecentJobMediaIcon(job)" />
+                                    </MudTooltip>
+                                </span>
+                            </span>
+                            <span class="library-update-batch__stats">
+                                <span class="@RecentJobStatusClass(job)">
+                                    <MudIcon Icon="@RecentJobIcon(job)" />
+                                    <strong>@RecentJobStatusLabel(job)</strong>
+                                    <span>@RecentJobTiming(job)</span>
+                                </span>
+                            </span>
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+        }
+
         <section class="library-update-batches">
             <div class="library-update-batches__header">
                 <span class="library-update-batches__icon" title="Recent batches show the latest scans and whether they are active or complete.">

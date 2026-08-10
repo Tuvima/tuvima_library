@@ -342,6 +342,11 @@
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
 }
 
+::deep .library-update-batch.is-enrichment {
+    grid-template-columns: minmax(0, 1fr);
+    padding-right: 0;
+}
+
 ::deep .library-update-batch__select {
     display: grid;
     grid-template-columns: 42px minmax(220px, 1fr) minmax(210px, auto) minmax(220px, auto);

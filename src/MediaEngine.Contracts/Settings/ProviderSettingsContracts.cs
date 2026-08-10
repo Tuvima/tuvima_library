@@ -31,6 +31,10 @@ public sealed class ProviderCatalogueDto
     [JsonPropertyName("externalUrlTemplate")]
     public string? ExternalUrlTemplate { get; set; }
 
+    [JsonPropertyName("externalLinks")]
+    public Dictionary<string, ProviderExternalLinkDto> ExternalLinks { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
     [JsonPropertyName("category")]
     public string Category { get; set; } = "Open";
 
@@ -54,6 +58,18 @@ public sealed class ProviderCatalogueDto
 
     [JsonPropertyName("languageStrategy")]
     public string LanguageStrategy { get; set; } = "source";
+}
+
+public sealed class ProviderExternalLinkDto
+{
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = "View source";
+
+    [JsonPropertyName("urlTemplate")]
+    public string UrlTemplate { get; set; } = string.Empty;
+
+    [JsonPropertyName("tooltip")]
+    public string? Tooltip { get; set; }
 }
 
 public sealed record ProviderStatusDto(

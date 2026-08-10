@@ -139,6 +139,29 @@ public sealed class PipelineConfigurationTests
     }
 
     [Fact]
+    public void PublicProviderLinks_AreDeclaredInProviderConfiguration()
+    {
+        using var musicBrainz = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "musicbrainz.json")));
+        using var wikidata = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "wikidata_reconciliation.json")));
+
+        var musicLinks = musicBrainz.RootElement.GetProperty("ui_metadata").GetProperty("external_links");
+        Assert.Equal(
+            "https://musicbrainz.org/release/{value}",
+            musicLinks.GetProperty("musicbrainz_release_id").GetProperty("url_template").GetString());
+        Assert.Equal(
+            "https://musicbrainz.org/release-group/{value}",
+            musicLinks.GetProperty("musicbrainz_release_group_id").GetProperty("url_template").GetString());
+
+        var authorityLinks = wikidata.RootElement.GetProperty("ui_metadata").GetProperty("external_links");
+        Assert.Equal(
+            "https://www.wikidata.org/wiki/{value}",
+            authorityLinks.GetProperty("wikidata_qid").GetProperty("url_template").GetString());
+        Assert.Equal(
+            "{value}",
+            authorityLinks.GetProperty("wikipedia_url").GetProperty("url_template").GetString());
+    }
+
+    [Fact]
     public void MusicBridgePriority_PrefersMusicBrainzIdsBeforeAppleIds()
     {
         using var provider = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "musicbrainz.json")));

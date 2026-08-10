@@ -73,6 +73,7 @@ public partial class SharedMediaEditorShell
     [Inject] protected ISnackbar Snackbar { get; set; } = null!;
     [Inject] protected IJSRuntime JS { get; set; } = null!;
     [Inject] protected EditorAiCapabilityService EditorAiCapabilities { get; set; } = null!;
+    [Inject] protected ProviderCatalogueService ProviderCatalogue { get; set; } = null!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -452,6 +453,15 @@ public partial class SharedMediaEditorShell
     {
         _tabState.Initialize(string.IsNullOrWhiteSpace(Request.InitialTab) ? "details" : Request.InitialTab);
         _schema = MediaEditorSchemaCatalog.Resolve(Request.MediaType);
+
+        try
+        {
+            await ProviderCatalogue.GetCatalogueAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Provider catalogue unavailable while opening the media editor");
+        }
 
         if (IsSingleItem)
             await LoadSingleItemAsync(resetEditorState: true);
@@ -2455,7 +2465,17 @@ public partial class SharedMediaEditorShell
     {
         var summary = IdentityTargetSummary;
         var provider = GetRetailMatchDisplayName(summary);
-        var providerId = StringHelpers.FirstNonBlank(summary?.ProviderItemId, GetBaselineValue("tmdb_id"), GetBaselineValue("imdb_id"), GetBaselineValue("comicvine_id"), GetBaselineValue("musicbrainz_id"), GetBaselineValue("asin"), GetBaselineValue("isbn"))?.Trim();
+        var providerId = StringHelpers.FirstNonBlank(
+            summary?.ProviderItemId,
+            GetBaselineValue("tmdb_id"),
+            GetBaselineValue("imdb_id"),
+            GetBaselineValue("comicvine_id"),
+            GetBaselineValue("musicbrainz_release_id"),
+            GetBaselineValue("musicbrainz_release_group_id"),
+            GetBaselineValue("musicbrainz_recording_id"),
+            GetBaselineValue("musicbrainz_id"),
+            GetBaselineValue("asin"),
+            GetBaselineValue("isbn"))?.Trim();
         provider = StringHelpers.FirstNonBlank(provider, InferProviderNameFromIdentifierFields())?.Trim() ?? provider;
         var title = StringHelpers.FirstNonBlank(CurrentTargetTitle, _detail?.Title, GetBaselineValue("title"), "Untitled item")?.Trim()!;
         var creator = StringHelpers.FirstNonBlank(_detail?.Author, _detail?.Director, GetBaselineValue("author"), GetBaselineValue("director"), GetBaselineValue("artist"), GetBaselineValue("narrator"))?.Trim();
@@ -2489,6 +2509,9 @@ public partial class SharedMediaEditorShell
             GetBaselineValue("tmdb_id"),
             GetBaselineValue("imdb_id"),
             GetBaselineValue("comicvine_id"),
+            GetBaselineValue("musicbrainz_release_id"),
+            GetBaselineValue("musicbrainz_release_group_id"),
+            GetBaselineValue("musicbrainz_recording_id"),
             GetBaselineValue("musicbrainz_id"),
             GetBaselineValue("asin"),
             GetBaselineValue("isbn"))?.Trim() ?? "Not linked";
@@ -2543,47 +2566,80 @@ public partial class SharedMediaEditorShell
 
     private IReadOnlyList<IdentityLinkDisplay> BuildRetailIdentityLinks(string? providerName, string? providerItemId)
     {
-        var url = BuildProviderItemUrl(providerName, providerItemId);
-        if (string.IsNullOrWhiteSpace(url) || string.IsNullOrWhiteSpace(providerItemId))
-            return [];
-
-        var provider = FormatProviderName(providerName, _selectedMediaType);
-        return [new IdentityLinkDisplay($"{provider}: {providerItemId}", url)];
+        var identifiers = BuildCurrentIdentityIdentifiers();
+        AddProviderItemIdentifier(identifiers, providerName, providerItemId);
+        return ProviderCatalogue
+            .GetExternalUrls(identifiers, _selectedMediaType, providerName)
+            .Select(link => new IdentityLinkDisplay(link.Label, link.Url))
+            .ToList();
     }
 
-    private static IReadOnlyList<IdentityLinkDisplay> BuildWikidataIdentityLinks(string? qid)
+    private IReadOnlyList<IdentityLinkDisplay> BuildWikidataIdentityLinks(string? qid)
     {
         if (string.IsNullOrWhiteSpace(qid))
             return [];
 
-        var normalized = qid.Trim();
-        return [new IdentityLinkDisplay(normalized, $"https://www.wikidata.org/wiki/{Uri.EscapeDataString(normalized)}")];
+        var identifiers = BuildCurrentIdentityIdentifiers();
+        identifiers["wikidata_qid"] = qid.Trim();
+        return ProviderCatalogue
+            .GetExternalUrls(identifiers, _selectedMediaType, "wikidata_reconciliation")
+            .Select(link => new IdentityLinkDisplay(link.Label, link.Url))
+            .ToList();
     }
 
-    private string? BuildProviderItemUrl(string? providerName, string? providerItemId)
+    private Dictionary<string, string> BuildCurrentIdentityIdentifiers()
+    {
+        var identifiers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var key in new[]
+        {
+            "wikidata_qid",
+            "wikipedia_url",
+            "tmdb_id",
+            "tmdb_movie_id",
+            "tmdb_tv_id",
+            "imdb_id",
+            "comicvine_id",
+            "issue_source_url",
+            "musicbrainz_release_id",
+            "musicbrainz_release_group_id",
+            "musicbrainz_recording_id",
+            "musicbrainz_artist_id",
+        })
+        {
+            var value = GetBaselineValue(key);
+            if (!string.IsNullOrWhiteSpace(value))
+                identifiers[key] = value.Trim();
+        }
+
+        return identifiers;
+    }
+
+    private void AddProviderItemIdentifier(
+        IDictionary<string, string> identifiers,
+        string? providerName,
+        string? providerItemId)
     {
         if (string.IsNullOrWhiteSpace(providerName) || string.IsNullOrWhiteSpace(providerItemId))
-            return null;
+            return;
 
         var provider = NormalizeProviderKey(providerName);
         var id = NormalizeProviderItemId(provider, providerItemId);
         if (string.IsNullOrWhiteSpace(id))
-            return null;
+            return;
 
-        return provider switch
+        var key = provider switch
         {
-            "tmdb" => $"https://www.themoviedb.org/{(IsTvMediaType() ? "tv" : "movie")}/{Uri.EscapeDataString(id)}",
-            "imdb" => $"https://www.imdb.com/title/{Uri.EscapeDataString(id)}",
-            "comicvine" or "comic_vine" => $"https://comicvine.gamespot.com/search/?q={Uri.EscapeDataString(id)}",
-            "musicbrainz" => $"https://musicbrainz.org/release/{Uri.EscapeDataString(id)}",
-            "open_library" => $"https://openlibrary.org/isbn/{Uri.EscapeDataString(id)}",
-            "apple_api" or "apple_books" or "apple_music" => $"https://books.apple.com/us/book/id{Uri.EscapeDataString(id)}",
+            "musicbrainz" when string.Equals(_canonicalTargetGroup, "track", StringComparison.OrdinalIgnoreCase)
+                => "musicbrainz_recording_id",
+            "musicbrainz" => "musicbrainz_release_id",
+            "tmdb" => "tmdb_id",
+            "imdb" => "imdb_id",
+            "comicvine" or "comic_vine" => "comicvine_id",
             _ => null,
         };
+        if (!string.IsNullOrWhiteSpace(key))
+            identifiers.TryAdd(key, id);
     }
-
-    private bool IsTvMediaType() =>
-        string.Equals(ReviewTargetResolver.NormalizeMediaType(_selectedMediaType), "TV", StringComparison.OrdinalIgnoreCase);
 
     private static string NormalizeProviderKey(string? providerName) =>
         (providerName ?? string.Empty).Trim().ToLowerInvariant().Replace("-", "_", StringComparison.Ordinal);
@@ -2607,7 +2663,10 @@ public partial class SharedMediaEditorShell
             return "imdb";
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("comicvine_id")))
             return "comicvine";
-        if (!string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_id")))
+        if (!string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_release_id"))
+            || !string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_release_group_id"))
+            || !string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_recording_id"))
+            || !string.IsNullOrWhiteSpace(GetBaselineValue("musicbrainz_id")))
             return "musicbrainz";
         if (!string.IsNullOrWhiteSpace(GetBaselineValue("asin")))
             return "apple_api";

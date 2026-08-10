@@ -864,23 +864,20 @@ public sealed class DetailComposerServiceTests
     public void DetailComposer_ExposesWikidataAndSeriesSourceLinks()
     {
         var source = ReadDetailComposerSource();
+        var resolver = File.ReadAllText(Path.Combine(
+            FindRepoRoot(),
+            "src/MediaEngine.Api/Services/Details/Internals/ProviderSourceLinkResolver.cs"));
         var contracts = File.ReadAllText(Path.Combine(FindRepoRoot(), "src/MediaEngine.Contracts/Details/DetailDtos.cs"));
 
         Assert.Contains("SourceLinks = BuildExternalSourceLinks(detail.WikidataQid", source);
         Assert.Contains("\"wikidata-series\"", source);
-        Assert.Contains("\"comicvine-issue\"", source);
         Assert.Contains("FirstText(sequence?.SourceContainerId, sequence?.ContainerId)", source);
-        Assert.Contains("BuildWikidataEntityUrl(seriesQid)", source);
-        Assert.Contains("ResolveComicVineIssueUrl(values)", source);
-        Assert.Contains("\"tmdb\"", source);
-        Assert.Contains("BuildTmdbSourceUrl(values)", source);
-        Assert.Contains("\"apple-music-album\"", source);
-        Assert.Contains("BuildAppleMusicAlbumUrl", source);
-        Assert.Contains("\"musicbrainz-release-group\"", source);
-        Assert.Contains("BuildMusicBrainzUrl(\"release-group\"", source);
-        Assert.Contains("MetadataFieldConstants.WikidataQidScope", source);
+        Assert.Contains("_providerSourceLinks.Resolve", source);
+        Assert.Contains("UiMetadata?.ExternalLinks", resolver);
+        Assert.Contains("linkConfig.UrlTemplate", resolver);
+        Assert.DoesNotContain("https://www.themoviedb.org/", resolver, StringComparison.Ordinal);
+        Assert.DoesNotContain("https://musicbrainz.org/", resolver, StringComparison.Ordinal);
         Assert.Contains("\"Series on Wikidata\"", source);
-        Assert.Contains("\"Series/run identity source\"", source);
         Assert.Contains("public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];", contracts);
         Assert.Contains("public sealed class ExternalSourceLinkViewModel", contracts);
         Assert.Contains("public string? SourceContainerId { get; init; }", contracts);

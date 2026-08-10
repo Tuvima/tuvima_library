@@ -10,6 +10,9 @@ public sealed class IngestionOperationsSnapshotDto
     [JsonPropertyName("active_jobs")]
     public List<IngestionOperationsJobDto> ActiveJobs { get; set; } = [];
 
+    [JsonPropertyName("recent_identity_jobs")]
+    public List<IngestionOperationsJobDto> RecentIdentityJobs { get; set; } = [];
+
     [JsonPropertyName("current_activities")]
     public List<IngestionCurrentActivityDto> CurrentActivities { get; set; } = [];
 

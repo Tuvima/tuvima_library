@@ -1929,6 +1929,7 @@ MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionOperati
 MediaEngine.Contracts.Ingestion.MediaEngine.Contracts.Ingestion.IngestionOperationsSnapshotDto
   Summary: MediaEngine.Contracts.Ingestion.IngestionOperationsSummaryDto | nullability=not-null | accessors=get,set
   ActiveJobs: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionOperationsJobDto> | nullability=not-null | accessors=get,set
+  RecentIdentityJobs: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionOperationsJobDto> | nullability=not-null | accessors=get,set
   CurrentActivities: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionCurrentActivityDto> | nullability=not-null | accessors=get,set
   PipelineStages: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionPipelineStageDto> | nullability=not-null | accessors=get,set
   StageProgress: System.Collections.Generic.List<MediaEngine.Contracts.Ingestion.IngestionStageProgressDto> | nullability=not-null | accessors=get,set
@@ -4659,6 +4660,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderCatalogueD
   AccentColor: System.String | nullability=not-null | accessors=get,set
   MaterialIcon: System.String | nullability=not-null | accessors=get,set
   ExternalUrlTemplate: System.String | nullability=nullable | accessors=get,set
+  ExternalLinks: System.Collections.Generic.Dictionary<System.String, MediaEngine.Contracts.Settings.ProviderExternalLinkDto> | nullability=not-null | accessors=get,set
   Category: System.String | nullability=not-null | accessors=get,set
   RequiresKey: System.Boolean | nullability=not-null | accessors=get,set
   AuthType: System.String | nullability=not-null | accessors=get,set
@@ -4681,6 +4683,11 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderConfigUpda
   TimeoutSeconds: System.Int32? | nullability=nullable | accessors=get,set
   ApiKey: System.String | nullability=nullable | accessors=get,set
   CustomIconName: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderExternalLinkDto
+  Label: System.String | nullability=not-null | accessors=get,set
+  UrlTemplate: System.String | nullability=not-null | accessors=get,set
+  Tooltip: System.String | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderHealthStatusResponse
   ProviderId: System.String | nullability=not-null | accessors=get,init

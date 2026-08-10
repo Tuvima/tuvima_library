@@ -32,7 +32,8 @@ public sealed class DetailComposerService
         ILogger<DetailComposerService>? logger = null,
         ICollectionBrowseReadService? collectionBrowse = null,
         CollectionCatalogReadService? collectionCatalog = null,
-        IProfileRepository? profiles = null)
+        IProfileRepository? profiles = null,
+        IConfigurationLoader? configurationLoader = null)
     {
         _composer = new DetailCompositionOrchestrator(
             db,
@@ -47,7 +48,8 @@ public sealed class DetailComposerService
             logger,
             collectionBrowse,
             collectionCatalog,
-            profiles);
+            profiles,
+            configurationLoader);
     }
 
     public Task<DetailPageViewModel?> BuildAsync(

@@ -254,5 +254,23 @@
   "requires_api_key": true,
   "custom_icon_name": null,
   "language_strategy": "source",
-  "ui_metadata": null
+  "ui_metadata": {
+    "accent_color": "#04C8FF",
+    "material_icon": "AutoStories",
+    "category": "Open",
+    "requires_key": true,
+    "auth_type": "api_key",
+    "external_links": {
+      "issue_source_url": {
+        "label": "Comic Vine",
+        "url_template": "{value}",
+        "tooltip": "Open the comic issue metadata source."
+      },
+      "comicvine_id": {
+        "label": "Comic Vine Issue",
+        "url_template": "https://comicvine.gamespot.com/issue/4000-{value}/",
+        "tooltip": "Open the matched issue on Comic Vine."
+      }
+    }
+  }
 }

@@ -1,5 +1,6 @@
 {
   "name": "wikidata_reconciliation",
+  "display_name": "Wikidata",
   "provider_id": "b3000003-d000-4000-8000-000000000004",
   "adapter_type": "reconciliation",
   "enabled": true,
@@ -12,6 +13,25 @@
   "rate_limit": null,
   "cache_ttl_hours": 168,
   "language_strategy": "both",
+  "ui_metadata": {
+    "accent_color": "#339966",
+    "material_icon": "Collections",
+    "category": "Open",
+    "requires_key": false,
+    "auth_type": "none",
+    "external_links": {
+      "wikidata_qid": {
+        "label": "Wikidata",
+        "url_template": "https://www.wikidata.org/wiki/{value}",
+        "tooltip": "Open the canonical identity on Wikidata."
+      },
+      "wikipedia_url": {
+        "label": "Wikipedia",
+        "url_template": "{value}",
+        "tooltip": "Open the Wikipedia article used for descriptive metadata."
+      }
+    }
+  },
   "batch_size": 50,
   "reconciliation": {
     "auto_accept_threshold": 95,
