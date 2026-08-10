@@ -156,10 +156,12 @@ public static class PersonReferenceExtractor
         string nameKey,
         string qidKey)
     {
-        if (!byKey.TryGetValue(nameKey, out var names))
+        if (!byKey.TryGetValue(nameKey, out var storedNames))
             return;
 
-        byKey.TryGetValue(qidKey, out var qids);
+        var names = ExpandJoinedPersonValues(storedNames);
+        byKey.TryGetValue(qidKey, out var storedQids);
+        var qids = ExpandJoinedPersonValues(storedQids);
 
         var maxCount = Math.Max(names.Count, qids?.Count ?? 0);
         for (int i = 0; i < maxCount; i++)
@@ -186,6 +188,16 @@ public static class PersonReferenceExtractor
 
             refs.Add(new PersonReference(role, displayName, string.IsNullOrEmpty(qid) ? null : qid));
         }
+    }
+
+    private static IReadOnlyList<string> ExpandJoinedPersonValues(IReadOnlyList<string>? values)
+    {
+        if (values is null || values.Count == 0)
+            return [];
+
+        return values
+            .SelectMany(value => value.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .ToList();
     }
 
     private static void AddPersonRefsFromArrays(

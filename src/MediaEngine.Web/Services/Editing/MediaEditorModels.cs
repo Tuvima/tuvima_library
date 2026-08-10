@@ -103,12 +103,7 @@ public static class ReviewTargetResolver
 
         if (normalizedType == "Music")
         {
-            return normalizedTrigger switch
-            {
-                "RetailMatchFailed" or "RetailMatchAmbiguous" or "QidNoMatch" or "MissingQid" or "WikidataBridgeFailed" or "MultipleQidMatches"
-                    => new(initialTab, "album", "album", BuildSummary(intent, "album and artist"), intent, actionLabel),
-                _ => new(initialTab, "album", "album", BuildSummary(intent, "music"), intent, actionLabel),
-            };
+            return new(initialTab, "track", "title", BuildSummary(intent, "track and album"), intent, actionLabel);
         }
 
         if (normalizedType == "Audiobooks")

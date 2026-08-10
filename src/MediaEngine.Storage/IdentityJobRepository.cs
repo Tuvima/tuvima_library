@@ -61,6 +61,80 @@ public sealed class IdentityJobRepository : IIdentityJobRepository
         return Task.CompletedTask;
     }
 
+    public Task<Guid> CreateOrResumeUserResolutionAsync(IdentityJob job, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            var activeJobId = conn.QueryFirstOrDefault<Guid?>("""
+                SELECT id
+                FROM identity_jobs
+                WHERE entity_id = @EntityId
+                  AND pass = @Pass
+                  AND state NOT IN ('Ready', 'ReadyWithoutUniverse', 'Failed', 'RetailNoMatch', 'QidNoMatch', 'QidNeedsReview')
+                ORDER BY updated_at DESC, created_at DESC
+                LIMIT 1;
+                """, new { job.EntityId, job.Pass }, tx);
+
+            if (activeJobId.HasValue)
+            {
+                conn.Execute("""
+                    UPDATE identity_jobs
+                    SET entity_type          = @EntityType,
+                        media_type           = @MediaType,
+                        ingestion_run_id     = NULL,
+                        state                = @State,
+                        selected_candidate_id = @SelectedCandidateId,
+                        resolved_qid         = @ResolvedQid,
+                        last_error           = NULL,
+                        next_retry_at        = NULL,
+                        lease_owner          = NULL,
+                        lease_expires_at     = NULL,
+                        updated_at           = @UpdatedAt
+                    WHERE id = @Id;
+                    """, new
+                    {
+                        Id = activeJobId.Value,
+                        job.EntityType,
+                        job.MediaType,
+                        job.State,
+                        job.SelectedCandidateId,
+                        job.ResolvedQid,
+                        UpdatedAt = DateTimeOffset.UtcNow.ToString("O"),
+                    }, tx);
+                return activeJobId.Value;
+            }
+
+            conn.Execute("""
+                INSERT INTO identity_jobs
+                    (id, entity_id, entity_type, media_type, ingestion_run_id,
+                     state, pass, attempt_count, lease_owner, lease_expires_at,
+                     selected_candidate_id, resolved_qid, last_error, next_retry_at,
+                     created_at, updated_at)
+                VALUES
+                    (@Id, @EntityId, @EntityType, @MediaType, NULL,
+                     @State, @Pass, @AttemptCount, NULL, NULL,
+                     @SelectedCandidateId, @ResolvedQid, NULL, NULL,
+                     @CreatedAt, @UpdatedAt);
+                """, new
+                {
+                    job.Id,
+                    job.EntityId,
+                    job.EntityType,
+                    job.MediaType,
+                    job.State,
+                    job.Pass,
+                    job.AttemptCount,
+                    job.SelectedCandidateId,
+                    job.ResolvedQid,
+                    CreatedAt = job.CreatedAt.ToString("O"),
+                    UpdatedAt = job.UpdatedAt.ToString("O"),
+                }, tx);
+            return job.Id;
+        }, ct);
+    }
+
     public Task<IdentityJob?> GetByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

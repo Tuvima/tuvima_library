@@ -177,7 +177,7 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("EntityId = context.AssetId", source, StringComparison.Ordinal);
         Assert.Contains("MediaType = MediaTypeParser.Parse(context.MediaType)", source, StringComparison.Ordinal);
         Assert.Contains("IsUserResolution = true", source, StringComparison.Ordinal);
-        Assert.Contains("Wikidata identity replaced; enrichment queued.", source, StringComparison.Ordinal);
+        Assert.Contains("This file was queued for the full enrichment cycle.", source, StringComparison.Ordinal);
     }
 
     private static string GetRepoFilePath(

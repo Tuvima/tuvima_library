@@ -69,7 +69,7 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             job.State = nameof(IdentityJobState.RetailMatched);
         }
 
-        await _jobRepo.CreateAsync(job, ct);
+        await PersistInitialJobAsync(job, request.IsUserResolution, ct);
 
         if (!string.IsNullOrWhiteSpace(job.ResolvedQid))
         {
@@ -117,7 +117,7 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         {
             job.State = nameof(IdentityJobState.QidResolved);
             job.ResolvedQid = request.PreResolvedQid;
-            await _jobRepo.CreateAsync(job, ct);
+            await PersistInitialJobAsync(job, request.IsUserResolution, ct);
             await _jobRepo.SetResolvedQidAsync(job.Id, request.PreResolvedQid, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.QidResolved, ct: ct);
 
@@ -133,7 +133,7 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         else if (request.SkipRetailStage)
         {
             job.State = nameof(IdentityJobState.RetailMatched);
-            await _jobRepo.CreateAsync(job, ct);
+            await PersistInitialJobAsync(job, request.IsUserResolution, ct);
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailMatched, ct: ct);
 
             // Stage 2: Wikidata bridge resolution using existing bridge IDs + text fallback
@@ -149,7 +149,7 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
         // Path C: Full pipeline (normal automated flow)
         else
         {
-            await _jobRepo.CreateAsync(job, ct);
+            await PersistInitialJobAsync(job, request.IsUserResolution, ct);
 
             // Stage 1: Retail identification
             await _concurrency.RunAsync(
@@ -201,6 +201,17 @@ public sealed class SynchronousIdentityPipelineService : IHydrationPipelineServi
             job.EntityId, job.State, job.ResolvedQid);
 
         return BuildResult(job);
+    }
+
+    private async Task PersistInitialJobAsync(
+        IdentityJob job,
+        bool isUserResolution,
+        CancellationToken ct)
+    {
+        if (isUserResolution)
+            job.Id = await _jobRepo.CreateOrResumeUserResolutionAsync(job, ct);
+        else
+            await _jobRepo.CreateAsync(job, ct);
     }
 
     private HydrationResult BuildResult(IdentityJob job)

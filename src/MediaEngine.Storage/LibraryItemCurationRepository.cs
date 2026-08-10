@@ -454,21 +454,120 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         ct.ThrowIfCancellationRequested();
         using var connection = db.CreateConnection();
         var rows = connection.Query<HistoryRow>(new CommandDefinition("""
-            SELECT id AS Id,
-                   occurred_at AS OccurredAt,
-                   action_type AS EventType,
-                   entity_id AS EntityId,
-                   profile_id AS ProfileId,
-                   detail AS Detail
-            FROM system_activity
-            WHERE entity_id = @workId
-               OR entity_id IN (
-                    SELECT ma.id
-                    FROM editions e
-                    INNER JOIN media_assets ma ON ma.edition_id = e.id
-                    WHERE e.work_id = @workId
-               )
-            ORDER BY occurred_at DESC
+            WITH RECURSIVE work_tree AS (
+                SELECT w.id,
+                       w.parent_work_id,
+                       w.media_type,
+                       w.work_kind,
+                       w.ordinal,
+                       0 AS depth
+                FROM works w
+                WHERE w.id = @workId
+
+                UNION ALL
+
+                SELECT child.id,
+                       child.parent_work_id,
+                       child.media_type,
+                       child.work_kind,
+                       child.ordinal,
+                       parent.depth + 1
+                FROM works child
+                INNER JOIN work_tree parent ON child.parent_work_id = parent.id
+            ),
+            scoped_activity AS (
+                SELECT sa.id AS Id,
+                       sa.occurred_at AS OccurredAt,
+                       sa.action_type AS EventType,
+                       sa.entity_id AS EntityId,
+                       sa.profile_id AS ProfileId,
+                       sa.detail AS Detail,
+                       wt.id AS ContextWorkId,
+                       wt.media_type AS ContextMediaType,
+                       wt.work_kind AS ContextWorkKind,
+                       wt.ordinal AS ContextOrdinal,
+                       parent.ordinal AS ParentOrdinal,
+                       wt.depth AS ContextDepth,
+                       (
+                           SELECT cv.value
+                           FROM canonical_values cv
+                           WHERE (cv.entity_id = wt.id
+                                  OR cv.entity_id IN (
+                                      SELECT ma_title.id
+                                      FROM editions e_title
+                                      INNER JOIN media_assets ma_title ON ma_title.edition_id = e_title.id
+                                      WHERE e_title.work_id = wt.id
+                                  ))
+                             AND cv.key IN ('episode_title', 'title', 'track_title', 'show_name', 'album')
+                             AND NULLIF(cv.value, '') IS NOT NULL
+                           ORDER BY CASE cv.key
+                               WHEN 'episode_title' THEN 0
+                               WHEN 'track_title' THEN 1
+                               WHEN 'title' THEN 2
+                               WHEN 'show_name' THEN 3
+                               ELSE 4
+                           END
+                           LIMIT 1
+                       ) AS ContextTitle
+                FROM work_tree wt
+                INNER JOIN system_activity sa ON sa.entity_id = wt.id
+                LEFT JOIN works parent ON parent.id = wt.parent_work_id
+
+                UNION ALL
+
+                SELECT sa.id AS Id,
+                       sa.occurred_at AS OccurredAt,
+                       sa.action_type AS EventType,
+                       sa.entity_id AS EntityId,
+                       sa.profile_id AS ProfileId,
+                       sa.detail AS Detail,
+                       wt.id AS ContextWorkId,
+                       wt.media_type AS ContextMediaType,
+                       wt.work_kind AS ContextWorkKind,
+                       wt.ordinal AS ContextOrdinal,
+                       parent.ordinal AS ParentOrdinal,
+                       wt.depth AS ContextDepth,
+                       COALESCE(
+                           (
+                               SELECT cv.value
+                               FROM canonical_values cv
+                               WHERE cv.entity_id = ma.id
+                                 AND cv.key IN ('episode_title', 'title', 'track_title', 'show_name', 'album')
+                                 AND NULLIF(cv.value, '') IS NOT NULL
+                               ORDER BY CASE cv.key
+                                   WHEN 'episode_title' THEN 0
+                                   WHEN 'track_title' THEN 1
+                                   WHEN 'title' THEN 2
+                                   WHEN 'show_name' THEN 3
+                                   ELSE 4
+                               END
+                               LIMIT 1
+                           ),
+                           (
+                               SELECT cv.value
+                               FROM canonical_values cv
+                               WHERE cv.entity_id = wt.id
+                                 AND cv.key IN ('episode_title', 'title', 'track_title', 'show_name', 'album')
+                                 AND NULLIF(cv.value, '') IS NOT NULL
+                               ORDER BY CASE cv.key
+                                   WHEN 'episode_title' THEN 0
+                                   WHEN 'track_title' THEN 1
+                                   WHEN 'title' THEN 2
+                                   WHEN 'show_name' THEN 3
+                                   ELSE 4
+                               END
+                               LIMIT 1
+                           )
+                       ) AS ContextTitle
+                FROM work_tree wt
+                INNER JOIN editions e ON e.work_id = wt.id
+                INNER JOIN media_assets ma ON ma.edition_id = e.id
+                INNER JOIN system_activity sa ON sa.entity_id = ma.id
+                LEFT JOIN works parent ON parent.id = wt.parent_work_id
+            )
+            SELECT *
+            FROM scoped_activity
+            ORDER BY OccurredAt DESC
             LIMIT 200;
             """,
             new { workId },
@@ -486,7 +585,7 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
                 row.OccurredAt,
                 row.EventType ?? string.Empty,
                 FormatActionTypeLabel(row.EventType ?? string.Empty),
-                FormatHistoryDetail(row.EventType, row.Detail),
+                FormatHistoryDetail(row.EventType, row.Detail, BuildHistoryContext(row)),
                 ResolveHistoryCategory(row.EventType),
                 row.ProfileId.HasValue ? "You" : "System"))
             .ToList();
@@ -606,18 +705,43 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         return "metadata";
     }
 
-    private static string? FormatHistoryDetail(string? eventType, string? detail)
+    private static string? BuildHistoryContext(HistoryRow row)
     {
+        if (row.ContextDepth <= 0)
+            return null;
+
+        var title = string.IsNullOrWhiteSpace(row.ContextTitle) ? null : row.ContextTitle.Trim();
+        if (string.Equals(row.ContextMediaType, "Music", StringComparison.OrdinalIgnoreCase))
+        {
+            var track = row.ContextOrdinal.HasValue ? $"Track {row.ContextOrdinal.Value}" : "Track";
+            return title is null ? track : $"{track}: {title}";
+        }
+
+        if (string.Equals(row.ContextMediaType, "TV", StringComparison.OrdinalIgnoreCase))
+        {
+            var episode = row.ContextOrdinal.HasValue ? $"E{row.ContextOrdinal.Value}" : "Episode";
+            var position = row.ParentOrdinal.HasValue ? $"S{row.ParentOrdinal.Value} {episode}" : episode;
+            return title is null ? position : $"{position}: {title}";
+        }
+
+        return title;
+    }
+
+    private static string? FormatHistoryDetail(string? eventType, string? detail, string? context = null)
+    {
+        string? formatted;
         if (string.Equals(eventType, "NarrativeRootResolved", StringComparison.OrdinalIgnoreCase))
-            return "Connected this episode to its TV show using the library's identified series metadata.";
+            formatted = "Connected this episode to its TV show using the library's identified series metadata.";
+        else if (string.Equals(eventType, "PathUpdated", StringComparison.OrdinalIgnoreCase))
+            formatted = "The library refreshed the stored file location.";
+        else if (string.Equals(eventType, "FileScored", StringComparison.OrdinalIgnoreCase))
+            formatted = "The file was checked for metadata completeness and media quality.";
+        else
+            formatted = detail;
 
-        if (string.Equals(eventType, "PathUpdated", StringComparison.OrdinalIgnoreCase))
-            return "The library refreshed the stored file location.";
-
-        if (string.Equals(eventType, "FileScored", StringComparison.OrdinalIgnoreCase))
-            return "The file was checked for metadata completeness and media quality.";
-
-        return detail;
+        if (string.IsNullOrWhiteSpace(context))
+            return formatted;
+        return string.IsNullOrWhiteSpace(formatted) ? context : $"{context} — {formatted}";
     }
 
     private static string HumanizeActionType(string actionType)
@@ -656,5 +780,12 @@ public sealed class LibraryItemCurationRepository(IDatabaseConnection db) : ILib
         public Guid? EntityId { get; init; }
         public Guid? ProfileId { get; init; }
         public string? Detail { get; init; }
+        public Guid ContextWorkId { get; init; }
+        public string? ContextMediaType { get; init; }
+        public string? ContextWorkKind { get; init; }
+        public int? ContextOrdinal { get; init; }
+        public int? ParentOrdinal { get; init; }
+        public int ContextDepth { get; init; }
+        public string? ContextTitle { get; init; }
     }
 }

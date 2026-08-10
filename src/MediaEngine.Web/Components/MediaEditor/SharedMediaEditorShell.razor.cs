@@ -2832,7 +2832,7 @@ public partial class SharedMediaEditorShell
                 ReviewItemId = Request.ReviewItemId,
             });
 
-        await FinishMatchActionAsync(response, "Retail match applied; Wikidata alignment queued.");
+        await FinishMatchActionAsync(response, "Match confirmed. This file was queued for the full enrichment cycle.");
     }
 
     protected async Task ApplyLinkedCandidateAsync(ItemCanonicalLinkedCandidateDto candidate)
@@ -2860,7 +2860,7 @@ public partial class SharedMediaEditorShell
                 ReviewItemId = Request.ReviewItemId,
             });
 
-        await FinishMatchActionAsync(response, "Wikidata identity replaced; enrichment queued.");
+        await FinishMatchActionAsync(response, "Match confirmed. This file was queued for the full enrichment cycle.");
     }
 
     protected async Task MarkWikidataMissingAsync()
@@ -2919,8 +2919,8 @@ public partial class SharedMediaEditorShell
         _hasCommittedChanges = true;
         _matchActionStatus = response.IdentityJobId.HasValue
             ? response.ArtworkChanged
-                ? $"{response.ArtworkMessage ?? "Identity and artwork saved."} Canonical alignment is continuing in the background."
-                : "Identity saved. Canonical alignment is continuing in the background."
+                ? $"{response.ArtworkMessage ?? "Identity and artwork saved."} The full enrichment cycle is continuing in the background."
+                : "Identity saved. The full enrichment cycle is continuing in the background."
             : string.IsNullOrWhiteSpace(response.Message) ? fallbackMessage : response.Message;
 
         try

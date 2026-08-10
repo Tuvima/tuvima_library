@@ -913,7 +913,7 @@ public static class ItemCanonicalEndpoints
                 EntityId = context.AssetId,
                 EntityType = "MediaAsset",
                 CollectionName = context.WorkTitle,
-                Detail = $"Queued identity job {identityJobId} for post-retail Wikidata alignment.",
+                Detail = $"Queued identity job {identityJobId} for the full enrichment cycle, including people, artwork, relationships, and file write-back.",
             }, ct);
 
             loggerFactory
@@ -947,18 +947,15 @@ public static class ItemCanonicalEndpoints
             if (request.ReviewItemId is { } reviewItemId)
                 await reviewRepo.UpdateStatusAsync(reviewItemId, ReviewStatus.Resolved, "user", ct);
 
+            const string enrichmentQueuedMessage = "Match confirmed. This file was queued for the full enrichment cycle. People, artwork, relationships, and file write-back will continue in the background.";
             return Results.Ok(new ItemCanonicalApplyResponseDto
             {
                 EntityId = entityId,
                 LinkState = "provider_only",
-                LinkStatusLabel = artworkResult?.CoverDownloaded == true
-                    ? "Retail match and artwork applied; Wikidata alignment queued."
-                    : "Retail match applied; Wikidata alignment queued.",
+                LinkStatusLabel = enrichmentQueuedMessage,
                 FieldsApplied = selectedFields.Count,
                 IdsCleared = staleBridgeKeys,
-                Message = artworkResult?.CoverDownloaded == true
-                    ? "Retail match and artwork applied; Wikidata alignment queued."
-                    : "Retail match applied; Wikidata alignment queued.",
+                Message = enrichmentQueuedMessage,
                 IdentityJobId = identityJobId,
                 PipelineState = IdentityJobState.RetailMatched.ToString(),
                 ArtworkChanged = artworkResult?.ArtworkChanged ?? false,
@@ -1004,7 +1001,7 @@ public static class ItemCanonicalEndpoints
             Guid? identityJobId = null;
             var message = action switch
             {
-                "replace" => "Wikidata identity replaced; enrichment queued.",
+                "replace" => "Match confirmed. This file was queued for the full enrichment cycle. People, artwork, relationships, and file write-back will continue in the background.",
                 "clear" => "Wikidata identity cleared; retail match kept.",
                 "mark_missing" => "Retail match kept; Wikidata marked missing.",
                 "reject" => "Wikidata identity rejected; retail match kept.",
@@ -1056,6 +1053,16 @@ public static class ItemCanonicalEndpoints
                         PreResolvedQid = qid,
                         SuppressReviewCreation = true,
                         IsUserResolution = true,
+                    }, ct);
+
+                    await activityRepo.LogAsync(new SystemActivityEntry
+                    {
+                        OccurredAt = DateTimeOffset.UtcNow,
+                        ActionType = SystemActionType.HydrationEnqueued,
+                        EntityId = context.AssetId,
+                        EntityType = "MediaAsset",
+                        CollectionName = context.WorkTitle,
+                        Detail = $"Queued identity job {identityJobId} for the full enrichment cycle, including people, artwork, relationships, and file write-back.",
                     }, ct);
                 }
             }

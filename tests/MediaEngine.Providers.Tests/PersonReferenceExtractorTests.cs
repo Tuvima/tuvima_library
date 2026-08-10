@@ -228,6 +228,21 @@ public sealed class PersonReferenceExtractorTests
         Assert.Single(refs);
     }
 
+    [Fact]
+    public void FromRawClaimsUnlinked_MusicRecordingCredits_AreSeparatePeople()
+    {
+        var claims = new List<ProviderClaim>
+        {
+            new(MetadataFieldConstants.Artist, "Eminem; Dido", 0.90),
+        };
+
+        var refs = PersonReferenceExtractor.FromRawClaimsUnlinked(claims, MediaType.Music);
+
+        Assert.Equal(2, refs.Count);
+        Assert.Contains(refs, reference => reference.Name == "Eminem" && reference.Role == "Performer");
+        Assert.Contains(refs, reference => reference.Name == "Dido" && reference.Role == "Performer");
+    }
+
     // ── FromCanonicals ──────────────────────────────────────────────────────
 
     [Fact]

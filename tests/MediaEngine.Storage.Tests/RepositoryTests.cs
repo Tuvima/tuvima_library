@@ -1076,6 +1076,44 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task IdentityJob_UserResolution_ResumesActiveReviewJobForEnrichment()
+    {
+        var repo = new IdentityJobRepository(_db);
+        var entityId = Guid.NewGuid();
+        var existing = new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Music),
+            Pass = "Quick",
+            State = IdentityJobState.RetailMatchedNeedsReview.ToString(),
+            LastError = "Manual confirmation required",
+            NextRetryAt = DateTimeOffset.UtcNow.AddHours(1),
+        };
+        await repo.CreateAsync(existing);
+
+        var resumedId = await repo.CreateOrResumeUserResolutionAsync(new IdentityJob
+        {
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
+            EntityType = nameof(EntityType.MediaAsset),
+            MediaType = nameof(MediaType.Music),
+            Pass = "Quick",
+            State = IdentityJobState.RetailMatched.ToString(),
+        });
+
+        var resumed = await repo.GetByIdAsync(resumedId);
+        Assert.Equal(existing.Id, resumedId);
+        Assert.NotNull(resumed);
+        Assert.Equal(IdentityJobState.RetailMatched.ToString(), resumed!.State);
+        Assert.Null(resumed.LastError);
+        Assert.Null(resumed.NextRetryAt);
+        Assert.Null(resumed.LeaseOwner);
+        Assert.Single(await repo.GetByStateAsync(IdentityJobState.RetailMatched, 10), j => j.EntityId == entityId);
+    }
+
+    [Fact]
     public async Task IdentityJob_UpdateStateAsync_PreservesLeaseOnlyForProcessingStates()
     {
         var repo = new IdentityJobRepository(_db);

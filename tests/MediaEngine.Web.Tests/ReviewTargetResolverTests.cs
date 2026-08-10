@@ -26,6 +26,17 @@ public sealed class ReviewTargetResolverTests
         Assert.Equal(MediaEditorIdentityIntent.FixRetailMatch, target.Intent);
     }
 
+    [Fact]
+    public void Resolve_MusicReview_TargetsRecordingRatherThanAlbum()
+    {
+        var target = ReviewTargetResolver.Resolve("Music", "RetailMatchAmbiguous");
+
+        Assert.Equal("links", target.InitialTab);
+        Assert.Equal("track", target.CanonicalTargetGroup);
+        Assert.Equal("title", target.FocusField);
+        Assert.Contains("track and album", target.Summary, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Theory]
     [InlineData("RetailMatchFailed", MediaEditorIdentityIntent.FixRetailMatch, "Find Retail Match")]
     [InlineData("RetailMatchAmbiguous", MediaEditorIdentityIntent.ConfirmRetailMatch, "Confirm Retail Match")]

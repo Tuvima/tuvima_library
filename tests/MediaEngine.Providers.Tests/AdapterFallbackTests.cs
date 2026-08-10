@@ -1260,6 +1260,9 @@ public sealed class AdapterFallbackTests
         Assert.Contains(claims, claim =>
             claim.Key == BridgeIdKeys.MusicBrainzRecordingId
             && claim.Value == "60d2246d-2761-4e1f-b30b-2784f00565b1");
+        Assert.Contains(claims, claim =>
+            claim.Key == MetadataFieldConstants.Artist
+            && claim.Value == "Eminem; Dido");
         var requestedUrl = Assert.Single(requestedUrls);
         Assert.Contains(
             "/recording/60d2246d-2761-4e1f-b30b-2784f00565b1?",

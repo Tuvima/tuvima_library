@@ -20,6 +20,17 @@ public interface IIdentityJobRepository
     /// <summary>Creates a new identity job.</summary>
     Task CreateAsync(IdentityJob job, CancellationToken ct = default);
 
+    /// <summary>
+    /// Creates a user-resolved job or resumes the existing active job for the
+    /// same entity and pass. This prevents a confirmed review item from
+    /// remaining parked in a needs-review state behind the active-job guard.
+    /// </summary>
+    async Task<Guid> CreateOrResumeUserResolutionAsync(IdentityJob job, CancellationToken ct = default)
+    {
+        await CreateAsync(job, ct);
+        return job.Id;
+    }
+
     /// <summary>Returns the identity job for a given entity, if one exists.</summary>
     Task<IdentityJob?> GetByEntityAsync(Guid entityId, CancellationToken ct = default);
 

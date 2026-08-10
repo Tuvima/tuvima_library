@@ -275,6 +275,76 @@ public sealed class LibraryItemCurationRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task History_ForAlbumIncludesEachTrackWithTrackContext()
+    {
+        var album = await SeedWorkAsync("The Marshall Mathers LP", "C:/library/eminem/album.flac", "Music");
+        var track = await SeedWorkAsync("Stan", "C:/library/eminem/03-stan.flac", "Music");
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync("""
+                UPDATE works
+                SET work_kind = 'parent'
+                WHERE id = @albumId;
+                UPDATE works
+                SET work_kind = 'child', parent_work_id = @albumId, ordinal = 3, ordinal_sort = 3
+                WHERE id = @trackId;
+                INSERT INTO system_activity (occurred_at, action_type, entity_id, entity_type, detail)
+                VALUES (@now, 'HydrationEnqueued', @trackAssetId, 'MediaAsset', 'Queued for the full enrichment cycle.');
+                """, new
+            {
+                now = DateTimeOffset.UtcNow.ToString("O"),
+                albumId = album.WorkId,
+                trackId = track.WorkId,
+                trackAssetId = track.AssetId,
+            });
+        }
+
+        var history = await _repository.GetHistoryAsync(album.WorkId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal(track.AssetId, entry.EntityId);
+        Assert.Equal("Queued for enrichment", entry.Label);
+        Assert.Equal("Track 3: Stan — Queued for the full enrichment cycle.", entry.Detail);
+    }
+
+    [Fact]
+    public async Task History_ForShowIncludesEpisodeWithSeasonAndEpisodeContext()
+    {
+        var show = await SeedWorkAsync("Northwatch", "C:/library/northwatch/show.mkv", "TV");
+        var season = await SeedWorkAsync("Season 2", "C:/library/northwatch/season.mkv", "TV");
+        var episode = await SeedWorkAsync("Echoes in the Frost", "C:/library/northwatch/s02e01.mkv", "TV");
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync("""
+                UPDATE works SET work_kind = 'parent' WHERE id = @showId;
+                UPDATE works
+                SET work_kind = 'parent', parent_work_id = @showId, ordinal = 2, ordinal_sort = 2
+                WHERE id = @seasonId;
+                UPDATE works
+                SET work_kind = 'child', parent_work_id = @seasonId, ordinal = 1, ordinal_sort = 1
+                WHERE id = @episodeId;
+                INSERT INTO system_activity (occurred_at, action_type, entity_id, entity_type, detail)
+                VALUES (@now, 'NarrativeRootResolved', @episodeId, 'Work', 'NarrativeRootResolved');
+                """, new
+            {
+                now = DateTimeOffset.UtcNow.ToString("O"),
+                showId = show.WorkId,
+                seasonId = season.WorkId,
+                episodeId = episode.WorkId,
+            });
+        }
+
+        var history = await _repository.GetHistoryAsync(show.WorkId);
+
+        var entry = Assert.Single(history);
+        Assert.Equal(episode.WorkId, entry.EntityId);
+        Assert.Equal("TV show relationship confirmed", entry.Label);
+        Assert.Equal(
+            "S2 E1: Echoes in the Frost — Connected this episode to its TV show using the library's identified series metadata.",
+            entry.Detail);
+    }
+
+    [Fact]
     public async Task Reads_PropagateCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();

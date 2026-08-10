@@ -275,7 +275,7 @@
   "field_mappings": [
     { "claim_key": "title",          "json_path": "title",                     "confidence": 0.8,  "source": "recording" },
     { "claim_key": "author",         "json_path": "artist-credit[*].name",     "confidence": 0.8,  "source": "recording", "transform": "array_join" },
-    { "claim_key": "artist",         "json_path": "artist-credit[*].name",     "confidence": 0.84, "source": "recording", "transform": "array_join" },
+    { "claim_key": "artist",         "json_path": "artist-credit[*].name",     "confidence": 0.84, "source": "recording", "transform": "array_join", "transform_args": "; " },
     { "claim_key": "album_artist",   "json_path": "artist-credit[*].name",     "confidence": 0.82, "source": "recording", "transform": "array_join" },
     { "claim_key": "album",          "json_path": "title",                     "confidence": 0.75, "source": "release" },
     { "claim_key": "year",           "json_path": "date",                      "confidence": 0.85, "source": "release",   "transform": "first_n_chars", "transform_args": "4" },
