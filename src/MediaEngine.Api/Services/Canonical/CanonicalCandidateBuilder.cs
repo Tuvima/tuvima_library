@@ -140,13 +140,16 @@ internal sealed class CanonicalCandidateBuilder(
         var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys, allowContainerTitleAliases);
         var bridgeIds = ExtractFields(allFields, policy.BridgeIdKeys);
         var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
+        var providerItemId = string.IsNullOrWhiteSpace(candidate.ProviderItemId)
+            ? ResolveProviderItemId(candidate.ProviderName, policy.TargetFieldGroup, allFields)
+            : candidate.ProviderItemId;
 
         return new ItemCanonicalRetailCandidateDto
         {
-            CandidateId = $"{candidate.ProviderName}:{candidate.ProviderItemId ?? candidate.Title}",
+            CandidateId = $"{candidate.ProviderName}:{providerItemId ?? candidate.Title}",
             ProviderId = candidate.ProviderId,
             ProviderName = candidate.ProviderName,
-            ProviderItemId = candidate.ProviderItemId,
+            ProviderItemId = providerItemId,
             Title = candidate.Title,
             Year = candidate.Year,
             Author = candidate.Author,
@@ -166,6 +169,33 @@ internal sealed class CanonicalCandidateBuilder(
             BridgeIds = bridgeIds,
             QidFields = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
         };
+    }
+
+    private static string? ResolveProviderItemId(
+        string providerName,
+        string targetFieldGroup,
+        IReadOnlyDictionary<string, string> fields)
+    {
+        var provider = providerName.Trim().ToLowerInvariant().Replace('-', '_');
+        var isContainer = targetFieldGroup is "album" or "show" or "season" or "book_identity" or "movie_identity";
+        var keys = provider switch
+        {
+            "musicbrainz" when isContainer => new[] { "musicbrainz_release_id", "musicbrainz_release_group_id", "musicbrainz_recording_id" },
+            "musicbrainz" => new[] { "musicbrainz_recording_id", "musicbrainz_release_id", "musicbrainz_release_group_id" },
+            "apple_api" or "apple_music" when isContainer => new[] { "apple_music_collection_id", "apple_music_id", "apple_books_id" },
+            "apple_api" or "apple_music" => new[] { "apple_music_id", "apple_music_collection_id", "apple_books_id" },
+            "tmdb" => new[] { "tmdb_id", "tmdb_movie_id", "tmdb_tv_id" },
+            "comicvine" or "comic_vine" => new[] { "comicvine_id" },
+            "open_library" => new[] { "isbn_13", "isbn", "openlibrary_id" },
+            _ => new[] { "provider_item_id" },
+        };
+
+        foreach (var key in keys)
+        {
+            if (fields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                return value.Trim();
+        }
+        return null;
     }
 
     public static ItemCanonicalLinkedCandidateDto BuildLinkedCandidate(

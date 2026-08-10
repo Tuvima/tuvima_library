@@ -1011,7 +1011,7 @@
                                                         {
                                                             <div class="sme-match-result-actions">
                                                                 <AppButton Label="Select identity"
-                                                                           OnClick="@(() => SelectCandidate(candidate))" />
+                                                                   OnClick="@(() => SelectCandidate(candidate))" />
                                                             </div>
                                                         }
                                                     </div>
@@ -1043,7 +1043,7 @@
                                                                    Color="Color.Inherit"
                                                                    FullWidth="true"
                                                                    Class="sme-match-result-summary"
-                                                                   OnClick="@(() => SelectCandidate(candidate))">
+                                                                   OnClick="@(() => SelectCandidateAsync(candidate))">
                                                             <div class="sme-match-result-art @ArtworkShapeClass">
                                                                 @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
                                                                 {
@@ -1076,6 +1076,55 @@
                                                         </AppButton>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
+                                                            <div class="sme-candidate-evidence-panel">
+                                                                @if (!string.IsNullOrWhiteSpace(candidate.Description))
+                                                                {
+                                                                    <div class="sme-candidate-description">
+                                                                        <strong>Description</strong>
+                                                                        <p>@candidate.Description</p>
+                                                                    </div>
+                                                                }
+                                                                @if (BuildRetailCandidateFacts(candidate).Count > 0)
+                                                                {
+                                                                    <dl class="sme-candidate-facts">
+                                                                        @foreach (var fact in BuildRetailCandidateFacts(candidate))
+                                                                        {
+                                                                            <div><dt>@fact.Label</dt><dd>@fact.Value</dd></div>
+                                                                        }
+                                                                    </dl>
+                                                                }
+                                                                @if (_loadingRetailCandidateDetail)
+                                                                {
+                                                                    <div class="sme-candidate-detail-loading"><AppProgressBar Indeterminate="true" /> Loading provider details…</div>
+                                                                }
+                                                                else if (_retailCandidateDetail is { } detail)
+                                                                {
+                                                                    <div class="sme-candidate-provider-detail">
+                                                                        <div class="sme-candidate-provider-detail__heading">
+                                                                            <strong>@detail.Heading</strong>
+                                                                            <span>Source: @detail.SourceLabel</span>
+                                                                        </div>
+                                                                        @if (!string.IsNullOrWhiteSpace(detail.UnavailableMessage))
+                                                                        {
+                                                                            <p class="sme-candidate-unavailable">@detail.UnavailableMessage</p>
+                                                                        }
+                                                                        @if (detail.Items.Count > 0)
+                                                                        {
+                                                                            <div class="sme-candidate-track-list" role="table" aria-label="Candidate track list">
+                                                                                <div class="sme-candidate-track-list__header" role="row"><span>#</span><span>Title</span><span>Duration</span></div>
+                                                                                @foreach (var track in detail.Items)
+                                                                                {
+                                                                                    <div class="sme-candidate-track" role="row">
+                                                                                        <span>@(track.DiscNumber is > 1 ? $"{track.DiscNumber}.{track.Ordinal}" : track.Ordinal)</span>
+                                                                                        <strong>@track.Title</strong>
+                                                                                        <span>@FormatCandidateDuration(track.DurationSeconds)</span>
+                                                                                    </div>
+                                                                                }
+                                                                            </div>
+                                                                        }
+                                                                    </div>
+                                                                }
+                                                            </div>
                                                             <div class="sme-match-result-actions">
                                                                 <AppButton Label="Customize"
                                                                            StartIcon="@Icons.Material.Outlined.Tune"
@@ -1097,7 +1146,7 @@
                                                         {
                                                             <div class="sme-match-result-actions">
                                                                 <AppButton Label="Select match"
-                                                                           OnClick="@(() => SelectCandidate(candidate))" />
+                                                                           OnClick="@(() => SelectCandidateAsync(candidate))" />
                                                             </div>
                                                         }
                                                     </div>
@@ -1753,7 +1802,7 @@
                         <AppButton Variant="Variant.Filled"
                                    Color="Color.Primary"
                                    Class="sme-footer-btn sme-footer-btn--primary"
-                                   OnClick="ResolveReviewWithoutChangesAsync"
+                                   OnClick="HandleReviewPrimaryActionAsync"
                                    Disabled="@_saving">
                             @(_saving ? "Resolving..." : GetResolveReviewLabel())
                         </AppButton>

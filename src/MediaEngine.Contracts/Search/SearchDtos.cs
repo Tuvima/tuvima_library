@@ -135,6 +135,65 @@ public sealed class SearchRetailResponseDto
     public string MediaType { get; set; } = string.Empty;
 }
 
+/// <summary>Requests provider-specific evidence for a retail candidate.</summary>
+public sealed class RetailCandidateDetailRequestDto
+{
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; set; } = string.Empty;
+
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
+
+    [JsonPropertyName("media_type")]
+    public string MediaType { get; set; } = string.Empty;
+
+    [JsonPropertyName("extra_fields")]
+    public Dictionary<string, string> ExtraFields { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>Rich evidence loaded after a retail candidate is selected.</summary>
+public sealed class RetailCandidateDetailDto
+{
+    [JsonPropertyName("provider_name")]
+    public string ProviderName { get; set; } = string.Empty;
+
+    [JsonPropertyName("detail_kind")]
+    public string DetailKind { get; set; } = "facts";
+
+    [JsonPropertyName("heading")]
+    public string Heading { get; set; } = "Provider details";
+
+    [JsonPropertyName("source_label")]
+    public string SourceLabel { get; set; } = string.Empty;
+
+    [JsonPropertyName("facts")]
+    public Dictionary<string, string> Facts { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("items")]
+    public List<RetailCandidateDetailItemDto> Items { get; set; } = [];
+
+    [JsonPropertyName("unavailable_message")]
+    public string? UnavailableMessage { get; set; }
+}
+
+public sealed class RetailCandidateDetailItemDto
+{
+    [JsonPropertyName("ordinal")]
+    public int Ordinal { get; set; }
+
+    [JsonPropertyName("disc_number")]
+    public int? DiscNumber { get; set; }
+
+    [JsonPropertyName("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [JsonPropertyName("duration_seconds")]
+    public double? DurationSeconds { get; set; }
+
+    [JsonPropertyName("provider_item_id")]
+    public string? ProviderItemId { get; set; }
+}
+
 /// <summary>Request for the unified resolve search.</summary>
 public sealed class SearchResolveRequestDto
 {

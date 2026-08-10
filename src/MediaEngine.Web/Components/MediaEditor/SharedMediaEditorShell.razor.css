@@ -6333,6 +6333,35 @@
 .sme-match-result-actions ::deep .mud-button-root { min-width: 7.75rem; width: auto; min-height: 2.45rem; }
 .sme-match-result-card > .sme-suggested-fields { grid-column: 1 / -1; }
 
+.sme-candidate-evidence-panel {
+    grid-column: 1 / -1;
+    display: grid;
+    gap: .85rem;
+    padding: .9rem 1rem 1rem;
+    border-top: 1px solid var(--tl-border-subtle);
+    background: color-mix(in srgb, var(--tl-bg-elevated) 54%, transparent);
+}
+
+.sme-candidate-description strong,
+.sme-candidate-provider-detail__heading strong { display: block; margin-bottom: .3rem; color: var(--tl-text-primary); font-size: .82rem; }
+.sme-candidate-description p { margin: 0; color: var(--tl-text-secondary); font-size: .82rem; line-height: 1.55; }
+.sme-candidate-facts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--tl-border-subtle); }
+.sme-candidate-facts div { min-width: 0; padding: .55rem .7rem; background: var(--tl-bg-surface); }
+.sme-candidate-facts dt { color: var(--tl-text-secondary); font-size: .68rem; }
+.sme-candidate-facts dd { overflow-wrap: anywhere; margin: .2rem 0 0; color: var(--tl-text-primary); font-size: .76rem; }
+.sme-candidate-detail-loading { display: grid; gap: .45rem; color: var(--tl-text-secondary); font-size: .76rem; }
+.sme-candidate-provider-detail { display: grid; gap: .6rem; }
+.sme-candidate-provider-detail__heading { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; }
+.sme-candidate-provider-detail__heading span { color: var(--tl-text-secondary); font-size: .7rem; }
+.sme-candidate-unavailable { margin: 0; color: var(--tl-text-secondary); font-size: .78rem; }
+.sme-candidate-track-list { max-height: 18rem; overflow-y: auto; border: 1px solid var(--tl-border-subtle); border-radius: .55rem; }
+.sme-candidate-track-list__header,
+.sme-candidate-track { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr) 4.25rem; align-items: center; gap: .6rem; min-height: 2.15rem; padding: 0 .7rem; }
+.sme-candidate-track-list__header { position: sticky; top: 0; z-index: 1; color: var(--tl-text-secondary); font-size: .67rem; text-transform: uppercase; background: var(--tl-bg-elevated); }
+.sme-candidate-track { border-top: 1px solid var(--tl-border-subtle); color: var(--tl-text-secondary); font-size: .75rem; }
+.sme-candidate-track strong { overflow: hidden; color: var(--tl-text-primary); font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.sme-candidate-track > span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+
 ::deep .sme-artwork-variant-card { flex: 0 0 8.5rem; width: 8.5rem; }
 ::deep .sme-artwork-variant-card .sme-art-row-stage { height: 12rem; }
 ::deep .sme-artwork-variant-card--square .sme-art-row-stage { height: 8.5rem; }

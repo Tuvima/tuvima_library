@@ -116,6 +116,7 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, bool> _contentGroupExpandedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
+    private RetailCandidateDetailDto? _retailCandidateDetail;
     private readonly MediaEditorTabState _tabState = new();
     private string _activeTab => _tabState.ActiveTab;
     private string _activeScopeId = string.Empty;
@@ -135,6 +136,7 @@ public partial class SharedMediaEditorShell
     private bool _saving;
     private bool _reclassifying;
     private bool _searchingCanonical;
+    private bool _loadingRetailCandidateDetail;
     private bool _artworkUrlSubmitting;
     private bool _providerArtworkRefreshing;
     private bool _retryingWriteback;
@@ -1578,6 +1580,34 @@ public partial class SharedMediaEditorShell
         }
     }
 
+    protected async Task HandleReviewPrimaryActionAsync()
+    {
+        switch (EffectiveIdentityIntent)
+        {
+            case MediaEditorIdentityIntent.FixRetailMatch:
+            case MediaEditorIdentityIntent.ConfirmRetailMatch:
+                OpenMatchSearch();
+                break;
+
+            case MediaEditorIdentityIntent.FixWikidataMatch:
+            case MediaEditorIdentityIntent.ConfirmWikidataMatch:
+                _showMatchSearch = true;
+                _showAdvancedMatch = true;
+                _activeMatchSearchMode = "wikidata";
+                _canonicalSearchResponse = null;
+                _selectedCandidateId = null;
+                _retailCandidateDetail = null;
+                break;
+
+            default:
+                await ResolveReviewWithoutChangesAsync();
+                return;
+        }
+
+        StateHasChanged();
+        await JS.InvokeVoidAsync("tuvimaEditorFocus", ".sme-match-search-panel .sme-text-input input");
+    }
+
     private async Task<bool> ResolveReviewCoreAsync(string? providerName = null, string? providerItemId = null, string? selectedQid = null)
     {
         if (Request.ReviewItemId is not { } reviewItemId)
@@ -2277,6 +2307,7 @@ public partial class SharedMediaEditorShell
 
             _canonicalSearchResponse = response;
             _selectedCandidateId = null;
+            _retailCandidateDetail = null;
             _selectedSuggestedFieldKeys.Clear();
 
             if (response is null)
@@ -2298,7 +2329,7 @@ public partial class SharedMediaEditorShell
             if (IsWikidataSearchMode && response.LinkedCandidates.Count > 0)
                 _selectedCandidateId = GetCandidateId(response.LinkedCandidates[0]);
             else if (!IsWikidataSearchMode && response.RetailCandidates.Count > 0)
-                _selectedCandidateId = GetCandidateId(response.RetailCandidates[0]);
+                await SelectCandidateAsync(response.RetailCandidates[0]);
         }
         finally
         {
@@ -2663,10 +2694,30 @@ public partial class SharedMediaEditorShell
             qidFields: []);
     }
 
-    protected void SelectCandidate(ItemCanonicalRetailCandidateDto candidate)
+    protected async Task SelectCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
         _selectedCandidateId = GetCandidateId(candidate);
         _customizeMatchChanges = false;
+        _retailCandidateDetail = null;
+
+        if (!string.Equals(ReviewTargetResolver.NormalizeMediaType(_selectedMediaType), "Music", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _loadingRetailCandidateDetail = true;
+        try
+        {
+            _retailCandidateDetail = await ApiClient.GetRetailCandidateDetailAsync(new RetailCandidateDetailRequestDto
+            {
+                ProviderName = candidate.ProviderName,
+                ProviderItemId = candidate.ProviderItemId,
+                MediaType = _selectedMediaType,
+                ExtraFields = new Dictionary<string, string>(candidate.ExtraFields, StringComparer.OrdinalIgnoreCase),
+            });
+        }
+        finally
+        {
+            _loadingRetailCandidateDetail = false;
+        }
     }
 
     protected void SelectCandidate(ItemCanonicalLinkedCandidateDto candidate)
@@ -2688,6 +2739,44 @@ public partial class SharedMediaEditorShell
         _activeMatchSearchMode = _showAdvancedMatch ? "wikidata" : "retail";
         _canonicalSearchResponse = null;
         _selectedCandidateId = null;
+        _retailCandidateDetail = null;
+    }
+
+    protected string FormatCandidateDuration(double? seconds)
+    {
+        if (seconds is not > 0)
+            return "—";
+
+        var duration = TimeSpan.FromSeconds(seconds.Value);
+        return duration.TotalHours >= 1
+            ? duration.ToString(@"h\:mm\:ss", CultureInfo.InvariantCulture)
+            : duration.ToString(@"m\:ss", CultureInfo.InvariantCulture);
+    }
+
+    protected IReadOnlyList<(string Label, string Value)> BuildRetailCandidateFacts(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var facts = new List<(string Label, string Value)>();
+        foreach (var (key, value) in candidate.ExtraFields
+                     .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+                     .Where(pair => !pair.Key.Contains("url", StringComparison.OrdinalIgnoreCase))
+                     .Take(8))
+        {
+            facts.Add((CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' ')), FormatCandidateFactValue(key, value)));
+        }
+        return facts;
+    }
+
+    private string FormatCandidateFactValue(string key, string value)
+    {
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var numeric))
+            return value;
+
+        return key.ToLowerInvariant() switch
+        {
+            "duration" when numeric > 10_000 => FormatCandidateDuration(numeric / 1000d),
+            "duration_sec" or "duration_seconds" => FormatCandidateDuration(numeric),
+            _ => value,
+        };
     }
 
     protected bool IsCandidateSelected(string candidateId) =>
@@ -3355,11 +3444,9 @@ public partial class SharedMediaEditorShell
             : ResolveFooterPrimaryActionLabel(EffectiveIdentityIntent);
 
     protected string GetResolveReviewLabel() =>
-        ResolveFooterPrimaryActionLabel(EffectiveIdentityIntent) switch
-        {
-            "Save Local Changes" => "Resolve Review",
-            var label => label,
-        };
+        string.IsNullOrWhiteSpace(_primaryActionLabel)
+            ? "Resolve Review"
+            : _primaryActionLabel;
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetDetailsMetadataFields() =>
         GetGroupsForTab("details")

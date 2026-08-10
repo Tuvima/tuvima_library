@@ -216,6 +216,11 @@ public sealed partial class ConfigDrivenAdapter
                 case BridgeIdKeys.MusicBrainzId:
                 case BridgeIdKeys.SpotifyId:
                     providerItemId ??= raw;
+                    // Preserve every provider identifier for candidate review. The
+                    // first identifier remains the primary apply key, while album
+                    // collection/release identifiers are required to load richer
+                    // evidence such as a candidate track list.
+                    extraFields.TryAdd(mapping.ClaimKey, raw);
                     break;
                 default:
                     // Collect any other mapped fields (album, track_number, duration, etc.)

@@ -63,6 +63,10 @@ public sealed class ReviewItemViewModel
     /// </summary>
     [JsonPropertyName("bridge_identifiers")]
     public Dictionary<string, string> BridgeIdentifiers { get; set; } = [];
+
+    /// <summary>Local/file facts used to make the matching decision.</summary>
+    [JsonPropertyName("detected_facts")]
+    public Dictionary<string, string> DetectedFacts { get; set; } = [];
 }
 
 /// <summary>Request body for resolving a review queue item.</summary>

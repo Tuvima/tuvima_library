@@ -158,6 +158,10 @@ public partial interface IEngineApiClient
         string query, string mediaType, int maxCandidates,
         Dictionary<string, string>? fileHints, CancellationToken ct = default);
 
+    /// <summary>Loads provider-specific evidence for a selected retail candidate.</summary>
+    Task<RetailCandidateDetailDto?> GetRetailCandidateDetailAsync(
+        RetailCandidateDetailRequestDto request, CancellationToken ct = default);
+
     /// <summary>POST /library/items/{entityId}/apply-match - apply a match to a library item.</summary>
     Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,

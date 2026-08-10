@@ -29,6 +29,14 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         "wikidata_qid",
     ];
 
+    private static readonly string[] DetectedFactKeys =
+    [
+        "title", "author", "artist", "album", "album_artist", "director", "narrator",
+        "year", "release_date", "runtime", "duration", "duration_sec", "language",
+        "track_number", "disc_number", "isrc", "show_name", "season_number",
+        "episode_number", "episode_title", "isbn", "file_name",
+    ];
+
     private readonly IDatabaseConnection _db;
 
     public ReviewQueueReadService(IDatabaseConnection db)
@@ -133,7 +141,8 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         {
             var entry = ToEntry(row);
             var bridgeIds = await ReadBridgeIdentifiersAsync(conn, row, ct).ConfigureAwait(false);
-            result.Add(ToContract(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds));
+            var detectedFacts = await ReadDetectedFactsAsync(conn, row, ct).ConfigureAwait(false);
+            result.Add(ToContract(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds, detectedFacts));
         }
 
         return result;
@@ -232,7 +241,8 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
 
         var entry = ToEntry(row);
         var bridgeIds = await ReadBridgeIdentifiersAsync(conn, row, ct).ConfigureAwait(false);
-        return ToContract(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds);
+        var detectedFacts = await ReadDetectedFactsAsync(conn, row, ct).ConfigureAwait(false);
+        return ToContract(entry, row.MediaType, row.EntityTitle, row.CoverUrl, bridgeIds, detectedFacts);
     }
 
     public async Task<int> GetPendingCountAsync(CancellationToken ct = default)
@@ -307,7 +317,8 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         string? mediaType,
         string? entityTitle,
         string? coverUrl,
-        Dictionary<string, string> bridgeIdentifiers) => new()
+        Dictionary<string, string> bridgeIdentifiers,
+        Dictionary<string, string> detectedFacts) => new()
     {
         Id = entry.Id,
         EntityId = entry.EntityId,
@@ -325,7 +336,42 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         EntityTitle = entityTitle,
         CoverUrl = coverUrl,
         BridgeIdentifiers = bridgeIdentifiers,
+        DetectedFacts = detectedFacts,
     };
+
+    private static async Task<Dictionary<string, string>> ReadDetectedFactsAsync(
+        System.Data.IDbConnection conn,
+        ReviewDisplayRow row,
+        CancellationToken ct)
+    {
+        var entityIds = new[] { row.EntityId, row.AssetId, row.WorkId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToArray();
+
+        if (entityIds.Length == 0)
+            return [];
+
+        var command = new CommandDefinition("""
+            SELECT key AS Key, value AS Value
+            FROM canonical_values
+            WHERE entity_id IN @entityIds
+              AND key IN @keys
+              AND value IS NOT NULL
+              AND value <> ''
+            ORDER BY CASE key WHEN 'title' THEN 0 WHEN 'episode_title' THEN 1 ELSE 2 END;
+            """, new
+        {
+            entityIds = entityIds.Select(GuidSql.ToBlob).ToArray(),
+            keys = DetectedFactKeys,
+        }, cancellationToken: ct);
+
+        var rows = await conn.QueryAsync<KeyValueRow>(command).ConfigureAwait(false);
+        return rows
+            .GroupBy(item => item.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.OrdinalIgnoreCase);
+    }
 
     private static async Task<Dictionary<string, string>> ReadBridgeIdentifiersAsync(
         System.Data.IDbConnection conn,

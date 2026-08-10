@@ -29,9 +29,9 @@ public sealed class ReviewTargetResolverTests
     [Theory]
     [InlineData("RetailMatchFailed", MediaEditorIdentityIntent.FixRetailMatch, "Find Retail Match")]
     [InlineData("RetailMatchAmbiguous", MediaEditorIdentityIntent.ConfirmRetailMatch, "Confirm Retail Match")]
-    [InlineData("WikidataBridgeFailed", MediaEditorIdentityIntent.FixWikidataMatch, "Fix Wikidata Match")]
-    [InlineData("MissingQid", MediaEditorIdentityIntent.MarkWikidataMissing, "Mark Provider-Only")]
-    [InlineData("MultipleQidMatches", MediaEditorIdentityIntent.FixWikidataMatch, "Fix Wikidata Match")]
+    [InlineData("WikidataBridgeFailed", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]
+    [InlineData("MissingQid", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]
+    [InlineData("MultipleQidMatches", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]
     [InlineData("ArtworkUnconfirmed", MediaEditorIdentityIntent.ConfirmArtwork, "Review Artwork")]
     [InlineData("AmbiguousMediaType", MediaEditorIdentityIntent.ReclassifyMediaType, "Change Media Type")]
     public void Resolve_Trigger_MapsIntentAndPrimaryAction(string trigger, MediaEditorIdentityIntent intent, string label)

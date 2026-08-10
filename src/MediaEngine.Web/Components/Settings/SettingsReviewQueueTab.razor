@@ -82,6 +82,18 @@
                 {
                     <AppEmptyState Title="No matching issues" Message="Try clearing one or more filters." />
                 }
+                else
+                {
+                    <div class="settings-review-table-header" role="row">
+                        <span>Item</span>
+                        <span>Media</span>
+                        <span>Provider</span>
+                        <span>Reason</span>
+                        <span>Evidence</span>
+                        <span>Age</span>
+                        <span aria-hidden="true"></span>
+                    </div>
+                }
                 @foreach (var item in VisibleItems)
                 {
                     var presentation = ReviewIssueClassifier.Classify(item.Trigger);
@@ -90,29 +102,29 @@
                                          Class="settings-review-row__selector"
                                          aria-pressed="@(SelectedItem?.Id == item.Id)"
                                          OnClick="@(() => SelectItem(item))">
-                            <span class="settings-review-cover">
-                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
-                                {
-                                    <img src="@item.CoverUrl" alt="" />
-                                }
-                                else
-                                {
-                                    <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" />
-                                }
+                            <span class="settings-review-row__item">
+                                <span class="settings-review-cover @ArtworkShapeClass(item)">
+                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                    {
+                                        <img src="@item.CoverUrl" alt="" />
+                                    }
+                                    else
+                                    {
+                                        <MudIcon Icon="@MediaIcon(item.MediaType)" />
+                                    }
+                                </span>
+                                <span class="settings-review-row__identity">
+                                    <strong>@DisplayTitle(item)</strong>
+                                    <small>Detected from local media</small>
+                                </span>
                             </span>
-                            <span class="settings-review-row__identity">
-                                <span><strong>@DisplayTitle(item)</strong><AppChip Text="@StringHelpers.FirstNonBlankOr("", item.MediaType, item.EntityType, "Unknown")" Tone="AppUiTone.Primary" /></span>
-                                <small>Local library</small>
-                            </span>
-                            <AppChip Text="@presentation.Label" Tone="@(presentation.HighPriority ? AppUiTone.Error : AppUiTone.Warning)" />
-                            <span class="settings-review-row__reason">@presentation.Explanation</span>
-                            <span class="settings-review-row__evidence"><small>@RelativeAge(item.CreatedAt)</small></span>
+                            <span><AppChip Text="@MediaLabel(item)" Tone="AppUiTone.Primary" /></span>
+                            <span class="settings-review-row__provider">@ProviderLabel(item)</span>
+                            <span><AppChip Text="@presentation.Label" Tone="@(presentation.HighPriority ? AppUiTone.Error : AppUiTone.Warning)" /></span>
+                            <span class="settings-review-row__evidence">@EvidenceSummary(item)</span>
+                            <span class="settings-review-row__age">@RelativeAge(item.CreatedAt)</span>
+                            <span class="settings-review-row__cue" title="Review this item"><MudIcon Icon="@Icons.Material.Outlined.ChevronRight" /></span>
                         </AppNativeButton>
-                        <AppButton Label="Review"
-                                   Size="AppControlSize.Compact"
-                                   ButtonStyle="@(SelectedItem?.Id == item.Id ? AppButtonStyle.Filled : AppButtonStyle.Outlined)"
-                                   Tone="@(SelectedItem?.Id == item.Id ? AppUiTone.Primary : AppUiTone.Neutral)"
-                                   OnClick="@(() => SelectItem(item))" />
                     </div>
                 }
                 <footer>Showing @VisibleItems.Count of @_items.Count open issues</footer>
@@ -128,9 +140,21 @@
                     var presentation = ReviewIssueClassifier.Classify(selected.Trigger);
                     var target = ReviewTargetResolver.Resolve(selected.MediaType, selected.Trigger);
                     <header class="settings-review-inspector__header">
-                        <div>
-                            <small>Issue details</small>
-                            <h3>@DisplayTitle(selected)</h3>
+                        <div class="settings-review-inspector__identity">
+                            <span class="settings-review-cover settings-review-cover--inspector @ArtworkShapeClass(selected)">
+                                @if (!string.IsNullOrWhiteSpace(selected.CoverUrl))
+                                {
+                                    <img src="@selected.CoverUrl" alt="" />
+                                }
+                                else
+                                {
+                                    <MudIcon Icon="@MediaIcon(selected.MediaType)" />
+                                }
+                            </span>
+                            <div>
+                                <small>@MediaLabel(selected) · @ProviderLabel(selected)</small>
+                                <h3>@DisplayTitle(selected)</h3>
+                            </div>
                         </div>
                         <AppChip Text="@presentation.Label" Tone="@(presentation.HighPriority ? AppUiTone.Error : AppUiTone.Warning)" />
                     </header>
@@ -151,6 +175,20 @@
                         <div><dt>Status</dt><dd>@selected.Status</dd></div>
                     </dl>
 
+                    @if (selected.DetectedFacts.Count > 0)
+                    {
+                        <section>
+                            <h4>Detected from local media</h4>
+                            <p class="settings-muted">These values are evidence, not confirmed provider facts.</p>
+                            <dl class="settings-review-inspector__detected-facts">
+                                @foreach (var fact in selected.DetectedFacts.Take(10))
+                                {
+                                    <div><dt>@FormatTrigger(fact.Key)</dt><dd>@FormatDetectedFactValue(fact.Key, fact.Value)</dd></div>
+                                }
+                            </dl>
+                        </section>
+                    }
+
                     @if (selected.BridgeIdentifiers.Count > 0)
                     {
                         <section>
@@ -163,6 +201,11 @@
                             </div>
                         </section>
                     }
+
+                    <section>
+                        <h4>What you can validate</h4>
+                        <p>@ReviewEvidenceDescription(selected)</p>
+                    </section>
 
                     <div class="settings-review-inspector__actions">
                         @if (selected.Trigger == "WritebackFailed")
@@ -180,7 +223,7 @@
                                    StartIcon="@Icons.Material.Outlined.Build"
                                    Disabled="@_busyIds.Contains(selected.Id)"
                                    OnClick="@(() => OpenReviewEditorAsync(selected))" />
-                        <AppButton Label="Open full editor"
+                        <AppButton Label="Open complete review"
                                    StartIcon="@Icons.Material.Outlined.OpenInNew"
                                    Disabled="@_busyIds.Contains(selected.Id)"
                                    OnClick="@(() => OpenReviewEditorAsync(selected))" />
@@ -372,6 +415,90 @@
     }
 
     private static string DisplayTitle(ReviewItemViewModel item) => StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
+    private static string MediaLabel(ReviewItemViewModel item) =>
+        StringHelpers.FirstNonBlankOr("Unknown", item.MediaType, item.EntityType)
+            .Replace("Audiobooks", "Audiobook", StringComparison.OrdinalIgnoreCase)
+            .Replace("Movies", "Movie", StringComparison.OrdinalIgnoreCase)
+            .Replace("Books", "Book", StringComparison.OrdinalIgnoreCase)
+            .Replace("Comics", "Comic", StringComparison.OrdinalIgnoreCase);
+
+    private static string ProviderLabel(ReviewItemViewModel item)
+    {
+        var keys = item.BridgeIdentifiers.Keys.Concat(item.DetectedFacts.Keys).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (keys.Any(key => key.StartsWith("musicbrainz", StringComparison.OrdinalIgnoreCase))) return "MusicBrainz";
+        if (keys.Contains("tmdb_id")) return "TMDB";
+        if (keys.Contains("tvdb_id")) return "TVDB";
+        if (keys.Contains("audible_id") || keys.Contains("asin")) return "Audible / retail";
+        if (keys.Any(key => key.StartsWith("apple_", StringComparison.OrdinalIgnoreCase))) return "Apple";
+        if (keys.Any(key => key.StartsWith("isbn", StringComparison.OrdinalIgnoreCase))) return "Book provider";
+        return item.Trigger is "RetailMatchFailed" or "PlaceholderTitle" ? "Not matched" : "Local evidence";
+    }
+
+    private static string ArtworkShapeClass(ReviewItemViewModel item)
+    {
+        var media = item.MediaType ?? string.Empty;
+        if (media.Contains("music", StringComparison.OrdinalIgnoreCase)) return "is-square";
+        if (media.Contains("tv", StringComparison.OrdinalIgnoreCase) && item.DetectedFacts.ContainsKey("episode_number")) return "is-landscape";
+        return "is-portrait";
+    }
+
+    private static string MediaIcon(string? mediaType)
+    {
+        var media = mediaType ?? string.Empty;
+        if (media.Contains("music", StringComparison.OrdinalIgnoreCase)) return Icons.Material.Outlined.MusicNote;
+        if (media.Contains("audio", StringComparison.OrdinalIgnoreCase)) return Icons.Material.Outlined.GraphicEq;
+        if (media.Contains("tv", StringComparison.OrdinalIgnoreCase)) return Icons.Material.Outlined.Tv;
+        if (media.Contains("movie", StringComparison.OrdinalIgnoreCase)) return Icons.Material.Outlined.Movie;
+        if (media.Contains("comic", StringComparison.OrdinalIgnoreCase)) return Icons.Material.Outlined.AutoStories;
+        return Icons.Material.Outlined.MenuBook;
+    }
+
+    private static string EvidenceSummary(ReviewItemViewModel item) => item.Trigger switch
+    {
+        "RetailMatchFailed" => "No provider candidate passed the confidence threshold.",
+        "RetailMatchAmbiguous" => "Compare the proposed provider records before confirming.",
+        "MissingQid" or "WikidataBridgeFailed" => "Retail match retained; Wikidata search is still required.",
+        "MultipleQidMatches" => "Several Wikidata identities require comparison.",
+        "PlaceholderTitle" => "A usable title or identifier was not detected.",
+        _ => ReviewIssueClassifier.Classify(item.Trigger).Explanation,
+    };
+
+    private static string ReviewEvidenceDescription(ReviewItemViewModel item)
+    {
+        var media = ReviewTargetResolver.NormalizeMediaType(item.MediaType);
+        return media switch
+        {
+            "Music" => "Compare recording and album identifiers, artist, duration, release information, and the complete provider track list before confirming the match.",
+            "Movies" => "Compare the provider synopsis, director, release year, runtime, cast, artwork, and external identifiers.",
+            "TV" when item.DetectedFacts.ContainsKey("episode_number") => "Compare show, season, episode number, episode synopsis, air date, runtime, still, and the surrounding episode manifest.",
+            "TV" => "Compare the show synopsis, premiere year, network, seasons, artwork, and provider identifiers.",
+            "Audiobooks" => "Compare title, author, narrator, edition identifiers, total runtime, cover, description, and available chapter information.",
+            "Comics" => "Compare series, issue number, creators, publication date, synopsis, cover, and the issue or run identity scope.",
+            _ => "Compare title, creator, edition, publication information, description, cover, and provider identifiers before confirming the match.",
+        };
+    }
+
+    private static string FormatDetectedFactValue(string key, string value)
+    {
+        if (!double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var numeric))
+            return value;
+
+        double? seconds = key.ToLowerInvariant() switch
+        {
+            "duration" when numeric > 10_000 => numeric / 1000d,
+            "duration_sec" => numeric,
+            _ => null,
+        };
+
+        if (seconds is not > 0)
+            return value;
+
+        var duration = TimeSpan.FromSeconds(seconds.Value);
+        return duration.TotalHours >= 1
+            ? duration.ToString(@"h\:mm\:ss", System.Globalization.CultureInfo.InvariantCulture)
+            : duration.ToString(@"m\:ss", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
     private static string FormatTrigger(string trigger) => string.IsNullOrWhiteSpace(trigger) ? "Review" : string.Concat(trigger.Select((c, i) => i > 0 && char.IsUpper(c) ? $" {c}" : c.ToString())).Replace('_', ' ');
     private static string ConfidenceLabel(double? confidence) => confidence.HasValue ? $"{confidence.Value:P0} confidence" : "Not scored";
     private static bool IsWikidataReview(string? trigger) => trigger is "WikidataBridgeFailed" or "MissingQid" or "MultipleQidMatches" or "QidNoMatch";

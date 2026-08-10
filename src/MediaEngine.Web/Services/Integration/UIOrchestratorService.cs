@@ -1004,6 +1004,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         return result?.Candidates ?? [];
     }
 
+    public Task<RetailCandidateDetailDto?> GetRetailCandidateDetailAsync(
+        RetailCandidateDetailRequestDto request, CancellationToken ct = default)
+        => _api.GetRetailCandidateDetailAsync(request, ct);
+
     /// <summary>
     /// GET /metadata/{qid}/aliases  -  fetches Wikidata aliases (alternative titles) for the given QID.
     /// If <paramref name="canonicalTitle"/> is provided and is not already in the aliases list,

@@ -798,6 +798,28 @@ public sealed partial class EngineApiClient : IEngineApiClient
         }
     }
 
+    public async Task<RetailCandidateDetailDto?> GetRetailCandidateDetailAsync(
+        RetailCandidateDetailRequestDto request, CancellationToken ct = default)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/search/retail/detail", request, ct);
+            if (!resp.IsSuccessStatusCode)
+            {
+                LastError = $"POST /search/retail/detail failed: {resp.StatusCode}";
+                return null;
+            }
+            return await resp.Content.ReadFromJsonAsync<RetailCandidateDetailDto>(ct);
+        }
+        catch (OperationCanceledException) { return null; }
+        catch (Exception ex)
+        {
+            LastError = ex.Message;
+            _logger.LogWarning(ex, "POST /search/retail/detail failed");
+            return null;
+        }
+    }
+
     public async Task<ApplyMatchResponseDto?> ApplyLibraryItemMatchAsync(
         Guid entityId, ApplyMatchRequestDto request,
         CancellationToken ct = default)

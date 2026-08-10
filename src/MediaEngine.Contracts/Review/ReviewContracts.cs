@@ -20,6 +20,7 @@ public sealed class ReviewItemDto
     [JsonPropertyName("entity_title")] public string? EntityTitle { get; init; }
     [JsonPropertyName("cover_url")] public string? CoverUrl { get; init; }
     [JsonPropertyName("bridge_identifiers")] public Dictionary<string, string> BridgeIdentifiers { get; init; } = [];
+    [JsonPropertyName("detected_facts")] public Dictionary<string, string> DetectedFacts { get; init; } = [];
 }
 
 public sealed class ReviewResolveRequestDto

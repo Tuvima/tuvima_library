@@ -154,9 +154,8 @@ public static class ReviewTargetResolver
             "RetailMatchAmbiguous" => MediaEditorIdentityIntent.ConfirmRetailMatch,
             "RetailMatchFailed" or "UserFixMatch"
                 => MediaEditorIdentityIntent.FixRetailMatch,
-            "WikidataBridgeFailed" or "MultipleQidMatches" or "QidNoMatch"
+            "WikidataBridgeFailed" or "MultipleQidMatches" or "QidNoMatch" or "MissingQid"
                 => MediaEditorIdentityIntent.FixWikidataMatch,
-            "MissingQid" => MediaEditorIdentityIntent.MarkWikidataMissing,
             "AmbiguousMediaType" or "RootWatchFolder" => MediaEditorIdentityIntent.ReclassifyMediaType,
             "ArtworkUnconfirmed" => MediaEditorIdentityIntent.ConfirmArtwork,
             "WritebackFailed" => MediaEditorIdentityIntent.ResolveWriteback,
@@ -182,7 +181,7 @@ public static class ReviewTargetResolver
         {
             MediaEditorIdentityIntent.FixRetailMatch => "Find Retail Match",
             MediaEditorIdentityIntent.ConfirmRetailMatch => "Confirm Retail Match",
-            MediaEditorIdentityIntent.FixWikidataMatch => "Fix Wikidata Match",
+            MediaEditorIdentityIntent.FixWikidataMatch => "Search Wikidata",
             MediaEditorIdentityIntent.ConfirmWikidataMatch => "Choose Wikidata Match",
             MediaEditorIdentityIntent.MarkWikidataMissing => "Mark Provider-Only",
             MediaEditorIdentityIntent.ReclassifyMediaType => "Change Media Type",

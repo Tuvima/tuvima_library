@@ -24,4 +24,14 @@ public sealed class ReviewIssueClassifierTests
         Assert.Equal(ReviewIssueBucket.ManualReview, presentation.Bucket);
         Assert.False(string.IsNullOrWhiteSpace(presentation.Explanation));
     }
+
+    [Theory]
+    [InlineData("RetailMatchFailed", "No retail match")]
+    [InlineData("RetailMatchAmbiguous", "Retail match needs confirmation")]
+    [InlineData("MissingQid", "No canonical identity found")]
+    [InlineData("MultipleQidMatches", "Canonical identity needs confirmation")]
+    public void Classify_UsesPipelineStageSpecificLabels(string trigger, string expectedLabel)
+    {
+        Assert.Equal(expectedLabel, ReviewIssueClassifier.Classify(trigger).Label);
+    }
 }

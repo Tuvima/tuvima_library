@@ -4344,6 +4344,7 @@ MediaEngine.Contracts.Review.MediaEngine.Contracts.Review.ReviewItemDto
   EntityTitle: System.String | nullability=nullable | accessors=get,init
   CoverUrl: System.String | nullability=nullable | accessors=get,init
   BridgeIdentifiers: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,init
+  DetectedFacts: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Review.MediaEngine.Contracts.Review.ReviewResolveRequestDto
   SelectedQid: System.String | nullability=nullable | accessors=get,init
@@ -4378,6 +4379,28 @@ MediaEngine.Contracts.Search.MediaEngine.Contracts.Search.FieldMatchScoresDto
   FormatVerdict: System.Int32 | nullability=not-null | accessors=get,set
   CoverScore: System.Double | nullability=not-null | accessors=get,set
   CoverVerdict: System.Int32 | nullability=not-null | accessors=get,set
+
+MediaEngine.Contracts.Search.MediaEngine.Contracts.Search.RetailCandidateDetailDto
+  ProviderName: System.String | nullability=not-null | accessors=get,set
+  DetailKind: System.String | nullability=not-null | accessors=get,set
+  Heading: System.String | nullability=not-null | accessors=get,set
+  SourceLabel: System.String | nullability=not-null | accessors=get,set
+  Facts: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
+  Items: System.Collections.Generic.List<MediaEngine.Contracts.Search.RetailCandidateDetailItemDto> | nullability=not-null | accessors=get,set
+  UnavailableMessage: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Search.MediaEngine.Contracts.Search.RetailCandidateDetailItemDto
+  Ordinal: System.Int32 | nullability=not-null | accessors=get,set
+  DiscNumber: System.Int32? | nullability=nullable | accessors=get,set
+  Title: System.String | nullability=not-null | accessors=get,set
+  DurationSeconds: System.Double? | nullability=nullable | accessors=get,set
+  ProviderItemId: System.String | nullability=nullable | accessors=get,set
+
+MediaEngine.Contracts.Search.MediaEngine.Contracts.Search.RetailCandidateDetailRequestDto
+  ProviderName: System.String | nullability=not-null | accessors=get,set
+  ProviderItemId: System.String | nullability=nullable | accessors=get,set
+  MediaType: System.String | nullability=not-null | accessors=get,set
+  ExtraFields: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Search.MediaEngine.Contracts.Search.SearchResolveCandidateDto
   ProviderName: System.String | nullability=not-null | accessors=get,set
