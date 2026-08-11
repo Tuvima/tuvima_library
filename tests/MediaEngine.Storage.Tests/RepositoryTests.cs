@@ -1667,6 +1667,42 @@ public sealed class RepositoryTests : IDisposable
         Assert.True(true);
     }
 
+    [Fact]
+    public async Task PersonGroupMembers_ConcurrentLinksRemainCompleteAndPendingNameCanBeReplaced()
+    {
+        var repo = new PersonRepository(_db);
+        var group = await repo.CreateAsync(new Person
+        {
+            Name = "Test Band",
+            WikidataQid = "Q9000001",
+            Roles = ["Artist"],
+        });
+        var members = new List<Person>();
+        for (var i = 0; i < 12; i++)
+        {
+            members.Add(await repo.CreateAsync(new Person
+            {
+                Name = $"Name pending (Q90001{i:00})",
+                WikidataQid = $"Q90001{i:00}",
+                Roles = ["Performer"],
+            }));
+        }
+
+        await Task.WhenAll(members.Select(member => repo.LinkGroupMemberAsync(group.Id, member.Id)));
+        await repo.UpdateNameAsync(members[0].Id, "Resolved Member");
+
+        using var conn = _db.CreateConnection();
+        var linkedCount = conn.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM person_group_members WHERE group_id = @groupId;",
+            new { groupId = group.Id });
+        var resolvedName = conn.ExecuteScalar<string>(
+            "SELECT name FROM persons WHERE id = @memberId;",
+            new { memberId = members[0].Id });
+
+        Assert.Equal(members.Count, linkedCount);
+        Assert.Equal("Resolved Member", resolvedName);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  TransactionJournal
     // ════════════════════════════════════════════════════════════════════════

@@ -198,7 +198,9 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         if (request.EntityType == EntityType.Person && request.EntityId != Guid.Empty)
         {
             var alreadyEnriched = await _personRepo.FindByIdAsync(request.EntityId, ct).ConfigureAwait(false);
-            if (alreadyEnriched?.EnrichedAt is not null && HasCompletePersonProfile(alreadyEnriched))
+            if (alreadyEnriched?.EnrichedAt is not null
+                && !alreadyEnriched.IsGroup
+                && HasCompletePersonProfile(alreadyEnriched))
             {
                 _logger.LogDebug(
                     "Person {Id} already enriched at {EnrichedAt} — skipping duplicate harvest",
@@ -647,25 +649,31 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         await ResolveGroupMembersAsync(request.EntityId, claims, isGroup, ct)
             .ConfigureAwait(false);
 
+        // Individual members frequently carry a P463 member-of edge even when
+        // the group-side P527 list is incomplete. Link that reverse evidence to
+        // any musical groups already present in the library.
+        await ResolveMemberOfGroupsAsync(request.EntityId, claims, isGroup, ct)
+            .ConfigureAwait(false);
+
         // Wikipedia description is now fetched by ReconciliationAdapter.FetchPersonAsync
         // (folded in as part of Task 1 cleanup). No separate call needed here.
 
         // Look up the person for event payload and people storage.
         var person = await _personRepo.FindByIdAsync(request.EntityId, ct)
             .ConfigureAwait(false);
-        var personName = ResolveBestPersonName(
+        var resolvedPersonName = ResolveBestPersonName(
             person?.Name,
             name,
             request.Hints.GetValueOrDefault("name"),
-            string.IsNullOrWhiteSpace(qid) ? null : $"Name pending ({qid})")
-            ?? "Person";
+            string.IsNullOrWhiteSpace(qid) ? null : $"Name pending ({qid})");
+        var personName = resolvedPersonName ?? "Person";
 
         // Cache person QID → label for offline resolution.
-        if (!string.IsNullOrWhiteSpace(qid) && !string.IsNullOrWhiteSpace(personName))
+        if (!string.IsNullOrWhiteSpace(qid) && !string.IsNullOrWhiteSpace(resolvedPersonName))
         {
             try
             {
-                await _qidLabelRepo.UpsertAsync(qid, personName, shortDescription ?? biography, "Person", ct)
+                await _qidLabelRepo.UpsertAsync(qid, resolvedPersonName, shortDescription ?? biography, "Person", ct)
                     .ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -837,13 +845,14 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                 claim.Key == "has_parts_qid"
                 && !string.IsNullOrWhiteSpace(claim.Value)));
 
+    internal sealed record PersonQidReference(string Qid, string? Label);
+
+    internal static IReadOnlyList<PersonQidReference> GetGroupMemberReferences(
+        IReadOnlyList<ProviderClaim> claims)
+        => ParsePersonQidReferences(claims, "has_parts_qid");
+
     internal static IReadOnlyList<string> GetGroupMemberQids(IReadOnlyList<ProviderClaim> claims)
-        => claims
-            .Where(claim => claim.Key == "has_parts_qid")
-            .Select(claim => claim.Value.Split("::", 2)[0].Trim())
-            .Where(qid => !string.IsNullOrWhiteSpace(qid))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        => GetGroupMemberReferences(claims).Select(reference => reference.Qid).ToList();
 
     private async Task ResolveGroupMembersAsync(
         Guid groupId,
@@ -858,20 +867,53 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
         try
         {
-            foreach (var memberQid in GetGroupMemberQids(claims))
+            var hydrationRequests = new List<HarvestRequest>();
+            foreach (var reference in GetGroupMemberReferences(claims))
             {
-                var member = await _personRepo.FindByQidAsync(memberQid, ct).ConfigureAwait(false);
-                if (member is null)
+                try
                 {
-                    member = await CreateGroupMemberStubAsync(memberQid, ct).ConfigureAwait(false);
-                }
-                else if (!HasCompletePersonProfile(member))
-                {
-                    await EnqueueAsync(BuildPersonHydrationRequest(member.Id, memberQid), ct).ConfigureAwait(false);
-                }
+                    // A performer can belong to several groups whose profiles
+                    // are enriched concurrently. Reuse the QID lock so those
+                    // group jobs cannot race while creating the same person.
+                    var qidLock = _qidMergeLocks.GetOrAdd(reference.Qid, _ => new SemaphoreSlim(1, 1));
+                    await qidLock.WaitAsync(ct).ConfigureAwait(false);
+                    Person member;
+                    try
+                    {
+                        member = await _personRepo.FindByQidAsync(reference.Qid, ct).ConfigureAwait(false)
+                            ?? await CreateGroupMemberStubAsync(reference, ct).ConfigureAwait(false);
 
-                await _personRepo.LinkGroupMemberAsync(groupId, member.Id, ct).ConfigureAwait(false);
+                        if (IsPlaceholderPersonName(member.Name)
+                            && !string.IsNullOrWhiteSpace(reference.Label))
+                        {
+                            await _personRepo.UpdateNameAsync(member.Id, reference.Label, ct).ConfigureAwait(false);
+                            member.Name = reference.Label;
+                        }
+
+                        await _personRepo.LinkGroupMemberAsync(groupId, member.Id, ct).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        qidLock.Release();
+                    }
+
+                    if (!HasCompletePersonProfile(member))
+                        hydrationRequests.Add(BuildPersonHydrationRequest(member.Id, reference));
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogWarning(ex,
+                        "Group-member resolution failed for group {GroupId}, member {MemberQid}; continuing with remaining members",
+                        groupId,
+                        reference.Qid);
+                }
             }
+
+            // Persist the complete visible relationship graph before child work
+            // can run on another consumer. This avoids a child write racing the
+            // parent loop and leaving only the first band member linked.
+            foreach (var hydrationRequest in hydrationRequests)
+                await EnqueueAsync(hydrationRequest, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -880,33 +922,82 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         }
     }
 
-    private async Task<Person> CreateGroupMemberStubAsync(string memberQid, CancellationToken ct)
+    private async Task<Person> CreateGroupMemberStubAsync(
+        PersonQidReference reference,
+        CancellationToken ct)
     {
-        var memberName = await ResolvePersonDisplayNameAsync(memberQid, null, null, ct)
+        var memberName = ResolveBestPersonName(reference.Label)
+            ?? await ResolvePersonDisplayNameAsync(reference.Qid, null, null, ct)
             .ConfigureAwait(false)
-            ?? $"Name pending ({memberQid})";
+            ?? $"Name pending ({reference.Qid})";
         var member = new Person
         {
             Id = Guid.NewGuid(),
             Name = memberName,
             Roles = ["Artist", "Performer"],
-            WikidataQid = memberQid,
+            WikidataQid = reference.Qid,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
         await _personRepo.CreateAsync(member, ct).ConfigureAwait(false);
-        await EnqueueAsync(BuildPersonHydrationRequest(member.Id, memberQid), ct).ConfigureAwait(false);
         return member;
     }
 
-    private static HarvestRequest BuildPersonHydrationRequest(Guid personId, string qid)
+    private static HarvestRequest BuildPersonHydrationRequest(
+        Guid personId,
+        PersonQidReference reference)
         => new()
         {
             EntityId = personId,
             EntityType = EntityType.Person,
             MediaType = MediaType.Unknown,
-            PreResolvedQid = qid,
+            PreResolvedQid = reference.Qid,
+            Hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["name"] = reference.Label ?? string.Empty,
+                ["role"] = "Performer",
+                [BridgeIdKeys.WikidataQid] = reference.Qid,
+            },
         };
+
+    private async Task ResolveMemberOfGroupsAsync(
+        Guid memberId,
+        IReadOnlyList<ProviderClaim> claims,
+        bool isGroup,
+        CancellationToken ct)
+    {
+        if (isGroup)
+            return;
+
+        var groupReferences = ParsePersonQidReferences(claims, "member_of_qid");
+        if (groupReferences.Count == 0)
+            return;
+
+        var knownGroups = await _personRepo.FindByQidsAsync(
+            groupReferences.Select(reference => reference.Qid), ct).ConfigureAwait(false);
+
+        foreach (var group in knownGroups.Where(person => person.IsGroup))
+            await _personRepo.LinkGroupMemberAsync(group.Id, memberId, ct).ConfigureAwait(false);
+    }
+
+    private static IReadOnlyList<PersonQidReference> ParsePersonQidReferences(
+        IReadOnlyList<ProviderClaim> claims,
+        string claimKey)
+        => claims
+            .Where(claim => string.Equals(claim.Key, claimKey, StringComparison.OrdinalIgnoreCase))
+            .Select(claim =>
+            {
+                var parts = claim.Value.Split("::", 2, StringSplitOptions.TrimEntries);
+                var qid = parts[0];
+                var label = parts.Length == 2 ? ResolveBestPersonName(parts[1]) : null;
+                return new PersonQidReference(qid, label);
+            })
+            .Where(reference => !string.IsNullOrWhiteSpace(reference.Qid))
+            .GroupBy(reference => reference.Qid, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new PersonQidReference(
+                group.Key,
+                group.Select(reference => reference.Label).FirstOrDefault(label => !string.IsNullOrWhiteSpace(label))))
+            .ToList();
 
     private async Task CreateAndLinkStubPersonAsync(
         Guid existingPersonId,
@@ -1111,8 +1202,11 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         return null;
     }
 
-    private static bool IsPlaceholderPersonName(string value)
+    internal static bool IsPlaceholderPersonName(string value)
     {
+        if (value.StartsWith("Name pending (", StringComparison.OrdinalIgnoreCase))
+            return true;
+
         if (value.StartsWith("Unknown Person (", StringComparison.OrdinalIgnoreCase))
             return true;
 

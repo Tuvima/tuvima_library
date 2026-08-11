@@ -526,6 +526,21 @@ public sealed class ReconciliationAdapterFallbackTests
             claim.Value == "Q548823");
     }
 
+    [Fact]
+    public void BuildPersonExtensionProperties_IncludesForwardAndReverseGroupMembership()
+    {
+        var properties = new DataExtensionPropertyGroup
+        {
+            Core = ["P31"],
+            PenNames = ["P527"],
+            Group = ["P527", "P463"],
+        };
+
+        var result = ReconciliationAdapter.BuildPersonExtensionProperties(properties);
+
+        Assert.Equal(["P31", "P527", "P463"], result);
+    }
+
     private static string GetAttemptQid(object attempt) =>
         (string)attempt.GetType().GetField("Item2")!.GetValue(attempt)!;
 

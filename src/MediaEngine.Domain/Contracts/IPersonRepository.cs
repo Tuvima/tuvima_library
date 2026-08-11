@@ -96,6 +96,16 @@ public interface IPersonRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Replaces only the person's display name. Used when a structured
+    /// relationship already supplies a trustworthy label before the person's
+    /// full profile hydration completes.
+    /// </summary>
+    Task UpdateNameAsync(
+        Guid personId,
+        string name,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Updates the social media and contact fields for an existing person.
     /// Called after Wikidata enrichment returns P2003/P2002/P7085/P4033/P856/P106 claims.
     /// Only non-null values are written; null parameters leave existing values unchanged.

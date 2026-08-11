@@ -195,10 +195,20 @@ public sealed class RecursiveIdentityService : IRecursiveIdentityService
         return null;
     }
 
-    private static bool NeedsProfileBackfill(Person person)
-        => string.IsNullOrWhiteSpace(person.Biography)
+    internal static bool NeedsProfileBackfill(Person person)
+        // Group membership changes independently of the group's biography and
+        // artwork, so a previously enriched band must remain refreshable.
+        => person.IsGroup
+           || IsPendingPersonName(person.Name)
+           || string.IsNullOrWhiteSpace(person.Biography)
            || (string.IsNullOrWhiteSpace(person.HeadshotUrl)
                && string.IsNullOrWhiteSpace(person.LocalHeadshotPath));
+
+    private static bool IsPendingPersonName(string? name)
+        => string.IsNullOrWhiteSpace(name)
+           || name.StartsWith("Name pending (", StringComparison.OrdinalIgnoreCase)
+           || name.StartsWith("Unknown Person (", StringComparison.OrdinalIgnoreCase)
+           || (name.Length > 1 && name[0] is 'Q' && name.Skip(1).All(char.IsDigit));
 
     // ── Private helpers ───────────────────────────────────────────────────────
 

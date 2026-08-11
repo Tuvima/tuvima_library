@@ -86,4 +86,5 @@ public sealed class DataExtensionPropertyGroup
     [JsonPropertyName("editions")] public List<string> Editions { get; set; } = [];
     [JsonPropertyName("social")] public List<string> Social { get; set; } = [];
     [JsonPropertyName("pen_names")] public List<string> PenNames { get; set; } = [];
+    [JsonPropertyName("group")] public List<string> Group { get; set; } = [];
 }

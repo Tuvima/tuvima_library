@@ -160,11 +160,7 @@ public sealed partial class ReconciliationAdapter
 
         // Extend with person properties.
         var personProps = _config.DataExtension.PersonProperties;
-        var allProps    = personProps.Core
-            .Concat(personProps.Social)
-            .Concat(personProps.PenNames)
-            .Distinct()
-            .ToList();
+        var allProps = BuildPersonExtensionProperties(personProps).ToList();
 
         // Inject language-specific label (Len) and description (Den) magic suffixes.
         var language = _configLoader?.LoadCore().Language.Metadata ?? "en";
@@ -185,6 +181,19 @@ public sealed partial class ReconciliationAdapter
         if (extPersonProps is not null)
             claims.AddRange(ExtensionToClaims(qid, extPersonProps, _config.DataExtension.PropertyLabels, isWork: false, castMemberLimit: 0, metadataLanguage: language));
 
+        // Data Extension label pseudo-properties are not guaranteed to be
+        // returned by every compatible endpoint. Resolve the canonical label
+        // through the dedicated label service when the extension response did
+        // not produce one, so internal QIDs never become display names.
+        if (!claims.Any(claim =>
+                string.Equals(claim.Key, "name", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(claim.Value)))
+        {
+            var displayName = await FetchDisplayLabelAsync(qid, language, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(displayName))
+                claims.Add(new ProviderClaim("name", displayName, ClaimConfidence.WikidataProperty));
+        }
+
         // ── Wikipedia description ─────────────────────────────────────────────
         // Fetch a rich Wikipedia description for this person using the resolved QID.
         // Failures never block — an empty list is returned and execution continues.
@@ -200,6 +209,15 @@ public sealed partial class ReconciliationAdapter
 
         return claims;
     }
+
+    internal static IReadOnlyList<string> BuildPersonExtensionProperties(
+        DataExtensionPropertyGroup personProps)
+        => personProps.Core
+            .Concat(personProps.Social)
+            .Concat(personProps.PenNames)
+            .Concat(personProps.Group)
+            .Distinct()
+            .ToList();
 
     // ── Private: Wikipedia description ───────────────────────────────────────────
 

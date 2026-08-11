@@ -150,15 +150,16 @@ public sealed class PersonRepository : IPersonRepository
             p.Add("placeOfDeath", person.PlaceOfDeath);
             p.Add("nationality",  person.Nationality);
             p.Add("isPseudonym",  person.IsPseudonym ? 1 : 0);
+            p.Add("isGroup",       person.IsGroup ? 1 : 0);
             conn.Execute("""
                 INSERT INTO persons
                     (id, name, wikidata_qid, headshot_url, biography,
                      created_at, enriched_at, date_of_birth, date_of_death,
-                     place_of_birth, place_of_death, nationality, is_pseudonym)
+                     place_of_birth, place_of_death, nationality, is_pseudonym, is_group)
                 VALUES
                     (@id, @name, @wikidataQid, @headshotUrl, @biography,
                      @createdAt, @enrichedAt, @dateOfBirth, @dateOfDeath,
-                     @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym);
+                     @placeOfBirth, @placeOfDeath, @nationality, @isPseudonym, @isGroup);
                 """, p, tx);
 
             // Insert each role into person_roles junction table in the same transaction.
@@ -208,6 +209,24 @@ public sealed class PersonRepository : IPersonRepository
             """, p);
 
         return Task.CompletedTask;
+    }
+
+    /// <inheritdoc/>
+    public Task UpdateNameAsync(
+        Guid personId,
+        string name,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            conn.Execute(
+                "UPDATE persons SET name = @name WHERE id = @id;",
+                new { id = personId, name = name.Trim() },
+                tx);
+        }, ct);
     }
 
     /// <inheritdoc/>
@@ -1225,14 +1244,16 @@ public sealed class PersonRepository : IPersonRepository
     {
         ct.ThrowIfCancellationRequested();
 
-        using var conn = _db.CreateConnection();
-        conn.Execute(
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            conn.Execute(
             """
             INSERT OR IGNORE INTO person_group_members (group_id, member_id)
             VALUES (@GroupId, @MemberId)
             """,
-            new { GroupId = groupId, MemberId = memberId });
-        return Task.CompletedTask;
+                new { GroupId = groupId, MemberId = memberId },
+                tx);
+        }, ct);
     }
 
     // -------------------------------------------------------------------------

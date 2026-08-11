@@ -532,6 +532,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task<Dictionary<Guid, Dictionary<string, int>>> GetPresenceBatchAsync(IEnumerable<Guid> personIds, CancellationToken ct = default) => Task.FromResult(new Dictionary<Guid, Dictionary<string, int>>());
         public Task<Person> CreateAsync(Person person, CancellationToken ct = default) => Task.FromResult(person);
         public Task UpdateEnrichmentAsync(Guid personId, string? wikidataQid, string? headshotUrl, string? biography, string? name, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateNameAsync(Guid personId, string name, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateSocialFieldsAsync(Guid personId, string? occupation, string? instagram, string? twitter, string? tiktok, string? mastodon, string? website, CancellationToken ct = default) => Task.CompletedTask;
         public Task LinkToMediaAssetAsync(Guid mediaAssetId, Guid personId, string role, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateLocalHeadshotPathAsync(Guid id, string path, CancellationToken ct = default) => Task.CompletedTask;
