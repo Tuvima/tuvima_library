@@ -204,6 +204,13 @@ public interface IPersonRepository
     Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default);
 
     /// <summary>
+    /// Returns the number of durable graph references that keep a person in the
+    /// library. Unlike media-link counting, this includes group membership,
+    /// aliases, and character relationships created during enrichment.
+    /// </summary>
+    Task<int> CountGraphReferencesAsync(Guid personId, CancellationToken ct = default);
+
+    /// <summary>
     /// Finds a person by Wikidata QID.
     /// Returns <c>null</c> if no matching person exists.
     /// Used by QID-first person enrichment and reconciliation.

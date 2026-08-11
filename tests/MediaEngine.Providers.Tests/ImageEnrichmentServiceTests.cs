@@ -542,6 +542,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         public Task<IReadOnlyList<Person>> ListAllAsync(CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task<IReadOnlyList<Person>> ListPagedAsync(string? role, int offset, int limit, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task<int> CountMediaLinksAsync(Guid personId, CancellationToken ct = default) => Task.FromResult(0);
+        public Task<int> CountGraphReferencesAsync(Guid personId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default) => Task.FromResult<Person?>(null);
         public Task<IReadOnlyList<Person>> FindByQidsAsync(IEnumerable<string> qids, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<Person>>([]);
         public Task DeleteAsync(Guid personId, CancellationToken ct = default) => Task.CompletedTask;

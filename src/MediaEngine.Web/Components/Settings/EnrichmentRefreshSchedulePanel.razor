@@ -1,0 +1,135 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.Operations
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<section class="refresh-schedule" aria-labelledby="refresh-schedule-title">
+    <header class="refresh-schedule__header">
+        <div>
+            <p class="refresh-schedule__eyebrow">ENRICHMENT CALENDAR</p>
+            <h2 id="refresh-schedule-title">Upcoming refreshes</h2>
+            <p>Review scheduled provider refreshes or start the full enrichment cycle early.</p>
+        </div>
+        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" OnClick="LoadAsync" Disabled="@_loading">
+            <MudIcon Icon="@Icons.Material.Outlined.Refresh" Size="Size.Small" />
+            @(_loading ? "Refreshing..." : "Refresh schedule")
+        </AppButton>
+    </header>
+
+    @if (_schedule is not null)
+    {
+        <div class="refresh-schedule__summary">
+            <div><span>Overdue</span><strong>@_schedule.OverdueCount</strong></div>
+            <div><span>Next seven days</span><strong>@_schedule.DueNextSevenDaysCount</strong></div>
+            <div><span>Scheduled entities</span><strong>@_schedule.TotalCount</strong></div>
+        </div>
+    }
+
+    @if (_loading && _schedule is null)
+    {
+        <div class="refresh-schedule__empty">Loading refresh schedule...</div>
+    }
+    else if (_schedule is null || _schedule.Items.Count == 0)
+    {
+        <div class="refresh-schedule__empty">No refreshable enriched entities are currently scheduled.</div>
+    }
+    else
+    {
+        <div class="refresh-schedule__table-wrap">
+            <table class="refresh-schedule__table">
+                <thead>
+                    <tr>
+                        <th>Item</th>
+                        <th>Type</th>
+                        <th>Stage</th>
+                        <th>Next refresh</th>
+                        <th>Policy</th>
+                        <th>Status</th>
+                        <th><span class="sr-only">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in _schedule.Items)
+                    {
+                        <tr>
+                            <td><strong>@item.EntityName</strong><small>@item.ProviderId</small></td>
+                            <td>@ReadableType(item.EntityType)</td>
+                            <td>@ReadableStage(item.Stage)</td>
+                            <td><time datetime="@item.NextDueAt.ToString("O")">@FormatDue(item.NextDueAt)</time></td>
+                            <td>Every @item.IntervalDays days</td>
+                            <td><span class="refresh-schedule__status refresh-schedule__status--@item.Status.ToLowerInvariant()">@item.Status</span></td>
+                            <td>
+                                <AppButton Variant="Variant.Text"
+                                           Color="Color.Primary"
+                                           Disabled="@(_queueing.Contains(item.EntityId) || item.Status.Equals("Queued", StringComparison.OrdinalIgnoreCase))"
+                                           OnClick="@(() => QueueNowAsync(item))">
+                                    @(_queueing.Contains(item.EntityId) ? "Queueing..." : "Run now")
+                                </AppButton>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</section>
+
+@code {
+    private EnrichmentRefreshScheduleResponse? _schedule;
+    private bool _loading;
+    private readonly HashSet<Guid> _queueing = [];
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _schedule = await ApiClient.GetEnrichmentRefreshScheduleAsync(limit: 500);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task QueueNowAsync(EnrichmentRefreshScheduleDto item)
+    {
+        if (!_queueing.Add(item.EntityId))
+            return;
+        try
+        {
+            var result = await ApiClient.QueueEnrichmentRefreshNowAsync(item.EntityType, item.EntityId);
+            if (result is null)
+            {
+                Snackbar.Add("The enrichment refresh could not be queued.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(result.Message, Severity.Success);
+            await LoadAsync();
+        }
+        finally
+        {
+            _queueing.Remove(item.EntityId);
+        }
+    }
+
+    private static string ReadableType(string value) => value == "MediaAsset" ? "Media" : value;
+    private static string ReadableStage(string value) => value == "people" ? "People & relationships" : "Universe & relationships";
+
+    private static string FormatDue(DateTimeOffset due)
+    {
+        var local = due.ToLocalTime();
+        var delta = due - DateTimeOffset.UtcNow;
+        if (delta <= TimeSpan.Zero)
+            return $"Overdue · {local:MMM d}";
+        if (delta <= TimeSpan.FromDays(1))
+            return $"Today · {local:t}";
+        if (delta <= TimeSpan.FromDays(7))
+            return $"{local:dddd} · {local:MMM d}";
+        return local.ToString("MMM d, yyyy");
+    }
+}

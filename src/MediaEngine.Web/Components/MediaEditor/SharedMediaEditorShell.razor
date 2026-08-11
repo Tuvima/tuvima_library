@@ -437,6 +437,27 @@
                                         </dl>
                                     </MediaEditorPanel>
                                 }
+
+                                @if (_refreshSchedule is not null)
+                                {
+                                    <MediaEditorPanel Title="Enrichment"
+                                                      Description="Provider-managed identity and relationship data refresh on a configurable schedule."
+                                                      Class="sme-details-grid__source-facts">
+                                        <dl class="sme-source-facts">
+                                            <div><dt>Status</dt><dd>@_refreshSchedule.Status</dd></div>
+                                            <div><dt>Last refreshed</dt><dd>@FormatRefreshDate(_refreshSchedule.LastSuccessAt)</dd></div>
+                                            <div><dt>Next refresh</dt><dd>@FormatRefreshDate(_refreshSchedule.NextDueAt)</dd></div>
+                                            <div><dt>Policy</dt><dd>Every @_refreshSchedule.IntervalDays days · @_refreshSchedule.ProviderId</dd></div>
+                                        </dl>
+                                        <AppButton Variant="Variant.Outlined"
+                                                   Color="Color.Primary"
+                                                   StartIcon="@Icons.Material.Outlined.Sync"
+                                                   Disabled="@(_refreshQueueing || _refreshSchedule.Status.Equals("Queued", StringComparison.OrdinalIgnoreCase))"
+                                                   OnClick="QueueFullEnrichmentAsync">
+                                            @(_refreshQueueing ? "Queueing..." : "Refresh enrichment now")
+                                        </AppButton>
+                                    </MediaEditorPanel>
+                                }
                             </div>
                         </div>
                     </div>

@@ -1312,7 +1312,7 @@ public sealed class UnifiedDetailComponentTests
         var libraryTable = ReadSource("src/MediaEngine.Web/Components/Library/LibraryConfigurableTable.razor");
 
         Assert.Contains("else if (IsPrimaryHeroActionRow)", actions);
-        Assert.Contains("DistinctBy(action => action.Key, StringComparer.OrdinalIgnoreCase)", actions);
+        Assert.Contains("VisibleSecondaryActions => SecondaryActions", actions);
         Assert.DoesNotContain("watch-party", actions, StringComparison.Ordinal);
         Assert.Contains("tl-detail-watch-secondary--icon", actions);
         Assert.Contains("border-radius: 999px", styles);

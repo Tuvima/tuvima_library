@@ -158,7 +158,6 @@
     [Parameter] public IReadOnlyList<DetailAction> PrimaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> OverflowActions { get; set; } = [];
-    [Parameter] public DetailAction? InlineEditAction { get; set; }
     [Parameter] public bool UsePrimaryHeroChrome { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
     [Parameter] public Func<DetailAction, IReadOnlyDictionary<string, object>?>? ActionAttributes { get; set; }
@@ -167,10 +166,7 @@
     // this shared prevents Read/Listen/group details from drifting into
     // media-specific action layouts.
     private bool IsPrimaryHeroActionRow => true;
-    private IReadOnlyList<DetailAction> VisibleSecondaryActions
-        => (InlineEditAction is null ? SecondaryActions : SecondaryActions.Concat([InlineEditAction]))
-            .DistinctBy(action => action.Key, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+    private IReadOnlyList<DetailAction> VisibleSecondaryActions => SecondaryActions;
 
     private IReadOnlyList<DetailAction> OverflowMenuActions => OverflowActions;
 

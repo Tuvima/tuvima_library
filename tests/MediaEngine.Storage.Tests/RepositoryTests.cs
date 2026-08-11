@@ -1668,6 +1668,39 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public void EnrichmentRefreshSchedule_PersistsFutureIntentSeparatelyFromOperations()
+    {
+        var entityId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        using var conn = _db.CreateConnection();
+        conn.Execute(
+            """
+            INSERT INTO enrichment_refresh_schedule
+                (entity_type, entity_id, stage, provider_id, policy_key, interval_days,
+                 next_due_at, status, updated_at)
+            VALUES
+                ('Person', @entityId, 'people', 'wikidata', 'people.default', 30,
+                 @nextDueAt, 'Scheduled', @updatedAt);
+            """,
+            new
+            {
+                entityId,
+                nextDueAt = now.AddDays(30).ToString("O"),
+                updatedAt = now.ToString("O"),
+            });
+
+        var interval = conn.ExecuteScalar<int>(
+            "SELECT interval_days FROM enrichment_refresh_schedule WHERE entity_id = @entityId;",
+            new { entityId });
+        var operationCount = conn.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM media_operations WHERE entity_id = @entityId;",
+            new { entityId });
+
+        Assert.Equal(30, interval);
+        Assert.Equal(0, operationCount);
+    }
+
+    [Fact]
     public async Task PersonGroupMembers_ConcurrentLinksRemainCompleteAndPendingNameCanBeReplaced()
     {
         var repo = new PersonRepository(_db);
@@ -1701,6 +1734,31 @@ public sealed class RepositoryTests : IDisposable
 
         Assert.Equal(members.Count, linkedCount);
         Assert.Equal("Resolved Member", resolvedName);
+    }
+
+    [Fact]
+    public async Task PersonGraphReferences_RetainRelationshipOnlyGroupMembers()
+    {
+        var repo = new PersonRepository(_db);
+        var group = await repo.CreateAsync(new Person
+        {
+            Name = "Reference Test Band",
+            WikidataQid = "Q9200001",
+            IsGroup = true,
+            Roles = ["Artist"],
+        });
+        var member = await repo.CreateAsync(new Person
+        {
+            Name = "Relationship Only Member",
+            WikidataQid = "Q9200002",
+            Roles = ["Performer"],
+        });
+
+        await repo.LinkGroupMemberAsync(group.Id, member.Id);
+
+        Assert.Equal(0, await repo.CountMediaLinksAsync(member.Id));
+        Assert.Equal(1, await repo.CountGraphReferencesAsync(member.Id));
+        Assert.Equal(1, await repo.CountGraphReferencesAsync(group.Id));
     }
 
     [Fact]

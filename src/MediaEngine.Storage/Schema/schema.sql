@@ -694,6 +694,28 @@ CREATE TABLE IF NOT EXISTS playback_inspection_cache (
     PRIMARY KEY (asset_id, source_hash)
 );
 
+-- Durable recurrence state for entity enrichment. Future refreshes are kept
+-- separate from media_operations: an operation is created only when work is
+-- actually queued, while this table remains the calendar/read model.
+CREATE TABLE IF NOT EXISTS enrichment_refresh_schedule (
+  entity_type       TEXT NOT NULL,
+  entity_id         BLOB NOT NULL,
+  stage             TEXT NOT NULL,
+  provider_id       TEXT NOT NULL,
+  policy_key        TEXT NOT NULL,
+  interval_days     INTEGER NOT NULL CHECK (interval_days > 0),
+  last_success_at   TEXT,
+  last_attempt_at   TEXT,
+  next_due_at       TEXT NOT NULL,
+  status            TEXT NOT NULL DEFAULT 'Scheduled',
+  failure_count     INTEGER NOT NULL DEFAULT 0,
+  retry_after       TEXT,
+  operation_id      BLOB,
+  reason            TEXT,
+  updated_at        TEXT NOT NULL,
+  PRIMARY KEY (entity_type, entity_id, stage, provider_id)
+);
+
 CREATE TABLE IF NOT EXISTS player_sessions (
     profile_id            BLOB NOT NULL PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
     session_id            BLOB NOT NULL,
@@ -1453,6 +1475,9 @@ CREATE INDEX IF NOT EXISTS idx_person_aliases_real ON person_aliases (real_perso
 
 CREATE INDEX IF NOT EXISTS idx_person_group_members_member
     ON person_group_members (member_id);
+
+CREATE INDEX IF NOT EXISTS idx_enrichment_refresh_schedule_due
+    ON enrichment_refresh_schedule (status, next_due_at);
 
 CREATE INDEX IF NOT EXISTS idx_person_media_links_asset
     ON person_media_links (media_asset_id);

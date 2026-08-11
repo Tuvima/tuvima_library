@@ -43,6 +43,7 @@ public static class TuvimaHostedServiceCollectionExtensions
         services.AddHostedService<TasteProfileBackgroundService>();
         services.AddHostedService<DescriptionIntelligenceBatchService>();
         services.AddHostedService(sp => sp.GetRequiredService<UniverseEnrichmentService>());
+        services.AddHostedService<EnrichmentRefreshScheduleWorker>();
         services.AddHostedService<RetailMatchHostedService>();
         services.AddHostedService<WikidataBridgeHostedService>();
         services.AddHostedService<QuickHydrationHostedService>();

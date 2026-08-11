@@ -76,6 +76,18 @@ public sealed class PersonLibraryCreditDto
     [JsonPropertyName("role")]
     public string Role { get; init; } = string.Empty;
 
+    [JsonPropertyName("association_type")]
+    public string AssociationType { get; init; } = "Direct";
+
+    [JsonPropertyName("via_group_id")]
+    public Guid? ViaGroupId { get; init; }
+
+    [JsonPropertyName("via_group_name")]
+    public string? ViaGroupName { get; init; }
+
+    [JsonPropertyName("association_is_inferred")]
+    public bool AssociationIsInferred { get; init; }
+
     [JsonPropertyName("characters")]
     public List<CharacterPortrayalDto> Characters { get; init; } = [];
 }

@@ -4,6 +4,7 @@ using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Maintenance;
+using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -23,6 +24,12 @@ public partial interface IEngineApiClient
     /// <summary>POST /metadata/hydrate/{entityId} — trigger Wikidata SPARQL deep hydration.</summary>
     Task<HydrateResultViewModel?> TriggerHydrationAsync(
         Guid entityId, CancellationToken ct = default);
+
+    Task<EnrichmentRefreshScheduleResponse?> GetEnrichmentRefreshScheduleAsync(
+        string? entityType = null, string? status = null, int limit = 250, CancellationToken ct = default);
+
+    Task<EnrichmentRefreshQueuedResponse?> QueueEnrichmentRefreshNowAsync(
+        string entityType, Guid entityId, CancellationToken ct = default);
 
     /// <summary>GET /metadata/pass2/status — pending count and enabled state for the Pass 2 deferred enrichment queue.</summary>
     Task<DeferredEnrichmentStatusResponse?> GetPass2StatusAsync(CancellationToken ct = default);

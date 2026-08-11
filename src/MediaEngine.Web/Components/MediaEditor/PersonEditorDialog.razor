@@ -1,0 +1,112 @@
+@namespace MediaEngine.Web.Components.MediaEditor
+@using MediaEngine.Contracts.Operations
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Services.Integration
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<div class="person-editor">
+    <header class="person-editor__header">
+        <div class="person-editor__portrait">
+            @if (!string.IsNullOrWhiteSpace(_person?.EffectiveHeadshotUrl))
+            {
+                <img src="@_person.EffectiveHeadshotUrl" alt="" />
+            }
+            else
+            {
+                <MudIcon Icon="@Icons.Material.Outlined.Person" />
+            }
+        </div>
+        <div>
+            <span class="person-editor__kicker">@(_person?.IsGroup == true ? "EDIT GROUP" : "EDIT PERSON")</span>
+            <h2>@(_person?.Name ?? Request.HeaderTitle ?? "Person")</h2>
+            <p>@(_person is null ? "Loading identity..." : string.Join(" · ", _person.RoleLabels))</p>
+        </div>
+        <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close editor" AriaLabel="Close editor" OnClick="Close" />
+    </header>
+
+    @if (_person is not null)
+    {
+        <div class="person-editor__notice">
+            <MudIcon Icon="@Icons.Material.Outlined.Info" />
+            <span>Provider-managed facts update through enrichment. Refreshing preserves local library relationships and retrieves the latest identity, membership, portrait, and biography data.</span>
+        </div>
+
+        <div class="person-editor__body">
+            <section>
+                <h3>Identity</h3>
+                <dl>
+                    <div><dt>Name</dt><dd>@_person.Name</dd></div>
+                    <div><dt>Wikidata</dt><dd>@(_person.WikidataQid ?? "Not matched")</dd></div>
+                    <div><dt>Occupation</dt><dd>@(_person.Occupation ?? "Not available")</dd></div>
+                    <div><dt>Website</dt><dd>@(_person.Website ?? "Not available")</dd></div>
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(_person.Biography))
+                {
+                    <h3>Biography</h3>
+                    <p class="person-editor__biography">@_person.Biography</p>
+                }
+            </section>
+
+            <aside>
+                <h3>Enrichment</h3>
+                <dl>
+                    <div><dt>Status</dt><dd>@(_refresh?.Status ?? "Scheduled")</dd></div>
+                    <div><dt>Last refreshed</dt><dd>@FormatDate(_refresh?.LastSuccessAt)</dd></div>
+                    <div><dt>Next refresh</dt><dd>@FormatDate(_refresh?.NextDueAt)</dd></div>
+                    <div><dt>Policy</dt><dd>@(_refresh is null ? "Every 30 days" : $"Every {_refresh.IntervalDays} days")</dd></div>
+                </dl>
+                <AppButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_queueing" OnClick="RefreshNowAsync">
+                    <MudIcon Icon="@Icons.Material.Outlined.Sync" Size="Size.Small" />
+                    @(_queueing ? "Queueing..." : "Refresh enrichment now")
+                </AppButton>
+                <small>This sends the person and their known group relationships through the full enrichment cycle.</small>
+            </aside>
+        </div>
+    }
+</div>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter, EditorRequired] public MediaEditorLaunchRequest Request { get; set; } = new();
+
+    private PersonDetailViewModel? _person;
+    private EnrichmentRefreshScheduleDto? _refresh;
+    private bool _queueing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var id = Request.LaunchEntityId ?? Request.EntityIds.FirstOrDefault();
+        if (id == Guid.Empty)
+            return;
+        _person = await ApiClient.GetPersonDetailAsync(id);
+        var schedule = await ApiClient.GetEnrichmentRefreshScheduleAsync("Person", limit: 500);
+        _refresh = schedule?.Items.FirstOrDefault(item => item.EntityId == id);
+    }
+
+    private async Task RefreshNowAsync()
+    {
+        if (_person is null)
+            return;
+        _queueing = true;
+        try
+        {
+            var queued = await ApiClient.QueueEnrichmentRefreshNowAsync("Person", _person.Id);
+            if (queued is null)
+            {
+                Snackbar.Add("The person refresh could not be queued.", Severity.Error);
+                return;
+            }
+            Snackbar.Add(queued.Message, Severity.Success);
+            MudDialog.Close(DialogResult.Ok(true));
+        }
+        finally
+        {
+            _queueing = false;
+        }
+    }
+
+    private void Close() => MudDialog.Cancel();
+    private static string FormatDate(DateTimeOffset? value) => value?.ToLocalTime().ToString("MMM d, yyyy · h:mm tt") ?? "Not yet";
+}

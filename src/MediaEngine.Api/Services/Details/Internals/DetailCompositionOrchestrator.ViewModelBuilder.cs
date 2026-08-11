@@ -786,17 +786,10 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private static IReadOnlyList<DetailAction> BuildOverflowActions(Guid id, DetailEntityType entityType, bool isAdminView)
     {
-        var actions = new List<DetailAction>();
-
-        if (isAdminView)
-        {
-            actions.Add(new DetailAction { Key = "manage-artwork", Label = "Manage Artwork", Icon = "image", IsAdminOnly = true });
-            actions.Add(new DetailAction { Key = "refresh", Label = "Refresh Metadata", Icon = "sync", IsAdminOnly = true });
-            actions.Add(new DetailAction { Key = "file-info", Label = "View File Info", Icon = "info", IsAdminOnly = true });
-            actions.Add(new DetailAction { Key = "delete", Label = "Delete from Library", Icon = "delete", IsAdminOnly = true, IsDestructive = true });
-        }
-
-        return actions.Where(a => !a.IsAdminOnly || isAdminView).ToList();
+        _ = id;
+        _ = entityType;
+        _ = isAdminView;
+        return [new DetailAction { Key = "edit", Label = "Edit", Icon = "edit", IsAdminOnly = true }];
     }
 
     private static IReadOnlyList<DetailTab> BuildTabs(

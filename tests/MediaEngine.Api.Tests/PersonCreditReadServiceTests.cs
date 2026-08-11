@@ -281,6 +281,74 @@ public sealed class PersonCreditReadServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task GetLibraryCreditsAsync_IncludesDateScopedWorksThroughAGroupWithoutInventingDirectCredit()
+    {
+        var groupId = Guid.NewGuid();
+        var memberId = Guid.NewGuid();
+        var includedAlbumId = Guid.NewGuid();
+        var excludedAlbumId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using var conn = _db.CreateConnection();
+        await conn.ExecuteAsync(
+            """
+            INSERT INTO persons (id, name, is_group, created_at)
+            VALUES (@GroupId, 'Window Test Band', 1, @Now),
+                   (@MemberId, 'Window Test Member', 0, @Now);
+            INSERT INTO person_group_members (group_id, member_id, start_date, end_date)
+            VALUES (@GroupId, @MemberId, '1980', '1989');
+            """,
+            new { GroupId = groupId, MemberId = memberId, Now = now });
+
+        async Task AddAlbumAsync(Guid albumId, int year, string title)
+        {
+            var trackId = Guid.NewGuid();
+            var editionId = Guid.NewGuid();
+            var assetId = Guid.NewGuid();
+            await conn.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@AlbumId, 'Music', 'parent');
+                INSERT INTO works (id, parent_work_id, media_type, work_kind, ordinal)
+                VALUES (@TrackId, @AlbumId, 'Music', 'child', 1);
+                INSERT INTO editions (id, work_id) VALUES (@EditionId, @TrackId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@AssetId, @EditionId, @Hash, @Path);
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@AlbumId, 'title', @Title, @Now),
+                       (@TrackId, 'release_year', @Year, @Now);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@TrackId, 'artist', 0, 'Window Test Band');
+                """,
+                new
+                {
+                    AlbumId = albumId,
+                    TrackId = trackId,
+                    EditionId = editionId,
+                    AssetId = assetId,
+                    Hash = $"window-{year}",
+                    Path = $"C:/library/Window Test Band/{title}/01.flac",
+                    Title = title,
+                    Year = year.ToString(),
+                    Now = now,
+                });
+        }
+
+        await AddAlbumAsync(includedAlbumId, 1985, "Inside the Window");
+        await AddAlbumAsync(excludedAlbumId, 1995, "Outside the Window");
+
+        var credits = await CreateService().GetLibraryCreditsAsync(memberId, CancellationToken.None);
+
+        var credit = Assert.Single(credits);
+        Assert.Equal(includedAlbumId, credit.WorkId);
+        Assert.Equal("ThroughGroup", credit.AssociationType);
+        Assert.Equal(groupId, credit.ViaGroupId);
+        Assert.Equal("Window Test Band", credit.ViaGroupName);
+        Assert.Equal("With Window Test Band", credit.Role);
+        Assert.False(credit.AssociationIsInferred);
+    }
+
+    [Fact]
     public async Task GetLibraryCreditsAsync_DoesNotAttributeCollectivePseudonymWorkToLinkedIdentities()
     {
         var pseudonymId = Guid.NewGuid();

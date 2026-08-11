@@ -147,6 +147,9 @@ public sealed class HydrationSettingsDto
     [JsonPropertyName("stage3_refresh_days")]
     public int Stage3RefreshDays { get; set; } = 30;
 
+    [JsonPropertyName("person_refresh_days")]
+    public int PersonRefreshDays { get; set; } = 30;
+
     [JsonPropertyName("series_manifest_refresh_days")]
     public int SeriesManifestRefreshDays { get; set; } = 30;
 

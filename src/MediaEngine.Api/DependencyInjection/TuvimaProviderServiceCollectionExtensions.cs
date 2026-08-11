@@ -86,6 +86,7 @@ public static class TuvimaProviderServiceCollectionExtensions
         services.AddSingleton<IInitialSweepCommandService>(sp =>
             sp.GetRequiredService<InitialSweepCommandService>());
         services.AddSingleton<UniverseEnrichmentService>();
+        services.AddSingleton<EnrichmentRefreshScheduleService>();
         return services;
     }
 

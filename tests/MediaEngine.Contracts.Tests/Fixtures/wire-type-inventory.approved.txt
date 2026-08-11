@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=556; api=0; web-client=85
+# scopes: contracts=559; api=0; web-client=85
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3657,6 +3657,43 @@
   UpdatedAt: System.DateTimeOffset | json=updated_at | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"id":"11111111-2222-3333-4444-555555555555","entity_id":"11111111-2222-3333-4444-555555555555","entity_kind":"sample","media_type":"sample","capability_id":"sample","capability_kind":"sample","capability_version":"sample","sub_key":"sample","status":"sample","requiredness":"sample","source":"sample","confidence":7,"artifact_count":7,"artifact_summary":"sample","result_summary":"sample","last_operation_id":"11111111-2222-3333-4444-555555555555","first_attempted_at":"2025-01-02T03:04:05+00:00","last_attempted_at":"2025-01-02T03:04:05+00:00","succeeded_at":"2025-01-02T03:04:05+00:00","next_retry_at":"2025-01-02T03:04:05+00:00","stale":true,"needs_rerun":true,"missing_reason":"sample","last_error":"sample","created_at":"2025-01-02T03:04:05+00:00","updated_at":"2025-01-02T03:04:05+00:00"}
 
+[contracts] MediaEngine.Contracts.Operations.EnrichmentRefreshQueuedResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  EntityType: System.String | json=entity_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EntityId: System.Guid | json=entity_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OperationId: System.Guid? | json=operation_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Message: System.String | json=message | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"entity_type":"sample","entity_id":"11111111-2222-3333-4444-555555555555","operation_id":"11111111-2222-3333-4444-555555555555","status":"sample","message":"sample"}
+
+[contracts] MediaEngine.Contracts.Operations.EnrichmentRefreshScheduleDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  EntityType: System.String | json=entity_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EntityId: System.Guid | json=entity_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  EntityName: System.String | json=entity_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Stage: System.String | json=stage | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ProviderId: System.String | json=provider_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PolicyKey: System.String | json=policy_key | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  IntervalDays: System.Int32 | json=interval_days | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LastSuccessAt: System.DateTimeOffset? | json=last_success_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LastAttemptAt: System.DateTimeOffset? | json=last_attempt_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  NextDueAt: System.DateTimeOffset | json=next_due_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  FailureCount: System.Int32 | json=failure_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RetryAfter: System.DateTimeOffset? | json=retry_after | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OperationId: System.Guid? | json=operation_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Reason: System.String | json=reason | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"entity_type":"sample","entity_id":"11111111-2222-3333-4444-555555555555","entity_name":"sample","stage":"sample","provider_id":"sample","policy_key":"sample","interval_days":7,"last_success_at":"2025-01-02T03:04:05+00:00","last_attempt_at":"2025-01-02T03:04:05+00:00","next_due_at":"2025-01-02T03:04:05+00:00","status":"sample","failure_count":7,"retry_after":"2025-01-02T03:04:05+00:00","operation_id":"11111111-2222-3333-4444-555555555555","reason":"sample"}
+
+[contracts] MediaEngine.Contracts.Operations.EnrichmentRefreshScheduleResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Operations.EnrichmentRefreshScheduleDto> | json=items | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TotalCount: System.Int32 | json=total_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OverdueCount: System.Int32 | json=overdue_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DueNextSevenDaysCount: System.Int32 | json=due_next_seven_days_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GeneratedAt: System.DateTimeOffset | json=generated_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"items":[],"total_count":7,"overdue_count":7,"due_next_seven_days_count":7,"generated_at":"2025-01-02T03:04:05+00:00"}
+
 [contracts] MediaEngine.Contracts.Operations.FileWatcherStatusResponse
   kind=class | converter=default | number-handling=default | unmapped=default
   running: System.Boolean | json=running | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -3838,8 +3875,12 @@
   CoverUrl: System.String | json=cover_url | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Year: System.String | json=year | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Role: System.String | json=role | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AssociationType: System.String | json=association_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ViaGroupId: System.Guid? | json=via_group_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ViaGroupName: System.String | json=via_group_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AssociationIsInferred: System.Boolean | json=association_is_inferred | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Characters: System.Collections.Generic.List<MediaEngine.Contracts.Persons.CharacterPortrayalDto> | json=characters | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"work_id":"11111111-2222-3333-4444-555555555555","collection_id":"11111111-2222-3333-4444-555555555555","media_type":"sample","title":"sample","cover_url":"sample","year":"sample","role":"sample","characters":[]}
+  sample={"work_id":"11111111-2222-3333-4444-555555555555","collection_id":"11111111-2222-3333-4444-555555555555","media_type":"sample","title":"sample","cover_url":"sample","year":"sample","role":"sample","association_type":"sample","via_group_id":"11111111-2222-3333-4444-555555555555","via_group_name":"sample","association_is_inferred":true,"characters":[]}
 
 [contracts] MediaEngine.Contracts.Persons.PersonListItemResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -5462,10 +5503,11 @@
   Stage3RateLimitMs: System.Int32 | json=stage3_rate_limit_ms | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Stage3MaxItemsPerSweep: System.Int32 | json=stage3_max_items_per_sweep | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Stage3RefreshDays: System.Int32 | json=stage3_refresh_days | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PersonRefreshDays: System.Int32 | json=person_refresh_days | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SeriesManifestRefreshDays: System.Int32 | json=series_manifest_refresh_days | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Stage3MaxDepth: System.Int32 | json=stage3_max_depth | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   TimelineRetentionDays: System.Int32 | json=timeline_retention_days | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"max_concurrent_retail_provider_jobs":7,"max_concurrent_wikidata_jobs":7,"max_concurrent_fanart_jobs":7,"max_concurrent_writeback_jobs":7,"stage1_timeout_seconds":7,"quick_hydration_timeout_seconds":7,"disambiguation_threshold":7,"auto_review_confidence_threshold":7,"max_qid_candidates":7,"skip_wikipedia_without_qid":true,"wikipedia_description_max_chars":7,"universe_title_search_auto_accept":7,"universe_xml_write_debounce_seconds":7,"fictional_entity_enrichment_depth":7,"post_hydration_organize_threshold":7,"minimum_universe_work_count":7,"collection_rollup_relationship_types":[],"two_pass_enabled":true,"pass1_core_properties_only":true,"pass2_idle_delay_seconds":7,"pass2_rate_limit_ms":7,"pass2_stale_threshold_hours":7,"pass2_batch_size":7,"local_match_enabled":true,"local_match_fuzzy_threshold":7,"retail_auto_accept_threshold":7,"retail_ambiguous_threshold":7,"edition_aware_media_types":[],"fuzzy_match_weights":{},"wikidata_batch_size":7,"identity_retry_max_attempts":7,"identity_retry_base_delay_seconds":7,"identity_retry_max_delay_seconds":7,"identity_retry_jitter_min_ms":7,"identity_retry_jitter_max_ms":7,"fetch_temporal_qualifiers":true,"batch_sparql_size":7,"lineage_depth":7,"lore_delta_check_on_explorer_open":true,"canon_discrepancy_detection":true,"era_actor_resolution":true,"stage3_enabled":true,"stage3_rate_limit_ms":7,"stage3_max_items_per_sweep":7,"stage3_refresh_days":7,"series_manifest_refresh_days":7,"stage3_max_depth":7,"timeline_retention_days":7}
+  sample={"max_concurrent_retail_provider_jobs":7,"max_concurrent_wikidata_jobs":7,"max_concurrent_fanart_jobs":7,"max_concurrent_writeback_jobs":7,"stage1_timeout_seconds":7,"quick_hydration_timeout_seconds":7,"disambiguation_threshold":7,"auto_review_confidence_threshold":7,"max_qid_candidates":7,"skip_wikipedia_without_qid":true,"wikipedia_description_max_chars":7,"universe_title_search_auto_accept":7,"universe_xml_write_debounce_seconds":7,"fictional_entity_enrichment_depth":7,"post_hydration_organize_threshold":7,"minimum_universe_work_count":7,"collection_rollup_relationship_types":[],"two_pass_enabled":true,"pass1_core_properties_only":true,"pass2_idle_delay_seconds":7,"pass2_rate_limit_ms":7,"pass2_stale_threshold_hours":7,"pass2_batch_size":7,"local_match_enabled":true,"local_match_fuzzy_threshold":7,"retail_auto_accept_threshold":7,"retail_ambiguous_threshold":7,"edition_aware_media_types":[],"fuzzy_match_weights":{},"wikidata_batch_size":7,"identity_retry_max_attempts":7,"identity_retry_base_delay_seconds":7,"identity_retry_max_delay_seconds":7,"identity_retry_jitter_min_ms":7,"identity_retry_jitter_max_ms":7,"fetch_temporal_qualifiers":true,"batch_sparql_size":7,"lineage_depth":7,"lore_delta_check_on_explorer_open":true,"canon_discrepancy_detection":true,"era_actor_resolution":true,"stage3_enabled":true,"stage3_rate_limit_ms":7,"stage3_max_items_per_sweep":7,"stage3_refresh_days":7,"person_refresh_days":7,"series_manifest_refresh_days":7,"stage3_max_depth":7,"timeline_retention_days":7}
 
 [contracts] MediaEngine.Contracts.Settings.LibraryFolderDto
   kind=class | converter=default | number-handling=default | unmapped=default

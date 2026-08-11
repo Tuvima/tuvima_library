@@ -2993,6 +2993,37 @@ MediaEngine.Contracts.Operations.MediaEngine.Contracts.Operations.CapabilityStat
   CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
   UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,set
 
+MediaEngine.Contracts.Operations.MediaEngine.Contracts.Operations.EnrichmentRefreshQueuedResponse
+  EntityType: System.String | nullability=not-null | accessors=get,init
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  OperationId: System.Guid? | nullability=nullable | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Operations.MediaEngine.Contracts.Operations.EnrichmentRefreshScheduleDto
+  EntityType: System.String | nullability=not-null | accessors=get,init
+  EntityId: System.Guid | nullability=not-null | accessors=get,init
+  EntityName: System.String | nullability=not-null | accessors=get,init
+  Stage: System.String | nullability=not-null | accessors=get,init
+  ProviderId: System.String | nullability=not-null | accessors=get,init
+  PolicyKey: System.String | nullability=not-null | accessors=get,init
+  IntervalDays: System.Int32 | nullability=not-null | accessors=get,init
+  LastSuccessAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  LastAttemptAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  NextDueAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Status: System.String | nullability=not-null | accessors=get,init
+  FailureCount: System.Int32 | nullability=not-null | accessors=get,init
+  RetryAfter: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  OperationId: System.Guid? | nullability=nullable | accessors=get,init
+  Reason: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Operations.MediaEngine.Contracts.Operations.EnrichmentRefreshScheduleResponse
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Operations.EnrichmentRefreshScheduleDto> | nullability=not-null | accessors=get,init
+  TotalCount: System.Int32 | nullability=not-null | accessors=get,init
+  OverdueCount: System.Int32 | nullability=not-null | accessors=get,init
+  DueNextSevenDaysCount: System.Int32 | nullability=not-null | accessors=get,init
+  GeneratedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Operations.MediaEngine.Contracts.Operations.FileWatcherStatusResponse
   running: System.Boolean | nullability=not-null | accessors=get,init
   directory_count: System.Int32 | nullability=not-null | accessors=get,init
@@ -3160,6 +3191,10 @@ MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonLibraryCreditD
   CoverUrl: System.String | nullability=nullable | accessors=get,init
   Year: System.String | nullability=nullable | accessors=get,init
   Role: System.String | nullability=not-null | accessors=get,init
+  AssociationType: System.String | nullability=not-null | accessors=get,init
+  ViaGroupId: System.Guid? | nullability=nullable | accessors=get,init
+  ViaGroupName: System.String | nullability=nullable | accessors=get,init
+  AssociationIsInferred: System.Boolean | nullability=not-null | accessors=get,init
   Characters: System.Collections.Generic.List<MediaEngine.Contracts.Persons.CharacterPortrayalDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonListItemResponse
@@ -4560,6 +4595,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HydrationSettingsD
   Stage3RateLimitMs: System.Int32 | nullability=not-null | accessors=get,set
   Stage3MaxItemsPerSweep: System.Int32 | nullability=not-null | accessors=get,set
   Stage3RefreshDays: System.Int32 | nullability=not-null | accessors=get,set
+  PersonRefreshDays: System.Int32 | nullability=not-null | accessors=get,set
   SeriesManifestRefreshDays: System.Int32 | nullability=not-null | accessors=get,set
   Stage3MaxDepth: System.Int32 | nullability=not-null | accessors=get,set
   TimelineRetentionDays: System.Int32 | nullability=not-null | accessors=get,set

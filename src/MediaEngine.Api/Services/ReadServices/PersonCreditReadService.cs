@@ -975,6 +975,35 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             "w.media_type");
         var baseRows = (await conn.QueryAsync<PersonLibraryCreditRow>(
             $"""
+            WITH effective_credit AS (
+                SELECT direct_credit.media_asset_id,
+                       direct_credit.person_id,
+                       direct_credit.role,
+                       'Direct' AS association_type,
+                       NULL AS via_group_id,
+                       NULL AS via_group_name,
+                       NULL AS membership_start_date,
+                       NULL AS membership_end_date
+                FROM primary_person_media_credits direct_credit
+                WHERE direct_credit.person_id = @personId
+
+                UNION ALL
+
+                SELECT group_credit.media_asset_id,
+                       membership.member_id AS person_id,
+                       group_credit.role,
+                       'ThroughGroup' AS association_type,
+                       membership.group_id AS via_group_id,
+                       group_person.name AS via_group_name,
+                       membership.start_date AS membership_start_date,
+                       membership.end_date AS membership_end_date
+                FROM primary_person_media_credits group_credit
+                INNER JOIN person_group_members membership
+                    ON membership.group_id = group_credit.person_id
+                INNER JOIN persons group_person
+                    ON group_person.id = membership.group_id
+                WHERE membership.member_id = @personId
+            )
             SELECT w.id                                   AS WorkId,
                    COALESCE(gp.id, p.id, w.id)             AS RootWorkId,
                    w.collection_id                        AS CollectionId,
@@ -1030,8 +1059,13 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                     LIMIT 1)                              AS RootTitle,
                    {displayYearSql}                       AS Year,
                    primary_credit.role                    AS Role,
+                   primary_credit.association_type        AS AssociationType,
+                   primary_credit.via_group_id            AS ViaGroupId,
+                   primary_credit.via_group_name          AS ViaGroupName,
+                   primary_credit.membership_start_date   AS MembershipStartDate,
+                   primary_credit.membership_end_date     AS MembershipEndDate,
                    MIN(ma.id)                             AS FirstAssetId
-            FROM primary_person_media_credits primary_credit
+            FROM effective_credit primary_credit
             INNER JOIN media_assets ma
                 ON ma.id = primary_credit.media_asset_id
             INNER JOIN editions e
@@ -1057,10 +1091,15 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                     AND collective_person.is_pseudonym = 1
                     AND collective_credit.person_id != primary_credit.person_id
               ))
-            GROUP BY w.id, COALESCE(gp.id, p.id, w.id), w.collection_id, w.media_type, w.wikidata_qid, c.display_name, primary_credit.role
+            GROUP BY w.id, COALESCE(gp.id, p.id, w.id), w.collection_id, w.media_type, w.wikidata_qid,
+                     c.display_name, primary_credit.role, primary_credit.association_type,
+                     primary_credit.via_group_id, primary_credit.via_group_name,
+                     primary_credit.membership_start_date, primary_credit.membership_end_date
             ORDER BY Year DESC, Title, primary_credit.role;
             """,
             new { personId })).ToList();
+
+        baseRows.RemoveAll(row => row.IsThroughGroup && !MembershipOverlapsWork(row));
 
         var workQids = baseRows
             .SelectMany(row => new[] { row.WorkQid, row.RootWorkQid, row.CollectionQid })
@@ -1182,11 +1221,17 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                     .ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase)
                     .ToList();
 
-                var representative = orderedRows.First();
+                var directRows = orderedRows
+                    .Where(row => !row.IsThroughGroup)
+                    .ToList();
+                var effectiveRows = directRows.Count > 0 ? directRows : orderedRows;
+                var representative = effectiveRows.First();
                 var isTvSeriesCredit = IsTvMediaType(representative.MediaType) && representative.CollectionId.HasValue;
                 var isMusicAlbumCredit = IsMusicMediaType(representative.MediaType);
-                var roles = ResolveLibraryCreditRoles(orderedRows, charactersByWorkQid);
-                var characterQids = orderedRows
+                var roles = representative.IsThroughGroup
+                    ? [$"With {StringHelpers.FirstNonBlank(representative.ViaGroupName, "group")}"]
+                    : ResolveLibraryCreditRoles(effectiveRows, charactersByWorkQid);
+                var characterQids = effectiveRows
                     .SelectMany(row => new[] { row.CollectionQid, row.RootWorkQid, row.WorkQid })
                     .Where(qid => !string.IsNullOrWhiteSpace(qid))
                     .Select(qid => qid!)
@@ -1220,6 +1265,13 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
                             : null,
                         Year = representative.Year,
                         Role = role,
+                        AssociationType = representative.AssociationType,
+                        ViaGroupId = representative.ViaGroupId,
+                        ViaGroupName = representative.ViaGroupName,
+                        AssociationIsInferred = representative.IsThroughGroup
+                            && (!TryReadYear(representative.Year, out _)
+                                || (!TryReadYear(representative.MembershipStartDate, out _)
+                                    && !TryReadYear(representative.MembershipEndDate, out _))),
                         Characters = includeCharacters ? characters : [],
                     };
                 });
@@ -1273,6 +1325,27 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
             : rows.All(row => string.IsNullOrWhiteSpace(row.Role))
                 ? ["Credit"]
                 : [];
+    }
+
+    private static bool MembershipOverlapsWork(PersonLibraryCreditRow row)
+    {
+        if (!TryReadYear(row.Year, out var workYear))
+            return true;
+
+        if (TryReadYear(row.MembershipStartDate, out var startYear) && workYear < startYear)
+            return false;
+
+        return !TryReadYear(row.MembershipEndDate, out var endYear) || workYear <= endYear;
+    }
+
+    private static bool TryReadYear(string? value, out int year)
+    {
+        year = 0;
+        if (string.IsNullOrWhiteSpace(value))
+            return false;
+
+        var token = value.Trim();
+        return token.Length >= 4 && int.TryParse(token[..4], out year);
     }
 
     private static bool IsEligibleLibraryCreditRole(string? mediaType, string role)
@@ -1505,6 +1578,12 @@ public sealed class PersonCreditReadService : IPersonCreditReadService
         public string? RootTitle { get; init; }
         public string? Year { get; init; }
         public string Role { get; init; } = string.Empty;
+        public string AssociationType { get; init; } = "Direct";
+        public Guid? ViaGroupId { get; init; }
+        public string? ViaGroupName { get; init; }
+        public string? MembershipStartDate { get; init; }
+        public string? MembershipEndDate { get; init; }
+        public bool IsThroughGroup => AssociationType.Equals("ThroughGroup", StringComparison.OrdinalIgnoreCase);
         public Guid? FirstAssetId { get; init; }
     }
 

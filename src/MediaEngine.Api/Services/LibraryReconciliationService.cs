@@ -415,7 +415,8 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
 
     /// <summary>
     /// Scans canonical .data/assets/people subfolders. Folder names are person IDs;
-    /// folders without matching people, or people with zero media links, are deleted.
+    /// folders without matching people, or people with no durable graph references,
+    /// are deleted. Group members and other relationship-only people are retained.
     /// </summary>
     private async Task<int> CleanOrphanedPeopleAsync(string libraryRoot, CancellationToken ct)
     {
@@ -442,13 +443,13 @@ public sealed partial class LibraryReconciliationService : BackgroundService, IR
                 continue;
             }
 
-            var linkCount = await _personRepo.CountMediaLinksAsync(person.Id, ct);
-            if (linkCount == 0)
+            var referenceCount = await _personRepo.CountGraphReferencesAsync(person.Id, ct);
+            if (referenceCount == 0)
             {
                 await _personRepo.DeleteAsync(person.Id, ct);
                 SafeDeleteDirectory(subDir);
                 cleaned++;
-                _logger.LogDebug("Removed orphan person asset folder (zero media links): {Name}", person.Name);
+                _logger.LogDebug("Removed orphan person asset folder (no graph references): {Name}", person.Name);
             }
         }
 

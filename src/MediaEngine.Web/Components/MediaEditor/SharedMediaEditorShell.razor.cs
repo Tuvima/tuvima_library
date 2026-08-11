@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
+using MediaEngine.Contracts.Operations;
 using MediaEngine.Domain.Services;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
@@ -171,6 +172,8 @@ public partial class SharedMediaEditorShell
     private EditorContentGroup? _focusedContentGroup;
     private string _focusedContentTitle = string.Empty;
     private bool _savingFocusedContent;
+    private EnrichmentRefreshScheduleDto? _refreshSchedule;
+    private bool _refreshQueueing;
     private ContainerReturnState? _containerReturnState;
     private EditorAiCapability _chapterNamingCapability = new(false, "Checking local AI availability.");
 
@@ -464,10 +467,48 @@ public partial class SharedMediaEditorShell
         }
 
         if (IsSingleItem)
+        {
             await LoadSingleItemAsync(resetEditorState: true);
+            await LoadRefreshScheduleAsync();
+        }
         else
             await LoadBatchAsync();
     }
+
+    private async Task LoadRefreshScheduleAsync()
+    {
+        var schedule = await ApiClient.GetEnrichmentRefreshScheduleAsync(limit: 1000);
+        _refreshSchedule = schedule?.Items.FirstOrDefault(item => item.EntityId == EditorContextEntityId)
+            ?? schedule?.Items.FirstOrDefault(item => item.EntityId == CurrentEntityId);
+    }
+
+    protected async Task QueueFullEnrichmentAsync()
+    {
+        var target = _refreshSchedule;
+        if (target is null || _refreshQueueing)
+            return;
+
+        _refreshQueueing = true;
+        try
+        {
+            var result = await ApiClient.QueueEnrichmentRefreshNowAsync(target.EntityType, target.EntityId);
+            if (result is null)
+            {
+                Snackbar.Add("The enrichment refresh could not be queued.", Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(result.Message, Severity.Success);
+            await LoadRefreshScheduleAsync();
+        }
+        finally
+        {
+            _refreshQueueing = false;
+        }
+    }
+
+    protected static string FormatRefreshDate(DateTimeOffset? value)
+        => value?.ToLocalTime().ToString("MMM d, yyyy · h:mm tt") ?? "Not yet";
 
     private async Task LoadSingleItemAsync(
         Guid? targetEntityId = null,

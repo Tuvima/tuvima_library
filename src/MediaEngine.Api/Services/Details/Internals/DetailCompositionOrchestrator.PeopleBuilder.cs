@@ -451,7 +451,9 @@ internal sealed partial class DetailCompositionOrchestrator
 
     private static IReadOnlyList<MediaGroupingViewModel> BuildPersonMediaGroups(IReadOnlyList<PersonLibraryCreditDto> credits, DetailPresentationContext context)
         => credits
-            .GroupBy(c => PersonMediaGroupKey(c.MediaType, context))
+            .GroupBy(c => string.Equals(c.AssociationType, "ThroughGroup", StringComparison.OrdinalIgnoreCase)
+                ? $"With {StringHelpers.FirstNonBlank(c.ViaGroupName, "group")}"
+                : PersonMediaGroupKey(c.MediaType, context))
             .OrderBy(g => PersonMediaGroupPriority(g.Key, context))
             .Select(g => new MediaGroupingViewModel
             {
@@ -522,6 +524,7 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailPresentationContext context)
     {
         var mediaRoles = credits
+            .Where(credit => !string.Equals(credit.AssociationType, "ThroughGroup", StringComparison.OrdinalIgnoreCase))
             .Select(credit => NormalizePersonRole(credit.Role))
             .Where(role => !string.IsNullOrWhiteSpace(role))
             .GroupBy(role => role!, StringComparer.OrdinalIgnoreCase)

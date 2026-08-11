@@ -11,6 +11,12 @@
                          Options="@SectionOptions"
                          AriaLabel="Ingestion sections"
                          Class="mb-4" />
+    @if (string.Equals(Subsection, "schedule", StringComparison.OrdinalIgnoreCase))
+    {
+        <EnrichmentRefreshSchedulePanel />
+    }
+    else
+    {
     <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
                             Status="Dashboard.LibraryUpdateStatus"
                             Metrics="Dashboard.Metrics"
@@ -31,6 +37,7 @@
                             Subsection="@Subsection"
                             OnRefresh="RefreshAsync"
                             OnScanNow="ScanNowAsync" />
+    }
 </div>
 
 @code {
@@ -41,6 +48,7 @@
         new("overview", "Current Run", Icons.Material.Outlined.PlayCircleOutline),
         new("batches", "Recent Batches", Icons.Material.Outlined.FolderCopy),
         new("providers", "Provider Activity & Errors", Icons.Material.Outlined.Storage),
+        new("schedule", "Upcoming Refreshes", Icons.Material.Outlined.EventRepeat),
     ];
 
     private void NavigateToSection(string section) =>

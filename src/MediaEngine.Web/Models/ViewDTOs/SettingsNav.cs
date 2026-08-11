@@ -181,6 +181,7 @@ public static class SettingsNav
                 new("overview", "Current Run", Icons.Material.Outlined.Dashboard),
                 new("batches", "Recent Batches", Icons.Material.Outlined.FolderCopy),
                 new("providers", "Provider Activity & Errors", Icons.Material.Outlined.Storage),
+                new("schedule", "Upcoming Refreshes", Icons.Material.Outlined.EventRepeat),
             ],
             [SettingsSection.DevHarness] =
             [

@@ -87,6 +87,13 @@
                     </div>
                 }
             </SupplementalContent>
+            <ActionContent>
+                <HeroActionRow PrimaryActions="[]"
+                               SecondaryActions="[]"
+                               OverflowActions="Model.OverflowActions"
+                               UsePrimaryHeroChrome="true"
+                               OnActionSelected="OnActionSelected" />
+            </ActionContent>
         </DetailHeroContent>
     }
     else
@@ -148,7 +155,6 @@
                 <HeroActionRow PrimaryActions="Model.PrimaryActions"
                                SecondaryActions="Model.SecondaryActions"
                                OverflowActions="Model.OverflowActions"
-                               InlineEditAction="InlineEditAction"
                                UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                                ActionAttributes="ActionAttributes"
                                OnActionSelected="OnActionSelected" />
@@ -195,16 +201,6 @@
         : "tl-detail-hero-credit-stack";
     private bool HasHeroBrand => Model.HeroBrand is not null
         && (!string.IsNullOrWhiteSpace(Model.HeroBrand.ImageUrl) || !string.IsNullOrWhiteSpace(Model.HeroBrand.Label));
-    private DetailAction? InlineEditAction => Model.EditorTarget is not null
-        ? new DetailAction
-        {
-            Key = "edit-media",
-            Label = "Edit",
-            Icon = "edit",
-            Tooltip = "Edit",
-        }
-        : null;
-
     private string? EpisodePositionFromWatchAction()
     {
         var label = Model.PrimaryActions

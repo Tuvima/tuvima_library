@@ -351,6 +351,13 @@ public sealed class HydrationSettings
     public int Stage3RefreshDays { get; set; } = 30;
 
     /// <summary>
+    /// Number of days after which a person or musical-group profile is refreshed.
+    /// Kept separate from work enrichment so provider policy is data-driven.
+    /// </summary>
+    [JsonPropertyName("person_refresh_days")]
+    public int PersonRefreshDays { get; set; } = 30;
+
+    /// <summary>
     /// Minimum age, in days, before a persisted Wikidata series manifest is
     /// refreshed. Newly ingested sibling files first link against the cached
     /// named manifest to avoid repeated full series downloads.

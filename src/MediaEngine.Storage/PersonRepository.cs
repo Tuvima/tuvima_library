@@ -694,6 +694,26 @@ public sealed class PersonRepository : IPersonRepository
     }
 
     /// <inheritdoc/>
+    public Task<int> CountGraphReferencesAsync(Guid personId, CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        using var conn = _db.CreateConnection();
+        var count = conn.ExecuteScalar<int>(
+            """
+            SELECT
+                (SELECT COUNT(*) FROM person_media_links WHERE person_id = @id)
+              + (SELECT COUNT(*) FROM person_group_members WHERE group_id = @id OR member_id = @id)
+              + (SELECT COUNT(*) FROM person_aliases WHERE pseudonym_person_id = @id OR real_person_id = @id)
+              + (SELECT COUNT(*) FROM character_performer_links WHERE person_id = @id)
+              + (SELECT COUNT(*) FROM character_portraits WHERE person_id = @id);
+            """,
+            new { id = personId });
+
+        return Task.FromResult(count);
+    }
+
+    /// <inheritdoc/>
     public Task<Person?> FindByQidAsync(string qid, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

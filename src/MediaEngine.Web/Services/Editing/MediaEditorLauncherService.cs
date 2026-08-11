@@ -42,6 +42,26 @@ public sealed class MediaEditorLauncherService
                 return false;
         }
 
+        if (string.Equals(request.LaunchEntityKind, "Person", StringComparison.OrdinalIgnoreCase))
+        {
+            var personDialog = await _dialogService.ShowAsync<PersonEditorDialog>(
+                "Edit Person",
+                new DialogParameters { { nameof(PersonEditorDialog.Request), request } },
+                new DialogOptions
+                {
+                    CloseButton = false,
+                    NoHeader = true,
+                    MaxWidth = MaxWidth.Large,
+                    FullWidth = true,
+                    BackdropClick = false,
+                    CloseOnEscapeKey = true,
+                });
+            if (personDialog is null)
+                return false;
+            var personResult = await personDialog.Result;
+            return personResult is not null && !personResult.Canceled;
+        }
+
         var dialog = await _dialogService.ShowAsync<SharedMediaEditorShell>(
             request.Mode == SharedMediaEditorMode.Batch ? "Edit Items" : "Edit Item",
             new DialogParameters

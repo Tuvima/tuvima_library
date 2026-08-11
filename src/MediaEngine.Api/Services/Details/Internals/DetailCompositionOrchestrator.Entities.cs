@@ -76,6 +76,13 @@ internal sealed partial class DetailCompositionOrchestrator
             Id = personId.ToString("D"),
             EntityType = entityType,
             PresentationContext = context,
+            EditorTarget = new DetailEditorTarget
+            {
+                EntityId = personId.ToString("D"),
+                EntityKind = "Person",
+                ContainerMode = "Canonical",
+                InitialTab = "details",
+            },
             Title = person.Name,
             Subtitle = person.IsGroup ? "Group" : string.Join(" • ", displayRoles.Take(3)),
             Description = shortDescription,
