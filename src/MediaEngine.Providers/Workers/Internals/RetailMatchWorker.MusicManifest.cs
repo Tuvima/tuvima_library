@@ -44,6 +44,89 @@ public sealed partial class RetailMatchWorker
             .ConfigureAwait(false);
     }
 
+    private async Task PersistAcceptedMusicBrainzAlbumManifestAsync(
+        WorkLineage lineage,
+        IReadOnlyDictionary<string, string> bridgeIds,
+        CancellationToken ct)
+    {
+        if (_musicBrainzReleaseClient is null
+            || !bridgeIds.TryGetValue(BridgeIdKeys.MusicBrainzReleaseId, out var releaseId)
+            || string.IsNullOrWhiteSpace(releaseId))
+        {
+            return;
+        }
+
+        var rootWorkId = lineage.TargetForParentScope;
+        var albumLock = MusicAlbumManifestLocks.GetOrAdd(rootWorkId, static _ => new SemaphoreSlim(1, 1));
+        await albumLock.WaitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            var rootValues = await _canonicalRepo.GetByEntityAsync(rootWorkId, ct).ConfigureAwait(false);
+            var existingManifest = rootValues.FirstOrDefault(value =>
+                string.Equals(value.Key, MetadataFieldConstants.ChildEntitiesJson, StringComparison.OrdinalIgnoreCase))?.Value;
+            if (MusicBrainzAlbumManifestJson.IsCompleteForRelease(existingManifest, releaseId))
+                return;
+
+            var release = await _musicBrainzReleaseClient.FetchReleaseAsync(releaseId, ct).ConfigureAwait(false);
+            if (release is null)
+                return;
+
+            var values = new List<CanonicalValue>
+            {
+                new()
+                {
+                    EntityId = rootWorkId,
+                    Key = MetadataFieldConstants.ChildEntitiesJson,
+                    Value = release.ManifestJson,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                    WinningProviderId = WellKnownProviders.MusicBrainz,
+                },
+                new()
+                {
+                    EntityId = rootWorkId,
+                    Key = MetadataFieldConstants.TrackCount,
+                    Value = release.TrackCount.ToString(CultureInfo.InvariantCulture),
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                    WinningProviderId = WellKnownProviders.MusicBrainz,
+                },
+                new()
+                {
+                    EntityId = rootWorkId,
+                    Key = BridgeIdKeys.MusicBrainzReleaseId,
+                    Value = release.ReleaseId,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                    WinningProviderId = WellKnownProviders.MusicBrainz,
+                },
+            };
+
+            var hasManagedCover = rootValues.Any(value =>
+                (value.Key is MetadataFieldConstants.Cover or MetadataFieldConstants.CoverUrl)
+                && !string.IsNullOrWhiteSpace(value.Value));
+            if (!hasManagedCover && !string.IsNullOrWhiteSpace(release.CoverUrl))
+            {
+                values.Add(new CanonicalValue
+                {
+                    EntityId = rootWorkId,
+                    Key = MetadataFieldConstants.CoverUrl,
+                    Value = release.CoverUrl,
+                    LastScoredAt = DateTimeOffset.UtcNow,
+                    WinningProviderId = WellKnownProviders.MusicBrainz,
+                });
+            }
+
+            await _canonicalRepo.UpsertBatchAsync(values, ct).ConfigureAwait(false);
+            _logger.LogInformation(
+                "Music: persisted exact {TrackCount}-track MusicBrainz release manifest {ReleaseId} on root work {RootWorkId}",
+                release.TrackCount,
+                release.ReleaseId,
+                rootWorkId);
+        }
+        finally
+        {
+            albumLock.Release();
+        }
+    }
+
     private async Task PersistAppleAlbumManifestAsync(
         WorkLineage lineage,
         string collectionId,

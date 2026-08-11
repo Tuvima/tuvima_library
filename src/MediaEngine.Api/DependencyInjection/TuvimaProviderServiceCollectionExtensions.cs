@@ -29,6 +29,9 @@ public static class TuvimaProviderServiceCollectionExtensions
         services.AddSingleton<IMetadataHarvestingService>(sp =>
             sp.GetRequiredService<MetadataHarvestingService>());
         services.AddSingleton<IRecursiveIdentityService, RecursiveIdentityService>();
+        services.AddSingleton<PipelineExecutionSnapshotProvider>();
+        services.AddSingleton<IPipelineExecutionSnapshotProvider>(sp =>
+            sp.GetRequiredService<PipelineExecutionSnapshotProvider>());
         services.AddSingleton<IPersonReconciliationService, PersonReconciliationService>();
         services.AddSingleton<ICanonDiscrepancyService, CanonDiscrepancyService>();
 

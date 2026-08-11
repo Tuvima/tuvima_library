@@ -104,7 +104,7 @@ public sealed class SearchServiceUniverseSearchTests
     [Fact]
     public async Task SearchRetail_DoesNotQueryDisabledProviders()
     {
-        var disabledProvider = new CapturingRetailProvider("open_library");
+        var disabledProvider = new CapturingRetailProvider("opensubtitles");
         var service = BuildSearchService(disabledProvider);
 
         var result = await service.SearchRetailAsync(new SearchRetailRequest(

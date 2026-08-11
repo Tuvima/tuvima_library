@@ -2191,44 +2191,20 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     public async Task<ProviderArtworkRefreshDto?> RefreshScopeProviderArtworkAsync(Guid entityId, string scopeId, CancellationToken ct = default)
     {
-        try
+        var encodedScope = Uri.EscapeDataString(scopeId);
+        var result = await PostAsync<object, ProviderArtworkRefreshDto>(
+            "POST /metadata/{entityId}/artwork/{scopeId}/refresh-provider",
+            $"/metadata/{entityId}/artwork/{encodedScope}/refresh-provider",
+            new { },
+            ct: ct);
+        if (result is not null)
         {
-            var encodedScope = Uri.EscapeDataString(scopeId);
-            using var response = await _http.PostAsJsonAsync(
-                $"/metadata/{entityId}/artwork/{encodedScope}/refresh-provider",
-                new { },
-                ct);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                var detail = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning(
-                    "POST /metadata/{EntityId}/artwork/{ScopeId}/refresh-provider returned {Status}: {Detail}",
-                    entityId,
-                    scopeId,
-                    (int)response.StatusCode,
-                    detail);
-                LastError = $"HTTP {(int)response.StatusCode}: {detail}";
-                return null;
-            }
-
-            var result = await response.Content.ReadFromJsonAsync<ProviderArtworkRefreshDto>(ct);
-            if (result is not null)
-            {
-                result.StoredVariantCounts = new Dictionary<string, int>(
-                    result.StoredVariantCounts,
-                    StringComparer.OrdinalIgnoreCase);
-            }
-
-            return result;
+            result.StoredVariantCounts = new Dictionary<string, int>(
+                result.StoredVariantCounts,
+                StringComparer.OrdinalIgnoreCase);
         }
-        catch (OperationCanceledException) { return null; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST /metadata/{EntityId}/artwork/{ScopeId}/refresh-provider failed", entityId, scopeId);
-            LastError = ex.Message;
-            return null;
-        }
+
+        return result;
     }
 
     public async Task TriggerUniverseEnrichmentAsync(CancellationToken ct = default)

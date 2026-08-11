@@ -60,6 +60,21 @@ public class ValueTransformCatalogTests
         Assert.Equal("hello", ValueTransformCatalog.Apply("to_string", "hello"));
     }
 
+    [Theory]
+    [InlineData("218149", "3.636")]
+    [InlineData("60000", "1")]
+    [InlineData("0", "0")]
+    public void MillisecondsToMinutes_NormalizesDuration(string input, string expected)
+    {
+        Assert.Equal(expected, ValueTransformCatalog.Apply("milliseconds_to_minutes", input));
+    }
+
+    [Fact]
+    public void MillisecondsToMinutes_RejectsInvalidInput()
+    {
+        Assert.Null(ValueTransformCatalog.Apply("milliseconds_to_minutes", "not-a-duration"));
+    }
+
     [Fact]
     public void StripHtml_RemovesTags()
     {
@@ -160,6 +175,7 @@ public class ValueTransformCatalogTests
     [InlineData("strip_entity_uri")]
     [InlineData("commons_url")]
     [InlineData("to_string")]
+    [InlineData("milliseconds_to_minutes")]
     [InlineData("strip_html")]
     [InlineData("url_template")]
     [InlineData("regex_replace")]

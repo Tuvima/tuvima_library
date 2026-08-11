@@ -6,15 +6,22 @@
         "rank": 1,
         "name": "apple_api",
         "purpose": "identity"
+      },
+      {
+        "rank": 2,
+        "name": "open_library",
+        "purpose": "identity"
       }
     ],
     "field_priorities": {
       "cover": [
-        "apple_api"
+        "apple_api",
+        "open_library"
       ],
       "description": [
         "wikidata_reconciliation",
-        "apple_api"
+        "apple_api",
+        "open_library"
       ],
       "rating": [
         "apple_api"

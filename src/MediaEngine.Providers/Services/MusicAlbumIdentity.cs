@@ -37,8 +37,16 @@ internal static partial class MusicAlbumIdentity
                 StringComparison.OrdinalIgnoreCase))
             return false;
 
-        return string.Equals(requested.BaseName, candidate.BaseName, StringComparison.OrdinalIgnoreCase)
-            || RetailTextSimilarity.ComputeWordOverlap(requested.BaseName, candidate.BaseName) >= 0.92;
+        if (string.Equals(requested.BaseName, candidate.BaseName, StringComparison.OrdinalIgnoreCase)
+            || RetailTextSimilarity.ComputeWordOverlap(requested.BaseName, candidate.BaseName) >= 0.92)
+        {
+            return true;
+        }
+
+        var requestedSuffix = Normalize(AlbumNameAfterIdentityPrefix(requestedAlbum)).BaseName;
+        var candidateSuffix = Normalize(AlbumNameAfterIdentityPrefix(candidateAlbum)).BaseName;
+        return string.Equals(requestedSuffix, candidateSuffix, StringComparison.OrdinalIgnoreCase)
+            || RetailTextSimilarity.ComputeWordOverlap(requestedSuffix, candidateSuffix) >= 0.92;
     }
 
     public static double ComputeBaseNameOverlap(string? requestedAlbum, string? candidateAlbum)
@@ -80,6 +88,14 @@ internal static partial class MusicAlbumIdentity
         comparable = string.Join(' ', comparable.Split(' ', StringSplitOptions.RemoveEmptyEntries));
 
         return new NormalizedAlbum(comparable, trackSetQualifier);
+    }
+
+    private static string AlbumNameAfterIdentityPrefix(string value)
+    {
+        var separator = value.LastIndexOf(':');
+        return separator >= 0 && separator < value.Length - 1
+            ? value[(separator + 1)..].Trim()
+            : value;
     }
 
     [GeneratedRegex(@"\b(remaster(ed)?|remix(ed)?|mix|mono|stereo|digital master)\b", RegexOptions.IgnoreCase)]

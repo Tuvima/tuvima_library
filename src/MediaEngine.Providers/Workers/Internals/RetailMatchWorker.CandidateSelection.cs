@@ -53,7 +53,7 @@ public sealed partial class RetailMatchWorker
 
     private (string Language, string MusicCountry, string RegionCountry) GetConfiguredLocale()
     {
-        var core = _configLoader.LoadCore();
+        var core = GetExecutionSnapshot().Core;
         var rawLanguage = string.IsNullOrWhiteSpace(core.Language.Metadata)
             ? "en"
             : core.Language.Metadata.Trim();

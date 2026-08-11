@@ -501,8 +501,8 @@ public sealed partial class ConfigDrivenAdapter
     private string ResolveEffectiveLanguage(ProviderLookupRequest request) =>
         _config.LanguageStrategy switch
         {
-            LanguageStrategy.Localized => request.Language,
-            LanguageStrategy.Both      => request.Language, // Primary pass uses metadata lang
+            LanguageStrategy.Localized => NormalizeLocalePart(request.FileLanguage ?? request.Language, "en"),
+            LanguageStrategy.Both      => NormalizeLocalePart(request.FileLanguage ?? request.Language, "en"),
             _                          => "en",             // Source: always English
         };
 
@@ -512,6 +512,12 @@ public sealed partial class ConfigDrivenAdapter
     /// so the <c>with</c> expression is unavailable.
     /// </summary>
     private static ProviderLookupRequest CloneRequestWithLanguage(ProviderLookupRequest source, string language) =>
+        CloneRequestWithLocale(source, language, source.Country);
+
+    private static ProviderLookupRequest CloneRequestWithLocale(
+        ProviderLookupRequest source,
+        string language,
+        string country) =>
         new()
         {
             EntityId       = source.EntityId,
@@ -521,6 +527,16 @@ public sealed partial class ConfigDrivenAdapter
             Author         = source.Author,
             Year           = source.Year,
             Narrator       = source.Narrator,
+            ShowName       = source.ShowName,
+            Album          = source.Album,
+            Artist         = source.Artist,
+            Director       = source.Director,
+            Composer       = source.Composer,
+            SeasonNumber   = source.SeasonNumber,
+            EpisodeNumber  = source.EpisodeNumber,
+            TrackNumber    = source.TrackNumber,
+            Series         = source.Series,
+            Genre          = source.Genre,
             Asin           = source.Asin,
             Isbn           = source.Isbn,
             AppleBooksId   = source.AppleBooksId,
@@ -531,11 +547,12 @@ public sealed partial class ConfigDrivenAdapter
             PersonRole     = source.PersonRole,
             PreResolvedQid = source.PreResolvedQid,
             Hints          = source.Hints,
+            PriorProviderBridgeIds = source.PriorProviderBridgeIds,
             BaseUrl        = source.BaseUrl,
             SparqlBaseUrl  = source.SparqlBaseUrl,
             Language       = language,
             FileLanguage   = source.FileLanguage,
-            Country        = source.Country,
+            Country        = country,
             HydrationPass  = source.HydrationPass,
         };
 

@@ -116,6 +116,54 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
     }
 
     /// <inheritdoc/>
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyList<MetadataClaim>>> GetByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (entityIds.Count == 0)
+            return Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<MetadataClaim>>>(
+                new Dictionary<Guid, IReadOnlyList<MetadataClaim>>());
+
+        using var conn = _db.CreateConnection();
+        var results = new List<MetadataClaim>();
+        foreach (var batch in entityIds.Where(id => id != Guid.Empty).Distinct().Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var parameters = new DynamicParameters();
+            var placeholders = new string[batch.Length];
+            for (var index = 0; index < batch.Length; index++)
+            {
+                var name = $"entityId{index}";
+                placeholders[index] = "@" + name;
+                parameters.Add(name, GuidSql.ToBlob(batch[index]));
+            }
+
+            results.AddRange(conn.Query<MetadataClaim>("""
+                SELECT id             AS Id,
+                       entity_id      AS EntityId,
+                       provider_id    AS ProviderId,
+                       decision_source_provider_id AS DecisionSourceProviderId,
+                       claim_key      AS ClaimKey,
+                       claim_value    AS ClaimValue,
+                       confidence     AS Confidence,
+                       claimed_at     AS ClaimedAt,
+                       is_user_locked AS IsUserLocked
+                FROM metadata_claims
+                WHERE entity_id IN (
+                """ + string.Join(", ", placeholders) + """
+                )
+                ORDER BY entity_id, claimed_at;
+                """, parameters));
+        }
+
+        IReadOnlyDictionary<Guid, IReadOnlyList<MetadataClaim>> grouped = results
+            .GroupBy(claim => claim.EntityId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<MetadataClaim>)group.ToList());
+        return Task.FromResult(grouped);
+    }
+
+    /// <inheritdoc/>
     public async Task DeleteByEntityAsync(Guid entityId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

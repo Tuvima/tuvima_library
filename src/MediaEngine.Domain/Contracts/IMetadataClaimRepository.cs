@@ -35,6 +35,24 @@ public interface IMetadataClaimRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns claims for several entities. Storage implementations should execute
+    /// this as bounded bulk reads; the default keeps lightweight test doubles valid.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, IReadOnlyList<MetadataClaim>>> GetByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default)
+    {
+        var result = new Dictionary<Guid, IReadOnlyList<MetadataClaim>>();
+        foreach (var entityId in entityIds.Where(id => id != Guid.Empty).Distinct())
+        {
+            ct.ThrowIfCancellationRequested();
+            result[entityId] = await GetByEntityAsync(entityId, ct).ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Deletes all claims for the given <paramref name="entityId"/>.
     /// Used during orphan cleanup when the asset record is being removed.
     /// </summary>

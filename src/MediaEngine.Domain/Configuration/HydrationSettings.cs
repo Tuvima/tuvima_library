@@ -25,13 +25,6 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class HydrationSettings
 {
     /// <summary>
-    /// Maximum concurrent provider calls within each stage.
-    /// Shared across all providers in a given stage.
-    /// </summary>
-    [JsonPropertyName("stage_concurrency")]
-    public int StageConcurrency { get; set; } = 3;
-
-    /// <summary>
     /// Maximum app-wide concurrent retail provider work items across all libraries.
     /// </summary>
     [JsonPropertyName("max_concurrent_retail_provider_jobs")]
@@ -41,7 +34,7 @@ public sealed class HydrationSettings
     /// Maximum app-wide concurrent Wikidata/Wikipedia work items across all libraries.
     /// </summary>
     [JsonPropertyName("max_concurrent_wikidata_jobs")]
-    public int MaxConcurrentWikidataJobs { get; set; } = 1;
+    public int MaxConcurrentWikidataJobs { get; set; } = 2;
 
     /// <summary>
     /// Maximum app-wide concurrent Fanart.tv/image enrichment work items across all libraries.
@@ -59,13 +52,9 @@ public sealed class HydrationSettings
     [JsonPropertyName("stage1_timeout_seconds")]
     public int Stage1TimeoutSeconds { get; set; } = 45;
 
-    /// <summary>Timeout in seconds for Stage 2 (Wikidata Bridge Resolution).</summary>
-    [JsonPropertyName("stage2_timeout_seconds")]
-    public int Stage2TimeoutSeconds { get; set; } = 15;
-
-    /// <summary>Timeout in seconds for Stage 3 (Universe Enrichment — background sweep).</summary>
-    [JsonPropertyName("stage3_timeout_seconds")]
-    public int Stage3TimeoutSeconds { get; set; } = 30;
+    /// <summary>Maximum runtime in seconds for one quick-hydration job.</summary>
+    [JsonPropertyName("quick_hydration_timeout_seconds")]
+    public int QuickHydrationTimeoutSeconds { get; set; } = 1200;
 
     /// <summary>
     /// Minimum confidence required for a QID match to be accepted automatically
@@ -98,14 +87,6 @@ public sealed class HydrationSettings
     public bool SkipWikipediaWithoutQid { get; set; } = true;
 
     /// <summary>
-    /// When <c>true</c>, the pipeline continues to Stage 2 + Stage 3 even if
-    /// Stage 1 (Wikidata) failed to resolve a QID. The retail providers in
-    /// Stage 3 fall back to title-based search without bridge IDs.
-    /// </summary>
-    [JsonPropertyName("continue_pipeline_on_authority_failure")]
-    public bool ContinuePipelineOnAuthorityFailure { get; set; } = true;
-
-    /// <summary>
     /// Maximum character length for Wikipedia description extracts.
     /// Longer extracts are truncated with an ellipsis.
     /// </summary>
@@ -133,15 +114,6 @@ public sealed class HydrationSettings
     /// </summary>
     [JsonPropertyName("fictional_entity_enrichment_depth")]
     public int FictionalEntityEnrichmentDepth { get; set; } = 2;
-
-    /// <summary>
-    /// Confidence threshold for Stage 3 retail waterfall. After each provider
-    /// in the waterfall produces claims, overall confidence is checked. If it
-    /// reaches this threshold, the waterfall stops. Set to 1.0 to always run
-    /// all providers; set to 0.0 to stop after the primary.
-    /// </summary>
-    [JsonPropertyName("stage3_waterfall_confidence_threshold")]
-    public double Stage3WaterfallConfidenceThreshold { get; set; } = 0.65;
 
     /// <summary>
     /// When a Wikidata QID is confirmed during hydration, the auto-organize
@@ -219,30 +191,6 @@ public sealed class HydrationSettings
     public int Pass2BatchSize { get; set; } = 50;
 
     // ── Batch Reconciliation ──────────────────────────────────────────
-
-    /// <summary>
-    /// Maximum time in milliseconds to wait for additional requests before
-    /// flushing a batch to the Reconciliation API. When multiple files arrive
-    /// close together (bulk import), the pipeline accumulates them into a single
-    /// batch API call instead of making one call per file.
-    /// </summary>
-    [JsonPropertyName("batch_accumulation_timeout_ms")]
-    public int BatchAccumulationTimeoutMs { get; set; } = 2000;
-
-    /// <summary>
-    /// Minimum number of requests required to trigger batch reconciliation.
-    /// If fewer requests accumulate before the timeout, they are processed
-    /// individually (degenerate batch of 1). Set to 1 to always batch.
-    /// </summary>
-    [JsonPropertyName("batch_min_size")]
-    public int BatchMinSize { get; set; } = 2;
-
-    /// <summary>
-    /// Maximum batch size for Reconciliation API calls. The Wikidata
-    /// Reconciliation API supports up to 50 queries per POST.
-    /// </summary>
-    [JsonPropertyName("batch_max_size")]
-    public int BatchMaxSize { get; set; } = 50;
 
     // ── Retail-First Pipeline ──────────────────────────────────────────
 

@@ -153,6 +153,7 @@ public sealed class RetailProviderDecompositionTests
     [InlineData("Abbey Road", "Abbey Road (Super Deluxe Edition)", false)]
     [InlineData("Interstellar", "Interstellar (Original Motion Picture Soundtrack) [Expanded Edition]", false)]
     [InlineData("Heroes", "A New Career in a New Town (1977-1982)", false)]
+    [InlineData("John Cage: 4'33\"", "4'33''", true)]
     public void MusicAlbumIdentity_DistinguishesMasteringLabelsFromDifferentTrackSets(
         string requested,
         string candidate,

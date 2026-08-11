@@ -42,6 +42,7 @@ public sealed partial class WikidataBridgeWorker
     private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IPipelineExecutionSnapshotProvider? _configurationSnapshots;
     private readonly IWorkRepository _workRepo;
     private readonly WorkClaimRouter _claimRouter;
     private readonly CatalogUpsertService _catalogUpsert;
@@ -94,7 +95,8 @@ public sealed partial class WikidataBridgeWorker
         IMediaOperationTracker? operationTracker = null,
         IEntityCapabilityStateRepository? capabilityStates = null,
         CollectionFinalizationService? collectionFinalization = null,
-        IWorkIdentityReconciliationService? workIdentityReconciliation = null)
+        IWorkIdentityReconciliationService? workIdentityReconciliation = null,
+        IPipelineExecutionSnapshotProvider? configurationSnapshots = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -108,6 +110,7 @@ public sealed partial class WikidataBridgeWorker
         _arrayRepo = arrayRepo;
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
+        _configurationSnapshots = configurationSnapshots;
         _workRepo = workRepo;
         _claimRouter = claimRouter;
         _catalogUpsert = catalogUpsert;
@@ -161,7 +164,17 @@ public sealed partial class WikidataBridgeWorker
     internal static bool ShouldResetBatchAfterFailure(Exception exception, CancellationToken ct) =>
         exception is not OperationCanceledException || !ct.IsCancellationRequested;
 
+    private PipelineExecutionSnapshot GetExecutionSnapshot() =>
+        _configurationSnapshots?.Current
+        ?? new PipelineExecutionSnapshot(
+            0,
+            DateTimeOffset.UtcNow,
+            _configLoader.LoadCore(),
+            _configLoader.LoadHydration(),
+            _configLoader.LoadPipelines(),
+            _configLoader.LoadAllProviders());
+
     private int GetBatchSize() =>
-        Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Wikidata);
+        Math.Max(1, GetExecutionSnapshot().Core.Pipeline.LeaseSizes.Wikidata);
 
 }

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using MediaEngine.Domain.Contracts;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Services;
@@ -20,7 +21,8 @@ public sealed record MusicBrainzAlbumRelease(
 public sealed class MusicBrainzReleaseClient(
     IHttpClientFactory httpFactory,
     IProviderRateLimiterCoordinator rateLimiter,
-    ILogger<MusicBrainzReleaseClient> logger)
+    ILogger<MusicBrainzReleaseClient> logger,
+    IPipelineExecutionSnapshotProvider? configurationSnapshots = null)
 {
     public async Task<MusicBrainzAlbumRelease?> FetchReleaseAsync(
         string releaseId,
@@ -30,8 +32,13 @@ public sealed class MusicBrainzReleaseClient(
             return null;
 
         var normalizedReleaseId = parsedReleaseId.ToString("D", CultureInfo.InvariantCulture);
-        var url =
-            $"https://musicbrainz.org/ws/2/release/{normalizedReleaseId}?inc=recordings%2Bartist-credits&fmt=json";
+        var configuredEndpoint = configurationSnapshots?.Current.Providers
+            .FirstOrDefault(provider => string.Equals(provider.Name, "musicbrainz", StringComparison.OrdinalIgnoreCase))?
+            .Endpoints.GetValueOrDefault("api");
+        var baseUrl = string.IsNullOrWhiteSpace(configuredEndpoint)
+            ? "https://musicbrainz.org/ws/2"
+            : configuredEndpoint.TrimEnd('/');
+        var url = $"{baseUrl}/release/{normalizedReleaseId}?inc=recordings%2Bartist-credits&fmt=json";
 
         try
         {

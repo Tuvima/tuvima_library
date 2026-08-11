@@ -351,6 +351,9 @@ public sealed partial class IngestionEngine
 
     public override void Dispose()
     {
+        if (Interlocked.Exchange(ref _disposeState, 1) != 0)
+            return;
+
         _shutdownCts.Cancel();
         _watcher.FileDetected -= OnFileDetected;
         _watcher.WatcherError -= OnWatcherError;

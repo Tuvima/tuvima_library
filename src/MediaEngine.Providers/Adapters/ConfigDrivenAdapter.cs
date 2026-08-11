@@ -236,6 +236,14 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider
             }
         }
 
+        foreach (var pass in BuildLookupPasses(request).Where(pass =>
+                     !string.Equals(pass.Request.Country, request.Country, StringComparison.OrdinalIgnoreCase)))
+        {
+            var claims = await ExecuteFetchPassAsync(strategies, pass, ct).ConfigureAwait(false);
+            if (claims.Count > 0)
+                return claims;
+        }
+
         return [];
     }
 
@@ -353,6 +361,14 @@ public sealed partial class ConfigDrivenAdapter : IExternalMetadataProvider
                         Name, strategy.Name);
                 }
             }
+        }
+
+        foreach (var pass in BuildLookupPasses(request).Where(pass =>
+                     !string.Equals(pass.Request.Country, request.Country, StringComparison.OrdinalIgnoreCase)))
+        {
+            var results = await ExecuteSearchPassAsync(strategies, pass, limit, ct).ConfigureAwait(false);
+            if (results.Count > 0)
+                return results;
         }
 
         return [];

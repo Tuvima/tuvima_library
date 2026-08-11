@@ -41,6 +41,24 @@ public interface ICanonicalValueArrayRepository
         CancellationToken ct = default);
 
     /// <summary>
+    /// Returns all array-valued canonical fields for several entities. Storage
+    /// implementations should use bounded bulk reads; the default supports tests.
+    /// </summary>
+    async Task<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>> GetAllByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default)
+    {
+        var result = new Dictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>();
+        foreach (var entityId in entityIds.Where(id => id != Guid.Empty).Distinct())
+        {
+            ct.ThrowIfCancellationRequested();
+            result[entityId] = await GetAllByEntityAsync(entityId, ct).ConfigureAwait(false);
+        }
+
+        return result;
+    }
+
+    /// <summary>
     /// Returns every value for a multi-valued key. Intended for bounded aggregate
     /// calculations such as local taste profiling.
     /// </summary>

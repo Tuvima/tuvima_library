@@ -143,6 +143,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     private readonly object _ownedTasksLock = new();
     private readonly Dictionary<Task, string> _ownedTasks = [];
     private readonly CancellationTokenSource _shutdownCts = new();
+    private int _disposeState;
     private CancellationTokenSource? _executeCts;
     private Timer? _fswFlushTimer;
     private readonly record struct PollFingerprint(long Length, DateTime LastWriteUtc);

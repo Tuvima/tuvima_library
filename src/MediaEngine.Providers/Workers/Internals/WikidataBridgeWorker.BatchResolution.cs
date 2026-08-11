@@ -340,7 +340,7 @@ public sealed partial class WikidataBridgeWorker
                         job,
                         resetState,
                         ex,
-                        _configLoader.LoadHydration(),
+                        GetExecutionSnapshot().Hydration,
                         ct);
                 }
                 catch (Exception resetEx)

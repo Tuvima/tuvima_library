@@ -4,14 +4,11 @@ namespace MediaEngine.Contracts.Settings;
 
 public sealed class HydrationSettingsDto
 {
-    [JsonPropertyName("stage_concurrency")]
-    public int StageConcurrency { get; set; } = 3;
-
     [JsonPropertyName("max_concurrent_retail_provider_jobs")]
     public int MaxConcurrentRetailProviderJobs { get; set; } = 4;
 
     [JsonPropertyName("max_concurrent_wikidata_jobs")]
-    public int MaxConcurrentWikidataJobs { get; set; } = 1;
+    public int MaxConcurrentWikidataJobs { get; set; } = 2;
 
     [JsonPropertyName("max_concurrent_fanart_jobs")]
     public int MaxConcurrentFanartJobs { get; set; } = 1;
@@ -22,11 +19,8 @@ public sealed class HydrationSettingsDto
     [JsonPropertyName("stage1_timeout_seconds")]
     public int Stage1TimeoutSeconds { get; set; } = 45;
 
-    [JsonPropertyName("stage2_timeout_seconds")]
-    public int Stage2TimeoutSeconds { get; set; } = 15;
-
-    [JsonPropertyName("stage3_timeout_seconds")]
-    public int Stage3TimeoutSeconds { get; set; } = 30;
+    [JsonPropertyName("quick_hydration_timeout_seconds")]
+    public int QuickHydrationTimeoutSeconds { get; set; } = 1200;
 
     [JsonPropertyName("disambiguation_threshold")]
     public double DisambiguationThreshold { get; set; } = 0.7;
@@ -40,9 +34,6 @@ public sealed class HydrationSettingsDto
     [JsonPropertyName("skip_wikipedia_without_qid")]
     public bool SkipWikipediaWithoutQid { get; set; } = true;
 
-    [JsonPropertyName("continue_pipeline_on_authority_failure")]
-    public bool ContinuePipelineOnAuthorityFailure { get; set; } = true;
-
     [JsonPropertyName("wikipedia_description_max_chars")]
     public int WikipediaDescriptionMaxChars { get; set; } = 1000;
 
@@ -54,9 +45,6 @@ public sealed class HydrationSettingsDto
 
     [JsonPropertyName("fictional_entity_enrichment_depth")]
     public int FictionalEntityEnrichmentDepth { get; set; } = 2;
-
-    [JsonPropertyName("stage3_waterfall_confidence_threshold")]
-    public double Stage3WaterfallConfidenceThreshold { get; set; } = 0.65;
 
     [JsonPropertyName("post_hydration_organize_threshold")]
     public double PostHydrationOrganizeThreshold { get; set; } = 0.70;
@@ -85,15 +73,6 @@ public sealed class HydrationSettingsDto
 
     [JsonPropertyName("pass2_batch_size")]
     public int Pass2BatchSize { get; set; } = 50;
-
-    [JsonPropertyName("batch_accumulation_timeout_ms")]
-    public int BatchAccumulationTimeoutMs { get; set; } = 2000;
-
-    [JsonPropertyName("batch_min_size")]
-    public int BatchMinSize { get; set; } = 2;
-
-    [JsonPropertyName("batch_max_size")]
-    public int BatchMaxSize { get; set; } = 50;
 
     [JsonPropertyName("local_match_enabled")]
     public bool LocalMatchEnabled { get; set; } = true;

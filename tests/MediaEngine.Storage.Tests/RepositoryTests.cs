@@ -237,6 +237,29 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task MetadataClaim_BatchLookup_ReturnsEveryRequestedEntityAndOmitsUnrequestedRows()
+    {
+        var repo = new MetadataClaimRepository(_db);
+        var providerId = await CreateTestProviderAsync();
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+        var unrequested = Guid.NewGuid();
+
+        await repo.InsertBatchAsync([
+            MakeClaim(first, "title", "First", 0.9, providerId),
+            MakeClaim(second, "title", "Second", 0.9, providerId),
+            MakeClaim(unrequested, "title", "Hidden", 0.9, providerId),
+        ]);
+
+        var result = await repo.GetByEntitiesAsync([first, second, first, Guid.Empty]);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal("First", Assert.Single(result[first]).ClaimValue);
+        Assert.Equal("Second", Assert.Single(result[second]).ClaimValue);
+        Assert.DoesNotContain(unrequested, result.Keys);
+    }
+
+    [Fact]
     public async Task MetadataClaim_UserLockedFlag_Preserved()
     {
         var repo = new MetadataClaimRepository(_db);
@@ -470,6 +493,28 @@ public sealed class RepositoryTests : IDisposable
             new { discArtId, clearArtId }).ToList();
         Assert.Equal(2, storageTypes.Count);
         Assert.All(storageTypes, type => Assert.Equal("blob", type));
+    }
+
+    [Fact]
+    public async Task CanonicalValueArray_BatchLookup_PreservesEntityKeyAndOrdinalGrouping()
+    {
+        var arrays = new CanonicalValueArrayRepository(_db);
+        var first = Guid.NewGuid();
+        var second = Guid.NewGuid();
+
+        await arrays.SetValuesAsync(first, MetadataFieldConstants.Genre, [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Hip hop" },
+            new CanonicalArrayEntry { Ordinal = 1, Value = "Rap" },
+        ]);
+        await arrays.SetValuesAsync(second, MetadataFieldConstants.Artist, [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Eminem" },
+        ]);
+
+        var result = await arrays.GetAllByEntitiesAsync([first, second, first, Guid.Empty]);
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(["Hip hop", "Rap"], result[first][MetadataFieldConstants.Genre].Select(value => value.Value));
+        Assert.Equal("Eminem", Assert.Single(result[second][MetadataFieldConstants.Artist]).Value);
     }
 
     [Fact]

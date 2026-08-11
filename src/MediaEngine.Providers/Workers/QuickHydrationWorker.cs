@@ -1,4 +1,5 @@
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
@@ -29,6 +30,7 @@ public sealed class QuickHydrationWorker
     private readonly ICollectionRepository _collectionRepo;
     private readonly IUniverseEnrichmentScheduler _universeEnrichment;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IPipelineExecutionSnapshotProvider? _configurationSnapshots;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(10);
 
@@ -48,7 +50,8 @@ public sealed class QuickHydrationWorker
         IUniverseEnrichmentScheduler universeEnrichment,
         IConfigurationLoader configLoader,
         ILogger<QuickHydrationWorker> logger,
-        BatchProgressService? batchProgress = null)
+        BatchProgressService? batchProgress = null,
+        IPipelineExecutionSnapshotProvider? configurationSnapshots = null)
     {
         _jobRepo = jobRepo;
         _enrichment = enrichment;
@@ -58,6 +61,7 @@ public sealed class QuickHydrationWorker
         _collectionRepo = collectionRepo;
         _universeEnrichment = universeEnrichment;
         _configLoader = configLoader;
+        _configurationSnapshots = configurationSnapshots;
         _logger = logger;
         _batchProgress = batchProgress;
     }
@@ -68,31 +72,26 @@ public sealed class QuickHydrationWorker
     /// </summary>
     public async Task<int> PollAsync(CancellationToken ct)
     {
+        var executionSnapshot = GetExecutionSnapshot();
         var jobs = await _jobRepo.LeaseNextAsync(
             "QuickHydrationWorker",
             [IdentityJobState.QidResolved],
-            GetBatchSize(),
+            GetBatchSize(executionSnapshot),
             LeaseDuration,
             ct: ct);
 
-        foreach (var job in jobs)
-        {
-            try
+        await Parallel.ForEachAsync(
+            jobs,
+            new ParallelOptions
             {
-                await ProcessJobAsync(job, ct);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _logger.LogError(ex, "QuickHydrationWorker failed for job {JobId}", job.Id);
-                await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
-                    _jobRepo,
-                    job,
-                    IdentityJobState.QidResolved,
-                    ex,
-                    _configLoader.LoadHydration(),
-                    ct);
-            }
-        }
+                CancellationToken = ct,
+                MaxDegreeOfParallelism = Math.Max(
+                    1,
+                    executionSnapshot.Hydration.MaxConcurrentWikidataJobs),
+            },
+            async (job, jobCt) =>
+                await ProcessLeasedJobAsync(job, executionSnapshot, jobCt).ConfigureAwait(false))
+            .ConfigureAwait(false);
 
         if (_batchProgress is not null)
         {
@@ -109,8 +108,69 @@ public sealed class QuickHydrationWorker
         return jobs.Count;
     }
 
-    private int GetBatchSize() =>
-        Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Hydration);
+    private async Task ProcessLeasedJobAsync(
+        IdentityJob job,
+        PipelineExecutionSnapshot executionSnapshot,
+        CancellationToken ct)
+    {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(
+            Math.Max(1, executionSnapshot.Hydration.QuickHydrationTimeoutSeconds)));
+        try
+        {
+            await ProcessJobAsync(job, timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException ex) when (!ct.IsCancellationRequested)
+        {
+            Exception failure = timeoutCts.IsCancellationRequested
+                ? new TimeoutException(
+                    $"Quick hydration exceeded the configured {executionSnapshot.Hydration.QuickHydrationTimeoutSeconds}-second timeout.",
+                    ex)
+                : ex;
+            if (timeoutCts.IsCancellationRequested)
+            {
+                _logger.LogWarning(failure, "QuickHydrationWorker timed out for job {JobId}", job.Id);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    failure,
+                    "QuickHydrationWorker operation was canceled by a downstream dependency for job {JobId}",
+                    job.Id);
+            }
+            await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                _jobRepo,
+                job,
+                IdentityJobState.QidResolved,
+                failure,
+                executionSnapshot.Hydration,
+                ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "QuickHydrationWorker failed for job {JobId}", job.Id);
+            await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                _jobRepo,
+                job,
+                IdentityJobState.QidResolved,
+                ex,
+                executionSnapshot.Hydration,
+                ct).ConfigureAwait(false);
+        }
+    }
+
+    private PipelineExecutionSnapshot GetExecutionSnapshot() =>
+        _configurationSnapshots?.Current
+        ?? new PipelineExecutionSnapshot(
+            0,
+            DateTimeOffset.UtcNow,
+            _configLoader.LoadCore(),
+            _configLoader.LoadHydration(),
+            _configLoader.LoadPipelines(),
+            _configLoader.LoadAllProviders());
+
+    private static int GetBatchSize(PipelineExecutionSnapshot executionSnapshot) =>
+        Math.Max(1, executionSnapshot.Core.Pipeline.LeaseSizes.Hydration);
 
     internal async Task ProcessJobAsync(IdentityJob job, CancellationToken ct)
     {

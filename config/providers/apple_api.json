@@ -39,6 +39,13 @@
   "hydration_stages": [
     1
   ],
+  "market_fallbacks": {
+    "en": ["gb"],
+    "de": ["de"],
+    "es": ["es"],
+    "fr": ["fr"],
+    "ja": ["jp"]
+  },
   "preferred_bridge_ids": null,
   "cache_ttl_hours": null,
   "adapter_type": "config_driven",
@@ -468,7 +475,7 @@
       "claim_key": "duration",
       "json_path": "trackTimeMillis",
       "confidence": 0.9,
-      "transform": "to_string",
+      "transform": "milliseconds_to_minutes",
       "transform_args": null,
       "media_types": [
         "Music"

@@ -315,7 +315,7 @@ public sealed partial class WikidataBridgeWorker
     /// </summary>
     private async Task<IReadOnlyList<string>> GetGatedRunIdsAsync(CancellationToken ct)
     {
-        var gate = _configLoader.LoadCore().Pipeline.BatchGate;
+        var gate = GetExecutionSnapshot().Core.Pipeline.BatchGate;
 
         if (!gate.Enabled)
             return [];

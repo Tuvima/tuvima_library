@@ -27,7 +27,7 @@ public sealed class PipelineConfigurationTests
 
         var expectedRetailFallbacks = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
-            ["Books"] = ["apple_api"],
+            ["Books"] = ["apple_api", "open_library"],
             ["Audiobooks"] = ["apple_api"],
             ["Music"] = ["apple_api"],
             ["Movies"] = ["tmdb"],
@@ -47,6 +47,24 @@ public sealed class PipelineConfigurationTests
         Assert.Equal(
             ["wikidata_reconciliation", "tmdb"],
             ReadPriority(document, "TV", "episode_description"));
+    }
+
+    [Fact]
+    public void BooksPipeline_UsesEnabledOpenLibraryAsRankedIdentityFallback()
+    {
+        using var pipelines = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "pipelines.json")));
+        using var openLibrary = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "open_library.json")));
+
+        var providers = pipelines.RootElement
+            .GetProperty("Books")
+            .GetProperty("providers")
+            .EnumerateArray()
+            .OrderBy(element => element.GetProperty("rank").GetInt32())
+            .Select(element => element.GetProperty("name").GetString()!)
+            .ToArray();
+
+        Assert.Equal(["apple_api", "open_library"], providers);
+        Assert.True(openLibrary.RootElement.GetProperty("enabled").GetBoolean());
     }
 
     [Fact]

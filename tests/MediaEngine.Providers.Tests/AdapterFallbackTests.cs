@@ -180,7 +180,7 @@ public sealed class AdapterFallbackTests
     }
 
     [Fact]
-    public async Task AppleBooks_FetchAsync_DerivativeUsResults_ReturnsEmptyWithoutCrossStorefrontFallback()
+    public async Task AppleBooks_FetchAsync_DerivativeUsResults_UsesConfiguredGbFallback()
     {
         var config = LoadExampleConfig("apple_api");
 
@@ -212,6 +212,20 @@ public sealed class AdapterFallbackTests
               ]
             }
             """;
+        var gbExactResponse = """
+            {
+              "resultCount": 1,
+              "results": [
+                {
+                  "trackId": 1596234133,
+                  "trackName": "Harry Potter and the Philosopher's Stone (Enhanced Edition)",
+                  "artistName": "J.K. Rowling",
+                  "releaseDate": "2015-11-20T08:00:00Z",
+                  "artworkUrl100": "https://example.test/philosophers-stone.jpg"
+                }
+              ]
+            }
+            """;
 
         var requestedUrls = new List<string>();
         var factory = BuildFactory(
@@ -224,7 +238,9 @@ public sealed class AdapterFallbackTests
                 if (url.Contains("/lookup?", StringComparison.OrdinalIgnoreCase))
                     return JsonResponse(emptyLookupResponse);
 
-                return JsonResponse(usDerivativeResponse);
+                return JsonResponse(url.Contains("country=gb", StringComparison.OrdinalIgnoreCase)
+                    ? gbExactResponse
+                    : usDerivativeResponse);
             }));
 
         var adapter = new ConfigDrivenAdapter(
@@ -244,8 +260,89 @@ public sealed class AdapterFallbackTests
         });
 
         Assert.Contains(requestedUrls, url => url.Contains("country=us", StringComparison.OrdinalIgnoreCase));
-        Assert.DoesNotContain(requestedUrls, url => url.Contains("country=GB", StringComparison.OrdinalIgnoreCase));
-        Assert.Empty(claims);
+        Assert.Contains(requestedUrls, url => url.Contains("country=gb", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, claim => claim.Key == MetadataFieldConstants.Title
+            && claim.Value == "Harry Potter and the Philosopher's Stone (Enhanced Edition)");
+    }
+
+    [Fact]
+    public async Task AppleBooks_FetchAsync_UsesFileLanguageAndConfiguredJapaneseStorefront()
+    {
+        var config = LoadExampleConfig("apple_api");
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+                return JsonResponse(url.Contains("country=jp", StringComparison.OrdinalIgnoreCase)
+                    ? """{"resultCount":1,"results":[{"trackId":1,"trackName":"ノルウェイの森","artistName":"村上春樹"}]}"""
+                    : """{"resultCount":0,"results":[]}""");
+            }));
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Books,
+            Title = "ノルウェイの森",
+            Author = "村上春樹",
+            Language = "en",
+            FileLanguage = "ja-JP",
+            Country = "us",
+            BaseUrl = "https://itunes.apple.com",
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains("lang=ja_us", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requestedUrls, url => url.Contains("country=jp", StringComparison.OrdinalIgnoreCase)
+            && url.Contains("lang=ja_jp", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, claim => claim.Key == MetadataFieldConstants.Title
+            && claim.Value == "ノルウェイの森");
+    }
+
+    [Theory]
+    [InlineData("de")]
+    [InlineData("es")]
+    [InlineData("fr")]
+    public async Task AppleBooks_FetchAsync_UsesConfiguredEuropeanStorefrontForFileLanguage(
+        string language)
+    {
+        var config = LoadExampleConfig("apple_api");
+        var requestedUrls = new List<string>();
+        var factory = BuildFactory(
+            config.Name,
+            new RoutingStubHttpMessageHandler(request =>
+            {
+                var url = request.RequestUri?.ToString() ?? string.Empty;
+                requestedUrls.Add(url);
+                return JsonResponse(url.Contains($"country={language}", StringComparison.OrdinalIgnoreCase)
+                    ? """{"resultCount":1,"results":[{"trackId":1,"trackName":"Localized Book","artistName":"Example Author"}]}"""
+                    : """{"resultCount":0,"results":[]}""");
+            }));
+        var adapter = new ConfigDrivenAdapter(
+            config, factory, NullLogger<ConfigDrivenAdapter>.Instance, NullProviderHealthMonitor.Instance);
+
+        var claims = await adapter.FetchAsync(new ProviderLookupRequest
+        {
+            EntityId = Guid.NewGuid(),
+            EntityType = EntityType.MediaAsset,
+            MediaType = MediaType.Books,
+            Title = "Localized Book",
+            Author = "Example Author",
+            Language = "en",
+            FileLanguage = language,
+            Country = "us",
+            BaseUrl = "https://itunes.apple.com",
+        });
+
+        Assert.Contains(requestedUrls, url => url.Contains($"lang={language}_us", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(requestedUrls, url => url.Contains($"country={language}", StringComparison.OrdinalIgnoreCase)
+            && url.Contains($"lang={language}_{language}", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(claims, claim => claim.Key == MetadataFieldConstants.Title
+            && claim.Value == "Localized Book");
     }
 
     [Fact]

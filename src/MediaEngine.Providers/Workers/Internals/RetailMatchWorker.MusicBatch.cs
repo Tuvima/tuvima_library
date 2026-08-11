@@ -23,9 +23,25 @@ public sealed partial class RetailMatchWorker
 {
     private async Task ProcessJobWithRetryAsync(IdentityJob job, CancellationToken ct)
     {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(
+            Math.Max(1, GetExecutionSnapshot().Hydration.Stage1TimeoutSeconds)));
         try
         {
-            await ProcessJobAsync(job, ct).ConfigureAwait(false);
+            await ProcessJobAsync(job, timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            var timeout = new TimeoutException(
+                $"Retail identification exceeded the configured {GetExecutionSnapshot().Hydration.Stage1TimeoutSeconds}-second timeout.");
+            _logger.LogWarning(timeout, "RetailMatchWorker timed out for job {JobId} (entity {EntityId})", job.Id, job.EntityId);
+            await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                _jobRepo,
+                job,
+                IdentityJobState.Queued,
+                timeout,
+                GetExecutionSnapshot().Hydration,
+                ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -36,18 +52,19 @@ public sealed partial class RetailMatchWorker
                 job,
                 IdentityJobState.Queued,
                 ex,
-                _configLoader.LoadHydration(),
+                GetExecutionSnapshot().Hydration,
                 ct).ConfigureAwait(false);
         }
     }
 
     private int GetBatchSize() =>
-        Math.Max(1, _configLoader.LoadCore().Pipeline.LeaseSizes.Retail);
+        Math.Max(1, GetExecutionSnapshot().Core.Pipeline.LeaseSizes.Retail);
 
     private bool ShouldUseAppleMusicAlbumBatch()
     {
-        var pipeline = _configLoader.LoadPipelines().GetPipelineForMediaType(MediaType.Music);
-        var providerConfigs = _configLoader.LoadAllProviders();
+        var snapshot = GetExecutionSnapshot();
+        var pipeline = snapshot.Pipelines.GetPipelineForMediaType(MediaType.Music);
+        var providerConfigs = snapshot.Providers;
         var rankedProviders = pipeline.Providers.Count > 0
             ? pipeline.Providers.OrderBy(p => p.Rank).Select(p => p.Name).ToList()
             : providerConfigs.Select(p => p.Name).ToList();
@@ -74,11 +91,8 @@ public sealed partial class RetailMatchWorker
     {
         // Load hints for every job first (one DB call per job, in parallel would be ideal
         // but claim repo may not support concurrent reads — keep sequential to be safe).
-        var jobHints = new Dictionary<Guid, Dictionary<string, string>>();
-        foreach (var job in jobs)
-        {
-            jobHints[job.EntityId] = await BuildFileHintsAsync(job.EntityId, ct);
-        }
+        var jobHints = await BuildFileHintsBatchAsync(jobs.Select(job => job.EntityId).ToList(), ct)
+            .ConfigureAwait(false);
 
         // Group by normalised artist+album key.
         var groups = jobs
@@ -104,9 +118,27 @@ public sealed partial class RetailMatchWorker
         IReadOnlyDictionary<Guid, Dictionary<string, string>> jobHints,
         CancellationToken ct)
     {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(
+            Math.Max(1, GetExecutionSnapshot().Hydration.Stage1TimeoutSeconds)));
         try
         {
-            await ProcessMusicGroupAsync(groupJobs, jobHints, ct).ConfigureAwait(false);
+            await ProcessMusicGroupAsync(groupJobs, jobHints, timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            var timeout = new TimeoutException(
+                $"Music album identification exceeded the configured {GetExecutionSnapshot().Hydration.Stage1TimeoutSeconds}-second timeout.");
+            foreach (var job in groupJobs)
+            {
+                await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                    _jobRepo,
+                    job,
+                    IdentityJobState.Queued,
+                    timeout,
+                    GetExecutionSnapshot().Hydration,
+                    ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -126,7 +158,7 @@ public sealed partial class RetailMatchWorker
                         job,
                         IdentityJobState.Queued,
                         innerEx,
-                        _configLoader.LoadHydration(),
+                        GetExecutionSnapshot().Hydration,
                         ct).ConfigureAwait(false);
                 }
             }
@@ -148,7 +180,7 @@ public sealed partial class RetailMatchWorker
         foreach (var job in groupJobs)
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
 
-        var hydrationConfig = _configLoader.LoadHydration();
+        var hydrationConfig = GetExecutionSnapshot().Hydration;
         var retailAcceptThreshold   = hydrationConfig.RetailAutoAcceptThreshold;
         var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
 
@@ -174,7 +206,7 @@ public sealed partial class RetailMatchWorker
         string? collectionId = null;
         var resolvedVia = "track search";
 
-        var providerConfigs = _configLoader.LoadAllProviders();
+        var providerConfigs = GetExecutionSnapshot().Providers;
         var appleProvider = ProviderExecutionFilter.FindEnabledProvider(
             _providers,
             providerConfigs,
@@ -672,8 +704,14 @@ public sealed partial class RetailMatchWorker
             track["discCount"]?.GetValue<long?>()?.ToString(), 0.90);
         Add("track_count",
             track["trackCount"]?.GetValue<long?>()?.ToString(), 0.90);
-        Add("duration",
-            track["trackTimeMillis"]?.GetValue<long?>()?.ToString(), 0.90);
+        var durationMillis = track["trackTimeMillis"]?.GetValue<long?>();
+        if (durationMillis is > 0)
+        {
+            Add(
+                MetadataFieldConstants.DurationField,
+                (durationMillis.Value / 60000d).ToString("0.###", CultureInfo.InvariantCulture),
+                0.90);
+        }
 
         // Bridge IDs.
         Add(BridgeIdKeys.AppleMusicId,

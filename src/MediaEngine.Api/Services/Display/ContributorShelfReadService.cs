@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Contracts.Collections;
+using MediaEngine.Domain.Services;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Services.Display;
@@ -116,9 +117,11 @@ public sealed class ContributorShelfReadService
             definition.Value.Lane,
             definition.Value.ShelfType,
             isMusic ? work.RootWorkId : work.WorkId,
-            isMusic ? FirstNonBlank(work.Album, work.Title) : work.Title,
+            isMusic ? StringHelpers.FirstNonBlankOr("Untitled", work.Album, work.Title) : work.Title,
             work.MediaType,
-            isMusic ? FirstNonBlank(work.RootSquareUrl, work.RootCoverUrl, work.SquareUrl, work.CoverUrl) : FirstNonBlank(work.CoverUrl, work.SquareUrl),
+            isMusic
+                ? StringHelpers.FirstNonBlankOr(string.Empty, work.RootSquareUrl, work.RootCoverUrl, work.SquareUrl, work.CoverUrl)
+                : StringHelpers.FirstNonBlankOr(string.Empty, work.CoverUrl, work.SquareUrl),
             ParseYear(work.Year));
     }
 
@@ -230,9 +233,6 @@ public sealed class ContributorShelfReadService
         "AudiobooksByAuthor" => $"Audiobooks by {personName}",
         _ => $"Works by {personName}",
     };
-
-    private static string FirstNonBlank(params string?[] values)
-        => values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim() ?? "Untitled";
 
     private static int? ParseYear(string? value)
         => int.TryParse(value?.Length >= 4 ? value[..4] : value, out var year) ? year : null;

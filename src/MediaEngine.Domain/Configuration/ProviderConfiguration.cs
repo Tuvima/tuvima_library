@@ -213,6 +213,15 @@ public sealed class ProviderConfiguration
             : MediaEngine.Domain.Enums.LanguageStrategy.Source;
 
     /// <summary>
+    /// Optional language-to-storefront fallbacks for providers whose catalog varies by country.
+    /// The configured request country is always tried first; these markets are queried only when
+    /// it returns no usable result.
+    /// </summary>
+    [JsonPropertyName("market_fallbacks")]
+    public Dictionary<string, List<string>> MarketFallbacks { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
     /// Optional UI metadata block read from provider config JSON files.
     /// Contains accent colour, material icon, external URL template, category,
     /// auth type, and per-media-type search/ranking chips.

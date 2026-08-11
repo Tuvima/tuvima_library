@@ -4515,24 +4515,20 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.FolderSettingsDto
   WatchDirectories: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HydrationSettingsDto
-  StageConcurrency: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentRetailProviderJobs: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentWikidataJobs: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentFanartJobs: System.Int32 | nullability=not-null | accessors=get,set
   MaxConcurrentWriteBackJobs: System.Int32 | nullability=not-null | accessors=get,set
   Stage1TimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
-  Stage2TimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
-  Stage3TimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
+  QuickHydrationTimeoutSeconds: System.Int32 | nullability=not-null | accessors=get,set
   DisambiguationThreshold: System.Double | nullability=not-null | accessors=get,set
   AutoReviewConfidenceThreshold: System.Double | nullability=not-null | accessors=get,set
   MaxQidCandidates: System.Int32 | nullability=not-null | accessors=get,set
   SkipWikipediaWithoutQid: System.Boolean | nullability=not-null | accessors=get,set
-  ContinuePipelineOnAuthorityFailure: System.Boolean | nullability=not-null | accessors=get,set
   WikipediaDescriptionMaxChars: System.Int32 | nullability=not-null | accessors=get,set
   UniverseTitleSearchAutoAccept: System.Double | nullability=not-null | accessors=get,set
   UniverseXmlWriteDebounceSeconds: System.Int32 | nullability=not-null | accessors=get,set
   FictionalEntityEnrichmentDepth: System.Int32 | nullability=not-null | accessors=get,set
-  Stage3WaterfallConfidenceThreshold: System.Double | nullability=not-null | accessors=get,set
   PostHydrationOrganizeThreshold: System.Double | nullability=not-null | accessors=get,set
   MinimumUniverseWorkCount: System.Int32 | nullability=not-null | accessors=get,set
   CollectionRollupRelationshipTypes: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
@@ -4542,9 +4538,6 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HydrationSettingsD
   Pass2RateLimitMs: System.Int32 | nullability=not-null | accessors=get,set
   Pass2StaleThresholdHours: System.Int32 | nullability=not-null | accessors=get,set
   Pass2BatchSize: System.Int32 | nullability=not-null | accessors=get,set
-  BatchAccumulationTimeoutMs: System.Int32 | nullability=not-null | accessors=get,set
-  BatchMinSize: System.Int32 | nullability=not-null | accessors=get,set
-  BatchMaxSize: System.Int32 | nullability=not-null | accessors=get,set
   LocalMatchEnabled: System.Boolean | nullability=not-null | accessors=get,set
   LocalMatchFuzzyThreshold: System.Double | nullability=not-null | accessors=get,set
   RetailAutoAcceptThreshold: System.Double | nullability=not-null | accessors=get,set

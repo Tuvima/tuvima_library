@@ -106,8 +106,9 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         var seedSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\DevSupport\DevSeedEndpoints.cs"));
 
         Assert.Contains("[\"music\"] = [\"musicbrainz\", \"apple_api\"]", source, StringComparison.Ordinal);
-        Assert.Contains("(\"Bohemian Rhapsody Queen\", \"musicbrainz\", \"Music identity\"", source, StringComparison.Ordinal);
-        Assert.Contains("(\"Bohemian Rhapsody Queen\", \"apple_api\", \"Music enrichment\"", source, StringComparison.Ordinal);
+        Assert.Contains("(\"Bohemian Rhapsody\", \"Queen\", \"musicbrainz\", \"Music identity\"", source, StringComparison.Ordinal);
+        Assert.Contains("(\"Bohemian Rhapsody\", \"Queen\", \"apple_api\", \"Music enrichment\"", source, StringComparison.Ordinal);
+        Assert.Contains("Artist = enumType == MediaType.Music ? creator : null", source, StringComparison.Ordinal);
         Assert.Contains("\"music\" => \"musicbrainz\"", source, StringComparison.Ordinal);
         Assert.Contains("ExpectedQid: \"Q11986\"", seedSource, StringComparison.Ordinal);
     }
@@ -162,6 +163,7 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Contains("Bridge ID", source, StringComparison.Ordinal);
         Assert.Contains("ArtworkCompleteness", source, StringComparison.Ordinal);
         Assert.Contains("ResolveIdentityProvider", source, StringComparison.Ordinal);
+        Assert.Contains("MetadataFieldConstants.IdentityProvider", source, StringComparison.Ordinal);
         Assert.Contains("ResolveEnrichmentProviders", source, StringComparison.Ordinal);
         Assert.Contains("ProviderMatchesExpectation", source, StringComparison.Ordinal);
         Assert.Contains("ProviderForExpectationComparison", source, StringComparison.Ordinal);
@@ -171,6 +173,7 @@ public sealed class IntegrationTestEndpointsTests : IDisposable
         Assert.Contains("apple_music_id", source, StringComparison.Ordinal);
         Assert.Contains("BuildHarnessTitleMediaKeys", source, StringComparison.Ordinal);
         Assert.Contains("NormalizeHarnessTitleKey", source, StringComparison.Ordinal);
+        Assert.Contains("IdentityJobState", source, StringComparison.Ordinal);
         Assert.Contains("TextEncodingRepair.RepairMojibake", source, StringComparison.Ordinal);
         Assert.Contains("CharUnicodeInfo.GetUnicodeCategory", source, StringComparison.Ordinal);
         Assert.Contains("-OutFile $OutputPath", script, StringComparison.Ordinal);

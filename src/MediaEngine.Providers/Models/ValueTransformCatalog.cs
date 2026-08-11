@@ -115,6 +115,15 @@ public static partial class ValueTransformCatalog
             // Pass value through unchanged (useful for int→string coercion in JSON)
             ["to_string"] = raw => raw,
 
+            // Normalize provider durations expressed in milliseconds to the
+            // canonical duration field's minutes contract.
+            ["milliseconds_to_minutes"] = raw =>
+                double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture, out var milliseconds)
+                    && milliseconds >= 0
+                        ? (milliseconds / 60000d).ToString("0.###", System.Globalization.CultureInfo.InvariantCulture)
+                        : null,
+
             // Remove all HTML tags and decode HTML entities (e.g. &amp; → &, &#39; → ')
             // Block-level tags (br, p, div) are converted to newlines before stripping
             // so paragraph structure survives in plain-text descriptions.

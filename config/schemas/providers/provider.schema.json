@@ -36,6 +36,14 @@
       "additionalProperties": false
     },
     "hydration_stages": { "type": "array", "items": { "enum": [1, 2, 3] } },
+    "market_fallbacks": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": { "type": "string", "pattern": "^[A-Za-z]{2}$" },
+        "uniqueItems": true
+      }
+    },
     "bridge_resolution": {
       "type": "object",
       "properties": {

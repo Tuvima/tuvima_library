@@ -24,10 +24,8 @@ public static class JsonConfigValidator
                 ValidateProvider(provider, relativePath, errors);
                 break;
             case HydrationSettings hydration:
-                AddPositive(errors, hydration.StageConcurrency, "stage_concurrency");
                 AddPositive(errors, hydration.Stage1TimeoutSeconds, "stage1_timeout_seconds");
-                AddPositive(errors, hydration.Stage2TimeoutSeconds, "stage2_timeout_seconds");
-                AddPositive(errors, hydration.Stage3TimeoutSeconds, "stage3_timeout_seconds");
+                AddPositive(errors, hydration.QuickHydrationTimeoutSeconds, "quick_hydration_timeout_seconds");
                 AddRange(errors, hydration.AutoReviewConfidenceThreshold, "auto_review_confidence_threshold", 0, 1);
                 AddRange(errors, hydration.RetailAutoAcceptThreshold, "retail_auto_accept_threshold", 0, 1);
                 AddRange(errors, hydration.RetailAmbiguousThreshold, "retail_ambiguous_threshold", 0, 1);

@@ -180,6 +180,23 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("This file was queued for the full enrichment cycle.", source, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void ItemCanonicalEndpoints_RetailReplacementQueuesBeforeOptionalProviderSideEffects()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+        var retailRoute = source[source.IndexOf("/{entityId:guid}/retail-match", StringComparison.Ordinal)..];
+        retailRoute = retailRoute[..retailRoute.IndexOf("/{entityId:guid}/wikidata-match", StringComparison.Ordinal)];
+
+        var enqueueIndex = retailRoute.IndexOf("await pipeline.EnqueueAsync", StringComparison.Ordinal);
+        var artworkIndex = retailRoute.IndexOf("ReplaceProviderArtworkAsync", StringComparison.Ordinal);
+        var manifestIndex = retailRoute.IndexOf("EnsureAlbumTrackManifestAsync", StringComparison.Ordinal);
+
+        Assert.True(enqueueIndex >= 0);
+        Assert.True(enqueueIndex < artworkIndex);
+        Assert.True(enqueueIndex < manifestIndex);
+        Assert.Contains("IdentityRevision", retailRoute, StringComparison.Ordinal);
+    }
+
     private static string GetRepoFilePath(
         string relativePath,
         [System.Runtime.CompilerServices.CallerFilePath] string sourceFile = "")

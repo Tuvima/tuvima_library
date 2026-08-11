@@ -730,6 +730,7 @@ public static class ItemCanonicalEndpoints
             }).ToList();
 
             var identityTarget = ResolvePolicyIdentityTarget(context.AssetId, lineage, policy);
+            var identityRevision = Guid.NewGuid().ToString("N");
             claims.AddRange(
             [
                 new MetadataClaim
@@ -772,6 +773,14 @@ public static class ItemCanonicalEndpoints
                     Value = request.ProviderItemId,
                     LastScoredAt = now,
                     WinningProviderId = providerId,
+                },
+                new CanonicalValue
+                {
+                    EntityId = identityTarget,
+                    Key = MetadataFieldConstants.IdentityRevision,
+                    Value = identityRevision,
+                    LastScoredAt = now,
+                    WinningProviderId = WellKnownProviders.UserManual,
                 },
             ]);
 
@@ -827,6 +836,48 @@ public static class ItemCanonicalEndpoints
                 itemCanonicalData,
                 ct);
 
+            // Commit the durable identity job before optional network-backed artwork or
+            // manifest refreshes. A transient provider failure must never leave a match
+            // confirmed without a corresponding full enrichment cycle.
+            var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
+            if (string.Equals(policy.TargetFieldGroup, "album", StringComparison.OrdinalIgnoreCase))
+            {
+                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.ChildEntitiesJson, ct);
+                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.TrackCount, ct);
+            }
+            else if (string.Equals(policy.TargetFieldGroup, "show", StringComparison.OrdinalIgnoreCase)
+                     || string.Equals(policy.TargetFieldGroup, "season", StringComparison.OrdinalIgnoreCase))
+            {
+                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.ChildEntitiesJson, ct);
+                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.SeasonCount, ct);
+                await canonicalRepo.DeleteByKeyAsync(workId, MetadataFieldConstants.EpisodeCount, ct);
+            }
+
+            var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
+            if (request.ClearAutoAlignedWikidata
+                && !string.IsNullOrWhiteSpace(currentState?.Qid)
+                && IsAutomationOwnedWikidataState(currentState.Status, currentState.Source, currentState.Locked))
+            {
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.Pending, WorkWikidataMatchSource.Retail, false, "", ct: ct);
+            }
+            else
+            {
+                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.Retail, false, ct: ct);
+            }
+
+            var identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
+            {
+                EntityId = context.AssetId,
+                EntityType = EntityType.MediaAsset,
+                MediaType = MediaTypeParser.Parse(context.MediaType),
+                Hints = selectedFields
+                    .Append(new KeyValuePair<string, string>(MetadataFieldConstants.IdentityProvider, request.ProviderName))
+                    .Append(new KeyValuePair<string, string>(MetadataFieldConstants.IdentityRevision, identityRevision))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
+                SkipRetailStage = true,
+                IsUserResolution = true,
+            }, ct);
+
             RetailArtworkReplacementResult? artworkResult = null;
             if (SupportsImmediateRetailArtworkReplacement(policy))
             {
@@ -856,7 +907,6 @@ public static class ItemCanonicalEndpoints
                     ct);
             }
 
-            var workId = ResolvePolicyWorkTarget(lineage, policy, BridgeIdKeys.WikidataQid);
             string? albumManifestRefreshDetail = null;
             if (string.Equals(policy.MediaType, MediaType.Music.ToString(), StringComparison.OrdinalIgnoreCase)
                 && string.Equals(policy.TargetFieldGroup, "album", StringComparison.OrdinalIgnoreCase))
@@ -896,18 +946,6 @@ public static class ItemCanonicalEndpoints
                 }
             }
 
-            var currentState = await itemCanonicalData.LoadWorkWikidataStateAsync(workId, ct);
-            if (request.ClearAutoAlignedWikidata
-                && !string.IsNullOrWhiteSpace(currentState?.Qid)
-                && IsAutomationOwnedWikidataState(currentState.Status, currentState.Source, currentState.Locked))
-            {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.Pending, WorkWikidataMatchSource.Retail, false, "", ct: ct);
-            }
-            else
-            {
-                await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.ProviderOnly, WorkWikidataMatchSource.Retail, false, ct: ct);
-            }
-
             await activityRepo.LogAsync(new SystemActivityEntry
             {
                 OccurredAt = now,
@@ -923,18 +961,6 @@ public static class ItemCanonicalEndpoints
                 request.ProviderName,
                 Math.Max(1, selectedFields.Count + request.BridgeIds.Count),
                 ct: ct);
-
-            var identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
-            {
-                EntityId = context.AssetId,
-                EntityType = EntityType.MediaAsset,
-                MediaType = MediaTypeParser.Parse(context.MediaType),
-                Hints = selectedFields
-                    .Append(new KeyValuePair<string, string>(MetadataFieldConstants.IdentityProvider, request.ProviderName))
-                    .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase),
-                SkipRetailStage = true,
-                IsUserResolution = true,
-            }, ct);
 
             await activityRepo.LogAsync(new SystemActivityEntry
             {

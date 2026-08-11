@@ -757,6 +757,7 @@ public sealed class WorkerPipelineTests
             """;
 
         var configLoader = CreateAppleMusicIdentityConfig();
+        var metadataClaims = new StubMetadataClaimRepository();
         var worker = new RetailMatchWorker(
             jobRepo,
             candidateRepo,
@@ -776,7 +777,7 @@ public sealed class WorkerPipelineTests
                 configLoader,
                 coverArtHash: null,
                 logger: null),
-            new StubMetadataClaimRepository(),
+            metadataClaims,
             canonicalRepo,
             new StubScoringEngine(),
             configLoader,
@@ -810,6 +811,9 @@ public sealed class WorkerPipelineTests
         Assert.Equal("AutoAccepted", candidate.Outcome);
         Assert.Contains("\"single_track_release\":true", candidate.ScoreBreakdownJson);
         Assert.DoesNotContain("requires_track_number_or_duration_corroboration", candidate.ScoreBreakdownJson);
+        Assert.Contains(metadataClaims.Claims, claim =>
+            claim.ClaimKey == MetadataFieldConstants.DurationField
+            && claim.ClaimValue == "3.636");
     }
 
     [Fact]

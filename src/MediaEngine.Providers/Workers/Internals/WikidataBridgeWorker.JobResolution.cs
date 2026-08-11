@@ -476,7 +476,7 @@ public sealed partial class WikidataBridgeWorker
     private Dictionary<string, int> BuildBridgeIdPriority(MediaType mediaType)
     {
         var priority = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        foreach (var provider in _configLoader.LoadAllProviders())
+        foreach (var provider in GetExecutionSnapshot().Providers)
         {
             if (provider.PreferredBridgeIds is null)
                 continue;

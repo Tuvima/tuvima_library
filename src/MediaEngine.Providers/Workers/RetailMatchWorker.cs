@@ -45,6 +45,7 @@ public sealed partial class RetailMatchWorker
     private readonly ICanonicalValueArrayRepository? _arrayRepo;
     private readonly IScoringEngine _scoringEngine;
     private readonly IConfigurationLoader _configLoader;
+    private readonly IPipelineExecutionSnapshotProvider? _configurationSnapshots;
     private readonly IBridgeIdRepository _bridgeIdRepo;
     private readonly IWorkRepository _workRepo;
     private readonly WorkClaimRouter _claimRouter;
@@ -59,6 +60,7 @@ public sealed partial class RetailMatchWorker
     private readonly TmdbRetailClient _tmdbClient;
     private readonly RetailCandidateScorer _candidateScorer;
     private readonly CoverArtWorker? _coverArtWorker;
+    private readonly MusicBrainzReleaseClient? _musicBrainzReleaseClient;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -98,7 +100,9 @@ public sealed partial class RetailMatchWorker
         AppleRetailClient? appleClient = null,
         TmdbRetailClient? tmdbClient = null,
         RetailCandidateScorer? candidateScorer = null,
-        CoverArtWorker? coverArtWorker = null)
+        CoverArtWorker? coverArtWorker = null,
+        IPipelineExecutionSnapshotProvider? configurationSnapshots = null,
+        MusicBrainzReleaseClient? musicBrainzReleaseClient = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -112,6 +116,7 @@ public sealed partial class RetailMatchWorker
         _arrayRepo = arrayRepo;
         _scoringEngine = scoringEngine;
         _configLoader = configLoader;
+        _configurationSnapshots = configurationSnapshots;
         _bridgeIdRepo = bridgeIdRepo;
         _workRepo = workRepo;
         _claimRouter = claimRouter;
@@ -134,11 +139,22 @@ public sealed partial class RetailMatchWorker
             NullLogger<TmdbRetailClient>.Instance);
         _candidateScorer = candidateScorer ?? new RetailCandidateScorer();
         _coverArtWorker = coverArtWorker;
+        _musicBrainzReleaseClient = musicBrainzReleaseClient;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.
     }
+
+    private PipelineExecutionSnapshot GetExecutionSnapshot() =>
+        _configurationSnapshots?.Current
+        ?? new PipelineExecutionSnapshot(
+            0,
+            DateTimeOffset.UtcNow,
+            _configLoader.LoadCore(),
+            _configLoader.LoadHydration(),
+            _configLoader.LoadPipelines(),
+            _configLoader.LoadAllProviders());
 
     /// <summary>
     /// Polls for <see cref="IdentityJobState.Queued"/> jobs and processes them.

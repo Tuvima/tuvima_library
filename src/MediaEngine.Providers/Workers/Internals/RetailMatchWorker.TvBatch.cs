@@ -24,11 +24,8 @@ public sealed partial class RetailMatchWorker
     private async Task ProcessTvBatchAsync(IReadOnlyList<IdentityJob> jobs, CancellationToken ct)
     {
         // Load hints for every job.
-        var jobHints = new Dictionary<Guid, Dictionary<string, string>>();
-        foreach (var job in jobs)
-        {
-            jobHints[job.EntityId] = await BuildFileHintsAsync(job.EntityId, ct);
-        }
+        var jobHints = await BuildFileHintsBatchAsync(jobs.Select(job => job.EntityId).ToList(), ct)
+            .ConfigureAwait(false);
 
         // Group by show_name+season_number key.
         var groups = jobs
@@ -54,9 +51,27 @@ public sealed partial class RetailMatchWorker
         IReadOnlyDictionary<Guid, Dictionary<string, string>> jobHints,
         CancellationToken ct)
     {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(
+            Math.Max(1, GetExecutionSnapshot().Hydration.Stage1TimeoutSeconds)));
         try
         {
-            await ProcessTvGroupAsync(groupJobs, jobHints, ct).ConfigureAwait(false);
+            await ProcessTvGroupAsync(groupJobs, jobHints, timeoutCts.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            var timeout = new TimeoutException(
+                $"TV season identification exceeded the configured {GetExecutionSnapshot().Hydration.Stage1TimeoutSeconds}-second timeout.");
+            foreach (var job in groupJobs)
+            {
+                await IdentityJobRetryPolicy.ScheduleRetryOrDeadLetterAsync(
+                    _jobRepo,
+                    job,
+                    IdentityJobState.Queued,
+                    timeout,
+                    GetExecutionSnapshot().Hydration,
+                    ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -90,11 +105,12 @@ public sealed partial class RetailMatchWorker
         foreach (var job in groupJobs)
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailSearching, ct: ct);
 
-        var hydrationConfig = _configLoader.LoadHydration();
+        var executionConfig = GetExecutionSnapshot();
+        var hydrationConfig = executionConfig.Hydration;
         var retailAcceptThreshold    = hydrationConfig.RetailAutoAcceptThreshold;
         var retailAmbiguousThreshold = hydrationConfig.RetailAmbiguousThreshold;
 
-        var providerConfigs = _configLoader.LoadAllProviders();
+        var providerConfigs = executionConfig.Providers;
         var tmdbConfig = providerConfigs.FirstOrDefault(p =>
             string.Equals(p.Name, "tmdb", StringComparison.OrdinalIgnoreCase));
 

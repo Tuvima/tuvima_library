@@ -152,6 +152,63 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         return Task.FromResult<IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>(readOnly);
     }
 
+    /// <inheritdoc/>
+    public Task<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>> GetAllByEntitiesAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        if (entityIds.Count == 0)
+            return Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>>(
+                new Dictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>());
+
+        using var conn = _db.CreateConnection();
+        var rows = new List<CanonicalArrayEntityKeyedRow>();
+        foreach (var batch in entityIds.Where(id => id != Guid.Empty).Distinct().Chunk(SqliteBatching.MaxParametersPerQuery))
+        {
+            ct.ThrowIfCancellationRequested();
+            var parameters = new DynamicParameters();
+            var placeholders = new string[batch.Length];
+            for (var index = 0; index < batch.Length; index++)
+            {
+                var name = $"entityId{index}";
+                placeholders[index] = "@" + name;
+                parameters.Add(name, GuidSql.ToBlob(batch[index]));
+            }
+
+            rows.AddRange(conn.Query<CanonicalArrayEntityKeyedRow>("""
+                SELECT entity_id AS EntityId,
+                       key       AS Key,
+                       ordinal   AS Ordinal,
+                       value     AS Value,
+                       value_qid AS ValueQid
+                FROM canonical_value_arrays
+                WHERE entity_id IN (
+                """ + string.Join(", ", placeholders) + """
+                )
+                ORDER BY entity_id, key, ordinal;
+                """, parameters));
+        }
+
+        var result = new Dictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>();
+        foreach (var entityGroup in rows.GroupBy(row => row.EntityId))
+        {
+            result[entityGroup.Key] = entityGroup
+                .GroupBy(row => row.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(
+                    group => group.Key,
+                    group => (IReadOnlyList<CanonicalArrayEntry>)group.Select(row => new CanonicalArrayEntry
+                    {
+                        Ordinal = row.Ordinal,
+                        Value = row.Value,
+                        ValueQid = row.ValueQid,
+                    }).ToList(),
+                    StringComparer.OrdinalIgnoreCase);
+        }
+
+        return Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>>(result);
+    }
+
     public Task<IReadOnlyList<CanonicalArrayEntry>> FindValuesByKeyAsync(
         string key,
         CancellationToken ct = default)
@@ -210,6 +267,15 @@ public sealed class CanonicalValueArrayRepository : ICanonicalValueArrayReposito
         public string  Key      { get; set; } = string.Empty;
         public int     Ordinal  { get; set; }
         public string  Value    { get; set; } = string.Empty;
+        public string? ValueQid { get; set; }
+    }
+
+    private sealed class CanonicalArrayEntityKeyedRow
+    {
+        public Guid EntityId { get; set; }
+        public string Key { get; set; } = string.Empty;
+        public int Ordinal { get; set; }
+        public string Value { get; set; } = string.Empty;
         public string? ValueQid { get; set; }
     }
 }

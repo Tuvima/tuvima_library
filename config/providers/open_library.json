@@ -1,7 +1,7 @@
 {
   "name": "open_library",
   "version": "1.1",
-  "enabled": false,
+  "enabled": true,
   "weight": 0.7,
   "domain": "Ebook",
   "icon": "images/providers/open_library.png",
@@ -35,7 +35,7 @@
 
   "http_client": {
     "timeout_seconds": 10,
-    "user_agent": "Tanaste/1.0"
+    "user_agent": "Tuvima Library/1.0"
   },
 
   "can_handle": {

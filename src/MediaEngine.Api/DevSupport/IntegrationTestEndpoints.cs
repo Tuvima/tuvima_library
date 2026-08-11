@@ -1683,27 +1683,28 @@ public static class IntegrationTestEndpoints
         CancellationToken ct)
     {
         // Test one search per media type using the correct provider
-        var allSearchTests = new (string query, string providerName, string mediaType, MediaType enumType, string typeKey)[]
+        var allSearchTests = new (string title, string? creator, string providerName, string mediaType, MediaType enumType, string typeKey)[]
         {
-            ("Dune Frank Herbert", "apple_api", "Books", MediaType.Books, "books"),
-            ("Blade Runner 2049", "tmdb", "Movies", MediaType.Movies, "movies"),
-            ("Breaking Bad", "tmdb", "TV", MediaType.TV, "tv"),
-            ("Bohemian Rhapsody Queen", "musicbrainz", "Music identity", MediaType.Music, "music"),
-            ("Lose Yourself Eminem", "musicbrainz", "Music identity", MediaType.Music, "music"),
-            ("Yesterday Beatles", "musicbrainz", "Music identity", MediaType.Music, "music"),
-            ("Clair de Lune Debussy", "musicbrainz", "Music identity", MediaType.Music, "music"),
-            ("Bohemian Rhapsody Queen", "apple_api", "Music enrichment", MediaType.Music, "music"),
-            ("Batman Year One", "comicvine", "Comics", MediaType.Comics, "comics"),
+            ("Dune", "Frank Herbert", "apple_api", "Books", MediaType.Books, "books"),
+            ("Blade Runner 2049", null, "tmdb", "Movies", MediaType.Movies, "movies"),
+            ("Breaking Bad", null, "tmdb", "TV", MediaType.TV, "tv"),
+            ("Bohemian Rhapsody", "Queen", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Lose Yourself", "Eminem", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Yesterday", "The Beatles", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Clair de Lune", "Claude Debussy", "musicbrainz", "Music identity", MediaType.Music, "music"),
+            ("Bohemian Rhapsody", "Queen", "apple_api", "Music enrichment", MediaType.Music, "music"),
+            ("Batman: Year One", null, "comicvine", "Comics", MediaType.Comics, "comics"),
         };
         var searchTests = allSearchTests
             .Where(t => report.ActiveTypes.Contains(t.typeKey))
-            .Select(t => (t.query, t.providerName, t.mediaType, t.enumType))
+            .Select(t => (t.title, t.creator, t.providerName, t.mediaType, t.enumType))
             .ToArray();
 
         var providerList = providers.ToList();
 
-        foreach (var (query, providerName, mediaType, enumType) in searchTests)
+        foreach (var (title, creator, providerName, mediaType, enumType) in searchTests)
         {
+            var query = string.Join(' ', new[] { title, creator }.Where(value => !string.IsNullOrWhiteSpace(value)));
             var result = new ManualSearchResult
             {
                 Query = query,
@@ -1726,7 +1727,10 @@ public static class IntegrationTestEndpoints
                 {
                     var lookupRequest = new ProviderLookupRequest
                     {
-                        Title = query,
+                        Title = title,
+                        Author = enumType is MediaType.Books or MediaType.Audiobooks ? creator : null,
+                        Artist = enumType == MediaType.Music ? creator : null,
+                        Composer = enumType == MediaType.Music ? creator : null,
                         MediaType = enumType,
                     };
 
@@ -3442,6 +3446,7 @@ public static class IntegrationTestEndpoints
         public string MediaTypeLower { get; set; } = "";
         public string? WikidataQid { get; set; }
         public string? CuratorState { get; set; }
+        public string? IdentityJobState { get; set; }
         public string? ReviewTrigger { get; set; }
         public bool HasStoredCoverArt { get; set; }
     }
@@ -3520,6 +3525,13 @@ public static class IntegrationTestEndpoints
                             ORDER BY rq.created_at DESC LIMIT 1) AS trigger
                     FROM work_assets wa
                 ),
+                work_jobs AS (
+                    SELECT wa.work_id,
+                           (SELECT ij.state FROM identity_jobs ij
+                            WHERE ij.entity_id = wa.asset_id
+                            ORDER BY ij.updated_at DESC, ij.created_at DESC LIMIT 1) AS state
+                    FROM work_assets wa
+                ),
                 titles AS (
                     -- Canonical title
                     SELECT wa.work_id,
@@ -3546,6 +3558,7 @@ public static class IntegrationTestEndpoints
                     LOWER(t.media_type)         AS MediaTypeLower,
                     (SELECT qid FROM work_qids WHERE work_id = t.work_id) AS WikidataQid,
                     t.curator_state             AS CuratorState,
+                    (SELECT state FROM work_jobs WHERE work_id = t.work_id) AS IdentityJobState,
                     (SELECT trigger FROM work_reviews WHERE work_id = t.work_id) AS ReviewTrigger,
                     EXISTS(
                         SELECT 1
@@ -3599,7 +3612,7 @@ public static class IntegrationTestEndpoints
         // Index by "title_lower|media_type_lower" → (wikidata_qid, curator_state, review_trigger)
         // When multiple rows share the same key (e.g. TV episodes, audiobook editions),
         // prefer rows that have a QID so "Identified" beats "Unresolved".
-        var index = new Dictionary<string, (string? WikidataQid, string? CuratorState, string? ReviewTrigger)>(
+        var index = new Dictionary<string, (string? WikidataQid, string? CuratorState, string? IdentityJobState, string? ReviewTrigger)>(
             StringComparer.OrdinalIgnoreCase);
 
         foreach (var row in dbRows)
@@ -3609,7 +3622,7 @@ public static class IntegrationTestEndpoints
                 if (!index.TryGetValue(key, out var existing) ||
                     (!string.IsNullOrWhiteSpace(row.WikidataQid) && string.IsNullOrWhiteSpace(existing.WikidataQid)))
                 {
-                    index[key] = (WikidataQid: row.WikidataQid, CuratorState: row.CuratorState, ReviewTrigger: row.ReviewTrigger);
+                    index[key] = (WikidataQid: row.WikidataQid, CuratorState: row.CuratorState, IdentityJobState: row.IdentityJobState, ReviewTrigger: row.ReviewTrigger);
                 }
             }
         }
@@ -3669,7 +3682,7 @@ public static class IntegrationTestEndpoints
                 actualIdentityProvider);
 
             var matchedActual = false;
-            (string? WikidataQid, string? CuratorState, string? ReviewTrigger) actual = default;
+            (string? WikidataQid, string? CuratorState, string? IdentityJobState, string? ReviewTrigger) actual = default;
             foreach (var key in lookupKeys)
             {
                 if (index.TryGetValue(key, out actual))
@@ -3704,13 +3717,15 @@ public static class IntegrationTestEndpoints
             bool hasQid = !string.IsNullOrWhiteSpace(actual.WikidataQid) &&
                                  !actual.WikidataQid!.StartsWith("NF", StringComparison.OrdinalIgnoreCase);
             bool hasReview = !string.IsNullOrWhiteSpace(actual.ReviewTrigger);
-            bool hasIdentifiedState = IsIdentifiedStatus(actual.CuratorState) && !hasReview;
+            bool hasIdentifiedState = (IsIdentifiedStatus(actual.CuratorState)
+                                       || IsIdentifiedStatus(actual.IdentityJobState))
+                                      && !hasReview;
             bool hasIdentifiedOutcome = hasQid || hasIdentifiedState;
             string actualTrigger = actual.ReviewTrigger ?? "";
 
             string actualDesc = hasQid ? "Identified"
                               : hasReview ? $"InReview ({actualTrigger})"
-                              : hasIdentifiedState ? $"Identified without QID ({actual.CuratorState})"
+                              : hasIdentifiedState ? $"Identified without QID ({actual.IdentityJobState ?? actual.CuratorState})"
                               : "Unresolved";
 
             if (hasIdentifiedOutcome)
@@ -5720,7 +5735,18 @@ public static class IntegrationTestEndpoints
         LibraryItemDetail? detail,
         string mediaType,
         IReadOnlyDictionary<Guid, string> providerNamesById)
-        => ResolveCanonicalProvider(detail, providerNamesById, IdentityProviderKeys(mediaType));
+    {
+        var explicitProvider = detail?.CanonicalValues
+            .FirstOrDefault(value => string.Equals(
+                value.Key,
+                MetadataFieldConstants.IdentityProvider,
+                StringComparison.OrdinalIgnoreCase))
+            ?.Value;
+
+        return !string.IsNullOrWhiteSpace(explicitProvider)
+            ? NormalizeProviderName(explicitProvider)
+            : ResolveCanonicalProvider(detail, providerNamesById, IdentityProviderKeys(mediaType));
+    }
 
     private static string? ResolveEnrichmentProviders(
         LibraryItemDetail? detail,

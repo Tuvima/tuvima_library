@@ -55,18 +55,55 @@ public sealed partial class RetailMatchWorker
 
     private async Task<Dictionary<string, string>> BuildFileHintsAsync(Guid entityId, CancellationToken ct)
     {
-        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var batched = await BuildFileHintsBatchAsync([entityId], ct).ConfigureAwait(false);
+        return batched.GetValueOrDefault(entityId)
+            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
 
-        var canonicals = await _canonicalRepo.GetByEntityAsync(entityId, ct);
+    private async Task<IReadOnlyDictionary<Guid, Dictionary<string, string>>> BuildFileHintsBatchAsync(
+        IReadOnlyList<Guid> entityIds,
+        CancellationToken ct)
+    {
+        var ids = entityIds.Where(id => id != Guid.Empty).Distinct().ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, Dictionary<string, string>>();
+
+        var canonicalBatch = await _canonicalRepo.GetByEntitiesAsync(ids, ct).ConfigureAwait(false);
+        var arrayBatch = _arrayRepo is null
+            ? new Dictionary<Guid, IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>>()
+            : await _arrayRepo.GetAllByEntitiesAsync(ids, ct).ConfigureAwait(false);
+        var claimBatch = await _claimRepo.GetByEntitiesAsync(ids, ct).ConfigureAwait(false);
+
+        var result = new Dictionary<Guid, Dictionary<string, string>>();
+        foreach (var entityId in ids)
+        {
+            ct.ThrowIfCancellationRequested();
+            var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            MergeFileHints(
+                hints,
+                canonicalBatch.GetValueOrDefault(entityId) ?? [],
+                arrayBatch.GetValueOrDefault(entityId),
+                claimBatch.GetValueOrDefault(entityId) ?? []);
+            result[entityId] = hints;
+        }
+
+        return result;
+    }
+
+    private static void MergeFileHints(
+        Dictionary<string, string> hints,
+        IReadOnlyList<CanonicalValue> canonicals,
+        IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>>? arrays,
+        IReadOnlyList<MetadataClaim> claims)
+    {
         foreach (var c in canonicals)
         {
             if (!string.IsNullOrWhiteSpace(c.Key) && !string.IsNullOrWhiteSpace(c.Value))
                 hints.TryAdd(c.Key, TextEncodingRepair.RepairMojibake(c.Value));
         }
 
-        if (_arrayRepo is not null)
+        if (arrays is not null)
         {
-            var arrays = await _arrayRepo.GetAllByEntityAsync(entityId, ct);
             foreach (var (key, entries) in arrays)
             {
                 if (hints.ContainsKey(key))
@@ -83,7 +120,6 @@ public sealed partial class RetailMatchWorker
             }
         }
 
-        var claims = await _claimRepo.GetByEntityAsync(entityId, ct);
         foreach (var group in claims
             .Where(claim => !string.IsNullOrWhiteSpace(claim.ClaimKey)
                 && !string.IsNullOrWhiteSpace(claim.ClaimValue))
@@ -102,8 +138,6 @@ public sealed partial class RetailMatchWorker
             if (values.Count > 0)
                 hints.TryAdd(group.Key, JoinHintValues(group.Key, values));
         }
-
-        return hints;
     }
 
     private static string JoinHintValues(string key, IReadOnlyList<string> values)
@@ -152,10 +186,11 @@ public sealed partial class RetailMatchWorker
         }
 
         // Load pipeline configuration for this media type
-        var pipelineConfig = _configLoader.LoadPipelines();
+        var executionConfig = GetExecutionSnapshot();
+        var pipelineConfig = executionConfig.Pipelines;
         var pipeline = pipelineConfig.GetPipelineForMediaType(job.MediaType);
         var strategy = pipeline.Strategy;
-        var hydrationConfig = _configLoader.LoadHydration();
+        var hydrationConfig = executionConfig.Hydration;
 
         var retailAcceptThreshold = pipeline.Scoring.AutoAcceptThreshold
             ?? hydrationConfig.RetailAutoAcceptThreshold;
@@ -163,7 +198,7 @@ public sealed partial class RetailMatchWorker
             ?? hydrationConfig.RetailAmbiguousThreshold;
 
         // Get ranked providers for this media type
-        var providerConfigs = _configLoader.LoadAllProviders();
+        var providerConfigs = executionConfig.Providers;
         var rankedProviders = pipeline.Providers.Count > 0
             ? pipeline.Providers.OrderBy(p => p.Rank).Select(p => p.Name).ToList()
             : providerConfigs.Select(p => p.Name).ToList();
@@ -201,6 +236,8 @@ public sealed partial class RetailMatchWorker
         var acceptedIdentity = false;
         var acceptedEnrichmentProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var acceptedProviders = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var (configuredLanguage, configuredCountry, _) = GetConfiguredLocale();
+        var fileLanguage = hints.GetValueOrDefault(MetadataFieldConstants.Language);
         var providerAttempts = enabledProviders
             .Select(providerName => new ProviderAttempt(
                 pipeline.Providers.FirstOrDefault(entry =>
@@ -284,6 +321,9 @@ public sealed partial class RetailMatchWorker
                     Hints = attemptHints,
                     PriorProviderBridgeIds = strategy == ProviderStrategy.Sequential
                         ? sequentialBridgeIds : null,
+                    Language = configuredLanguage,
+                    FileLanguage = fileLanguage,
+                    Country = configuredCountry,
                 };
 
                 var claims = await provider.FetchAsync(lookupRequest, ct);
@@ -504,6 +544,12 @@ public sealed partial class RetailMatchWorker
 
         if (mediaType == MediaType.Music && lineage is not null)
         {
+            await PersistAcceptedMusicBrainzAlbumManifestAsync(
+                    lineage,
+                    sequentialBridgeIds,
+                    ct)
+                .ConfigureAwait(false);
+
             foreach (var entry in pipeline.Providers.Where(entry =>
                 acceptedProviders.Contains(entry.Name)
                 && entry.AcceptedActions.Contains("apple-album-manifest", StringComparer.OrdinalIgnoreCase)))
