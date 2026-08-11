@@ -1209,6 +1209,36 @@ public sealed class PersonRepository : IPersonRepository
                 "DELETE FROM person_aliases WHERE pseudonym_person_id = @from OR real_person_id = @from;",
                 pFrom, transaction: tx);
 
+            // 5. Preserve musical-group membership in both directions. Group
+            // member hydration often discovers that a temporary Wikidata stub
+            // is the same person as an existing credited artist. Deleting that
+            // stub without moving these rows would cascade away the band's
+            // membership edge. The same rule applies when duplicate group
+            // identities themselves are merged.
+            conn.Execute(
+                """
+                INSERT OR IGNORE INTO person_group_members
+                    (group_id, member_id, start_date, end_date)
+                SELECT group_id, @to, start_date, end_date
+                FROM person_group_members
+                WHERE member_id = @from
+                  AND group_id <> @to;
+                """,
+                pToFrom, transaction: tx);
+            conn.Execute(
+                """
+                INSERT OR IGNORE INTO person_group_members
+                    (group_id, member_id, start_date, end_date)
+                SELECT @to, member_id, start_date, end_date
+                FROM person_group_members
+                WHERE group_id = @from
+                  AND member_id <> @to;
+                """,
+                pToFrom, transaction: tx);
+            conn.Execute(
+                "DELETE FROM person_group_members WHERE group_id = @from OR member_id = @from;",
+                pFrom, transaction: tx);
+
         }, ct);
     }
 

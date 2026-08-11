@@ -1703,6 +1703,65 @@ public sealed class RepositoryTests : IDisposable
         Assert.Equal("Resolved Member", resolvedName);
     }
 
+    [Fact]
+    public async Task ReassignAllLinks_PreservesMembershipWhenMemberOrGroupIdentityIsMerged()
+    {
+        var repo = new PersonRepository(_db);
+        var sourceGroup = await repo.CreateAsync(new Person
+        {
+            Name = "Duplicate Band",
+            WikidataQid = "Q9100001",
+            IsGroup = true,
+            Roles = ["Artist"],
+        });
+        var canonicalGroup = await repo.CreateAsync(new Person
+        {
+            Name = "Canonical Band",
+            WikidataQid = "Q9100002",
+            IsGroup = true,
+            Roles = ["Artist"],
+        });
+        var sourceMember = await repo.CreateAsync(new Person
+        {
+            Name = "Temporary Member",
+            WikidataQid = "Q9100003",
+            Roles = ["Performer"],
+        });
+        var canonicalMember = await repo.CreateAsync(new Person
+        {
+            Name = "Canonical Member",
+            WikidataQid = "Q9100004",
+            Roles = ["Performer"],
+        });
+
+        await repo.LinkGroupMemberAsync(sourceGroup.Id, sourceMember.Id);
+
+        await repo.ReassignAllLinksAsync(sourceMember.Id, canonicalMember.Id);
+        await repo.DeleteAsync(sourceMember.Id);
+        await repo.ReassignAllLinksAsync(sourceGroup.Id, canonicalGroup.Id);
+        await repo.DeleteAsync(sourceGroup.Id);
+
+        using var conn = _db.CreateConnection();
+        var linkedCount = conn.ExecuteScalar<int>(
+            """
+            SELECT COUNT(*)
+            FROM person_group_members
+            WHERE group_id = @groupId AND member_id = @memberId;
+            """,
+            new { groupId = canonicalGroup.Id, memberId = canonicalMember.Id });
+        var staleCount = conn.ExecuteScalar<int>(
+            """
+            SELECT COUNT(*)
+            FROM person_group_members
+            WHERE group_id IN (@sourceGroupId, @sourceMemberId)
+               OR member_id IN (@sourceGroupId, @sourceMemberId);
+            """,
+            new { sourceGroupId = sourceGroup.Id, sourceMemberId = sourceMember.Id });
+
+        Assert.Equal(1, linkedCount);
+        Assert.Equal(0, staleCount);
+    }
+
     // ════════════════════════════════════════════════════════════════════════
     //  TransactionJournal
     // ════════════════════════════════════════════════════════════════════════
