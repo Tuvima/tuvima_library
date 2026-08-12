@@ -1134,7 +1134,7 @@ public partial class SharedMediaEditorShell
                     TabId = "details",
                     Fields = batchFields
                         .Where(field => !field.Key.StartsWith("sort_", StringComparison.OrdinalIgnoreCase)
-                                        && field.Key is not ("description" or "comment" or "rating"))
+                                        && field.Key is not ("description" or "rating"))
                         .ToList(),
                 },
             ],
@@ -1146,7 +1146,7 @@ public partial class SharedMediaEditorShell
                         Id = "batch_options",
                         Label = "Batch Options",
                         TabId = "options",
-                        Fields = batchFields.Where(field => field.Key is "description" or "comment" or "rating").ToList(),
+                        Fields = batchFields.Where(field => field.Key is "description" or "rating").ToList(),
                     },
                     new MediaEditorFieldGroup
                     {
@@ -1199,7 +1199,7 @@ public partial class SharedMediaEditorShell
             .ToList();
 
     private static bool IsLocalOptionsField(string key) =>
-        key is "genre" or "custom_tags" or "rating" or "comment";
+        key is "genre" or "custom_tags" or "rating";
 
     protected string GetPlaceholder(MediaEditorFieldDefinition field) =>
         IsBatchMode ? "Leave unchanged" : (field.Placeholder ?? field.Label);
@@ -1224,8 +1224,6 @@ public partial class SharedMediaEditorShell
 
         if (_profilePreferencesByWork.TryGetValue(CurrentEntityId, out var preferences))
         {
-            if (string.Equals(key, "comment", StringComparison.OrdinalIgnoreCase))
-                return preferences.PersonalNotes ?? string.Empty;
             if (string.Equals(key, "custom_tags", StringComparison.OrdinalIgnoreCase))
                 return string.Join(", ", preferences.LocalTags);
         }
@@ -1536,9 +1534,6 @@ public partial class SharedMediaEditorShell
             _profilePreferencesByWork[entityId] = baseline;
         }
 
-        var personalNotes = preferenceFields.TryGetValue("comment", out var noteValue)
-            ? noteValue
-            : baseline.PersonalNotes;
         var localTags = preferenceFields.TryGetValue("custom_tags", out var tagValue)
             ? ParseLocalTags(tagValue)
             : baseline.LocalTags;
@@ -1549,7 +1544,6 @@ public partial class SharedMediaEditorShell
             {
                 ExpectedRevision = baseline.Revision,
                 DisplayOverrides = displayOverrides,
-                PersonalNotes = personalNotes,
                 LocalTags = localTags.ToList(),
             });
 
@@ -3174,8 +3168,6 @@ public partial class SharedMediaEditorShell
 
         if (_profilePreferencesByWork.TryGetValue(CurrentEntityId, out var preferences))
         {
-            if (string.Equals(key, "comment", StringComparison.OrdinalIgnoreCase))
-                return preferences.PersonalNotes ?? string.Empty;
             if (string.Equals(key, "custom_tags", StringComparison.OrdinalIgnoreCase))
                 return string.Join(", ", preferences.LocalTags);
         }
@@ -3291,10 +3283,10 @@ public partial class SharedMediaEditorShell
 
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
-            ("TV", "series") => ["show_name", "tagline", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "comment", "sort_series"],
-            ("TV", "episode") => ["episode_title", "tagline", "description", "season_number", "episode_number", "runtime", "release_date", "custom_tags", "language", "rating", "comment", "sort_title"],
-            ("Music", "album") => ["album", "tagline", "album_artist", "artist", "genre", "custom_tags", "year", "language", "description", "rating", "comment", "sort_album"],
-            ("Music", "track") => ["title", "tagline", "artist", "album", "composer", "track_number", "disc_number", "duration", "custom_tags", "rating", "comment", "sort_title"],
+            ("TV", "series") => ["show_name", "tagline", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "sort_series"],
+            ("TV", "episode") => ["episode_title", "tagline", "description", "season_number", "episode_number", "runtime", "release_date", "custom_tags", "language", "rating", "sort_title"],
+            ("Music", "album") => ["album", "tagline", "album_artist", "artist", "genre", "custom_tags", "year", "language", "description", "rating", "sort_album"],
+            ("Music", "track") => ["title", "tagline", "artist", "album", "composer", "track_number", "disc_number", "duration", "custom_tags", "rating", "sort_title"],
             ("Movies", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
             ("Books", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
             ("Audiobooks", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
@@ -3537,12 +3529,12 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetAppearanceFields() =>
         GetDetailsMetadataFields()
-            .Where(field => field.Key is not ("custom_tags" or "comment" or "genre"))
+            .Where(field => field.Key is not ("custom_tags" or "genre"))
             .ToList();
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetLibraryFields() =>
         GetDetailsMetadataFields()
-            .Where(field => field.Key is "custom_tags" or "comment")
+            .Where(field => field.Key is "custom_tags")
             .ToList();
 
     protected IReadOnlyList<(string Label, string Value)> GetSourceFacts()

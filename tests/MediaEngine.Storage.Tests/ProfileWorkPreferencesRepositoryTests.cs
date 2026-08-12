@@ -38,14 +38,12 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
                 ["description"] = "My description",
                 ["genre"] = "Science Fiction, Neo Noir",
             },
-            PersonalNotes: "  Worth revisiting.  ",
             LocalTags: ["Noir", "Favorite", "noir"]));
 
         Assert.True(result.WorkExists);
         Assert.True(result.ProfileExists);
         Assert.False(result.Conflict);
         Assert.Equal(1, result.Preferences.Revision);
-        Assert.Equal("Worth revisiting.", result.Preferences.PersonalNotes);
         Assert.Equal(["Favorite", "Noir"], result.Preferences.LocalTags);
         Assert.Equal("My title", result.DisplayOverrides["title"]);
         Assert.Equal("Science Fiction, Neo Noir", result.DisplayOverrides["genre"]);
@@ -53,13 +51,12 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         var stored = await _repository.GetAsync(profileId, workId);
         Assert.Equal(result.Preferences.ProfileId, stored.ProfileId);
         Assert.Equal(result.Preferences.WorkId, stored.WorkId);
-        Assert.Equal(result.Preferences.PersonalNotes, stored.PersonalNotes);
         Assert.Equal(result.Preferences.LocalTags, stored.LocalTags);
         Assert.Equal(result.Preferences.Revision, stored.Revision);
 
         var otherProfile = await _repository.GetAsync(otherProfileId, workId);
         Assert.Equal(0, otherProfile.Revision);
-        Assert.Null(otherProfile.PersonalNotes);
+        Assert.Empty(otherProfile.LocalTags);
 
         using var connection = _database.CreateConnection();
         var displayJson = connection.ExecuteScalar<string>(
@@ -79,21 +76,21 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         var first = await _repository.SaveAsync(new EditorPreferencesSaveCommand(
             profileId, workId, 0,
             new Dictionary<string, string> { ["title"] = "First title" },
-            "First note", ["First"]));
+            ["First"]));
 
         var stale = await _repository.SaveAsync(new EditorPreferencesSaveCommand(
             profileId, workId, 0,
             new Dictionary<string, string> { ["title"] = "Stale title" },
-            "Stale note", ["Stale"]));
+            ["Stale"]));
 
         Assert.Equal(1, first.Preferences.Revision);
         Assert.True(stale.Conflict);
         Assert.Equal(1, stale.Preferences.Revision);
-        Assert.Equal("First note", stale.Preferences.PersonalNotes);
+        Assert.Equal(["First"], stale.Preferences.LocalTags);
         Assert.Equal("First title", stale.DisplayOverrides["title"]);
 
         var stored = await _repository.GetAsync(profileId, workId);
-        Assert.Equal("First note", stored.PersonalNotes);
+        Assert.Equal(["First"], stored.LocalTags);
     }
 
     [Fact]
@@ -104,7 +101,7 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         var result = await _repository.SaveAsync(new EditorPreferencesSaveCommand(
             Guid.NewGuid(), workId, 0,
             new Dictionary<string, string> { ["title"] = "Uncommitted title" },
-            null, []));
+            []));
 
         Assert.True(result.WorkExists);
         Assert.False(result.ProfileExists);
@@ -114,6 +111,23 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
             "SELECT display_overrides_json FROM works WHERE id = @workId;",
             new { workId });
         Assert.Equal("{\"title\":\"Original title\"}", displayJson);
+    }
+
+    [Fact]
+    public void FreshSchema_DoesNotRetainPersonalNotesStorage()
+    {
+        using var connection = _database.CreateConnection();
+        var columns = connection.Query<string>(
+                """
+                SELECT p.name
+                FROM sqlite_master AS m
+                JOIN pragma_table_info(m.name) AS p
+                WHERE m.type = 'table'
+                  AND m.name IN ('profile_work_preferences', 'profile_person_preferences');
+                """)
+            .ToList();
+
+        Assert.DoesNotContain("personal_notes", columns, StringComparer.OrdinalIgnoreCase);
     }
 
     private Guid SeedProfile(string displayName)

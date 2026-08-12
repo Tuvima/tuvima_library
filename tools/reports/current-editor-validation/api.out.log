@@ -1,0 +1,59 @@
+Using launch settings from src\MediaEngine.Api\Properties\launchSettings.json...
+[14:18:52 INF] FFmpeg located: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\tools\ffmpeg\ffmpeg.exe
+[14:18:52 INF] Hardware acceleration: NVIDIA NVENC (preferred encoder: h264_nvenc)
+[14:18:52 INF] PriorityCascadeEngine: loaded 8 field priority override(s): [description, short_description, tagline, subtitle, biography, cover, rating, content_rating]
+[14:18:52 INF] Model artifact for TextFast at C:\temp\tuvima-models\llama\Qwen3-0.6B-Q8_0.gguf is NotDownloaded
+[14:18:52 INF] Model artifact for TextQuality at C:\temp\tuvima-models\llama\Qwen3-1.7B-Q5_K_M.gguf is NotDownloaded
+[14:18:52 INF] Model artifact for Audio at C:\temp\tuvima-models\whisper\ggml-medium.bin is NotDownloaded
+[14:18:52 INF] Model artifact for TextScholar at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[14:18:52 INF] Model artifact for TextCjk at C:\temp\tuvima-models\llama\Qwen3-4B-Q4_K_M.gguf is NotDownloaded
+[14:18:52 INF] WritebackConfigState: watching ../../config\writeback-fields.json
+[14:18:52 INF] IngestionEngine started
+[14:18:52 INF] Running startup reconciliation...
+[14:18:52 INF] FolderHealthService started — checking every 30s
+[14:18:52 INF] WhisperSync background service is disabled. Set MediaEngine:WhisperSync:Enabled=true to enable.
+[14:18:52 INF] RejectedFileCleanupService started — schedule: 0 4 * * *
+[14:18:52 INF] ActivityPruningService started — default schedule: 0 3 * * *
+[14:18:52 INF] RetagSweepWorker started
+[14:18:52 INF] MissingUniverseSweepService started — initial delay 60s, schedule: 0 4 * * 0
+[14:18:52 INF] Identity startup recovery found no interrupted jobs.
+[14:18:52 INF] LibraryReconciliationService started — schedule: 0 5 * * *
+[14:18:52 INF] ModelAutoDownloadService: waiting 10s for Engine to fully start
+[14:18:52 INF] StorageMaintenanceHostedService started - schedule: 0 2 * * *
+[14:18:52 INF] HardwareBenchmarkBackgroundService: waiting 15s before running benchmark
+[14:18:52 INF] WikidataBridgeHostedService started
+[14:18:52 INF] RetailMatchHostedService started
+[14:18:52 INF] QuickHydrationHostedService started
+[14:18:52 INF] Collection backfill complete: 32/32 processed, 0 assigned, 0 created, 0 already assigned, 32 skipped, 0 failed in 45ms
+[14:18:52 INF] Reconciliation: collection backfill processed 32/32 candidate work(s), assigned 0, created 0, skipped 32, failed 0
+[14:18:53 INF] Reconciliation complete: 136 scanned, 0 missing, 0 collection assignments repaired, 0 hierarchy rows pruned, 0 duplicate read works merged, 0 audiobook author identities aligned, 6 empty folders, 0 orphan people, 0 stale root sidecars, 835ms
+[14:18:53 INF] Startup reconciliation complete: 136 scanned, 0 missing
+[14:18:53 INF] Watching: C:\temp\tuvima-watch\books
+[14:18:53 INF] Watching: C:\temp\tuvima-watch\audiobooks
+[14:18:53 INF] Watching: C:\temp\tuvima-watch\tv
+[14:18:53 INF] Watching: C:\temp\tuvima-watch\movies
+[14:18:53 INF] Watching: C:\temp\tuvima-watch\music
+[14:18:53 INF] Watching: C:\temp\tuvima-watch\comics
+[14:18:53 INF] Initial scan: skipped 5 already-known or duplicate file(s) across 6 scan target(s)
+[14:18:53 INF] Polling fallback active: sweeping 6 watch folder(s) every 300s
+[14:18:53 INF] Now listening on: https://localhost:61494
+[14:18:53 INF] Now listening on: http://localhost:61495
+[14:18:53 INF] Application started. Press Ctrl+C to shut down.
+[14:18:53 INF] Hosting environment: Development
+[14:18:53 INF] Content root path: C:\Users\shaya\OneDrive\Documents\Source\Repos\tuvima-library\src\MediaEngine.Api
+[14:18:56 INF] Artwork rendition repair completed: 0 assets repaired, 273 canonical sets refreshed.
+[14:18:57 INF] DeferredEnrichmentService started
+[14:19:02 INF] ProviderHealthMonitor started — 5 providers tracked
+[14:19:02 INF] ModelAutoDownloadService: dev_skip_download is enabled; skipping automatic AI model downloads
+[14:19:07 INF] Hardware profile cached: tier=low, backend=cuda, 0.0 tok/s (benchmarked 03/31/2026 21:35:03)
+[14:19:07 INF] Cover art: skipped 'Blank Space' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\296906b1-25ed-42b9-9abb-9721ea120a21\cover\4b1b00fe6e1a48209894148e54f340af.jpg)
+[14:19:07 INF] Cover art: skipped 'Five Years' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\490d90b1-379e-42de-98a9-1b4e123f41f0\cover\4c8b49f5e60b43b3874a0748876fbf1c.jpg)
+[14:19:08 INF] Cover art: skipped 'Paranoid Android' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\69ead2a9-8070-4c07-b871-5c2afc215c57\cover\33b227af2a6347a0a3703eb9b457faa2.jpg)
+[14:19:08 INF] Cover art: skipped 'Sgt. Pepper's Lonely Hearts Club Band Mini-Documentary' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\6c26387a-54de-452c-b21c-4a31925cc700\cover\9243eb41838b4747bb50078951a82e5c.jpg)
+[14:19:08 INF] Cover art: skipped 'BLOOD.' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\76c38e7c-89a4-4f8d-9240-6eed09857ffe\cover\46142a7872c2418e83c9d75f1025c48f.jpg)
+[14:19:08 INF] Cover art: skipped 'Something' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\89d902fa-aeb1-4344-8fc4-2abfa997b753\cover\87687cf379ea4e7d946deb0aac6feaa8.jpg)
+[14:19:08 INF] Cover art: skipped 'Sherane a.k.a Master Splinter’s Daughter' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\a7f58ff2-be9b-4e9b-9d4f-f61cc76a3426\cover\ae0fd9128f324de2a6b63397a9db42d3.jpg)
+[14:19:08 INF] Cover art: skipped 'Heroes' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\b9226a74-66bc-400a-a51f-6a241271a9bc\cover\8fe5b1f54f894c75b8e364566c81df7f.jpg)
+[14:19:08 INF] Cover art: skipped 'Time' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\d50a269a-13a6-4ebe-882c-3f5954300e7a\cover\1c1105f757de4697acb3ad7f57bd99d5.jpg)
+[14:19:08 INF] Cover art: skipped 'Changes' — already cached on disk (C:\temp\tuvima-library\.data\assets\artwork\work\edafb020-4108-4f98-9db5-efee5e6c1183\cover\b80b10d295a2415691d259e0019de5df.jpg)
+[14:19:22 INF] Next activity prune at 08/13/2026 03:00:00 -05:00

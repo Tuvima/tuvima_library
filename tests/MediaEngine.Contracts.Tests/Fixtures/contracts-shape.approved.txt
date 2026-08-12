@@ -2139,13 +2139,11 @@ MediaEngine.Contracts.Items.MediaEngine.Contracts.Items.ItemDisplayOverridesResp
 MediaEngine.Contracts.Items.MediaEngine.Contracts.Items.ItemEditorPreferencesRequest
   ExpectedRevision: System.Int64 | nullability=not-null | accessors=get,init
   DisplayOverrides: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,init
-  PersonalNotes: System.String | nullability=nullable | accessors=get,init
   LocalTags: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Items.MediaEngine.Contracts.Items.ItemEditorPreferencesResponse
   ProfileId: System.Guid | nullability=not-null | accessors=get,init
   WorkId: System.Guid | nullability=not-null | accessors=get,init
-  PersonalNotes: System.String | nullability=nullable | accessors=get,init
   LocalTags: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   Revision: System.Int64 | nullability=not-null | accessors=get,init
   UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
@@ -3188,7 +3186,6 @@ MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonEditorSaveRequ
   ProfileId: System.Guid? | nullability=nullable | accessors=get,init
   ExpectedRevision: System.Int64 | nullability=not-null | accessors=get,init
   DisplayOverrides: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,init
-  PersonalNotes: System.String | nullability=nullable | accessors=get,init
   LocalTags: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonEditorSaveResponse
@@ -3200,7 +3197,6 @@ MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonEditorStateRes
   BaselineName: System.String | nullability=not-null | accessors=get,init
   BaselineBiography: System.String | nullability=nullable | accessors=get,init
   DisplayOverrides: System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> | nullability=not-null | accessors=get,init
-  PersonalNotes: System.String | nullability=nullable | accessors=get,init
   LocalTags: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   Revision: System.Int64 | nullability=not-null | accessors=get,init
   UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
@@ -3237,13 +3233,6 @@ MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonListItemRespon
   is_group: System.Boolean | nullability=not-null | accessors=get,init
   biography: System.String | nullability=nullable | accessors=get,init
   occupation: System.String | nullability=nullable | accessors=get,init
-
-MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonMatchRequest
-  WikidataQid: System.String | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonMatchResponse
-  PersonId: System.Guid | nullability=not-null | accessors=get,init
-  WikidataQid: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonSummaryResponse
   Id: System.Guid | nullability=not-null | accessors=get,init

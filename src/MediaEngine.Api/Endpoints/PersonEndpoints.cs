@@ -63,36 +63,6 @@ public static class PersonEndpoints
         .Produces<PersonEditorSaveResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
-        group.MapPut("/{id:guid}/match", async (
-            Guid id,
-            PersonMatchRequest request,
-            IPersonRepository personRepo,
-            ISystemActivityRepository activityRepo,
-            CancellationToken ct) =>
-        {
-            var qid = request.WikidataQid.Trim().ToUpperInvariant();
-            if (qid.Length < 2 || qid[0] != 'Q' || !qid[1..].All(char.IsDigit))
-                return ApiErrors.BadRequest("Enter a valid Wikidata identifier such as Q42.");
-
-            var person = await personRepo.FindByIdAsync(id, ct);
-            if (person is null)
-                return ApiErrors.NotFound($"Person '{id}' not found.");
-
-            await personRepo.UpdateEnrichmentAsync(id, qid, null, null, null, ct);
-            await activityRepo.LogAsync(new SystemActivityEntry
-            {
-                ActionType = SystemActionType.MetadataManualOverride,
-                EntityId = id,
-                EntityType = "Person",
-                Detail = $"Person matched to Wikidata {qid}",
-                ChangesJson = JsonSerializer.Serialize(new { wikidata_qid = qid }),
-            }, ct);
-            return Results.Ok(new PersonMatchResponse(id, qid));
-        })
-        .WithName("MatchPersonIdentity")
-        .Produces<PersonMatchResponse>(StatusCodes.Status200OK)
-        .RequireAdminOrCurator();
-
         group.MapGet("/{id:guid}/artwork", async (
             Guid id,
             IPersonRepository personRepo,

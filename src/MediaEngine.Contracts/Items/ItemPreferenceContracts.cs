@@ -37,7 +37,6 @@ public sealed class ItemEditorPreferencesRequest
     [JsonPropertyName("expected_revision")] public long ExpectedRevision { get; init; }
     [JsonPropertyName("display_overrides")]
     public Dictionary<string, string> DisplayOverrides { get; init; } = new(StringComparer.OrdinalIgnoreCase);
-    [JsonPropertyName("personal_notes")] public string? PersonalNotes { get; init; }
     [JsonPropertyName("local_tags")] public List<string> LocalTags { get; init; } = [];
 }
 
@@ -45,7 +44,6 @@ public sealed class ItemEditorPreferencesResponse
 {
     [JsonPropertyName("profile_id")] public Guid ProfileId { get; init; }
     [JsonPropertyName("work_id")] public Guid WorkId { get; init; }
-    [JsonPropertyName("personal_notes")] public string? PersonalNotes { get; init; }
     [JsonPropertyName("local_tags")] public IReadOnlyList<string> LocalTags { get; init; } = [];
     [JsonPropertyName("revision")] public long Revision { get; init; }
     [JsonPropertyName("updated_at")] public DateTimeOffset? UpdatedAt { get; init; }

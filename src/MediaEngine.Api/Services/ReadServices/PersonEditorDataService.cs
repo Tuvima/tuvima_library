@@ -29,7 +29,6 @@ public sealed class PersonEditorReadService
         using var conn = _db.CreateConnection();
         var state = conn.QueryFirstOrDefault<PersonEditorStateRow>("""
             SELECT p.display_overrides_json AS DisplayOverridesJson,
-                   pp.personal_notes AS PersonalNotes,
                    pp.local_tags_json AS LocalTagsJson,
                    COALESCE(pp.revision, 0) AS Revision,
                    pp.updated_at AS UpdatedAt
@@ -67,7 +66,6 @@ public sealed class PersonEditorReadService
             BaselineName = person.Name,
             BaselineBiography = person.Biography,
             DisplayOverrides = DeserializeStringMap(state?.DisplayOverridesJson),
-            PersonalNotes = state?.PersonalNotes,
             LocalTags = DeserializeStringList(state?.LocalTagsJson),
             Revision = state?.Revision ?? 0,
             UpdatedAt = DateTimeOffset.TryParse(state?.UpdatedAt, out var updatedAt) ? updatedAt : null,
@@ -115,10 +113,9 @@ public sealed class PersonEditorReadService
                     .ToList();
                 conn.Execute("""
                     INSERT INTO profile_person_preferences
-                        (profile_id, person_id, personal_notes, local_tags_json, revision, updated_at)
-                    VALUES (@profileId, @personId, @notes, @tags, @revision, @updatedAt)
+                        (profile_id, person_id, local_tags_json, revision, updated_at)
+                    VALUES (@profileId, @personId, @tags, @revision, @updatedAt)
                     ON CONFLICT(profile_id, person_id) DO UPDATE SET
-                        personal_notes = excluded.personal_notes,
                         local_tags_json = excluded.local_tags_json,
                         revision = excluded.revision,
                         updated_at = excluded.updated_at;
@@ -126,7 +123,6 @@ public sealed class PersonEditorReadService
                 {
                     profileId,
                     personId,
-                    notes = string.IsNullOrWhiteSpace(request.PersonalNotes) ? null : request.PersonalNotes.Trim(),
                     tags = tags.Count == 0 ? null : JsonSerializer.Serialize(tags),
                     revision = nextRevision,
                     updatedAt = DateTimeOffset.UtcNow.ToString("O"),
@@ -192,7 +188,7 @@ public sealed class PersonEditorReadService
         _ => "metadata",
     };
 
-    private sealed record PersonEditorStateRow(string? DisplayOverridesJson, string? PersonalNotes, string? LocalTagsJson, long Revision, string? UpdatedAt);
+    private sealed record PersonEditorStateRow(string? DisplayOverridesJson, string? LocalTagsJson, long Revision, string? UpdatedAt);
     private sealed record PersonHistoryRow(long Id, string OccurredAt, string ActionType, string? Detail, Guid? ProfileId);
 }
 

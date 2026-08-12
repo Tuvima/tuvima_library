@@ -12,13 +12,12 @@ public interface IProfileWorkPreferencesRepository
 public sealed record ProfileWorkPreferences(
     Guid ProfileId,
     Guid WorkId,
-    string? PersonalNotes,
     IReadOnlyList<string> LocalTags,
     long Revision,
     DateTimeOffset? UpdatedAt)
 {
     public static ProfileWorkPreferences Empty(Guid profileId, Guid workId) =>
-        new(profileId, workId, null, [], 0, null);
+        new(profileId, workId, [], 0, null);
 }
 
 public sealed record EditorPreferencesSaveCommand(
@@ -26,7 +25,6 @@ public sealed record EditorPreferencesSaveCommand(
     Guid WorkId,
     long ExpectedRevision,
     IReadOnlyDictionary<string, string> DisplayOverrideChanges,
-    string? PersonalNotes,
     IReadOnlyList<string> LocalTags);
 
 public sealed record EditorPreferencesSaveResult(

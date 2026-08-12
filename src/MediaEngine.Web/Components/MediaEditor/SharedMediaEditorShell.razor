@@ -348,7 +348,7 @@
                                     }
                                 </MediaEditorPanel>
 
-                                <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace." Class="sme-details-section">
+                                <MediaEditorPanel Title="My Library" Description="Local organization that provider refreshes will not replace." Class="sme-details-section">
                                         @foreach (var field in GetLibraryFields())
                                         {
                                             @if (field.Key == "custom_tags")
@@ -357,16 +357,6 @@
                                                                       Value="@GetEditableValue(field.Key)"
                                                                       ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
                                                                       Suggestions="@_tagSuggestions" />
-                                            }
-                                            else
-                                            {
-                                                <AppFormFieldRow Label="@field.Label"
-                                                                 Value="@GetEditableValue(field.Key)"
-                                                                 ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
-                                                                 Placeholder="@GetPlaceholder(field)"
-                                                                 InputKind="@field.InputKind"
-                                                                 Lines="@GetFieldLineCount(field)"
-                                                                 HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
                                             }
                                         }
                                 </MediaEditorPanel>
@@ -1481,9 +1471,7 @@
                                                  TagValue="@GetEditableValue("custom_tags")"
                                                  TagValueChanged="@((string? value) => OnFieldInput("custom_tags", value))"
                                                  RatingValue="@GetEditableValue("rating")"
-                                                 RatingValueChanged="@((string? value) => OnFieldInput("rating", value))"
-                                                 CommentValue="@GetEditableValue("comment")"
-                                                 CommentValueChanged="@((string? value) => OnFieldInput("comment", value))" />
+                                                 RatingValueChanged="@((string? value) => OnFieldInput("rating", value))" />
 
                         @if (groups.Count == 0)
                         {

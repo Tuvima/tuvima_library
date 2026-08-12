@@ -26,7 +26,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
             """
             SELECT profile_id AS ProfileId,
                    work_id AS WorkId,
-                   personal_notes AS PersonalNotes,
                    local_tags_json AS LocalTagsJson,
                    revision AS Revision,
                    updated_at AS UpdatedAt
@@ -69,7 +68,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                 """
                 SELECT profile_id AS ProfileId,
                        work_id AS WorkId,
-                       personal_notes AS PersonalNotes,
                        local_tags_json AS LocalTagsJson,
                        revision AS Revision,
                        updated_at AS UpdatedAt
@@ -119,13 +117,12 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
             connection.Execute(new CommandDefinition(
                 """
                 INSERT INTO profile_work_preferences
-                    (profile_id, work_id, personal_notes, local_tags_json,
+                    (profile_id, work_id, local_tags_json,
                      revision, updated_at)
                 VALUES
-                    (@profileId, @workId, @personalNotes, @localTagsJson,
+                    (@profileId, @workId, @localTagsJson,
                      @revision, @updatedAt)
                 ON CONFLICT(profile_id, work_id) DO UPDATE SET
-                    personal_notes = excluded.personal_notes,
                     local_tags_json = excluded.local_tags_json,
                     revision = excluded.revision,
                     updated_at = excluded.updated_at;
@@ -134,7 +131,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                 {
                     profileId = command.ProfileId,
                     workId = command.WorkId,
-                    personalNotes = string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
                     localTagsJson = tags.Count == 0 ? null : JsonSerializer.Serialize(tags),
                     revision = nextRevision,
                     updatedAt = now.ToString("O"),
@@ -147,7 +143,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                 new ProfileWorkPreferences(
                     command.ProfileId,
                     command.WorkId,
-                    string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
                     tags,
                     nextRevision,
                     now),
@@ -184,7 +179,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
     private static ProfileWorkPreferences Map(PreferenceRow row) => new(
         row.ProfileId,
         row.WorkId,
-        row.PersonalNotes,
         ParseTags(row.LocalTagsJson),
         row.Revision,
         DateTimeOffset.TryParse(row.UpdatedAt, out var updatedAt) ? updatedAt : null);
@@ -208,7 +202,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
     {
         public Guid ProfileId { get; set; }
         public Guid WorkId { get; set; }
-        public string? PersonalNotes { get; set; }
         public string? LocalTagsJson { get; set; }
         public long Revision { get; set; }
         public string? UpdatedAt { get; set; }

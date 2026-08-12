@@ -107,6 +107,31 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Title=\"Local Library Details\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Title=\"Field Rules\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Title=\"Review Focus\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Personal notes", shell, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void PersonEditor_UsesMediaArtworkWorkspaceAndOmitsMatchAndPersonalNotes()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor.css");
+        var contracts = ReadSource("src/MediaEngine.Contracts/Persons/PersonEditorContracts.cs");
+
+        Assert.Contains("(\"details\", \"Details\"", source, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork\", \"Artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("(\"history\", \"History\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("(\"match\", \"Match\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_activeTab == \"match\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Personal notes", source, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("PersonalNotes", contracts, StringComparison.Ordinal);
+
+        Assert.Contains("person-editor__artwork-workspace", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__artwork-rail", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__artwork-primary-card", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__artwork-variants-section", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__artwork-details", source, StringComparison.Ordinal);
+        Assert.Contains("background: var(--tl-bg-surface-raised)", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("#", styles, StringComparison.Ordinal);
     }
 
     [Fact]

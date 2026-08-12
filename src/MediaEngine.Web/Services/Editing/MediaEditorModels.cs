@@ -350,7 +350,6 @@ public static class MediaEditorSchemaCatalog
         Add(values, "sort_series", FindCanonicalValue(canonicals, "sort_series"));
         Add(values, "tagline", detail.Tagline ?? FindCanonicalValue(canonicals, "tagline"));
         Add(values, "custom_tags", FindCanonicalValue(canonicals, "custom_tags"));
-        Add(values, "comment", FindCanonicalValue(canonicals, "comment"));
         return values;
     }
 
@@ -384,8 +383,7 @@ public static class MediaEditorSchemaCatalog
                 Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("music_options", "Options", "options",
-                Field("custom_tags", "Local tags"),
-                Field("comment", "Personal notes", "textarea")),
+                Field("custom_tags", "Local tags")),
             Group("music_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort title")),
         ],
@@ -404,8 +402,7 @@ public static class MediaEditorSchemaCatalog
                 Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("movie_options", "Options", "options",
-                Field("custom_tags", "Local tags"),
-                Field("comment", "Personal notes", "textarea")),
+                Field("custom_tags", "Local tags")),
             Group("movie_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort Title")),
         ],
@@ -424,8 +421,7 @@ public static class MediaEditorSchemaCatalog
                 Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("tv_options", "Options", "options",
-                Field("custom_tags", "Local tags"),
-                Field("comment", "Personal notes", "textarea")),
+                Field("custom_tags", "Local tags")),
             Group("tv_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort title")),
         ],
@@ -445,8 +441,7 @@ public static class MediaEditorSchemaCatalog
                 Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("book_options", "Options", "options",
-                Field("custom_tags", "Local tags"),
-                Field("comment", "Personal notes", "textarea")),
+                Field("custom_tags", "Local tags")),
             Group("book_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort title")),
         ],
@@ -466,8 +461,7 @@ public static class MediaEditorSchemaCatalog
                 Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("audiobook_options", "Options", "options",
-                Field("custom_tags", "Local tags"),
-                Field("comment", "Personal notes", "textarea")),
+                Field("custom_tags", "Local tags")),
             Group("audiobook_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort title")),
         ],
@@ -487,8 +481,7 @@ public static class MediaEditorSchemaCatalog
                 Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("comic_options", "Options", "options",
-                Field("custom_tags", "Local tags"),
-                Field("comment", "Personal notes", "textarea")),
+                Field("custom_tags", "Local tags")),
             Group("comic_sorting", "Sorting", "sorting",
                 Field("sort_title", "Sort title")),
         ],

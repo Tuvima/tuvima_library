@@ -325,23 +325,6 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<bool> MatchPersonAsync(Guid personId, string wikidataQid, CancellationToken ct = default)
-    {
-        try
-        {
-            var response = await _http.PutAsJsonAsync($"/persons/{personId}/match", new PersonMatchRequest { WikidataQid = wikidataQid }, ct);
-            if (!response.IsSuccessStatusCode)
-                LastError = await response.Content.ReadAsStringAsync(ct);
-            return response.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /persons/{PersonId}/match failed", personId);
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
     public async Task<ArtworkEditorDto?> GetPersonArtworkAsync(Guid personId, CancellationToken ct = default)
     {
         var artwork = await GetAsync<ArtworkEditorDto>(

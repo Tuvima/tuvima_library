@@ -1154,7 +1154,6 @@ CREATE TABLE IF NOT EXISTS user_playback_settings (
 CREATE TABLE IF NOT EXISTS profile_work_preferences (
     profile_id                 BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     work_id                    BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
-    personal_notes             TEXT,
     local_tags_json            TEXT,
     revision                   INTEGER NOT NULL DEFAULT 0,
     updated_at                 TEXT NOT NULL,
@@ -1167,7 +1166,6 @@ CREATE INDEX IF NOT EXISTS idx_profile_work_preferences_work
 CREATE TABLE IF NOT EXISTS profile_person_preferences (
     profile_id       BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     person_id        BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
-    personal_notes   TEXT,
     local_tags_json  TEXT,
     revision         INTEGER NOT NULL DEFAULT 0,
     updated_at       TEXT NOT NULL,

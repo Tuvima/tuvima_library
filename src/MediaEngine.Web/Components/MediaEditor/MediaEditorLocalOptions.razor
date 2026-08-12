@@ -133,31 +133,7 @@
     </div>
 </MediaEditorPanel>
 
-<MediaEditorPanel Class="sme-local-notes-panel">
-    <div class="sme-local-notes">
-        <div>
-            <div class="sme-local-notes-title">User Notes</div>
-            <div class="sme-local-notes-description">Your personal notes about this item.</div>
-        </div>
-        <AppTextField T="string"
-                      Value="@CommentValue"
-                      ValueChanged="OnCommentChangedAsync"
-                      Placeholder="Add notes about this item..."
-                      Variant="Variant.Outlined"
-                      Margin="Margin.Dense"
-                      Lines="3"
-                      Immediate="true"
-                      Class="sme-local-notes-input" />
-        <div class="sme-local-notes-footer">
-            <span>These notes are private and not written to metadata.</span>
-            <strong>@CommentLength / @MaxNotesLength</strong>
-        </div>
-    </div>
-</MediaEditorPanel>
-
 @code {
-    private const int MaxNotesLength = 1000;
-
     private bool _addingGenre;
     private bool _addingTag;
     private string? _newGenre;
@@ -169,11 +145,6 @@
     [Parameter] public EventCallback<string?> TagValueChanged { get; set; }
     [Parameter] public string? RatingValue { get; set; }
     [Parameter] public EventCallback<string?> RatingValueChanged { get; set; }
-    [Parameter] public string? CommentValue { get; set; }
-    [Parameter] public EventCallback<string?> CommentValueChanged { get; set; }
-
-    private int CommentLength => Math.Min((CommentValue ?? string.Empty).Length, MaxNotesLength);
-
     private double RatingNumber
     {
         get
@@ -272,12 +243,4 @@
     private Task SetRatingAsync(int score) =>
         RatingValueChanged.InvokeAsync(score.ToString(CultureInfo.InvariantCulture));
 
-    private Task OnCommentChangedAsync(string? value)
-    {
-        var next = value ?? string.Empty;
-        if (next.Length > MaxNotesLength)
-            next = next[..MaxNotesLength];
-
-        return CommentValueChanged.InvokeAsync(next);
-    }
 }

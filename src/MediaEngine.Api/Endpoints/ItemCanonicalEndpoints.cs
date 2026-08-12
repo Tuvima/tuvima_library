@@ -594,9 +594,6 @@ public static class ItemCanonicalEndpoints
             if (unsupportedKeys.Count > 0)
                 return ApiErrors.BadRequest($"Unsupported display override field(s): {string.Join(", ", unsupportedKeys)}.");
 
-            if (request.PersonalNotes?.Length > 4000)
-                return ApiErrors.BadRequest("Personal notes cannot exceed 4,000 characters.");
-
             var localTags = request.LocalTags
                 .Select(tag => tag.Trim())
                 .Where(tag => tag.Length > 0)
@@ -610,7 +607,6 @@ public static class ItemCanonicalEndpoints
                 entityId,
                 request.ExpectedRevision,
                 request.DisplayOverrides,
-                request.PersonalNotes,
                 localTags), ct);
 
             if (!result.WorkExists)
@@ -1439,7 +1435,6 @@ public static class ItemCanonicalEndpoints
     {
         ProfileId = preferences.ProfileId,
         WorkId = preferences.WorkId,
-        PersonalNotes = preferences.PersonalNotes,
         LocalTags = preferences.LocalTags,
         Revision = preferences.Revision,
         UpdatedAt = preferences.UpdatedAt,

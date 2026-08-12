@@ -59,7 +59,6 @@ public partial interface IEngineApiClient
 
     Task<PersonEditorStateResponse?> GetPersonEditorStateAsync(Guid personId, Guid? profileId = null, CancellationToken ct = default);
     Task<bool> SavePersonEditorStateAsync(Guid personId, PersonEditorSaveRequest request, CancellationToken ct = default);
-    Task<bool> MatchPersonAsync(Guid personId, string wikidataQid, CancellationToken ct = default);
     Task<ArtworkEditorDto?> GetPersonArtworkAsync(Guid personId, CancellationToken ct = default);
     Task<bool> UploadPersonArtworkAsync(Guid personId, string assetType, Stream fileStream, string fileName, CancellationToken ct = default);
 
