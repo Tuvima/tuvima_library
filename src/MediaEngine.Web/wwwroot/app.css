@@ -4970,3 +4970,239 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     border-color: rgba(167, 139, 250, 0.72);
     color: #fff;
 }
+
+/* -------------------------------------------------------------------------
+   Shared dropdown/menu system. Keep this final so legacy MudBlazor overrides
+   cannot change menu geometry or color by page/cascade order.
+   ---------------------------------------------------------------------- */
+.app-menu-popover.mud-popover,
+.app-select__popover.mud-popover {
+    width: max-content !important;
+    min-width: var(--tl-menu-min-width) !important;
+    max-width: min(20rem, calc(100vw - 1.5rem)) !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-menu-surface) !important;
+    border: 1px solid var(--tl-menu-border) !important;
+    border-radius: var(--tl-radius-lg) !important;
+    box-shadow: 0 1.35rem 3.5rem rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.025) !important;
+    backdrop-filter: blur(20px) saturate(120%);
+}
+
+.app-menu-popover .mud-paper,
+.app-menu-popover .mud-list,
+.app-menu-popover .mud-menu-list,
+.app-select__popover .mud-paper,
+.app-select__popover .mud-list,
+.app-select__popover .mud-menu-list {
+    margin: 0 !important;
+    color: inherit !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+}
+
+.app-menu-popover .mud-list,
+.app-menu-popover .mud-menu-list,
+.app-select__popover .mud-list,
+.app-select__popover .mud-menu-list {
+    padding: 0.28rem !important;
+}
+
+.app-menu-popover .mud-list-item,
+.app-menu-popover .mud-menu-item,
+.app-select__popover .mud-list-item,
+.app-select__popover .mud-menu-item {
+    min-height: var(--tl-menu-item-height) !important;
+    gap: 0.6rem;
+    padding: 0.42rem 0.58rem !important;
+    border: 0 !important;
+    border-radius: var(--tl-radius-md) !important;
+    color: var(--tl-text-secondary) !important;
+    background: transparent !important;
+    font-family: var(--font-ui) !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    box-shadow: none !important;
+    transition: color var(--tl-motion-duration-fast) var(--tl-motion-ease-standard),
+                background var(--tl-motion-duration-fast) var(--tl-motion-ease-standard);
+}
+
+.app-menu-popover .mud-list-item .mud-icon-root,
+.app-menu-popover .mud-menu-item .mud-icon-root,
+.app-select__popover .app-select__option-icon {
+    flex: 0 0 1.35rem;
+    color: var(--tl-menu-icon) !important;
+    font-size: 1.28rem !important;
+}
+
+.app-menu-popover .mud-list-item:hover,
+.app-menu-popover .mud-list-item:focus-visible,
+.app-menu-popover .mud-menu-item:hover,
+.app-menu-popover .mud-menu-item:focus-visible,
+.app-select__popover .mud-list-item:hover,
+.app-select__popover .mud-list-item:focus-visible {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-menu-item-hover) !important;
+    outline: 0 !important;
+}
+
+.app-menu-popover .mud-selected-item,
+.app-select__popover .mud-selected-item {
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-menu-item-selected) !important;
+}
+
+.app-menu-popover .mud-list-item.mud-disabled,
+.app-menu-popover .mud-menu-item.mud-disabled,
+.app-select__popover .mud-list-item.mud-disabled {
+    color: var(--tl-text-disabled) !important;
+    opacity: 0.62;
+}
+
+.app-menu-popover .app-menu-item.app-tone--error,
+.app-menu-popover .app-menu-item.app-tone--error .mud-icon-root {
+    color: #fb7185 !important;
+}
+
+.app-menu-popover .app-menu-item.app-tone--error:hover,
+.app-menu-popover .app-menu-item.app-tone--error:focus-visible {
+    color: #fecdd3 !important;
+    background: var(--tl-status-danger-soft) !important;
+}
+
+.app-menu-divider {
+    margin: 0.24rem 0.35rem !important;
+    border-color: var(--tl-menu-divider) !important;
+}
+
+.app-overflow-menu__trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.55rem;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit;
+    box-shadow: none !important;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.app-overflow-menu__trigger:hover,
+.app-overflow-menu__trigger:focus-visible,
+.app-overflow-menu:focus-within > .app-overflow-menu__trigger {
+    border-color: transparent !important;
+    background: transparent !important;
+}
+
+.app-overflow-menu__trigger:focus-visible {
+    outline: 0;
+    box-shadow: none !important;
+}
+
+.app-overflow-menu__trigger--icon {
+    width: var(--tl-control-height-lg);
+    height: var(--tl-control-height-lg);
+    padding: 0;
+}
+
+.app-overflow-menu__trigger--labeled {
+    min-height: 0;
+}
+
+/* MudMenu renders the activator itself. Reset MudButton/MudIconButton's
+   built-in dimensions so every caller receives the exact shared geometry. */
+.app-overflow-menu__trigger > .mud-button-root {
+    min-width: 0 !important;
+    min-height: 3rem !important;
+    margin: 0 !important;
+    padding: 0.58rem 1rem !important;
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+    color: var(--tl-text-primary) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.app-overflow-menu__trigger > .mud-button-root .mud-button-label {
+    gap: 0.58rem;
+    font-size: 0.94rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.app-overflow-menu__trigger:hover > .mud-button-root,
+.app-overflow-menu__trigger:focus-within > .mud-button-root,
+.app-overflow-menu__trigger.mud-expanded > .mud-button-root {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-hover) !important;
+}
+
+.app-overflow-menu__trigger--icon > .mud-icon-button {
+    width: var(--tl-control-height-lg) !important;
+    min-width: var(--tl-control-height-lg) !important;
+    height: var(--tl-control-height-lg) !important;
+    min-height: var(--tl-control-height-lg) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+}
+
+.app-overflow-menu__trigger > .mud-button-root::before,
+.app-overflow-menu__trigger > .mud-icon-button::before,
+.app-overflow-menu__trigger .mud-ripple-container {
+    display: none !important;
+}
+
+.app-dismissible-surface--contents {
+    display: contents;
+}
+
+.app-dismissible-surface__dismiss {
+    position: fixed !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+.tl-detail-overflow-popover--compact.mud-popover {
+    width: 9.75rem !important;
+    min-width: 9.75rem !important;
+    border-radius: 0.58rem !important;
+}
+
+.tl-detail-overflow-popover.mud-popover .mud-paper,
+.tl-detail-overflow-popover.mud-popover .mud-list,
+.tl-detail-overflow-popover.mud-popover .mud-menu-list {
+    padding: 0.2rem !important;
+}
+
+.tl-detail-overflow-popover.mud-popover .mud-list-item,
+.tl-detail-overflow-popover.mud-popover .mud-menu-item {
+    min-height: 2.2rem !important;
+    gap: 0.52rem !important;
+    padding: 0.34rem 0.48rem !important;
+    border-radius: 0.4rem !important;
+    font-size: 0.84rem !important;
+    font-weight: 550 !important;
+}
+
+.tl-detail-overflow-popover.mud-popover .mud-list-item .mud-icon-root,
+.tl-detail-overflow-popover.mud-popover .mud-menu-item .mud-icon-root {
+    flex-basis: 1.05rem !important;
+    font-size: 1.05rem !important;
+}

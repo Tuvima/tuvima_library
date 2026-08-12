@@ -32,7 +32,7 @@ else if (!string.IsNullOrWhiteSpace(_error))
 }
 else
 {
-    <div class="@ListenPageClass">
+    <div class="@ListenPageClass" @onclick="ClosePlaylistMenus">
         <aside class="listen-rail-shell">
             <div class="listen-rail">
                 <ListenNavigationSection Label="Library"
@@ -50,7 +50,7 @@ else
                                          IsRouteActive="IsRouteActive"
                                          OnNavigate="NavigateRailLink" />
 
-                <section class="listen-rail__section">
+                <section class="listen-rail__section" @onclick:stopPropagation="true">
                     <div class="listen-rail__section-heading">
                         <AppNativeButton Type="button" Class="listen-rail__section-toggle" aria-expanded="@_playlistsExpanded" OnClick="@(() => _playlistsExpanded = !_playlistsExpanded)">
                             <span>Playlists</span>
@@ -81,7 +81,7 @@ else
                         @foreach (var playlist in PlaylistCollections)
                         {
                             var playlistRoute = $"/listen/music/playlists/{playlist.Id}";
-                            <div @key="playlist.Id" class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
+                            <div class="listen-rail__playlist-row @(playlist.Id == _draggingPlaylistId ? "is-dragging" : null)"
                                  @ondragover:preventDefault="true"
                                  @ondrop="@(() => DropPlaylistReorderAsync(playlist.Id))">
                                 <AppNativeButton Type="button" Class="listen-rail__drag" draggable="true" AriaLabel="@($"Drag to reorder {playlist.Name}")" @ondragstart="@(() => BeginPlaylistReorder(playlist.Id))" @ondragend="EndPlaylistReorder">
@@ -177,23 +177,23 @@ else
                         </label>
                         <label class="listen-filter-field listen-filter-field--genre">
                             <span>Genres</span>
-                            <AppNativeSelect Class="listen-filter-select" @bind="_albumGenreFilter" aria-label="Filter albums by genre">
-                                <option value="all">All genres</option>
+                            <AppSelect T="string" Class="listen-filter-select" @bind-Value="_albumGenreFilter" aria-label="Filter albums by genre">
+                                <MudSelectItem T="string" Value="@("all")">All genres</MudSelectItem>
                                 @foreach (var genre in SongGenres)
                                 {
-                                    <option value="@genre">@genre</option>
+                                    <MudSelectItem T="string" Value="@genre">@genre</MudSelectItem>
                                 }
-                            </AppNativeSelect>
+                            </AppSelect>
                         </label>
                         <label class="listen-filter-field">
                             <span>Artist</span>
-                            <AppNativeSelect Class="listen-filter-select" @bind="_albumArtistFilter" aria-label="Filter albums by artist">
-                                <option value="all">All artists</option>
+                            <AppSelect T="string" Class="listen-filter-select" @bind-Value="_albumArtistFilter" aria-label="Filter albums by artist">
+                                <MudSelectItem T="string" Value="@("all")">All artists</MudSelectItem>
                                 @foreach (var artist in AlbumArtists)
                                 {
-                                    <option value="@artist">@artist</option>
+                                    <MudSelectItem T="string" Value="@artist">@artist</MudSelectItem>
                                 }
-                            </AppNativeSelect>
+                            </AppSelect>
                         </label>
                         <div class="listen-filter-toggle-stack">
                             <AppQuickFilterToggle Label="Favorites" @bind-Selected="_albumFavoriteOnly" />
@@ -203,12 +203,12 @@ else
                             <span class="listen-display-group__eyebrow">Display</span>
                             <label class="listen-filter-field listen-filter-field--sort">
                                 <span>Sort by</span>
-                                <AppNativeSelect Class="listen-filter-select" @bind="_albumSort" aria-label="Sort albums">
-                                    <option value="recent">Recently added</option>
-                                    <option value="title">Title</option>
-                                    <option value="artist">Artist</option>
-                                    <option value="year">Year</option>
-                                </AppNativeSelect>
+                                <AppSelect T="string" Class="listen-filter-select" @bind-Value="_albumSort" aria-label="Sort albums">
+                                    <MudSelectItem T="string" Value="@("recent")">Recently added</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("artist")">Artist</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
+                                </AppSelect>
                             </label>
                             <label class="listen-tile-size" title="Adjust album tile size">
                                 <span>Tile size</span>
@@ -339,10 +339,10 @@ else
 
                         <div class="listen-filter-bar listen-filter-bar--compact">
                             <AppNativeInput Class="listen-filter-input" @bind="_artistSearch" @bind:event="oninput" Placeholder="Search artists" />
-                            <AppNativeSelect Class="listen-filter-select" @bind="_artistSort">
-                                <option value="name">Artist name</option>
-                                <option value="tracks">Most tracks</option>
-                            </AppNativeSelect>
+                            <AppSelect T="string" Class="listen-filter-select" @bind-Value="_artistSort">
+                                <MudSelectItem T="string" Value="@("name")">Artist name</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("tracks")">Most tracks</MudSelectItem>
+                            </AppSelect>
                         </div>
 
                         @if (ArtistPersonTiles.Count == 0)
@@ -378,10 +378,10 @@ else
 
                         <div class="listen-filter-bar listen-filter-bar--compact">
                             <AppNativeInput Class="listen-filter-input" @bind="_artistSearch" @bind:event="oninput" Placeholder="Search artists" />
-                            <AppNativeSelect Class="listen-filter-select" @bind="_artistSort">
-                                <option value="name">Artist name</option>
-                                <option value="tracks">Most tracks</option>
-                            </AppNativeSelect>
+                            <AppSelect T="string" Class="listen-filter-select" @bind-Value="_artistSort">
+                                <MudSelectItem T="string" Value="@("name")">Artist name</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("tracks")">Most tracks</MudSelectItem>
+                            </AppSelect>
                         </div>
 
                         <div class="listen-artists__list-body">
@@ -641,6 +641,7 @@ else
                     </div>
                     @if (ActivePlaylistCollection is not null)
                     {
+                        <span @onclick:stopPropagation="true">
                         <AppNativeButton Type="button" Class="listen-detail__edit" Title="Playlist options" AriaLabel="Playlist options" OnClick="@(() => TogglePlaylistActionsMenu(ActivePlaylistCollection.Id))">
                             <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
                         </AppNativeButton>
@@ -660,6 +661,7 @@ else
                                 </details>
                             </div>
                         }
+                        </span>
                     }
                 </section>
 
@@ -817,12 +819,12 @@ else
                                     <AppQuickFilterToggle Label="Unread"
                                                           Selected="@_audiobookUnreadOnly"
                                                           SelectedChanged="SetAudiobookUnread" />
-                                    <AppNativeSelect Class="audiobooks-select" @bind="_audiobookLengthFilter" aria-label="Filter by length">
-                                        <option value="all">Length</option>
-                                        <option value="short">Under 6h</option>
-                                        <option value="medium">6-14h</option>
-                                        <option value="long">14h+</option>
-                                    </AppNativeSelect>
+                                    <AppSelect T="string" Class="audiobooks-select" @bind-Value="_audiobookLengthFilter" aria-label="Filter by length">
+                                        <MudSelectItem T="string" Value="@("all")">Length</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("short")">Under 6h</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("medium")">6-14h</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("long")">14h+</MudSelectItem>
+                                    </AppSelect>
                                 </div>
                             </div>
                         </div>
@@ -831,12 +833,12 @@ else
                             <span class="audiobooks-toolbar__eyebrow">Display</span>
                             <label class="audiobooks-sort">
                                 <span>Sort by</span>
-                                <AppNativeSelect Class="audiobooks-select" @bind="_audiobookSort" aria-label="Sort audiobooks">
-                                    <option value="recent">Recently Added</option>
-                                    <option value="title">Title</option>
-                                    <option value="author">Author</option>
-                                    <option value="length">Length</option>
-                                </AppNativeSelect>
+                                <AppSelect T="string" Class="audiobooks-select" @bind-Value="_audiobookSort" aria-label="Sort audiobooks">
+                                    <MudSelectItem T="string" Value="@("recent")">Recently Added</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("author")">Author</MudSelectItem>
+                                    <MudSelectItem T="string" Value="@("length")">Length</MudSelectItem>
+                                </AppSelect>
                             </label>
 
                             <div class="audiobooks-view-controls">

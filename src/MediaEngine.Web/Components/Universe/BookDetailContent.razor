@@ -323,38 +323,16 @@ else
                             <span class="book-detail-action-label">Edit</span>
                         </AppNativeButton>
 
-                        <MudMenu Dense="true"
-                                 AnchorOrigin="Origin.BottomLeft"
-                                 TransformOrigin="Origin.TopLeft">
-                            <ActivatorContent>
-                                <AppNativeButton Class="book-detail-action-btn">
-                                    <div class="book-detail-action-circle">
-                                        <MudIcon Icon="@Icons.Material.Filled.MoreHoriz"
-                                                 Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-4rem" />
-                                    </div>
-                                    <span class="book-detail-action-label">More</span>
-                                </AppNativeButton>
-                            </ActivatorContent>
-                            <ChildContent>
-                                <MudMenuItem OnClick="@OnUpdateMetadata"
-                                             Icon="@Icons.Material.Filled.Sync">
-                                    Update Metadata
-                                </MudMenuItem>
-                                <MudMenuItem OnClick="@(async () => await OnMarkFinished())"
-                                             Icon="@Icons.Material.Filled.CheckCircle">
-                                    Mark as Finished
-                                </MudMenuItem>
-                                <MudMenuItem OnClick="@OnReportIssue"
-                                             Icon="@Icons.Material.Filled.Flag">
-                                    Report Issue
-                                </MudMenuItem>
-                                <MudDivider />
-                                <MudMenuItem Disabled="true"
-                                             Icon="@Icons.Material.Filled.DeleteForever">
-                                    Delete
-                                </MudMenuItem>
-                            </ChildContent>
-                        </MudMenu>
+                        <AppOverflowMenu Label="More"
+                                         Icon="@Icons.Material.Filled.MoreHoriz"
+                                         TriggerClass="book-detail-action-btn"
+                                         AnchorOrigin="Origin.BottomLeft"
+                                         TransformOrigin="Origin.TopLeft">
+                            <AppMenuItem Label="Update Metadata" Icon="@Icons.Material.Filled.Sync" OnClick="@OnUpdateMetadata" />
+                            <AppMenuItem Label="Mark as Finished" Icon="@Icons.Material.Filled.CheckCircle" OnClick="@(async () => await OnMarkFinished())" />
+                            <AppMenuItem Label="Report Issue" Icon="@Icons.Material.Filled.Flag" OnClick="@OnReportIssue" />
+                            <AppMenuItem Label="Delete" Icon="@Icons.Material.Filled.DeleteForever" Disabled="true" DividerBefore="true" Tone="AppUiTone.Error" />
+                        </AppOverflowMenu>
 
                     </div>
 
@@ -470,38 +448,16 @@ else
                             <span class="book-detail-action-label">Edit</span>
                         </AppNativeButton>
 
-                        <MudMenu Dense="true"
-                                 AnchorOrigin="Origin.BottomLeft"
-                                 TransformOrigin="Origin.TopLeft">
-                            <ActivatorContent>
-                                <AppNativeButton Class="book-detail-action-btn">
-                                    <div class="book-detail-action-circle">
-                                        <MudIcon Icon="@Icons.Material.Filled.MoreHoriz"
-                                                 Class="tl-u-color-rgba-248-248-248-0-65 tl-u-font-size-1-4rem" />
-                                    </div>
-                                    <span class="book-detail-action-label">More</span>
-                                </AppNativeButton>
-                            </ActivatorContent>
-                            <ChildContent>
-                                <MudMenuItem OnClick="@OnUpdateMetadata"
-                                             Icon="@Icons.Material.Filled.Sync">
-                                    Update Metadata
-                                </MudMenuItem>
-                                <MudMenuItem OnClick="@(async () => await OnMarkFinished())"
-                                             Icon="@Icons.Material.Filled.CheckCircle">
-                                    Mark as Finished
-                                </MudMenuItem>
-                                <MudMenuItem OnClick="@OnReportIssue"
-                                             Icon="@Icons.Material.Filled.Flag">
-                                    Report Issue
-                                </MudMenuItem>
-                                <MudDivider />
-                                <MudMenuItem Disabled="true"
-                                             Icon="@Icons.Material.Filled.DeleteForever">
-                                    Delete
-                                </MudMenuItem>
-                            </ChildContent>
-                        </MudMenu>
+                        <AppOverflowMenu Label="More"
+                                         Icon="@Icons.Material.Filled.MoreHoriz"
+                                         TriggerClass="book-detail-action-btn"
+                                         AnchorOrigin="Origin.BottomLeft"
+                                         TransformOrigin="Origin.TopLeft">
+                            <AppMenuItem Label="Update Metadata" Icon="@Icons.Material.Filled.Sync" OnClick="@OnUpdateMetadata" />
+                            <AppMenuItem Label="Mark as Finished" Icon="@Icons.Material.Filled.CheckCircle" OnClick="@(async () => await OnMarkFinished())" />
+                            <AppMenuItem Label="Report Issue" Icon="@Icons.Material.Filled.Flag" OnClick="@OnReportIssue" />
+                            <AppMenuItem Label="Delete" Icon="@Icons.Material.Filled.DeleteForever" Disabled="true" DividerBefore="true" Tone="AppUiTone.Error" />
+                        </AppOverflowMenu>
 
                     </div>
 

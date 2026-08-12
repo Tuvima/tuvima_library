@@ -1,21 +1,49 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<MudMenu Icon="@Icon"
+<MudMenu Dense="true"
+         Class="@TriggerRootClass"
+         PopoverClass="@EffectivePopoverClass"
+         Label="@Label"
+         Icon="@IconOnly"
+         StartIcon="@LabeledStartIcon"
+         AriaLabel="@EffectiveAriaLabel"
          Size="@MudSize"
-         Dense="true"
-         Class="@RootClass"
-         PopoverClass="app-overflow-menu__popover">
-    @ChildContent
+         Variant="Variant.Text"
+         Ripple="false"
+         AnchorOrigin="@AnchorOrigin"
+         TransformOrigin="@TransformOrigin">
+    <ChildContent>
+        @ChildContent
+    </ChildContent>
 </MudMenu>
 
 @code {
     [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.MoreVert;
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public AppControlSize Size { get; set; } = AppControlSize.Normal;
     [Parameter] public string? Class { get; set; }
+    [Parameter] public string? TriggerClass { get; set; }
+    [Parameter] public string? PopoverClass { get; set; }
+    [Parameter] public Origin AnchorOrigin { get; set; } = Origin.BottomRight;
+    [Parameter] public Origin TransformOrigin { get; set; } = Origin.TopRight;
 
     private Size MudSize => AppUiMaps.ToMudSize(Size);
-    private string RootClass =>
-        string.Join(" ", new[] { "app-overflow-menu", AppUiMaps.SizeClass(Size), Class }
+    private string? IconOnly => string.IsNullOrWhiteSpace(Label) ? Icon : null;
+    private string? LabeledStartIcon => string.IsNullOrWhiteSpace(Label) ? null : Icon;
+    private string EffectiveAriaLabel => AriaLabel ?? Label ?? "More actions";
+    private string TriggerRootClass =>
+        string.Join(" ", new[]
+        {
+            "app-overflow-menu",
+            AppUiMaps.SizeClass(Size),
+            Class,
+            "app-overflow-menu__trigger",
+            string.IsNullOrWhiteSpace(Label) ? "app-overflow-menu__trigger--icon" : "app-overflow-menu__trigger--labeled",
+            TriggerClass,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    private string EffectivePopoverClass =>
+        string.Join(" ", new[] { "app-menu-popover", "app-overflow-menu__popover", PopoverClass }
             .Where(value => !string.IsNullOrWhiteSpace(value)));
 }

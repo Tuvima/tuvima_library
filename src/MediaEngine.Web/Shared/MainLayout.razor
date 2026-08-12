@@ -31,7 +31,7 @@
 
 <a class="skip-to-content" href="#main-content">@L["Layout_SkipToContent"]</a>
 
-<AppCssElement Tag="div" Class="layout-accent-scope" Css="@LayoutAccentStyle">
+<AppCssElement Tag="div" Class="layout-accent-scope" Css="@LayoutAccentStyle" @onclick="CloseOpenShellMenus">
 <MudLayout Class="@LayoutShellClass">
     <MudAppBar Fixed="true" Elevation="0" Dense="true" Class="@AppBarClass">
         <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="layout-shell__left-rail">
@@ -89,18 +89,21 @@
                                          CanOpenSystemActivity="@CanViewSystemActivity" />
             </span>
 
-            <TopNavAccountMenu DisplayName="@_displayName"
-                               ProfileRole="@_profileRole"
-                               AvatarInitial="@_avatarInitial"
-                               AvatarColor="@_avatarColor"
-                               AvatarForeground="@AvatarForeground"
-                               AvatarImageUrl="@_avatarImageUrl"
-                               ActiveProfileId="@_activeProfileId"
-                               Profiles="@_profiles"
-                               ReviewCount="@_reviewCount"
-                               CanViewReview="@CanViewReview"
-                               ShowSignOut="@AuthUi.SsoEnabled"
-                               ProfileSelected="SwitchProfileAsync" />
+            <span @onclick:stopPropagation="true">
+                <TopNavAccountMenu @key="_accountMenuVersion"
+                                   DisplayName="@_displayName"
+                                   ProfileRole="@_profileRole"
+                                   AvatarInitial="@_avatarInitial"
+                                   AvatarColor="@_avatarColor"
+                                   AvatarForeground="@AvatarForeground"
+                                   AvatarImageUrl="@_avatarImageUrl"
+                                   ActiveProfileId="@_activeProfileId"
+                                   Profiles="@_profiles"
+                                   ReviewCount="@_reviewCount"
+                                   CanViewReview="@CanViewReview"
+                                   ShowSignOut="@AuthUi.SsoEnabled"
+                                   ProfileSelected="SwitchProfileAsync" />
+            </span>
         </MudStack>
     </MudAppBar>
 
@@ -135,6 +138,7 @@
     private string _profileRole = "Profile";
     private Guid? _activeProfileId;
     private int _reviewCount;
+    private int _accountMenuVersion;
     private List<ProfileViewModel> _profiles = [];
     private DotNetObjectReference<MainLayout>? _dotNetRef;
 
@@ -208,6 +212,8 @@
 
     [JSInvokable]
     public void OpenPalette() => _searchOverlay?.Open();
+
+    private void CloseOpenShellMenus(MouseEventArgs _) => _accountMenuVersion++;
 
     private void OnDeviceContextChanged()
     {

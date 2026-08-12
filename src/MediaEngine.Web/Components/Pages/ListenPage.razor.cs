@@ -840,6 +840,13 @@ public partial class ListenPage
         _playlistActionsCollectionId = collectionId;
     }
 
+    private void ClosePlaylistMenus()
+    {
+        _playlistCreateMenuOpen = false;
+        _playlistActionsMenuOpen = false;
+        _playlistActionsCollectionId = null;
+    }
+
     private async Task OpenPlaylistEditorFromMenuAsync(ManagedCollectionViewModel? collection = null)
     {
         _playlistActionsMenuOpen = false;

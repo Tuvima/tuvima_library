@@ -1,15 +1,14 @@
 ﻿@namespace MediaEngine.Web.Components.Details
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-overflow-list" role="none">
-    @foreach (var action in Actions)
-    {
-        <AppNativeButton Type="button" role="menuitem" Disabled="@action.IsDisabled" Class="@GetActionClass(action)" OnClick="@(() => SelectAsync(action))">
-            <MudIcon Icon="@HeroActionRow.IconFor(action)" Size="Size.Small" />
-            <span>@action.Label</span>
-        </AppNativeButton>
-    }
-</div>
+@foreach (var action in Actions)
+{
+    <AppMenuItem Label="@action.Label"
+                 Icon="@HeroActionRow.IconFor(action)"
+                 Disabled="@action.IsDisabled"
+                 Tone="@(action.IsDestructive ? AppUiTone.Error : AppUiTone.Neutral)"
+                 OnClick="@(() => SelectAsync(action))" />
+}
 
 @code {
     [Parameter] public IReadOnlyList<DetailAction> Actions { get; set; } = [];
@@ -17,9 +16,4 @@
 
     private Task SelectAsync(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
-
-    private static string GetActionClass(DetailAction action)
-        => action.IsDestructive
-            ? "tl-detail-overflow-item tl-menu-danger"
-            : "tl-detail-overflow-item";
 }

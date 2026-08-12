@@ -35,6 +35,7 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailEntityType entityType,
         DetailPresentationContext context,
         bool isAdminView,
+        DetailActionAuthorizationContext actionAuthorization,
         CancellationToken ct)
     {
         var person = await _persons.FindByIdAsync(personId, ct);
@@ -94,7 +95,7 @@ internal sealed partial class DetailCompositionOrchestrator
             Metadata = BuildPersonMetadata(displayRoles, ownedWorkCount),
             PrimaryActions = BuildPersonActions(personId, entityType, context),
             SecondaryActions = [],
-            OverflowActions = BuildOverflowActions(personId, entityType, isAdminView),
+            OverflowActions = BuildOverflowActions(personId, entityType, actionAuthorization),
             ContributorGroups = groups,
             PreviewContributors = groups.SelectMany(g => g.Credits).Take(12).ToList(),
             CharacterGroups = BuildPersonCharacterGroups(characterRoles),
@@ -108,7 +109,12 @@ internal sealed partial class DetailCompositionOrchestrator
         };
     }
 
-    private async Task<DetailPageViewModel?> BuildCharacterAsync(Guid characterId, DetailPresentationContext context, bool isAdminView, CancellationToken ct)
+    private async Task<DetailPageViewModel?> BuildCharacterAsync(
+        Guid characterId,
+        DetailPresentationContext context,
+        bool isAdminView,
+        DetailActionAuthorizationContext actionAuthorization,
+        CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<CharacterDetailRow>(new CommandDefinition(
@@ -174,7 +180,7 @@ internal sealed partial class DetailCompositionOrchestrator
             Artwork = artwork,
             Metadata = [new MetadataPill { Label = "Character" }, .. MaybePill(row.UniverseLabel)],
             PrimaryActions = [new DetailAction { Key = "appearances", Label = "View Appearances", Icon = "auto_stories", IsPrimary = true }],
-            OverflowActions = BuildOverflowActions(characterId, DetailEntityType.Character, isAdminView),
+            OverflowActions = BuildOverflowActions(characterId, DetailEntityType.Character, actionAuthorization),
             RelationshipStrip = relationships,
             Tabs = BuildTabs(DetailEntityType.Character, context, isAdminView, hasUniverse: HasUniverseRelationship(relationships)),
             IdentityStatus = ResolveIdentityStatus(row.WikidataQid, null, null),
@@ -183,7 +189,12 @@ internal sealed partial class DetailCompositionOrchestrator
         };
     }
 
-    private async Task<DetailPageViewModel?> BuildUniverseAsync(Guid id, DetailPresentationContext context, bool isAdminView, CancellationToken ct)
+    private async Task<DetailPageViewModel?> BuildUniverseAsync(
+        Guid id,
+        DetailPresentationContext context,
+        bool isAdminView,
+        DetailActionAuthorizationContext actionAuthorization,
+        CancellationToken ct)
     {
         using var conn = _db.CreateConnection();
         var row = await conn.QueryFirstOrDefaultAsync<CollectionDetailRow>(new CommandDefinition(
@@ -230,7 +241,7 @@ internal sealed partial class DetailCompositionOrchestrator
             Artwork = BuildArtwork(DetailEntityType.Universe, row.BackgroundUrl, row.BannerUrl, row.CoverUrl, row.CoverUrl, null, new Dictionary<string, string>(), relatedArt, 0, null),
             Metadata = [new MetadataPill { Label = "Universe" }, new MetadataPill { Label = $"{works.Count} items" }],
             PrimaryActions = [new DetailAction { Key = "timeline", Label = "Explore Timeline", Icon = "account_tree", Route = string.IsNullOrWhiteSpace(row.WikidataQid) ? null : $"/universe/{row.WikidataQid}/explore", IsPrimary = true }],
-            OverflowActions = BuildOverflowActions(id, DetailEntityType.Universe, isAdminView),
+            OverflowActions = BuildOverflowActions(id, DetailEntityType.Universe, actionAuthorization),
             ContributorGroups = contributorGroups,
             PreviewContributors = BuildPreviewContributors(DetailEntityType.Universe, contributorGroups),
             CharacterGroups = characterGroups,

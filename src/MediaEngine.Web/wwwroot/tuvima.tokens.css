@@ -54,6 +54,21 @@
     --tl-border-strong: rgba(182, 194, 214, 0.24);
     --tl-divider: rgba(148, 163, 184, 0.10);
 
+    /* Shared dropdown and secondary-action chrome. */
+    --tl-menu-surface: rgba(10, 14, 23, 0.97);
+    --tl-menu-border: rgba(196, 181, 253, 0.24);
+    --tl-menu-divider: rgba(196, 181, 253, 0.14);
+    --tl-menu-item-hover: rgba(139, 92, 246, 0.14);
+    --tl-menu-item-selected: rgba(139, 92, 246, 0.2);
+    --tl-menu-icon: #c4b5fd;
+    --tl-menu-min-width: 10.75rem;
+    --tl-menu-item-height: 2.45rem;
+    --tl-secondary-action-bg: rgba(76, 29, 149, 0.12);
+    --tl-secondary-action-bg-hover: rgba(109, 40, 217, 0.2);
+    --tl-secondary-action-bg-selected: rgba(124, 58, 237, 0.3);
+    --tl-secondary-action-border: rgba(167, 139, 250, 0.58);
+    --tl-secondary-action-border-hover: rgba(196, 181, 253, 0.82);
+
     --tl-status-success: #22C55E;
     --tl-status-success-soft: rgba(34, 197, 94, 0.14);
     --tl-status-success-border: rgba(34, 197, 94, 0.34);

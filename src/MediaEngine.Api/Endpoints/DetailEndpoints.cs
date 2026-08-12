@@ -21,6 +21,7 @@ public static class DetailEndpoints
             string? context,
             string? containerId,
             Guid? profileId,
+            HttpContext httpContext,
             DetailComposerService composer,
             CancellationToken ct) =>
         {
@@ -28,7 +29,10 @@ public static class DetailEndpoints
                 return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
 
             var presentationContext = DetailComposerService.ParseContext(context);
-            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId, profileId);
+            var callerRole = httpContext.Items.TryGetValue("ApiKeyRole", out var roleValue)
+                ? roleValue as string
+                : null;
+            var detail = await composer.BuildAsync(parsedType, id, presentationContext, ct, containerId, profileId, callerRole);
             return detail is null
                 ? ApiErrors.NotFound($"No detail page found for {entityType} '{id}'.")
                 : Results.Ok(detail);

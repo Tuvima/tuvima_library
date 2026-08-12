@@ -257,7 +257,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-premium-action", source);
         Assert.Contains("tl-detail-action--secondary-button", source);
         Assert.Contains("tl-detail-actions--watch", source);
-        Assert.Contains("tl-detail-watch-secondary", source);
+        Assert.Contains("tl-detail-secondary-action--watch", source);
         Assert.Contains("VisibleSecondaryActions", source);
         Assert.Contains("favorite_filled", source);
         Assert.Contains("Icons.Material.Filled.Favorite", source);
@@ -445,18 +445,20 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("OverflowActions=\"Model.OverflowActions\"", hero);
         Assert.Contains("OverflowActionMenu", actions);
         Assert.Contains("VisibleSecondaryActions", actions);
-        Assert.Contains("class=\"tl-detail-overflow-popover\"", menu);
-        Assert.Contains("OnClick=\"ToggleMenu\"", menu);
-        Assert.Contains("aria-expanded=\"@_isOpen\"", menu);
-        Assert.Contains("class=\"tl-detail-overflow-list\"", menuItems);
-        Assert.Contains("role=\"menuitem\"", menuItems);
+        Assert.Contains("Actions.Count > 0", menu);
+        Assert.Contains("<AppOverflowMenu", menu);
+        Assert.Contains("PopoverClass=\"@PopoverRootClass\"", menu);
+        Assert.Contains("Actions.Count == 1", menu);
+        Assert.Contains("Label=\"More\"", actions);
+        Assert.Contains("tl-detail-primary-actions", actions);
+        Assert.Contains("<AppMenuItem", menuItems);
         Assert.Contains("Disabled=\"@action.IsDisabled\"", menuItems);
-        Assert.DoesNotContain("MudMenuItem", menuItems);
+        Assert.Contains("AppUiTone.Error", menuItems);
         Assert.Contains("action.Key is \"edit-media\" or \"edit\"", detailPage);
         Assert.DoesNotContain("OverflowActions.Concat([InlineEditAction])", actions);
-        Assert.Contains(".tl-detail-overflow-popover", appStyles);
-        Assert.Contains(".tl-detail-overflow-item", appStyles);
-        Assert.Contains("border: 0;", appStyles);
+        Assert.Contains(".app-menu-popover.mud-popover", appStyles);
+        Assert.Contains(".app-menu-item", appStyles);
+        Assert.Contains("--tl-secondary-action-border", appStyles);
     }
 
     [Fact]
@@ -1283,7 +1285,6 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("startPositionFromDataset", playerScript);
         Assert.Contains("listenPendingStartPosition", playerScript);
         Assert.Contains("document.addEventListener('click'", playerScript);
-        Assert.DoesNotContain("document.addEventListener('pointerdown'", playerScript);
         Assert.Contains("openPopupFromImmediateAction", playerScript);
         Assert.Contains("data-listen-popup-route", playerBar);
         Assert.Contains("AudiobookActionAttributes", detailPage);
@@ -1314,7 +1315,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("else if (IsPrimaryHeroActionRow)", actions);
         Assert.Contains("VisibleSecondaryActions => SecondaryActions", actions);
         Assert.DoesNotContain("watch-party", actions, StringComparison.Ordinal);
-        Assert.Contains("tl-detail-watch-secondary--icon", actions);
+        Assert.Contains("tl-detail-flat-action", actions);
         Assert.Contains("border-radius: 999px", styles);
         Assert.Contains("Icons.Material.Filled.Favorite", songTable);
         Assert.Contains("Icons.Material.Outlined.FavoriteBorder", songTable);

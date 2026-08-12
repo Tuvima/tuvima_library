@@ -23,6 +23,16 @@
     width: 100%;
 }
 
+::deep .app-dismissible-surface__backdrop {
+    position: fixed;
+    z-index: calc(var(--tl-z-popover, 1600) - 1);
+    inset: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: default;
+}
+
 ::deep .browse-multi-select__trigger {
     display: grid;
     width: 100%;

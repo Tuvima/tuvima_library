@@ -1,6 +1,17 @@
 @namespace MediaEngine.Web.Components.Browse
 
-<div class="@RootClass" @onkeydown="HandleKeyDown">
+<div class="@RootClass"
+     data-app-dismissible="@(IsOpen ? "open" : null)"
+     @onkeydown="HandleKeyDown"
+     @onclick:stopPropagation="true">
+    @if (IsOpen)
+    {
+        <button type="button"
+                class="app-dismissible-surface__backdrop"
+                tabindex="-1"
+                aria-hidden="true"
+                @onclick="@(() => OpenMenuKeyChanged.InvokeAsync(null))"></button>
+    }
     @if (ShowLabel)
     {
         <span class="browse-multi-select__label">@Label</span>

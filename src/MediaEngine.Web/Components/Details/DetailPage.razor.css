@@ -6023,6 +6023,155 @@
     }
 }
 
+/* Final MudMenu trigger normalization. The wrapper participates only in
+   layout; the inner native control receives the visual state once. */
+.tl-detail-stage ::deep .app-overflow-menu.tl-detail-more-action,
+.tl-detail-stage ::deep .app-overflow-menu.tl-detail-person-more-action {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action > .mud-button-root {
+    width: auto !important;
+    min-width: 0 !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    padding: 0.58rem 1rem !important;
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+    color: rgba(255, 255, 255, 0.94) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:hover > .mud-button-root,
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:focus-within > .mud-button-root,
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action.mud-expanded > .mud-button-root {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-hover) !important;
+    color: #fff !important;
+    box-shadow: var(--tl-shadow-focus) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-primary-actions .tl-detail-more-action > .mud-button-root {
+    min-width: 6.75rem !important;
+    min-height: clamp(3.35rem, 6svh, 4rem) !important;
+    height: 100% !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button {
+    width: 2.7rem !important;
+    min-width: 2.7rem !important;
+    height: 2.7rem !important;
+    min-height: 2.7rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid rgba(255,255,255,0.16) !important;
+    border-radius: 0.42rem !important;
+    background: rgba(255,255,255,0.065) !important;
+    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff) !important;
+    box-shadow: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action:hover > .mud-icon-button,
+.tl-detail-stage ::deep .tl-detail-person-more-action:focus-within > .mud-icon-button,
+.tl-detail-stage ::deep .tl-detail-person-more-action.mud-expanded > .mud-icon-button {
+    border-color: rgba(255,255,255,0.16) !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #fff8eb !important;
+    box-shadow: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button .mud-icon-root {
+    margin: 0 !important;
+    font-size: 1.18rem !important;
+    line-height: 1 !important;
+}
+
+/* MudMenu contributes a layout wrapper around its activator. Keep that wrapper
+   visually inert so hover/focus paint exactly once on the real button. */
+.tl-detail-stage ::deep .app-overflow-menu.tl-detail-more-action,
+.tl-detail-stage ::deep .app-overflow-menu.tl-detail-person-more-action {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action > .mud-button-root {
+    width: auto !important;
+    min-width: 0 !important;
+    height: 3rem !important;
+    min-height: 3rem !important;
+    padding: 0.58rem 1rem !important;
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+    color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:hover > .mud-button-root,
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:focus-within > .mud-button-root,
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action.mud-expanded > .mud-button-root {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-hover) !important;
+    color: #fff !important;
+    box-shadow: var(--tl-shadow-focus) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-primary-actions .tl-detail-more-action > .mud-button-root {
+    min-width: 6.75rem !important;
+    min-height: clamp(3.35rem, 6svh, 4rem) !important;
+    height: 100% !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button {
+    width: 2.7rem !important;
+    min-width: 2.7rem !important;
+    height: 2.7rem !important;
+    min-height: 2.7rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 1px solid rgba(255,255,255,0.16) !important;
+    border-radius: 0.42rem !important;
+    background: rgba(255,255,255,0.065) !important;
+    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff) !important;
+    box-shadow: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action:hover > .mud-icon-button,
+.tl-detail-stage ::deep .tl-detail-person-more-action:focus-within > .mud-icon-button,
+.tl-detail-stage ::deep .tl-detail-person-more-action.mud-expanded > .mud-icon-button {
+    border-color: rgba(255,255,255,0.16) !important;
+    background: rgba(255,255,255,0.12) !important;
+    color: #fff8eb !important;
+    box-shadow: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button .mud-icon-root {
+    margin: 0 !important;
+    font-size: 1.18rem !important;
+    line-height: 1 !important;
+}
+
 /* Compact cinematic watch hierarchy shared by TV and movie details. */
 ::deep .tl-detail-hero--watch .tl-detail-metadata-stack {
     width: min(47.5rem, 100%);
@@ -11331,4 +11480,187 @@
 .tl-detail-stage ::deep .tl-detail-hero--person .tl-detail-person-fact {
     color: inherit;
     font: inherit;
+}
+
+/* Shared secondary hero actions. My List, Rate, Add to Collection, and More
+   use one quiet purple treatment so the primary action remains dominant. */
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+    align-items: center;
+    gap: 0.72rem;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
+    flex: 0 0 auto;
+    padding: 0;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action {
+    width: auto;
+    min-width: 0;
+    min-height: 3rem !important;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 0.58rem;
+    padding: 0.58rem 1rem !important;
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+    color: rgba(255, 255, 255, 0.94);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+    backdrop-filter: blur(12px) saturate(112%) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action:hover,
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action:focus-visible {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-hover) !important;
+    color: #fff;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action:focus-visible {
+    outline: 0;
+    box-shadow: var(--tl-shadow-focus) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action.is-selected {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-selected) !important;
+    color: #ddd6fe;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action:disabled {
+    border-color: var(--tl-border-default) !important;
+    background: rgba(15, 23, 42, 0.34) !important;
+    color: var(--tl-text-disabled);
+    opacity: 0.72;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action .mud-icon-root {
+    font-size: 1.35rem !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action span {
+    font-size: 0.94rem !important;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* More belongs with the primary task controls (beside Shuffle where present)
+   but retains the quiet utility treatment used by My List and Collection. */
+.tl-detail-stage ::deep .tl-detail-primary-actions .tl-detail-more-action {
+    width: auto !important;
+    min-width: 6.75rem !important;
+    min-height: clamp(3.35rem, 6svh, 4rem) !important;
+    height: auto !important;
+    align-self: stretch;
+    justify-self: start;
+    margin: 0 !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-primary-actions:has(.tl-detail-more-action) {
+    display: flex !important;
+    width: auto !important;
+    max-width: 100%;
+    flex-wrap: wrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.65rem !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-primary-actions:has(.tl-detail-more-action) .tl-detail-action--primary {
+    width: auto !important;
+    min-width: clamp(8rem, 12vw, 12rem) !important;
+    flex: 1 1 9rem;
+}
+
+/* In normal media utility rows, More is indistinguishable in geometry from
+   My List, Rate, and Add to Collection. */
+.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    align-self: center;
+}
+
+/* Person actions keep their warm identity accent but share one height and
+   rectangular geometry, including the icon-only More trigger. */
+.tl-detail-stage ::deep .tl-detail-person-more-action {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    line-height: 1 !important;
+    vertical-align: middle;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-links {
+    align-items: center;
+    gap: 0.55rem;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action:hover,
+.tl-detail-stage ::deep .tl-detail-person-more-action:focus-visible,
+.tl-detail-stage ::deep .tl-detail-person-more-action.mud-expanded {
+    border-color: transparent !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-more-action .mud-icon-root {
+    display: block;
+    margin: 0;
+    font-size: 1.25rem;
+    line-height: 1;
+    transform: none;
+}
+
+@media (max-width: 720px) {
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action {
+        min-height: 2.75rem !important;
+        padding: 0.5rem 0.78rem !important;
+    }
+}
+
+/* MudMenu's host is layout-only. This intentionally comes after every hero
+   action rule so the host can never acquire the button's fill or hover state. */
+.tl-detail-stage ::deep .tl-detail-actions--watch .app-overflow-menu.tl-detail-more-action,
+.tl-detail-stage ::deep .tl-detail-person-links .app-overflow-menu.tl-detail-person-more-action {
+    width: auto !important;
+    min-width: 0 !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    color: inherit !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .app-overflow-menu.tl-detail-more-action:hover,
+.tl-detail-stage ::deep .tl-detail-actions--watch .app-overflow-menu.tl-detail-more-action:focus-within,
+.tl-detail-stage ::deep .tl-detail-person-links .app-overflow-menu.tl-detail-person-more-action:hover,
+.tl-detail-stage ::deep .tl-detail-person-links .app-overflow-menu.tl-detail-person-more-action:focus-within {
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
 }

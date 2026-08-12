@@ -3,32 +3,24 @@
 
 @if (Actions.Count > 0)
 {
-    <div class="tl-detail-overflow">
-        <AppNativeButton Type="button" Class="@ButtonClass" AriaLabel="More actions" aria-haspopup="menu" aria-expanded="@_isOpen" OnClick="ToggleMenu">
-            <MudIcon Icon="@Icons.Material.Outlined.MoreHoriz" Size="Size.Small" />
-        </AppNativeButton>
-
-        @if (_isOpen)
-        {
-            <div class="tl-detail-overflow-popover" role="menu">
-                <ManageActionsMenu Actions="Actions" OnActionSelected="SelectAsync" />
-            </div>
-        }
-    </div>
+    <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreHoriz"
+                     Label="@Label"
+                     AriaLabel="More actions"
+                     Class="tl-detail-overflow"
+                     TriggerClass="@ButtonClass"
+                     PopoverClass="@PopoverRootClass"
+                     AnchorOrigin="Origin.BottomRight"
+                     TransformOrigin="Origin.TopRight">
+        <ManageActionsMenu Actions="Actions" OnActionSelected="OnActionSelected" />
+    </AppOverflowMenu>
 }
 
 @code {
     [Parameter] public IReadOnlyList<DetailAction> Actions { get; set; } = [];
-    [Parameter] public string ButtonClass { get; set; } = "tl-detail-icon-button";
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string ButtonClass { get; set; } = "tl-detail-person-more-action";
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
 
-    private bool _isOpen;
-
-    private void ToggleMenu() => _isOpen = !_isOpen;
-
-    private async Task SelectAsync(DetailAction action)
-    {
-        _isOpen = false;
-        await OnActionSelected.InvokeAsync(action);
-    }
+    private string PopoverRootClass =>
+        $"tl-detail-overflow-popover {(Actions.Count == 1 ? "tl-detail-overflow-popover--compact" : null)}";
 }

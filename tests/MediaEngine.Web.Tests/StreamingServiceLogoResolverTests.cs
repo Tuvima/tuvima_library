@@ -222,7 +222,7 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
 
     [Theory]
     [MemberData(nameof(EditableMediaTypeData))]
-    public void DetailHero_PutsEditInVisibleActionRowForEditableMediaTypes(DetailEntityType entityType)
+    public void DetailHero_PutsEditInPermissionFilteredMoreMenuForEditableMediaTypes(DetailEntityType entityType)
     {
         using var cut = Render(builder =>
         {
@@ -234,15 +234,18 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         });
 
         Assert.Empty(cut.FindAll(".tl-detail-inline-edit"));
-        Assert.NotNull(cut.Find("button[aria-label='Edit']"));
-        Assert.Empty(cut.FindComponents<OverflowActionMenu>());
+        Assert.Empty(cut.FindAll("button[aria-label='Edit']"));
+        var overflow = Assert.Single(cut.FindComponents<OverflowActionMenu>());
+        var edit = Assert.Single(overflow.Instance.Actions);
+        Assert.Equal("edit", edit.Key);
+        Assert.Equal("Edit", edit.Label);
 
         var overflowMenuSource = File.ReadAllText(Path.Combine(
             FindRepoRoot(),
             "src/MediaEngine.Web/Components/Details/OverflowActionMenu.razor"));
-        Assert.Contains("OnClick=\"ToggleMenu\"", overflowMenuSource);
-        Assert.Contains("aria-expanded=\"@_isOpen\"", overflowMenuSource);
-        Assert.Contains("OnActionSelected=\"SelectAsync\"", overflowMenuSource);
+        Assert.Contains("Actions.Count > 0", overflowMenuSource);
+        Assert.Contains("<AppOverflowMenu", overflowMenuSource);
+        Assert.Contains("<ManageActionsMenu", overflowMenuSource);
     }
 
     [Theory]
@@ -310,6 +313,17 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
                     DisplayStyle = entityType is DetailEntityType.Book or DetailEntityType.ComicIssue ? "button" : "icon",
                 },
             ],
+            OverflowActions = canEdit
+                ?
+                [
+                    new DetailAction
+                    {
+                        Key = "edit",
+                        Label = "Edit",
+                        Icon = "edit",
+                    },
+                ]
+                : [],
         };
 
     private static DetailPresentationContext PresentationContextFor(DetailEntityType entityType)

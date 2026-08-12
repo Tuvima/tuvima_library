@@ -262,7 +262,8 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("DetailEntityType.MusicTrack", source);
         Assert.Contains("HasUniverseRelationship(relationships)", source);
         Assert.DoesNotContain("sync-settings", source);
-        Assert.Contains("BuildOverflowActions(workId, entityType, isAdminView)", source);
+        Assert.Contains("BuildOverflowActions(workId, entityType, actionAuthorization)", source);
+        Assert.Contains("authorization.Allows(action.Key)", source);
         Assert.Contains("Key = \"edit\", Label = \"Edit\"", source);
         Assert.DoesNotContain("Label = \"Refresh Metadata\"", source);
         Assert.DoesNotContain("Label = \"View File Info\"", source);

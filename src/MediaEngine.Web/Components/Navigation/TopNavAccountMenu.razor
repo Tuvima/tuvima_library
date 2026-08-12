@@ -2,7 +2,13 @@
 
 @inject IStringLocalizer<SharedStrings> L
 
-<div class="top-nav-account-menu-shell" @onkeydown="HandleKeyDown">
+<div class="top-nav-account-menu-shell"
+     data-app-dismissible="@(_open ? "open" : null)"
+     @onkeydown="HandleKeyDown">
+    @if (_open)
+    {
+        <button type="button" class="app-dismissible-surface__dismiss" data-app-dismiss tabindex="-1" aria-hidden="true" @onclick="CloseMenu"></button>
+    }
     <AppNativeButton Type="button"
                      Class="top-nav-account-menu__trigger"
                      AriaLabel="@L["TopBar_OpenProfileMenu"]"

@@ -10,6 +10,13 @@
                 <span>@PrimaryLabel(action)</span>
             </AppNativeButton>
         }
+        @if (OverflowMenuActions.Count > 0 && VisibleSecondaryActions.Count == 0)
+        {
+            <OverflowActionMenu Actions="OverflowMenuActions"
+                                Label="More"
+                                ButtonClass="tl-media-action tl-media-action--flat tl-detail-flat-action tl-detail-more-action"
+                                OnActionSelected="OnActionSelected" />
+        }
     </div>
 
     <div class="tl-detail-secondary-actions">
@@ -135,20 +142,13 @@
             }
         }
 
-        @if (IsPrimaryHeroActionRow && OverflowMenuActions.Count > 0)
+        @if (OverflowMenuActions.Count > 0 && VisibleSecondaryActions.Count > 0)
         {
             <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
                 <OverflowActionMenu Actions="OverflowMenuActions"
-                                    ButtonClass="tl-detail-watch-secondary tl-detail-watch-secondary--icon"
+                                    Label="More"
+                                    ButtonClass="tl-media-action tl-media-action--flat tl-detail-flat-action tl-detail-more-action"
                                     OnActionSelected="OnActionSelected" />
-                <span class="tl-detail-secondary-label">More</span>
-            </div>
-        }
-        else if (!IsPrimaryHeroActionRow && OverflowMenuActions.Count > 0)
-        {
-            <div class="tl-detail-secondary-action">
-                <OverflowActionMenu Actions="OverflowMenuActions" OnActionSelected="OnActionSelected" />
-                <span>More</span>
             </div>
         }
     </div>

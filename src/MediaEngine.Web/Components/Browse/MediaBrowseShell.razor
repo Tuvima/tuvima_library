@@ -30,7 +30,7 @@
 
 <BrowseShellStyles />
 
-<div class="@RootClass">
+<div class="@RootClass" @onclick="CloseFacetMenuOnBackgroundAsync">
     <div class="browse-shell__toolbar-anchor">
         <div class="browse-shell__toolbar-panel">
             @if (ShowHeaderRow)
@@ -1422,6 +1422,16 @@
     private Task OnOpenFacetMenuChanged(string? menuKey)
     {
         _openFacetMenuKey = menuKey;
+        return Task.CompletedTask;
+    }
+
+    private Task CloseFacetMenuOnBackgroundAsync(MouseEventArgs _)
+    {
+        if (_openFacetMenuKey is not null)
+        {
+            _openFacetMenuKey = null;
+        }
+
         return Task.CompletedTask;
     }
 

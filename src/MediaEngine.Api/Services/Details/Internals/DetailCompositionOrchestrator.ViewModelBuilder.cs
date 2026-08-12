@@ -784,12 +784,18 @@ internal sealed partial class DetailCompositionOrchestrator
             or DetailEntityType.ComicSeries
             or DetailEntityType.MovieSeries;
 
-    private static IReadOnlyList<DetailAction> BuildOverflowActions(Guid id, DetailEntityType entityType, bool isAdminView)
+    private static IReadOnlyList<DetailAction> BuildOverflowActions(
+        Guid id,
+        DetailEntityType entityType,
+        DetailActionAuthorizationContext authorization)
     {
         _ = id;
         _ = entityType;
-        _ = isAdminView;
-        return [new DetailAction { Key = "edit", Label = "Edit", Icon = "edit", IsAdminOnly = true }];
+        DetailAction[] candidates =
+        [
+            new() { Key = "edit", Label = "Edit", Icon = "edit" },
+        ];
+        return candidates.Where(action => authorization.Allows(action.Key)).ToList();
     }
 
     private static IReadOnlyList<DetailTab> BuildTabs(

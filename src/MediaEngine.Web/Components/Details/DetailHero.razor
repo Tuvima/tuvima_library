@@ -66,7 +66,7 @@
                 }
             </MetadataContent>
             <SupplementalContent>
-                @if (Model.PersonDetails.ExternalLinks.Count > 0)
+                @if (Model.PersonDetails.ExternalLinks.Count > 0 || Model.OverflowActions.Count > 0)
                 {
                     <div class="tl-detail-person-links" aria-label="External links">
                         @foreach (var link in Model.PersonDetails.ExternalLinks)
@@ -84,16 +84,12 @@
                                 <span>@link.Label</span>
                             </a>
                         }
+                        <OverflowActionMenu Actions="Model.OverflowActions"
+                                            ButtonClass="tl-detail-person-more-action"
+                                            OnActionSelected="OnActionSelected" />
                     </div>
                 }
             </SupplementalContent>
-            <ActionContent>
-                <HeroActionRow PrimaryActions="[]"
-                               SecondaryActions="[]"
-                               OverflowActions="Model.OverflowActions"
-                               UsePrimaryHeroChrome="true"
-                               OnActionSelected="OnActionSelected" />
-            </ActionContent>
         </DetailHeroContent>
     }
     else

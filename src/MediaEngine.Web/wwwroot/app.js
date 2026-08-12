@@ -22,6 +22,18 @@ window.tuvimaEditorFocus = function (selector) {
     });
 };
 
+// All custom menus use the same click-away contract. MudMenu already handles
+// its own dismissal; this covers richer application-owned popout surfaces.
+(function installDismissibleSurfaceHandler() {
+    document.addEventListener('pointerdown', function (event) {
+        document.querySelectorAll('[data-app-dismissible="open"]').forEach(function (surface) {
+            if (!surface.contains(event.target)) {
+                surface.querySelector('[data-app-dismiss]')?.click();
+            }
+        });
+    }, true);
+})();
+
 /**
  * Registers a global Ctrl+K (or Cmd+K on Mac) keydown listener that invokes
  * the .NET OpenPalette() method on the provided DotNetObjectReference.

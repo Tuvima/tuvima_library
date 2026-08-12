@@ -58,8 +58,9 @@ public sealed class DetailComposerService
         DetailPresentationContext context,
         CancellationToken ct = default,
         string? selectedContainerId = null,
-        Guid? profileId = null)
-        => _composer.BuildAsync(entityType, id, context, ct, selectedContainerId, profileId);
+        Guid? profileId = null,
+        string? callerRole = null)
+        => _composer.BuildAsync(entityType, id, context, ct, selectedContainerId, profileId, callerRole);
 
     public static bool TryParseEntityType(string value, out DetailEntityType entityType)
         => DetailPresentationPolicy.TryParseEntityType(value, out entityType);
