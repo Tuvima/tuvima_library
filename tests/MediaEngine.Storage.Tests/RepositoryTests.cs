@@ -465,22 +465,22 @@ public sealed class RepositoryTests : IDisposable
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task EntityAsset_Upsert_AllowsDiscArtAndClearArtTypes()
+    public async Task EntityAsset_Upsert_AllowsBannerAndLogoTypes()
     {
         var repo = new EntityAssetRepository(_db);
         var entityId = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
 
-        var discArtId = Guid.NewGuid();
-        var clearArtId = Guid.NewGuid();
+        var bannerId = Guid.NewGuid();
+        var logoId = Guid.NewGuid();
 
         await repo.UpsertAsync(new EntityAsset
         {
-            Id = discArtId,
+            Id = bannerId,
             EntityId = entityId,
             EntityType = "Work",
-            AssetTypeValue = "DiscArt",
-            LocalImagePath = "/library/Movies/Arrival/discart.png",
+            AssetTypeValue = "Banner",
+            LocalImagePath = "/library/Movies/Arrival/banner.png",
             SourceProvider = "fanart_tv",
             AssetClassValue = "Artwork",
             StorageLocationValue = "Central",
@@ -491,11 +491,11 @@ public sealed class RepositoryTests : IDisposable
 
         await repo.UpsertAsync(new EntityAsset
         {
-            Id = clearArtId,
+            Id = logoId,
             EntityId = entityId,
             EntityType = "Work",
-            AssetTypeValue = "ClearArt",
-            LocalImagePath = "/library/Movies/Arrival/clearart.png",
+            AssetTypeValue = "Logo",
+            LocalImagePath = "/library/Movies/Arrival/logo.png",
             SourceProvider = "fanart_tv",
             AssetClassValue = "Artwork",
             StorageLocationValue = "Central",
@@ -506,18 +506,18 @@ public sealed class RepositoryTests : IDisposable
 
         var assets = await repo.GetByEntityAsync(entityId);
 
-        Assert.Contains(assets, asset => asset.AssetTypeValue == "DiscArt");
-        Assert.Contains(assets, asset => asset.AssetTypeValue == "ClearArt");
+        Assert.Contains(assets, asset => asset.AssetTypeValue == "Banner");
+        Assert.Contains(assets, asset => asset.AssetTypeValue == "Logo");
 
         using var conn = _db.CreateConnection();
         var storageTypes = conn.Query<string>(
             """
             SELECT typeof(entity_id)
             FROM entity_assets
-            WHERE id = @discArtId OR id = @clearArtId
+            WHERE id = @bannerId OR id = @logoId
             ORDER BY asset_type;
             """,
-            new { discArtId, clearArtId }).ToList();
+            new { bannerId, logoId }).ToList();
         Assert.Equal(2, storageTypes.Count);
         Assert.All(storageTypes, type => Assert.Equal("blob", type));
     }

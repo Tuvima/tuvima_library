@@ -733,7 +733,7 @@
             if (savedCollectionId.HasValue && _artworkFile is not null)
             {
                 await using var stream = _artworkFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-                var uploaded = await ApiClient.UploadCollectionSquareArtworkAsync(savedCollectionId.Value, stream, _artworkFile.Name, Request.ActiveProfileId);
+                var uploaded = await ApiClient.UploadCollectionCoverArtworkAsync(savedCollectionId.Value, stream, _artworkFile.Name, Request.ActiveProfileId);
                 if (!uploaded)
                     Snackbar.Add("Collection saved, but artwork could not be uploaded.", Severity.Warning);
             }

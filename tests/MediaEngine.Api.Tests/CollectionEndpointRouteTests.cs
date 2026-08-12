@@ -29,11 +29,11 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("BannerUrl = combinedBanner", source, StringComparison.Ordinal);
         Assert.Contains("HeroUrl = combinedHero", source, StringComparison.Ordinal);
         Assert.Contains("LogoUrl = combinedLogo", source, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("MapDelete(\"/{id:guid}/square-artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
-        Assert.Contains("UpdateCollectionSquareArtworkAsync(id, null, null", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/{id:guid}/cover-artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/{id:guid}/cover-artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapDelete(\"/{id:guid}/cover-artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateCollectionCoverArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateCollectionCoverArtworkAsync(id, null, null", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemViewGroupsAsync", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("PreviewItems = group.Items", source, StringComparison.Ordinal);
         Assert.Contains("w.media_type = 'Music'", browseReadServiceSource, StringComparison.Ordinal);
@@ -160,8 +160,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("GetCollectionArtworkItemsAsync", source, StringComparison.Ordinal);
         Assert.Contains("preferred_cover.id AS CoverAssetId", source, StringComparison.Ordinal);
         Assert.Contains("WHEN 'CoverArt' THEN 0", source, StringComparison.Ordinal);
-        Assert.Contains("WHEN 'SquareArt' THEN 1", source, StringComparison.Ordinal);
-        Assert.Contains("WHEN 'Background' THEN 2", source, StringComparison.Ordinal);
+        Assert.Contains("WHEN 'Background' THEN 1", source, StringComparison.Ordinal);
         Assert.Contains("/stream/artwork/{coverAssetId:D}", source, StringComparison.Ordinal);
         Assert.Contains("cover_asset", source, StringComparison.Ordinal);
         Assert.Contains("artwork_primary_hex", source, StringComparison.Ordinal);

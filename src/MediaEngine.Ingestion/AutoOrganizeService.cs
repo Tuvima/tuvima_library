@@ -430,9 +430,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "fanart", ".jpg", ".png");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "banner", ".jpg", ".png");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "logo", ".png", ".jpg");
-        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "discart", ".png", ".jpg");
-        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "clearart", ".png", ".jpg");
-        MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "square", ".jpg", ".png");
 
         MoveCompanionCandidates(
             [Path.Combine(oldFolder, "cover.jpg")],
@@ -544,9 +541,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             "fanart" => Path.ChangeExtension(AssetPathService.GetMediaFileFanartPath(mediaPath), extension),
             "banner" => Path.ChangeExtension(AssetPathService.GetMediaFileBannerPath(mediaPath), extension),
             "logo" => Path.ChangeExtension(AssetPathService.GetMediaFileLogoPath(mediaPath), extension),
-            "discart" => Path.ChangeExtension(AssetPathService.GetMediaFileDiscArtPath(mediaPath), extension),
-            "clearart" => Path.ChangeExtension(AssetPathService.GetMediaFileClearArtPath(mediaPath), extension),
-            "square" => Path.ChangeExtension(AssetPathService.GetMediaFileSquareArtPath(mediaPath), extension),
             _ => throw new ArgumentOutOfRangeException(nameof(artKind), artKind, "Unsupported companion art kind."),
         };
 

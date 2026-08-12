@@ -17,7 +17,7 @@ public sealed class MediaTileComposerServiceTests
             Description = "Songs for the highway",
             CollectionType = "Playlist",
             ItemCount = 1,
-            SquareArtworkUrl = "/stream/artwork/99999999-9999-9999-9999-999999999999",
+            CoverArtworkUrl = "/stream/artwork/99999999-9999-9999-9999-999999999999",
             CreatedAt = DateTimeOffset.Parse("2026-01-02T03:04:05Z"),
         };
 

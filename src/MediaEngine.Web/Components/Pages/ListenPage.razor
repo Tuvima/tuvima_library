@@ -88,9 +88,9 @@ else
                                     <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="tl-u-font-size-18px" />
                                 </AppNativeButton>
                                 <a href="@playlistRoute" target="_top" data-enhance-nav="false" class='@($"listen-rail__item is-child {(IsRouteActive(playlistRoute) ? "is-active" : null)}")' aria-current="@(IsRouteActive(playlistRoute) ? "page" : null)" @onclick="@(() => NavigateRailLink(playlistRoute))" @onclick:preventDefault="true" @ondragover:preventDefault="true" @ondrop="@(() => CanAcceptPlaylistItems(playlist) ? HandlePlaylistDropAsync(playlist.Id) : Task.CompletedTask)">
-                                    @if (!string.IsNullOrWhiteSpace(playlist.SquareArtworkUrl))
+                                    @if (!string.IsNullOrWhiteSpace(playlist.CoverArtworkUrl))
                                     {
-                                        <span class="listen-rail__thumb"><img src="@playlist.SquareArtworkUrl" alt="" /></span>
+                                        <span class="listen-rail__thumb"><img src="@playlist.CoverArtworkUrl" alt="" /></span>
                                     }
                                     else
                                     {
@@ -608,9 +608,9 @@ else
             {
                 <section class="listen-detail listen-detail--collection">
                     <div class="listen-detail__collage">
-                        @if (!string.IsNullOrWhiteSpace(ActivePlaylistCollection?.SquareArtworkUrl))
+                        @if (!string.IsNullOrWhiteSpace(ActivePlaylistCollection?.CoverArtworkUrl))
                         {
-                            <img class="listen-detail__custom-art" src="@ActivePlaylistCollection.SquareArtworkUrl" alt="" />
+                            <img class="listen-detail__custom-art" src="@ActivePlaylistCollection.CoverArtworkUrl" alt="" />
                         }
                         else if (PlaylistCoverUrls.Count == 0)
                         {

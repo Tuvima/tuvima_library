@@ -138,7 +138,7 @@ public sealed class AssetExportServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task ReconcileArtworkAsync_HybridPolicy_ExportsDiscArtAsPngSidecar()
+    public async Task ReconcileArtworkAsync_HybridPolicy_ExportsLogoAsPngSidecar()
     {
         var context = await SeedMovieAsync();
         var policy = new LibraryStoragePolicy
@@ -157,7 +157,7 @@ public sealed class AssetExportServiceTests : IDisposable
 
         var assetPaths = new AssetPathService(_libraryRoot, policy);
         var variantId = Guid.NewGuid();
-        var centralPath = assetPaths.GetCentralAssetPath("Work", context.WorkId, "DiscArt", variantId, ".png");
+        var centralPath = assetPaths.GetCentralAssetPath("Work", context.WorkId, "Logo", variantId, ".png");
         AssetPathService.EnsureDirectory(centralPath);
         await File.WriteAllBytesAsync(centralPath, [4, 3, 2, 1]);
 
@@ -167,7 +167,7 @@ public sealed class AssetExportServiceTests : IDisposable
             Id = variantId,
             EntityId = context.WorkId.ToString(),
             EntityType = "Work",
-            AssetTypeValue = "DiscArt",
+            AssetTypeValue = "Logo",
             LocalImagePath = centralPath,
             SourceProvider = "fanart_tv",
             AssetClassValue = "Artwork",
@@ -177,9 +177,9 @@ public sealed class AssetExportServiceTests : IDisposable
         });
 
         var service = new AssetExportService(_db, entityAssetRepo, assetPaths, NullLogger<AssetExportService>.Instance);
-        await service.ReconcileArtworkAsync(context.WorkId.ToString(), "Work", "DiscArt");
+        await service.ReconcileArtworkAsync(context.WorkId.ToString(), "Work", "Logo");
 
-        var exportPath = Path.Combine(context.MovieFolder, "discart.png");
+        var exportPath = Path.Combine(context.MovieFolder, "logo.png");
         Assert.True(File.Exists(exportPath));
 
         var persisted = await entityAssetRepo.FindByIdAsync(variantId);

@@ -40,6 +40,6 @@ public sealed record CollectionPlacementSummary(
     string display_mode,
     bool is_visible);
 
-public sealed record CollectionSquareArtworkUploadResponse(string square_artwork_url);
+public sealed record CollectionCoverArtworkUploadResponse(string cover_artwork_url);
 
 public sealed record CollectionCreatedResponse(Guid id, string? name);

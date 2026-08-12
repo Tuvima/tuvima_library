@@ -580,7 +580,7 @@ public sealed class ActivityBatchReadService : IActivityBatchReadService
                 LEFT JOIN works gp_cover ON gp_cover.id = p_cover.parent_work_id
                 JOIN entity_assets ea
                   ON ea.entity_id IN (scoped_cover.entity_id, w_cover.id, p_cover.id, gp_cover.id)
-                 AND ea.asset_type IN ('CoverArt', 'SeasonPoster', 'EpisodeStill', 'SquareArt')
+                 AND ea.asset_type IN ('CoverArt', 'SeasonPoster', 'EpisodeStill')
             ),
             provider_candidates AS (
                 SELECT

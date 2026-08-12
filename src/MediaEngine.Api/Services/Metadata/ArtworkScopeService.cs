@@ -99,11 +99,9 @@ internal sealed class ArtworkScopeService(
             ("TV", "series") =>
             [
                 "CoverArt",
-                "SquareArt",
                 "Background",
                 "Banner",
                 "Logo",
-                "ClearArt",
             ],
             ("TV", "season") =>
             [
@@ -113,12 +111,9 @@ internal sealed class ArtworkScopeService(
             ("Movies", "item") =>
             [
                 "CoverArt",
-                "SquareArt",
                 "Background",
                 "Banner",
                 "Logo",
-                "DiscArt",
-                "ClearArt",
             ],
             ("TV", "episode") =>
             [
@@ -127,15 +122,16 @@ internal sealed class ArtworkScopeService(
             ("Music", "album") =>
             [
                 "CoverArt",
-                "SquareArt",
-                "DiscArt",
-                "ClearArt",
+                "Background",
+                "Banner",
+                "Logo",
             ],
             ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
             [
                 "CoverArt",
-                "SquareArt",
                 "Background",
+                "Banner",
+                "Logo",
             ],
             _ => [],
         };
@@ -356,11 +352,8 @@ internal sealed class ArtworkScopeService(
         {
             "cover" or "Cover" or "Poster" or "poster" or "CoverArt" => "CoverArt",
             "banner" or "Banner" => "Banner",
-            "square" or "Square" or "SquareArt" => "SquareArt",
             "background" or "Background" => "Background",
             "logo" or "Logo" => "Logo",
-            "discart" or "disc" or "DiscArt" => "DiscArt",
-            "clearart" or "clear" or "ClearArt" => "ClearArt",
             "seasonposter" or "SeasonPoster" => "SeasonPoster",
             "seasonthumb" or "SeasonThumb" => "SeasonThumb",
             "episodestill" or "EpisodeStill" or "still" or "Still" => "EpisodeStill",
@@ -369,9 +362,7 @@ internal sealed class ArtworkScopeService(
 
     public static bool IsArtworkUploadAllowed(string? contentType, string normalizedAssetType)
     {
-        if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalizedAssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(normalizedAssetType, "ClearArt", StringComparison.OrdinalIgnoreCase))
+        if (string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase))
             return string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase);
 
         return contentType is not null && (string.Equals(contentType, "image/jpeg", StringComparison.OrdinalIgnoreCase)
@@ -422,8 +413,6 @@ internal sealed class ArtworkScopeService(
 
     public static string BuildArtworkExtension(string normalizedAssetType, string? contentType) =>
         string.Equals(normalizedAssetType, "Logo", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(normalizedAssetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(normalizedAssetType, "ClearArt", StringComparison.OrdinalIgnoreCase)
             ? ".png"
             : string.Equals(contentType, "image/png", StringComparison.OrdinalIgnoreCase)
                 ? ".png"
@@ -433,12 +422,9 @@ internal sealed class ArtworkScopeService(
         normalizedAssetType switch
         {
             "CoverArt" => MetadataFieldConstants.CoverUrl,
-            "SquareArt" => "square",
             "Background" => "background",
             "Banner" => "banner",
             "Logo" => "logo",
-            "DiscArt" => "disc",
-            "ClearArt" => "clearart",
             "SeasonPoster" => "season_poster",
             "SeasonThumb" => "season_thumb",
             "EpisodeStill" => "episode_still",
@@ -541,7 +527,9 @@ internal sealed class ArtworkScopeService(
                     : "Stored",
             FormatArtworkProviderName(asset.SourceProvider),
             CanDelete: true,
-            CreatedAt: asset.CreatedAt);
+            CreatedAt: asset.CreatedAt,
+            WidthPx: asset.WidthPx,
+            HeightPx: asset.HeightPx);
 
     public static string? FormatArtworkProviderName(string? sourceProvider) =>
         string.IsNullOrWhiteSpace(sourceProvider)

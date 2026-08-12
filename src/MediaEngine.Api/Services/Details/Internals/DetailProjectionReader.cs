@@ -126,8 +126,7 @@ internal sealed class DetailProjectionReader
         string? canonicalArtworkUrl,
         CancellationToken ct)
     {
-        var preferred = await _entityAssets.GetPreferredAsync(entityId.ToString("D"), "CoverArt", ct)
-            ?? await _entityAssets.GetPreferredAsync(entityId.ToString("D"), "SquareArt", ct);
+        var preferred = await _entityAssets.GetPreferredAsync(entityId.ToString("D"), "CoverArt", ct);
 
         if (preferred is not null)
         {

@@ -106,7 +106,7 @@ public static class ArtworkVariantHelper
 
     public static bool ShouldGenerateRenditions(string assetTypeValue) => assetTypeValue switch
     {
-        "Logo" or "ClearArt" or "DiscArt" => false,
+        "Logo" => false,
         _ => true,
     };
 

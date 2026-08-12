@@ -1220,12 +1220,11 @@ public sealed class CollectionCatalogReadService(
                 FROM entity_assets ea
                 WHERE ea.entity_id = w.id
                   AND ea.entity_type = 'Work'
-                  AND ea.asset_type IN ('CoverArt', 'SquareArt', 'Background', 'Banner')
+                  AND ea.asset_type IN ('CoverArt', 'Background', 'Banner')
                 ORDER BY CASE ea.asset_type
                              WHEN 'CoverArt' THEN 0
-                             WHEN 'SquareArt' THEN 1
-                             WHEN 'Background' THEN 2
-                             ELSE 3
+                             WHEN 'Background' THEN 1
+                             ELSE 2
                          END,
                          ea.is_preferred DESC,
                          ea.created_at DESC,

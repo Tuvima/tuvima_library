@@ -700,12 +700,9 @@ public sealed class CoverArtWorker
             "Background" => "background",
             "Banner" => "banner",
             "Logo" => "logo",
-            "SquareArt" => "square",
             "SeasonPoster" => "season_poster",
             "SeasonThumb" => "season_thumb",
             "EpisodeStill" => "episode_still",
-            "DiscArt" => "disc_art",
-            "ClearArt" => "clear_art",
             _ => null,
         };
         if (prefix is null)
@@ -729,12 +726,9 @@ public sealed class CoverArtWorker
             "Background" => ["background", "background_url"],
             "Banner" => ["banner", "banner_url"],
             "Logo" => ["logo", "logo_url"],
-            "SquareArt" => ["square", "square_url"],
             "SeasonPoster" => ["season_poster", "season_poster_url"],
             "SeasonThumb" => ["season_thumb", "season_thumb_url"],
             "EpisodeStill" => ["episode_still", "episode_still_url"],
-            "DiscArt" => ["disc", "disc_art_url"],
-            "ClearArt" => ["clearart", "clear_art_url"],
             _ => [],
         });
         if (assetType == "CoverArt")

@@ -123,14 +123,11 @@ public static class ArtworkCanonicalHelper
         "Background" => ["background", "background_url"],
         "Banner" => ["banner", "banner_url"],
         "Logo" => ["logo", "logo_url"],
-        "SquareArt" => ["square", "square_url"],
         "Headshot" => ["artist_photo_url", "headshot_url"],
         "SeasonPoster" => ["season_poster", "season_poster_url"],
         "SeasonThumb" => ["season_thumb", "season_thumb_url"],
         "EpisodeStill" => ["episode_still", "episode_still_url"],
         "CharacterPortrait" => ["character_portrait", "character_portrait_url"],
-        "DiscArt" => ["disc", "disc_art_url"],
-        "ClearArt" => ["clearart", "clear_art_url"],
         _ => [],
     };
 
@@ -140,20 +137,17 @@ public static class ArtworkCanonicalHelper
         "Background" => "background",
         "Banner" => "banner",
         "Logo" => "logo",
-        "SquareArt" => "square",
         "Headshot" => "artist_photo",
         "SeasonPoster" => "season_poster",
         "SeasonThumb" => "season_thumb",
         "EpisodeStill" => "episode_still",
         "CharacterPortrait" => "character_portrait",
-        "DiscArt" => "disc_art",
-        "ClearArt" => "clear_art",
         _ => null,
     };
 
     private static bool ShouldGenerateRenditions(string assetTypeValue) => assetTypeValue switch
     {
-        "Logo" or "ClearArt" or "DiscArt" => false,
+        "Logo" => false,
         _ => true,
     };
 }

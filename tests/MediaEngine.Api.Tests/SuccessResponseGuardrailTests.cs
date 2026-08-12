@@ -20,7 +20,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "DeleteAudiobookChapterTitleOverride",
         "DeleteBookmark",
         "DeleteCollection",
-        "DeleteCollectionSquareArtwork",
+        "DeleteCollectionCoverArtwork",
         "DeleteHighlight",
         "DeleteMediaType",
         "DeleteProfile",
@@ -35,9 +35,8 @@ public sealed partial class SuccessResponseGuardrailTests
         "GetAssetCoverThumb",
         "GetAssetLogo",
         "GetAssetLyrics",
-        "GetAssetSquareArt",
         "GetAssetSubtitles",
-        "GetCollectionSquareArtwork",
+        "GetCollectionCoverArtwork",
         "GetEntityCover",
         "GetEpubResource",
         "GetProfileAvatar",
@@ -164,7 +163,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(377, routeCount);
+        Assert.Equal(376, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

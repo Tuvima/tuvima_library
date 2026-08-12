@@ -67,7 +67,7 @@ public sealed class DisplayHomeCollectionProjectionReader
     private static DisplayHomeCollectionRow ToRow(CollectionManagementCatalogDto collection)
     {
         var artwork = collection.ArtworkItems.FirstOrDefault();
-        var primaryArtwork = StringHelpers.FirstNonBlank(collection.SquareArtworkUrl, artwork?.CoverUrl);
+        var primaryArtwork = StringHelpers.FirstNonBlank(collection.CoverArtworkUrl, artwork?.CoverUrl);
         return new DisplayHomeCollectionRow
         {
             CollectionId = collection.Id,

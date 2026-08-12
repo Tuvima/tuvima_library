@@ -30,8 +30,8 @@ public sealed partial class EngineApiClient
             var collections = contracts.Select(ManagedCollectionViewModel.FromContract).ToList();
             foreach (var collection in collections)
             {
-                if (collection.SquareArtworkUrl is not null)
-                    collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
+                if (collection.CoverArtworkUrl is not null)
+                    collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
             }
 
             return collections;
@@ -96,8 +96,8 @@ public sealed partial class EngineApiClient
 
     private void NormalizeManagedCollectionArtwork(CollectionManagementCatalogViewModel collection)
     {
-        if (collection.SquareArtworkUrl is not null)
-            collection.SquareArtworkUrl = AbsoluteUrl(collection.SquareArtworkUrl);
+        if (collection.CoverArtworkUrl is not null)
+            collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
 
         if (collection.Person?.HeadshotUrl is not null)
             collection.Person.HeadshotUrl = AbsoluteUrl(collection.Person.HeadshotUrl);

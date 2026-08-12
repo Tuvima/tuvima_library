@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS collections (
     wikidata_qid      TEXT,
     universe_status   TEXT NOT NULL DEFAULT 'Unknown',
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
-, resolution TEXT NOT NULL DEFAULT 'query', rule_hash TEXT, group_by_field TEXT, match_mode TEXT NOT NULL DEFAULT 'all', sort_field TEXT, sort_direction TEXT NOT NULL DEFAULT 'desc', live_updating INTEGER NOT NULL DEFAULT 1, square_artwork_path TEXT, square_artwork_mime_type TEXT);
+, resolution TEXT NOT NULL DEFAULT 'query', rule_hash TEXT, group_by_field TEXT, match_mode TEXT NOT NULL DEFAULT 'all', sort_field TEXT, sort_direction TEXT NOT NULL DEFAULT 'desc', live_updating INTEGER NOT NULL DEFAULT 1, cover_artwork_path TEXT, cover_artwork_mime_type TEXT);
 
 CREATE TABLE IF NOT EXISTS deferred_enrichment_queue (
     id           BLOB NOT NULL PRIMARY KEY,
@@ -191,7 +191,7 @@ CREATE TABLE IF NOT EXISTS entity_assets (
     id               BLOB PRIMARY KEY,
     entity_id        BLOB NOT NULL,
     entity_type      TEXT NOT NULL CHECK(entity_type IN ('Work','Person','Universe','FictionalEntity')),
-    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','SquareArt','Logo','DiscArt','ClearArt','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
+    asset_type       TEXT NOT NULL CHECK(asset_type IN ('CoverArt','Headshot','Banner','Logo','Background','SeasonPoster','SeasonThumb','EpisodeStill','CharacterPortrait')),
     image_url        TEXT,
     local_image_path TEXT,
     local_image_path_s TEXT,

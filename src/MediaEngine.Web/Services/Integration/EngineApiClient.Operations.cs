@@ -201,21 +201,17 @@ public sealed partial class EngineApiClient
         int limit = 250,
         CancellationToken ct = default)
     {
-        try
+        var query = new Dictionary<string, string?>
         {
-            var query = new List<string> { $"limit={Math.Clamp(limit, 1, 1000)}" };
-            if (!string.IsNullOrWhiteSpace(entityType))
-                query.Add($"entityType={Uri.EscapeDataString(entityType)}");
-            if (!string.IsNullOrWhiteSpace(status))
-                query.Add($"status={Uri.EscapeDataString(status)}");
-            return await _http.GetFromJsonAsync<EnrichmentRefreshScheduleResponse>(
-                $"/ingestion/refresh-schedule?{string.Join('&', query)}", ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /ingestion/refresh-schedule failed");
-            return null;
-        }
+            ["limit"] = Math.Clamp(limit, 1, 1000).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            ["entityType"] = entityType,
+            ["status"] = status,
+        };
+        return await GetAsync<EnrichmentRefreshScheduleResponse>(
+            "GET /ingestion/refresh-schedule",
+            "/ingestion/refresh-schedule",
+            query,
+            ct: ct);
     }
 
     public async Task<EnrichmentRefreshQueuedResponse?> QueueEnrichmentRefreshNowAsync(
@@ -223,20 +219,11 @@ public sealed partial class EngineApiClient
         Guid entityId,
         CancellationToken ct = default)
     {
-        try
-        {
-            var response = await _http.PostAsJsonAsync(
-                $"/ingestion/refresh-schedule/{Uri.EscapeDataString(entityType)}/{entityId:D}/run-now",
-                new { }, ct);
-            if (!response.IsSuccessStatusCode)
-                return null;
-            return await response.Content.ReadFromJsonAsync<EnrichmentRefreshQueuedResponse>(ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "POST refresh schedule run-now failed for {EntityType}/{EntityId}", entityType, entityId);
-            return null;
-        }
+        return await PostAsync<object, EnrichmentRefreshQueuedResponse>(
+            "POST /ingestion/refresh-schedule/{entityType}/{entityId}/run-now",
+            $"/ingestion/refresh-schedule/{Uri.EscapeDataString(entityType)}/{entityId:D}/run-now",
+            new { },
+            ct: ct);
     }
 
     // -- /metadata/conflicts ----------------------------------------------------

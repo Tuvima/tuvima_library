@@ -52,8 +52,8 @@ public sealed class CollectionRepository : ICollectionRepository
         collection_type          AS CollectionType,
         description       AS Description,
         icon_name         AS IconName,
-        square_artwork_path      AS SquareArtworkPath,
-        square_artwork_mime_type AS SquareArtworkMimeType,
+        cover_artwork_path       AS CoverArtworkPath,
+        cover_artwork_mime_type  AS CoverArtworkMimeType,
         scope             AS Scope,
         profile_id        AS ProfileId,
         is_enabled        AS IsEnabled,
@@ -592,18 +592,18 @@ public sealed class CollectionRepository : ICollectionRepository
         conn.Execute("""
             INSERT OR IGNORE INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
                 universe_status, wikidata_qid, collection_type, description, icon_name,
-                square_artwork_path, square_artwork_mime_type, scope, profile_id,
+                cover_artwork_path, cover_artwork_mime_type, scope, profile_id,
                 is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
                 group_by_field, match_mode, sort_field, sort_direction, live_updating)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
-                    @squareArtworkPath, @squareArtworkMimeType, @scope, @pid,
+                    @coverArtworkPath, @coverArtworkMimeType, @scope, @pid,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
                     @groupByField, @matchMode, @sortField, @sortDirection, @liveUpdating);
             UPDATE collections SET display_name = @dn, universe_status = @us, parent_collection_id = @phid,
                             wikidata_qid = @wqid, collection_type = @ht, description = @desc,
                             icon_name = @icon,
-                            square_artwork_path = @squareArtworkPath,
-                            square_artwork_mime_type = @squareArtworkMimeType,
+                            cover_artwork_path = @coverArtworkPath,
+                            cover_artwork_mime_type = @coverArtworkMimeType,
                             scope = @scope, profile_id = @pid,
                             is_enabled = @enabled, is_featured = @featured, min_items = @minItems,
                             rule_json = @ruleJson, resolution = @resolution, rule_hash = @ruleHash,
@@ -624,8 +624,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 ht   = collection.CollectionType.ToStorageValue(),
                 desc = collection.Description,
                 icon = collection.IconName,
-                squareArtworkPath = collection.SquareArtworkPath,
-                squareArtworkMimeType = collection.SquareArtworkMimeType,
+                coverArtworkPath = collection.CoverArtworkPath,
+                coverArtworkMimeType = collection.CoverArtworkMimeType,
                 scope = collection.Scope.ToStorageValue(),
                 pid  = collection.ProfileId,
                 enabled = collection.IsEnabled ? 1 : 0,
@@ -1195,7 +1195,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task UpdateCollectionSquareArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default)
+    public Task UpdateCollectionCoverArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
@@ -1204,8 +1204,8 @@ public sealed class CollectionRepository : ICollectionRepository
             conn.Execute(
                 """
                 UPDATE collections
-                SET square_artwork_path = @LocalPath,
-                    square_artwork_mime_type = @MimeType,
+                SET cover_artwork_path = @LocalPath,
+                    cover_artwork_mime_type = @MimeType,
                     modified_at = datetime('now')
                 WHERE id = @Id
                 """,

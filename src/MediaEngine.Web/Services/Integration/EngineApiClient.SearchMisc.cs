@@ -25,20 +25,13 @@ public sealed partial class EngineApiClient
         string query,
         CancellationToken ct = default)
     {
-        var endpoint = "GET /collections/search";
-        try
-        {
-            var encoded = WebUtility.UrlEncode(query);
-            var response = await _http.GetAsync($"/collections/search?q={encoded}", ct);
-            if (!response.IsSuccessStatusCode)
-            {
-                await RecordHttpFailureAsync(endpoint, response, ct);
-                return [];
-            }
-
-            var raw = await response.Content.ReadFromJsonAsync<List<SearchResultDto>>(cancellationToken: ct);
-            ClearFailure(endpoint);
-            return raw?.Select(r => new SearchResultDto
+        var raw = await GetAsync(
+            "GET /collections/search",
+            "/collections/search",
+            static () => new List<SearchResultDto>(),
+            new Dictionary<string, string?> { ["q"] = query },
+            ct: ct);
+        return raw.Select(r => new SearchResultDto
             {
                 WorkId         = r.WorkId,
                 CollectionId   = r.CollectionId,
@@ -55,15 +48,7 @@ public sealed partial class EngineApiClient
                 Year = r.Year,
                 Description = r.Description,
                 Rating = r.Rating,
-            }).ToList() ?? [];
-        }
-        catch (OperationCanceledException) { return []; }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /collections/search failed");
-            RecordExceptionFailure(endpoint, ex);
-            return [];
-        }
+            }).ToList();
     }
 
     // -- Metadata search (/metadata/search) --------------------------------
@@ -151,15 +136,11 @@ public sealed partial class EngineApiClient
 
     public async Task SaveSearchResultsCacheAsync(Guid entityId, string resultsJson, CancellationToken ct = default)
     {
-        try
-        {
-            var payload = new { results_json = resultsJson };
-            await _http.PutAsJsonAsync($"/metadata/{entityId}/search-cache", payload, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "SaveSearchResultsCacheAsync failed for {EntityId}", entityId);
-        }
+        _ = await PutAsync(
+            "PUT /metadata/{entityId}/search-cache",
+            $"/metadata/{entityId}/search-cache",
+            new { results_json = resultsJson },
+            ct: ct);
     }
 
 
@@ -630,7 +611,7 @@ public sealed partial class EngineApiClient
         Values = source.Values,
     };
 
-    public async Task<bool> UploadCollectionSquareArtworkAsync(
+    public async Task<bool> UploadCollectionCoverArtworkAsync(
         Guid collectionId,
         Stream fileStream,
         string fileName,
@@ -644,13 +625,13 @@ public sealed partial class EngineApiClient
             fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageContentType(fileName));
             content.Add(fileContent, "file", fileName);
 
-            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/square-artwork", profileId);
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/cover-artwork", profileId);
             var response = await _http.PostAsync(url, content, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /collections/{CollectionId}/square-artwork failed", collectionId);
+            _logger.LogWarning(ex, "POST /collections/{CollectionId}/cover-artwork failed", collectionId);
             LastError = ex.Message;
             return false;
         }

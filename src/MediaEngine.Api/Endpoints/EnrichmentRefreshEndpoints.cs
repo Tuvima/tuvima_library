@@ -2,6 +2,7 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Contracts.Operations;
+using MediaEngine.Contracts.Paging;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -18,7 +19,11 @@ public static class EnrichmentRefreshEndpoints
             string? status,
             int? limit,
             EnrichmentRefreshScheduleService schedule,
-            CancellationToken ct) => Results.Ok(await schedule.GetAsync(entityType, status, limit ?? 250, ct)))
+            CancellationToken ct) => Results.Ok(await schedule.GetAsync(
+                entityType,
+                status,
+                PagedRequest.From(null, limit, defaultLimit: 250, maxLimit: 1000).Limit,
+                ct)))
             .WithName("GetEnrichmentRefreshSchedule")
             .WithSummary("Upcoming and active recurring enrichment refreshes.")
             .Produces<EnrichmentRefreshScheduleResponse>();

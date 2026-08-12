@@ -54,23 +54,19 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ["Movies"] = [
             new(AssetType.Background, true, "moviebackground"),
             new(AssetType.Logo, true, "hdmovielogo", "movielogo"),
-            new(AssetType.ClearArt, true, "hdmovieclearart", "movieclearart"),
             new(AssetType.Banner, true, "moviebanner"),
             new(AssetType.CoverArt, false, "movieposter"),
-            new(AssetType.DiscArt, true, "moviedisc"),
         ],
         ["TV"] = [
             new(AssetType.Background, true, "showbackground"),
             new(AssetType.Logo, true, "hdtvlogo", "clearlogo"),
-            new(AssetType.ClearArt, true, "hdclearart", "clearart"),
             new(AssetType.Banner, true, "tvbanner"),
             new(AssetType.CoverArt, false, "tvposter"),
         ],
         ["Music"] = [
             new(AssetType.Background, true, "artistbackground"),
             new(AssetType.Logo, true, "musiclogo"),
-            new(AssetType.SquareArt, true, "albumcover"),
-            new(AssetType.DiscArt, true, "cdart"),
+            new(AssetType.CoverArt, true, "albumcover"),
         ],
     };
 
@@ -712,7 +708,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private static string InferVariantExtension(AssetType assetType, string imageUrl)
     {
-        if (assetType is AssetType.Logo or AssetType.DiscArt or AssetType.ClearArt)
+        if (assetType is AssetType.Logo)
             return ".png";
 
         if (Uri.TryCreate(imageUrl, UriKind.Absolute, out var imageUri))
@@ -1297,7 +1293,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private static bool IsAllowedArtworkLanguage(JsonNode? imageNode, AssetType assetType)
     {
-        if (assetType is not (AssetType.Logo or AssetType.Banner or AssetType.SquareArt or AssetType.ClearArt))
+        if (assetType is not (AssetType.Logo or AssetType.Banner))
             return true;
 
         return IsPreferredArtworkLanguage(imageNode?["lang"]?.GetValue<string>());

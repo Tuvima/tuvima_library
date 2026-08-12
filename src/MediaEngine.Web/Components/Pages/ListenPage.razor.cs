@@ -2949,7 +2949,7 @@ public partial class ListenPage
             SortField = collection.SortField,
             SortDirection = collection.SortDirection,
             LiveUpdating = collection.LiveUpdating,
-            CoverUrl = collection.SquareArtworkUrl,
+            CoverUrl = collection.CoverArtworkUrl,
             CreatedAt = collection.CreatedAt,
             CanEdit = collection.CanEdit,
         };

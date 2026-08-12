@@ -48,7 +48,9 @@ public sealed class ArtworkVariantDto
         string Origin,
         string? ProviderName,
         bool CanDelete,
-        DateTimeOffset? CreatedAt)
+        DateTimeOffset? CreatedAt,
+        int? WidthPx = null,
+        int? HeightPx = null)
     {
         this.Id = Id;
         this.AssetType = AssetType;
@@ -58,6 +60,8 @@ public sealed class ArtworkVariantDto
         this.ProviderName = ProviderName;
         this.CanDelete = CanDelete;
         this.CreatedAt = CreatedAt;
+        this.WidthPx = WidthPx;
+        this.HeightPx = HeightPx;
     }
 
     [JsonPropertyName("id")]
@@ -83,6 +87,12 @@ public sealed class ArtworkVariantDto
 
     [JsonPropertyName("created_at")]
     public DateTimeOffset? CreatedAt { get; set; }
+
+    [JsonPropertyName("width_px")]
+    public int? WidthPx { get; set; }
+
+    [JsonPropertyName("height_px")]
+    public int? HeightPx { get; set; }
 }
 
 public sealed class ProviderArtworkRefreshDto

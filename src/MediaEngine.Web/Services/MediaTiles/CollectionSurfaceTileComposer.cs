@@ -319,7 +319,7 @@ public static class CollectionSurfaceTileComposer
         string.Join(" / ", BuildMediaCountLabels(collection));
 
     private static string? PrimaryArtwork(CollectionManagementCatalogViewModel collection) =>
-        StringHelpers.FirstNonBlank(collection.SquareArtworkUrl, collection.ArtworkItems.FirstOrDefault()?.CoverUrl);
+        StringHelpers.FirstNonBlank(collection.CoverArtworkUrl, collection.ArtworkItems.FirstOrDefault()?.CoverUrl);
 
     private static string? HeroBackground(CollectionManagementCatalogViewModel collection) =>
         StringHelpers.FirstNonBlank(collection.ArtworkItems.Skip(1).FirstOrDefault()?.CoverUrl, PrimaryArtwork(collection));

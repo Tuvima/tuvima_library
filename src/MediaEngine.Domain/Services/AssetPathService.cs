@@ -188,9 +188,6 @@ public sealed class AssetPathService
             "Background" => GetMediaFileFanartPath(mediaFilePath),
             "Banner" => GetMediaFileBannerPath(mediaFilePath),
             "Logo" => GetMediaFileLogoPath(mediaFilePath),
-            "DiscArt" => GetMediaFileDiscArtPath(mediaFilePath),
-            "ClearArt" => GetMediaFileClearArtPath(mediaFilePath),
-            "SquareArt" => GetMediaFileSquareArtPath(mediaFilePath),
             "EpisodeStill" => GetMediaFileThumbPath(mediaFilePath),
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported export artwork type."),
         };
@@ -205,9 +202,6 @@ public sealed class AssetPathService
             "Background" => "fanart",
             "Banner" => "banner",
             "Logo" => "logo",
-            "DiscArt" => "discart",
-            "ClearArt" => "clearart",
-            "SquareArt" => "square",
             "SeasonPoster" => "poster",
             "SeasonThumb" => "thumb",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported folder artwork type."),
@@ -285,15 +279,6 @@ public sealed class AssetPathService
     public static string GetMediaFileLogoPath(string mediaFilePath) =>
         BuildSiblingPath(mediaFilePath, "logo", ".png");
 
-    public static string GetMediaFileDiscArtPath(string mediaFilePath) =>
-        BuildSiblingPath(mediaFilePath, "discart", ".png");
-
-    public static string GetMediaFileClearArtPath(string mediaFilePath) =>
-        BuildSiblingPath(mediaFilePath, "clearart", ".png");
-
-    public static string GetMediaFileSquareArtPath(string mediaFilePath) =>
-        BuildSiblingPath(mediaFilePath, "square", ".jpg");
-
     public static string GetMediaFileBannerPath(string mediaFilePath) =>
         BuildSiblingPath(mediaFilePath, "banner", ".jpg");
 
@@ -321,10 +306,7 @@ public sealed class AssetPathService
             "CoverArt" => "poster",
             "Background" => "fanart",
             "Banner" => "banner",
-            "SquareArt" => "square",
             "Logo" => "logo",
-            "DiscArt" => "discart",
-            "ClearArt" => "clearart",
             "EpisodeStill" => "thumb",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
         };
@@ -351,10 +333,7 @@ public sealed class AssetPathService
             "CoverArt" => "poster",
             "Background" => "fanart",
             "Banner" => "banner",
-            "SquareArt" => "square",
             "Logo" => "logo",
-            "DiscArt" => "discart",
-            "ClearArt" => "clearart",
             "SeasonPoster" => "poster",
             "SeasonThumb" => "thumb",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported folder artwork type."),
@@ -397,10 +376,7 @@ public sealed class AssetPathService
             "coverart" => "cover",
             "background" => "background",
             "banner" => "banner",
-            "squareart" => "square",
             "logo" => "logo",
-            "discart" => "discart",
-            "clearart" => "clearart",
             "seasonposter" => "season-poster",
             "seasonthumb" => "season-thumb",
             "episodestill" => "episode-still",

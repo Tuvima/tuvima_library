@@ -16,11 +16,11 @@ internal static class ManagedCollectionMapper
         Name = collection.DisplayName ?? $"Collection {collection.Id.ToString("N")[..8]}",
         Description = collection.Description,
         IconName = collection.IconName,
-        SquareArtworkUrl = string.IsNullOrWhiteSpace(collection.SquareArtworkPath)
+        CoverArtworkUrl = string.IsNullOrWhiteSpace(collection.CoverArtworkPath)
             ? null
             : activeProfile is null
-                ? $"/collections/{collection.Id}/square-artwork"
-                : $"/collections/{collection.Id}/square-artwork?profileId={activeProfile.Id:D}",
+                ? $"/collections/{collection.Id}/cover-artwork"
+                : $"/collections/{collection.Id}/cover-artwork?profileId={activeProfile.Id:D}",
         CollectionType = collection.CollectionType.ToStorageValue(),
         Scope = collection.Scope.ToStorageValue(),
         ProfileId = collection.ProfileId,
@@ -66,7 +66,7 @@ internal static class ManagedCollectionMapper
             Name = string.IsNullOrWhiteSpace(displayNameOverride) ? baseDto.Name : displayNameOverride,
             Description = baseDto.Description,
             IconName = baseDto.IconName,
-            SquareArtworkUrl = baseDto.SquareArtworkUrl,
+            CoverArtworkUrl = baseDto.CoverArtworkUrl,
             CollectionType = classification.CollectionType,
             Scope = baseDto.Scope,
             ProfileId = baseDto.ProfileId,

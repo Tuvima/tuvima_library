@@ -225,17 +225,17 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
         });
         await SeedCanonicalsAsync(bookWorkId, ("background_url", $"/stream/artwork/{staleBackgroundId}"));
 
-        var userSquareId = Guid.NewGuid();
-        var userSquarePath = _assetPaths.GetCentralAssetPath("Work", bookWorkId, "SquareArt", userSquareId, ".jpg");
-        Directory.CreateDirectory(Path.GetDirectoryName(userSquarePath)!);
-        await File.WriteAllBytesAsync(userSquarePath, CreateTestImageBytes());
+        var userLogoId = Guid.NewGuid();
+        var userLogoPath = _assetPaths.GetCentralAssetPath("Work", bookWorkId, "Logo", userLogoId, ".jpg");
+        Directory.CreateDirectory(Path.GetDirectoryName(userLogoPath)!);
+        await File.WriteAllBytesAsync(userLogoPath, CreateTestImageBytes());
         await _entityAssetRepo.UpsertAsync(new EntityAsset
         {
-            Id = userSquareId,
+            Id = userLogoId,
             EntityId = bookWorkId.ToString(),
             EntityType = "Work",
-            AssetTypeValue = "SquareArt",
-            LocalImagePath = userSquarePath,
+            AssetTypeValue = "Logo",
+            LocalImagePath = userLogoPath,
             SourceProvider = "user_upload",
             IsPreferred = true,
             IsUserOverride = true,
@@ -261,8 +261,8 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
         Assert.False(File.Exists(oldCoverPath));
         Assert.False(File.Exists(staleBackgroundPath));
         Assert.Empty(await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "Background"));
-        Assert.Single(await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "SquareArt"));
-        Assert.True(File.Exists(userSquarePath));
+        Assert.Single(await _entityAssetRepo.GetByEntityAsync(bookWorkId.ToString(), "Logo"));
+        Assert.True(File.Exists(userLogoPath));
 
         var canonicals = await _canonicalRepo.GetByEntityAsync(bookWorkId);
         Assert.Equal(

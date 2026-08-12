@@ -132,7 +132,7 @@
                                 <div><MudIcon Icon="@Icons.Material.Outlined.WorkOutline" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Occupation</dt><dd>@(_person.Occupation ?? "Not available")</dd></div></div>
                                 <div><MudIcon Icon="@Icons.Material.Outlined.Cake" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Born</dt><dd>@(_person.DateOfBirth ?? "Not available")</dd></div></div>
                                 <div><MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Nationality</dt><dd>@(_person.Nationality ?? "Not available")</dd></div></div>
-                                <div><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Wikidata</dt><dd>@(_person.WikidataQid ?? "Not matched")</dd></div></div>
+                                <div><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Wikidata</dt><dd>@if (!string.IsNullOrWhiteSpace(_person.WikidataQid)) { <a href="@GetWikidataUrl(_person.WikidataQid)" target="_blank" rel="noopener noreferrer">@_person.WikidataQid <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a> } else { <span>Not matched</span> }</dd></div></div>
                             </dl>
                         </ChildContent>
                     </MediaEditorPanel>
@@ -149,8 +149,8 @@
                     </div>
                 </div>
                 <section class="person-editor__artwork-workspace">
-                    <aside class="person-editor__artwork-sidebar">
-                        <div class="person-editor__artwork-rail" role="tablist" aria-label="Artwork types">
+                    <div class="person-editor__artwork-main">
+                        <div class="person-editor__artwork-type-picker" role="tablist" aria-label="Artwork types">
                             @foreach (var slot in _artwork?.Slots ?? [])
                             {
                                 var isActive = string.Equals(slot.AssetType, selectedSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
@@ -163,9 +163,6 @@
                                 </AppButton>
                             }
                         </div>
-                    </aside>
-
-                    <div class="person-editor__artwork-main">
                         @if (selectedSlot is null)
                         {
                             <div class="person-editor__artwork-empty">No editable artwork types are available for this person.</div>
@@ -207,7 +204,7 @@
                                             <MudIcon Icon="@Icons.Material.Outlined.Add" />
                                             <strong>Add artwork</strong>
                                             <span>Upload a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() image</span>
-                                            <small>@GetArtworkRecommendedSize(selectedSlot.AssetType)</small>
+                                            <small>JPG or PNG, up to 20 MB</small>
                                             <span class="person-editor__artwork-file-shell">
                                                 <InputFile class="person-editor__artwork-file-input"
                                                            accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
@@ -244,7 +241,7 @@
                                     <dl>
                                         <div><dt>Artwork type</dt><dd>@FormatArtworkType(selectedSlot.AssetType)</dd></div>
                                         <div><dt>Source</dt><dd>@GetArtworkSource(selectedVariant)</dd></div>
-                                        <div><dt>Recommended size</dt><dd>@GetArtworkRecommendedSize(selectedSlot.AssetType)</dd></div>
+                                        <div><dt>Image size</dt><dd>@GetArtworkImageSize(selectedVariant)</dd></div>
                                         <div><dt>Added</dt><dd>@(selectedVariant?.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy") ?? "Provider managed")</dd></div>
                                     </dl>
                                     @if (selectedVariant is not null)
@@ -262,13 +259,15 @@
                                                        OnClick="@(() => DeleteArtworkAsync(selectedVariant.Id))" />
                                         }
                                     }
-                                    <div class="person-editor__artwork-tips">
-                                        <strong>Artwork tips</strong>
-                                        <span>Use high-resolution images for the best results.</span>
-                                        <span>Keep faces and logos away from image edges.</span>
-                                        <span>JPG or PNG formats are recommended.</span>
-                                    </div>
                                 </aside>
+
+                                <div class="person-editor__artwork-tips person-editor__artwork-tips--banner">
+                                    <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
+                                    <div>
+                                        <strong>@FormatArtworkType(selectedSlot.AssetType) artwork tips</strong>
+                                        <span>@GetArtworkGuidance(selectedSlot.AssetType)</span>
+                                    </div>
+                                </div>
                             </div>
                         }
                     </div>
@@ -380,7 +379,7 @@
         foreach (var key in _savedOverrides.Keys)
             _enabledOverrides.Add(key);
         _name = GetValue("name", _state.BaselineName);
-        _biography = GetValue("biography", _state.BaselineBiography);
+        _biography = NormalizeBiographyLineBreaks(GetValue("biography", _state.BaselineBiography));
         _sortName = GetValue("sort_name", BuildSortName(_state.BaselineName));
         _tags = string.Join(", ", _state.LocalTags);
         _dirty = false;
@@ -555,14 +554,28 @@
             ? "image/png"
             : "image/png,image/jpeg";
 
-    private static string GetArtworkRecommendedSize(string assetType) => assetType switch
+    private static string GetArtworkImageSize(ArtworkVariantDto? variant) =>
+        variant?.WidthPx is > 0 && variant.HeightPx is > 0
+            ? $"{variant.WidthPx.Value:N0} x {variant.HeightPx.Value:N0} px"
+            : "Not reported";
+
+    private static string GetArtworkGuidance(string assetType) => assetType switch
     {
-        "Headshot" => "1200 x 1800",
-        "Background" => "1920 x 1080",
-        "Banner" => "1920 x 356",
-        "Logo" => "1200 x 450 PNG",
-        _ => "High resolution",
+        "Headshot" => "Use a high-resolution portrait with the face centered and enough space around the head for responsive crops. Aim for at least 1200 px on the longest edge.",
+        "Background" => "Use a wide, text-free image with room for foreground copy. A 16:9 source at 1920 x 1080 px or larger works best.",
+        "Banner" => "Use a wide promotional strip with the subject centered. Aim for roughly 5:1 and at least 1920 px wide.",
+        "Logo" => "Use a transparent PNG containing only the person's or group's mark. Leave clear padding and aim for at least 1200 px wide.",
+        _ => "Use a high-resolution JPG or PNG and keep important content away from the edges.",
     };
+
+    private static string NormalizeBiographyLineBreaks(string value) => value
+        .Replace("\\r\\n", "\n", StringComparison.Ordinal)
+        .Replace("\\n", "\n", StringComparison.Ordinal)
+        .Replace("\r\n", "\n", StringComparison.Ordinal)
+        .Replace('\r', '\n');
+
+    private static string GetWikidataUrl(string qid) =>
+        $"https://www.wikidata.org/wiki/{Uri.EscapeDataString(qid.Trim())}";
 
     private static string GetArtworkSource(ArtworkVariantDto? variant) =>
         variant is null

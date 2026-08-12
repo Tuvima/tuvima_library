@@ -111,6 +111,20 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
+    public void SharedEditor_UsesOneNaturalAspectPosterCoverSlotAndOmitsUnsupportedArtworkTypes()
+    {
+        var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+
+        Assert.Contains("Poster / Cover", code, StringComparison.Ordinal);
+        Assert.Contains("GetArtworkPreviewClass", shell, StringComparison.Ordinal);
+        Assert.Contains("GetArtworkPreviewClass", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"SquareArt\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"DiscArt\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"ClearArt\"", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PersonEditor_UsesMediaArtworkWorkspaceAndOmitsMatchAndPersonalNotes()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor");
@@ -126,7 +140,8 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("PersonalNotes", contracts, StringComparison.Ordinal);
 
         Assert.Contains("person-editor__artwork-workspace", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__artwork-rail", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__artwork-type-picker", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("person-editor__artwork-sidebar", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-primary-card", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-variants-section", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-details", source, StringComparison.Ordinal);

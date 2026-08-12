@@ -145,19 +145,19 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateCollectionSquareArtworkAsync_RoundTripsMetadata()
+    public async Task UpdateCollectionCoverArtworkAsync_RoundTripsMetadata()
     {
         var repo = new CollectionRepository(_db);
         var collection = CreateCollection("Road Trip Mix", "Playlist");
 
         await repo.UpsertAsync(collection);
-        await repo.UpdateCollectionSquareArtworkAsync(collection.Id, @"C:\Tuvima\collections\road-trip.jpg", "image/jpeg");
+        await repo.UpdateCollectionCoverArtworkAsync(collection.Id, @"C:\Tuvima\collections\road-trip.jpg", "image/jpeg");
 
         var saved = await repo.GetByIdAsync(collection.Id);
 
         Assert.NotNull(saved);
-        Assert.Equal(@"C:\Tuvima\collections\road-trip.jpg", saved!.SquareArtworkPath);
-        Assert.Equal("image/jpeg", saved.SquareArtworkMimeType);
+        Assert.Equal(@"C:\Tuvima\collections\road-trip.jpg", saved!.CoverArtworkPath);
+        Assert.Equal("image/jpeg", saved.CoverArtworkMimeType);
     }
 
     [Fact]

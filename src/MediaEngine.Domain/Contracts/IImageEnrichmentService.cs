@@ -12,7 +12,7 @@ public interface IImageEnrichmentService
 {
     /// <summary>
     /// Enrich a work with images from Fanart.tv and Wikidata.
-    /// Downloads backgrounds, logos, banners, and square art for the work; matches character art
+    /// Downloads cover, background, logo, and banner variants for the work; matches character art
     /// to performer-character pairs; upgrades hero images from background art.
     /// </summary>
     /// <param name="assetId">The media asset ID used for artwork storage and stream routes.</param>

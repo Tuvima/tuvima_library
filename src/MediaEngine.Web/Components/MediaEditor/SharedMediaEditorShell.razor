@@ -378,7 +378,16 @@
                                                                  Class="sme-source-fact__icon" />
                                                         <div class="sme-source-fact__copy">
                                                             <dt>@fact.Label</dt>
-                                                            <dd>@fact.Value</dd>
+                                                            <dd>
+                                                                @if (!string.IsNullOrWhiteSpace(fact.Url))
+                                                                {
+                                                                    <a href="@fact.Url" target="_blank" rel="noopener noreferrer">@fact.Value <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
+                                                                }
+                                                                else
+                                                                {
+                                                                    @fact.Value
+                                                                }
+                                                            </dd>
                                                         </div>
                                                     </div>
                                                 }
@@ -1218,8 +1227,8 @@
                                 }
                             </div>
                             <section class="sme-artwork-workspace">
-                                <div class="sme-artwork-sidebar">
-                                    <div class="sme-artwork-rail" role="tablist" aria-label="Artwork types">
+                                <div class="sme-artwork-main">
+                                    <div class="sme-artwork-type-picker" role="tablist" aria-label="Artwork types">
                                         @foreach (var slotItem in ArtworkSlots)
                                         {
                                             var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
@@ -1236,9 +1245,6 @@
                                             </AppButton>
                                         }
                                     </div>
-                                </div>
-
-                                <div class="sme-artwork-main">
                                     @if (ArtworkSlots.Count == 0)
                                     {
                                         <div class="sme-artwork-readonly">
@@ -1265,6 +1271,7 @@
                                         var slot = SelectedArtworkSlot;
                                         var focusedItem = LeadArtworkVariant;
                                         var rowItems = GetArtworkRowItems(slot.AssetType);
+                                        var focusedPreviewClass = GetArtworkPreviewClass(slot, focusedItem);
 
                                         <section class="sme-artwork-editor-grid @(IsArtworkDragTarget(slot.AssetType) ? "sme-artwork-gallery-panel--drag" : "")"
                                                  @ondragenter="@(() => SetArtworkDragTarget(slot.AssetType))"
@@ -1299,11 +1306,11 @@
                                                     </div>
                                                 </div>
 
-                                                <div class="sme-artwork-primary-row sme-artwork-primary-row--@slot.PreviewClass">
+                                                <div class="sme-artwork-primary-row sme-artwork-primary-row--@focusedPreviewClass">
                                                     @if (focusedItem is not null)
                                                     {
-                                                        <div class="sme-artwork-primary-card sme-artwork-primary-card--@slot.PreviewClass">
-                                                            <div class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
+                                                        <div class="sme-artwork-primary-card sme-artwork-primary-card--@focusedPreviewClass">
+                                                            <div class="sme-art-row-stage sme-art-row-stage--@focusedPreviewClass">
                                                                 @if (!string.IsNullOrWhiteSpace(focusedItem.ImageUrl))
                                                                 {
                                                                     <img src="@focusedItem.ImageUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
@@ -1342,11 +1349,12 @@
                                                         <div class="sme-artwork-variant-strip">
                                                             @foreach (var item in rowItems)
                                                             {
+                                                                var itemPreviewClass = GetArtworkPreviewClass(slot, item);
                                                                 <AppNativeButton Type="button"
-                                                                                 Class="@($"sme-artwork-variant-card sme-artwork-variant-card--{slot.PreviewClass} {(focusedItem?.Key == item.Key ? "is-selected" : string.Empty)}")"
+                                                                                 Class="@($"sme-artwork-variant-card sme-artwork-variant-card--{itemPreviewClass} {(focusedItem?.Key == item.Key ? "is-selected" : string.Empty)}")"
                                                                                  aria-label="@BuildArtworkVariantHoverLabel(slot, item)"
                                                                                  OnClick="@(() => HandleArtworkVariantClickAsync(slot, item))">
-                                                                    <span class="sme-art-row-stage sme-art-row-stage--@slot.PreviewClass">
+                                                                    <span class="sme-art-row-stage sme-art-row-stage--@itemPreviewClass">
                                                                         @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
                                                                         {
                                                                             <img src="@item.ImageUrl" alt="" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
@@ -1402,7 +1410,7 @@
                                                 <dl>
                                                     <div><dt>Artwork type</dt><dd>@slot.Label</dd></div>
                                                     <div><dt>Source</dt><dd>@(focusedItem is null ? "Not available" : GetArtworkCardSource(focusedItem))</dd></div>
-                                                    <div><dt>Recommended size</dt><dd>@GetArtworkCardDimensions(slot)</dd></div>
+                                                    <div><dt>Image size</dt><dd>@GetArtworkImageSize(focusedItem)</dd></div>
                                                     <div><dt>Added</dt><dd>@(focusedItem?.CreatedAt?.LocalDateTime.ToString("g", CultureInfo.CurrentCulture) ?? "Provider managed")</dd></div>
                                                 </dl>
                                                 @if (focusedItem is not null && !string.IsNullOrWhiteSpace(focusedItem.ImageUrl))
@@ -1432,13 +1440,15 @@
                                                                    OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
                                                     }
                                                 }
-                                                <div class="sme-artwork-tips">
-                                                    <strong>Artwork tips</strong>
-                                                    <span>Use high-resolution images for the best results.</span>
-                                                    <span>Avoid text or logos near the edges.</span>
-                                                    <span>JPG or PNG formats are recommended.</span>
-                                                </div>
                                             </aside>
+
+                                            <div class="sme-artwork-tips sme-artwork-tips--banner">
+                                                <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
+                                                <div>
+                                                    <strong>@slot.Label artwork tips</strong>
+                                                    <span>@GetArtworkGuidance(slot)</span>
+                                                </div>
+                                            </div>
                                         </section>
 
                                     }
@@ -1449,7 +1459,7 @@
                                                         ImageUrl="@ZoomArtworkVariant?.ImageUrl"
                                                         Label="@ZoomArtworkSlot?.Label"
                                                         Summary="@(ZoomArtworkSlot is not null && ZoomArtworkVariant is not null ? BuildArtworkVariantSummary(ZoomArtworkSlot, ZoomArtworkVariant) : null)"
-                                                        PreviewClass="@ZoomArtworkSlot?.PreviewClass"
+                                                        PreviewClass="@(ZoomArtworkSlot is null ? null : GetArtworkPreviewClass(ZoomArtworkSlot, ZoomArtworkVariant))"
                                                         ImageClass="@ZoomArtworkSlot?.ImageClass"
                                                         OnClose="CloseArtworkZoom" />
                         }

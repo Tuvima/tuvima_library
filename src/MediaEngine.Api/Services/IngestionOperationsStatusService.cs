@@ -1431,7 +1431,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('CoverArt', 'SquareArt')
+                    WHERE ea.asset_type = 'CoverArt'
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS PrimaryArtworkCount,
                 (
@@ -1613,7 +1613,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'DiscArt', 'ClearArt', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
+                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS DeepArtworkCount,
                 (
@@ -1631,13 +1631,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'ClearArt')
+                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo')
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS BackdropBannerLogoCount,
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('Background', 'Banner', 'ClearArt')
+                    WHERE ea.asset_type IN ('Background', 'Banner')
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS BackdropBannerCount,
                 (
@@ -1655,7 +1655,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('DiscArt', 'SquareArt')
+                    WHERE ea.asset_type = 'CoverArt'
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS MusicArtworkCount;
             """, new { batchIds = scopedBatchIds, hasBatchScope }).ConfigureAwait(false);

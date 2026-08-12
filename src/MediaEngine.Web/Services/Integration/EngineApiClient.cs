@@ -1930,8 +1930,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
             "season_poster" or "season_poster_url" or
             "season_thumb" or "season_thumb_url" or
             "episode_still" or "episode_still_url" or
-            "character_portrait" or "character_portrait_url" or
-            "disc_art_url" or "clear_art_url" => true,
+            "character_portrait" or "character_portrait_url" => true,
             _ when normalized.EndsWith("_url_s", StringComparison.Ordinal)
                 || normalized.EndsWith("_url_m", StringComparison.Ordinal)
                 || normalized.EndsWith("_url_l", StringComparison.Ordinal) => true,

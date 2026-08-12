@@ -17,20 +17,11 @@ public enum AssetType
     /// <summary>Wide promotional banner image.</summary>
     Banner,
 
-    /// <summary>Square promotional image used when a dedicated square crop is preferred.</summary>
-    SquareArt,
-
     /// <summary>Transparent title treatment or faction logo.</summary>
     Logo,
 
     /// <summary>Cinematic background image (movie or show background art).</summary>
     Background,
-
-    /// <summary>Transparent disc face or CD art.</summary>
-    DiscArt,
-
-    /// <summary>Transparent key art designed to sit over a background.</summary>
-    ClearArt,
 
     /// <summary>Season-level poster art for television or episodic media.</summary>
     SeasonPoster,

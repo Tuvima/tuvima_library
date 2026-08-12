@@ -10,6 +10,7 @@ using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Operations;
 using MediaEngine.Domain.Services;
+using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Editing;
@@ -34,16 +35,7 @@ public partial class SharedMediaEditorShell
     ];
 
     private static readonly ArtworkSlotDefinition PosterCoverArtworkSlot =
-        new("CoverArt", "Poster / Cover", "Primary art used on cards and detail pages.", Icons.Material.Outlined.Photo, "portrait", "fit", true, "Best for posters and front-cover artwork.", "Primary");
-
-    private static readonly ArtworkSlotDefinition BookCoverArtworkSlot =
-        new("CoverArt", "Cover", "Primary front-cover art used on cards and detail pages.", Icons.Material.Outlined.MenuBook, "portrait", "fit", true, "Best for book, comic, and audiobook covers.", "Primary");
-
-    private static readonly ArtworkSlotDefinition AlbumArtArtworkSlot =
-        new("CoverArt", "Album Art", "Primary album art used across music views.", Icons.Material.Outlined.Album, "square", "fit", true, "Best for album covers and primary music art.", "Primary");
-
-    private static readonly ArtworkSlotDefinition SquareArtArtworkSlot =
-        new("SquareArt", "Square Art", "A dedicated square crop for tiles, shelves, and compact layouts.", Icons.Material.Outlined.CropSquare, "square", "fit", true, "Best for square variants that should not be auto-cropped from the primary cover.", "Square");
+        new("CoverArt", "Poster / Cover", "Primary art used on cards and detail pages.", Icons.Material.Outlined.Photo, "portrait", "fit", true, "Use a high-resolution poster, book cover, or album cover. Portrait and square sources retain their natural proportions.", "Primary");
 
     private static readonly ArtworkSlotDefinition BackgroundArtworkSlot =
         new("Background", "Background", "A cinematic wide image for backgrounds and immersive layouts.", Icons.Material.Outlined.Panorama, "background", "fit", true, "Best for scenic or full-bleed background art.", "Wide");
@@ -53,12 +45,6 @@ public partial class SharedMediaEditorShell
 
     private static readonly ArtworkSlotDefinition LogoArtworkSlot =
         new("Logo", "Logo", "Title treatment or transparent branding art.", Icons.Material.Outlined.BrandingWatermark, "logo", "logo", true, "Best for transparent logos or wordmarks.", "Logo");
-
-    private static readonly ArtworkSlotDefinition DiscArtArtworkSlot =
-        new("DiscArt", "Disc Art", "Transparent disc or label art for movies and music releases.", Icons.Material.Outlined.Album, "square", "fit", true, "Best for CD, vinyl, or disc-face artwork.", "Disc");
-
-    private static readonly ArtworkSlotDefinition ClearArtArtworkSlot =
-        new("ClearArt", "Clear Art", "Transparent key art designed to sit over a background image.", Icons.Material.Outlined.FilterNone, "logo", "fit", true, "Best for transparent character or title overlay art.", "Clear");
 
     private static readonly ArtworkSlotDefinition SeasonPosterArtworkSlot =
         new("SeasonPoster", "Season Poster", "Poster art stored for the season container.", Icons.Material.Outlined.ViewAgenda, "portrait", "fit", true, "Best for season-specific poster art.", "Season");
@@ -1839,9 +1825,6 @@ public partial class SharedMediaEditorShell
             "Background" => "Banner / Backdrop Gallery",
             "Banner" => "Banner Gallery",
             "Logo" => "Logo Gallery",
-            "SquareArt" => "Square Art Gallery",
-            "DiscArt" => "Disc Art Gallery",
-            "ClearArt" => "Clear Art Gallery",
             _ => $"{slot.Label} Gallery",
         };
 
@@ -1850,21 +1833,46 @@ public partial class SharedMediaEditorShell
             ? item.Origin
             : item.ProviderName!;
 
-    protected string GetArtworkCardDimensions(ArtworkSlotDefinition slot) =>
-        slot.PreviewClass switch
+    protected static string GetArtworkImageSize(ArtworkVariantDisplayItem? item) =>
+        item?.WidthPx is > 0 && item.HeightPx is > 0
+            ? $"{item.WidthPx.Value:N0} x {item.HeightPx.Value:N0} px"
+            : "Not reported";
+
+    protected static string GetArtworkPreviewClass(
+        ArtworkSlotDefinition slot,
+        ArtworkVariantDisplayItem? item)
+    {
+        if (!string.Equals(slot.AssetType, "CoverArt", StringComparison.OrdinalIgnoreCase)
+            || item?.WidthPx is not > 0
+            || item.HeightPx is not > 0)
         {
-            "portrait" => "1200 x 1800",
-            "square" => "1200 x 1200",
-            "background" => "1920 x 1080",
-            "banner" => "1920 x 356",
-            "logo" => "1200 x 450",
-            _ => "High resolution",
+            return slot.PreviewClass;
+        }
+
+        var ratio = item.WidthPx.Value / (double)item.HeightPx.Value;
+        return ratio switch
+        {
+            >= 1.2 => "landscape",
+            >= 0.85 => "square",
+            _ => "portrait",
+        };
+    }
+
+    protected static string GetArtworkGuidance(ArtworkSlotDefinition slot) =>
+        slot.AssetType switch
+        {
+            "CoverArt" => "Use the image's natural shape: portrait for books and posters, square for albums, or another proportion when the item calls for it. Prefer at least 1200 px on the longest edge and keep key subjects away from the crop boundary.",
+            "Background" => "Use a wide, text-free image with room for foreground copy. A 16:9 source at 1920 x 1080 px or larger works best.",
+            "Banner" => "Use a wide promotional strip with important content centered. Aim for roughly 5:1 and at least 1920 px wide.",
+            "Logo" => "Use a transparent PNG containing only the title treatment or mark. Leave clear padding around the artwork and aim for at least 1200 px wide.",
+            "SeasonPoster" => "Use portrait season art at 1200 x 1800 px or larger. Keep season identity legible at card size.",
+            "SeasonThumb" => "Use a wide season image at 1920 x 1080 px or larger and avoid important details near the edges.",
+            "EpisodeStill" => "Use a clean 16:9 episode still at 1280 x 720 px or larger without subtitles or playback controls.",
+            _ => "Use a high-resolution JPG or PNG and keep important content away from the edges.",
         };
 
     protected string GetArtworkAcceptedTypes(string assetType) =>
         string.Equals(assetType, "Logo", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(assetType, "DiscArt", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(assetType, "ClearArt", StringComparison.OrdinalIgnoreCase)
             ? "image/png"
             : "image/png,image/jpeg";
 
@@ -1916,7 +1924,9 @@ public partial class SharedMediaEditorShell
                 CanDelete: false,
                 Origin: "Pending",
                 ProviderName: null,
-                CreatedAt: null));
+                CreatedAt: null,
+                WidthPx: null,
+                HeightPx: null));
         }
 
         items.AddRange(GetArtworkVariants(assetType).Select(variant => new ArtworkVariantDisplayItem(
@@ -1929,7 +1939,9 @@ public partial class SharedMediaEditorShell
             CanDelete: variant.CanDelete,
             Origin: variant.Origin,
             ProviderName: variant.ProviderName,
-            CreatedAt: variant.CreatedAt)));
+            CreatedAt: variant.CreatedAt,
+            WidthPx: variant.WidthPx,
+            HeightPx: variant.HeightPx)));
 
         return items;
     }
@@ -3303,17 +3315,17 @@ public partial class SharedMediaEditorShell
         return (_selectedMediaType, ArtworkScope.ScopeId) switch
         {
             ("TV", "series") =>
-                "Series scope manages poster, square art, background, banner, and logo for the show. Those images are shared across episodes.",
+                "Series scope manages poster/cover, background, banner, and logo artwork for the show. Those images are shared across episodes.",
             ("TV", "episode") =>
                 "Episode scope manages only the episode still. Series and season artwork remain inherited and can be opened from this panel.",
             ("Music", "album") =>
-                "Album scope manages the square-first cover, alternate square art, disc art, and clear art shared by its tracks.",
+                "Album scope manages cover, background, banner, and logo artwork shared by its tracks. Cover artwork keeps its natural aspect ratio.",
             ("Music", "track") =>
                 "Track scope inherits art from the album. The Details page derives its music palette from that managed album cover.",
             ("Movies", "item") =>
-                "Movie scope manages poster, square art, background, banner, and logo for the movie.",
+                "Movie scope manages poster/cover, background, banner, and logo artwork for the movie.",
             ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
-                "Item scope manages cover, square art, and background art for this title.",
+                "Item scope manages cover, background, banner, and logo artwork for this title.",
             _ =>
                 ArtworkScope.ScopeSummary ?? "Showing the artwork slots available for the selected owner.",
         };
@@ -3537,12 +3549,12 @@ public partial class SharedMediaEditorShell
             .Where(field => field.Key is "custom_tags")
             .ToList();
 
-    protected IReadOnlyList<(string Label, string Value)> GetSourceFacts()
+    protected IReadOnlyList<(string Label, string Value, string? Url)> GetSourceFacts()
     {
         if (_detail is null)
             return [];
 
-        var facts = new List<(string Label, string Value)>();
+        var facts = new List<(string Label, string Value, string? Url)>();
         AddSourceFact(facts, "Release", _detail.ReleaseDate ?? _detail.Year);
         if (string.Equals(_selectedMediaType, "TV", StringComparison.OrdinalIgnoreCase)
             && string.Equals(ActiveScope?.ScopeId, "episode", StringComparison.OrdinalIgnoreCase))
@@ -3555,6 +3567,12 @@ public partial class SharedMediaEditorShell
         AddSourceFact(facts, "Language", _detail.Language);
         AddSourceFact(facts, "Rating", FormatRatingValue(_detail.Rating));
         AddSourceFact(facts, "Provider", GetSourceProviderDisplayName());
+        AddExternalSourceFact(facts, "TMDB", "tmdb_id", GetBaselineValue("tmdb_id"));
+        AddExternalSourceFact(facts, "IMDb", "imdb_id", GetBaselineValue("imdb_id"));
+        AddExternalSourceFact(facts, "Wikidata", "wikidata_qid", _detail.WikidataQid ?? GetBaselineValue("wikidata_qid"));
+        AddExternalSourceFact(facts, "Open Library", "open_library_id", GetBaselineValue("open_library_id"));
+        AddExternalSourceFact(facts, "MusicBrainz", "musicbrainz_id", GetBaselineValue("musicbrainz_id"));
+        AddExternalSourceFact(facts, "Apple Books", "apple_books_id", GetBaselineValue("apple_books_id"));
         return facts;
     }
 
@@ -3624,10 +3642,23 @@ public partial class SharedMediaEditorShell
             : normalized;
     }
 
-    private static void AddSourceFact(List<(string Label, string Value)> facts, string label, string? value)
+    private static void AddSourceFact(List<(string Label, string Value, string? Url)> facts, string label, string? value, string? url = null)
     {
         if (!string.IsNullOrWhiteSpace(value))
-            facts.Add((label, value.Trim()));
+            facts.Add((label, value.Trim(), url));
+    }
+
+    private void AddExternalSourceFact(
+        List<(string Label, string Value, string? Url)> facts,
+        string label,
+        string key,
+        string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return;
+
+        var link = LibraryHelpers.BuildProviderUrl(key, value.Trim(), _selectedMediaType);
+        AddSourceFact(facts, label, value, link?.Url);
     }
 
     protected static IReadOnlyList<string> SplitDisplayList(string? value) =>
@@ -4011,12 +4042,9 @@ public partial class SharedMediaEditorShell
     private static string GetArtworkEmptyStateLabel(string assetType) =>
         assetType switch
         {
-            "SquareArt" => "No square art stored yet.",
             "Background" => "No background art stored yet.",
             "Banner" => "No banner art stored yet.",
             "Logo" => "No logo art stored yet.",
-            "DiscArt" => "No disc art stored yet.",
-            "ClearArt" => "No clear art stored yet.",
             "CoverArt" => "No cover art stored yet.",
             "SeasonPoster" => "No season poster stored yet.",
             "SeasonThumb" => "No season thumb stored yet.",
@@ -4044,21 +4072,16 @@ public partial class SharedMediaEditorShell
             ("TV", "series", true) =>
             [
                 PosterCoverArtworkSlot,
-                SquareArtArtworkSlot,
                 BackgroundArtworkSlot,
                 BannerArtworkSlot,
                 LogoArtworkSlot,
-                ClearArtArtworkSlot,
             ],
             ("Movies", "item", true) =>
             [
                 PosterCoverArtworkSlot,
-                SquareArtArtworkSlot,
                 BackgroundArtworkSlot,
                 BannerArtworkSlot,
                 LogoArtworkSlot,
-                ClearArtArtworkSlot,
-                DiscArtArtworkSlot,
             ],
             ("TV", "season", true) =>
             [
@@ -4067,10 +4090,10 @@ public partial class SharedMediaEditorShell
             ],
             ("Music", "album", true) =>
             [
-                AlbumArtArtworkSlot,
-                SquareArtArtworkSlot,
-                DiscArtArtworkSlot,
-                ClearArtArtworkSlot,
+                PosterCoverArtworkSlot,
+                BackgroundArtworkSlot,
+                BannerArtworkSlot,
+                LogoArtworkSlot,
             ],
             ("TV", "episode", true) =>
             [
@@ -4078,9 +4101,10 @@ public partial class SharedMediaEditorShell
             ],
             ("Books", "item", true) or ("Audiobooks", "item", true) or ("Comics", "item", true) =>
             [
-                BookCoverArtworkSlot,
-                SquareArtArtworkSlot,
+                PosterCoverArtworkSlot,
                 BackgroundArtworkSlot,
+                BannerArtworkSlot,
+                LogoArtworkSlot,
             ],
             _ => [],
         };
@@ -5086,7 +5110,9 @@ public partial class SharedMediaEditorShell
         bool CanDelete,
         string Origin,
         string? ProviderName,
-        DateTimeOffset? CreatedAt);
+        DateTimeOffset? CreatedAt,
+        int? WidthPx,
+        int? HeightPx);
 
     protected string GetArtworkSlotCount(ArtworkSlotDefinition slot) =>
         FormatCountBadge(GetArtworkGalleryItems(slot.AssetType).Count) ?? "0";

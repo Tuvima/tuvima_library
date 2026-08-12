@@ -43,14 +43,14 @@ public sealed class EnrichmentRefreshScheduleService
         _activity = activity;
     }
 
-    public Task<EnrichmentRefreshScheduleResponse> GetAsync(
+    public async Task<EnrichmentRefreshScheduleResponse> GetAsync(
         string? entityType,
         string? status,
         int limit,
         CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
-        Synchronize();
+        await SynchronizeAsync(ct).ConfigureAwait(false);
 
         using var conn = _db.CreateConnection();
         var rows = conn.Query<ScheduleRow>(
@@ -104,14 +104,14 @@ public sealed class EnrichmentRefreshScheduleService
                 now = now.ToString("O"),
                 sevenDays = now.AddDays(7).ToString("O"),
             });
-        return Task.FromResult(new EnrichmentRefreshScheduleResponse
+        return new EnrichmentRefreshScheduleResponse
         {
             Items = rows,
             TotalCount = summary.TotalCount,
             OverdueCount = summary.OverdueCount,
             DueNextSevenDaysCount = summary.DueNextSevenDaysCount,
             GeneratedAt = now,
-        });
+        };
     }
 
     public async Task<EnrichmentRefreshQueuedResponse?> QueueNowAsync(
@@ -120,7 +120,7 @@ public sealed class EnrichmentRefreshScheduleService
         string reason,
         CancellationToken ct = default)
     {
-        Synchronize();
+        await SynchronizeAsync(ct).ConfigureAwait(false);
         var normalizedType = entityType.Trim();
         var now = DateTimeOffset.UtcNow;
         Guid? operationId = null;
@@ -229,7 +229,7 @@ public sealed class EnrichmentRefreshScheduleService
         return queued;
     }
 
-    private void Synchronize()
+    private Task SynchronizeAsync(CancellationToken ct)
     {
         var settings = _configuration.LoadHydration();
         var personDays = Math.Max(1, settings.PersonRefreshDays);
@@ -237,8 +237,9 @@ public sealed class EnrichmentRefreshScheduleService
         var now = DateTimeOffset.UtcNow;
         var structuredPolicy = $"media.stage3+structured-discovery-v{StructuredDiscoveryFieldCatalog.CapabilityVersion.Replace('.', '_')}";
 
-        using var conn = _db.CreateConnection();
-        using var tx = conn.BeginTransaction();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+        innerCt.ThrowIfCancellationRequested();
         var people = conn.Query<SeedRow>(
             """
             SELECT id AS EntityId, enriched_at AS LastSuccessAt, created_at AS CreatedAt
@@ -295,7 +296,7 @@ public sealed class EnrichmentRefreshScheduleService
                 staleAttempt = now.AddHours(-24).ToString("O"),
             }, tx);
 
-        tx.Commit();
+        }, ct);
     }
 
     private static void UpsertSeed(

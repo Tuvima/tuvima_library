@@ -179,8 +179,6 @@ public static class IntegrationTestEndpoints
         public bool HasStoredBackground { get; set; }
         public bool HasStoredLogo { get; set; }
         public bool HasStoredBanner { get; set; }
-        public bool HasStoredDiscArt { get; set; }
-        public bool HasStoredClearArt { get; set; }
         public bool HasStoredSeasonPoster { get; set; }
         public bool HasStoredSeasonThumb { get; set; }
         public bool HasStoredEpisodeStill { get; set; }
@@ -306,8 +304,6 @@ public static class IntegrationTestEndpoints
         public int WithBackground { get; set; }
         public int WithLogo { get; set; }
         public int WithBanner { get; set; }
-        public int WithDiscArt { get; set; }
-        public int WithClearArt { get; set; }
         public int WithSeasonPoster { get; set; }
         public int WithSeasonThumb { get; set; }
         public int WithEpisodeStill { get; set; }
@@ -345,8 +341,6 @@ public static class IntegrationTestEndpoints
         public bool HasBackground { get; set; }
         public bool HasLogo { get; set; }
         public bool HasBanner { get; set; }
-        public bool HasDiscArt { get; set; }
-        public bool HasClearArt { get; set; }
         public bool HasSeasonPoster { get; set; }
         public bool HasSeasonThumb { get; set; }
         public bool HasEpisodeStill { get; set; }
@@ -356,8 +350,6 @@ public static class IntegrationTestEndpoints
             HasBackground |= other.HasBackground;
             HasLogo |= other.HasLogo;
             HasBanner |= other.HasBanner;
-            HasDiscArt |= other.HasDiscArt;
-            HasClearArt |= other.HasClearArt;
             HasSeasonPoster |= other.HasSeasonPoster;
             HasSeasonThumb |= other.HasSeasonThumb;
             HasEpisodeStill |= other.HasEpisodeStill;
@@ -367,8 +359,6 @@ public static class IntegrationTestEndpoints
             HasBackground
             || HasLogo
             || HasBanner
-            || HasDiscArt
-            || HasClearArt
             || HasSeasonPoster
             || HasSeasonThumb
             || HasEpisodeStill;
@@ -2135,8 +2125,6 @@ public static class IntegrationTestEndpoints
             check.HasStoredBackground = optionalArtwork.HasBackground;
             check.HasStoredLogo = optionalArtwork.HasLogo;
             check.HasStoredBanner = optionalArtwork.HasBanner;
-            check.HasStoredDiscArt = optionalArtwork.HasDiscArt;
-            check.HasStoredClearArt = optionalArtwork.HasClearArt;
             check.HasStoredSeasonPoster = optionalArtwork.HasSeasonPoster;
             check.HasStoredSeasonThumb = optionalArtwork.HasSeasonThumb;
             check.HasStoredEpisodeStill = optionalArtwork.HasEpisodeStill;
@@ -4543,7 +4531,7 @@ public static class IntegrationTestEndpoints
 
             sb.AppendLine($"<details{(failingChecks.Count == 0 ? " open" : "")}><summary style=\"cursor:pointer;color:#8B9DC3;font-weight:600\">All filesystem checks ({report.FileSystemChecks.Count})</summary>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars (P/T/NoHero)</th><th>Stored Core (O/S/M/L/Pal/NoHero)</th><th>Optional Stored Art (BG/LO/BA/DI/CL/SP/ST/EP)</th></tr>");
+            sb.AppendLine("<tr><th>Title</th><th>Media Type</th><th>Result</th><th>Expected</th><th>Actual</th><th>Template</th><th>Sidecars (P/T/NoHero)</th><th>Stored Core (O/S/M/L/Pal/NoHero)</th><th>Optional Stored Art (BG/LO/BA/SP/ST/EP)</th></tr>");
             foreach (var check in report.FileSystemChecks.OrderBy(f => f.MediaType).ThenBy(f => f.Title))
             {
                 string result = check.Pass
@@ -4551,7 +4539,6 @@ public static class IntegrationTestEndpoints
                     : "<span class=\"badge badge-fail\">FAIL</span>";
                 string optionalArt =
                     $"{BoolMark(check.HasStoredBackground)}/{BoolMark(check.HasStoredLogo)}/{BoolMark(check.HasStoredBanner)}/" +
-                    $"{BoolMark(check.HasStoredDiscArt)}/{BoolMark(check.HasStoredClearArt)}/" +
                     $"{BoolMark(check.HasStoredSeasonPoster)}/{BoolMark(check.HasStoredSeasonThumb)}/{BoolMark(check.HasStoredEpisodeStill)}";
                 string sidecars = check.RequiresSidecarArtwork
                     ? $"{BoolMark(check.HasPoster)}/{BoolMark(check.HasPosterThumb)}/{BoolMark(!check.HasLegacyHeroSidecar)}"
@@ -4580,13 +4567,13 @@ public static class IntegrationTestEndpoints
                 : $"<span class=\"badge badge-warn\">{report.Stage3FanartSummaries.Count - fanartPass} ISSUES</span>";
             sb.AppendLine($"<h2>Stage 3 Artwork Validation {fanartBadge}</h2>");
             sb.AppendLine("<table>");
-            sb.AppendLine("<tr><th>Media Type</th><th>Eligible Fanart Items</th><th>Any Fanart</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Disc Art</th><th>Clear Art</th><th>Season Posters</th><th>Season Thumbs</th><th>Episode Stills</th><th>Status</th></tr>");
+            sb.AppendLine("<tr><th>Media Type</th><th>Eligible Fanart Items</th><th>Any Fanart</th><th>Backgrounds</th><th>Logos</th><th>Banners</th><th>Season Posters</th><th>Season Thumbs</th><th>Episode Stills</th><th>Status</th></tr>");
             foreach (var summary in report.Stage3FanartSummaries.OrderBy(s => s.MediaType))
             {
                 string badge = summary.Pass
                     ? "<span class=\"badge badge-pass\">PASS</span>"
                     : "<span class=\"badge badge-fail\">FAIL</span>";
-                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{summary.WithDiscArt}</td><td>{summary.WithClearArt}</td><td>{summary.WithSeasonPoster}</td><td>{summary.WithSeasonThumb}</td><td>{summary.WithEpisodeStill}</td><td>{badge}</td></tr>");
+                sb.AppendLine($"<tr><td>{Esc(summary.MediaType)}</td><td>{summary.EligibleCount}</td><td>{summary.WithAnyFanart}</td><td>{summary.WithBackground}</td><td>{summary.WithLogo}</td><td>{summary.WithBanner}</td><td>{summary.WithSeasonPoster}</td><td>{summary.WithSeasonThumb}</td><td>{summary.WithEpisodeStill}</td><td>{badge}</td></tr>");
             }
             sb.AppendLine("</table>");
         }
@@ -4963,7 +4950,7 @@ public static class IntegrationTestEndpoints
                    local_image_path AS LocalImagePath
             FROM entity_assets
             WHERE entity_type = 'Work'
-              AND asset_type IN ('Background', 'Logo', 'Banner', 'DiscArt', 'ClearArt', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
+              AND asset_type IN ('Background', 'Logo', 'Banner', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
               AND local_image_path IS NOT NULL
               AND TRIM(local_image_path) <> '';
             """);
@@ -4997,12 +4984,6 @@ public static class IntegrationTestEndpoints
                     break;
                 case "Banner":
                     state.HasBanner = true;
-                    break;
-                case "DiscArt":
-                    state.HasDiscArt = true;
-                    break;
-                case "ClearArt":
-                    state.HasClearArt = true;
                     break;
                 case "SeasonPoster":
                     state.HasSeasonPoster = true;
@@ -6065,16 +6046,12 @@ public static class IntegrationTestEndpoints
                     check.HasStoredBackground
                     || check.HasStoredLogo
                     || check.HasStoredBanner
-                    || check.HasStoredDiscArt
-                    || check.HasStoredClearArt
                     || check.HasStoredSeasonPoster
                     || check.HasStoredSeasonThumb
                     || check.HasStoredEpisodeStill),
                 WithBackground = eligible.Count(check => check.HasStoredBackground),
                 WithLogo = eligible.Count(check => check.HasStoredLogo),
                 WithBanner = eligible.Count(check => check.HasStoredBanner),
-                WithDiscArt = eligible.Count(check => check.HasStoredDiscArt),
-                WithClearArt = eligible.Count(check => check.HasStoredClearArt),
                 WithSeasonPoster = eligible.Count(check => check.HasStoredSeasonPoster),
                 WithSeasonThumb = eligible.Count(check => check.HasStoredSeasonThumb),
                 WithEpisodeStill = eligible.Count(check => check.HasStoredEpisodeStill),

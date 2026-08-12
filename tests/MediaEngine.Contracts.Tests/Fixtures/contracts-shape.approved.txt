@@ -546,6 +546,9 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCh
   createdAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   universeStatus: System.String | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCoverArtworkUploadResponse
+  cover_artwork_url: System.String | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCreateRequest
   Name: System.String | nullability=not-null | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
@@ -680,7 +683,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionMa
   Name: System.String | nullability=not-null | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
   IconName: System.String | nullability=nullable | accessors=get,init
-  SquareArtworkUrl: System.String | nullability=nullable | accessors=get,set
+  CoverArtworkUrl: System.String | nullability=nullable | accessors=get,set
   CollectionType: System.String | nullability=not-null | accessors=get,init
   Scope: System.String | nullability=not-null | accessors=get,init
   ProfileId: System.Guid? | nullability=nullable | accessors=get,init
@@ -801,9 +804,6 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRu
   Value: System.String | nullability=not-null | accessors=get,init
   Label: System.String | nullability=not-null | accessors=get,init
   LocalCount: System.Int32 | nullability=not-null | accessors=get,init
-
-MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionSquareArtworkUploadResponse
-  square_artwork_url: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionUpdateRequest
   Name: System.String | nullability=nullable | accessors=get,init
@@ -935,7 +935,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ManagedColle
   Name: System.String | nullability=not-null | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
   IconName: System.String | nullability=nullable | accessors=get,init
-  SquareArtworkUrl: System.String | nullability=nullable | accessors=get,set
+  CoverArtworkUrl: System.String | nullability=nullable | accessors=get,set
   CollectionType: System.String | nullability=not-null | accessors=get,init
   Scope: System.String | nullability=not-null | accessors=get,init
   ProfileId: System.Guid? | nullability=nullable | accessors=get,init
@@ -2658,6 +2658,8 @@ MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.ArtworkVariantDto
   ProviderName: System.String | nullability=nullable | accessors=get,set
   CanDelete: System.Boolean | nullability=not-null | accessors=get,set
   CreatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,set
+  WidthPx: System.Int32? | nullability=nullable | accessors=get,set
+  HeightPx: System.Int32? | nullability=nullable | accessors=get,set
 
 MediaEngine.Contracts.Metadata.MediaEngine.Contracts.Metadata.ArtworkVariantPreferredResponse
   variant_id: System.Guid | nullability=not-null | accessors=get,init

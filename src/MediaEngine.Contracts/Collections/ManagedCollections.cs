@@ -21,8 +21,8 @@ public class ManagedCollectionDto
     [JsonPropertyName("icon_name")]
     public string? IconName { get; init; }
 
-    [JsonPropertyName("square_artwork_url")]
-    public string? SquareArtworkUrl { get; set; }
+    [JsonPropertyName("cover_artwork_url")]
+    public string? CoverArtworkUrl { get; set; }
 
     [JsonPropertyName("collection_type")]
     public string CollectionType { get; init; } = "Smart";

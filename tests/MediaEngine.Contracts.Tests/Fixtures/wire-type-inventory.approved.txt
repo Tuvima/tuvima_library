@@ -659,6 +659,10 @@
   createdAt: System.DateTimeOffset | json=createdAt | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   universeStatus: System.String | json=universeStatus | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
+[contracts] MediaEngine.Contracts.Collections.CollectionCoverArtworkUploadResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  cover_artwork_url: System.String | json=cover_artwork_url | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
 [contracts] MediaEngine.Contracts.Collections.CollectionCreateRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -814,7 +818,7 @@
   Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SquareArtworkUrl: System.String | json=square_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -860,7 +864,7 @@
   ArtworkItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Collections.CollectionArtworkItemDto> | json=artwork_items | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ArtworkPalette: MediaEngine.Domain.Models.ArtworkPalette | json=artwork_palette | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Person: MediaEngine.Contracts.Collections.CollectionCatalogPersonDto | json=person | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"family":"sample","system_key":"sample","primary_lane":"sample","is_global":true,"is_system":true,"is_cross_media":true,"watch_count":7,"listen_count":7,"read_count":7,"other_count":7,"movie_count":7,"tv_count":7,"book_count":7,"comic_count":7,"music_count":7,"audiobook_count":7,"earliest_year":7,"latest_year":7,"can_delete":true,"can_rename":true,"can_toggle_global":true,"artwork_items":[],"artwork_palette":null,"person":null,"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","square_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
+  sample={"family":"sample","system_key":"sample","primary_lane":"sample","is_global":true,"is_system":true,"is_cross_media":true,"watch_count":7,"listen_count":7,"read_count":7,"other_count":7,"movie_count":7,"tv_count":7,"book_count":7,"comic_count":7,"music_count":7,"audiobook_count":7,"earliest_year":7,"latest_year":7,"can_delete":true,"can_rename":true,"can_toggle_global":true,"artwork_items":[],"artwork_palette":null,"person":null,"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","cover_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionMediaCounts
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -951,10 +955,6 @@
   Value: System.String | json=value | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Label: System.String | json=label | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LocalCount: System.Int32 | json=local_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.Collections.CollectionSquareArtworkUploadResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  square_artwork_url: System.String | json=square_artwork_url | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Collections.CollectionUpdateRequest
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -1104,7 +1104,7 @@
   Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SquareArtworkUrl: System.String | json=square_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1126,7 +1126,7 @@
   ModifiedAt: System.DateTimeOffset? | json=modified_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanEdit: System.Boolean | json=can_edit | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanShare: System.Boolean | json=can_share | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","square_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
+  sample={"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","cover_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
 
 [contracts] MediaEngine.Contracts.Collections.ParentCollectionDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3248,7 +3248,9 @@
   ProviderName: System.String | json=provider_name | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanDelete: System.Boolean | json=can_delete | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CreatedAt: System.DateTimeOffset? | json=created_at | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"11111111-2222-3333-4444-555555555555","asset_type":"sample","image_url":"sample","is_preferred":true,"origin":"sample","provider_name":"sample","can_delete":true,"created_at":"2025-01-02T03:04:05+00:00"}
+  WidthPx: System.Int32? | json=width_px | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HeightPx: System.Int32? | json=height_px | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"11111111-2222-3333-4444-555555555555","asset_type":"sample","image_url":"sample","is_preferred":true,"origin":"sample","provider_name":"sample","can_delete":true,"created_at":"2025-01-02T03:04:05+00:00","width_px":7,"height_px":7}
 
 [contracts] MediaEngine.Contracts.Metadata.ArtworkVariantPreferredResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6355,7 +6357,7 @@
   Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SquareArtworkUrl: System.String | json=square_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6881,7 +6883,7 @@
   Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SquareArtworkUrl: System.String | json=square_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no

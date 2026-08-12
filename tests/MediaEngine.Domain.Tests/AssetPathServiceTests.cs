@@ -34,7 +34,7 @@ public sealed class AssetPathServiceTests
     }
 
     [Fact]
-    public void DiscAndClearArtPaths_UseDedicatedArtworkNames()
+    public void CoverAndLogoPaths_UseSupportedArtworkNames()
     {
         var root = Path.Combine(Path.GetTempPath(), "tuvima-domain-tests");
         var service = new AssetPathService(root);
@@ -42,23 +42,23 @@ public sealed class AssetPathServiceTests
         var variantId = Guid.Parse("88888888-8888-8888-8888-888888888888");
         var mediaPath = Path.Combine("C:\\media", "Movies", "Arrival (2016)", "Arrival (2016).mkv");
 
-        var discCentralPath = service.GetCentralAssetPath("Work", ownerId, "DiscArt", variantId, ".png");
-        var clearCentralPath = service.GetCentralAssetPath("Work", ownerId, "ClearArt", variantId, ".png");
-        var discSidecarPath = service.GetLocalSidecarPath(mediaPath, "DiscArt", ".png");
-        var clearSidecarPath = service.GetLocalSidecarPath(mediaPath, "ClearArt", ".png");
+        var coverCentralPath = service.GetCentralAssetPath("Work", ownerId, "CoverArt", variantId, ".png");
+        var logoCentralPath = service.GetCentralAssetPath("Work", ownerId, "Logo", variantId, ".png");
+        var coverSidecarPath = service.GetLocalSidecarPath(mediaPath, "CoverArt", ".png");
+        var logoSidecarPath = service.GetLocalSidecarPath(mediaPath, "Logo", ".png");
 
         Assert.Equal(
-            Path.Combine(root, ".data", "assets", "artwork", "work", ownerId.ToString("D"), "discart", $"{variantId:N}.png"),
-            discCentralPath);
+            Path.Combine(root, ".data", "assets", "artwork", "work", ownerId.ToString("D"), "cover", $"{variantId:N}.png"),
+            coverCentralPath);
         Assert.Equal(
-            Path.Combine(root, ".data", "assets", "artwork", "work", ownerId.ToString("D"), "clearart", $"{variantId:N}.png"),
-            clearCentralPath);
+            Path.Combine(root, ".data", "assets", "artwork", "work", ownerId.ToString("D"), "logo", $"{variantId:N}.png"),
+            logoCentralPath);
         Assert.Equal(
-            Path.Combine("C:\\media", "Movies", "Arrival (2016)", "discart.png"),
-            discSidecarPath);
+            Path.Combine("C:\\media", "Movies", "Arrival (2016)", "poster.jpg"),
+            coverSidecarPath);
         Assert.Equal(
-            Path.Combine("C:\\media", "Movies", "Arrival (2016)", "clearart.png"),
-            clearSidecarPath);
+            Path.Combine("C:\\media", "Movies", "Arrival (2016)", "logo.png"),
+            logoSidecarPath);
     }
 
     [Fact]

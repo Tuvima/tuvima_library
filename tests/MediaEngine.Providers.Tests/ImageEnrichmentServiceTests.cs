@@ -70,7 +70,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnrichWorkImagesAsync_MovieAlternatePosterAndClearArt_PreservesUserCoverOverride()
+    public async Task EnrichWorkImagesAsync_MovieAlternatePoster_IgnoresUnsupportedClearArtAndPreservesUserCoverOverride()
     {
         var movie = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Arrival (2016).mkv");
         await SeedCanonicalsAsync(
@@ -127,17 +127,12 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         Assert.True(userCover.IsPreferred);
         Assert.Contains(coverAssets, asset => !asset.IsUserOverride && !asset.IsPreferred && string.Equals(asset.SourceProvider, "fanart_tv", StringComparison.OrdinalIgnoreCase));
 
-        var clearArt = Assert.Single(await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), "ClearArt"));
-        Assert.True(clearArt.IsPreferred);
-        Assert.EndsWith(".png", clearArt.LocalImagePath, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(clearArt.LocalImagePath));
-
         Assert.True(result.Success);
         Assert.Equal("tmdb_movie_id", result.BridgeKey);
         Assert.Equal("12345", result.BridgeId);
-        Assert.Equal(2, result.DownloadedCount);
+        Assert.Equal(1, result.DownloadedCount);
         Assert.Equal(1, result.StoredVariantCounts["CoverArt"]);
-        Assert.Equal(1, result.StoredVariantCounts["ClearArt"]);
+        Assert.DoesNotContain("ClearArt", result.StoredVariantCounts.Keys);
 
         var diagnostics = await _canonicals.GetByEntityAsync(movie.WorkId);
         Assert.Contains(diagnostics, value => value.Key == "fanart_status" && value.Value == "Completed");
@@ -145,7 +140,7 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
-    public async Task EnrichWorkImagesAsync_MusicCdart_StoresDiscArt()
+    public async Task EnrichWorkImagesAsync_MusicCdart_IgnoresUnsupportedDiscArt()
     {
         var album = await SeedStandaloneAssetAsync(MediaType.Music, "Music", "Music", Path.Combine("Artist", "Album", "01 - Track.flac"));
         await SeedCanonicalsAsync(
@@ -175,13 +170,11 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
             return ImageResponse([5, 6, 7, 8]);
         });
 
-        await service.EnrichWorkImagesAsync(album.AssetId, "QALBUM");
+        var result = await service.EnrichWorkImagesAsync(album.AssetId, "QALBUM");
 
-        var discArt = Assert.Single(await _entityAssets.GetByEntityAsync(album.WorkId.ToString(), "DiscArt"));
-        Assert.True(discArt.IsPreferred);
-        Assert.Equal("Work", discArt.OwnerScope);
-        Assert.EndsWith(".png", discArt.LocalImagePath, StringComparison.OrdinalIgnoreCase);
-        Assert.True(File.Exists(discArt.LocalImagePath));
+        Assert.True(result.Success);
+        Assert.Equal(0, result.DownloadedCount);
+        Assert.Empty(await _entityAssets.GetByEntityAsync(album.WorkId.ToString()));
     }
 
     [Fact]

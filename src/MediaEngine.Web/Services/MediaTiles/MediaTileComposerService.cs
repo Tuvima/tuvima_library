@@ -58,8 +58,8 @@ public sealed class MediaTileComposerService
     public static MediaTileViewModel FromPlaylist(ManagedCollectionViewModel playlist)
     {
         var route = $"/listen/music/playlists/{playlist.Id:D}";
-        var smallArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "s");
-        var mediumArtwork = MediaTileArtworkUrl.Sized(playlist.SquareArtworkUrl, "m");
+        var smallArtwork = MediaTileArtworkUrl.Sized(playlist.CoverArtworkUrl, "s");
+        var mediumArtwork = MediaTileArtworkUrl.Sized(playlist.CoverArtworkUrl, "m");
         return new MediaTileViewModel
         {
             Id = playlist.Id,
@@ -67,7 +67,7 @@ public sealed class MediaTileComposerService
             Title = playlist.Name,
             Subtitle = playlist.ItemCount == 1 ? "1 item" : $"{playlist.ItemCount} items",
             Description = playlist.Description,
-            CoverUrl = playlist.SquareArtworkUrl,
+            CoverUrl = playlist.CoverArtworkUrl,
             MediaKind = "Music",
             AccentColor = "var(--tl-media-audio)",
             Shape = MediaTileShape.Square,
@@ -76,9 +76,9 @@ public sealed class MediaTileComposerService
             SurfaceKind = MediaTileSurfaceKind.CoverSquare,
             HoverMode = MediaTileHoverMode.GlowOnly,
             TileTextMode = MediaTileTextMode.Caption,
-            TileImageUrl = smallArtwork ?? playlist.SquareArtworkUrl,
+            TileImageUrl = smallArtwork ?? playlist.CoverArtworkUrl,
             TileImageSrcSet = MediaTileArtworkUrl.SrcSet(smallArtwork, mediumArtwork),
-            HoverImageUrl = mediumArtwork ?? playlist.SquareArtworkUrl,
+            HoverImageUrl = mediumArtwork ?? playlist.CoverArtworkUrl,
             NavigationUrl = route,
             DetailsNavigationUrl = route,
             PrimaryNavigationUrl = route,

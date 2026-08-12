@@ -105,7 +105,7 @@ public sealed class UniversalSearchReadService(
                    COALESCE(c.display_name, title.value, 'Untitled collection') AS Name,
                    c.collection_type AS CollectionType,
                    c.description AS Description,
-                   c.square_artwork_path AS SquareArtworkPath,
+                   c.cover_artwork_path AS CoverArtworkPath,
                    COUNT(DISTINCT ci.work_id) AS ItemCount
             FROM collections c
             LEFT JOIN canonical_values title ON title.entity_id = c.id AND title.key = 'title'
@@ -113,7 +113,7 @@ public sealed class UniversalSearchReadService(
             WHERE c.is_enabled = 1
               AND (COALESCE(c.display_name, title.value, '') LIKE @Like COLLATE NOCASE
                    OR COALESCE(c.description, '') LIKE @Like COLLATE NOCASE)
-            GROUP BY c.id, c.display_name, title.value, c.collection_type, c.description, c.square_artwork_path
+            GROUP BY c.id, c.display_name, title.value, c.collection_type, c.description, c.cover_artwork_path
             ORDER BY CASE WHEN lower(COALESCE(c.display_name, title.value, '')) = lower(@Query) THEN 0
                           WHEN lower(COALESCE(c.display_name, title.value, '')) LIKE lower(@Prefix) THEN 1
                           ELSE 2 END,
@@ -140,7 +140,7 @@ public sealed class UniversalSearchReadService(
                 $"{row.ItemCount} {(row.ItemCount == 1 ? "item" : "items")}",
                 null,
                 null,
-                string.IsNullOrWhiteSpace(row.SquareArtworkPath) ? null : $"/collections/{row.Id:D}/square-artwork",
+                string.IsNullOrWhiteSpace(row.CoverArtworkPath) ? null : $"/collections/{row.Id:D}/cover-artwork",
                 row.Description,
                 route,
                 isPlaylist ? "Open Playlist" : entityType == "series" ? "View Series" : "Open Collection",
@@ -328,7 +328,7 @@ public sealed class UniversalSearchReadService(
         public string Name { get; init; } = string.Empty;
         public string? CollectionType { get; init; }
         public string? Description { get; init; }
-        public string? SquareArtworkPath { get; init; }
+        public string? CoverArtworkPath { get; init; }
         public int ItemCount { get; init; }
     }
 

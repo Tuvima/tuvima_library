@@ -1715,8 +1715,8 @@ public static class CollectionEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // GET /collections/{id}/square-artwork — serve collection-owned square artwork.
-        group.MapGet("/{id:guid}/square-artwork", async (
+        // GET /collections/{id}/cover-artwork — serve collection-owned primary artwork.
+        group.MapGet("/{id:guid}/cover-artwork", async (
             Guid id,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
@@ -1735,27 +1735,27 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            if (string.IsNullOrWhiteSpace(collection.SquareArtworkPath) || !File.Exists(collection.SquareArtworkPath))
+            if (string.IsNullOrWhiteSpace(collection.CoverArtworkPath) || !File.Exists(collection.CoverArtworkPath))
             {
-                return ApiErrors.NotFound($"Collection '{id}' has no square artwork.");
+                return ApiErrors.NotFound($"Collection '{id}' has no cover artwork.");
             }
 
-            var bytes = await File.ReadAllBytesAsync(collection.SquareArtworkPath, ct);
+            var bytes = await File.ReadAllBytesAsync(collection.CoverArtworkPath, ct);
             return Results.File(
                 bytes,
-                string.IsNullOrWhiteSpace(collection.SquareArtworkMimeType)
-                    ? GetCollectionArtworkMimeType(collection.SquareArtworkPath)
-                    : collection.SquareArtworkMimeType,
-                Path.GetFileName(collection.SquareArtworkPath));
+                string.IsNullOrWhiteSpace(collection.CoverArtworkMimeType)
+                    ? GetCollectionArtworkMimeType(collection.CoverArtworkPath)
+                    : collection.CoverArtworkMimeType,
+                Path.GetFileName(collection.CoverArtworkPath));
         })
-        .WithName("GetCollectionSquareArtwork")
-        .WithSummary("Serves custom square artwork for a collection.")
+        .WithName("GetCollectionCoverArtwork")
+        .WithSummary("Serves custom primary cover artwork for a collection.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        // POST /collections/{id}/square-artwork — upload collection-owned square artwork.
-        group.MapPost("/{id:guid}/square-artwork", async (
+        // POST /collections/{id}/cover-artwork — upload collection-owned primary artwork.
+        group.MapPost("/{id:guid}/cover-artwork", async (
             Guid id,
             HttpRequest request,
             ICollectionRepository collectionRepo,
@@ -1808,13 +1808,13 @@ public static class CollectionEndpoints
             dataPaths.EnsureRootExists();
             var directory = Path.Combine(dataPaths.Root, "collections", id.ToString("D"));
             Directory.CreateDirectory(directory);
-            var targetPath = Path.Combine(directory, $"square{extension}");
+            var targetPath = Path.Combine(directory, $"cover{extension}");
 
-            if (!string.IsNullOrWhiteSpace(collection.SquareArtworkPath)
-                && !string.Equals(collection.SquareArtworkPath, targetPath, StringComparison.OrdinalIgnoreCase)
-                && File.Exists(collection.SquareArtworkPath))
+            if (!string.IsNullOrWhiteSpace(collection.CoverArtworkPath)
+                && !string.Equals(collection.CoverArtworkPath, targetPath, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(collection.CoverArtworkPath))
             {
-                File.Delete(collection.SquareArtworkPath);
+                File.Delete(collection.CoverArtworkPath);
             }
 
             await using (var stream = File.Create(targetPath))
@@ -1823,17 +1823,17 @@ public static class CollectionEndpoints
                 await upload.CopyToAsync(stream, ct);
             }
 
-            await collectionRepo.UpdateCollectionSquareArtworkAsync(id, targetPath, mimeType, ct);
-            return Results.Ok(new CollectionSquareArtworkUploadResponse($"/collections/{id}/square-artwork"));
+            await collectionRepo.UpdateCollectionCoverArtworkAsync(id, targetPath, mimeType, ct);
+            return Results.Ok(new CollectionCoverArtworkUploadResponse($"/collections/{id}/cover-artwork"));
         })
-        .WithName("UploadCollectionSquareArtwork")
-        .WithSummary("Uploads custom square artwork for a managed collection.")
-        .Produces<CollectionSquareArtworkUploadResponse>(StatusCodes.Status200OK)
+        .WithName("UploadCollectionCoverArtwork")
+        .WithSummary("Uploads custom primary cover artwork for a managed collection.")
+        .Produces<CollectionCoverArtworkUploadResponse>(StatusCodes.Status200OK)
         .DisableAntiforgery()
         .RequireAnyRole();
 
-        // DELETE /collections/{id}/square-artwork — clear collection-owned square artwork.
-        group.MapDelete("/{id:guid}/square-artwork", async (
+        // DELETE /collections/{id}/cover-artwork — clear collection-owned primary artwork.
+        group.MapDelete("/{id:guid}/cover-artwork", async (
             Guid id,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
@@ -1857,16 +1857,16 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            if (!string.IsNullOrWhiteSpace(collection.SquareArtworkPath) && File.Exists(collection.SquareArtworkPath))
+            if (!string.IsNullOrWhiteSpace(collection.CoverArtworkPath) && File.Exists(collection.CoverArtworkPath))
             {
-                File.Delete(collection.SquareArtworkPath);
+                File.Delete(collection.CoverArtworkPath);
             }
 
-            await collectionRepo.UpdateCollectionSquareArtworkAsync(id, null, null, ct);
+            await collectionRepo.UpdateCollectionCoverArtworkAsync(id, null, null, ct);
             return Results.Ok();
         })
-        .WithName("DeleteCollectionSquareArtwork")
-        .WithSummary("Clears custom square artwork for a managed collection.")
+        .WithName("DeleteCollectionCoverArtwork")
+        .WithSummary("Clears custom cover artwork for a managed collection.")
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 

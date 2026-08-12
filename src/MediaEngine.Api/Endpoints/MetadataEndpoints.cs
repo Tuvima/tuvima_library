@@ -715,7 +715,6 @@ public static partial class MetadataEndpoints
             var slots = new[]
             {
                 "CoverArt",
-                "SquareArt",
                 "Background",
                 "Banner",
                 "Logo",
@@ -1068,7 +1067,7 @@ public static partial class MetadataEndpoints
         {
             var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return ApiErrors.BadRequest("Artwork type must be CoverArt, SquareArt, Background, Banner, or Logo.");
+                return ApiErrors.BadRequest("Artwork type must be CoverArt, Background, Banner, or Logo.");
 
             if (!httpRequest.HasFormContentType)
                 return ApiErrors.BadRequest("Expected multipart form data.");
@@ -2096,7 +2095,7 @@ public static partial class MetadataEndpoints
                     artistName,
                     albumName,
                     "album",
-                    "Album metadata, cover art, and square art live here.",
+                    "Album metadata and cover artwork live here.",
                     null,
                     CanEditFields: true,
                     CanEditArtwork: true,

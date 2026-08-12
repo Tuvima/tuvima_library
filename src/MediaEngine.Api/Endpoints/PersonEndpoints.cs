@@ -12,6 +12,7 @@ using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
+using SkiaSharp;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -87,9 +88,32 @@ public static class PersonEndpoints
                         asset.SourceProvider ?? "Stored",
                         asset.SourceProvider,
                         string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase),
-                        asset.CreatedAt))
+                        asset.CreatedAt,
+                        asset.WidthPx,
+                        asset.HeightPx))
                     .ToList()))
                 .ToList();
+
+            var headshotSlot = slots.First(slot => slot.AssetType == "Headshot");
+            var canonicalHeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(
+                person.Id,
+                person.LocalHeadshotPath,
+                person.HeadshotUrl);
+            if (headshotSlot.Variants.Count == 0 && canonicalHeadshotUrl is not null)
+            {
+                var dimensions = TryMeasureImage(person.LocalHeadshotPath);
+                headshotSlot.Variants.Add(new ArtworkVariantDto(
+                    Guid.Empty,
+                    "Headshot",
+                    canonicalHeadshotUrl,
+                    true,
+                    "Provider",
+                    string.IsNullOrWhiteSpace(person.WikidataQid) ? null : "Wikidata",
+                    false,
+                    null,
+                    dimensions?.Width,
+                    dimensions?.Height));
+            }
             return Results.Ok(new ArtworkEditorDto(id, slots));
         })
         .WithName("GetPersonArtwork")
@@ -608,6 +632,24 @@ public static class PersonEndpoints
             && bytes[9] == 0x45
             && bytes[10] == 0x42
             && bytes[11] == 0x50;
+    }
+
+    private static (int Width, int Height)? TryMeasureImage(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return null;
+
+        try
+        {
+            using var bitmap = SKBitmap.Decode(path);
+            return bitmap is { Width: > 0, Height: > 0 }
+                ? (bitmap.Width, bitmap.Height)
+                : null;
+        }
+        catch
+        {
+            return null;
+        }
     }
 
 }

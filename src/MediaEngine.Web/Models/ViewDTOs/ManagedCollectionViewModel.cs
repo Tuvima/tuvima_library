@@ -72,7 +72,7 @@ public sealed class CollectionManagementCatalogViewModel : CollectionManagementC
         ?? throw new InvalidOperationException("Could not map collection catalog entry for presentation.");
 
     [JsonIgnore]
-    public string ArtworkUrl => SquareArtworkUrl ?? string.Empty;
+    public string ArtworkUrl => CoverArtworkUrl ?? string.Empty;
 
     [JsonIgnore]
     public string TypeLabel => CollectionType switch

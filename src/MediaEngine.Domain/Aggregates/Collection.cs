@@ -93,11 +93,11 @@ public sealed class Collection
     /// <summary>Icon name hint for UI rendering (e.g. "Label", "Waves", "Person").</summary>
     public string? IconName { get; set; }
 
-    /// <summary>Local path to custom square artwork uploaded for this collection.</summary>
-    public string? SquareArtworkPath { get; set; }
+    /// <summary>Local path to custom cover artwork uploaded for this collection.</summary>
+    public string? CoverArtworkPath { get; set; }
 
-    /// <summary>MIME type for <see cref="SquareArtworkPath"/>.</summary>
-    public string? SquareArtworkMimeType { get; set; }
+    /// <summary>MIME type for <see cref="CoverArtworkPath"/>.</summary>
+    public string? CoverArtworkMimeType { get; set; }
 
     /// <summary>"library" for library-scoped collections, "user" for per-profile collections.</summary>
     public CollectionScope Scope { get; private set; } = CollectionScope.Library;

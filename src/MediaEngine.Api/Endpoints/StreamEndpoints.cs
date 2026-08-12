@@ -189,8 +189,7 @@ public static class StreamEndpoints
             if (!DetailComposerService.TryParseEntityType(entityType, out var parsedEntityType))
                 return ApiErrors.BadRequest($"Unsupported detail entity type '{entityType}'.");
 
-            var preferredVariant = await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "CoverArt", ct)
-                ?? await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "SquareArt", ct);
+            var preferredVariant = await entityAssetRepo.GetPreferredAsync(entityId.ToString(), "CoverArt", ct);
             var localArtworkResult = CreateLocalArtworkResult(preferredVariant?.LocalImagePath);
             if (localArtworkResult is not null)
             {
@@ -424,34 +423,6 @@ public static class StreamEndpoints
         })
         .WithName("GetAssetBanner")
         .WithSummary("Serve uploaded banner artwork for a media asset.")
-        .Produces(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
-
-        group.MapGet("/{assetId:guid}/square", async (
-            Guid assetId,
-            IMediaAssetRepository assetRepo,
-            IWorkRepository workRepo,
-            IEntityAssetRepository entityAssetRepo,
-            CancellationToken ct) =>
-        {
-            var asset = await assetRepo.FindByIdAsync(assetId, ct);
-            if (asset is null)
-                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
-
-            var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
-            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "SquareArt", ct);
-            var squarePath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
-            var localArtworkResult = CreateLocalArtworkResult(squarePath);
-            if (localArtworkResult is not null)
-            {
-                return localArtworkResult;
-            }
-
-            return CreateArtworkPlaceholderResult();
-        })
-        .WithName("GetAssetSquareArt")
-        .WithSummary("Serve uploaded square artwork for a media asset.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
