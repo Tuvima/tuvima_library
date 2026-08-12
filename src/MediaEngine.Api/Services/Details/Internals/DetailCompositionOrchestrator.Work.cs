@@ -128,11 +128,19 @@ internal sealed partial class DetailCompositionOrchestrator
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
         var descriptionSelection = ResolveLongDescription(detail, values, entityType);
         var longDescription = descriptionSelection.Text;
-        var heroSummary = BuildHeroSummary(values);
         var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
         var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
         var displayDescription = ResolveDisplayOverride(displayOverrides, "description");
         var displayTagline = ResolveDisplayOverride(displayOverrides, "tagline");
+        var displaySubtitle = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Subtitle);
+        var semanticTagline = entityType is DetailEntityType.Movie or DetailEntityType.TvShow
+            ? StringHelpers.FirstNonBlank(displayTagline, GetValue(values, MetadataFieldConstants.Tagline))
+            : null;
+        var semanticSubtitle = entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue or DetailEntityType.Work
+            ? StringHelpers.FirstNonBlank(displaySubtitle, GetValue(values, MetadataFieldConstants.Subtitle))
+            : null;
+        var secondaryTitle = ResolveSecondaryTitleText(
+            entityType, values, semanticTagline, semanticSubtitle, displayDescription ?? longDescription);
         var descriptionAttribution = displayDescription is null
             ? BuildDescriptionAttribution(descriptionSelection, detail, values)
             : BuildLocalDescriptionAttribution();
@@ -152,7 +160,10 @@ internal sealed partial class DetailCompositionOrchestrator
             },
             Title = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType),
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
-            Tagline = displayTagline ?? heroSummary,
+            Tagline = semanticTagline,
+            SecondaryTitleText = secondaryTitle.Text,
+            SecondaryTitleTextKind = secondaryTitle.Kind,
+            SecondaryTitleTextHasMore = secondaryTitle.HasMore,
             Description = displayDescription ?? longDescription,
             DescriptionAttribution = descriptionAttribution,
             SourceLinks = BuildExternalSourceLinks(detail.WikidataQid, GetValue(values, "wikipedia_url"), sequencePlacement, values),

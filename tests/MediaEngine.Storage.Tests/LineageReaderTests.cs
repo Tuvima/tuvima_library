@@ -245,6 +245,58 @@ public sealed class LineageReaderTests : IDisposable
         Assert.Contains(workId, matches);
     }
 
+    [Fact]
+    public async Task CollectionRule_EntityFieldsMatchQidAndNotDisplayLabel()
+    {
+        var (workId, _, _) = await BuildStandaloneWorkAsync("Movies");
+        await InsertCanonicalEntityArrayAsync(workId, "award_received", "Academy Award for Best Picture", "Q102427");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        Assert.Contains(workId, evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "award_received", Op = "eq", Value = "Q102427", DisplayValue = "Best Picture" }]));
+        Assert.DoesNotContain(workId, evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "award_received", Op = "eq", Value = "Academy Award for Best Picture" }]));
+    }
+
+    [Fact]
+    public async Task CollectionRule_NotEqualRequiresKnownValueAndUnknownIsExplicit()
+    {
+        var (winner, _, _) = await BuildStandaloneWorkAsync("Movies");
+        var (differentWinner, _, _) = await BuildStandaloneWorkAsync("Movies");
+        var (unknown, _, _) = await BuildStandaloneWorkAsync("Movies");
+        await InsertCanonicalEntityArrayAsync(winner, "award_received", "Best Picture", "Q102427");
+        await InsertCanonicalEntityArrayAsync(differentWinner, "award_received", "Palme d'Or", "Q179808");
+        await InsertDiscoveryCapabilityAsync(unknown, "award_received", "no_result");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var notBestPicture = evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "award_received", Op = "neq", Value = "Q102427" }]);
+        Assert.Contains(differentWinner, notBestPicture);
+        Assert.DoesNotContain(winner, notBestPicture);
+        Assert.DoesNotContain(unknown, notBestPicture);
+
+        var unknownAwards = evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "award_received", Op = "unknown" }]);
+        Assert.Contains(unknown, unknownAwards);
+        Assert.DoesNotContain(winner, unknownAwards);
+    }
+
+    [Fact]
+    public async Task CollectionRule_AdaptationOwnershipTraversesQidRelationship()
+    {
+        var (source, _, _) = await BuildStandaloneWorkAsync("Books");
+        var (adaptation, _, _) = await BuildStandaloneWorkAsync("Movies");
+        await SetWorkQidAsync(source, "Q1001");
+        await SetWorkQidAsync(adaptation, "Q1002");
+        await InsertCanonicalEntityArrayAsync(adaptation, "based_on", "Source novel", "Q1001");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        Assert.Contains(adaptation, evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "source_work_owned", Op = "eq", Value = "true" }]));
+        Assert.Contains(source, evaluator.Evaluate(
+            [new CollectionRulePredicate { Field = "adaptation_owned", Op = "eq", Value = "true" }]));
+    }
+
     // ────────────────────────────────────────────────────────────────────────
     //  Helpers — schema-safe hierarchy builders
     // ────────────────────────────────────────────────────────────────────────
@@ -348,6 +400,50 @@ public sealed class LineageReaderTests : IDisposable
         AddGuid(cmd, "@entityId", entityId);
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", value);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task InsertCanonicalEntityArrayAsync(Guid entityId, string key, string value, string qid)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT OR REPLACE INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+            VALUES (@entityId, @key, 0, @value, @qid);
+            """;
+        AddGuid(cmd, "@entityId", entityId);
+        cmd.Parameters.AddWithValue("@key", key);
+        cmd.Parameters.AddWithValue("@value", value);
+        cmd.Parameters.AddWithValue("@qid", qid);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task InsertDiscoveryCapabilityAsync(Guid entityId, string subKey, string status)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            INSERT INTO entity_capability_states
+                (id, entity_id, entity_kind, media_type, capability_id, capability_kind,
+                 capability_version, sub_key, status, requiredness, created_at, updated_at)
+            VALUES
+                (@id, @entityId, 'work', 'Movies', 'enrichment.structured_discovery_metadata',
+                 'enrichment', '1.0', @subKey, @status, 'optional', datetime('now'), datetime('now'));
+            """;
+        AddGuid(cmd, "@id", Guid.NewGuid());
+        AddGuid(cmd, "@entityId", entityId);
+        cmd.Parameters.AddWithValue("@subKey", subKey);
+        cmd.Parameters.AddWithValue("@status", status);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task SetWorkQidAsync(Guid workId, string qid)
+    {
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE works SET wikidata_qid = @qid WHERE id = @workId;";
+        AddGuid(cmd, "@workId", workId);
+        cmd.Parameters.AddWithValue("@qid", qid);
         await cmd.ExecuteNonQueryAsync();
     }
 

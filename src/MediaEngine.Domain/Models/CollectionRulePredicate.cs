@@ -15,6 +15,9 @@ public sealed class CollectionRulePredicate
     /// <summary>Single comparison value.</summary>
     public string? Value { get; set; }
 
+    /// <summary>Human-readable label retained for portable QID-backed rules.</summary>
+    public string? DisplayValue { get; set; }
+
     /// <summary>Multiple comparison values (for "in", "between" operators).</summary>
     public string[]? Values { get; set; }
 

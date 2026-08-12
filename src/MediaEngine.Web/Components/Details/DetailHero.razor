@@ -98,6 +98,7 @@
                            UseLogo="@Presentation.UseLogo"
                            LogoUrl="@Presentation.LogoUrl"
                            Subtitle="@Presentation.Subtitle"
+                           SecondaryTitleText="@Presentation.SecondaryTitleText"
                            Synopsis="@Presentation.HeroCopy"
                            SynopsisHeading="@WatchEpisodeHeading"
                            SynopsisClass="@HeroSummaryClass">
@@ -112,6 +113,15 @@
                     <span>@SeriesContextLabel</span>
                 </p>
             </IdentityBeforeTitle>
+            <SecondaryTitleTrailingContent>
+                @if (Presentation.SecondaryTitleTextHasMore)
+                {
+                    <a class="tl-detail-hero__overview-link"
+                       href="#overview"
+                       @onclick="OpenOverviewAsync"
+                       @onclick:preventDefault="true">(more in overview)</a>
+                }
+            </SecondaryTitleTrailingContent>
             <IdentityAfterTitle>
                 @if (HeroCreditLines.Count > 0)
                 {

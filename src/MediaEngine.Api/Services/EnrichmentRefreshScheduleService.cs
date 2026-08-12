@@ -235,6 +235,7 @@ public sealed class EnrichmentRefreshScheduleService
         var personDays = Math.Max(1, settings.PersonRefreshDays);
         var mediaDays = Math.Max(1, settings.Stage3RefreshDays);
         var now = DateTimeOffset.UtcNow;
+        var structuredPolicy = $"media.stage3+structured-discovery-v{StructuredDiscoveryFieldCatalog.CapabilityVersion.Replace('.', '_')}";
 
         using var conn = _db.CreateConnection();
         using var tx = conn.BeginTransaction();
@@ -250,7 +251,14 @@ public sealed class EnrichmentRefreshScheduleService
         var works = conn.Query<SeedRow>(
             """
             SELECT work.id AS EntityId,
-                   enriched.value AS LastSuccessAt,
+                   CASE WHEN EXISTS (
+                       SELECT 1
+                       FROM entity_capability_states discovery
+                       WHERE discovery.entity_id = work.id
+                         AND discovery.capability_id = @discoveryCapability
+                         AND discovery.capability_version = @discoveryVersion
+                         AND discovery.status IN ('succeeded', 'no_result')
+                   ) THEN enriched.value ELSE NULL END AS LastSuccessAt,
                    @now AS CreatedAt
             FROM works work
             INNER JOIN canonical_values qid
@@ -259,9 +267,14 @@ public sealed class EnrichmentRefreshScheduleService
                 ON enriched.entity_id = work.id AND enriched.key = 'stage3_enriched_at'
             WHERE TRIM(qid.value) <> ''
               AND work.is_catalog_only = 0;
-            """, new { now = now.ToString("O") }, tx);
+            """, new
+            {
+                now = now.ToString("O"),
+                discoveryCapability = CapabilityId.EnrichmentStructuredDiscoveryMetadata,
+                discoveryVersion = StructuredDiscoveryFieldCatalog.CapabilityVersion,
+            }, tx);
         foreach (var work in works)
-            UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", "media.stage3", mediaDays, now);
+            UpsertSeed(conn, tx, "Work", work, "universe", "wikidata", structuredPolicy, mediaDays, now);
 
         conn.Execute(
             """
@@ -319,6 +332,8 @@ public sealed class EnrichmentRefreshScheduleService
                     ELSE enrichment_refresh_schedule.last_success_at
                 END,
                 next_due_at = CASE
+                    WHEN enrichment_refresh_schedule.policy_key <> excluded.policy_key
+                    THEN excluded.next_due_at
                     WHEN excluded.last_success_at IS NOT NULL
                          AND (enrichment_refresh_schedule.last_success_at IS NULL
                               OR excluded.last_success_at > enrichment_refresh_schedule.last_success_at)
@@ -326,6 +341,8 @@ public sealed class EnrichmentRefreshScheduleService
                     ELSE enrichment_refresh_schedule.next_due_at
                 END,
                 status = CASE
+                    WHEN enrichment_refresh_schedule.policy_key <> excluded.policy_key
+                    THEN 'Scheduled'
                     WHEN excluded.last_success_at IS NOT NULL
                          AND enrichment_refresh_schedule.last_attempt_at IS NOT NULL
                          AND excluded.last_success_at >= enrichment_refresh_schedule.last_attempt_at

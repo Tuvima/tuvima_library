@@ -12,7 +12,7 @@ tags:
 
 # Wikidata Property Map
 
-> **Stage 3 Planning Reference:** These property definitions document the Wikidata P-codes used across the enrichment pipeline. The Lore & Narrative properties (P840, P674, P921, P1434, P144, P4584) are reserved for the Stage 3 Universe Enrichment feature. Since the project uses the Tuvima.Wikidata library for API access, these properties are consumed through the library's sub-services - the config-level property map has been moved to this reference doc until Stage 3 design determines the actual integration shape.
+This table describes properties actually requested by `config/providers/wikidata_reconciliation.json`. Entity-valued properties retain both a localized display label and a QID in `canonical_value_arrays`; Smart Collection rules persist the QID as identity.
 
 ---
 
@@ -60,7 +60,7 @@ tags:
 
 ## Lore & Narrative Properties
 
-These properties are reserved for the **Stage 3 Universe Enrichment** feature. They are not consumed by the current pipeline.
+These properties are consumed by the current reconciliation and universe pipeline.
 
 | P-code | Claim Key | Scope | Confidence | Notes |
 |--------|-----------|-------|------------|-------|
@@ -75,6 +75,32 @@ These properties are reserved for the **Stage 3 Universe Enrichment** feature. T
 | P945 | `allegiance` | Work | 0.9 | Entity-valued |
 | P39 | `position_held` | Work | 0.9 | Entity-valued |
 | P607 | `conflict` | Work | 0.9 | Entity-valued |
+
+## Structured Discovery Properties
+
+| P-code | Claim key | Cardinality | Typical scope |
+|--------|-----------|-------------|---------------|
+| P166 | `award_received` | Many | Work/root Work |
+| P1411 | `award_nominated` | Many | Work/root Work |
+| P495 | `country_of_origin` | Many | Work/root Work |
+| P407 | `language` | Many | Work/root Work |
+| P364 | `original_language` | Many | Work/root Work |
+| P272 | `production_company` | Many | Movie or TV root Work |
+| P449 | `network` | Many | TV root Work |
+| P123 | `publisher` | Many | Literary Work; audiobook Edition |
+| P264 | `record_label` | Many | Album/root Work |
+| P2408 | `set_in_period` | Many | Work/root Work |
+| P915 | `filming_location` | Many | Movie or TV root Work |
+
+Award and nomination categories are also extended with P361 in one batched, cached request. A declared parent becomes `award_family` or `nomination_family`; no family is guessed when Wikidata has no reliable parent.
+
+### Knowledge state and refresh
+
+`enrichment.structured_discovery_metadata` version `1.0` records a state per field. A successful lookup with no statement is `no_result` (unknown), not false. Smart Collections expose `is known`, `is unknown`, and `has any value`; `is not` requires a known value. The enrichment schedule detects libraries without this capability version and queues a normal universe refresh, so existing items are backfilled without re-import. Later regular Stage 3 refreshes replace the current Wikidata observation set while retaining superseded claims as provenance history.
+
+### Subjective AI attributes
+
+Themes, mood, vibe, and content warnings remain local-AI attributes. They are deliberately not populated from Wikidata and can be combined with structured facts in the same collection rule set.
 
 ---
 
@@ -151,4 +177,3 @@ Confidence values indicate the strength of trust assigned to a claim when it ent
 For the `author` field specifically, a non-Wikidata claim with strictly higher confidence than the best Wikidata P50 claim wins in Tier C of the cascade (to honour deliberately reduced P50 author confidence of 0.75 and preserve embedded pen names at 0.95). All other fields follow standard Tier C Wikidata authority.
 
 See [`docs/architecture/scoring-and-cascade.md`](../architecture/scoring-and-cascade.md) for the full Priority Cascade rules.
-

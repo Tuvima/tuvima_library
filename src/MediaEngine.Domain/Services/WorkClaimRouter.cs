@@ -37,7 +37,10 @@ public sealed class WorkClaimRouter
         return scope switch
         {
             ClaimScope.Parent => lineage.TargetForParentScope,
-            _                 => lineage.TargetForSelfScope,
+            ClaimScope.Edition => lineage.EditionId,
+            ClaimScope.Asset => lineage.AssetId,
+            ClaimScope.Work => lineage.WorkId,
+            _ => lineage.TargetForSelfScope,
         };
     }
 
@@ -96,16 +99,28 @@ public sealed class WorkClaimRouter
         foreach (var claim in claims)
         {
             var scope = ClaimScopeCatalog.GetScope(claim.ClaimKey, lineage.MediaType);
+            var target = scope switch
+            {
+                ClaimScope.Parent => parentTarget,
+                ClaimScope.Edition => lineage.EditionId,
+                ClaimScope.Asset => lineage.AssetId,
+                ClaimScope.Work => lineage.WorkId,
+                _ => selfTarget,
+            };
             var rerouted = new MetadataClaim
             {
                 Id           = claim.Id,
-                EntityId     = scope == ClaimScope.Parent ? parentTarget : selfTarget,
+                EntityId     = target,
                 ProviderId   = claim.ProviderId,
+                DecisionSourceProviderId = claim.DecisionSourceProviderId,
+                ObservationSetId = claim.ObservationSetId,
                 ClaimKey     = claim.ClaimKey,
                 ClaimValue   = claim.ClaimValue,
                 Confidence   = claim.Confidence,
                 ClaimedAt    = claim.ClaimedAt,
                 IsUserLocked = claim.IsUserLocked,
+                IsCurrent    = claim.IsCurrent,
+                SupersededAt = claim.SupersededAt,
             };
 
             if (scope == ClaimScope.Parent)

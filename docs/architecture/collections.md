@@ -242,6 +242,8 @@ Smart collections are auto-generated from library metadata using templates. One 
 
 Smart collections refresh automatically - their rules are re-evaluated as the library changes.
 
+Entity-backed rules store a Wikidata QID plus a display label. The editor groups factual dimensions under Media, People & Organizations, Story & World, Recognition, Production, Relationships, and My Library. Missing structured metadata is not treated as a negative assertion: `neq` means “known and different,” while `is unknown` only matches a field that a completed structured-discovery lookup could not populate. Relationship rules currently cover adaptations and local ownership of their source/adaptation work.
+
 ### Configuration
 
 - **Generation threshold** - adjustable minimum item count per template (default 3 or 5 depending on template)

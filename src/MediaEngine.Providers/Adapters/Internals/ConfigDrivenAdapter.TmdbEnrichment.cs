@@ -91,7 +91,7 @@ public sealed partial class ConfigDrivenAdapter
             var enriched = claims.ToList();
             AddIfMissing(enriched, MetadataFieldConstants.Description, details["overview"]?.GetValue<string>(), 0.85);
             AddIfMissing(enriched, MetadataFieldConstants.ShortDescription, details["overview"]?.GetValue<string>(), 0.84);
-            AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.70);
+            AddIfMissing(enriched, MetadataFieldConstants.Tagline, details["tagline"]?.GetValue<string>(), 0.92);
             AddIfMissing(enriched, MetadataFieldConstants.Runtime, details["runtime"]?.GetValue<long?>()?.ToString(CultureInfo.InvariantCulture), 0.90);
             AddIfMissing(enriched, "content_rating", ExtractTmdbContentRating(details, mediaType), 0.88);
             if (mediaType == MediaType.Movies)

@@ -10,10 +10,8 @@ namespace MediaEngine.Storage;
 /// SQLite implementation of <see cref="IMetadataClaimRepository"/>.
 /// Uses Dapper for type-safe column-to-property mapping.
 ///
-/// The <c>metadata_claims</c> table is append-only: this repository NEVER
-/// issues DELETE or UPDATE statements (except <see cref="DeleteByEntityAsync"/>
-/// which is a special-case for entity wipes).  Full claim history is retained
-/// to allow re-scoring when provider weights change.
+/// The <c>metadata_claims</c> table retains append-only observation history.
+/// Refreshes supersede old provider observations rather than deleting them.
 ///
 /// Spec: Phase 4 – Invariants § Claim History;
 ///       Phase 9 – External Metadata Adapters § Claim Persistence.
@@ -48,11 +46,11 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
 
             const string sql = """
                 INSERT INTO metadata_claims
-                    (id, entity_id, provider_id, decision_source_provider_id, claim_key, claim_value,
-                     confidence, claimed_at, is_user_locked)
+                    (id, entity_id, provider_id, decision_source_provider_id, observation_set_id,
+                     claim_key, claim_value, confidence, claimed_at, is_user_locked, is_current, superseded_at)
                 VALUES
-                    (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ClaimKey, @ClaimValue,
-                     @Confidence, @ClaimedAt, @IsUserLocked);
+                    (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ObservationSetId,
+                     @ClaimKey, @ClaimValue, @Confidence, @ClaimedAt, @IsUserLocked, @IsCurrent, @SupersededAt);
                 """;
 
             // Build the batch parameter list — Dapper executes one INSERT per item.
@@ -62,14 +60,80 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                 c.EntityId,
                 c.ProviderId,
                 c.DecisionSourceProviderId,
+                c.ObservationSetId,
                 c.ClaimKey,
                 c.ClaimValue,
                 c.Confidence,
                 ClaimedAt    = c.ClaimedAt.ToString("o"),
                 IsUserLocked = c.IsUserLocked ? 1 : 0,
+                IsCurrent = c.IsCurrent ? 1 : 0,
+                SupersededAt = c.SupersededAt?.ToString("O"),
             });
 
             conn.Execute(sql, rows, transaction: tx);
+        }, ct).ConfigureAwait(false);
+    }
+
+    /// <inheritdoc/>
+    public async Task ReplaceCurrentProviderClaimsAsync(
+        Guid entityId,
+        Guid providerId,
+        IReadOnlyCollection<string> fieldKeys,
+        IReadOnlyList<MetadataClaim> claims,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        var keys = fieldKeys.Where(key => !string.IsNullOrWhiteSpace(key))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        if (keys.Length == 0)
+            return;
+
+        var observationSetId = Guid.NewGuid();
+        var observedAt = DateTimeOffset.UtcNow;
+        await _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            EnsureBuiltInProvidersExist(conn, tx, claims);
+            conn.Execute("""
+                UPDATE metadata_claims
+                SET is_current = 0,
+                    superseded_at = @supersededAt
+                WHERE entity_id = @entityId
+                  AND provider_id = @providerId
+                  AND is_current = 1
+                  AND is_user_locked = 0
+                  AND claim_key IN @keys;
+                """, new
+                {
+                    entityId,
+                    providerId,
+                    keys,
+                    supersededAt = observedAt.ToString("O"),
+                }, tx);
+
+            if (claims.Count == 0)
+                return;
+
+            conn.Execute("""
+                INSERT INTO metadata_claims
+                    (id, entity_id, provider_id, decision_source_provider_id, observation_set_id,
+                     claim_key, claim_value, confidence, claimed_at, is_user_locked, is_current, superseded_at)
+                VALUES
+                    (@Id, @EntityId, @ProviderId, @DecisionSourceProviderId, @ObservationSetId,
+                     @ClaimKey, @ClaimValue, @Confidence, @ClaimedAt, @IsUserLocked, 1, NULL);
+                """, claims.Select(claim => new
+                {
+                    Id = claim.Id == Guid.Empty ? Guid.NewGuid() : claim.Id,
+                    EntityId = entityId,
+                    ProviderId = providerId,
+                    claim.DecisionSourceProviderId,
+                    ObservationSetId = observationSetId,
+                    claim.ClaimKey,
+                    claim.ClaimValue,
+                    claim.Confidence,
+                    ClaimedAt = observedAt.ToString("O"),
+                    IsUserLocked = claim.IsUserLocked ? 1 : 0,
+                }), tx);
         }, ct).ConfigureAwait(false);
     }
 
@@ -102,13 +166,17 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                    entity_id      AS EntityId,
                    provider_id    AS ProviderId,
                    decision_source_provider_id AS DecisionSourceProviderId,
+                   observation_set_id AS ObservationSetId,
                    claim_key      AS ClaimKey,
                    claim_value    AS ClaimValue,
                    confidence     AS Confidence,
                    claimed_at     AS ClaimedAt,
-                   is_user_locked AS IsUserLocked
+                   is_user_locked AS IsUserLocked,
+                   is_current AS IsCurrent,
+                   superseded_at AS SupersededAt
             FROM   metadata_claims
             WHERE  entity_id = @entityId
+              AND  is_current = 1
             ORDER  BY claimed_at ASC;
             """, new { entityId }).AsList();
 
@@ -144,15 +212,18 @@ public sealed class MetadataClaimRepository : IMetadataClaimRepository
                        entity_id      AS EntityId,
                        provider_id    AS ProviderId,
                        decision_source_provider_id AS DecisionSourceProviderId,
+                       observation_set_id AS ObservationSetId,
                        claim_key      AS ClaimKey,
                        claim_value    AS ClaimValue,
                        confidence     AS Confidence,
                        claimed_at     AS ClaimedAt,
-                       is_user_locked AS IsUserLocked
+                       is_user_locked AS IsUserLocked,
+                       is_current AS IsCurrent,
+                       superseded_at AS SupersededAt
                 FROM metadata_claims
                 WHERE entity_id IN (
                 """ + string.Join(", ", placeholders) + """
-                )
+                ) AND is_current = 1
                 ORDER BY entity_id, claimed_at;
                 """, parameters));
         }

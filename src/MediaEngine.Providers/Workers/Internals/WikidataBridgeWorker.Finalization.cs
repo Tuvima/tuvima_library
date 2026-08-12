@@ -195,9 +195,11 @@ public sealed partial class WikidataBridgeWorker
             }).ConfigureAwait(false);
 
             IReadOnlyList<ProviderClaim> fullClaims;
+            var structuredFetchCompleted = false;
             if (ctx.PreFetchedClaims is not null)
             {
                 fullClaims = ctx.PreFetchedClaims;
+                structuredFetchCompleted = true;
             }
             else
             {
@@ -214,6 +216,7 @@ public sealed partial class WikidataBridgeWorker
                             PreResolvedQid = ctx.ResolvedQid,
                             FileLanguage   = ctx.LanguageHint,
                         }, ct);
+                    structuredFetchCompleted = true;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -248,6 +251,12 @@ public sealed partial class WikidataBridgeWorker
                 // Quick hydration runs the people pass after QID resolution. Keeping
                 // it out of the bridge batch lets later media commit their QIDs
                 // without waiting on person/image enrichment for earlier items.
+            }
+
+            if (structuredFetchCompleted)
+            {
+                await MarkStructuredDiscoveryObservedAsync(job.EntityId, lineage, ctx.MediaType, fullClaims, ct)
+                    .ConfigureAwait(false);
             }
 
             await TryHydrateSeriesManifestAsync(job, ctx, lineage, ctx.ResolvedQid, fullClaims, ct);

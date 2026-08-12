@@ -51,6 +51,13 @@ internal sealed class SchemaMigrator
             "decision_source_provider_id",
             "ALTER TABLE metadata_claims ADD COLUMN decision_source_provider_id BLOB REFERENCES metadata_providers(id);");
 
+        AddColumnIfMissing(conn, "metadata_claims", "observation_set_id",
+            "ALTER TABLE metadata_claims ADD COLUMN observation_set_id BLOB;");
+        AddColumnIfMissing(conn, "metadata_claims", "is_current",
+            "ALTER TABLE metadata_claims ADD COLUMN is_current INTEGER NOT NULL DEFAULT 1 CHECK (is_current IN (0, 1));");
+        AddColumnIfMissing(conn, "metadata_claims", "superseded_at",
+            "ALTER TABLE metadata_claims ADD COLUMN superseded_at TEXT;");
+
         AddColumnIfMissing(
             conn,
             "player_queue_items",
@@ -186,6 +193,12 @@ internal sealed class SchemaMigrator
 
             CREATE INDEX IF NOT EXISTS idx_canonical_value_arrays_key_value_entity
                 ON canonical_value_arrays(key, value, entity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_canonical_value_arrays_key_qid_entity
+                ON canonical_value_arrays(key, value_qid, entity_id);
+
+            CREATE INDEX IF NOT EXISTS idx_metadata_claims_current_lookup
+                ON metadata_claims(entity_id, provider_id, claim_key, is_current);
 
             CREATE INDEX IF NOT EXISTS idx_person_media_links_person
                 ON person_media_links(person_id);

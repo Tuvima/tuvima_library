@@ -15,6 +15,8 @@ public sealed class DetailHeroPresentation
         string? logoUrl,
         string title,
         string? subtitle,
+        string? secondaryTitleText,
+        bool secondaryTitleTextHasMore,
         string? heroCopy,
         bool heroCopyHasMore,
         ProgressViewModel? progress,
@@ -30,6 +32,8 @@ public sealed class DetailHeroPresentation
         LogoUrl = logoUrl;
         Title = title;
         Subtitle = subtitle;
+        SecondaryTitleText = secondaryTitleText;
+        SecondaryTitleTextHasMore = secondaryTitleTextHasMore;
         HeroCopy = heroCopy;
         HeroCopyHasMore = heroCopyHasMore;
         Progress = progress;
@@ -46,6 +50,8 @@ public sealed class DetailHeroPresentation
     public string? LogoUrl { get; }
     public string Title { get; }
     public string? Subtitle { get; }
+    public string? SecondaryTitleText { get; }
+    public bool SecondaryTitleTextHasMore { get; }
     public string? HeroCopy { get; }
     public bool HeroCopyHasMore { get; }
     public ProgressViewModel? Progress { get; }
@@ -60,14 +66,9 @@ public sealed class DetailHeroPresentation
         var isWatchHero = IsWatchEntity(model.EntityType);
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
-        var copySource = model.EntityType switch
-        {
-            DetailEntityType.TvShow => model.Tagline,
-            DetailEntityType.TvEpisode => StringHelpers.FirstNonBlank(model.Description, model.Tagline),
-            DetailEntityType.Movie => StringHelpers.FirstNonBlank(model.Tagline, model.Description),
-            _ when isWatchHero => StringHelpers.FirstNonBlank(model.Tagline, model.Description),
-            _ => StringHelpers.FirstNonBlank(model.Tagline, model.Description),
-        };
+        var copySource = string.Equals(model.SecondaryTitleTextKind, "description", StringComparison.OrdinalIgnoreCase)
+            ? null
+            : model.Description;
         var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
         var usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero;
         var firstParagraph = usesFullParagraphCopy
@@ -94,6 +95,8 @@ public sealed class DetailHeroPresentation
             useLogo ? model.Artwork.LogoUrl : null,
             model.Title,
             ResolveSubtitle(model, isWatchHero),
+            model.SecondaryTitleText,
+            model.SecondaryTitleTextHasMore,
             copy,
             copyHasMore,
             model.Progress,

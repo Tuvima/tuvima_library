@@ -14,6 +14,14 @@
                 <h1>@Title</h1>
             }
 
+            @if (!string.IsNullOrWhiteSpace(SecondaryTitleText))
+            {
+                <div class="tl-detail-hero__secondary-title-text">
+                    <span>@SecondaryTitleText</span>
+                    @SecondaryTitleTrailingContent
+                </div>
+            }
+
             @IdentityAfterTitle
 
             @if (!string.IsNullOrWhiteSpace(Subtitle))
@@ -50,6 +58,7 @@
     [Parameter] public bool UseLogo { get; set; }
     [Parameter] public string? LogoUrl { get; set; }
     [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public string? SecondaryTitleText { get; set; }
     [Parameter] public string? Synopsis { get; set; }
     [Parameter] public string? SynopsisHeading { get; set; }
     [Parameter] public string SynopsisClass { get; set; } = "tl-detail-hero__tagline tl-detail-hero__tagline--ai";
@@ -57,6 +66,7 @@
     [Parameter] public string CopyClass { get; set; } = string.Empty;
     [Parameter] public RenderFragment? IdentityBeforeTitle { get; set; }
     [Parameter] public RenderFragment? IdentityAfterTitle { get; set; }
+    [Parameter] public RenderFragment? SecondaryTitleTrailingContent { get; set; }
     [Parameter] public RenderFragment? MetadataContent { get; set; }
     [Parameter] public RenderFragment? CapabilityContent { get; set; }
     [Parameter] public RenderFragment? ActionContent { get; set; }

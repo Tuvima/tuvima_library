@@ -2398,6 +2398,25 @@ public static class CollectionEndpoints
         .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 
+        group.MapGet("/entity-field-values/{field}", async (
+            string field,
+            int? limit,
+            ICollectionBrowseReadService browseReadService,
+            CancellationToken ct) =>
+        {
+            var isGenericEntityField = StructuredDiscoveryFieldCatalog.IsEntityBacked(field);
+            if (!isGenericEntityField
+                && field is not ("person_qid" or "wikidata_franchise"))
+                return ApiErrors.BadRequest("The requested collection field is not entity-backed.");
+
+            var page = PagedRequest.From(null, limit, defaultLimit: 100);
+            return Results.Ok(await browseReadService.GetEntityFieldValuesAsync(field, page.Limit, ct));
+        })
+        .WithName("GetEntityFieldValues")
+        .WithSummary("Returns local QID-backed values and labels for the collection rule editor.")
+        .Produces<IReadOnlyList<CollectionRuleValueDto>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
+
         // GET /collections/{id}/placements
         group.MapGet("/{id:guid}/placements", async (
             Guid id,

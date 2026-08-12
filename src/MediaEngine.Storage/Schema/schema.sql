@@ -570,6 +570,7 @@ CREATE TABLE IF NOT EXISTS metadata_claims (
     entity_id   BLOB NOT NULL,              -- FK → works.id | editions.id (polymorphic)
     provider_id BLOB NOT NULL REFERENCES metadata_providers(id),
     decision_source_provider_id BLOB REFERENCES metadata_providers(id),
+    observation_set_id BLOB,
     claim_key   TEXT NOT NULL,
     claim_value TEXT NOT NULL,
     confidence  REAL NOT NULL DEFAULT 1.0,
@@ -580,7 +581,10 @@ CREATE TABLE IF NOT EXISTS metadata_claims (
     -- (confidence 1.0); no automated provider may set this to 1.
     -- Spec: Phase 8 – Field-Level Arbitration § User-Locked Claims.
     is_user_locked INTEGER NOT NULL DEFAULT 0
-                       CHECK (is_user_locked IN (0, 1))
+                       CHECK (is_user_locked IN (0, 1)),
+    is_current     INTEGER NOT NULL DEFAULT 1
+                       CHECK (is_current IN (0, 1)),
+    superseded_at  TEXT
 );
 
 CREATE TABLE IF NOT EXISTS metadata_providers (
@@ -1464,6 +1468,9 @@ CREATE INDEX IF NOT EXISTS idx_metadata_claims_entity_id
 
 CREATE INDEX IF NOT EXISTS idx_metadata_claims_provider_id
     ON metadata_claims (provider_id);
+
+CREATE INDEX IF NOT EXISTS idx_metadata_claims_current_lookup
+    ON metadata_claims (entity_id, provider_id, claim_key, is_current);
 
 CREATE INDEX IF NOT EXISTS idx_offline_variants_asset
     ON offline_variants(asset_id, status);

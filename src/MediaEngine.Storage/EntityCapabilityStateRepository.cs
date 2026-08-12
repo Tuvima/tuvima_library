@@ -62,6 +62,34 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
                 UpdatedAt = updatedAt.ToString("O")
             });
 
+        // Ensure is also the version handshake. Preserve the observed status,
+        // but move existing rows onto the definition that is about to run so a
+        // completed rerun can clear its stale marker.
+        conn.Execute("""
+            UPDATE entity_capability_states
+            SET entity_kind = @EntityKind,
+                media_type = @MediaType,
+                capability_kind = @CapabilityKind,
+                capability_version = @CapabilityVersion,
+                requiredness = @Requiredness,
+                updated_at = @UpdatedAt
+            WHERE entity_id = @EntityId
+              AND capability_id = @CapabilityId
+              AND COALESCE(sub_key, '') = COALESCE(@SubKey, '');
+            """,
+            new
+            {
+                state.EntityId,
+                state.EntityKind,
+                state.MediaType,
+                state.CapabilityId,
+                state.CapabilityKind,
+                state.CapabilityVersion,
+                state.SubKey,
+                state.Requiredness,
+                UpdatedAt = updatedAt.ToString("O"),
+            });
+
         return GetAsync(state.EntityId, state.CapabilityId, state.SubKey, ct)
             .ContinueWith(
                 completed => completed.Result!,
@@ -224,6 +252,9 @@ public sealed class EntityCapabilityStateRepository : IEntityCapabilityStateRepo
             SET status = @status,
                 missing_reason = @missingReason,
                 last_error = @lastError,
+                stale = 0,
+                needs_rerun = 0,
+                next_retry_at = NULL,
                 first_attempted_at = COALESCE(first_attempted_at, @now),
                 last_attempted_at = @now,
                 updated_at = @now

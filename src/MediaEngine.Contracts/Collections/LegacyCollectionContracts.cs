@@ -112,8 +112,14 @@ public sealed class CollectionRulePredicateDto
     [JsonPropertyName("field")] public string Field { get; init; } = "media_type";
     [JsonPropertyName("op")] public string Op { get; init; } = "eq";
     [JsonPropertyName("value")] public string? Value { get; init; }
+    [JsonPropertyName("display_value")] public string? DisplayValue { get; init; }
     [JsonPropertyName("values")] public string[]? Values { get; init; }
 }
+
+public sealed record CollectionRuleValueDto(
+    [property: JsonPropertyName("value")] string Value,
+    [property: JsonPropertyName("label")] string Label,
+    [property: JsonPropertyName("local_count")] int LocalCount);
 
 public sealed class CollectionCreateRequest
 {

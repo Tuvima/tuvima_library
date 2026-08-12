@@ -19,7 +19,10 @@ namespace MediaEngine.Domain.Constants;
 public enum ClaimScope
 {
     Self,
+    Work,
     Parent,
+    Edition,
+    Asset,
 }
 
 /// <summary>
@@ -65,6 +68,7 @@ public static class ClaimScopeCatalog
             [MetadataFieldConstants.Franchise]         = ClaimScope.Parent,
             [MetadataFieldConstants.Network]           = ClaimScope.Parent,
             [MetadataFieldConstants.Tagline]           = ClaimScope.Parent,
+            [MetadataFieldConstants.Subtitle]          = ClaimScope.Parent,
             [MetadataFieldConstants.ShortDescription]  = ClaimScope.Parent,
             [MetadataFieldConstants.PublisherField]    = ClaimScope.Parent,
             [MetadataFieldConstants.SeasonCount]       = ClaimScope.Parent,
@@ -82,6 +86,17 @@ public static class ClaimScopeCatalog
             ["studio"]                                 = ClaimScope.Parent,
             ["studio_logo_url"]                        = ClaimScope.Parent,
             ["production_company"]                     = ClaimScope.Parent,
+            [MetadataFieldConstants.AwardReceived]       = ClaimScope.Parent,
+            [MetadataFieldConstants.AwardNominated]      = ClaimScope.Parent,
+            [MetadataFieldConstants.AwardFamily]         = ClaimScope.Parent,
+            [MetadataFieldConstants.NominationFamily]    = ClaimScope.Parent,
+            [MetadataFieldConstants.CountryOfOrigin]     = ClaimScope.Parent,
+            [MetadataFieldConstants.ProductionCompany]   = ClaimScope.Parent,
+            [MetadataFieldConstants.RecordLabel]         = ClaimScope.Parent,
+            [MetadataFieldConstants.SetInPeriod]         = ClaimScope.Parent,
+            [MetadataFieldConstants.FilmingLocation]     = ClaimScope.Parent,
+            [MetadataFieldConstants.MainSubject]         = ClaimScope.Parent,
+            [MetadataFieldConstants.BasedOn]             = ClaimScope.Parent,
         };
 
     // ── Per-media-type overrides applied AFTER the default map. ──────────
@@ -103,6 +118,7 @@ public static class ClaimScopeCatalog
                 [MetadataFieldConstants.Cover]       = ClaimScope.Parent,  // album art
                 [MetadataFieldConstants.CoverUrl]    = ClaimScope.Parent,
                 [MetadataFieldConstants.Composer]    = ClaimScope.Self,
+                [MetadataFieldConstants.RecordLabel] = ClaimScope.Parent,
             },
             [MediaType.TV] = new(StringComparer.OrdinalIgnoreCase)
             {
@@ -125,6 +141,7 @@ public static class ClaimScopeCatalog
             },
             [MediaType.Comics] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [MetadataFieldConstants.Subtitle]     = ClaimScope.Work,
                 [BridgeIdKeys.ComicVineId]        = ClaimScope.Self,
                 [BridgeIdKeys.ComicVineVolumeId]  = ClaimScope.Parent,
                 [MetadataFieldConstants.Author]       = ClaimScope.Parent,
@@ -142,6 +159,7 @@ public static class ClaimScopeCatalog
             },
             [MediaType.Books] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [MetadataFieldConstants.Subtitle]    = ClaimScope.Work,
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
@@ -150,12 +168,14 @@ public static class ClaimScopeCatalog
             },
             [MediaType.Audiobooks] = new(StringComparer.OrdinalIgnoreCase)
             {
+                [MetadataFieldConstants.Subtitle]    = ClaimScope.Edition,
                 [MetadataFieldConstants.Author]      = ClaimScope.Parent,
                 [MetadataFieldConstants.Narrator]    = ClaimScope.Parent,
                 [MetadataFieldConstants.Genre]       = ClaimScope.Parent,
                 [MetadataFieldConstants.FictionalUniverse] = ClaimScope.Parent,
                 [MetadataFieldConstants.Characters]        = ClaimScope.Parent,
                 [MetadataFieldConstants.NarrativeLocation] = ClaimScope.Parent,
+                [MetadataFieldConstants.PublisherField] = ClaimScope.Edition,
             },
             [MediaType.Movies] = new(StringComparer.OrdinalIgnoreCase)
             {

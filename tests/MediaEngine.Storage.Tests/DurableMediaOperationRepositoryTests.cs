@@ -325,6 +325,25 @@ public sealed class DurableMediaOperationRepositoryTests : IDisposable
         Assert.True(updated.NeedsRerun);
     }
 
+    [Fact]
+    public async Task EnsureAndNoResult_CompleteVersionedCapabilityRerun()
+    {
+        var repo = new EntityCapabilityStateRepository(_db);
+        var entityId = Guid.NewGuid();
+        await repo.EnsureAsync(NewCapability(entityId, version: "1.0"));
+        await repo.InvalidateForCapabilityVersionAsync(CapabilityId.IdentityWikidataBridge, "2.0");
+
+        await repo.EnsureAsync(NewCapability(entityId, version: "2.0"));
+        await repo.MarkNoResultAsync(entityId, CapabilityId.IdentityWikidataBridge, null, "No statement");
+        var updated = await repo.GetAsync(entityId, CapabilityId.IdentityWikidataBridge);
+
+        Assert.NotNull(updated);
+        Assert.Equal("2.0", updated.CapabilityVersion);
+        Assert.Equal(EntityCapabilityStatus.NoResult, updated.Status);
+        Assert.False(updated.Stale);
+        Assert.False(updated.NeedsRerun);
+    }
+
     private static MediaOperation NewOperation(
         string idempotencyKey,
         string? sourcePath = null,

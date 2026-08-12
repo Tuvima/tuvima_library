@@ -56,5 +56,6 @@ public sealed class CollectionRulePredicateViewModel
     public string Field { get; set; } = "media_type";
     public string Op { get; set; } = "eq";
     public string? Value { get; set; }
+    public string? DisplayValue { get; set; }
     public string[]? Values { get; set; }
 }

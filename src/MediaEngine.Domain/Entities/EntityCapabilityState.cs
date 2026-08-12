@@ -71,6 +71,7 @@ public static class CapabilityId
     public const string EnrichmentPeople = "enrichment.people";
     public const string EnrichmentDescription = "enrichment.description";
     public const string EnrichmentRelationships = "enrichment.relationships";
+    public const string EnrichmentStructuredDiscoveryMetadata = "enrichment.structured_discovery_metadata";
     public const string TextTrackLyrics = "text_track.lyrics";
     public const string TextTrackSubtitles = "text_track.subtitles";
     public const string PluginCommercialSkip = "plugin.commercial_skip";

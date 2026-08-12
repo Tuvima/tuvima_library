@@ -37,7 +37,7 @@ public sealed class LegacyCollectionContractTests
         AssertJsonFields<CollectionUpdateRequest>(
             "name", "description", "visibility", "icon_name", "rules", "match_mode",
             "sort_field", "sort_direction", "live_updating", "is_enabled", "is_featured");
-        AssertJsonFields<CollectionRulePredicateDto>("field", "op", "value", "values");
+        AssertJsonFields<CollectionRulePredicateDto>("display_value", "field", "op", "value", "values");
     }
 
     [Fact]

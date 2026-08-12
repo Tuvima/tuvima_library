@@ -37,6 +37,7 @@ public sealed class CapabilityRegistry
             Optional(CapabilityId.EnrichmentPeople, "enrichment"),
             Optional(CapabilityId.EnrichmentDescription, "enrichment"),
             Optional(CapabilityId.EnrichmentRelationships, "enrichment"),
+            Optional(CapabilityId.EnrichmentStructuredDiscoveryMetadata, "enrichment"),
             Optional(CapabilityId.TextTrackLyrics, "text_track"),
             Optional(CapabilityId.TextTrackSubtitles, "text_track"),
             Optional(CapabilityId.PluginCommercialSkip, "plugin"),

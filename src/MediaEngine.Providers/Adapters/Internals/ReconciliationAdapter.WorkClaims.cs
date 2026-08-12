@@ -365,6 +365,10 @@ public sealed partial class ReconciliationAdapter
             }
         }
 
+        // Resolve award categories to their declared parent program using the
+        // generic Wikidata hierarchy. No family is guessed when P361 is absent.
+        await AppendAwardFamilyClaimsAsync(claims, ct).ConfigureAwait(false);
+
         // Author pseudonym detection. The Tuvima.Wikidata author resolver handles
         // solo pen names, enumerated pseudonyms, and collective pseudonyms.
         if (!string.IsNullOrWhiteSpace(request.Author) && _reconciler is not null)

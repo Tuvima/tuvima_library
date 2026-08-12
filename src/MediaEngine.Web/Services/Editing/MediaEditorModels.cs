@@ -435,6 +435,7 @@ public static class MediaEditorSchemaCatalog
         [
             Group("book_details", "Details", "details",
                 Field("title", "Display title", identity: true),
+                Field("subtitle", "Subtitle"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("book_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -453,6 +454,7 @@ public static class MediaEditorSchemaCatalog
         [
             Group("audiobook_details", "Details", "details",
                 Field("title", "Display title", identity: true),
+                Field("subtitle", "Subtitle"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("audiobook_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -471,6 +473,7 @@ public static class MediaEditorSchemaCatalog
         [
             Group("comic_details", "Details", "details",
                 Field("title", "Display title", identity: true),
+                Field("subtitle", "Subtitle"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("comic_options", "Options", "options",
                 Field("custom_tags", "Local tags"),

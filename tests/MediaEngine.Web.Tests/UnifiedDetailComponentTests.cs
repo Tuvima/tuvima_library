@@ -822,9 +822,15 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("BuildFallbackHeroSummary", source);
         Assert.Contains("data-ai-summary-slot=\"tldr\"", heroContent);
         Assert.Contains("tl-detail-hero__tagline--ai", heroContent);
-        Assert.Contains("DetailEntityType.TvShow => model.Tagline", presentation);
-        Assert.Contains("StringHelpers.FirstNonBlank(model.Description, model.Tagline)", presentation);
-        Assert.Contains("DetailEntityType.Movie => StringHelpers.FirstNonBlank(model.Tagline, model.Description)", presentation);
+        Assert.Contains("model.SecondaryTitleTextKind", presentation);
+        Assert.Contains("model.SecondaryTitleText", presentation);
+        Assert.Contains("model.Description", presentation);
+        Assert.Contains("SecondaryTitleText=\"@Presentation.SecondaryTitleText\"", hero);
+        Assert.Contains("SecondaryTitleTrailingContent", heroContent);
+        Assert.Contains("ResolveSecondaryTitleText", source);
+        Assert.Contains("MetadataFieldConstants.Subtitle", source);
+        Assert.Contains("Tagline = semanticTagline", source);
+        Assert.DoesNotContain("Tagline = displayTagline ?? heroSummary", source);
         Assert.Contains("tl-detail-hero__synopsis", heroContent);
         Assert.Contains("WatchEpisodeHeading", hero);
         Assert.Contains("EpisodePositionFromWatchAction", hero);

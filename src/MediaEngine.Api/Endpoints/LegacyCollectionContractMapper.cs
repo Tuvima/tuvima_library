@@ -91,6 +91,7 @@ internal static class LegacyCollectionContractMapper
         Field = source.Field,
         Op = source.Op,
         Value = source.Value,
+        DisplayValue = source.DisplayValue,
         Values = source.Values,
     };
 }

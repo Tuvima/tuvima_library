@@ -504,6 +504,19 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<IReadOnlyList<CollectionRuleValueDto>> GetCollectionEntityFieldValuesAsync(
+        string field,
+        int limit = 100,
+        CancellationToken ct = default)
+    {
+        return await GetAsync<IReadOnlyList<CollectionRuleValueDto>>(
+            "GET /collections/entity-field-values/{field}",
+            $"/collections/entity-field-values/{Uri.EscapeDataString(field)}",
+            static () => [],
+            new Dictionary<string, string?> { ["limit"] = Math.Clamp(limit, 1, 500).ToString() },
+            ct: ct);
+    }
+
     public async Task<bool> CreateCollectionAsync(
         string name,
         string? description,
@@ -613,6 +626,7 @@ public sealed partial class EngineApiClient
         Field = source.Field,
         Op = source.Op,
         Value = source.Value,
+        DisplayValue = source.DisplayValue,
         Values = source.Values,
     };
 

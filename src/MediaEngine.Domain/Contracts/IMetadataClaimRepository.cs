@@ -25,7 +25,21 @@ public interface IMetadataClaimRepository
         CancellationToken ct = default);
 
     /// <summary>
-    /// Returns all claims for a given entity, ordered by <see cref="MetadataClaim.ClaimedAt"/>
+    /// Atomically replaces a provider's current observations for the supplied
+    /// fields. Old rows remain available as history but are excluded from scoring.
+    /// </summary>
+    async Task ReplaceCurrentProviderClaimsAsync(
+        Guid entityId,
+        Guid providerId,
+        IReadOnlyCollection<string> fieldKeys,
+        IReadOnlyList<MetadataClaim> claims,
+        CancellationToken ct = default)
+    {
+        await InsertBatchAsync(claims, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Returns current claims for a given entity, ordered by <see cref="MetadataClaim.ClaimedAt"/>
     /// ascending (oldest first).
     /// </summary>
     /// <param name="entityId">The entity whose claims to retrieve.</param>

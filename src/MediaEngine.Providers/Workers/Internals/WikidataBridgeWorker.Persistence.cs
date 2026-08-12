@@ -113,10 +113,10 @@ public sealed partial class WikidataBridgeWorker
                     HydrationPass  = HydrationPass.Universe,
                 }, ct);
 
+            WorkLineage? lineage = null;
             if (fullClaims.Count > 0)
             {
                 // Phase 3c: lineage-aware persist for the manual-QID flow.
-                WorkLineage? lineage = null;
                 try { lineage = await _workRepo.GetLineageByAssetAsync(entityId, ct); }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -130,6 +130,9 @@ public sealed partial class WikidataBridgeWorker
                     _claimRepo, _canonicalRepo, _scoringEngine, _configLoader, _providers, ct,
                     arrayRepo: _arrayRepo, logger: _logger);
             }
+
+            await MarkStructuredDiscoveryObservedAsync(entityId, lineage, mediaType, fullClaims, ct)
+                .ConfigureAwait(false);
 
             _logger.LogInformation(
                 "Fetched {Count} Wikidata properties for QID {Qid} (entity {EntityId})",

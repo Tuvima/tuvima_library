@@ -8,8 +8,8 @@ namespace MediaEngine.Domain.Entities;
 /// later resolves into <see cref="CanonicalValue"/> records.
 ///
 /// Maps 1:1 to a row in the <c>metadata_claims</c> table.
-/// Rows are NEVER deleted; the full claim history is retained to allow
-/// re-scoring when provider weights change.
+/// Rows are never deleted. Provider refreshes supersede an old observation set
+/// while retaining it as history; scoring reads only current observations.
 /// Spec: Phase 4 – Invariants § Claim History.
 /// </summary>
 public sealed class MetadataClaim
@@ -37,6 +37,15 @@ public sealed class MetadataClaim
     /// factual observation source in <see cref="ProviderId"/>.
     /// </summary>
     public Guid? DecisionSourceProviderId { get; set; }
+
+    /// <summary>Groups all claims observed during one provider refresh.</summary>
+    public Guid? ObservationSetId { get; set; }
+
+    /// <summary>Whether this observation participates in current canonical scoring.</summary>
+    public bool IsCurrent { get; set; } = true;
+
+    /// <summary>When a later provider observation replaced this claim.</summary>
+    public DateTimeOffset? SupersededAt { get; set; }
 
     /// <summary>
     /// The metadata field name this claim pertains to.

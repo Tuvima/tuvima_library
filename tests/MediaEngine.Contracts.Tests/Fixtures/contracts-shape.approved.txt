@@ -794,7 +794,13 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRu
   Field: System.String | nullability=not-null | accessors=get,init
   Op: System.String | nullability=not-null | accessors=get,init
   Value: System.String | nullability=nullable | accessors=get,init
+  DisplayValue: System.String | nullability=nullable | accessors=get,init
   Values: System.String[] | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRuleValueDto
+  Value: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  LocalCount: System.Int32 | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionSquareArtworkUploadResponse
   square_artwork_url: System.String | nullability=not-null | accessors=get,init
@@ -1188,6 +1194,9 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPageViewModel
   Title: System.String | nullability=not-null | accessors=get,init
   Subtitle: System.String | nullability=nullable | accessors=get,init
   Tagline: System.String | nullability=nullable | accessors=get,init
+  SecondaryTitleText: System.String | nullability=nullable | accessors=get,init
+  SecondaryTitleTextKind: System.String | nullability=nullable | accessors=get,init
+  SecondaryTitleTextHasMore: System.Boolean | nullability=not-null | accessors=get,init
   Description: System.String | nullability=nullable | accessors=get,init
   DescriptionAttribution: MediaEngine.Contracts.Details.DescriptionAttributionViewModel | nullability=nullable | accessors=get,init
   SourceLinks: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Details.ExternalSourceLinkViewModel> | nullability=not-null | accessors=get,init

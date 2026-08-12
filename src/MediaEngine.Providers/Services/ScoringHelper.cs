@@ -50,7 +50,8 @@ public static class ScoringHelper
         ILogger? logger = null,
         ISearchIndexRepository? searchIndex = null,
         MediaType detectedMediaType = MediaType.Unknown,
-        Guid? decisionSourceProviderId = null)
+        Guid? decisionSourceProviderId = null,
+        IReadOnlyCollection<string>? snapshotFieldKeys = null)
     {
         // Wrap provider claims as domain MetadataClaim rows.
         var domainClaims = claims
@@ -68,8 +69,14 @@ public static class ScoringHelper
             })
             .ToList();
 
-        // Persist claims (append-only).
-        if (domainClaims.Count > 0)
+        // Provider snapshots replace only the declared field set. Historical
+        // observations remain stored but are excluded from current scoring.
+        if (snapshotFieldKeys is { Count: > 0 })
+        {
+            await claimRepo.ReplaceCurrentProviderClaimsAsync(
+                entityId, providerId, snapshotFieldKeys, domainClaims, ct).ConfigureAwait(false);
+        }
+        else if (domainClaims.Count > 0)
         {
             await claimRepo.InsertBatchAsync(domainClaims, ct).ConfigureAwait(false);
         }
@@ -127,6 +134,27 @@ public static class ScoringHelper
 
         await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
 
+        // A successful snapshot may retract facts that existed previously.
+        // Remove canonicals for refreshed fields that no longer have a winner.
+        if (snapshotFieldKeys is { Count: > 0 })
+        {
+            var winningKeys = scored.FieldScores
+                .Where(score => !string.IsNullOrWhiteSpace(score.WinningValue))
+                .Select(score => score.Key)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var key in snapshotFieldKeys
+                .Where(key => !key.EndsWith(MetadataFieldConstants.CompanionQidSuffix, StringComparison.OrdinalIgnoreCase))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                if (winningKeys.Contains(key))
+                    continue;
+
+                await canonicalRepo.DeleteByKeyAsync(entityId, key, ct).ConfigureAwait(false);
+                if (arrayRepo is not null && MetadataFieldConstants.IsMultiValued(key))
+                    await arrayRepo.SetValuesAsync(entityId, key, [], ct).ConfigureAwait(false);
+            }
+        }
+
         // Refresh the FTS5 search index for this work. UpsertByEntityIdAsync
         // accepts either an asset id or a Work id and re-reads the canonical
         // state from the database — Self fields from the asset row, Parent
@@ -140,7 +168,6 @@ public static class ScoringHelper
         // Decompose multi-valued fields into proper array rows.
         // Collect ALL claims
         // from the winning provider for each multi-valued key.
-        var multiValueCanonicalChanged = false;
         if (arrayRepo is not null)
         {
             foreach (var fieldScore in scored.FieldScores)
@@ -183,20 +210,12 @@ public static class ScoringHelper
                     if (entries.Count == 0)
                         continue;
 
+                    // Multi-valued metadata is array-only. Remove any scalar row
+                    // left from an older field classification before replacing
+                    // the idempotent ordered array projection.
+                    await canonicalRepo.DeleteByKeyAsync(entityId, fieldScore.Key, ct).ConfigureAwait(false);
                     await arrayRepo.SetValuesAsync(entityId, fieldScore.Key, entries, ct)
                         .ConfigureAwait(false);
-
-                    // Update canonical_values to store the joined string of all values
-                    // so that display fields (e.g. author) show all values (e.g. "Neil Gaiman; Terry Pratchett").
-                    var canonical = canonicals.FirstOrDefault(c =>
-                        c.Key.Equals(fieldScore.Key, StringComparison.OrdinalIgnoreCase));
-                    var joinedValue = string.Join("; ", entries.Select(entry => entry.Value));
-                    if (canonical is not null
-                        && !string.Equals(canonical.Value, joinedValue, StringComparison.Ordinal))
-                    {
-                        canonical.Value = joinedValue;
-                        multiValueCanonicalChanged = true;
-                    }
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -206,12 +225,8 @@ public static class ScoringHelper
                 }
             }
 
-            if (multiValueCanonicalChanged)
-            {
-                await canonicalRepo.UpsertBatchAsync(canonicals, ct).ConfigureAwait(false);
-                if (searchIndex is not null)
-                    await searchIndex.UpsertByEntityIdAsync(entityId, ct).ConfigureAwait(false);
-            }
+            if (searchIndex is not null)
+                await searchIndex.UpsertByEntityIdAsync(entityId, ct).ConfigureAwait(false);
         }
 
         return scored;
@@ -458,32 +473,71 @@ public static class ScoringHelper
         // No lineage → fall back to single-target write on the asset id.
         if (lineage is null)
         {
+            var snapshotKeys = StructuredSnapshotKeys(providerId, detectedMediaType: MediaType.Unknown, scope: null);
             return await PersistClaimsAndScoreAsync(
                 entityId, claims, providerId,
                 claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
                 arrayRepo, logger, searchIndex,
-                decisionSourceProviderId: decisionSourceProviderId).ConfigureAwait(false);
+                decisionSourceProviderId: decisionSourceProviderId,
+                snapshotFieldKeys: snapshotKeys).ConfigureAwait(false);
         }
 
         // Partition claims by scope. The split is media-type aware.
         var selfClaims = new List<ProviderClaim>(claims.Count);
+        var workClaims = new List<ProviderClaim>(claims.Count);
         var parentClaims = new List<ProviderClaim>(claims.Count);
+        var editionClaims = new List<ProviderClaim>(claims.Count);
         foreach (var c in claims)
         {
             if (string.IsNullOrWhiteSpace(c.Key))
                 continue;
 
-            if (ClaimScopeCatalog.GetScope(c.Key, lineage.MediaType) == ClaimScope.Parent)
-                parentClaims.Add(c);
-            else
-                selfClaims.Add(c);
+            switch (ClaimScopeCatalog.GetScope(c.Key, lineage.MediaType))
+            {
+                case ClaimScope.Parent:
+                    parentClaims.Add(c);
+                    break;
+                case ClaimScope.Edition:
+                    editionClaims.Add(c);
+                    break;
+                case ClaimScope.Work:
+                    workClaims.Add(c);
+                    break;
+                default:
+                    selfClaims.Add(c);
+                    break;
+            }
         }
 
         // 1. Asset-keyed write — only self-scope claims.
         var assetResult = await PersistClaimsAndScoreAsync(
             entityId, selfClaims, providerId,
             claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-            arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId).ConfigureAwait(false);
+            arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId,
+            StructuredSnapshotKeys(providerId, lineage.MediaType, ClaimScope.Self)).ConfigureAwait(false);
+
+        var workSnapshotKeys = StructuredSnapshotKeys(providerId, lineage.MediaType, ClaimScope.Work);
+        if (workClaims.Count > 0 || workSnapshotKeys is { Count: > 0 })
+        {
+            await PersistClaimsAndScoreAsync(
+                lineage.WorkId,
+                workClaims,
+                providerId,
+                claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
+                arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId,
+                workSnapshotKeys).ConfigureAwait(false);
+        }
+
+        if (editionClaims.Count > 0 || StructuredSnapshotKeys(providerId, lineage.MediaType, ClaimScope.Edition) is { Count: > 0 })
+        {
+            await PersistClaimsAndScoreAsync(
+                lineage.EditionId,
+                editionClaims,
+                providerId,
+                claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
+                arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId,
+                StructuredSnapshotKeys(providerId, lineage.MediaType, ClaimScope.Edition)).ConfigureAwait(false);
+        }
 
         // 2. Parent-Work write — only parent-scope claims, always against the
         //    topmost Work id (collapses to the movie's own Work for standalone
@@ -507,7 +561,8 @@ public static class ScoringHelper
         // parent-scope claims), leaving the Work as "Untitled" in library views.
         MaybeSynthesizeParentTitle(claims, parentClaims, lineage, logger);
 
-        if (parentClaims.Count > 0)
+        var parentSnapshotKeys = StructuredSnapshotKeys(providerId, lineage.MediaType, ClaimScope.Parent);
+        if (parentClaims.Count > 0 || parentSnapshotKeys is { Count: > 0 })
         {
 
             try
@@ -517,7 +572,8 @@ public static class ScoringHelper
                     parentClaims,
                     providerId,
                     claimRepo, canonicalRepo, scoringEngine, configLoader, allProviders, ct,
-                    arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId).ConfigureAwait(false);
+                    arrayRepo, logger, searchIndex, lineage.MediaType, decisionSourceProviderId,
+                    parentSnapshotKeys).ConfigureAwait(false);
 
                 logger?.LogDebug(
                     "Lineage write: {ParentCount} parent-scope + {SelfCount} self-scope claim(s) for asset {AssetId} → parent Work {ParentWorkId} ({MediaType})",
@@ -532,6 +588,24 @@ public static class ScoringHelper
         }
 
         return assetResult;
+    }
+
+    private static IReadOnlyCollection<string>? StructuredSnapshotKeys(
+        Guid providerId,
+        MediaType detectedMediaType,
+        ClaimScope? scope)
+    {
+        if (providerId != WellKnownProviders.Wikidata)
+            return null;
+
+        var keys = StructuredDiscoveryFieldCatalog.Fields
+            .Where(field => field.Source == DiscoveryFactSource.StructuredProvider)
+            .Where(field => detectedMediaType == MediaType.Unknown || field.IsApplicable(detectedMediaType))
+            .Where(field => scope is null || ClaimScopeCatalog.GetScope(field.Key, detectedMediaType) == scope)
+            .SelectMany(field => new[] { field.Key, field.Key + MetadataFieldConstants.CompanionQidSuffix })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return keys.Length == 0 ? null : keys;
     }
 
     /// <summary>

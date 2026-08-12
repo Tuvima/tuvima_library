@@ -41,6 +41,7 @@ public static class MetadataFieldConstants
     public const string Description     = "description";
     public const string ShortDescription = "short_description";
     public const string Tagline         = "tagline";
+    public const string Subtitle        = "subtitle";
     public const string Cover           = "cover";
     public const string Rating          = "rating";
     public const string Series          = "series";
@@ -77,6 +78,17 @@ public static class MetadataFieldConstants
     public const string EpisodeTitle    = "episode_title";
     public const string EpisodeDescription = "episode_description";
     public const string Network         = "network";
+    public const string AwardReceived   = "award_received";
+    public const string AwardNominated  = "award_nominated";
+    public const string AwardFamily     = "award_family";
+    public const string NominationFamily = "nomination_family";
+    public const string CountryOfOrigin = "country_of_origin";
+    public const string ProductionCompany = "production_company";
+    public const string RecordLabel     = "record_label";
+    public const string SetInPeriod     = "set_in_period";
+    public const string FilmingLocation = "filming_location";
+    public const string MainSubject     = "main_subject";
+    public const string BasedOn         = "based_on";
     public const string Biography       = "biography";
     public const string QidResolutionMethod = "qid_resolution_method";
     public const string WikidataQidScope = "wikidata_qid_scope";
@@ -113,6 +125,7 @@ public static class MetadataFieldConstants
     public const string Illustrator     = "illustrator";
     /// <summary>Metadata field key for cast/actor entries. Display role name is "Actor".</summary>
     public const string CastMember      = "cast_member";
+    public const string VoiceActor      = "voice_actor";
     public const string GuestStar       = "guest_star";
     public const string Composer        = "composer";
     public const string Screenwriter    = "screenwriter";
@@ -150,6 +163,19 @@ public static class MetadataFieldConstants
         "fictional_universe",
         "first_appearance",
         "enrichment_providers",
+        "award_received",
+        "award_nominated",
+        "award_family",
+        "nomination_family",
+        "country_of_origin",
+        "language",
+        "original_language",
+        "production_company",
+        "publisher",
+        "record_label",
+        "network",
+        "set_in_period",
+        "filming_location",
 
         // AI-generated vocabulary fields
         "themes",
@@ -176,6 +202,19 @@ public static class MetadataFieldConstants
         "illustrator_qid",
         "based_on_qid",
         "fictional_universe_qid",
+        "award_received_qid",
+        "award_nominated_qid",
+        "award_family_qid",
+        "nomination_family_qid",
+        "country_of_origin_qid",
+        "language_qid",
+        "original_language_qid",
+        "production_company_qid",
+        "publisher_qid",
+        "record_label_qid",
+        "network_qid",
+        "set_in_period_qid",
+        "filming_location_qid",
     }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>

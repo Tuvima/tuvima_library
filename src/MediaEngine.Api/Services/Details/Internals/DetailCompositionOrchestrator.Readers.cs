@@ -379,6 +379,20 @@ internal sealed partial class DetailCompositionOrchestrator
             await AddTechnicalClaimFallbacksAsync(conn, assetId, values, ct);
         }
 
+        var editionSubtitle = await conn.ExecuteScalarAsync<string?>(new CommandDefinition(
+            """
+            SELECT NULLIF(CAST(cv.value AS TEXT), '')
+            FROM editions e
+            INNER JOIN canonical_values cv ON cv.entity_id = e.id
+            WHERE e.work_id = @workId AND cv.key = @subtitle
+            ORDER BY e.id
+            LIMIT 1;
+            """,
+            new { workId = GuidSql.ToBlob(workId), subtitle = MetadataFieldConstants.Subtitle },
+            cancellationToken: ct));
+        if (!string.IsNullOrWhiteSpace(editionSubtitle))
+            values[$"edition_{MetadataFieldConstants.Subtitle}"] = editionSubtitle;
+
         foreach (var (key, value) in await LoadCanonicalMapAsync(workId, ct))
         {
             values[key] = value;
@@ -547,6 +561,61 @@ internal sealed partial class DetailCompositionOrchestrator
         => NormalizeHeroSummary(StringHelpers.FirstNonBlankOr(string.Empty,
             GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
             GetValue(canonicalValues, "tldr")));
+
+    private static SecondaryTitleSelection ResolveSecondaryTitleText(
+        DetailEntityType entityType,
+        IReadOnlyDictionary<string, string> canonicalValues,
+        string? explicitTagline,
+        string? explicitSubtitle,
+        string? longDescription)
+    {
+        string? semanticText = entityType switch
+        {
+            DetailEntityType.Movie or DetailEntityType.TvShow => explicitTagline,
+            DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => explicitSubtitle,
+            DetailEntityType.Audiobook => StringHelpers.FirstNonBlank(
+                GetValue(canonicalValues, $"edition_{MetadataFieldConstants.Subtitle}"),
+                explicitSubtitle),
+            _ => null,
+        };
+        if (!string.IsNullOrWhiteSpace(semanticText))
+        {
+            var kind = entityType is DetailEntityType.Movie or DetailEntityType.TvShow ? "tagline" : "subtitle";
+            return new SecondaryTitleSelection(semanticText.Trim(), kind, HasMore: false);
+        }
+
+        if (entityType == DetailEntityType.MusicAlbum)
+            return new SecondaryTitleSelection(null, null, HasMore: false);
+
+        var shortDescription = NormalizeHeroSummary(StringHelpers.FirstNonBlankOr(string.Empty,
+            GetValue(canonicalValues, MetadataFieldConstants.ShortDescription),
+            GetValue(canonicalValues, "tldr")));
+        if (!string.IsNullOrWhiteSpace(shortDescription))
+        {
+            return new SecondaryTitleSelection(
+                shortDescription,
+                MetadataFieldConstants.ShortDescription,
+                HasMore: !string.IsNullOrWhiteSpace(longDescription)
+                    && !string.Equals(shortDescription, longDescription, StringComparison.OrdinalIgnoreCase));
+        }
+
+        if (string.IsNullOrWhiteSpace(longDescription))
+            return new SecondaryTitleSelection(null, null, HasMore: false);
+
+        const int maximumLength = 240;
+        var normalized = longDescription.Trim();
+        if (normalized.Length <= maximumLength)
+            return new SecondaryTitleSelection(normalized, MetadataFieldConstants.Description, HasMore: false);
+
+        var cut = normalized[..maximumLength];
+        var wordEnd = cut.LastIndexOf(' ');
+        return new SecondaryTitleSelection(
+            $"{cut[..Math.Max(wordEnd, 1)].TrimEnd()}…",
+            MetadataFieldConstants.Description,
+            HasMore: true);
+    }
+
+    private sealed record SecondaryTitleSelection(string? Text, string? Kind, bool HasMore);
 
     private async Task<WorkArtworkFallback> LoadWorkArtworkFallbackAsync(Guid workId, CancellationToken ct)
     {

@@ -237,6 +237,33 @@ public sealed class RepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task MetadataClaim_ProviderSnapshotSupersedesMissingCurrentFactsButKeepsHistory()
+    {
+        var repo = new MetadataClaimRepository(_db);
+        var entityId = Guid.NewGuid();
+        var providerId = await CreateTestProviderAsync();
+
+        await repo.ReplaceCurrentProviderClaimsAsync(
+            entityId,
+            providerId,
+            ["award_received", "award_received_qid"],
+            [MakeClaim(entityId, "award_received", "Best Picture", 0.92, providerId)],
+            CancellationToken.None);
+        await repo.ReplaceCurrentProviderClaimsAsync(
+            entityId,
+            providerId,
+            ["award_received", "award_received_qid"],
+            [],
+            CancellationToken.None);
+
+        Assert.Empty(await repo.GetByEntityAsync(entityId));
+        using var conn = _db.CreateConnection();
+        Assert.Equal(1, await conn.ExecuteScalarAsync<int>(
+            "SELECT COUNT(*) FROM metadata_claims WHERE entity_id = @entityId AND is_current = 0 AND superseded_at IS NOT NULL;",
+            new { entityId }));
+    }
+
+    [Fact]
     public async Task MetadataClaim_BatchLookup_ReturnsEveryRequestedEntityAndOmitsUnrequestedRows()
     {
         var repo = new MetadataClaimRepository(_db);

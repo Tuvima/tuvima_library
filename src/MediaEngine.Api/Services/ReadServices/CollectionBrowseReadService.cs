@@ -482,6 +482,55 @@ public sealed class CollectionBrowseReadService(
         return rows.AsList();
     }
 
+    public async Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(
+        string field,
+        int limit,
+        CancellationToken ct)
+    {
+        var take = Math.Clamp(limit, 1, 500);
+        using var conn = db.CreateConnection();
+        var sql = field.ToLowerInvariant() switch
+        {
+            "person_qid" => """
+                SELECT person_qid AS Value,
+                       MIN(person_name) AS Label,
+                       COUNT(DISTINCT media_asset_id) AS LocalCount
+                FROM primary_person_media_credits
+                WHERE NULLIF(person_qid, '') IS NOT NULL
+                GROUP BY person_qid
+                ORDER BY LocalCount DESC, Label COLLATE NOCASE
+                LIMIT @Limit
+                """,
+            "wikidata_franchise" => """
+                SELECT rel_qid AS Value,
+                       MIN(COALESCE(NULLIF(rel_label, ''), rel_qid)) AS Label,
+                       COUNT(DISTINCT collection_id) AS LocalCount
+                FROM collection_relationships
+                WHERE rel_type IN ('franchise','fictional_universe')
+                GROUP BY rel_qid
+                ORDER BY LocalCount DESC, Label COLLATE NOCASE
+                LIMIT @Limit
+                """,
+            _ => """
+            SELECT value_qid AS Value,
+                   MIN(value) AS Label,
+                   COUNT(DISTINCT entity_id) AS LocalCount
+            FROM canonical_value_arrays
+            WHERE key = @Field
+              AND NULLIF(value_qid, '') IS NOT NULL
+              AND NULLIF(value, '') IS NOT NULL
+            GROUP BY value_qid
+            ORDER BY LocalCount DESC, Label COLLATE NOCASE
+            LIMIT @Limit
+            """,
+        };
+        var rows = await conn.QueryAsync<CollectionRuleValueDto>(new CommandDefinition(
+            sql,
+            new { Field = field, Limit = take },
+            cancellationToken: ct)).ConfigureAwait(false);
+        return rows.AsList();
+    }
+
     public async Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(
         string? mediaType,
         string? groupField,

@@ -10,6 +10,9 @@ public sealed class DetailPageViewModel
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
     public string? Tagline { get; init; }
+    public string? SecondaryTitleText { get; init; }
+    public string? SecondaryTitleTextKind { get; init; }
+    public bool SecondaryTitleTextHasMore { get; init; }
     public string? Description { get; init; }
     public DescriptionAttributionViewModel? DescriptionAttribution { get; init; }
     public IReadOnlyList<ExternalSourceLinkViewModel> SourceLinks { get; init; } = [];

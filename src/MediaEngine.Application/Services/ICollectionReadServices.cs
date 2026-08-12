@@ -27,6 +27,8 @@ public interface ICollectionBrowseReadService
         string sortDirection = "desc",
         int limit = 0);
     Task<IReadOnlyList<string>> GetFieldValuesAsync(string field, int limit, CancellationToken ct);
+    Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(string field, int limit, CancellationToken ct)
+        => Task.FromResult<IReadOnlyList<CollectionRuleValueDto>>([]);
     Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(string? mediaType, string? groupField, CancellationToken ct);
 }
 

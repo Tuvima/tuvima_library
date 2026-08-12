@@ -6,6 +6,22 @@ namespace MediaEngine.Domain.Tests;
 
 public class ClaimScopeCatalogTests
 {
+    [Theory]
+    [InlineData(MediaType.Books, ClaimScope.Work)]
+    [InlineData(MediaType.Comics, ClaimScope.Work)]
+    [InlineData(MediaType.Audiobooks, ClaimScope.Edition)]
+    public void Subtitle_UsesSemanticWorkOrEditionScope(MediaType mediaType, ClaimScope expected)
+    {
+        Assert.Equal(expected, ClaimScopeCatalog.GetScope(MetadataFieldConstants.Subtitle, mediaType));
+    }
+
+    [Theory]
+    [InlineData(MediaType.Movies)]
+    [InlineData(MediaType.TV)]
+    public void Tagline_UsesMovieOrShowRootScope(MediaType mediaType)
+    {
+        Assert.Equal(ClaimScope.Parent, ClaimScopeCatalog.GetScope(MetadataFieldConstants.Tagline, mediaType));
+    }
     // ── Music routing ────────────────────────────────────────────────────
 
     [Fact]

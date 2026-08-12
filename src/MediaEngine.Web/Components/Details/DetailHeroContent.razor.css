@@ -61,6 +61,22 @@
     line-height: 1.35;
 }
 
+.tl-detail-hero__secondary-title-text {
+    width: min(47.5rem, 100%);
+    margin: 0;
+    color: rgba(255, 255, 255, 0.84);
+    font-family: var(--media-identity-font-family, var(--font-ui));
+    font-size: clamp(1rem, 1.25vw, 1.2rem);
+    font-weight: 400;
+    line-height: 1.4;
+    text-wrap: balance;
+}
+
+.tl-detail-hero__secondary-title-text :deep(.tl-detail-hero__overview-link) {
+    margin: 0 0 0 0.45rem;
+    white-space: nowrap;
+}
+
 .tl-detail-hero__synopsis {
     order: 6;
     width: min(47.5rem, 100%);

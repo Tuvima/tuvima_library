@@ -3310,7 +3310,7 @@ public partial class SharedMediaEditorShell
 
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
-            ("TV", "series") => ["show_name", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "comment", "sort_series"],
+            ("TV", "series") => ["show_name", "tagline", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "comment", "sort_series"],
             ("TV", "episode") => ["episode_title", "description", "season_number", "episode_number", "runtime", "release_date", "custom_tags", "language", "rating", "comment", "sort_title"],
             ("Music", "album") => ["album", "album_artist", "artist", "genre", "custom_tags", "year", "language", "description", "rating", "comment", "sort_album"],
             ("Music", "track") => ["title", "artist", "album", "composer", "track_number", "disc_number", "duration", "custom_tags", "rating", "comment", "sort_title"],
@@ -3556,7 +3556,7 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetAppearanceFields() =>
         GetDetailsMetadataFields()
-            .Where(field => field.Key is not ("custom_tags" or "comment" or "tagline"))
+            .Where(field => field.Key is not ("custom_tags" or "comment"))
             .ToList();
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetLibraryFields() =>
@@ -4795,6 +4795,7 @@ public partial class SharedMediaEditorShell
             "title" => "Display title",
             "description" => "Description",
             "tagline" => "Tagline",
+            "subtitle" => "Subtitle",
             "sort_title" => "Sort Title",
             _ => CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' ')),
         };

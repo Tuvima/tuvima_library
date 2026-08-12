@@ -1512,6 +1512,9 @@ public sealed class AdapterFallbackTests
             && c.Value == "An English TMDB overview.");
         Assert.Contains(claims, c => c.Key == MetadataFieldConstants.OriginalLanguage
             && c.Value == "ja");
+        Assert.Contains(claims, c => c.Key == MetadataFieldConstants.Tagline
+            && c.Value == "The tunnel led somewhere unexpected."
+            && c.Confidence >= 0.9);
         Assert.DoesNotContain(claims, c => c.Key == MetadataFieldConstants.Language);
     }
 

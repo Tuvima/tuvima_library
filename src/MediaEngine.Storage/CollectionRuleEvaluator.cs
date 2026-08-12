@@ -3,6 +3,8 @@ using System.Text;
 using System.Text.Json;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
+using MediaEngine.Domain.Constants;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Storage;
@@ -28,35 +30,40 @@ public sealed class CollectionRuleEvaluator
     /// (Self-scope) or the root parent Work row (Parent-scope, walking
     /// parent_work_id up two levels).
     /// </summary>
-    private static string CvLookup(string cvPredicate, bool negate = false)
+    private static string EntityIdsForWork(string workAlias = "w") => $"""
+        SELECT {workAlias}.id
+        UNION SELECT p.id FROM works p WHERE p.id = {workAlias}.parent_work_id
+        UNION SELECT gp.id FROM works p INNER JOIN works gp ON gp.id = p.parent_work_id WHERE p.id = {workAlias}.parent_work_id
+        UNION SELECT e.id FROM editions e WHERE e.work_id = {workAlias}.id
+        UNION SELECT ma.id FROM editions e INNER JOIN media_assets ma ON ma.edition_id = e.id WHERE e.work_id = {workAlias}.id
+        """;
+
+    private static string CvLookup(string cvPredicate, bool negate = false, bool arraysOnly = false)
     {
-        var op = negate ? "NOT IN" : "IN";
+        var exists = negate ? "NOT EXISTS" : "EXISTS";
+        var scalar = arraysOnly
+            ? null
+            : $"SELECT 1 FROM canonical_values cv WHERE cv.entity_id IN ({EntityIdsForWork()}) AND {cvPredicate}";
+        var array = $"SELECT 1 FROM canonical_value_arrays cv WHERE cv.entity_id IN ({EntityIdsForWork()}) AND {cvPredicate}";
+        var body = scalar is null ? array : $"{scalar} UNION ALL {array}";
         return $$"""
-            w.id {{op}} (
-                SELECT e_cv.work_id FROM editions e_cv
-                INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id
-                INNER JOIN canonical_values cv ON cv.entity_id = ma_cv.id
-                WHERE {{cvPredicate}}
-                UNION
-                SELECT w2.id FROM works w2
-                LEFT JOIN works p2  ON p2.id  = w2.parent_work_id
-                LEFT JOIN works gp2 ON gp2.id = p2.parent_work_id
-                INNER JOIN canonical_values cv ON cv.entity_id = COALESCE(gp2.id, p2.id, w2.id)
-                WHERE {{cvPredicate}}
-                UNION
-                SELECT e_cv.work_id FROM editions e_cv
-                INNER JOIN media_assets ma_cv ON ma_cv.edition_id = e_cv.id
-                INNER JOIN canonical_value_arrays cv ON cv.entity_id = ma_cv.id
-                WHERE {{cvPredicate}}
-                UNION
-                SELECT w2.id FROM works w2
-                LEFT JOIN works p2  ON p2.id  = w2.parent_work_id
-                LEFT JOIN works gp2 ON gp2.id = p2.parent_work_id
-                INNER JOIN canonical_value_arrays cv ON cv.entity_id = COALESCE(gp2.id, p2.id, w2.id)
-                WHERE {{cvPredicate}}
+            {{exists}} (
+                {{body}}
             )
             """;
     }
+
+    private static string IsUnknownLookup(string fieldParam) => $$"""
+        {{CvLookup($"cv.key = {fieldParam}", negate: true)}}
+        AND EXISTS (
+            SELECT 1
+            FROM entity_capability_states ecs
+            WHERE ecs.entity_id IN ({{EntityIdsForWork()}})
+              AND ecs.capability_id = '{{CapabilityId.EnrichmentStructuredDiscoveryMetadata}}'
+              AND ecs.sub_key = {{fieldParam}}
+              AND ecs.status = '{{EntityCapabilityStatus.NoResult}}'
+        )
+        """;
 
     /// <summary>
     /// Correlated scalar subquery that resolves a canonical value for the
@@ -162,13 +169,19 @@ public sealed class CollectionRuleEvaluator
             {
                 field = p.Field.ToLowerInvariant().Trim(),
                 op = p.Op.ToLowerInvariant().Trim(),
-                values = p.GetEffectiveValues().Select(v => v.ToLowerInvariant().Trim()).OrderBy(v => v).ToArray(),
+                values = IsValueFreeOperator(p.Op)
+                    ? []
+                    : p.GetEffectiveValues().Select(v => v.ToLowerInvariant().Trim()).OrderBy(v => v).ToArray(),
             });
 
         var json = JsonSerializer.Serialize(normalized);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
+
+    private static bool IsValueFreeOperator(string? op) =>
+        op?.Trim().ToLowerInvariant() is "known" or "is_known" or "has_any_value"
+            or "unknown" or "is_unknown" or "has_no_known_value";
 
     /// <summary>Parses RuleJson string into predicates.</summary>
     public static IReadOnlyList<CollectionRulePredicate> ParseRules(string? ruleJson)
@@ -194,11 +207,29 @@ public sealed class CollectionRuleEvaluator
         CollectionRulePredicate pred, ref int paramIdx)
     {
         var parameters = new List<(string, object)>();
-        var effectiveValues = pred.GetEffectiveValues();
-        if (effectiveValues.Length == 0) return (null, parameters);
-
         var field = pred.Field.ToLowerInvariant().Trim();
         var op = pred.Op.ToLowerInvariant().Trim();
+        var effectiveValues = pred.GetEffectiveValues();
+
+        if (op is "known" or "is_known" or "has_any_value")
+        {
+            var pField = $"@p{paramIdx++}";
+            parameters.Add((pField, field));
+            return (CvLookup($"cv.key = {pField}"), parameters);
+        }
+
+        if (op is "unknown" or "is_unknown" or "has_no_known_value")
+        {
+            if (!StructuredDiscoveryFieldCatalog.TryGet(field, out var definition)
+                || definition.Source != DiscoveryFactSource.StructuredProvider)
+                return (null, parameters);
+
+            var pField = $"@p{paramIdx++}";
+            parameters.Add((pField, field));
+            return (IsUnknownLookup(pField), parameters);
+        }
+
+        if (effectiveValues.Length == 0) return (null, parameters);
 
         // Direct work table fields
         if (field == "media_type")
@@ -259,6 +290,46 @@ public sealed class CollectionRuleEvaluator
             return ($"w.id IN (SELECT e_p.work_id FROM editions e_p INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id INNER JOIN primary_person_media_credits credit ON credit.media_asset_id = ma_p.id WHERE credit.person_qid = {pName} COLLATE NOCASE)", parameters);
         }
 
+        if (field is "has_source_work" or "is_adaptation" or "source_work_owned" or "has_adaptation" or "adaptation_owned")
+        {
+            var expected = !effectiveValues[0].Equals("false", StringComparison.OrdinalIgnoreCase)
+                && effectiveValues[0] != "0";
+            var basedOnExists = CvLookup("cv.key = 'based_on'");
+            var sourceOwned = $$"""
+                EXISTS (
+                    SELECT 1
+                    FROM canonical_value_arrays source_link
+                    WHERE source_link.entity_id IN ({{EntityIdsForWork()}})
+                      AND source_link.key = 'based_on'
+                      AND EXISTS (
+                          SELECT 1 FROM works source_work
+                          WHERE source_work.is_catalog_only = 0
+                            AND source_work.ownership = 'Owned'
+                            AND source_work.wikidata_qid = source_link.value_qid COLLATE NOCASE
+                      )
+                )
+                """;
+            var adaptationOwned = $$"""
+                NULLIF(w.wikidata_qid, '') IS NOT NULL AND EXISTS (
+                    SELECT 1
+                    FROM works adaptation
+                    INNER JOIN canonical_value_arrays adaptation_link
+                      ON adaptation_link.entity_id IN ({{EntityIdsForWork("adaptation")}})
+                     AND adaptation_link.key = 'based_on'
+                    WHERE adaptation.is_catalog_only = 0
+                      AND adaptation.ownership = 'Owned'
+                      AND adaptation_link.value_qid = w.wikidata_qid COLLATE NOCASE
+                )
+                """;
+            var expression = field switch
+            {
+                "has_source_work" or "is_adaptation" => basedOnExists,
+                "source_work_owned" => $"{basedOnExists} AND {sourceOwned}",
+                _ => adaptationOwned,
+            };
+            return (expected ? expression : $"NOT ({expression})", parameters);
+        }
+
         // All other fields: canonical_values lookup via edition → asset chain
         var canonicalField = field switch
         {
@@ -288,7 +359,9 @@ public sealed class CollectionRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return (CvLookup($"cv.key = {pField} AND cv.value = {pValue}"), parameters);
+        var isEntity = StructuredDiscoveryFieldCatalog.IsEntityBacked(field);
+        var comparison = isEntity ? $"cv.value_qid = {pValue} COLLATE NOCASE" : $"cv.value = {pValue}";
+        return (CvLookup($"cv.key = {pField} AND {comparison}", arraysOnly: isEntity), parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalNeq(
@@ -298,7 +371,9 @@ public sealed class CollectionRuleEvaluator
         var pValue = $"@p{paramIdx++}";
         parameters.Add((pField, field));
         parameters.Add((pValue, value));
-        return (CvLookup($"cv.key = {pField} AND cv.value = {pValue}", negate: true), parameters);
+        var isEntity = StructuredDiscoveryFieldCatalog.IsEntityBacked(field);
+        var comparison = isEntity ? $"cv.value_qid = {pValue} COLLATE NOCASE" : $"cv.value = {pValue}";
+        return ($"{CvLookup($"cv.key = {pField}")} AND {CvLookup($"cv.key = {pField} AND {comparison}", negate: true, arraysOnly: isEntity)}", parameters);
     }
 
     private static (string sql, List<(string, object)> parameters) BuildCanonicalLike(
@@ -347,7 +422,9 @@ public sealed class CollectionRuleEvaluator
             valueParams.Add(pv);
         }
         var inList = string.Join(", ", valueParams);
-        return (CvLookup($"cv.key = {pField} AND cv.value IN ({inList})"), parameters);
+        var isEntity = StructuredDiscoveryFieldCatalog.IsEntityBacked(field);
+        var column = isEntity ? "cv.value_qid" : "cv.value";
+        return (CvLookup($"cv.key = {pField} AND {column} IN ({inList})", arraysOnly: isEntity), parameters);
     }
 
     private static string ResolveOrderBy(string? sortField, string sortDirection)
