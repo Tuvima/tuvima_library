@@ -31,6 +31,7 @@ public sealed record DisplayHeroDto(
     public Guid? CollectionId { get; init; }
     public string? MediaType { get; init; }
     public string? Presentation { get; init; }
+    public string? Tagline { get; init; }
     public string? Description { get; init; }
     public IReadOnlyList<string> Genres { get; init; } = [];
     public IReadOnlyList<DisplayCardPreviewItemDto> PreviewItems { get; init; } = [];
@@ -71,6 +72,7 @@ public sealed record DisplayCardDto(
     DisplayCardFlagsDto Flags,
     DateTimeOffset SortTimestamp)
 {
+    public string? Tagline { get; init; }
     public string? Description { get; init; }
     public IReadOnlyList<string> Genres { get; init; } = [];
     public IReadOnlyList<DisplayCardBadgeDto> Badges { get; init; } = [];

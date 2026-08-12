@@ -66,9 +66,16 @@ public sealed class DetailHeroPresentation
         var isWatchHero = IsWatchEntity(model.EntityType);
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
-        var copySource = string.Equals(model.SecondaryTitleTextKind, "description", StringComparison.OrdinalIgnoreCase)
-            ? null
-            : model.Description;
+        var hasHeroTagline = !string.IsNullOrWhiteSpace(model.Tagline);
+        var copySource = hasHeroTagline
+            ? model.Tagline
+            : string.Equals(model.SecondaryTitleTextKind, "description", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : model.Description;
+        var secondaryTitleText = hasHeroTagline
+            && string.Equals(model.SecondaryTitleTextKind, "tagline", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : model.SecondaryTitleText;
         var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
         var usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero;
         var firstParagraph = usesFullParagraphCopy
@@ -95,8 +102,8 @@ public sealed class DetailHeroPresentation
             useLogo ? model.Artwork.LogoUrl : null,
             model.Title,
             ResolveSubtitle(model, isWatchHero),
-            model.SecondaryTitleText,
-            model.SecondaryTitleTextHasMore,
+            secondaryTitleText,
+            secondaryTitleText is not null && model.SecondaryTitleTextHasMore,
             copy,
             copyHasMore,
             model.Progress,

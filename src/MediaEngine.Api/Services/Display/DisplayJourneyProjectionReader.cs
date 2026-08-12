@@ -37,6 +37,12 @@ public sealed class DisplayJourneyProjectionReader
                 us.last_accessed AS LastAccessed,
                 COALESCE(cv_issue_title_a.value, cv_issue_title_w.value, cv_title_a.value, cv_title_w.value, 'Untitled') AS Title,
                 COALESCE(
+                    NULLIF(TRIM(json_extract(w.display_overrides_json, '$.tagline')), ''),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'tagline' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'tagline' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key = 'tagline' LIMIT 1)
+                ) AS Tagline,
+                COALESCE(
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = w.id AND key = 'short_description' LIMIT 1),
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'short_description' LIMIT 1),
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = ma.id AND key = 'short_description' LIMIT 1)

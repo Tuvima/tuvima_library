@@ -33,6 +33,7 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.CreatedAt)
         {
+            Tagline = row.Tagline,
             Description = row.Description,
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, StringHelpers.FirstNonBlank(row.Network, row.Source)),
@@ -86,6 +87,7 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor(row.MediaType, isCollection: false),
             SortTimestamp: row.LastAccessed)
         {
+            Tagline = row.Tagline,
             Description = row.Description,
             Genres = DisplayMediaRules.SplitValues(row.Genre).ToList(),
             Badges = BuildBadges(mediaKind, row.Quality, StringHelpers.FirstNonBlank(row.Network, row.Source)),
@@ -158,6 +160,7 @@ public sealed class DisplayCardBuilder
             CollectionId = card.CollectionId,
             MediaType = card.MediaType,
             Presentation = card.Presentation,
+            Tagline = card.Tagline,
             Description = card.Description,
             Genres = card.Genres,
             PreviewItems = card.PreviewItems,
@@ -252,6 +255,7 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor(representative.MediaType, isCollection: true),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
+            Tagline = representative.Tagline,
             Description = representative.CollectionDescription,
             Genres = DisplayMediaRules.SplitValues(representative.Genre).ToList(),
             PreviewItems = previewItems,
@@ -304,6 +308,7 @@ public sealed class DisplayCardBuilder
             Flags: FlagsFor("TV", isCollection: true),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
+            Tagline = representative.Tagline,
             Description = representative.Description,
             Genres = DisplayMediaRules.SplitValues(representative.Genre).ToList(),
             Badges = BuildBadges("TV", representative.Quality, StringHelpers.FirstNonBlank(representative.Network, representative.Source)),

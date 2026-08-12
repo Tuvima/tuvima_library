@@ -5,6 +5,7 @@ public sealed class DiscoveryHeroViewModel
     public string Eyebrow { get; init; } = string.Empty;
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
+    public string? Tagline { get; init; }
     public string? Description { get; init; }
     public string? Tldr { get; init; }
     public IReadOnlyList<string> VibeTags { get; init; } = [];

@@ -10,6 +10,8 @@
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
+<AppDialog Class="sme-dialog">
+<DialogContent>
 <div class="person-editor">
     <header class="person-editor__header">
         <div class="person-editor__portrait">
@@ -51,9 +53,7 @@
                 </AppButton>
             }
 
-            @if (_refresh is not null)
-            {
-                <div class="person-editor__nav-footer">
+            <div class="person-editor__nav-footer">
                     <AppButton Variant="Variant.Text"
                                Color="Color.Inherit"
                                StartIcon="@Icons.Material.Outlined.Sync"
@@ -62,8 +62,7 @@
                         @(_queueing ? "Queueing..." : "Refresh enrichment")
                     </AppButton>
                     <small>@_refresh.Status · @FormatDate(_refresh.LastSuccessAt)</small>
-                </div>
-            }
+            </div>
         </nav>
 
         <main class="person-editor__main">
@@ -81,8 +80,8 @@
                     <MudIcon Icon="@Icons.Material.Outlined.Info" />
                     <span>Provider-managed facts refresh when matching changes. Local overrides and private library fields are preserved.</span>
                 </div>
-                <div class="person-editor__details-grid">
-                    <MediaEditorPanel Title="Appearance" Description="How this person appears throughout Tuvima Library.">
+                <div class="person-editor__details-stack">
+                    <MediaEditorPanel Title="Appearance" Description="How this person appears throughout Tuvima Library." Class="person-editor__details-section">
                         <AppFormFieldRow Label="Display name"
                                          Value="@_name"
                                          ValueChanged="@((string? value) => SetValue("name", value))"
@@ -117,7 +116,7 @@
                                          HelpText="@GetOverrideHelp("sort_name")" />
                     </MediaEditorPanel>
 
-                    <MediaEditorPanel Title="My Library" Description="Private organization for the active profile.">
+                    <MediaEditorPanel Title="My Library" Description="Private organization for the active profile." Class="person-editor__details-section">
                         <MediaEditorTagEditor Label="Local tags"
                                               Value="@_tags"
                                               ValueChanged="@((string? value) => SetLocalTags(value))"
@@ -130,7 +129,7 @@
                                          HelpText="Visible only to your active profile." />
                     </MediaEditorPanel>
 
-                    <MediaEditorPanel Title="Source facts" Description="Identity facts remain provider-managed and are changed from Match.">
+                    <MediaEditorPanel Title="Source facts" Description="Identity facts remain provider-managed and are changed from Match." Class="person-editor__details-section person-editor__details-section--source-facts">
                         <dl class="person-editor__facts">
                             <div><dt>Occupation</dt><dd>@(_person.Occupation ?? "Not available")</dd></div>
                             <div><dt>Born</dt><dd>@(_person.DateOfBirth ?? "Not available")</dd></div>
@@ -223,6 +222,8 @@
         </main>
     </div>
 </div>
+</DialogContent>
+</AppDialog>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
@@ -239,7 +240,7 @@
     private PersonDetailViewModel? _person;
     private PersonEditorStateResponse? _state;
     private ArtworkEditorDto? _artwork;
-    private EnrichmentRefreshScheduleDto? _refresh;
+    private EnrichmentRefreshScheduleDto _refresh = new() { Status = "Ready" };
     private IReadOnlyList<string> _tagSuggestions = [];
     private readonly Dictionary<string, string> _savedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _enabledOverrides = new(StringComparer.OrdinalIgnoreCase);
@@ -274,7 +275,14 @@
         _person = personTask.Result;
         _state = stateTask.Result;
         _artwork = artworkTask.Result;
-        _refresh = scheduleTask.Result?.Items.FirstOrDefault(item => item.EntityId == PersonId);
+        _refresh = scheduleTask.Result?.Items.FirstOrDefault(item => item.EntityId == PersonId)
+            ?? new EnrichmentRefreshScheduleDto
+            {
+                EntityType = "Person",
+                EntityId = PersonId,
+                EntityName = _person?.Name ?? string.Empty,
+                Status = "Ready",
+            };
         _tagSuggestions = suggestionsTask.Result;
         ResetChanges();
         _matchQid = _person?.WikidataQid ?? string.Empty;
@@ -414,7 +422,6 @@
 
     private async Task RefreshNowAsync()
     {
-        if (_refresh is null) return;
         _queueing = true;
         var queued = await ApiClient.QueueEnrichmentRefreshNowAsync("Person", PersonId);
         _queueing = false;
@@ -422,7 +429,7 @@
         if (queued is not null)
         {
             var schedule = await ApiClient.GetEnrichmentRefreshScheduleAsync("Person", limit: 500);
-            _refresh = schedule?.Items.FirstOrDefault(item => item.EntityId == PersonId);
+            _refresh = schedule?.Items.FirstOrDefault(item => item.EntityId == PersonId) ?? _refresh;
         }
     }
 

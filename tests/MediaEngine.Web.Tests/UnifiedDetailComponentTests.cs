@@ -1587,6 +1587,26 @@ public sealed class UnifiedDetailComponentTests
         Assert.False(presentation.ShowTitleBar);
     }
 
+    [Fact]
+    public void MediaHero_UsesTaglineInsteadOfDescriptionWhenAvailable()
+    {
+        var model = new DetailPageViewModel
+        {
+            EntityType = DetailEntityType.Movie,
+            Title = "Example Movie",
+            Tagline = "The truth is closer than it appears.",
+            SecondaryTitleText = "The truth is closer than it appears.",
+            SecondaryTitleTextKind = "tagline",
+            Description = "This longer provider description should remain available in the overview.",
+        };
+
+        var presentation = DetailHeroPresentation.From(model);
+
+        Assert.Equal(model.Tagline, presentation.HeroCopy);
+        Assert.Null(presentation.SecondaryTitleText);
+        Assert.False(presentation.HeroCopyHasMore);
+    }
+
     [Theory]
     [InlineData("First paragraph.\\n\\nSecond paragraph.")]
     [InlineData("First paragraph.\r\n \r\nSecond paragraph.")]

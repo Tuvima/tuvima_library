@@ -3558,7 +3558,8 @@ public partial class SharedMediaEditorShell
             AddSourceFact(facts, "Episode", FormatEpisodeIdentity(_detail.SeasonNumber, _detail.EpisodeNumber));
             AddSourceFact(facts, "Actors", NormalizeContributorDisplay(_detail.Cast));
         }
-        AddSourceFact(facts, "Runtime", _detail.Runtime);
+        AddSourceFact(facts, "Runtime", FormatRuntimeFact(_detail.Runtime));
+        AddSourceFact(facts, "Pages", FormatCountFact(GetBaselineValue("page_count"), "page", "pages"));
         AddSourceFact(facts, "Language", _detail.Language);
         AddSourceFact(facts, "Rating", FormatRatingValue(_detail.Rating));
         AddSourceFact(facts, "Genres", NormalizeDelimitedDisplay(_detail.Genre, ", "));
@@ -3571,6 +3572,35 @@ public partial class SharedMediaEditorShell
             return null;
 
         return $"S{(string.IsNullOrWhiteSpace(seasonNumber) ? "?" : seasonNumber.Trim())} E{(string.IsNullOrWhiteSpace(episodeNumber) ? "?" : episodeNumber.Trim())}";
+    }
+
+    private static string? FormatRuntimeFact(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        if (Regex.IsMatch(normalized, @"[A-Za-z]"))
+            return normalized;
+
+        if (double.TryParse(normalized, NumberStyles.Float, CultureInfo.InvariantCulture, out var minutes))
+            return $"{minutes:0.#} min";
+
+        return normalized;
+    }
+
+    private static string? FormatCountFact(string? value, string singular, string plural)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var normalized = value.Trim();
+        if (Regex.IsMatch(normalized, @"[A-Za-z]"))
+            return normalized;
+
+        return long.TryParse(normalized, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
+            ? $"{count:N0} {(count == 1 ? singular : plural)}"
+            : normalized;
     }
 
     private static void AddSourceFact(List<(string Label, string Value)> facts, string label, string? value)

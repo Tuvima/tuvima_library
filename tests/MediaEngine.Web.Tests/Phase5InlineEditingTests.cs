@@ -92,7 +92,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Title=\"Appearance\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"My Library\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-details-grid", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-details-stack", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-details-section", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("<div class=\"sme-details-grid\">", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-details-artwork__identity", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-details-grid__artwork", shell, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav__footer", shell, StringComparison.Ordinal);

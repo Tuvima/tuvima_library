@@ -91,6 +91,7 @@ public sealed class MediaTileViewModel
     public Guid? CollectionId { get; init; }
     public string Title { get; init; } = string.Empty;
     public string? Subtitle { get; init; }
+    public string? Tagline { get; init; }
     public string? Description { get; init; }
     public string? CoverUrl { get; init; }
     public string? BackgroundUrl { get; init; }

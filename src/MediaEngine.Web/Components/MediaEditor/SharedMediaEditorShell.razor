@@ -301,8 +301,8 @@
                                 <span>Source-managed facts refresh when matching changes. Customize only the values that control how this item appears in your library.</span>
                             </div>
 
-                            <div class="sme-details-grid">
-                                <MediaEditorPanel Title="Appearance" Description="The title and copy shown across Tuvima Library." Class="sme-details-grid__appearance">
+                            <div class="sme-details-stack">
+                                <MediaEditorPanel Title="Appearance" Description="The title and copy shown across Tuvima Library." Class="sme-details-section">
                                     @foreach (var field in GetAppearanceFields())
                                     {
                                         <AppFormFieldRow Label="@field.Label"
@@ -348,8 +348,7 @@
                                     }
                                 </MediaEditorPanel>
 
-                                <div class="sme-details-grid__secondary">
-                                    <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace.">
+                                <MediaEditorPanel Title="My Library" Description="Private notes and local organization that provider refreshes will not replace." Class="sme-details-section">
                                         @foreach (var field in GetLibraryFields())
                                         {
                                             @if (field.Key == "custom_tags")
@@ -370,14 +369,13 @@
                                                                  HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
                                             }
                                         }
-                                    </MediaEditorPanel>
-                                </div>
+                                </MediaEditorPanel>
 
                                 @if (GetSourceFacts().Count > 0)
                                 {
                                     <MediaEditorPanel Title="Source facts"
                                                       Description="Source-managed facts refresh when matching changes."
-                                                      Class="sme-details-grid__source-facts">
+                                                      Class="sme-details-section sme-details-section--source-facts">
                                         <dl class="sme-source-facts">
                                             @foreach (var fact in GetSourceFacts())
                                             {

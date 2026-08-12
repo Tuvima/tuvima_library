@@ -1,5 +1,6 @@
 @namespace MediaEngine.Web.Components.Cinematic
 @using MediaEngine.Contracts.Details
+@using MediaEngine.Domain.Services
 @using MediaEngine.Web.Components.Details
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Playback
@@ -155,7 +156,7 @@
     private bool IsContinuation => ActiveHero.ProgressPct is > 0
         || ActiveHero.PrimaryActionLabel.Contains("resume", StringComparison.OrdinalIgnoreCase)
         || ActiveHero.PrimaryActionLabel.Contains("continue", StringComparison.OrdinalIgnoreCase);
-    private string? DisplaySummary => ActiveHero.Tldr ?? ActiveHero.Description;
+    private string? DisplaySummary => StringHelpers.FirstNonBlank(ActiveHero.Tagline, ActiveHero.Tldr, ActiveHero.Description);
     private string? DisplaySubtitle => IsWatchHero ? null : ActiveHero.Subtitle;
     private string CarouselContextLabel => IsContinuation
         ? ActiveEntityType switch

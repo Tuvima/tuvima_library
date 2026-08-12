@@ -213,6 +213,7 @@ public sealed class ContractJsonRoundTripTests
         var hero = new DisplayHeroDto("Arrival", "2016", "Featured", card.Artwork, card.Progress, card.Actions)
         {
             Facts = card.Facts,
+            Tagline = "Why are they here?",
         };
         var dto = new DisplayPageDto("home", "Home", null, hero, [new DisplayShelfDto("continue", "Continue", null, [card], "/display/continue")], [card]);
 
@@ -222,6 +223,7 @@ public sealed class ContractJsonRoundTripTests
         Assert.NotNull(roundTrip);
         Assert.Equal(dto.Key, roundTrip.Key);
         Assert.Equal(["PG-13", "116 min"], roundTrip.Hero?.Facts);
+        Assert.Equal("Why are they here?", roundTrip.Hero?.Tagline);
         Assert.Equal(card.WorkId, roundTrip.Catalog[0].WorkId);
         Assert.Equal("2016 science fiction film", roundTrip.Catalog[0].Description);
         Assert.Equal(card.Actions[0].Type, roundTrip.Catalog[0].Actions[0].Type);
@@ -238,6 +240,7 @@ public sealed class ContractJsonRoundTripTests
         Assert.Contains("\"previewItems\":[{\"workId\":\"11111111-1111-1111-1111-111111111111\"", json, StringComparison.Ordinal);
         Assert.Contains("\"previewTotalCount\":3", json, StringComparison.Ordinal);
         Assert.Contains("\"description\":\"2016 science fiction film\"", json, StringComparison.Ordinal);
+        Assert.Contains("\"tagline\":\"Why are they here?\"", json, StringComparison.Ordinal);
         Assert.Contains("\"facts\":[\"PG-13\",\"116 min\"]", json, StringComparison.Ordinal);
     }
 

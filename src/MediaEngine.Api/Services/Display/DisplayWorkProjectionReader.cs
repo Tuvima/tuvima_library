@@ -100,6 +100,12 @@ public sealed class DisplayWorkProjectionReader
                          'Untitled') AS Title,
                 NULLIF(TRIM(json_extract((SELECT display_overrides_json FROM works WHERE id = WorkId LIMIT 1), '$.sort_title')), '') AS SortTitle,
                 COALESCE(
+                    NULLIF(TRIM(json_extract((SELECT display_overrides_json FROM works WHERE id = WorkId LIMIT 1), '$.tagline')), ''),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = WorkId AND key = 'tagline' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = RootWorkId AND key = 'tagline' LIMIT 1),
+                    (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = AssetId AND key = 'tagline' LIMIT 1)
+                ) AS Tagline,
+                COALESCE(
                     NULLIF(TRIM(json_extract((SELECT display_overrides_json FROM works WHERE id = WorkId LIMIT 1), '$.description')), ''),
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = WorkId AND key = 'short_description' LIMIT 1),
                     (SELECT NULLIF(CAST(value AS TEXT), '') FROM canonical_values WHERE entity_id = RootWorkId AND key = 'short_description' LIMIT 1),

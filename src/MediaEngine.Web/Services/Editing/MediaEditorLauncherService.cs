@@ -51,7 +51,7 @@ public sealed class MediaEditorLauncherService
                 {
                     CloseButton = false,
                     NoHeader = true,
-                    MaxWidth = MaxWidth.False,
+                    MaxWidth = MaxWidth.ExtraLarge,
                     FullWidth = true,
                     BackdropClick = false,
                     CloseOnEscapeKey = true,
@@ -72,7 +72,7 @@ public sealed class MediaEditorLauncherService
             {
                 CloseButton = false,
                 NoHeader = true,
-                MaxWidth = MaxWidth.False,
+                MaxWidth = MaxWidth.ExtraLarge,
                 FullWidth = true,
                 BackdropClick = false,
                 CloseOnEscapeKey = true,

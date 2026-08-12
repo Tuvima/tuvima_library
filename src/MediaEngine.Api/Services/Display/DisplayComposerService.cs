@@ -812,6 +812,7 @@ public sealed class DisplayComposerService
             Flags: new DisplayCardFlagsDto(true, false, false, true, false),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
+            Tagline = representative.Tagline,
             Description = representative.Description,
             Genres = works
                 .SelectMany(work => DisplayMediaRules.SplitValues(work.Genre))

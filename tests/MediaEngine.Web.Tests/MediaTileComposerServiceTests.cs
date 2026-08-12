@@ -616,6 +616,7 @@ public sealed class MediaTileComposerServiceTests
             Hero: new DisplayHeroDto("Arrival", null, "Featured from your library", card.Artwork, null, [action])
             {
                 Facts = card.Facts,
+                Tagline = "Why are they here?",
             },
             Shelves: [new DisplayShelfDto("movies", "Movies in your library", null, [card], null)],
             Catalog: [card]);
@@ -624,6 +625,7 @@ public sealed class MediaTileComposerServiceTests
 
         Assert.Equal("watch", mapped.Key);
         Assert.Equal("Arrival", mapped.Hero?.Title);
+        Assert.Equal("Why are they here?", mapped.Hero?.Tagline);
         Assert.Single(mapped.Shelves);
         Assert.Equal("movies", mapped.Shelves[0].Key);
         Assert.Equal(MediaTileShelfKind.Standard, mapped.Shelves[0].Kind);

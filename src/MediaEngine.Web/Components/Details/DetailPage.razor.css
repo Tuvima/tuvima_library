@@ -11664,3 +11664,19 @@
     background: transparent !important;
     box-shadow: none !important;
 }
+
+/* Person external links share the same quiet purple utility treatment as the
+   adjacent More trigger so the action row reads as one control family. */
+.tl-detail-stage ::deep .tl-detail-person-links > a.tl-detail-person-link {
+    border-color: var(--tl-secondary-action-border) !important;
+    background: var(--tl-secondary-action-bg) !important;
+    color: rgba(255, 255, 255, 0.94) !important;
+}
+
+.tl-detail-stage ::deep .tl-detail-person-links > a.tl-detail-person-link:hover,
+.tl-detail-stage ::deep .tl-detail-person-links > a.tl-detail-person-link:focus-visible {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-hover) !important;
+    color: #fff !important;
+    box-shadow: var(--tl-shadow-focus) !important;
+}
