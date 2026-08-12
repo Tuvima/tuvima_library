@@ -4,10 +4,58 @@
     margin-bottom: 0.85rem;
 }
 
-.sme-tag-editor > label {
+.sme-tag-editor__label-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.sme-tag-editor__label-row > label {
     color: rgba(213, 222, 239, 0.74);
     font-size: 0.82rem;
     font-weight: 500;
+}
+
+.sme-tag-editor__suggestions {
+    display: grid;
+    padding: 0.3rem;
+    border: 1px solid rgba(151, 170, 205, 0.2);
+    border-radius: 0.5rem;
+    background: rgb(10, 20, 36);
+    box-shadow: 0 0.8rem 2rem rgba(0, 0, 0, 0.35);
+}
+
+.sme-tag-editor__suggestions button {
+    padding: 0.55rem 0.7rem;
+    border: 0;
+    border-radius: 0.35rem;
+    background: transparent;
+    color: var(--tl-text-primary);
+    text-align: left;
+    cursor: pointer;
+}
+
+.sme-tag-editor__suggestions button:hover,
+.sme-tag-editor__suggestions button:focus-visible {
+    background: rgba(139, 92, 246, 0.18);
+    outline: none;
+}
+
+.sme-tag-editor__confirmation {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid color-mix(in srgb, var(--mud-palette-warning) 32%, transparent);
+    border-radius: 0.45rem;
+    background: color-mix(in srgb, var(--mud-palette-warning) 8%, transparent);
+    color: var(--tl-text-secondary);
+    font-size: 0.75rem;
+}
+
+.sme-tag-editor__confirmation span {
+    flex: 1;
 }
 
 .sme-tag-editor__surface {

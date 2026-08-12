@@ -16,7 +16,4 @@ public interface IDisplayProjectionReadService
         Guid? profileId,
         CancellationToken ct);
 
-    Task<IReadOnlySet<Guid>> LoadHiddenWorkIdsAsync(
-        Guid? profileId,
-        CancellationToken ct);
 }

@@ -32,11 +32,14 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
             profileId,
             workId,
             ExpectedRevision: 0,
-            new Dictionary<string, string> { ["title"] = "My title", ["description"] = "My description" },
+            new Dictionary<string, string>
+            {
+                ["title"] = "My title",
+                ["description"] = "My description",
+                ["genre"] = "Science Fiction, Neo Noir",
+            },
             PersonalNotes: "  Worth revisiting.  ",
-            LocalTags: ["Noir", "Favorite", "noir"],
-            IsHidden: true,
-            IncludeInRecommendations: false));
+            LocalTags: ["Noir", "Favorite", "noir"]));
 
         Assert.True(result.WorkExists);
         Assert.True(result.ProfileExists);
@@ -44,23 +47,19 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         Assert.Equal(1, result.Preferences.Revision);
         Assert.Equal("Worth revisiting.", result.Preferences.PersonalNotes);
         Assert.Equal(["Favorite", "Noir"], result.Preferences.LocalTags);
-        Assert.True(result.Preferences.IsHidden);
-        Assert.False(result.Preferences.IncludeInRecommendations);
         Assert.Equal("My title", result.DisplayOverrides["title"]);
+        Assert.Equal("Science Fiction, Neo Noir", result.DisplayOverrides["genre"]);
 
         var stored = await _repository.GetAsync(profileId, workId);
         Assert.Equal(result.Preferences.ProfileId, stored.ProfileId);
         Assert.Equal(result.Preferences.WorkId, stored.WorkId);
         Assert.Equal(result.Preferences.PersonalNotes, stored.PersonalNotes);
         Assert.Equal(result.Preferences.LocalTags, stored.LocalTags);
-        Assert.Equal(result.Preferences.IsHidden, stored.IsHidden);
-        Assert.Equal(result.Preferences.IncludeInRecommendations, stored.IncludeInRecommendations);
         Assert.Equal(result.Preferences.Revision, stored.Revision);
 
         var otherProfile = await _repository.GetAsync(otherProfileId, workId);
         Assert.Equal(0, otherProfile.Revision);
         Assert.Null(otherProfile.PersonalNotes);
-        Assert.False(otherProfile.IsHidden);
 
         using var connection = _database.CreateConnection();
         var displayJson = connection.ExecuteScalar<string>(
@@ -69,6 +68,7 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         Assert.NotNull(displayJson);
         var displayOverrides = JsonSerializer.Deserialize<Dictionary<string, string>>(displayJson!);
         Assert.Equal("My description", displayOverrides!["description"]);
+        Assert.Equal("Science Fiction, Neo Noir", displayOverrides["genre"]);
     }
 
     [Fact]
@@ -79,12 +79,12 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         var first = await _repository.SaveAsync(new EditorPreferencesSaveCommand(
             profileId, workId, 0,
             new Dictionary<string, string> { ["title"] = "First title" },
-            "First note", ["First"], false, true));
+            "First note", ["First"]));
 
         var stale = await _repository.SaveAsync(new EditorPreferencesSaveCommand(
             profileId, workId, 0,
             new Dictionary<string, string> { ["title"] = "Stale title" },
-            "Stale note", ["Stale"], true, false));
+            "Stale note", ["Stale"]));
 
         Assert.Equal(1, first.Preferences.Revision);
         Assert.True(stale.Conflict);
@@ -94,8 +94,6 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
 
         var stored = await _repository.GetAsync(profileId, workId);
         Assert.Equal("First note", stored.PersonalNotes);
-        Assert.False(stored.IsHidden);
-        Assert.True(stored.IncludeInRecommendations);
     }
 
     [Fact]
@@ -106,7 +104,7 @@ public sealed class ProfileWorkPreferencesRepositoryTests : IDisposable
         var result = await _repository.SaveAsync(new EditorPreferencesSaveCommand(
             Guid.NewGuid(), workId, 0,
             new Dictionary<string, string> { ["title"] = "Uncommitted title" },
-            null, [], false, true));
+            null, []));
 
         Assert.True(result.WorkExists);
         Assert.False(result.ProfileExists);

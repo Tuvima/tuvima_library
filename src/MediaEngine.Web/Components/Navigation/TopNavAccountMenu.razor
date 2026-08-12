@@ -7,7 +7,12 @@
      @onkeydown="HandleKeyDown">
     @if (_open)
     {
-        <button type="button" class="app-dismissible-surface__dismiss" data-app-dismiss tabindex="-1" aria-hidden="true" @onclick="CloseMenu"></button>
+        <AppNativeButton Type="button"
+                         Class="app-dismissible-surface__dismiss"
+                         data-app-dismiss
+                         tabindex="-1"
+                         aria-hidden="true"
+                         OnClick="CloseMenu" />
     }
     <AppNativeButton Type="button"
                      Class="top-nav-account-menu__trigger"

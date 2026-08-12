@@ -354,7 +354,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Genre)", source);
         Assert.Contains("SplitMetadataValues(playbackGenres).Take(2)", source);
         Assert.Contains("FROM canonical_value_arrays WHERE entity_id = @entityId ORDER BY key, ordinal", source);
-        Assert.Contains("GetValue(canonicalValues, MetadataFieldConstants.Genre))).Take(2)", source);
+        Assert.Contains("GetValue(canonicalValues, MetadataFieldConstants.Genre),\n                     detail.Genre)).Take(2)", source);
         Assert.Contains("LoadWorkCanonicalMapAsync(workId, detail, ct)", source);
         Assert.Contains("SELECT ma.id", source);
         Assert.Contains("entityType == DetailEntityType.TvEpisode ? \"background\" : \"cover\"", source);

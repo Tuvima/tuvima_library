@@ -79,6 +79,7 @@ public sealed class DisplayJourneyProjectionReader
                 ) AS PageCount,
                 COALESCE(cv_rating_w.value, cv_rating_item.value, cv_rating_a.value) AS Rating,
                 COALESCE(
+                    NULLIF(TRIM(json_extract(w.display_overrides_json, '$.genre')), ''),
                     (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = w.id AND key = 'genre' ORDER BY ordinal)),
                     (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = COALESCE(gpw.id, pw.id, w.id) AND key = 'genre' ORDER BY ordinal)),
                     (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = ma.id AND key = 'genre' ORDER BY ordinal))

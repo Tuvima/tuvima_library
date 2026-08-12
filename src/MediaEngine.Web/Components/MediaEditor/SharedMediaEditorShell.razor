@@ -244,6 +244,21 @@
                         </AppButton>
                     }
 
+                    @if (IsSingleItem)
+                    {
+                        <div class="sme-section-nav__footer">
+                            <AppButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       StartIcon="@Icons.Material.Outlined.Sync"
+                                       Class="sme-section-nav__refresh"
+                                       Disabled="@(_refreshQueueing || (_refreshSchedule?.Status.Equals("Queued", StringComparison.OrdinalIgnoreCase) ?? false))"
+                                       OnClick="QueueFullEnrichmentAsync">
+                                @(_refreshQueueing ? "Queueing..." : "Refresh enrichment")
+                            </AppButton>
+                            <small>@(_refreshSchedule is null ? "Ready on demand" : $"{_refreshSchedule.Status} · {FormatRefreshDate(_refreshSchedule.LastSuccessAt)}")</small>
+                        </div>
+                    }
+
                 </nav>
                 <div class="sme-main-pane">
                     @if (HasContainerReturnState)
@@ -309,7 +324,27 @@
                                                       ConfirmLabel="@($"Remove local override for {field.Label}")"
                                                       CancelLabel="Keep override"
                                                           OnConfirmAction="@(() => ConfirmInlineFieldRevertAsync(field.Key))"
-                                                          OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
+                                                      OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
+                                    }
+
+                                    @foreach (var field in GetDetailsMetadataFields().Where(field => field.Key == "genre"))
+                                    {
+                                        <MediaEditorTagEditor Label="Genres"
+                                                              AddLabel="Add genre"
+                                                              HelpText="A local genre override is preserved when provider metadata refreshes."
+                                                              Value="@GetEditableValue(field.Key)"
+                                                              ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                              Suggestions="@_genreSuggestions"
+                                                              Locked="@IsInlineFieldReadOnly(field.Key)"
+                                                              OverrideActive="@HasActiveDisplayOverride(field.Key)"
+                                                              ActionIcon="@GetInlineFieldActionIcon(field.Key)"
+                                                              ActionLabel="@GetInlineFieldActionLabel(field.Key, field.Label)"
+                                                              OnAction="@(() => HandleInlineFieldActionAsync(field.Key, field.Label))"
+                                                              ConfirmingAction="@IsInlineFieldConfirmingRevert(field.Key)"
+                                                              ConfirmLabel="Remove local genre override"
+                                                              CancelLabel="Keep override"
+                                                              OnConfirmAction="@(() => ConfirmInlineFieldRevertAsync(field.Key))"
+                                                              OnCancelAction="@(() => CancelInlineFieldRevert(field.Key))" />
                                     }
                                 </MediaEditorPanel>
 
@@ -321,7 +356,8 @@
                                             {
                                                 <MediaEditorTagEditor Label="Local tags"
                                                                       Value="@GetEditableValue(field.Key)"
-                                                                      ValueChanged="@((string? value) => OnFieldInput(field.Key, value))" />
+                                                                      ValueChanged="@((string? value) => OnFieldInput(field.Key, value))"
+                                                                      Suggestions="@_tagSuggestions" />
                                             }
                                             else
                                             {
@@ -334,76 +370,8 @@
                                                                  HelpText="@(field.Key == "comment" ? "Visible only to your active profile." : "Used for your own library organization.")" />
                                             }
                                         }
-                                        @if (Request.ActiveProfileId.HasValue)
-                                        {
-                                            <div class="sme-profile-preferences">
-                                                <AppSwitchRow T="bool"
-                                                              Label="Hidden from this profile"
-                                                              Description="Keep this item out of normal browsing for the active profile."
-                                                              Value="@_isHidden"
-                                                              ValueChanged="OnHiddenChanged" />
-                                                <AppSwitchRow T="bool"
-                                                              Label="Use for recommendations"
-                                                              Description="Allow this item to influence suggestions for the active profile."
-                                                              Value="@_includeInRecommendations"
-                                                              ValueChanged="OnRecommendationsChanged" />
-                                            </div>
-                                        }
                                     </MediaEditorPanel>
                                 </div>
-
-                                @if (IsSingleItem)
-                                {
-                                    <MediaEditorPanel
-                                                      Class="sme-details-grid__artwork">
-                                        <div class="sme-details-artwork @ArtworkShapeClass" aria-label="Current artwork preview">
-                                            @if (!string.IsNullOrWhiteSpace(CurrentCoverUrl))
-                                            {
-                                                <img src="@CurrentCoverUrl" alt="@($"{HeaderTitle} current artwork")" />
-                                            }
-                                            else
-                                            {
-                                                <div class="sme-details-artwork__fallback">
-                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" />
-                                                    <span>No artwork yet</span>
-                                                </div>
-                                            }
-
-                                            <div class="sme-details-artwork__identity">
-                                                <strong>@HeaderTitle</strong>
-                                                @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
-                                                {
-                                                    <span>@NormalizeDisplaySpacing(HeaderSubtitle)</span>
-                                                }
-                                                <div class="sme-details-artwork__facts">
-                                                    @if (!string.IsNullOrWhiteSpace(_detail?.Year))
-                                                    {
-                                                        <span><MudIcon Icon="@Icons.Material.Outlined.CalendarToday" Size="Size.Small" /> @_detail.Year</span>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(_detail?.Language))
-                                                    {
-                                                        <span><MudIcon Icon="@Icons.Material.Outlined.Language" Size="Size.Small" /> @_detail.Language</span>
-                                                    }
-                                                    @if (!string.IsNullOrWhiteSpace(_detail?.Rating))
-                                                    {
-                                                        <span><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> @GetSourceFacts().FirstOrDefault(fact => fact.Label == "Rating").Value</span>
-                                                    }
-                                                </div>
-                                            </div>
-
-                                            @if (Tabs.Any(tab => string.Equals(tab.Id, "artwork", StringComparison.OrdinalIgnoreCase)))
-                                            {
-                                                <AppButton Variant="Variant.Text"
-                                                           Color="Color.Inherit"
-                                                           StartIcon="@Icons.Material.Outlined.Image"
-                                                           Class="sme-details-artwork__action"
-                                                           OnClick="OpenArtworkTabAsync">
-                                                    Manage artwork
-                                                </AppButton>
-                                            }
-                                        </div>
-                                    </MediaEditorPanel>
-                                }
 
                                 @if (GetSourceFacts().Count > 0)
                                 {
@@ -438,26 +406,6 @@
                                     </MediaEditorPanel>
                                 }
 
-                                @if (_refreshSchedule is not null)
-                                {
-                                    <MediaEditorPanel Title="Enrichment"
-                                                      Description="Provider-managed identity and relationship data refresh on a configurable schedule."
-                                                      Class="sme-details-grid__source-facts">
-                                        <dl class="sme-source-facts">
-                                            <div><dt>Status</dt><dd>@_refreshSchedule.Status</dd></div>
-                                            <div><dt>Last refreshed</dt><dd>@FormatRefreshDate(_refreshSchedule.LastSuccessAt)</dd></div>
-                                            <div><dt>Next refresh</dt><dd>@FormatRefreshDate(_refreshSchedule.NextDueAt)</dd></div>
-                                            <div><dt>Policy</dt><dd>Every @_refreshSchedule.IntervalDays days · @_refreshSchedule.ProviderId</dd></div>
-                                        </dl>
-                                        <AppButton Variant="Variant.Outlined"
-                                                   Color="Color.Primary"
-                                                   StartIcon="@Icons.Material.Outlined.Sync"
-                                                   Disabled="@(_refreshQueueing || _refreshSchedule.Status.Equals("Queued", StringComparison.OrdinalIgnoreCase))"
-                                                   OnClick="QueueFullEnrichmentAsync">
-                                            @(_refreshQueueing ? "Queueing..." : "Refresh enrichment now")
-                                        </AppButton>
-                                    </MediaEditorPanel>
-                                }
                             </div>
                         </div>
                     </div>

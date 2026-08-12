@@ -28,8 +28,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                    work_id AS WorkId,
                    personal_notes AS PersonalNotes,
                    local_tags_json AS LocalTagsJson,
-                   is_hidden AS IsHidden,
-                   include_in_recommendations AS IncludeInRecommendations,
                    revision AS Revision,
                    updated_at AS UpdatedAt
             FROM profile_work_preferences
@@ -73,8 +71,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                        work_id AS WorkId,
                        personal_notes AS PersonalNotes,
                        local_tags_json AS LocalTagsJson,
-                       is_hidden AS IsHidden,
-                       include_in_recommendations AS IncludeInRecommendations,
                        revision AS Revision,
                        updated_at AS UpdatedAt
                 FROM profile_work_preferences
@@ -123,16 +119,14 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
             connection.Execute(new CommandDefinition(
                 """
                 INSERT INTO profile_work_preferences
-                    (profile_id, work_id, personal_notes, local_tags_json, is_hidden,
-                     include_in_recommendations, revision, updated_at)
+                    (profile_id, work_id, personal_notes, local_tags_json,
+                     revision, updated_at)
                 VALUES
-                    (@profileId, @workId, @personalNotes, @localTagsJson, @isHidden,
-                     @includeInRecommendations, @revision, @updatedAt)
+                    (@profileId, @workId, @personalNotes, @localTagsJson,
+                     @revision, @updatedAt)
                 ON CONFLICT(profile_id, work_id) DO UPDATE SET
                     personal_notes = excluded.personal_notes,
                     local_tags_json = excluded.local_tags_json,
-                    is_hidden = excluded.is_hidden,
-                    include_in_recommendations = excluded.include_in_recommendations,
                     revision = excluded.revision,
                     updated_at = excluded.updated_at;
                 """,
@@ -142,8 +136,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                     workId = command.WorkId,
                     personalNotes = string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
                     localTagsJson = tags.Count == 0 ? null : JsonSerializer.Serialize(tags),
-                    isHidden = command.IsHidden ? 1 : 0,
-                    includeInRecommendations = command.IncludeInRecommendations ? 1 : 0,
                     revision = nextRevision,
                     updatedAt = now.ToString("O"),
                 }, transaction, cancellationToken: innerCt));
@@ -157,8 +149,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
                     command.WorkId,
                     string.IsNullOrWhiteSpace(command.PersonalNotes) ? null : command.PersonalNotes.Trim(),
                     tags,
-                    command.IsHidden,
-                    command.IncludeInRecommendations,
                     nextRevision,
                     now),
                 displayOverrides);
@@ -196,8 +186,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
         row.WorkId,
         row.PersonalNotes,
         ParseTags(row.LocalTagsJson),
-        row.IsHidden,
-        row.IncludeInRecommendations,
         row.Revision,
         DateTimeOffset.TryParse(row.UpdatedAt, out var updatedAt) ? updatedAt : null);
 
@@ -222,8 +210,6 @@ public sealed class ProfileWorkPreferencesRepository : IProfileWorkPreferencesRe
         public Guid WorkId { get; set; }
         public string? PersonalNotes { get; set; }
         public string? LocalTagsJson { get; set; }
-        public bool IsHidden { get; set; }
-        public bool IncludeInRecommendations { get; set; }
         public long Revision { get; set; }
         public string? UpdatedAt { get; set; }
     }

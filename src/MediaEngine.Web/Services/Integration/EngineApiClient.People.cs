@@ -6,6 +6,7 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Persons;
@@ -261,7 +262,9 @@ public sealed partial class EngineApiClient
                 Roles            = raw.Roles.ToList(),
                 HeadshotUrl      = raw.HeadshotUrl,
                 HasLocalHeadshot = raw.HasLocalHeadshot,
-                LocalHeadshotUrl = (raw.HasLocalHeadshot || !string.IsNullOrEmpty(raw.HeadshotUrl)) ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
+                LocalHeadshotUrl = !string.IsNullOrWhiteSpace(raw.HeadshotUrl)
+                    ? AbsoluteUrl(raw.HeadshotUrl)
+                    : raw.HasLocalHeadshot ? AbsoluteUrl($"/persons/{raw.Id}/headshot") : null,
                 Biography        = raw.Biography,
                 Occupation       = raw.Occupation,
                 DateOfBirth      = raw.DateOfBirth,
@@ -288,6 +291,92 @@ public sealed partial class EngineApiClient
             _logger.LogWarning(ex, "GET /persons/{PersonId} failed", personId);
             LastError = ex.Message;
             return null;
+        }
+    }
+
+    public async Task<PersonEditorStateResponse?> GetPersonEditorStateAsync(
+        Guid personId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        var query = profileId.HasValue
+            ? new Dictionary<string, string?> { ["profileId"] = profileId.Value.ToString("D") }
+            : null;
+        return await GetAsync<PersonEditorStateResponse>(
+            "GET /persons/{personId}/editor",
+            $"/persons/{personId}/editor",
+            query,
+            ct: ct);
+    }
+
+    public async Task<bool> SavePersonEditorStateAsync(
+        Guid personId, PersonEditorSaveRequest request, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync($"/persons/{personId}/editor", request, ct);
+            if (!response.IsSuccessStatusCode)
+                LastError = await response.Content.ReadAsStringAsync(ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /persons/{PersonId}/editor failed", personId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<bool> MatchPersonAsync(Guid personId, string wikidataQid, CancellationToken ct = default)
+    {
+        try
+        {
+            var response = await _http.PutAsJsonAsync($"/persons/{personId}/match", new PersonMatchRequest { WikidataQid = wikidataQid }, ct);
+            if (!response.IsSuccessStatusCode)
+                LastError = await response.Content.ReadAsStringAsync(ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "PUT /persons/{PersonId}/match failed", personId);
+            LastError = ex.Message;
+            return false;
+        }
+    }
+
+    public async Task<ArtworkEditorDto?> GetPersonArtworkAsync(Guid personId, CancellationToken ct = default)
+    {
+        var artwork = await GetAsync<ArtworkEditorDto>(
+            "GET /persons/{personId}/artwork",
+            $"/persons/{personId}/artwork",
+            ct: ct);
+        if (artwork is not null)
+        {
+            foreach (var variant in artwork.Slots.SelectMany(slot => slot.Variants))
+                variant.ImageUrl = string.IsNullOrWhiteSpace(variant.ImageUrl) ? null : AbsoluteUrl(variant.ImageUrl);
+        }
+        return artwork;
+    }
+
+    public async Task<bool> UploadPersonArtworkAsync(
+        Guid personId,
+        string assetType,
+        Stream fileStream,
+        string fileName,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var content = new MultipartFormDataContent();
+            content.Add(new StreamContent(fileStream), "file", fileName);
+            var response = await _http.PostAsync($"/persons/{personId}/artwork/{Uri.EscapeDataString(assetType)}", content, ct);
+            if (!response.IsSuccessStatusCode)
+                LastError = await response.Content.ReadAsStringAsync(ct);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "POST /persons/{PersonId}/artwork/{AssetType} failed", personId, assetType);
+            LastError = ex.Message;
+            return false;
         }
     }
 

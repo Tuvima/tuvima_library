@@ -1,13 +1,17 @@
+using System.Text.Json;
 using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
+using MediaEngine.Api.Services.Metadata;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Metadata;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Persons;
+using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Services;
-using MediaEngine.Storage.Contracts;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -19,12 +23,188 @@ public static class PersonEndpoints
                        .WithTags("Persons")
                        .RequireAnyRole();
 
+        group.MapGet("/{id:guid}/editor", async (
+            Guid id,
+            Guid? profileId,
+            PersonEditorReadService editorData,
+            CancellationToken ct) =>
+        {
+            var state = await editorData.GetAsync(id, profileId, ct);
+            return state is null ? ApiErrors.NotFound($"Person '{id}' not found.") : Results.Ok(state);
+        })
+        .WithName("GetPersonEditorState")
+        .WithSummary("Returns durable person presentation overrides, profile-local fields, and history.")
+        .Produces<PersonEditorStateResponse>(StatusCodes.Status200OK);
+
+        group.MapPut("/{id:guid}/editor", async (
+            Guid id,
+            PersonEditorSaveRequest request,
+            IPersonRepository personRepo,
+            PersonEditorReadService editorData,
+            CancellationToken ct) =>
+        {
+            if (await personRepo.FindByIdAsync(id, ct) is null)
+                return ApiErrors.NotFound($"Person '{id}' not found.");
+
+            var invalidKeys = request.DisplayOverrides.Keys
+                .Where(key => key is not ("name" or "biography" or "sort_name"))
+                .ToList();
+            if (invalidKeys.Count > 0)
+                return ApiErrors.BadRequest($"Unsupported person override fields: {string.Join(", ", invalidKeys)}.");
+
+            var result = await editorData.SaveAsync(id, request, ct);
+
+            return result.Saved
+                ? Results.Ok(new PersonEditorSaveResponse(id, result.Revision))
+                : ApiErrors.Conflict("The person changed while this editor was open.");
+        })
+        .WithName("SavePersonEditorState")
+        .WithSummary("Saves refresh-safe person display overrides and profile-local fields.")
+        .Produces<PersonEditorSaveResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        group.MapPut("/{id:guid}/match", async (
+            Guid id,
+            PersonMatchRequest request,
+            IPersonRepository personRepo,
+            ISystemActivityRepository activityRepo,
+            CancellationToken ct) =>
+        {
+            var qid = request.WikidataQid.Trim().ToUpperInvariant();
+            if (qid.Length < 2 || qid[0] != 'Q' || !qid[1..].All(char.IsDigit))
+                return ApiErrors.BadRequest("Enter a valid Wikidata identifier such as Q42.");
+
+            var person = await personRepo.FindByIdAsync(id, ct);
+            if (person is null)
+                return ApiErrors.NotFound($"Person '{id}' not found.");
+
+            await personRepo.UpdateEnrichmentAsync(id, qid, null, null, null, ct);
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.MetadataManualOverride,
+                EntityId = id,
+                EntityType = "Person",
+                Detail = $"Person matched to Wikidata {qid}",
+                ChangesJson = JsonSerializer.Serialize(new { wikidata_qid = qid }),
+            }, ct);
+            return Results.Ok(new PersonMatchResponse(id, qid));
+        })
+        .WithName("MatchPersonIdentity")
+        .Produces<PersonMatchResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator();
+
+        group.MapGet("/{id:guid}/artwork", async (
+            Guid id,
+            IPersonRepository personRepo,
+            IEntityAssetRepository assetRepo,
+            CancellationToken ct) =>
+        {
+            var person = await personRepo.FindByIdAsync(id, ct);
+            if (person is null)
+                return ApiErrors.NotFound($"Person '{id}' not found.");
+
+            var assets = await assetRepo.GetByEntityAsync(id.ToString(), null, ct);
+            var slots = new[] { "Headshot", "Background", "Banner", "Logo" }
+                .Select(assetType => new ArtworkSlotDto(assetType, assets
+                    .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(asset => asset.IsPreferred)
+                    .ThenByDescending(asset => asset.CreatedAt)
+                    .Select(asset => new ArtworkVariantDto(
+                        asset.Id,
+                        assetType,
+                        $"/stream/artwork/{asset.Id}",
+                        asset.IsPreferred,
+                        asset.SourceProvider ?? "Stored",
+                        asset.SourceProvider,
+                        string.Equals(asset.SourceProvider, "user_upload", StringComparison.OrdinalIgnoreCase),
+                        asset.CreatedAt))
+                    .ToList()))
+                .ToList();
+            return Results.Ok(new ArtworkEditorDto(id, slots));
+        })
+        .WithName("GetPersonArtwork")
+        .Produces<ArtworkEditorDto>(StatusCodes.Status200OK);
+
+        group.MapPost("/{id:guid}/artwork/{assetType}", async (
+            Guid id,
+            string assetType,
+            IPersonRepository personRepo,
+            IEntityAssetRepository assetRepo,
+            ISystemActivityRepository activityRepo,
+            ArtworkScopeService artworkScopeService,
+            HttpRequest httpRequest,
+            CancellationToken ct) =>
+        {
+            if (await personRepo.FindByIdAsync(id, ct) is null)
+                return ApiErrors.NotFound($"Person '{id}' not found.");
+
+            var normalizedType = assetType.Trim() switch
+            {
+                "Headshot" or "headshot" => "Headshot",
+                "Background" or "background" => "Background",
+                "Banner" or "banner" => "Banner",
+                "Logo" or "logo" => "Logo",
+                _ => null,
+            };
+            if (normalizedType is null)
+                return ApiErrors.BadRequest("Person artwork supports Headshot, Background, Banner, and Logo.");
+            if (!httpRequest.HasFormContentType)
+                return ApiErrors.BadRequest("Expected multipart form data.");
+
+            var form = await httpRequest.ReadFormAsync(ct);
+            var file = form.Files.FirstOrDefault();
+            if (file is null || file.Length == 0)
+                return ApiErrors.BadRequest("No file provided.");
+            if (file.Length > 20 * 1024 * 1024)
+                return ApiErrors.BadRequest("Artwork files must be 20 MB or smaller.");
+            if (!ArtworkScopeService.IsArtworkUploadAllowed(file.ContentType, normalizedType))
+                return ApiErrors.BadRequest(normalizedType == "Logo" ? "Logos must be PNG images." : "Only JPEG and PNG images are accepted.");
+
+            var variantId = Guid.NewGuid();
+            var localPath = artworkScopeService.BuildArtworkUploadPath("Person", id, normalizedType, variantId, file.ContentType);
+            AssetPathService.EnsureDirectory(localPath);
+            await using (var input = file.OpenReadStream())
+            await using (var output = new FileStream(localPath, FileMode.Create, FileAccess.Write))
+                await input.CopyToAsync(output, ct);
+
+            var asset = new EntityAsset
+            {
+                Id = variantId,
+                EntityId = id.ToString(),
+                EntityType = "Person",
+                AssetTypeValue = normalizedType,
+                ImageUrl = $"/stream/artwork/{variantId}",
+                LocalImagePath = localPath,
+                SourceProvider = "user_upload",
+                OwnerScope = "Person",
+                IsPreferred = true,
+                IsUserOverride = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            await assetRepo.UpsertAsync(asset, ct);
+            await assetRepo.SetPreferredAsync(asset.Id, ct);
+            await activityRepo.LogAsync(new SystemActivityEntry
+            {
+                ActionType = SystemActionType.CoverArtSaved,
+                EntityId = id,
+                EntityType = "Person",
+                Detail = $"Custom {normalizedType.ToLowerInvariant()} uploaded",
+            }, ct);
+
+            return Results.Ok(new ArtworkUploadResponse(id, normalizedType, variantId, asset.ImageUrl));
+        })
+        .WithName("UploadPersonArtwork")
+        .Produces<ArtworkUploadResponse>(StatusCodes.Status200OK)
+        .RequireAdminOrCurator()
+        .DisableAntiforgery();
+
         // GET /persons/{id} — person detail including local headshot availability.
         group.MapGet("/{id:guid}", async (
             Guid id,
             IPersonRepository personRepo,
             IEntityAssetRepository assetRepo,
             IPersonCreditReadService personCreditReadService,
+            PersonEditorReadService editorData,
             CancellationToken ct) =>
         {
             var person = await personRepo.FindByIdAsync(id, ct);
@@ -38,15 +218,19 @@ public static class PersonEndpoints
             var preferredBanner = await assetRepo.GetPreferredAsync(id.ToString(), "Banner", ct);
             var preferredBackground = await assetRepo.GetPreferredAsync(id.ToString(), "Background", ct);
             var preferredLogo = await assetRepo.GetPreferredAsync(id.ToString(), "Logo", ct);
+            var preferredHeadshot = await assetRepo.GetPreferredAsync(id.ToString(), "Headshot", ct);
+            var displayOverrides = editorData.GetDisplayOverrides(id, ct);
+            var displayName = displayOverrides.TryGetValue("name", out var nameOverride) ? nameOverride : person.Name;
+            var displayBiography = displayOverrides.TryGetValue("biography", out var biographyOverride) ? biographyOverride : person.Biography;
 
             return Results.Ok(new PersonDetailResponse
             {
                 Id = person.Id,
-                Name = person.Name,
+                Name = displayName,
                 Roles = person.Roles,
                 WikidataQid = person.WikidataQid,
-                HeadshotUrl = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl),
-                Biography = person.Biography,
+                HeadshotUrl = preferredHeadshot is null ? ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl) : $"/stream/artwork/{preferredHeadshot.Id}",
+                Biography = displayBiography,
                 Occupation = person.Occupation,
                 DateOfBirth = person.DateOfBirth,
                 DateOfDeath = person.DateOfDeath,
@@ -58,8 +242,8 @@ public static class PersonEndpoints
                 TikTok = person.TikTok,
                 Mastodon = person.Mastodon,
                 Website = person.Website,
-                HasLocalHeadshot = !string.IsNullOrEmpty(person.LocalHeadshotPath)
-                    && File.Exists(person.LocalHeadshotPath),
+                HasLocalHeadshot = preferredHeadshot is not null || (!string.IsNullOrEmpty(person.LocalHeadshotPath)
+                    && File.Exists(person.LocalHeadshotPath)),
                 IsPseudonym = person.IsPseudonym,
                 IsGroup = person.IsGroup,
                 GroupMembers = person.IsGroup ? groupMembers : [],
@@ -94,6 +278,7 @@ public static class PersonEndpoints
         group.MapGet("/{id:guid}/headshot", async (
             Guid id,
             IPersonRepository personRepo,
+            IEntityAssetRepository assetRepo,
             IHttpClientFactory httpFactory,
             AssetPathService assetPaths,
             ILoggerFactory loggerFactory,
@@ -104,6 +289,14 @@ public static class PersonEndpoints
             if (person is null)
             {
                 return ApiErrors.NotFound($"Person '{id}' not found.");
+            }
+
+            var preferredHeadshot = await assetRepo.GetPreferredAsync(id.ToString(), "Headshot", ct);
+            if (!string.IsNullOrWhiteSpace(preferredHeadshot?.LocalImagePath)
+                && File.Exists(preferredHeadshot.LocalImagePath)
+                && IsLikelyImageFile(preferredHeadshot.LocalImagePath))
+            {
+                return Results.File(preferredHeadshot.LocalImagePath, GetImageMimeTypeOrJpeg(preferredHeadshot.LocalImagePath));
             }
 
             // Try local headshot path first.
@@ -446,5 +639,6 @@ public static class PersonEndpoints
             && bytes[10] == 0x42
             && bytes[11] == 0x50;
     }
+
 }
 

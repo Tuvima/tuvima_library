@@ -88,16 +88,15 @@ public sealed class Phase5InlineEditingTests
     public void SharedEditor_DetailsTabUsesInlineMetadataOverrideLayout()
     {
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
-        var styles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.css");
 
         Assert.Contains("Title=\"Appearance\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"My Library\"", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-details-grid", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-details-artwork__identity", shell, StringComparison.Ordinal);
-        Assert.Contains("sme-details-grid__artwork", shell, StringComparison.Ordinal);
-        Assert.Contains(".sme-details-grid ::deep .sme-details-grid__artwork", styles, StringComparison.Ordinal);
-        Assert.Contains("position: static", styles, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-details-artwork__identity", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("sme-details-grid__artwork", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-section-nav__footer", shell, StringComparison.Ordinal);
+        Assert.Contains("Refresh enrichment", shell, StringComparison.Ordinal);
         Assert.Contains("MediaEditorTagEditor", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-sidebar-artwork", shell, StringComparison.Ordinal);
         Assert.Contains("@if (!Inline)", shell, StringComparison.Ordinal);
@@ -371,7 +370,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("detail.EpisodeNumber ?? FindCanonicalValue(canonicals, \"episode_number\")", schema, StringComparison.Ordinal);
         Assert.Contains("detail.EpisodeTitle ?? FindCanonicalValue(canonicals, \"episode_title\")", schema, StringComparison.Ordinal);
         Assert.DoesNotContain("Field(\"episode_title\", \"Title\", identity: true)", schema, StringComparison.Ordinal);
-        Assert.Contains("(\"TV\", \"episode\") => [\"episode_title\", \"description\", \"season_number\", \"episode_number\"", code, StringComparison.Ordinal);
+        Assert.Contains("(\"TV\", \"episode\") => [\"episode_title\", \"tagline\", \"description\", \"season_number\", \"episode_number\"", code, StringComparison.Ordinal);
     }
 
     [Fact]

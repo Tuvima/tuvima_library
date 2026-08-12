@@ -162,6 +162,7 @@ public sealed class DisplayWorkProjectionReader
                     (SELECT value FROM canonical_values WHERE entity_id = AssetId AND key = 'rating' LIMIT 1)
                 ) AS Rating,
                 COALESCE(
+                    NULLIF(TRIM(json_extract((SELECT display_overrides_json FROM works WHERE id = WorkId LIMIT 1), '$.genre')), ''),
                     (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = WorkId AND key = 'genre' ORDER BY ordinal)),
                     (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = RootWorkId AND key = 'genre' ORDER BY ordinal)),
                     (SELECT group_concat(value, ';') FROM (SELECT value FROM canonical_value_arrays WHERE entity_id = AssetId AND key = 'genre' ORDER BY ordinal))

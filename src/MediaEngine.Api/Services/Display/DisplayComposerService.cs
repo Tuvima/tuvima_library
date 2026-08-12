@@ -28,12 +28,10 @@ public sealed class DisplayComposerService
         var worksTask = _readService.LoadWorksAsync(ct);
         var journeyTask = _readService.LoadJourneyAsync(null, ct);
         var homeCollectionsTask = _readService.LoadHomeCollectionsAsync(profileId, ct);
-        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
-        await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask, hiddenWorkIdsTask);
+        await Task.WhenAll(worksTask, journeyTask, homeCollectionsTask);
 
-        var hiddenWorkIds = await hiddenWorkIdsTask;
-        var works = (await worksTask).Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId)).ToList();
-        var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
+        var works = (await worksTask).ToList();
+        var journey = (await journeyTask).ToList();
         var homeCollections = await homeCollectionsTask;
         var progressByWork = LatestProgressByWork(journey);
         var tvShowCards = _cards.BuildTvShowCards(works, progressByWork);
@@ -162,13 +160,11 @@ public sealed class DisplayComposerService
         var worksTask = _readService.LoadWorksAsync(ct);
         var journeyTask = _readService.LoadJourneyAsync(null, ct);
         var favoriteWorkIdsTask = _readService.LoadFavoriteWorkIdsAsync(profileId, ct);
-        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
-        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask, hiddenWorkIdsTask);
+        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask);
 
-        var hiddenWorkIds = await hiddenWorkIdsTask;
         var favoriteWorkIds = await favoriteWorkIdsTask;
-        var works = (await worksTask).Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId)).ToList();
-        var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
+        var works = (await worksTask).ToList();
+        var journey = (await journeyTask).ToList();
         var progressByWork = LatestProgressByWork(journey);
 
         var filtered = works.AsEnumerable();
@@ -395,9 +391,8 @@ public sealed class DisplayComposerService
         Guid? profileId = null,
         CancellationToken ct = default)
     {
-        var hiddenWorkIds = await _readService.LoadHiddenWorkIdsAsync(profileId, ct);
         var works = CollapseReadVariantsByQid((await _readService.LoadWorksAsync(ct))
-            .Where(work => work.CollectionId == groupId && !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId))
+            .Where(work => work.CollectionId == groupId)
         )
             .OrderBy(work => DisplayMediaRules.ParseDouble(work.SeriesPosition) ?? double.MaxValue)
             .ThenBy(work => work.SortTitle ?? work.Title, StringComparer.OrdinalIgnoreCase)
@@ -452,12 +447,10 @@ public sealed class DisplayComposerService
     {
         var worksTask = _readService.LoadWorksAsync(ct);
         var journeyTask = _readService.LoadJourneyAsync(lane, ct);
-        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
-        await Task.WhenAll(worksTask, journeyTask, hiddenWorkIdsTask);
+        await Task.WhenAll(worksTask, journeyTask);
 
-        var hiddenWorkIds = await hiddenWorkIdsTask;
-        var works = (await worksTask).Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId)).ToList();
-        var journey = (await journeyTask).Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId)).ToList();
+        var works = (await worksTask).ToList();
+        var journey = (await journeyTask).ToList();
         var progressByWork = LatestProgressByWork(journey);
 
         var laneSource = works
@@ -548,12 +541,9 @@ public sealed class DisplayComposerService
         var worksTask = _readService.LoadWorksAsync(ct);
         var journeyTask = _readService.LoadJourneyAsync("listen", ct);
         var favoriteWorkIdsTask = _readService.LoadFavoriteWorkIdsAsync(profileId, ct);
-        var hiddenWorkIdsTask = _readService.LoadHiddenWorkIdsAsync(profileId, ct);
-        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask, hiddenWorkIdsTask);
+        await Task.WhenAll(worksTask, journeyTask, favoriteWorkIdsTask);
 
-        var hiddenWorkIds = await hiddenWorkIdsTask;
         var works = (await worksTask)
-            .Where(work => !IsHidden(hiddenWorkIds, work.WorkId, work.RootWorkId))
             .Where(work => DisplayMediaRules.NormalizeDisplayKind(work.MediaType) == "Music")
             .OrderByDescending(work => work.CreatedAt)
             .ThenBy(work => work.Artist, StringComparer.OrdinalIgnoreCase)
@@ -562,7 +552,6 @@ public sealed class DisplayComposerService
             .ThenBy(work => work.SortTitle ?? work.Title, StringComparer.OrdinalIgnoreCase)
             .ToList();
         var journey = (await journeyTask)
-            .Where(item => !IsHidden(hiddenWorkIds, item.WorkId, item.RootWorkId))
             .Where(item => DisplayMediaRules.NormalizeDisplayKind(item.MediaType) == "Music")
             .OrderByDescending(item => item.LastAccessed)
             .ToList();
@@ -1163,11 +1152,6 @@ public sealed class DisplayComposerService
             facts.Add(cleaned);
         }
     }
-
-    private static bool IsHidden(IReadOnlySet<Guid> hiddenWorkIds, Guid workId, Guid rootWorkId) =>
-        hiddenWorkIds.Contains(workId)
-        || (rootWorkId != Guid.Empty && hiddenWorkIds.Contains(rootWorkId));
-
 
     private static int? ParseInt(string? value) =>
         int.TryParse(value, out var parsed) && parsed > 0 ? parsed : null;

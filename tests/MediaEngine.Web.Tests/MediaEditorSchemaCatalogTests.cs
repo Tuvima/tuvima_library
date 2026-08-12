@@ -113,12 +113,12 @@ public sealed class MediaEditorSchemaCatalogTests
     }
 
     [Theory]
-    [InlineData("Books", "title", "subtitle", "description")]
-    [InlineData("Audiobooks", "title", "subtitle", "description")]
-    [InlineData("Movies", "title", "tagline", "description")]
-    [InlineData("TV", "title", "tagline", "description")]
-    [InlineData("Music", "title", "description")]
-    [InlineData("Comics", "title", "subtitle", "description")]
+    [InlineData("Books", "title", "subtitle", "tagline", "genre", "description")]
+    [InlineData("Audiobooks", "title", "subtitle", "tagline", "genre", "description")]
+    [InlineData("Movies", "title", "tagline", "genre", "description")]
+    [InlineData("TV", "title", "tagline", "genre", "description")]
+    [InlineData("Music", "title", "tagline", "genre", "description")]
+    [InlineData("Comics", "title", "subtitle", "tagline", "genre", "description")]
     public void Resolve_DetailsFields_StartWithCoreIdentityBlock(string mediaType, params string[] expectedKeys)
     {
         var schema = MediaEditorSchemaCatalog.Resolve(mediaType);
@@ -134,13 +134,18 @@ public sealed class MediaEditorSchemaCatalogTests
     }
 
     [Fact]
-    public void SecondaryMarketingFields_AreMediaAware()
+    public void SecondaryMarketingFields_AreAvailableForEveryMediaType()
     {
-        Assert.Contains(MediaEditorSchemaCatalog.Resolve("Movies").Groups.SelectMany(group => group.Fields), field => field.Key == "tagline" && field.Label == "Tagline");
-        Assert.Contains(MediaEditorSchemaCatalog.Resolve("TV").Groups.SelectMany(group => group.Fields), field => field.Key == "tagline" && field.Label == "Tagline");
+        foreach (var mediaType in new[] { "Movies", "TV", "Books", "Audiobooks", "Comics", "Music" })
+        {
+            var fields = MediaEditorSchemaCatalog.Resolve(mediaType).Groups.SelectMany(group => group.Fields);
+            Assert.Contains(fields, field => field.Key == "tagline" && field.Label == "Tagline");
+            Assert.Contains(fields, field => field.Key == "genre" && field.Label == "Genres");
+        }
+
         Assert.Contains(MediaEditorSchemaCatalog.Resolve("Books").Groups.SelectMany(group => group.Fields), field => field.Key == "subtitle" && field.Label == "Subtitle");
         Assert.Contains(MediaEditorSchemaCatalog.Resolve("Audiobooks").Groups.SelectMany(group => group.Fields), field => field.Key == "subtitle" && field.Label == "Subtitle");
         Assert.Contains(MediaEditorSchemaCatalog.Resolve("Comics").Groups.SelectMany(group => group.Fields), field => field.Key == "subtitle" && field.Label == "Subtitle");
-        Assert.DoesNotContain(MediaEditorSchemaCatalog.Resolve("Music").Groups.SelectMany(group => group.Fields), field => field.Key is "tagline" or "subtitle");
+        Assert.DoesNotContain(MediaEditorSchemaCatalog.Resolve("Music").Groups.SelectMany(group => group.Fields), field => field.Key == "subtitle");
     }
 }

@@ -150,9 +150,6 @@ public partial class SharedMediaEditorShell
     private string? _loadError;
     private string? _saveError;
     private bool _saveConflict;
-    private bool _isHidden;
-    private bool _includeInRecommendations = true;
-    private bool _profilePreferenceFlagsDirty;
     private string _reviewSummary = "Review the item identity.";
     private string _primaryActionLabel = "Review Metadata";
     private MediaEditorIdentityIntent _identityIntent = MediaEditorIdentityIntent.None;
@@ -174,6 +171,8 @@ public partial class SharedMediaEditorShell
     private bool _savingFocusedContent;
     private EnrichmentRefreshScheduleDto? _refreshSchedule;
     private bool _refreshQueueing;
+    private IReadOnlyList<string> _genreSuggestions = [];
+    private IReadOnlyList<string> _tagSuggestions = [];
     private ContainerReturnState? _containerReturnState;
     private EditorAiCapability _chapterNamingCapability = new(false, "Checking local AI availability.");
 
@@ -201,7 +200,6 @@ public partial class SharedMediaEditorShell
     private Guid CanonicalEndpointEntityId => CurrentEntityId;
     protected bool IsDirty => _editedValues.Count > 0
                               || _pendingArtworkFiles.Count > 0
-                              || _profilePreferenceFlagsDirty
                               || _audiobookChapterEdits.Count > 0
                               || _audiobookChapterResetKeys.Count > 0;
     protected bool ShouldShowEditorFooter =>
@@ -485,13 +483,18 @@ public partial class SharedMediaEditorShell
     protected async Task QueueFullEnrichmentAsync()
     {
         var target = _refreshSchedule;
-        if (target is null || _refreshQueueing)
+        if (_refreshQueueing)
+            return;
+
+        var entityId = target?.EntityId ?? CurrentEntityId;
+        var entityType = target?.EntityType ?? ActiveScope?.FieldEntityKind ?? "Work";
+        if (entityId == Guid.Empty)
             return;
 
         _refreshQueueing = true;
         try
         {
-            var result = await ApiClient.QueueEnrichmentRefreshNowAsync(target.EntityType, target.EntityId);
+            var result = await ApiClient.QueueEnrichmentRefreshNowAsync(entityType, entityId);
             if (result is null)
             {
                 Snackbar.Add("The enrichment refresh could not be queued.", Severity.Error);
@@ -578,6 +581,7 @@ public partial class SharedMediaEditorShell
             }
 
             await LoadProfilePreferencesAsync(CurrentEntityId);
+            await LoadEditorSuggestionsAsync();
             await LoadAudiobookChapterOverrideStateAsync(CurrentEntityId);
             if (string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
                 _chapterNamingCapability = await EditorAiCapabilities.GetAudiobookChapterNamingAsync();
@@ -638,9 +642,24 @@ public partial class SharedMediaEditorShell
             return;
 
         _profilePreferencesByWork[workId] = preferences;
-        _isHidden = preferences.IsHidden;
-        _includeInRecommendations = preferences.IncludeInRecommendations;
-        _profilePreferenceFlagsDirty = false;
+    }
+
+    private async Task LoadEditorSuggestionsAsync()
+    {
+        try
+        {
+            var genresTask = ApiClient.GetItemEditorSuggestionsAsync("genre");
+            var tagsTask = ApiClient.GetItemEditorSuggestionsAsync("tags", Request.ActiveProfileId);
+            await Task.WhenAll(genresTask, tagsTask);
+            _genreSuggestions = genresTask.Result;
+            _tagSuggestions = tagsTask.Result;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogDebug(ex, "Editor autocomplete suggestions were unavailable");
+            _genreSuggestions = [];
+            _tagSuggestions = [];
+        }
     }
 
     private async Task LoadAudiobookChapterOverrideStateAsync(Guid workId)
@@ -1247,30 +1266,6 @@ public partial class SharedMediaEditorShell
         }
     }
 
-    protected void OnHiddenChanged(bool value)
-    {
-        _isHidden = value;
-        UpdateProfileFlagDirtyState();
-    }
-
-    protected void OnRecommendationsChanged(bool value)
-    {
-        _includeInRecommendations = value;
-        UpdateProfileFlagDirtyState();
-    }
-
-    private void UpdateProfileFlagDirtyState()
-    {
-        if (!_profilePreferencesByWork.TryGetValue(CurrentEntityId, out var preferences))
-        {
-            _profilePreferenceFlagsDirty = _isHidden || !_includeInRecommendations;
-            return;
-        }
-
-        _profilePreferenceFlagsDirty = _isHidden != preferences.IsHidden
-                                       || _includeInRecommendations != preferences.IncludeInRecommendations;
-    }
-
     protected Task SaveAsync() => SaveAsyncCore(applyMembershipMove: false);
 
     protected Task ConfirmMembershipMoveAsync() => SaveAsyncCore(applyMembershipMove: true);
@@ -1356,7 +1351,7 @@ public partial class SharedMediaEditorShell
             var profileSavedEntities = new HashSet<Guid>();
             if (Request.Mode == SharedMediaEditorMode.Normal
                 && Request.ActiveProfileId.HasValue
-                && (_profilePreferenceFlagsDirty || fieldChangesByScope.Any(group => group.Key.EntityId == CurrentEntityId)))
+                && fieldChangesByScope.Any(group => group.Key.EntityId == CurrentEntityId))
             {
                 var currentEntries = fieldChangesByScope
                     .Where(group => group.Key.EntityId == CurrentEntityId)
@@ -1547,8 +1542,6 @@ public partial class SharedMediaEditorShell
         var localTags = preferenceFields.TryGetValue("custom_tags", out var tagValue)
             ? ParseLocalTags(tagValue)
             : baseline.LocalTags;
-        var isCurrentEntity = entityId == CurrentEntityId;
-
         var result = await ApiClient.SaveItemEditorPreferencesAsync(
             entityId,
             profileId,
@@ -1558,10 +1551,6 @@ public partial class SharedMediaEditorShell
                 DisplayOverrides = displayOverrides,
                 PersonalNotes = personalNotes,
                 LocalTags = localTags.ToList(),
-                IsHidden = isCurrentEntity ? _isHidden : baseline.IsHidden,
-                IncludeInRecommendations = isCurrentEntity
-                    ? _includeInRecommendations
-                    : baseline.IncludeInRecommendations,
             });
 
         if (result.Preferences is not null)
@@ -1589,8 +1578,6 @@ public partial class SharedMediaEditorShell
             return false;
         }
 
-        if (isCurrentEntity)
-            _profilePreferenceFlagsDirty = false;
         return true;
     }
 
@@ -1727,12 +1714,6 @@ public partial class SharedMediaEditorShell
         _confirmDiscard = false;
         _saveError = null;
         _saveConflict = false;
-        if (_profilePreferencesByWork.TryGetValue(CurrentEntityId, out var preferences))
-        {
-            _isHidden = preferences.IsHidden;
-            _includeInRecommendations = preferences.IncludeInRecommendations;
-        }
-        _profilePreferenceFlagsDirty = false;
     }
 
     protected async Task ReloadAfterSaveConflictAsync()
@@ -3311,9 +3292,9 @@ public partial class SharedMediaEditorShell
         return (_selectedMediaType, ActiveScope.ScopeId) switch
         {
             ("TV", "series") => ["show_name", "tagline", "year", "network", "runtime", "genre", "custom_tags", "language", "description", "rating", "comment", "sort_series"],
-            ("TV", "episode") => ["episode_title", "description", "season_number", "episode_number", "runtime", "release_date", "custom_tags", "language", "rating", "comment", "sort_title"],
-            ("Music", "album") => ["album", "album_artist", "artist", "genre", "custom_tags", "year", "language", "description", "rating", "comment", "sort_album"],
-            ("Music", "track") => ["title", "artist", "album", "composer", "track_number", "disc_number", "duration", "custom_tags", "rating", "comment", "sort_title"],
+            ("TV", "episode") => ["episode_title", "tagline", "description", "season_number", "episode_number", "runtime", "release_date", "custom_tags", "language", "rating", "comment", "sort_title"],
+            ("Music", "album") => ["album", "tagline", "album_artist", "artist", "genre", "custom_tags", "year", "language", "description", "rating", "comment", "sort_album"],
+            ("Music", "track") => ["title", "tagline", "artist", "album", "composer", "track_number", "disc_number", "duration", "custom_tags", "rating", "comment", "sort_title"],
             ("Movies", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
             ("Books", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
             ("Audiobooks", "item") => _schema.Groups.SelectMany(group => group.Fields).Select(field => field.Key),
@@ -3556,7 +3537,7 @@ public partial class SharedMediaEditorShell
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetAppearanceFields() =>
         GetDetailsMetadataFields()
-            .Where(field => field.Key is not ("custom_tags" or "comment"))
+            .Where(field => field.Key is not ("custom_tags" or "comment" or "genre"))
             .ToList();
 
     protected IReadOnlyList<MediaEditorFieldDefinition> GetLibraryFields() =>

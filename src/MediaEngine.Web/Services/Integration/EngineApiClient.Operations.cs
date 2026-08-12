@@ -338,6 +338,31 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public async Task<IReadOnlyList<string>> GetItemEditorSuggestionsAsync(
+        string field,
+        Guid? profileId = null,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var encodedField = Uri.EscapeDataString(field);
+            var profileQuery = profileId.HasValue ? $"?profileId={profileId.Value:D}" : string.Empty;
+            using var response = await _http.GetAsync($"/library/items/editor-suggestions/{encodedField}{profileQuery}", ct);
+            if (!response.IsSuccessStatusCode)
+                return [];
+            return await response.Content.ReadFromJsonAsync<List<string>>(cancellationToken: ct) ?? [];
+        }
+        catch (OperationCanceledException)
+        {
+            return [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "GET editor suggestions for {Field} failed", field);
+            return [];
+        }
+    }
+
     public async Task<DevHarnessRunResult?> RunDevHarnessAsync(
         string path,
         IReadOnlyDictionary<string, string?>? query = null,

@@ -6,11 +6,11 @@
      @onclick:stopPropagation="true">
     @if (IsOpen)
     {
-        <button type="button"
-                class="app-dismissible-surface__backdrop"
-                tabindex="-1"
-                aria-hidden="true"
-                @onclick="@(() => OpenMenuKeyChanged.InvokeAsync(null))"></button>
+        <AppNativeButton Type="button"
+                         Class="app-dismissible-surface__backdrop"
+                         tabindex="-1"
+                         aria-hidden="true"
+                         OnClick="@(() => OpenMenuKeyChanged.InvokeAsync(null))" />
     }
     @if (ShowLabel)
     {

@@ -1158,12 +1158,15 @@ public static partial class MetadataEndpoints
             if (target is null)
                 return ApiErrors.NotFound($"Artwork variant {variantId} not found.");
 
-            await artworkScopeService.SyncArtworkCanonicalAsync(
-                Guid.Parse(target.EntityId),
-                target.AssetTypeValue,
-                target,
-                ct);
-            await assetExportService.ReconcileArtworkAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
+            if (!string.Equals(target.EntityType, "Person", StringComparison.OrdinalIgnoreCase))
+            {
+                await artworkScopeService.SyncArtworkCanonicalAsync(
+                    Guid.Parse(target.EntityId),
+                    target.AssetTypeValue,
+                    target,
+                    ct);
+                await assetExportService.ReconcileArtworkAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
+            }
 
             return Results.Ok(new ArtworkVariantPreferredResponse(
                 variantId,
@@ -1222,11 +1225,14 @@ public static partial class MetadataEndpoints
                 nextPreferred = await entityAssetRepo.FindByIdAsync(nextPreferred.Id, ct);
             }
 
-            await artworkScopeService.SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, ct);
-            if (nextPreferred is not null)
-                await assetExportService.ReconcileArtworkAsync(nextPreferred.EntityId, nextPreferred.EntityType, nextPreferred.AssetTypeValue, ct);
-            else
-                await assetExportService.ClearArtworkExportAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
+            if (!string.Equals(target.EntityType, "Person", StringComparison.OrdinalIgnoreCase))
+            {
+                await artworkScopeService.SyncArtworkCanonicalAsync(entityId, target.AssetTypeValue, nextPreferred, ct);
+                if (nextPreferred is not null)
+                    await assetExportService.ReconcileArtworkAsync(nextPreferred.EntityId, nextPreferred.EntityType, nextPreferred.AssetTypeValue, ct);
+                else
+                    await assetExportService.ClearArtworkExportAsync(target.EntityId, target.EntityType, target.AssetTypeValue, ct);
+            }
 
             return Results.Ok(new ArtworkVariantDeletedResponse(
                 variantId,
@@ -1945,11 +1951,7 @@ public static partial class MetadataEndpoints
     private static IReadOnlyList<string> GetLockedFieldKeys(string mediaType, string scopeId) => [];
 
     private static IReadOnlyList<string> BuildDisplayOverrideKeys(string mediaType) =>
-        NormalizeEditorMediaType(mediaType) switch
-        {
-            "Movies" or "TV" => ["title", "tagline", "description", "sort_title"],
-            _ => ["title", "description", "sort_title"],
-        };
+        ["title", "tagline", "description", "sort_title", "genre"];
 
     private static List<EditorScopeResolution> BuildEditorScopes(
         EditorLaunchContext launch,

@@ -28,6 +28,8 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>();
         services.AddSingleton<CollectionCatalogReadService>();
         services.AddSingleton<IReviewQueueReadService, ReviewQueueReadService>();
+        services.AddSingleton<EditorSuggestionReadService>();
+        services.AddSingleton<PersonEditorReadService>();
         services.AddSingleton<MediaEditorNavigationReadService>();
         services.AddSingleton<IMediaEditorNavigationReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());
         services.AddSingleton<IMediaEditorMembershipReadService>(sp => sp.GetRequiredService<MediaEditorNavigationReadService>());

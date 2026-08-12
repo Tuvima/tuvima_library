@@ -5,7 +5,9 @@ using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.Canonical;
 using MediaEngine.Api.Services.Collections;
+using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Matching;
+using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
@@ -28,12 +30,31 @@ public static class ItemCanonicalEndpoints
         "tagline",
         "description",
         "sort_title",
+        "genre",
     };
 
     public static IEndpointRouteBuilder MapItemCanonicalEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/library/items")
             .WithTags("Items");
+
+        group.MapGet("/editor-suggestions/{field}", (
+            string field,
+            Guid? profileId,
+            int? limit,
+            EditorSuggestionReadService suggestions,
+            CancellationToken ct) =>
+        {
+            if (field is not ("genre" or "tag" or "tags" or "custom_tags"))
+                return ApiErrors.BadRequest("Suggestions are available only for genres and tags.");
+
+            var page = PagedRequest.From(0, limit, defaultLimit: 100, maxLimit: 500);
+            return Results.Ok(suggestions.GetValues(field, profileId, page.Limit, ct));
+        })
+        .WithName("GetItemEditorSuggestions")
+        .WithSummary("Returns existing genre or profile-local tag values for editor autocomplete.")
+        .Produces<IReadOnlyList<string>>(StatusCodes.Status200OK)
+        .RequireAnyRole();
 
         group.MapPut("/{entityId:guid}/preferences", async (
             Guid entityId,
@@ -590,9 +611,7 @@ public static class ItemCanonicalEndpoints
                 request.ExpectedRevision,
                 request.DisplayOverrides,
                 request.PersonalNotes,
-                localTags,
-                request.IsHidden,
-                request.IncludeInRecommendations), ct);
+                localTags), ct);
 
             if (!result.WorkExists)
                 return ApiErrors.NotFound($"No work found for {entityId}.");
@@ -1422,8 +1441,6 @@ public static class ItemCanonicalEndpoints
         WorkId = preferences.WorkId,
         PersonalNotes = preferences.PersonalNotes,
         LocalTags = preferences.LocalTags,
-        IsHidden = preferences.IsHidden,
-        IncludeInRecommendations = preferences.IncludeInRecommendations,
         Revision = preferences.Revision,
         UpdatedAt = preferences.UpdatedAt,
         DisplayOverrides = displayOverrides ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),

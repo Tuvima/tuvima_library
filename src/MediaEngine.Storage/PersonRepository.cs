@@ -343,10 +343,10 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("mediaAssetId", mediaAssetId);
         var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
-                   p.name                AS Name,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) AS Name,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
-                   p.biography           AS Biography,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.biography')), ''), p.biography) AS Biography,
                    p.created_at          AS CreatedAt,
                    p.enriched_at         AS EnrichedAt,
                    p.occupation          AS Occupation,
@@ -369,7 +369,7 @@ public sealed class PersonRepository : IPersonRepository
             LEFT JOIN person_roles pr ON pr.person_id = p.id
             WHERE  l.media_asset_id = @mediaAssetId
             GROUP  BY p.id
-            ORDER  BY p.name ASC;
+            ORDER  BY COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.sort_name')), ''), NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) ASC;
             """, p).AsList();
 
         var results = rows.Select(MapFromCsvRow).ToList();
@@ -398,10 +398,10 @@ public sealed class PersonRepository : IPersonRepository
             var mediaAssetIdClause = AddGuidBlobList(p, "mediaAssetId", batch);
             rows.AddRange(conn.Query<PersonWithRolesCsv>($"""
                 SELECT p.id                  AS Id,
-                       p.name                AS Name,
+                       COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) AS Name,
                        p.wikidata_qid        AS WikidataQid,
                        p.headshot_url        AS HeadshotUrl,
-                       p.biography           AS Biography,
+                       COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.biography')), ''), p.biography) AS Biography,
                        p.created_at          AS CreatedAt,
                        p.enriched_at         AS EnrichedAt,
                        p.occupation          AS Occupation,
@@ -424,7 +424,7 @@ public sealed class PersonRepository : IPersonRepository
                 LEFT JOIN person_roles pr ON pr.person_id = p.id
                 WHERE  l.media_asset_id IN ({mediaAssetIdClause})
                 GROUP  BY p.id
-                ORDER  BY p.name ASC;
+                ORDER  BY COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.sort_name')), ''), NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) ASC;
                 """, p));
         }
 
@@ -487,10 +487,10 @@ public sealed class PersonRepository : IPersonRepository
         using var conn = _db.CreateConnection();
         var rows = conn.Query<PersonWithRolesCsv>("""
             SELECT p.id                  AS Id,
-                   p.name                AS Name,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) AS Name,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
-                   p.biography           AS Biography,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.biography')), ''), p.biography) AS Biography,
                    p.created_at          AS CreatedAt,
                    p.enriched_at         AS EnrichedAt,
                    p.occupation          AS Occupation,
@@ -511,7 +511,7 @@ public sealed class PersonRepository : IPersonRepository
             FROM   persons p
             LEFT JOIN person_roles pr ON pr.person_id = p.id
             GROUP  BY p.id
-            ORDER  BY p.name ASC;
+            ORDER  BY COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.sort_name')), ''), NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) ASC;
             """).AsList();
 
         var results = rows.Select(MapFromCsvRow).ToList();
@@ -539,10 +539,10 @@ public sealed class PersonRepository : IPersonRepository
 
         var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
-                   p.name                AS Name,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) AS Name,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
-                   p.biography           AS Biography,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.biography')), ''), p.biography) AS Biography,
                    p.created_at          AS CreatedAt,
                    p.enriched_at         AS EnrichedAt,
                    p.occupation          AS Occupation,
@@ -565,7 +565,7 @@ public sealed class PersonRepository : IPersonRepository
             {roleFilter}
             GROUP  BY p.id
             HAVING RolesCsv IS NOT NULL
-            ORDER  BY p.name ASC
+            ORDER  BY COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.sort_name')), ''), NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) ASC
             LIMIT  @limit OFFSET @offset;
             """, p).AsList();
 
@@ -596,10 +596,10 @@ public sealed class PersonRepository : IPersonRepository
 
         var rows = conn.Query<PersonWithRolesCsv>("""
             SELECT p.id                  AS Id,
-                   p.name                AS Name,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) AS Name,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
-                   p.biography           AS Biography,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.biography')), ''), p.biography) AS Biography,
                    p.created_at          AS CreatedAt,
                    p.enriched_at         AS EnrichedAt,
                    p.occupation          AS Occupation,
@@ -629,7 +629,7 @@ public sealed class PersonRepository : IPersonRepository
               AND w.is_catalog_only = 0
               AND (
                   @search IS NULL
-                  OR p.name LIKE '%' || @search || '%' COLLATE NOCASE
+                  OR COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) LIKE '%' || @search || '%' COLLATE NOCASE
                   OR COALESCE(p.occupation, '') LIKE '%' || @search || '%' COLLATE NOCASE
                   OR EXISTS (
                       SELECT 1
@@ -670,7 +670,7 @@ public sealed class PersonRepository : IPersonRepository
             GROUP BY p.id
             HAVING RolesCsv IS NOT NULL
             ORDER BY CASE WHEN @sort = 'count' THEN COUNT(DISTINCT w.id) END DESC,
-                     p.name COLLATE NOCASE ASC
+                     COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.sort_name')), ''), NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) COLLATE NOCASE ASC
             LIMIT @limit OFFSET @offset;
             """, p).AsList();
 
@@ -946,10 +946,10 @@ public sealed class PersonRepository : IPersonRepository
         p.Add("id", personId);
         var rows = conn.Query<PersonWithRolesCsv>($"""
             SELECT p.id                  AS Id,
-                   p.name                AS Name,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) AS Name,
                    p.wikidata_qid        AS WikidataQid,
                    p.headshot_url        AS HeadshotUrl,
-                   p.biography           AS Biography,
+                   COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.biography')), ''), p.biography) AS Biography,
                    p.created_at          AS CreatedAt,
                    p.enriched_at         AS EnrichedAt,
                    p.occupation          AS Occupation,
@@ -975,7 +975,7 @@ public sealed class PersonRepository : IPersonRepository
                 SELECT pseudonym_person_id FROM person_aliases WHERE real_person_id = @id
             )
             GROUP  BY p.id
-            ORDER  BY p.name ASC;
+            ORDER  BY COALESCE(NULLIF(TRIM(json_extract(p.display_overrides_json, '$.sort_name')), ''), NULLIF(TRIM(json_extract(p.display_overrides_json, '$.name')), ''), p.name) ASC;
             """, p).AsList();
 
         var results = rows.Select(MapFromCsvRow).ToList();

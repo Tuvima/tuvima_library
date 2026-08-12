@@ -30,7 +30,6 @@ public static class TuvimaDisplayServiceCollectionExtensions
         services.AddSingleton<IDisplayProjectionReadService, DisplayProjectionReadService>();
         services.AddSingleton<DisplayWorkProjectionReader>();
         services.AddSingleton<ContributorShelfReadService>();
-        services.AddSingleton<DisplayProfilePreferenceProjectionReader>();
         services.AddSingleton<DisplayJourneyProjectionReader>();
         services.AddSingleton<DisplayFavoriteProjectionReader>();
         services.AddSingleton<DisplayHomeCollectionProjectionReader>();

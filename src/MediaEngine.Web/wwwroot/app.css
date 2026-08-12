@@ -5294,7 +5294,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     padding: 0.34rem 0.48rem !important;
     border-radius: 0.4rem !important;
     font-size: 0.84rem !important;
-    font-weight: 550 !important;
+    font-weight: 600 !important;
 }
 
 .tl-detail-overflow-popover .mud-list-item .mud-icon-root,

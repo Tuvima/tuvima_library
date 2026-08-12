@@ -1,13 +1,13 @@
 .refresh-schedule { display: grid; gap: 1rem; }
-.refresh-schedule__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding: 1.25rem; border: 1px solid var(--tl-border-subtle); border-radius: 12px; background: var(--tl-surface-1); }
+.refresh-schedule__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1.5rem; padding: 1.25rem; border: 1px solid var(--tl-border-subtle); border-radius: 12px; background: var(--tl-bg-surface); }
 .refresh-schedule__header h2 { margin: .2rem 0; font-size: 1.35rem; }
 .refresh-schedule__header p { margin: 0; color: var(--tl-text-secondary); }
 .refresh-schedule__eyebrow { color: var(--tl-accent-primary) !important; font-size: .72rem; font-weight: 700; letter-spacing: .08em; }
 .refresh-schedule__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
-.refresh-schedule__summary > div { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid var(--tl-border-subtle); border-radius: 10px; background: var(--tl-surface-1); }
+.refresh-schedule__summary > div { display: flex; align-items: center; justify-content: space-between; padding: 1rem; border: 1px solid var(--tl-border-subtle); border-radius: 10px; background: var(--tl-bg-surface); }
 .refresh-schedule__summary span, .refresh-schedule__table small { display: block; color: var(--tl-text-secondary); }
 .refresh-schedule__summary strong { font-size: 1.35rem; }
-.refresh-schedule__table-wrap { overflow-x: auto; border: 1px solid var(--tl-border-subtle); border-radius: 12px; background: var(--tl-surface-1); }
+.refresh-schedule__table-wrap { overflow-x: auto; border: 1px solid var(--tl-border-subtle); border-radius: 12px; background: var(--tl-bg-surface); }
 .refresh-schedule__table { width: 100%; min-width: 900px; border-collapse: collapse; }
 .refresh-schedule__table th, .refresh-schedule__table td { padding: .85rem 1rem; text-align: left; border-bottom: 1px solid var(--tl-border-subtle); vertical-align: middle; }
 .refresh-schedule__table th { color: var(--tl-text-secondary); font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }

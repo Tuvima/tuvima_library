@@ -677,7 +677,7 @@ public sealed partial class RetailMatchWorker
         Add(MetadataFieldConstants.Title, showDetails?["name"]?.GetValue<string>() ?? fallbackShowName, 0.86);
         Add(MetadataFieldConstants.Description, showDetails?["overview"]?.GetValue<string>(), 0.86);
         Add(MetadataFieldConstants.ShortDescription, showDetails?["overview"]?.GetValue<string>(), 0.84);
-        Add(MetadataFieldConstants.Tagline, showDetails?["tagline"]?.GetValue<string>(), 0.92);
+        Add(MetadataFieldConstants.Tagline, showDetails?["tagline"]?.GetValue<string>(), ClaimConfidence.ProviderNativeTagline);
         Add(MetadataFieldConstants.Network, showDetails?["networks"]?[0]?["name"]?.GetValue<string>(), 0.85);
         Add(MetadataFieldConstants.Cover, RetailRequestBuilder.BuildTmdbImageUrl(showDetails?["poster_path"]?.GetValue<string>()) ?? fallbackPosterUrl, 0.90);
         Add(BridgeIdKeys.TmdbId, showTvId, 1.0);

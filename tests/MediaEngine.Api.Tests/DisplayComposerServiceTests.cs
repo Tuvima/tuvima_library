@@ -120,32 +120,6 @@ public sealed class DisplayComposerServiceTests
     }
 
     [Fact]
-    public async Task Browse_HidesProfileExcludedWorksFromCatalogAndJourneyShelves()
-    {
-        var visibleId = Guid.NewGuid();
-        var hiddenId = Guid.NewGuid();
-        var profileId = Guid.NewGuid();
-        var repository = new StubDisplayProjectionRepository(
-            [
-                Work(visibleId, "Movie", "Visible movie"),
-                Work(hiddenId, "Movie", "Hidden movie"),
-            ],
-            [
-                Journey(visibleId, "Movie", "Visible movie", progressPct: 20),
-                Journey(hiddenId, "Movie", "Hidden movie", progressPct: 80),
-            ],
-            hiddenWorkIds: new HashSet<Guid> { hiddenId });
-        var composer = CreateComposer(repository);
-
-        var page = await composer.BuildBrowseAsync(
-            "watch", null, "all", null, 0, 48, includeCatalog: true, profileId: profileId);
-
-        Assert.Contains(page.Catalog, card => card.WorkId == visibleId);
-        Assert.DoesNotContain(page.Catalog, card => card.WorkId == hiddenId);
-        Assert.DoesNotContain(page.Shelves.SelectMany(shelf => shelf.Items), card => card.WorkId == hiddenId);
-    }
-
-    [Fact]
     public async Task WatchLane_ComposesContinueMovieAndTvShelvesWithProgress()
     {
         var movieId = Guid.Parse("11111111-1111-1111-1111-111111111111");
@@ -1011,7 +985,6 @@ public sealed class DisplayComposerServiceTests
         private readonly IReadOnlyList<DisplayJourneyRow> _journey;
         private readonly IReadOnlySet<Guid> _favoriteWorkIds;
         private readonly IReadOnlyList<DisplayHomeCollectionRow> _homeCollections;
-        private readonly IReadOnlySet<Guid> _hiddenWorkIds;
 
         public Guid? LastHomeCollectionsProfileId { get; private set; }
 
@@ -1019,14 +992,12 @@ public sealed class DisplayComposerServiceTests
             IReadOnlyList<DisplayWorkRow> works,
             IReadOnlyList<DisplayJourneyRow> journey,
             IReadOnlySet<Guid>? favoriteWorkIds = null,
-            IReadOnlyList<DisplayHomeCollectionRow>? homeCollections = null,
-            IReadOnlySet<Guid>? hiddenWorkIds = null)
+            IReadOnlyList<DisplayHomeCollectionRow>? homeCollections = null)
         {
             _works = works;
             _journey = journey;
             _favoriteWorkIds = favoriteWorkIds ?? new HashSet<Guid>();
             _homeCollections = homeCollections ?? [];
-            _hiddenWorkIds = hiddenWorkIds ?? new HashSet<Guid>();
         }
 
         public Task<IReadOnlyList<DisplayWorkRow>> LoadWorksAsync(CancellationToken ct) =>
@@ -1053,8 +1024,5 @@ public sealed class DisplayComposerServiceTests
             LastHomeCollectionsProfileId = profileId;
             return Task.FromResult(_homeCollections);
         }
-
-        public Task<IReadOnlySet<Guid>> LoadHiddenWorkIdsAsync(Guid? profileId, CancellationToken ct) =>
-            Task.FromResult(profileId.HasValue ? _hiddenWorkIds : new HashSet<Guid>());
     }
 }

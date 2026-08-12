@@ -681,6 +681,29 @@
     background: rgba(4, 11, 21, 0.3);
 }
 
+.sme-section-nav__footer {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: auto;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--tl-border-subtle);
+}
+
+::deep .sme-section-nav__refresh {
+    width: 100%;
+    min-height: 2.5rem;
+    justify-content: flex-start;
+    color: rgba(232, 236, 247, 0.82);
+    text-transform: none;
+}
+
+.sme-section-nav__footer small {
+    padding-inline: 0.75rem;
+    color: var(--tl-text-tertiary);
+    font-size: 0.66rem;
+    line-height: 1.35;
+}
+
 ::deep .sme-section-nav__item {
     width: 100%;
     min-height: 46px;
@@ -1397,6 +1420,20 @@
 .sme-history-summary-art.is-landscape { aspect-ratio: 16 / 9; }
 
 .sme-history-item-summary { grid-template-columns: auto minmax(0, 1fr); }
+
+@media (max-width: 960px) {
+    .sme-details-grid {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "appearance"
+            "library"
+            "facts";
+    }
+
+    .sme-section-nav__footer {
+        display: none;
+    }
+}
 .sme-history-summary-art.is-portrait { width: 5rem; }
 .sme-history-summary-art.is-square { width: 6.5rem; }
 .sme-history-summary-art.is-landscape { width: 10rem; }
@@ -6340,15 +6377,13 @@
 
 /* Keep the final cascade aligned with the reference editor layouts. */
 .sme-details-grid {
-    grid-template-columns: minmax(17rem, 21rem) minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     grid-template-areas:
-        "artwork appearance"
-        "artwork library"
-        "artwork facts";
+        "appearance library"
+        "facts facts";
 }
 .sme-details-grid ::deep .sme-details-grid__appearance { grid-area: appearance; }
 .sme-details-grid__secondary { grid-area: library; }
-.sme-details-grid ::deep .sme-details-grid__artwork { grid-area: artwork; grid-column: auto; }
 .sme-details-grid ::deep .sme-details-grid__source-facts { grid-area: facts; grid-column: auto; }
 .sme-shell--hero .sme-source-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .sme-source-fact--genres { grid-column: 1 / -1; }

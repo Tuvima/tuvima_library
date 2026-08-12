@@ -133,9 +133,10 @@ internal sealed partial class DetailCompositionOrchestrator
         var displayDescription = ResolveDisplayOverride(displayOverrides, "description");
         var displayTagline = ResolveDisplayOverride(displayOverrides, "tagline");
         var displaySubtitle = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Subtitle);
-        var semanticTagline = entityType is DetailEntityType.Movie or DetailEntityType.TvShow
-            ? StringHelpers.FirstNonBlank(displayTagline, GetValue(values, MetadataFieldConstants.Tagline))
-            : null;
+        var displayGenre = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Genre);
+        if (!string.IsNullOrWhiteSpace(displayGenre))
+            values[MetadataFieldConstants.Genre] = displayGenre;
+        var semanticTagline = StringHelpers.FirstNonBlank(displayTagline, GetValue(values, MetadataFieldConstants.Tagline));
         var semanticSubtitle = entityType is DetailEntityType.Book or DetailEntityType.Audiobook or DetailEntityType.ComicIssue or DetailEntityType.Work
             ? StringHelpers.FirstNonBlank(displaySubtitle, GetValue(values, MetadataFieldConstants.Subtitle))
             : null;

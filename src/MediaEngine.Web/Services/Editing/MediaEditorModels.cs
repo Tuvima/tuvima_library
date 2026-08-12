@@ -348,6 +348,7 @@ public static class MediaEditorSchemaCatalog
         Add(values, "sort_artist", FindCanonicalValue(canonicals, "sort_artist"));
         Add(values, "sort_album", FindCanonicalValue(canonicals, "sort_album"));
         Add(values, "sort_series", FindCanonicalValue(canonicals, "sort_series"));
+        Add(values, "tagline", detail.Tagline ?? FindCanonicalValue(canonicals, "tagline"));
         Add(values, "custom_tags", FindCanonicalValue(canonicals, "custom_tags"));
         Add(values, "comment", FindCanonicalValue(canonicals, "comment"));
         return values;
@@ -379,6 +380,8 @@ public static class MediaEditorSchemaCatalog
         [
             Group("music_details", "Details", "details",
                 Field("title", "Display title", identity: true),
+                Field("tagline", "Tagline"),
+                Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("music_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -398,6 +401,7 @@ public static class MediaEditorSchemaCatalog
             Group("movie_details", "Details", "details",
                 Field("title", "Display title", identity: true),
                 Field("tagline", "Tagline"),
+                Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("movie_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -417,6 +421,7 @@ public static class MediaEditorSchemaCatalog
             Group("tv_details", "Details", "details",
                 Field("title", "Display title", identity: true),
                 Field("tagline", "Tagline"),
+                Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("tv_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -436,6 +441,8 @@ public static class MediaEditorSchemaCatalog
             Group("book_details", "Details", "details",
                 Field("title", "Display title", identity: true),
                 Field("subtitle", "Subtitle"),
+                Field("tagline", "Tagline"),
+                Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("book_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -455,6 +462,8 @@ public static class MediaEditorSchemaCatalog
             Group("audiobook_details", "Details", "details",
                 Field("title", "Display title", identity: true),
                 Field("subtitle", "Subtitle"),
+                Field("tagline", "Tagline"),
+                Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("audiobook_options", "Options", "options",
                 Field("custom_tags", "Local tags"),
@@ -474,6 +483,8 @@ public static class MediaEditorSchemaCatalog
             Group("comic_details", "Details", "details",
                 Field("title", "Display title", identity: true),
                 Field("subtitle", "Subtitle"),
+                Field("tagline", "Tagline"),
+                Field("genre", "Genres"),
                 Field("description", "Description", "textarea", identity: true)),
             Group("comic_options", "Options", "options",
                 Field("custom_tags", "Local tags"),

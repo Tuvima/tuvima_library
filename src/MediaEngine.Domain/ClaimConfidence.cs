@@ -37,6 +37,9 @@ public static class ClaimConfidence
     /// <summary>External bridge identifiers (ASIN, ISBN, TMDB ID) from structured data.</summary>
     public const double BridgeId = 0.95;
 
+    /// <summary>Provider-native marketing tagline; explicit but market/campaign dependent.</summary>
+    public const double ProviderNativeTagline = 0.95;
+
     /// <summary>Collective pseudonym flag and member links.</summary>
     public const double CollectivePseudonym = 0.95;
 

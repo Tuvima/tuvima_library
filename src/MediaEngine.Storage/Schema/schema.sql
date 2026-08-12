@@ -682,6 +682,7 @@ CREATE TABLE IF NOT EXISTS persons (
     place_of_birth    TEXT,                          -- Wikidata P19
     place_of_death    TEXT,                          -- Wikidata P20
     nationality       TEXT,                          -- Wikidata P27
+    display_overrides_json TEXT,                     -- durable user presentation overrides
     is_pseudonym      INTEGER NOT NULL DEFAULT 0,    -- 1 = pen name / stage name
     created_at        TEXT    NOT NULL,              -- ISO-8601
     enriched_at       TEXT                           -- NULL = not yet enriched
@@ -1155,8 +1156,6 @@ CREATE TABLE IF NOT EXISTS profile_work_preferences (
     work_id                    BLOB NOT NULL REFERENCES works(id) ON DELETE CASCADE,
     personal_notes             TEXT,
     local_tags_json            TEXT,
-    is_hidden                  INTEGER NOT NULL DEFAULT 0,
-    include_in_recommendations INTEGER NOT NULL DEFAULT 1,
     revision                   INTEGER NOT NULL DEFAULT 0,
     updated_at                 TEXT NOT NULL,
     PRIMARY KEY (profile_id, work_id)
@@ -1164,6 +1163,19 @@ CREATE TABLE IF NOT EXISTS profile_work_preferences (
 
 CREATE INDEX IF NOT EXISTS idx_profile_work_preferences_work
     ON profile_work_preferences(work_id, profile_id);
+
+CREATE TABLE IF NOT EXISTS profile_person_preferences (
+    profile_id       BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    person_id        BLOB NOT NULL REFERENCES persons(id) ON DELETE CASCADE,
+    personal_notes   TEXT,
+    local_tags_json  TEXT,
+    revision         INTEGER NOT NULL DEFAULT 0,
+    updated_at       TEXT NOT NULL,
+    PRIMARY KEY (profile_id, person_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_profile_person_preferences_person
+    ON profile_person_preferences(person_id, profile_id);
 
 -- Explicit profile-and-series overrides only. Media-level defaults remain in
 -- config/ui/library-preferences.json and are inherited when no row exists.

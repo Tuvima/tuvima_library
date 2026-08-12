@@ -14,13 +14,11 @@ public sealed record ProfileWorkPreferences(
     Guid WorkId,
     string? PersonalNotes,
     IReadOnlyList<string> LocalTags,
-    bool IsHidden,
-    bool IncludeInRecommendations,
     long Revision,
     DateTimeOffset? UpdatedAt)
 {
     public static ProfileWorkPreferences Empty(Guid profileId, Guid workId) =>
-        new(profileId, workId, null, [], false, true, 0, null);
+        new(profileId, workId, null, [], 0, null);
 }
 
 public sealed record EditorPreferencesSaveCommand(
@@ -29,9 +27,7 @@ public sealed record EditorPreferencesSaveCommand(
     long ExpectedRevision,
     IReadOnlyDictionary<string, string> DisplayOverrideChanges,
     string? PersonalNotes,
-    IReadOnlyList<string> LocalTags,
-    bool IsHidden,
-    bool IncludeInRecommendations);
+    IReadOnlyList<string> LocalTags);
 
 public sealed record EditorPreferencesSaveResult(
     bool WorkExists,

@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=560; api=0; web-client=85
+# scopes: contracts=565; api=0; web-client=85
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -2641,9 +2641,7 @@
   DisplayOverrides: System.Collections.Generic.Dictionary<System.String, System.String> | json=display_overrides | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PersonalNotes: System.String | json=personal_notes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LocalTags: System.Collections.Generic.List<System.String> | json=local_tags | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  IsHidden: System.Boolean | json=is_hidden | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  IncludeInRecommendations: System.Boolean | json=include_in_recommendations | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"expected_revision":7,"display_overrides":{},"personal_notes":"sample","local_tags":[],"is_hidden":true,"include_in_recommendations":true}
+  sample={"expected_revision":7,"display_overrides":{},"personal_notes":"sample","local_tags":[]}
 
 [contracts] MediaEngine.Contracts.Items.ItemEditorPreferencesResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -2651,12 +2649,10 @@
   WorkId: System.Guid | json=work_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PersonalNotes: System.String | json=personal_notes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LocalTags: System.Collections.Generic.IReadOnlyList<System.String> | json=local_tags | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  IsHidden: System.Boolean | json=is_hidden | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  IncludeInRecommendations: System.Boolean | json=include_in_recommendations | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Revision: System.Int64 | json=revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   UpdatedAt: System.DateTimeOffset? | json=updated_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DisplayOverrides: System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> | json=display_overrides | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"profile_id":"11111111-2222-3333-4444-555555555555","work_id":"11111111-2222-3333-4444-555555555555","personal_notes":"sample","local_tags":[],"is_hidden":true,"include_in_recommendations":true,"revision":7,"updated_at":"2025-01-02T03:04:05+00:00","display_overrides":{}}
+  sample={"profile_id":"11111111-2222-3333-4444-555555555555","work_id":"11111111-2222-3333-4444-555555555555","personal_notes":"sample","local_tags":[],"revision":7,"updated_at":"2025-01-02T03:04:05+00:00","display_overrides":{}}
 
 [contracts] MediaEngine.Contracts.Items.ItemPreferencesRequest
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3868,6 +3864,33 @@
   EnrichedAt: System.DateTimeOffset? | json=enriched_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"id":"11111111-2222-3333-4444-555555555555","name":"sample","roles":[],"wikidata_qid":"sample","headshot_url":"sample","biography":"sample","occupation":"sample","date_of_birth":"sample","date_of_death":"sample","place_of_birth":"sample","place_of_death":"sample","nationality":"sample","instagram":"sample","twitter":"sample","tiktok":"sample","mastodon":"sample","website":"sample","has_local_headshot":true,"is_pseudonym":true,"is_group":true,"group_members":[],"member_of_groups":[],"banner_url":"sample","background_url":"sample","logo_url":"sample","created_at":"2025-01-02T03:04:05+00:00","enriched_at":"2025-01-02T03:04:05+00:00"}
 
+[contracts] MediaEngine.Contracts.Persons.PersonEditorSaveRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ExpectedRevision: System.Int64 | json=expected_revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DisplayOverrides: System.Collections.Generic.Dictionary<System.String, System.String> | json=display_overrides | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PersonalNotes: System.String | json=personal_notes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocalTags: System.Collections.Generic.List<System.String> | json=local_tags | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"profile_id":"11111111-2222-3333-4444-555555555555","expected_revision":7,"display_overrides":{},"personal_notes":"sample","local_tags":[]}
+
+[contracts] MediaEngine.Contracts.Persons.PersonEditorSaveResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  PersonId: System.Guid | json=person_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Revision: System.Int64 | json=revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Persons.PersonEditorStateResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  PersonId: System.Guid | json=person_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BaselineName: System.String | json=baseline_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BaselineBiography: System.String | json=baseline_biography | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  DisplayOverrides: System.Collections.Generic.IReadOnlyDictionary<System.String, System.String> | json=display_overrides | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PersonalNotes: System.String | json=personal_notes | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LocalTags: System.Collections.Generic.IReadOnlyList<System.String> | json=local_tags | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Revision: System.Int64 | json=revision | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UpdatedAt: System.DateTimeOffset? | json=updated_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  History: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Items.LibraryItemHistoryDto> | json=history | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"person_id":"11111111-2222-3333-4444-555555555555","baseline_name":"sample","baseline_biography":"sample","display_overrides":{},"personal_notes":"sample","local_tags":[],"revision":7,"updated_at":"2025-01-02T03:04:05+00:00","history":[]}
+
 [contracts] MediaEngine.Contracts.Persons.PersonGroupMemberDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Id: System.Guid | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -3904,6 +3927,16 @@
   is_group: System.Boolean | json=is_group | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   biography: System.String | json=biography | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   occupation: System.String | json=occupation | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Persons.PersonMatchRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  WikidataQid: System.String | json=wikidata_qid | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"wikidata_qid":"sample"}
+
+[contracts] MediaEngine.Contracts.Persons.PersonMatchResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  PersonId: System.Guid | json=person_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  WikidataQid: System.String | json=wikidata_qid | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Persons.PersonSummaryResponse
   kind=class | converter=default | number-handling=default | unmapped=default

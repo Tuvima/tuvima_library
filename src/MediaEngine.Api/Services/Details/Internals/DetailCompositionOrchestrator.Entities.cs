@@ -44,6 +44,29 @@ internal sealed partial class DetailCompositionOrchestrator
             return null;
         }
 
+
+        using (var conn = _db.CreateConnection())
+        {
+            var overridesJson = conn.QueryFirstOrDefault<string?>(
+                "SELECT display_overrides_json FROM persons WHERE id = @personId LIMIT 1;",
+                new { personId });
+            if (!string.IsNullOrWhiteSpace(overridesJson))
+            {
+                try
+                {
+                    var overrides = JsonSerializer.Deserialize<Dictionary<string, string>>(overridesJson);
+                    if (overrides?.TryGetValue("name", out var displayName) == true && !string.IsNullOrWhiteSpace(displayName))
+                        person.Name = displayName.Trim();
+                    if (overrides?.TryGetValue("biography", out var displayBiography) == true && !string.IsNullOrWhiteSpace(displayBiography))
+                        person.Biography = displayBiography.Trim();
+                }
+                catch (JsonException)
+                {
+                    // Ignore malformed presentation state and retain provider values.
+                }
+            }
+        }
+
         var credits = await _personCredits.GetLibraryCreditsAsync(personId, ct);
         var characterRoles = await _personCredits.GetCharacterRolesAsync(personId, ct);
         // A musical group exposes members. Old P527 data may have been written
@@ -61,7 +84,8 @@ internal sealed partial class DetailCompositionOrchestrator
         var banner = PreferredAssetUrl(artworkAssets, "Banner");
         var background = PreferredAssetUrl(artworkAssets, "Background");
         var logo = PreferredAssetUrl(artworkAssets, "Logo");
-        var portrait = ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
+        var portrait = PreferredAssetUrl(artworkAssets, "Headshot")
+            ?? ApiImageUrls.BuildPersonHeadshotUrl(person.Id, person.LocalHeadshotPath, person.HeadshotUrl);
         var relatedArt = credits.Select(c => c.CoverUrl).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().Take(8).ToList();
         var groups = BuildPersonCreditGroups(credits, context);
         var mediaGroups = BuildPersonMediaGroups(credits, context);

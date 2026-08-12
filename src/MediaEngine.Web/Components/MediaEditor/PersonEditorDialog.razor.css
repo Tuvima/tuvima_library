@@ -1,18 +1,48 @@
-.person-editor { min-height: 520px; color: var(--tl-text-primary); background: var(--tl-surface-0); }
-.person-editor__header { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--tl-border-subtle); }
-.person-editor__header h2 { margin: .15rem 0; font-size: 1.45rem; }
-.person-editor__header p { margin: 0; color: var(--tl-text-secondary); }
-.person-editor__kicker { color: var(--tl-accent-primary); font-size: .72rem; font-weight: 700; letter-spacing: .08em; }
-.person-editor__portrait { width: 64px; height: 64px; display: grid; place-items: center; overflow: hidden; border-radius: 10px; background: var(--tl-surface-2); }
+.person-editor { display: flex; flex-direction: column; height: min(92vh, 980px); min-height: 640px; overflow: hidden; color: var(--tl-text-primary); background: linear-gradient(145deg, #0b1422, #101c30); }
+.person-editor__header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto auto; align-items: center; gap: 1rem; min-height: 118px; padding: 1rem 1.5rem; border-bottom: 1px solid var(--tl-border-subtle); background: rgba(8, 16, 29, .6); }
+.person-editor__portrait { width: 78px; height: 92px; display: grid; place-items: center; overflow: hidden; border-radius: 9px; background: var(--tl-bg-elevated); }
 .person-editor__portrait img { width: 100%; height: 100%; object-fit: cover; }
-.person-editor__notice { display: flex; gap: .65rem; margin: 1rem 1.5rem 0; padding: .85rem 1rem; border: 1px solid rgba(66, 165, 245, .28); border-radius: 8px; color: var(--tl-text-secondary); background: rgba(33, 150, 243, .08); }
-.person-editor__body { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1rem; padding: 1rem 1.5rem 1.5rem; }
-.person-editor__body section, .person-editor__body aside { padding: 1rem; border: 1px solid var(--tl-border-subtle); border-radius: 10px; background: var(--tl-surface-1); }
-.person-editor__body h3 { margin: 0 0 .75rem; color: var(--tl-accent-primary); font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; }
-.person-editor__body dl { display: grid; gap: .65rem; margin: 0 0 1.25rem; }
-.person-editor__body dl div { display: grid; grid-template-columns: 120px 1fr; gap: 1rem; }
-.person-editor__body dt, .person-editor__body small { color: var(--tl-text-secondary); }
-.person-editor__body dd { margin: 0; overflow-wrap: anywhere; }
-.person-editor__biography { line-height: 1.55; white-space: pre-line; }
-.person-editor__body aside small { display: block; margin-top: .75rem; line-height: 1.45; }
-@media (max-width: 800px) { .person-editor__body { grid-template-columns: 1fr; } }
+.person-editor__header-copy h2 { margin: .15rem 0; font-size: 1.55rem; }
+.person-editor__header-copy p { margin: 0; color: var(--tl-text-secondary); }
+.person-editor__kicker { color: var(--tl-text-tertiary); font-size: .7rem; font-weight: 700; letter-spacing: .08em; }
+.person-editor__workspace { display: grid; grid-template-columns: 220px minmax(0, 1fr); flex: 1; min-height: 0; }
+.person-editor__nav { display: flex; flex-direction: column; gap: .35rem; min-height: 0; padding: 1rem .8rem; border-right: 1px solid var(--tl-border-subtle); background: rgba(4, 11, 21, .34); }
+::deep .person-editor__nav-item { width: 100%; min-height: 46px; justify-content: flex-start; border-radius: 9px; color: var(--tl-text-secondary); text-transform: none; }
+::deep .person-editor__nav-item .mud-button-label { display: flex; align-items: center; gap: .75rem; width: 100%; }
+::deep .person-editor__nav-item.is-active { color: white; background: linear-gradient(135deg, rgba(111, 65, 255, .28), rgba(111, 65, 255, .12)); box-shadow: inset 0 0 0 1px rgba(151, 112, 255, .34); }
+.person-editor__nav-footer { display: grid; gap: .25rem; margin-top: auto; padding-top: .75rem; border-top: 1px solid var(--tl-border-subtle); }
+.person-editor__nav-footer ::deep .mud-button-root { justify-content: flex-start; text-transform: none; }
+.person-editor__nav-footer small { padding-inline: .7rem; color: var(--tl-text-tertiary); font-size: .65rem; }
+.person-editor__main { min-width: 0; overflow-y: auto; padding: 1rem 1.25rem 1.5rem; }
+.person-editor__notice { display: flex; gap: .65rem; margin-bottom: .75rem; padding: .75rem .9rem; border: 1px solid rgba(66, 165, 245, .25); border-radius: 8px; color: var(--tl-text-secondary); background: rgba(33, 150, 243, .06); font-size: .82rem; }
+.person-editor__details-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+.person-editor__details-grid ::deep .sme-panel:last-child { grid-column: 1 / -1; }
+.person-editor__facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; margin: 0; background: var(--tl-border-subtle); }
+.person-editor__facts div { min-width: 0; padding: .75rem; background: var(--tl-bg-surface); }
+.person-editor__facts dt { color: var(--tl-text-tertiary); font-size: .7rem; }
+.person-editor__facts dd { margin: .25rem 0 0; overflow-wrap: anywhere; color: var(--tl-text-primary); font-size: .84rem; }
+.person-editor__tab-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+.person-editor__tab-heading h3 { margin: 0; font-size: 1.2rem; }
+.person-editor__tab-heading p { margin: .25rem 0 0; color: var(--tl-text-secondary); }
+.person-editor__artwork-slots { display: grid; gap: 1rem; }
+.person-editor__artwork-slot { padding: 1rem; border: 1px solid var(--tl-border-subtle); border-radius: 10px; background: rgba(17, 29, 49, .76); }
+.person-editor__artwork-slot > header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: .8rem; }
+.person-editor__artwork-slot h4 { margin: 0 0 .15rem; }
+.person-editor__artwork-slot small { color: var(--tl-text-secondary); }
+.person-editor__upload { position: relative; display: inline-flex; align-items: center; gap: .4rem; padding: .55rem .8rem; overflow: hidden; border: 1px solid var(--tl-border-subtle); border-radius: 7px; cursor: pointer; }
+.person-editor__upload input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.person-editor__variants { display: flex; gap: .75rem; overflow-x: auto; }
+.person-editor__variant { flex: 0 0 150px; overflow: hidden; border: 1px solid var(--tl-border-subtle); border-radius: 8px; background: var(--tl-bg-elevated); }
+.person-editor__variant.is-preferred { border-color: rgba(151, 112, 255, .75); box-shadow: 0 0 18px rgba(111, 65, 255, .14); }
+.person-editor__variant img { width: 100%; height: 150px; object-fit: contain; background: rgba(0, 0, 0, .24); }
+.person-editor__variant > div { display: flex; align-items: center; gap: .25rem; min-height: 42px; padding: .3rem .5rem; }
+.person-editor__variant span { flex: 1; color: var(--tl-text-secondary); font-size: .72rem; }
+.person-editor__artwork-empty, .person-editor__empty { display: grid; min-height: 140px; place-items: center; color: var(--tl-text-secondary); }
+.person-editor__match-actions { display: flex; align-items: center; gap: 1rem; margin-top: .8rem; }
+.person-editor__match-actions a { color: var(--tl-accent-primary); font-size: .82rem; }
+.person-editor__history { display: grid; border: 1px solid var(--tl-border-subtle); border-radius: 9px; overflow: hidden; }
+.person-editor__history article { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: .8rem; padding: .8rem 1rem; border-bottom: 1px solid var(--tl-border-subtle); }
+.person-editor__history article:last-child { border-bottom: 0; }
+.person-editor__history article div { display: grid; gap: .2rem; }
+.person-editor__history span, .person-editor__history time { color: var(--tl-text-secondary); font-size: .75rem; }
+@media (max-width: 900px) { .person-editor__workspace { grid-template-columns: 1fr; } .person-editor__nav { flex-direction: row; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--tl-border-subtle); } .person-editor__nav-footer { display: none; } .person-editor__details-grid { grid-template-columns: 1fr; } .person-editor__details-grid ::deep .sme-panel:last-child { grid-column: auto; } .person-editor__facts { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

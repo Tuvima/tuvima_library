@@ -61,7 +61,7 @@ internal sealed partial class DetailCompositionOrchestrator
             Runtime = FormatRuntime(detail.Runtime),
             Duration = StringHelpers.FirstNonBlankOr(string.Empty, FormatRuntime(detail.Runtime), FormatRuntime(GetValue(canonicalValues, MetadataFieldConstants.DurationField)), GetValue(canonicalValues, MetadataFieldConstants.DurationField)),
             Language = StringHelpers.FirstNonBlankOr(string.Empty, detail.Language, GetValue(canonicalValues, MetadataFieldConstants.Language), GetValue(canonicalValues, MetadataFieldConstants.OriginalLanguage)),
-            Genres = SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty, detail.Genre, GetValue(canonicalValues, MetadataFieldConstants.Genre))).ToList(),
+            Genres = SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, MetadataFieldConstants.Genre), detail.Genre)).ToList(),
             Identifiers = identifiers,
 
             Authors = MergeNames(CreditNames(contributorGroups, CreditGroupType.Authors), SplitMetadataValues(detail.Author)),
@@ -361,8 +361,8 @@ internal sealed partial class DetailCompositionOrchestrator
         AddPlain(pills, FormatRating(detail.Rating), "rating");
 
         foreach (var genre in SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty,
-                     detail.Genre,
-                     GetValue(canonicalValues, MetadataFieldConstants.Genre))).Take(2))
+                     GetValue(canonicalValues, MetadataFieldConstants.Genre),
+                     detail.Genre)).Take(2))
         {
             pills.Add(new MetadataPill
             {
