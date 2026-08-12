@@ -3562,8 +3562,37 @@ public partial class SharedMediaEditorShell
         AddSourceFact(facts, "Pages", FormatCountFact(GetBaselineValue("page_count"), "page", "pages"));
         AddSourceFact(facts, "Language", _detail.Language);
         AddSourceFact(facts, "Rating", FormatRatingValue(_detail.Rating));
-        AddSourceFact(facts, "Genres", NormalizeDelimitedDisplay(_detail.Genre, ", "));
+        AddSourceFact(facts, "Provider", GetSourceProviderDisplayName());
         return facts;
+    }
+
+    protected static string GetSourceFactIcon(string label) =>
+        label switch
+        {
+            "Release" => Icons.Material.Outlined.CalendarToday,
+            "Episode" => Icons.Material.Outlined.OndemandVideo,
+            "Actors" => Icons.Material.Outlined.Groups,
+            "Runtime" => Icons.Material.Outlined.Schedule,
+            "Pages" => Icons.Material.Outlined.MenuBook,
+            "Language" => Icons.Material.Outlined.Translate,
+            "Rating" => Icons.Material.Outlined.StarOutline,
+            "Provider" => Icons.Material.Outlined.MovieCreation,
+            _ => Icons.Material.Outlined.Info,
+        };
+
+    private string? GetSourceProviderDisplayName()
+    {
+        var provider = GetRetailMatchDisplayName(IdentityTargetSummary);
+        if (!string.IsNullOrWhiteSpace(provider))
+            return provider;
+
+        var providerKey = StringHelpers.FirstNonBlank(
+            InferProviderNameFromIdentifierFields(),
+            NormalizeRetailProviderLabel(_detail?.MatchSource));
+
+        return string.IsNullOrWhiteSpace(providerKey)
+            ? null
+            : FormatProviderName(providerKey, _selectedMediaType);
     }
 
     private static string? FormatEpisodeIdentity(string? seasonNumber, string? episodeNumber)

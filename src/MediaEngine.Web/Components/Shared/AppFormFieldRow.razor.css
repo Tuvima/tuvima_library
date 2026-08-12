@@ -1,13 +1,13 @@
 .tl-field-grid {
     display: grid;
-    grid-template-columns: minmax(96px, 126px) minmax(0, 1fr) 44px;
+    grid-template-columns: minmax(calc(var(--tl-space-10) * 2), calc(var(--tl-space-10) * 3)) minmax(0, 1fr) var(--tl-control-height-md);
     align-items: center;
-    gap: 10px 10px;
-    margin-bottom: 8px;
+    gap: var(--tl-space-3);
+    margin-bottom: var(--tl-space-2);
 }
 
 .tl-field-grid--confirming {
-    grid-template-columns: minmax(96px, 126px) minmax(0, 1fr) 76px;
+    grid-template-columns: minmax(calc(var(--tl-space-10) * 2), calc(var(--tl-space-10) * 3)) minmax(0, 1fr) calc(var(--tl-control-height-md) * 2);
 }
 
 .tl-field-grid--textarea {
@@ -16,7 +16,7 @@
 
 .tl-field-grid--textarea .tl-field-label-cell,
 .tl-field-grid--textarea .tl-field-action-cell {
-    padding-top: 8px;
+    padding-top: var(--tl-space-2);
 }
 
 .tl-field-label-cell {
@@ -24,14 +24,15 @@
 }
 
 .tl-field-label {
-    color: rgba(226, 232, 240, 0.8);
-    font-size: 0.98rem !important;
-    font-weight: 600;
-    line-height: 1.2;
+    color: var(--tl-text-secondary);
+    font-family: var(--font-ui);
+    font-size: var(--tl-font-size-sm) !important;
+    font-weight: var(--tl-font-weight-semibold);
+    line-height: var(--tl-line-height-tight);
 }
 
 .tl-field-grid--locked .tl-field-label {
-    color: rgba(203, 213, 225, 0.62);
+    color: var(--tl-text-disabled);
 }
 
 .tl-field-input-cell {
@@ -41,50 +42,52 @@
 .tl-field-action-cell {
     display: flex;
     justify-content: center;
-    min-width: 44px;
+    min-width: var(--tl-control-height-md);
 }
 
 .tl-field-action-button {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    border-color: rgba(148, 163, 184, 0.24);
+    width: var(--tl-control-height-sm);
+    height: var(--tl-control-height-sm);
+    min-width: var(--tl-control-height-sm);
+    border-color: var(--tl-border-strong);
 }
 
 .tl-field-confirm-actions {
     display: flex;
     flex-direction: row;
-    gap: 5px;
+    gap: var(--tl-space-1);
     align-items: center;
     justify-content: center;
 }
 
 .tl-field-confirm-button {
-    width: 30px;
-    height: 30px;
-    min-width: 30px;
+    width: var(--tl-space-8);
+    height: var(--tl-space-8);
+    min-width: var(--tl-space-8);
 }
 
 .tl-field-confirm-button--accept {
-    color: #ffffff !important;
+    color: var(--tl-text-on-accent) !important;
     background: var(--tl-status-success) !important;
 }
 
 .tl-field-confirm-button--cancel {
-    color: #ffffff !important;
+    color: var(--tl-text-on-accent) !important;
     background: var(--tl-status-danger) !important;
 }
 
 .tl-field-grid ::deep .app-dialog-field input,
 .tl-field-grid ::deep .app-dialog-field textarea,
 .tl-field-grid ::deep .app-dialog-field .mud-input-slot {
-    font-size: 1rem !important;
-    line-height: 1.42 !important;
+    font-family: var(--font-ui) !important;
+    font-size: var(--tl-font-size-md) !important;
+    font-weight: var(--tl-font-weight-regular) !important;
+    line-height: var(--tl-line-height-body) !important;
 }
 
 .tl-field-grid--textarea ::deep .app-dialog-textarea textarea {
-    min-height: 170px !important;
-    line-height: 1.6 !important;
+    min-height: calc(var(--tl-space-10) * 4) !important;
+    line-height: var(--tl-line-height-relaxed) !important;
     white-space: pre-wrap !important;
     resize: vertical !important;
 }
@@ -99,20 +102,20 @@
 .tl-field-grid--locked ::deep .app-dialog-field input,
 .tl-field-grid--locked ::deep .app-dialog-field textarea,
 .tl-field-grid--locked ::deep .app-dialog-field .mud-input-slot {
-    color: rgba(226, 232, 240, 0.66) !important;
-    background: rgba(15, 23, 42, 0.62) !important;
+    color: var(--tl-text-disabled) !important;
+    background: var(--tl-bg-shell) !important;
 }
 
 .tl-field-grid--locked .tl-field-action-button {
-    color: rgba(226, 232, 240, 0.72);
-    border-color: rgba(148, 163, 184, 0.20);
+    color: var(--tl-text-disabled);
+    border-color: var(--tl-border-default);
 }
 
 .tl-field-grid--unlocked ::deep .tl-field-action-button,
 .tl-field-grid--unlocked .tl-field-action-button {
     color: var(--tl-status-warning) !important;
-    border-color: rgba(251, 191, 36, 0.42) !important;
-    background: rgba(251, 191, 36, 0.13) !important;
+    border-color: var(--tl-status-warning-border) !important;
+    background: var(--tl-status-warning-soft) !important;
 }
 
 .tl-field-grid--unlocked ::deep .tl-field-action-button .mud-icon-root,
@@ -122,7 +125,7 @@
 
 @media (max-width: 720px) {
     .tl-field-grid {
-        grid-template-columns: minmax(0, 1fr) 44px;
+        grid-template-columns: minmax(0, 1fr) var(--tl-control-height-md);
     }
 
     .tl-field-label-cell {

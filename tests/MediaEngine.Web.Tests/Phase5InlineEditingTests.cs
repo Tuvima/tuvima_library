@@ -270,8 +270,9 @@ public sealed class Phase5InlineEditingTests
     {
         var styles = ReadSource("src/MediaEngine.Web/Components/Shared/AppFormFieldRow.razor.css");
 
-        Assert.Contains("grid-template-columns: minmax(96px, 126px) minmax(0, 1fr) 44px", styles, StringComparison.Ordinal);
-        Assert.Contains("font-size: 1rem !important", styles, StringComparison.Ordinal);
+        Assert.Contains("grid-template-columns: minmax(calc(var(--tl-space-10) * 2)", styles, StringComparison.Ordinal);
+        Assert.Contains("font-size: var(--tl-font-size-md) !important", styles, StringComparison.Ordinal);
+        Assert.Contains("font-weight: var(--tl-font-weight-regular) !important", styles, StringComparison.Ordinal);
         Assert.Contains("tl-field-grid--locked", styles, StringComparison.Ordinal);
     }
 
@@ -286,7 +287,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("field.Key, \"description\"", code, StringComparison.Ordinal);
         Assert.Contains("? 7 : 4", code, StringComparison.Ordinal);
         Assert.Contains("TrimEnd()", code, StringComparison.Ordinal);
-        Assert.Contains("min-height: 170px !important", styles, StringComparison.Ordinal);
+        Assert.Contains("min-height: calc(var(--tl-space-10) * 4) !important", styles, StringComparison.Ordinal);
         Assert.Contains("white-space: pre-wrap !important", styles, StringComparison.Ordinal);
         Assert.Contains("resize: vertical !important", styles, StringComparison.Ordinal);
         Assert.Contains("NormalizeDescriptionParagraphs", code, StringComparison.Ordinal);
@@ -298,10 +299,14 @@ public sealed class Phase5InlineEditingTests
         var panelStyles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/MediaEditorPanel.razor.css");
         var shellStyles = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.css");
         var shell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var code = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
 
         Assert.Contains(".sme-panel", panelStyles, StringComparison.Ordinal);
         Assert.Contains("sme-source-facts", shellStyles, StringComparison.Ordinal);
+        Assert.Contains("sme-source-fact__icon", shell, StringComparison.Ordinal);
         Assert.Contains("Title=\"Source facts\"", shell, StringComparison.Ordinal);
+        Assert.Contains("AddSourceFact(facts, \"Provider\"", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddSourceFact(facts, \"Genres\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-override-summary", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("fields overridden", shell, StringComparison.Ordinal);
     }

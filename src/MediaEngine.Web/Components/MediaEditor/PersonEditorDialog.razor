@@ -129,13 +129,18 @@
                                          HelpText="Visible only to your active profile." />
                     </MediaEditorPanel>
 
-                    <MediaEditorPanel Title="Source facts" Description="Identity facts remain provider-managed and are changed from Match." Class="person-editor__details-section person-editor__details-section--source-facts">
-                        <dl class="person-editor__facts">
-                            <div><dt>Occupation</dt><dd>@(_person.Occupation ?? "Not available")</dd></div>
-                            <div><dt>Born</dt><dd>@(_person.DateOfBirth ?? "Not available")</dd></div>
-                            <div><dt>Nationality</dt><dd>@(_person.Nationality ?? "Not available")</dd></div>
-                            <div><dt>Wikidata</dt><dd>@(_person.WikidataQid ?? "Not matched")</dd></div>
-                        </dl>
+                    <MediaEditorPanel Title="Source facts" Class="person-editor__details-section person-editor__details-section--source-facts">
+                        <Actions>
+                            <span class="person-editor__source-facts-description">Identity facts are managed by your library sources.</span>
+                        </Actions>
+                        <ChildContent>
+                            <dl class="person-editor__facts">
+                                <div><MudIcon Icon="@Icons.Material.Outlined.WorkOutline" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Occupation</dt><dd>@(_person.Occupation ?? "Not available")</dd></div></div>
+                                <div><MudIcon Icon="@Icons.Material.Outlined.Cake" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Born</dt><dd>@(_person.DateOfBirth ?? "Not available")</dd></div></div>
+                                <div><MudIcon Icon="@Icons.Material.Outlined.Public" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Nationality</dt><dd>@(_person.Nationality ?? "Not available")</dd></div></div>
+                                <div><MudIcon Icon="@Icons.Material.Outlined.AccountTree" Size="Size.Medium" Class="person-editor__fact-icon" /><div class="person-editor__fact-copy"><dt>Wikidata</dt><dd>@(_person.WikidataQid ?? "Not matched")</dd></div></div>
+                            </dl>
+                        </ChildContent>
                     </MediaEditorPanel>
                 </div>
             }

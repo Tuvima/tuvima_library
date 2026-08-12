@@ -374,33 +374,26 @@
                                 @if (GetSourceFacts().Count > 0)
                                 {
                                     <MediaEditorPanel Title="Source facts"
-                                                      Description="Source-managed facts refresh when matching changes."
                                                       Class="sme-details-section sme-details-section--source-facts">
-                                        <dl class="sme-source-facts">
-                                            @foreach (var fact in GetSourceFacts())
-                                            {
-                                                <div class="@(fact.Label == "Genres" ? "sme-source-fact--genres" : null)">
-                                                    <dt>@fact.Label</dt>
-                                                    @if (fact.Label == "Genres")
-                                                    {
-                                                        <dd class="sme-source-fact-chips">
-                                                            @foreach (var genre in SplitDisplayList(fact.Value))
-                                                            {
-                                                                <AppChip Text="@genre" Tone="AppUiTone.Primary" />
-                                                            }
-                                                        </dd>
-                                                    }
-                                                    else if (fact.Label == "Rating")
-                                                    {
-                                                        <dd class="sme-source-fact-rating"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> @fact.Value</dd>
-                                                    }
-                                                    else
-                                                    {
-                                                        <dd>@fact.Value</dd>
-                                                    }
-                                                </div>
-                                            }
-                                        </dl>
+                                        <Actions>
+                                            <span class="sme-source-facts__description">These facts are managed by your library sources.</span>
+                                        </Actions>
+                                        <ChildContent>
+                                            <dl class="sme-source-facts">
+                                                @foreach (var fact in GetSourceFacts())
+                                                {
+                                                    <div class="sme-source-fact">
+                                                        <MudIcon Icon="@GetSourceFactIcon(fact.Label)"
+                                                                 Size="Size.Medium"
+                                                                 Class="sme-source-fact__icon" />
+                                                        <div class="sme-source-fact__copy">
+                                                            <dt>@fact.Label</dt>
+                                                            <dd>@fact.Value</dd>
+                                                        </div>
+                                                    </div>
+                                                }
+                                            </dl>
+                                        </ChildContent>
                                     </MediaEditorPanel>
                                 }
 
