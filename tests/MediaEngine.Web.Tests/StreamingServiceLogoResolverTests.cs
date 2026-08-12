@@ -248,6 +248,31 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
         Assert.Contains("<ManageActionsMenu", overflowMenuSource);
     }
 
+    [Fact]
+    public void OverflowActionMenu_InvokesEditAndClosesTheMenu()
+    {
+        DetailAction? selected = null;
+        var edit = new DetailAction
+        {
+            Key = "edit",
+            Label = "Edit",
+            Icon = "edit",
+        };
+
+        using var cut = RenderComponent<OverflowActionMenu>(parameters => parameters
+            .Add(component => component.Actions, [edit])
+            .Add(component => component.Label, "More")
+            .Add(component => component.OnActionSelected, action => selected = action));
+
+        cut.Find("button[aria-label='More actions']").Click();
+        Assert.Single(cut.FindAll("[role='menu']"));
+
+        cut.Find("button[role='menuitem']").Click();
+
+        Assert.Same(edit, selected);
+        Assert.Empty(cut.FindAll("[role='menu']"));
+    }
+
     [Theory]
     [InlineData(DetailEntityType.MovieSeries)]
     [InlineData(DetailEntityType.BookSeries)]

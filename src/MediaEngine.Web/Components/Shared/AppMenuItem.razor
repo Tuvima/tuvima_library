@@ -4,7 +4,16 @@
 {
     <MudDivider Class="app-menu-divider" />
 }
-<MudMenuItem Icon="@Icon" Disabled="@Disabled" OnClick="HandleClick" Class="@RootClass">
+<button type="button"
+        role="menuitem"
+        class="@RootClass"
+        disabled="@Disabled"
+        @onpointerdown:stopPropagation="true"
+        @onclick="HandleClick">
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" />
+    }
     @if (ChildContent is not null)
     {
         @ChildContent
@@ -13,7 +22,7 @@
     {
         @Label
     }
-</MudMenuItem>
+</button>
 
 @code {
     [Parameter] public string? Label { get; set; }

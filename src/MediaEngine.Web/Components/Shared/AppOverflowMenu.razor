@@ -1,23 +1,41 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<MudMenu Dense="true"
-         Class="@TriggerRootClass"
-         PopoverClass="@EffectivePopoverClass"
-         Label="@Label"
-         Icon="@IconOnly"
-         StartIcon="@LabeledStartIcon"
-         AriaLabel="@EffectiveAriaLabel"
-         Size="@MudSize"
-         Variant="Variant.Text"
-         Ripple="false"
-         AnchorOrigin="@AnchorOrigin"
-         TransformOrigin="@TransformOrigin">
-    <ChildContent>
-        @ChildContent
-    </ChildContent>
-</MudMenu>
+<div class="@TriggerRootClass"
+     data-app-dismissible="@(_open ? "open" : null)"
+     @onkeydown="HandleKeyDown">
+    @if (_open)
+    {
+        <button type="button"
+                class="app-overflow-menu__backdrop"
+                tabindex="-1"
+                aria-hidden="true"
+                @onclick="Close"></button>
+    }
+
+    <button type="button"
+            class="@ActivatorClass"
+            aria-label="@EffectiveAriaLabel"
+            aria-haspopup="menu"
+            aria-expanded="@_open"
+            @onclick="Toggle">
+        <MudIcon Icon="@Icon" />
+        @if (!string.IsNullOrWhiteSpace(Label))
+        {
+            <span>@Label</span>
+        }
+    </button>
+
+    @if (_open)
+    {
+        <div class="@EffectivePopoverClass" role="menu" @onclick="Close">
+            @ChildContent
+        </div>
+    }
+</div>
 
 @code {
+    private bool _open;
+
     [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.MoreVert;
     [Parameter] public string? Label { get; set; }
     [Parameter] public string? AriaLabel { get; set; }
@@ -29,21 +47,32 @@
     [Parameter] public Origin AnchorOrigin { get; set; } = Origin.BottomRight;
     [Parameter] public Origin TransformOrigin { get; set; } = Origin.TopRight;
 
-    private Size MudSize => AppUiMaps.ToMudSize(Size);
-    private string? IconOnly => string.IsNullOrWhiteSpace(Label) ? Icon : null;
-    private string? LabeledStartIcon => string.IsNullOrWhiteSpace(Label) ? null : Icon;
     private string EffectiveAriaLabel => AriaLabel ?? Label ?? "More actions";
     private string TriggerRootClass =>
+        string.Join(" ", new[] { "app-overflow-menu", AppUiMaps.SizeClass(Size), Class }
+            .Where(value => !string.IsNullOrWhiteSpace(value)));
+    private string ActivatorClass =>
         string.Join(" ", new[]
         {
-            "app-overflow-menu",
-            AppUiMaps.SizeClass(Size),
-            Class,
             "app-overflow-menu__trigger",
             string.IsNullOrWhiteSpace(Label) ? "app-overflow-menu__trigger--icon" : "app-overflow-menu__trigger--labeled",
             TriggerClass,
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
     private string EffectivePopoverClass =>
-        string.Join(" ", new[] { "app-menu-popover", "app-overflow-menu__popover", PopoverClass }
-            .Where(value => !string.IsNullOrWhiteSpace(value)));
+        string.Join(" ", new[]
+        {
+            "app-menu-popover",
+            "app-overflow-menu__popover",
+            AnchorOrigin == Origin.BottomLeft ? "app-overflow-menu__popover--left" : null,
+            PopoverClass,
+        }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private void Toggle() => _open = !_open;
+    private void Close() => _open = false;
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+            _open = false;
+    }
 }

@@ -4990,6 +4990,43 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     backdrop-filter: blur(20px) saturate(120%);
 }
 
+.app-overflow-menu {
+    position: relative;
+    display: inline-flex;
+}
+
+.app-overflow-menu__backdrop {
+    position: fixed;
+    z-index: calc(var(--tl-z-popover, 1600) - 1);
+    inset: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    cursor: default;
+}
+
+.app-overflow-menu__popover {
+    position: absolute;
+    z-index: var(--tl-z-popover, 1600);
+    top: calc(100% + 0.42rem);
+    right: 0;
+    width: max-content;
+    min-width: var(--tl-menu-min-width);
+    max-width: min(20rem, calc(100vw - 1.5rem));
+    padding: 0.2rem;
+    color: var(--tl-text-primary);
+    background: var(--tl-menu-surface);
+    border: 1px solid var(--tl-menu-border);
+    border-radius: var(--tl-radius-lg);
+    box-shadow: 0 1.35rem 3.5rem rgba(0, 0, 0, 0.52), 0 0 0 1px rgba(255, 255, 255, 0.025);
+    backdrop-filter: blur(20px) saturate(120%);
+}
+
+.app-overflow-menu__popover--left {
+    right: auto;
+    left: 0;
+}
+
 .app-menu-popover .mud-paper,
 .app-menu-popover .mud-list,
 .app-menu-popover .mud-menu-list,
@@ -5013,6 +5050,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 
 .app-menu-popover .mud-list-item,
 .app-menu-popover .mud-menu-item,
+.app-menu-popover .app-menu-item,
 .app-select__popover .mud-list-item,
 .app-select__popover .mud-menu-item {
     min-height: var(--tl-menu-item-height) !important;
@@ -5031,8 +5069,18 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
                 background var(--tl-motion-duration-fast) var(--tl-motion-ease-standard);
 }
 
+.app-menu-popover button.app-menu-item {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    border: 0;
+    text-align: left;
+    cursor: pointer;
+}
+
 .app-menu-popover .mud-list-item .mud-icon-root,
 .app-menu-popover .mud-menu-item .mud-icon-root,
+.app-menu-popover .app-menu-item .mud-icon-root,
 .app-select__popover .app-select__option-icon {
     flex: 0 0 1.35rem;
     color: var(--tl-menu-icon) !important;
@@ -5043,6 +5091,8 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-menu-popover .mud-list-item:focus-visible,
 .app-menu-popover .mud-menu-item:hover,
 .app-menu-popover .mud-menu-item:focus-visible,
+.app-menu-popover .app-menu-item:hover,
+.app-menu-popover .app-menu-item:focus-visible,
 .app-select__popover .mud-list-item:hover,
 .app-select__popover .mud-list-item:focus-visible {
     color: var(--tl-text-primary) !important;
@@ -5058,6 +5108,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 
 .app-menu-popover .mud-list-item.mud-disabled,
 .app-menu-popover .mud-menu-item.mud-disabled,
+.app-menu-popover .app-menu-item:disabled,
 .app-select__popover .mud-list-item.mud-disabled {
     color: var(--tl-text-disabled) !important;
     opacity: 0.62;
@@ -5096,6 +5147,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     cursor: pointer;
 }
 
+.app-overflow-menu__trigger > .mud-icon-root {
+    flex: 0 0 auto;
+    font-size: 1.22rem;
+}
+
 .app-overflow-menu__trigger:hover,
 .app-overflow-menu__trigger:focus-visible,
 .app-overflow-menu:focus-within > .app-overflow-menu__trigger {
@@ -5115,7 +5171,46 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 }
 
 .app-overflow-menu__trigger--labeled {
-    min-height: 0;
+    min-height: 3rem;
+    padding: 0.58rem 1rem !important;
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+    color: var(--tl-text-primary) !important;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
+}
+
+.tl-detail-secondary-actions .app-overflow-menu__trigger--labeled {
+    height: 3rem !important;
+    min-height: 3rem !important;
+    padding: 0.58rem 1rem !important;
+}
+
+.tl-detail-primary-actions .app-overflow-menu__trigger--labeled {
+    min-width: 6.75rem;
+    min-height: clamp(3.35rem, 6svh, 4rem);
+    padding: 0.72rem 1.15rem !important;
+}
+
+.tl-detail-person-links .app-overflow-menu__trigger--icon {
+    width: 2.7rem;
+    min-width: 2.7rem;
+    height: 2.7rem;
+    min-height: 2.7rem;
+}
+
+.app-overflow-menu__trigger--icon {
+    border: 1px solid var(--tl-secondary-action-border) !important;
+    border-radius: var(--tl-radius-md) !important;
+    background: var(--tl-secondary-action-bg) !important;
+}
+
+.app-overflow-menu__trigger--labeled:hover,
+.app-overflow-menu__trigger--labeled:focus-visible,
+.app-overflow-menu__trigger--icon:hover,
+.app-overflow-menu__trigger--icon:focus-visible {
+    border-color: var(--tl-secondary-action-border-hover) !important;
+    background: var(--tl-secondary-action-bg-hover) !important;
 }
 
 /* MudMenu renders the activator itself. Reset MudButton/MudIconButton's
@@ -5179,20 +5274,21 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     pointer-events: none !important;
 }
 
-.tl-detail-overflow-popover--compact.mud-popover {
+.tl-detail-overflow-popover--compact {
     width: 9.75rem !important;
     min-width: 9.75rem !important;
     border-radius: 0.58rem !important;
 }
 
-.tl-detail-overflow-popover.mud-popover .mud-paper,
-.tl-detail-overflow-popover.mud-popover .mud-list,
-.tl-detail-overflow-popover.mud-popover .mud-menu-list {
+.tl-detail-overflow-popover .mud-paper,
+.tl-detail-overflow-popover .mud-list,
+.tl-detail-overflow-popover .mud-menu-list {
     padding: 0.2rem !important;
 }
 
-.tl-detail-overflow-popover.mud-popover .mud-list-item,
-.tl-detail-overflow-popover.mud-popover .mud-menu-item {
+.tl-detail-overflow-popover .mud-list-item,
+.tl-detail-overflow-popover .mud-menu-item,
+.tl-detail-overflow-popover .app-menu-item {
     min-height: 2.2rem !important;
     gap: 0.52rem !important;
     padding: 0.34rem 0.48rem !important;
@@ -5201,8 +5297,9 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     font-weight: 550 !important;
 }
 
-.tl-detail-overflow-popover.mud-popover .mud-list-item .mud-icon-root,
-.tl-detail-overflow-popover.mud-popover .mud-menu-item .mud-icon-root {
+.tl-detail-overflow-popover .mud-list-item .mud-icon-root,
+.tl-detail-overflow-popover .mud-menu-item .mud-icon-root,
+.tl-detail-overflow-popover .app-menu-item .mud-icon-root {
     flex-basis: 1.05rem !important;
     font-size: 1.05rem !important;
 }
