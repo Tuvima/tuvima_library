@@ -228,9 +228,7 @@
                 </nav>
             }
 
-            <div class="sme-workspace @(_activeTab == "artwork" ? "sme-workspace--artwork" : null)">
-                @if (_activeTab != "artwork")
-                {
+            <div class="sme-workspace">
                 <nav class="sme-section-nav" aria-label="Editor sections">
                     @for (var index = 0; index < Tabs.Count; index++)
                     {
@@ -244,6 +242,22 @@
                             <MudIcon Icon="@tab.Icon" Size="Size.Small" />
                             <span>@tab.Label</span>
                         </AppButton>
+                        @if (tab.Id == "artwork" && _activeTab == "artwork" && ArtworkSlots.Count > 0)
+                        {
+                            <div class="sme-section-nav__nested" role="tablist" aria-label="Artwork types">
+                                @foreach (var slotItem in ArtworkSlots)
+                                {
+                                    var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
+                                    <AppButton Variant="Variant.Text"
+                                               Color="Color.Inherit"
+                                               Class="@(isSelectedSlot ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
+                                               OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
+                                        <MudIcon Icon="@slotItem.Icon" Size="Size.Small" />
+                                        <span>@slotItem.Label</span>
+                                    </AppButton>
+                                }
+                            </div>
+                        }
                     }
 
                     @if (IsSingleItem)
@@ -262,7 +276,6 @@
                     }
 
                 </nav>
-                }
                 <div class="sme-main-pane">
                     @if (HasContainerReturnState)
                     {
@@ -1249,50 +1262,6 @@
                         @if (IsSingleItem)
                         {
                             <section class="sme-artwork-workspace">
-                                <aside class="sme-artwork-type-rail">
-                                    <div class="sme-artwork-context">
-                                        <MudIcon Icon="@Icons.Material.Outlined.Collections" Size="Size.Small" />
-                                        <div>
-                                            <strong>@(ArtworkScope?.Label ?? "Artwork") artwork</strong>
-                                            <span>@GetArtworkTabExplanation()</span>
-                                        </div>
-                                    </div>
-                                    <div class="sme-artwork-type-picker" role="tablist" aria-label="Artwork types">
-                                        @foreach (var slotItem in ArtworkSlots)
-                                        {
-                                            var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                                            <AppButton Variant="Variant.Text"
-                                                       Color="Color.Inherit"
-                                                       Class='@($"sme-artwork-rail-item {(isSelectedSlot ? "sme-artwork-rail-item--active" : string.Empty)}")'
-                                                       OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
-                                                <span class="sme-artwork-rail-icon">
-                                                    <MudIcon Icon="@slotItem.Icon" Class="tl-u-font-size-18px" />
-                                                </span>
-                                                <span class="sme-artwork-rail-copy">
-                                                    <span class="sme-artwork-rail-label">@slotItem.Label</span>
-                                                </span>
-                                            </AppButton>
-                                        }
-                                    </div>
-                                    @if (ArtworkSlots.Count > 0 && GetRelatedArtworkScopeTargets().Count > 0)
-                                    {
-                                        <div class="sme-artwork-context-actions">
-                                            @foreach (var scope in GetRelatedArtworkScopeTargets())
-                                            {
-                                                <AppButton Variant="Variant.Outlined"
-                                                           Color="Color.Inherit"
-                                                           Class="sme-inline-btn"
-                                                           OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
-                                                    Open @scope.Label Artwork
-                                                </AppButton>
-                                            }
-                                        </div>
-                                    }
-                                    <div class="sme-artwork-rail-footer">
-                                        <AppButton Label="Back to details" StartIcon="@Icons.Material.Outlined.ArrowBack" OnClick="OpenDetailsTabAsync" />
-                                        <AppButton Label="Refresh enrichment" StartIcon="@Icons.Material.Outlined.Sync" Disabled="@_refreshQueueing" OnClick="QueueFullEnrichmentAsync" />
-                                    </div>
-                                </aside>
                                 <div class="sme-artwork-main">
                                     @if (ArtworkSlots.Count == 0)
                                     {
@@ -1308,7 +1277,7 @@
                                                                    Color="Color.Inherit"
                                                                    Class="sme-inline-btn"
                                                                    OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
-                                                            Open @scope.Label
+                                                            Open @scope.Label Artwork
                                                         </AppButton>
                                                     }
                                                 </div>

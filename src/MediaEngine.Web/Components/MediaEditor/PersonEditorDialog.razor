@@ -40,9 +40,7 @@
         <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close editor" AriaLabel="Close editor" OnClick="Close" />
     </header>
 
-    <div class="person-editor__workspace @(_activeTab == "artwork" ? "person-editor__workspace--artwork" : null)">
-        @if (_activeTab != "artwork")
-        {
+    <div class="person-editor__workspace">
         <nav class="person-editor__nav" aria-label="Person editor sections">
             @foreach (var tab in Tabs)
             {
@@ -54,6 +52,22 @@
                     <MudIcon Icon="@captured.Icon" Size="Size.Small" />
                     <span>@captured.Label</span>
                 </AppButton>
+                @if (captured.Id == "artwork" && _activeTab == "artwork")
+                {
+                    <div class="person-editor__nav-nested" role="tablist" aria-label="Artwork types">
+                        @foreach (var slot in _artwork?.Slots ?? [])
+                        {
+                            var isActive = string.Equals(slot.AssetType, SelectedPersonArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
+                            <AppButton Variant="Variant.Text"
+                                       Color="Color.Inherit"
+                                       Class="@(isActive ? "person-editor__nav-nested-item is-active" : "person-editor__nav-nested-item")"
+                                       OnClick="@(() => SelectPersonArtworkSlot(slot.AssetType))">
+                                <MudIcon Icon="@GetArtworkIcon(slot.AssetType)" Size="Size.Small" />
+                                <span>@FormatArtworkType(slot.AssetType)</span>
+                            </AppButton>
+                        }
+                    </div>
+                }
             }
 
             <div class="person-editor__nav-footer">
@@ -67,7 +81,6 @@
                     <small>@_refresh.Status · @FormatDate(_refresh.LastSuccessAt)</small>
             </div>
         </nav>
-        }
 
         <main class="person-editor__main">
             @if (_loading)
@@ -147,32 +160,6 @@
                 var selectedSlot = SelectedPersonArtworkSlot;
                 var selectedVariant = SelectedPersonArtworkVariant;
                 <section class="person-editor__artwork-workspace">
-                    <aside class="person-editor__artwork-type-rail">
-                        <div class="person-editor__artwork-context">
-                            <MudIcon Icon="@Icons.Material.Outlined.Collections" Size="Size.Small" />
-                            <div>
-                                <strong>Person artwork</strong>
-                                <span>Manage all artwork for this person.</span>
-                            </div>
-                        </div>
-                        <div class="person-editor__artwork-type-picker" role="tablist" aria-label="Artwork types">
-                            @foreach (var slot in _artwork?.Slots ?? [])
-                            {
-                                var isActive = string.Equals(slot.AssetType, selectedSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
-                                <AppButton Variant="Variant.Text"
-                                           Color="Color.Inherit"
-                                           Class="@(isActive ? "person-editor__artwork-rail-item is-active" : "person-editor__artwork-rail-item")"
-                                           OnClick="@(() => SelectPersonArtworkSlot(slot.AssetType))">
-                                    <MudIcon Icon="@GetArtworkIcon(slot.AssetType)" Size="Size.Small" />
-                                    <span>@FormatArtworkType(slot.AssetType)</span>
-                                </AppButton>
-                            }
-                        </div>
-                        <div class="person-editor__artwork-rail-footer">
-                            <AppButton Label="Back to details" StartIcon="@Icons.Material.Outlined.ArrowBack" OnClick="@(() => SelectPersonTabAsync("details"))" />
-                            <AppButton Label="Refresh enrichment" StartIcon="@Icons.Material.Outlined.Sync" Disabled="@_queueing" OnClick="RefreshNowAsync" />
-                        </div>
-                    </aside>
                     <div class="person-editor__artwork-main">
                         @if (selectedSlot is null)
                         {

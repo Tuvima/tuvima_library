@@ -140,7 +140,9 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("PersonalNotes", contracts, StringComparison.Ordinal);
 
         Assert.Contains("person-editor__artwork-workspace", source, StringComparison.Ordinal);
-        Assert.Contains("person-editor__artwork-type-picker", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__nav-nested", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__nav-nested-item", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("person-editor__artwork-type-rail", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-sidebar", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-primary-card", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-variants-section", source, StringComparison.Ordinal);
