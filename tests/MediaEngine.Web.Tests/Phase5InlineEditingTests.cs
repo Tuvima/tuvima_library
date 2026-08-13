@@ -145,10 +145,25 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("person-editor__artwork-type-rail", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-sidebar", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-primary-card", source, StringComparison.Ordinal);
+        Assert.Contains("person-editor__artwork-image-actions", source, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Preview artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Remove artwork\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("person-editor__artwork-primary-actions", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-variants-section", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-details", source, StringComparison.Ordinal);
         Assert.Contains("background: var(--tl-bg-surface-raised)", styles, StringComparison.Ordinal);
         Assert.DoesNotContain("#", styles, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SharedEditor_OverlaysArtworkActionsOnTheSelectedImage()
+    {
+        var source = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+
+        Assert.Contains("sme-artwork-image-actions", source, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Preview artwork\"", source, StringComparison.Ordinal);
+        Assert.Contains("AriaLabel=\"Remove artwork\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<div class=\"sme-artwork-primary-actions\">", source, StringComparison.Ordinal);
     }
 
     [Fact]

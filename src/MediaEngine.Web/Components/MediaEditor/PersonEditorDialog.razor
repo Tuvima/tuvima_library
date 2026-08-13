@@ -194,25 +194,24 @@
                                                     <span class="person-editor__artwork-check" aria-label="Primary artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
                                                     <span class="person-editor__artwork-primary-badge">Primary</span>
                                                 }
-                                            </div>
-                                            <div class="person-editor__artwork-primary-actions">
-                                                <AppButton Label="Preview" StartIcon="@Icons.Material.Outlined.Visibility" OnClick="@(() => _previewArtwork = selectedVariant)" />
-                                                @if (!selectedVariant.IsPreferred)
-                                                {
-                                                    <AppButton Label="Set primary" StartIcon="@Icons.Material.Outlined.StarOutline" OnClick="@(() => SetPreferredAsync(selectedVariant.Id))" />
-                                                }
-                                                <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.SwapHoriz" Class="person-editor__artwork-upload-button">
-                                                    Replace
-                                                    <span class="person-editor__artwork-file-shell">
-                                                        <InputFile class="person-editor__artwork-file-input"
-                                                                   accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
-                                                                   OnChange="@((args) => UploadArtworkAsync(selectedSlot.AssetType, args))" />
-                                                    </span>
-                                                </AppButton>
-                                                @if (selectedVariant.CanDelete)
-                                                {
-                                                    <AppButton Label="Remove" StartIcon="@Icons.Material.Outlined.Delete" Tone="AppUiTone.Error" OnClick="@(() => DeleteArtworkAsync(selectedVariant.Id))" />
-                                                }
+                                                <div class="person-editor__artwork-image-actions">
+                                                    <AppIconButton Icon="@Icons.Material.Outlined.ZoomIn"
+                                                                   Size="Size.Small"
+                                                                   Class="person-editor__artwork-image-action"
+                                                                   Tooltip="Preview artwork"
+                                                                   AriaLabel="Preview artwork"
+                                                                   OnClick="@(() => _previewArtwork = selectedVariant)" />
+                                                    @if (selectedVariant.CanDelete)
+                                                    {
+                                                        <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
+                                                                       Size="Size.Small"
+                                                                       Tone="AppUiTone.Error"
+                                                                       Class="person-editor__artwork-image-action person-editor__artwork-image-action--delete"
+                                                                       Tooltip="Remove artwork"
+                                                                       AriaLabel="Remove artwork"
+                                                                       OnClick="@(() => DeleteArtworkAsync(selectedVariant.Id))" />
+                                                    }
+                                                </div>
                                             </div>
                                         }
                                         else

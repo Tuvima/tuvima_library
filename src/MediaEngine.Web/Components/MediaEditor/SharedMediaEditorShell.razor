@@ -1341,34 +1341,36 @@
                                                                 <span class="sme-artwork-gallery-check" aria-label="Primary artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
                                                                 <span class="sme-artwork-primary-badge">Primary</span>
                                                             }
-                                                        </div>
-                                                        <div class="sme-artwork-primary-actions">
-                                                            <AppButton Label="Preview" StartIcon="@Icons.Material.Outlined.Visibility" OnClick="@(() => OpenArtworkZoom(slot, focusedItem))" />
-                                                            @if (!focusedItem.IsPreferred && focusedItem.VariantId != Guid.Empty)
+                                                            @if (!IsArtworkDeleteConfirming(focusedItem))
                                                             {
-                                                                <AppButton Label="Set primary" StartIcon="@Icons.Material.Outlined.StarOutline" OnClick="@(() => SetPreferredArtworkVariantAsync(focusedItem.VariantId))" />
+                                                                <div class="sme-artwork-image-actions">
+                                                                    <AppIconButton Icon="@Icons.Material.Outlined.ZoomIn"
+                                                                                   Size="Size.Small"
+                                                                                   Class="sme-artwork-image-action"
+                                                                                   Tooltip="Preview artwork"
+                                                                                   AriaLabel="Preview artwork"
+                                                                                   OnClick="@(() => OpenArtworkZoom(slot, focusedItem))" />
+                                                                    @if (focusedItem.VariantId != Guid.Empty)
+                                                                    {
+                                                                    <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
+                                                                                   Size="Size.Small"
+                                                                                   Tone="AppUiTone.Error"
+                                                                                   Class="sme-artwork-image-action sme-artwork-image-action--delete"
+                                                                                   Tooltip="Remove artwork"
+                                                                                   AriaLabel="Remove artwork"
+                                                                                   OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
+                                                                    }
+                                                                </div>
                                                             }
-                                                            <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.SwapHoriz" Class="sme-artwork-action-upload">
-                                                                Replace
-                                                                <span class="sme-art-slot-input-shell">
-                                                                    <InputFile class="sme-art-slot-file-input"
-                                                                               OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
-                                                                               accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
-                                                                </span>
-                                                            </AppButton>
-                                                            @if (focusedItem.VariantId != Guid.Empty && !IsArtworkDeleteConfirming(focusedItem))
+                                                            @if (IsArtworkDeleteConfirming(focusedItem))
                                                             {
-                                                                <AppButton Label="Remove" StartIcon="@Icons.Material.Outlined.Delete" Tone="AppUiTone.Error" OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
+                                                                <div class="sme-artwork-delete-confirm">
+                                                                    <span>Remove this artwork?</span>
+                                                                    <AppButton Label="Cancel" OnClick="@(() => CancelArtworkDelete(focusedItem))" />
+                                                                    <AppButton Label="Remove" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
+                                                                </div>
                                                             }
                                                         </div>
-                                                        @if (IsArtworkDeleteConfirming(focusedItem))
-                                                        {
-                                                            <div class="sme-artwork-delete-confirm">
-                                                                <span>Remove this artwork?</span>
-                                                                <AppButton Label="Cancel" OnClick="@(() => CancelArtworkDelete(focusedItem))" />
-                                                                <AppButton Label="Remove" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
-                                                            </div>
-                                                        }
                                                     }
                                                     else
                                                     {

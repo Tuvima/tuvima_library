@@ -943,21 +943,72 @@
 }
 
 .person-editor__artwork-primary-card .person-editor__artwork-stage {
-    min-height: calc(var(--tl-space-10) * 4);
-    max-height: calc(var(--tl-space-10) * 5);
+    position: relative;
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+    border: 0;
+    border-radius: var(--tl-radius-lg);
+    background: transparent;
+    box-shadow: none;
 }
 
 .person-editor__artwork-primary-card .person-editor__artwork-stage img {
-    width: auto;
+    display: block;
+    width: 100%;
     height: auto;
-    max-width: 100%;
-    max-height: 100%;
+    max-width: none;
+    max-height: none;
     object-fit: contain;
 }
 
 .person-editor__artwork-primary-card {
+    display: block;
     align-self: start;
-    border-color: var(--tl-accent-primary-border);
+    justify-self: center;
+    width: min(100%, calc(var(--tl-space-10) * 5.75));
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+.person-editor__artwork-primary-card--square {
+    width: min(100%, calc(var(--tl-space-10) * 5.5));
+}
+
+.person-editor__artwork-primary-card--background,
+.person-editor__artwork-primary-card--banner,
+.person-editor__artwork-primary-card--logo {
+    width: min(100%, calc(var(--tl-space-10) * 8));
+}
+
+.person-editor__artwork-image-actions {
+    position: absolute;
+    z-index: 3;
+    right: var(--tl-space-3);
+    bottom: var(--tl-space-3);
+    left: var(--tl-space-3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+}
+
+::deep .person-editor__artwork-image-action {
+    pointer-events: auto;
+    border: 1px solid var(--tl-border-strong);
+    border-radius: var(--tl-radius-pill);
+    color: var(--tl-text-primary);
+    background: var(--tl-bg-overlay);
+    backdrop-filter: blur(var(--tl-space-2));
+}
+
+::deep .person-editor__artwork-image-action--delete {
+    margin-left: auto;
 }
 
 .person-editor__artwork-primary-actions,
