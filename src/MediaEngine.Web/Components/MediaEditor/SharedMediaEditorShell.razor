@@ -228,7 +228,9 @@
                 </nav>
             }
 
-            <div class="sme-workspace">
+            <div class="sme-workspace @(_activeTab == "artwork" ? "sme-workspace--artwork" : null)">
+                @if (_activeTab != "artwork")
+                {
                 <nav class="sme-section-nav" aria-label="Editor sections">
                     @for (var index = 0; index < Tabs.Count; index++)
                     {
@@ -260,6 +262,7 @@
                     }
 
                 </nav>
+                }
                 <div class="sme-main-pane">
                     @if (HasContainerReturnState)
                     {
@@ -886,15 +889,16 @@
                                                              OnClick="@(() => SelectMatchSearchMode("wikidata"))">
                                                 Canonical Identity
                                             </AppNativeButton>
+                                            <AppButton Label="Cancel change"
+                                                       StartIcon="@Icons.Material.Outlined.Close"
+                                                       Class="sme-match-cancel-change"
+                                                       OnClick="CloseMatchSearch" />
                                         </div>
 
                                         <div class="sme-match-section-heading sme-match-section-heading--search">
                                             <p>@(IsWikidataSearchMode
                                                 ? "Select the shared Wikidata identity and relationships represented by this item."
                                                 : "Select the retail provider record that represents this specific edition or release.")</p>
-                                            <AppButton Label="Cancel change"
-                                                       StartIcon="@Icons.Material.Outlined.Close"
-                                                       OnClick="CloseMatchSearch" />
                                         </div>
 
                                     @if (QuickSearchTargets.Count > 1)
@@ -1038,16 +1042,19 @@
                                             }
                                             else
                                             {
-                                                @foreach (var candidate in _canonicalSearchResponse.RetailCandidates)
+                                                @for (var retailIndex = 0; retailIndex < _canonicalSearchResponse.RetailCandidates.Count; retailIndex++)
                                                 {
+                                                    var candidate = _canonicalSearchResponse.RetailCandidates[retailIndex];
                                                     var candidateId = GetCandidateId(candidate);
+                                                    var candidateScore = GetRetailCandidateScore(candidate);
+                                                    var confidenceSignals = BuildRetailConfidenceSignals(candidate);
                                                     <div class="sme-match-result-card @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
-                                                        <AppButton Variant="Variant.Text"
-                                                                   Color="Color.Inherit"
-                                                                   FullWidth="true"
-                                                                   Class="sme-match-result-summary"
-                                                                   OnClick="@(() => SelectCandidateAsync(candidate))">
+                                                        <div class="sme-match-result-summary">
                                                             <div class="sme-match-result-art @ArtworkShapeClass">
+                                                                @if (retailIndex == 0)
+                                                                {
+                                                                    <span class="sme-match-best-badge"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> Best match</span>
+                                                                }
                                                                 @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
                                                                 {
                                                                     <img src="@candidate.CoverUrl" alt="" />
@@ -1059,27 +1066,60 @@
                                                             </div>
                                                             <div class="sme-match-result-copy">
                                                                 <div class="sme-match-result-title">@candidate.Title</div>
-                                                            <div class="sme-match-result-meta">@NormalizeDisplaySpacing(BuildRetailCandidateSubtitle(candidate))</div>
+                                                                <div class="sme-match-result-meta">@NormalizeDisplaySpacing(BuildRetailCandidateSubtitle(candidate))</div>
                                                                 <div class="sme-match-result-evidence">
-                                                                    <span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> Title match</span>
-                                                                    <span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> Creator match</span>
-                                                                    <span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" /> Year match</span>
+                                                                    @foreach (var signal in confidenceSignals.Take(3))
+                                                                    {
+                                                                        <span class="@GetConfidenceSignalClass(signal.Score)"><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</span>
+                                                                    }
                                                                 </div>
-                                                                @if (BuildCandidateChips(candidate).Count > 0)
-                                                                {
-                                                                    <div class="sme-match-chip-row">
-                                                                        @foreach (var chip in BuildCandidateChips(candidate))
-                                                                        {
-                                                                            <span>@chip</span>
-                                                                        }
-                                                                    </div>
-                                                                }
                                                             </div>
-                                                            <span class="sme-match-result-confidence"><strong>@FormatCandidateScore(GetRetailCandidateScore(candidate))</strong><small>confidence</small></span>
-                                                        </AppButton>
+                                                            <dl class="sme-match-result-provider">
+                                                                <div><dt>Provider</dt><dd>@FormatProviderName(candidate.ProviderName, _selectedMediaType)</dd></div>
+                                                                <div><dt>Provider ID</dt><dd>@(candidate.ProviderItemId ?? candidate.ProviderId)</dd></div>
+                                                            </dl>
+                                                            <span class="sme-match-result-confidence"><strong>@FormatCandidateScore(candidateScore) match</strong><small>@GetCandidateConfidenceLabel(candidateScore)</small></span>
+                                                            <div class="sme-match-result-commands">
+                                                                <AppButton Label="@(IsCandidateSelected(candidateId) ? "Hide confidence" : "Confidence details")"
+                                                                           StartIcon="@Icons.Material.Outlined.Insights"
+                                                                           OnClick="@(() => ToggleRetailCandidateDetailsAsync(candidate))" />
+                                                                <AppButton Variant="Variant.Filled"
+                                                                           Color="Color.Primary"
+                                                                           Class="sme-inline-btn sme-inline-btn--primary"
+                                                                           Disabled="@(!candidate.IsApplicable || _matchActionPending)"
+                                                                           OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                                    @(_matchActionPending ? "Applying..." : "Use retail match")
+                                                                </AppButton>
+                                                            </div>
+                                                        </div>
                                                         @if (IsCandidateSelected(candidateId))
                                                         {
-                                                            <div class="sme-candidate-evidence-panel">
+                                                            <div class="sme-match-selected-detail">
+                                                                <div class="sme-match-import-settings">
+                                                                    <div><strong>Import settings</strong><span>Choose which provider values to apply to this item.</span></div>
+                                                                    <AppButton Label="Customize fields"
+                                                                               StartIcon="@Icons.Material.Outlined.Tune"
+                                                                               OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
+                                                                </div>
+                                                                <aside class="sme-match-confidence-panel">
+                                                                    <h4>Why this confidence?</h4>
+                                                                    <dl>
+                                                                        @foreach (var signal in confidenceSignals)
+                                                                        {
+                                                                            <div class="@GetConfidenceSignalClass(signal.Score)">
+                                                                                <dt><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</dt>
+                                                                                <dd><span>@signal.Value</span><strong>@(signal.Score >= 0 ? FormatCandidateScore(signal.Score) : "—")</strong></dd>
+                                                                            </div>
+                                                                        }
+                                                                    </dl>
+                                                                    <div class="sme-match-confidence-total"><span>Total confidence</span><strong>@FormatCandidateScore(candidateScore)</strong></div>
+                                                                </aside>
+                                                            </div>
+                                                            @if (_customizeMatchChanges)
+                                                            {
+                                                                @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                            }
+                                                            <div class="sme-candidate-evidence-panel sme-candidate-evidence-panel--secondary">
                                                                 @if (!string.IsNullOrWhiteSpace(candidate.Description))
                                                                 {
                                                                     <div class="sme-candidate-description">
@@ -1127,29 +1167,6 @@
                                                                         }
                                                                     </div>
                                                                 }
-                                                            </div>
-                                                            <div class="sme-match-result-actions">
-                                                                <AppButton Label="Customize"
-                                                                           StartIcon="@Icons.Material.Outlined.Tune"
-                                                                           OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
-                                                                <AppButton Variant="Variant.Filled"
-                                                                           Color="Color.Primary"
-                                                                           Class="sme-inline-btn sme-inline-btn--primary"
-                                                                           Disabled="@(!candidate.IsApplicable || _matchActionPending)"
-                                                                           OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                                    @(_matchActionPending ? "Applying..." : "Use this match")
-                                                                </AppButton>
-                                                            </div>
-                                                            @if (_customizeMatchChanges)
-                                                            {
-                                                                @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
-                                                            }
-                                                        }
-                                                        else
-                                                        {
-                                                            <div class="sme-match-result-actions">
-                                                                <AppButton Label="Select match"
-                                                                           OnClick="@(() => SelectCandidateAsync(candidate))" />
                                                             </div>
                                                         }
                                                     </div>
@@ -1271,6 +1288,10 @@
                                             }
                                         </div>
                                     }
+                                    <div class="sme-artwork-rail-footer">
+                                        <AppButton Label="Back to details" StartIcon="@Icons.Material.Outlined.ArrowBack" OnClick="OpenDetailsTabAsync" />
+                                        <AppButton Label="Refresh enrichment" StartIcon="@Icons.Material.Outlined.Sync" Disabled="@_refreshQueueing" OnClick="QueueFullEnrichmentAsync" />
+                                    </div>
                                 </aside>
                                 <div class="sme-artwork-main">
                                     @if (ArtworkSlots.Count == 0)

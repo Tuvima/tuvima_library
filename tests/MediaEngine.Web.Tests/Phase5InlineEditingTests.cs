@@ -251,7 +251,7 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("sme-match-current-grid", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel--collapsed", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Advanced canonical identity", shell, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Customize\"", shell, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Customize fields\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
         Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
@@ -260,9 +260,10 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Keep Match", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Keep QID", shell, StringComparison.Ordinal);
         Assert.Contains("Clear QID", shell, StringComparison.Ordinal);
-        Assert.Contains("Use this match", shell, StringComparison.Ordinal);
+        Assert.Contains("Use retail match", shell, StringComparison.Ordinal);
         Assert.Contains("Use this identity", shell, StringComparison.Ordinal);
-        Assert.Contains("Select match", shell, StringComparison.Ordinal);
+        Assert.Contains("Confidence details", shell, StringComparison.Ordinal);
+        Assert.Contains("Why this confidence?", shell, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentRetailMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("BuildCurrentWikidataMatchCard", code, StringComparison.Ordinal);
         Assert.Contains("IdentityLinkDisplay", code, StringComparison.Ordinal);

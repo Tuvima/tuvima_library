@@ -295,12 +295,33 @@
     background: var(--tl-bg-surface-raised);
 }
 
+.person-editor__workspace--artwork {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.person-editor__workspace--artwork .person-editor__main {
+    padding: var(--tl-space-3);
+}
+
 .person-editor__artwork-type-picker {
     display: flex;
     gap: var(--tl-space-2);
     margin-bottom: var(--tl-space-4);
     overflow-x: auto;
     padding-bottom: var(--tl-space-1);
+}
+
+.person-editor__artwork-rail-footer {
+    display: grid;
+    gap: var(--tl-space-2);
+    margin-top: auto;
+    padding-top: var(--tl-space-4);
+    border-top: 1px solid var(--tl-divider);
+}
+
+.person-editor__artwork-rail-footer ::deep .mud-button-root {
+    width: 100%;
+    justify-content: flex-start;
 }
 
 ::deep .person-editor__artwork-rail-item {
@@ -339,6 +360,19 @@
 .person-editor__artwork-main {
     min-width: 0;
     padding: var(--tl-space-5);
+}
+
+.person-editor__workspace--artwork .person-editor__artwork-showcase {
+    grid-template-columns: minmax(calc(var(--tl-space-10) * 9), 1.35fr) minmax(calc(var(--tl-space-10) * 5.5), 0.85fr) minmax(calc(var(--tl-space-10) * 6), 0.85fr);
+}
+
+.person-editor__workspace--artwork .person-editor__artwork-primary-card .person-editor__artwork-stage {
+    min-height: calc(var(--tl-space-10) * 8);
+    max-height: calc(var(--tl-space-10) * 11);
+}
+
+.person-editor__workspace--artwork .person-editor__artwork-primary-card {
+    border-color: var(--tl-accent-primary-border);
 }
 
 .person-editor__artwork-heading {

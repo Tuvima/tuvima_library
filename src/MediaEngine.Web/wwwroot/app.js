@@ -22,6 +22,13 @@ window.tuvimaEditorFocus = function (selector) {
     });
 };
 
+window.tuvimaEditorScrollTop = function () {
+    window.requestAnimationFrame(function () {
+        var pane = document.querySelector('.sme-body, .person-editor__main');
+        if (pane) pane.scrollTop = 0;
+    });
+};
+
 // All custom menus use the same click-away contract. MudMenu already handles
 // its own dismissal; this covers richer application-owned popout surfaces.
 (function installDismissibleSurfaceHandler() {

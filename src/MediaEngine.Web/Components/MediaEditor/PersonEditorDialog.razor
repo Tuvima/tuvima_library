@@ -9,6 +9,7 @@
 @using MediaEngine.Web.Services.Integration
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject IJSRuntime JS
 
 <AppDialog Class="sme-dialog">
 <DialogContent>
@@ -39,7 +40,9 @@
         <AppIconButton Icon="@Icons.Material.Outlined.Close" Tooltip="Close editor" AriaLabel="Close editor" OnClick="Close" />
     </header>
 
-    <div class="person-editor__workspace">
+    <div class="person-editor__workspace @(_activeTab == "artwork" ? "person-editor__workspace--artwork" : null)">
+        @if (_activeTab != "artwork")
+        {
         <nav class="person-editor__nav" aria-label="Person editor sections">
             @foreach (var tab in Tabs)
             {
@@ -47,7 +50,7 @@
                 <AppButton Variant="Variant.Text"
                            Color="Color.Inherit"
                            Class="@(_activeTab == captured.Id ? "person-editor__nav-item is-active" : "person-editor__nav-item")"
-                           OnClick="@(() => _activeTab = captured.Id)">
+                           OnClick="@(() => SelectPersonTabAsync(captured.Id))">
                     <MudIcon Icon="@captured.Icon" Size="Size.Small" />
                     <span>@captured.Label</span>
                 </AppButton>
@@ -64,6 +67,7 @@
                     <small>@_refresh.Status · @FormatDate(_refresh.LastSuccessAt)</small>
             </div>
         </nav>
+        }
 
         <main class="person-editor__main">
             @if (_loading)
@@ -163,6 +167,10 @@
                                     <span>@FormatArtworkType(slot.AssetType)</span>
                                 </AppButton>
                             }
+                        </div>
+                        <div class="person-editor__artwork-rail-footer">
+                            <AppButton Label="Back to details" StartIcon="@Icons.Material.Outlined.ArrowBack" OnClick="@(() => SelectPersonTabAsync("details"))" />
+                            <AppButton Label="Refresh enrichment" StartIcon="@Icons.Material.Outlined.Sync" Disabled="@_queueing" OnClick="RefreshNowAsync" />
                         </div>
                     </aside>
                     <div class="person-editor__artwork-main">
@@ -350,6 +358,12 @@
     private bool _saving;
     private bool _queueing;
     private bool _dirty;
+
+    private async Task SelectPersonTabAsync(string tabId)
+    {
+        _activeTab = tabId;
+        await JS.InvokeVoidAsync("tuvimaEditorScrollTop");
+    }
 
     private Guid PersonId => Request.LaunchEntityId ?? Request.EntityIds.FirstOrDefault();
 

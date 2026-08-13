@@ -143,7 +143,7 @@ public partial class SharedMediaEditorShell
     private string _lastNonFileTab => _tabState.LastNonFileTab;
     private bool _showArtworkUrlInput;
     private bool _matchActionPending;
-    private bool _showMatchSearch = true;
+    private bool _showMatchSearch;
     private bool _customizeMatchChanges;
     private bool _hasCommittedChanges;
     private string? _matchActionStatus;
@@ -602,7 +602,8 @@ public partial class SharedMediaEditorShell
                 _tabState.ActivateFile();
 
             EnsureActiveTabVisible();
-                _canonicalSearchQuery = BuildSuggestedSearchQuery();
+            _canonicalSearchQuery = BuildSuggestedSearchQuery();
+            InitializeMatchSearchState();
         }
         catch (Exception ex)
         {
@@ -1986,6 +1987,8 @@ public partial class SharedMediaEditorShell
         return OnTabChanged(artworkTabIndex);
     }
 
+    protected Task OpenDetailsTabAsync() => SelectTabInternalAsync("details");
+
     private void ApplyArtworkSlotSelection(string assetType, bool clearTransientUi = true)
     {
         _selectedArtworkAssetType = assetType;
@@ -2743,6 +2746,48 @@ public partial class SharedMediaEditorShell
     protected static string FormatCandidateScore(double score) =>
         score > 0 ? score.ToString("P0", CultureInfo.InvariantCulture) : "—";
 
+    protected static string GetCandidateConfidenceLabel(double score) =>
+        score switch
+        {
+            >= 0.9 => "Very high confidence",
+            >= 0.75 => "High confidence",
+            >= 0.55 => "Moderate confidence",
+            > 0 => "Low confidence",
+            _ => "Confidence unavailable",
+        };
+
+    protected static IReadOnlyList<CandidateConfidenceSignal> BuildRetailConfidenceSignals(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var scores = candidate.MatchScores;
+        if (scores is null)
+        {
+            return
+            [
+                new("Title match", candidate.Title.Length > 0 ? "Provider result" : "Unavailable", candidate.Title.Length > 0 ? 1 : -1),
+                new("Creator match", string.IsNullOrWhiteSpace(candidate.Author ?? candidate.Director) ? "Unavailable" : "Provider result", string.IsNullOrWhiteSpace(candidate.Author ?? candidate.Director) ? -1 : 1),
+                new("Year match", string.IsNullOrWhiteSpace(candidate.Year) ? "Unavailable" : "Provider result", string.IsNullOrWhiteSpace(candidate.Year) ? -1 : 1),
+            ];
+        }
+
+        return
+        [
+            new("Title match", FormatSignalScore(scores.TitleScore), scores.TitleScore),
+            new("Creator match", FormatSignalScore(scores.AuthorScore), scores.AuthorScore),
+            new("Year match", FormatSignalScore(scores.YearScore), scores.YearScore),
+            new("Format match", FormatSignalScore(scores.FormatScore), scores.FormatScore),
+            new("Artwork match", scores.CoverScore > 0 ? FormatSignalScore(scores.CoverScore) : "Not compared", scores.CoverScore > 0 ? scores.CoverScore : -1),
+        ];
+    }
+
+    private static string FormatSignalScore(double score) =>
+        score switch
+        {
+            >= 0.95 => "Exact",
+            >= 0.7 => "Close",
+            >= 0 => score.ToString("P0", CultureInfo.InvariantCulture),
+            _ => "Unavailable",
+        };
+
     protected async Task SaveAsPreferenceOnlyAsync()
     {
         if (_editedValues.Count == 0)
@@ -2808,6 +2853,36 @@ public partial class SharedMediaEditorShell
         }
     }
 
+    protected async Task ToggleRetailCandidateDetailsAsync(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var candidateId = GetCandidateId(candidate);
+        if (IsCandidateSelected(candidateId))
+        {
+            _selectedCandidateId = null;
+            _retailCandidateDetail = null;
+            _customizeMatchChanges = false;
+            return;
+        }
+
+        await SelectCandidateAsync(candidate);
+    }
+
+    protected static string GetConfidenceSignalClass(double score) =>
+        score switch
+        {
+            >= 0.7 => "is-positive",
+            >= 0 => "is-warning",
+            _ => "is-muted",
+        };
+
+    protected static string GetConfidenceSignalIcon(double score) =>
+        score switch
+        {
+            >= 0.7 => Icons.Material.Outlined.CheckCircle,
+            >= 0 => Icons.Material.Outlined.ChangeCircle,
+            _ => Icons.Material.Outlined.RemoveCircleOutline,
+        };
+
     protected void SelectCandidate(ItemCanonicalLinkedCandidateDto candidate)
     {
         _selectedCandidateId = GetCandidateId(candidate);
@@ -2817,7 +2892,7 @@ public partial class SharedMediaEditorShell
     protected void OpenMatchSearch()
     {
         _showMatchSearch = true;
-        _activeMatchSearchMode = "retail";
+        _activeMatchSearchMode = !HasCurrentCanonicalIdentity && HasCurrentRetailMatch ? "wikidata" : "retail";
     }
 
     protected void CloseMatchSearch()
@@ -2845,6 +2920,24 @@ public partial class SharedMediaEditorShell
         _retailCandidateDetail = null;
         _selectedSuggestedFieldKeys.Clear();
     }
+
+    private void InitializeMatchSearchState()
+    {
+        if (!string.Equals(_activeTab, "links", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (Request.Mode == SharedMediaEditorMode.Review || !HasCurrentRetailMatch || !HasCurrentCanonicalIdentity)
+        {
+            _showMatchSearch = true;
+            _activeMatchSearchMode = !HasCurrentCanonicalIdentity && HasCurrentRetailMatch ? "wikidata" : "retail";
+            return;
+        }
+
+        _showMatchSearch = false;
+        _activeMatchSearchMode = "retail";
+    }
+
+    protected sealed record CandidateConfidenceSignal(string Label, string Value, double Score);
 
     protected void CancelCanonicalSearch()
     {
@@ -4907,6 +5000,10 @@ public partial class SharedMediaEditorShell
         }
 
         _tabState.Activate(normalized);
+        await JS.InvokeVoidAsync("tuvimaEditorScrollTop");
+
+        if (string.Equals(normalized, "links", StringComparison.OrdinalIgnoreCase))
+            InitializeMatchSearchState();
 
         if (IsFileScope)
         {

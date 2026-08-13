@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MediaEngine.Contracts.Search;
 
 namespace MediaEngine.Contracts.Matching;
 
@@ -162,6 +163,9 @@ public sealed class ItemCanonicalRetailCandidateDto
 
     [JsonPropertyName("composite_score")]
     public double CompositeScore { get; set; }
+
+    [JsonPropertyName("match_scores")]
+    public FieldMatchScoresDto? MatchScores { get; set; }
 
     [JsonPropertyName("link_state")]
     public string LinkState { get; set; } = "provider_only";

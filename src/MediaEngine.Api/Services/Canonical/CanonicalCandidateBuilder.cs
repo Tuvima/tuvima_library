@@ -158,6 +158,22 @@ internal sealed class CanonicalCandidateBuilder(
             CoverUrl = candidate.CoverUrl,
             Confidence = candidate.Confidence,
             CompositeScore = candidate.CompositeScore,
+            MatchScores = candidate.MatchScores is null
+                ? null
+                : new MediaEngine.Contracts.Search.FieldMatchScoresDto
+                {
+                    TitleScore = candidate.MatchScores.TitleScore,
+                    AuthorScore = candidate.MatchScores.AuthorScore,
+                    YearScore = candidate.MatchScores.YearScore,
+                    FormatScore = candidate.MatchScores.FormatScore,
+                    CompositeScore = candidate.MatchScores.CompositeScore,
+                    TitleVerdict = (int)candidate.MatchScores.TitleVerdict,
+                    AuthorVerdict = (int)candidate.MatchScores.AuthorVerdict,
+                    YearVerdict = (int)candidate.MatchScores.YearVerdict,
+                    FormatVerdict = (int)candidate.MatchScores.FormatVerdict,
+                    CoverScore = candidate.MatchScores.CoverScore,
+                    CoverVerdict = (int)candidate.MatchScores.CoverVerdict,
+                },
             ExtraFields = candidate.ExtraFields?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
                 ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             LinkState = "provider_only",
