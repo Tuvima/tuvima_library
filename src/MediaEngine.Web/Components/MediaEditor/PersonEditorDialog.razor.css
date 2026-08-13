@@ -797,3 +797,92 @@
         flex: 0 0 auto;
     }
 }
+
+/* Keep person artwork on the same gallery canvas as every other media type. */
+.person-editor__artwork-workspace {
+    display: grid;
+    grid-template-columns: minmax(calc(var(--tl-space-10) * 5), calc(var(--tl-space-10) * 5.8)) minmax(0, 1fr);
+    min-height: calc(var(--tl-space-10) * 14);
+    margin-top: 0;
+}
+
+.person-editor__artwork-type-rail {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--tl-space-5);
+    padding: var(--tl-space-5) var(--tl-space-3);
+    border-right: 1px solid var(--tl-divider);
+    background: var(--tl-bg-surface);
+}
+
+.person-editor__artwork-context {
+    align-items: flex-start;
+    justify-content: flex-start;
+    gap: var(--tl-space-3);
+    padding: 0 var(--tl-space-2);
+    border: 0;
+}
+
+.person-editor__artwork-context > .mud-icon-root {
+    margin-top: var(--tl-space-1);
+    color: var(--tl-accent-primary-hover);
+}
+
+.person-editor__artwork-context strong {
+    font-size: var(--tl-font-size-md);
+}
+
+.person-editor__artwork-context span {
+    line-height: var(--tl-line-height-relaxed);
+}
+
+.person-editor__artwork-type-picker {
+    display: grid;
+    gap: var(--tl-space-2);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+}
+
+::deep .person-editor__artwork-rail-item {
+    width: 100%;
+    min-height: calc(var(--tl-space-10) + var(--tl-space-4));
+    padding-inline: var(--tl-space-4);
+    border-color: transparent;
+    border-radius: var(--tl-radius-lg);
+}
+
+::deep .person-editor__artwork-rail-item.is-active {
+    border-color: transparent;
+    color: var(--tl-accent-primary-hover);
+}
+
+.person-editor__artwork-main {
+    padding: var(--tl-space-5);
+}
+
+.person-editor__artwork-heading h3 {
+    font-size: var(--tl-font-size-xl);
+}
+
+@media (max-width: 1040px) {
+    .person-editor__artwork-workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .person-editor__artwork-type-rail {
+        border-right: 0;
+        border-bottom: 1px solid var(--tl-divider);
+    }
+
+    .person-editor__artwork-type-picker {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    ::deep .person-editor__artwork-rail-item {
+        width: auto;
+        flex: 0 0 auto;
+    }
+}

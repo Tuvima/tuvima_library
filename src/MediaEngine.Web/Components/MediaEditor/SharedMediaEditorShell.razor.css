@@ -4662,6 +4662,25 @@
     text-transform: none;
 }
 
+.sme-match-search-mode {
+    min-height: calc(var(--tl-space-10) + var(--tl-space-2));
+    padding: 0 var(--tl-space-2);
+    border: 0;
+    border-bottom: var(--tl-space-1) solid transparent;
+    border-radius: 0;
+    color: var(--tl-text-secondary);
+    background: transparent;
+    font-family: var(--font-ui);
+    font-size: var(--tl-font-size-sm);
+    font-weight: var(--tl-font-weight-semibold);
+    cursor: pointer;
+}
+
+.sme-match-search-mode.is-active {
+    border-color: var(--tl-accent-primary);
+    color: var(--tl-accent-primary-hover);
+}
+
 ::deep .sme-match-search-mode.is-active {
     border-color: var(--tl-accent-primary-border);
     background: var(--tl-accent-primary-soft);
@@ -7298,7 +7317,7 @@
 
 .sme-match-summary-body {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(calc(var(--tl-space-10) * 3.2), 0.9fr) minmax(calc(var(--tl-space-10) * 4.2), 1.1fr);
     align-items: center;
     gap: var(--tl-space-4);
 }
@@ -7345,7 +7364,7 @@
 }
 
 .sme-match-summary-card .sme-match-provider-facts > div {
-    grid-template-columns: calc(var(--tl-space-10) * 2.5) minmax(0, 1fr);
+    grid-template-columns: calc(var(--tl-space-10) * 2.1) minmax(0, 1fr);
     gap: var(--tl-space-3);
     padding: var(--tl-space-2) 0;
     border-color: var(--tl-divider);
@@ -7353,9 +7372,10 @@
 
 .sme-match-summary-card .sme-match-provider-facts {
     display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--tl-space-3);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+    min-width: 0;
+    margin: 0;
 }
 
 .sme-match-summary-card .sme-match-provider-facts dt,
@@ -7367,6 +7387,7 @@
 
 .sme-match-summary-card .sme-match-provider-facts dd {
     color: var(--tl-text-primary);
+    overflow-wrap: anywhere;
 }
 
 .sme-match-summary-card .sme-match-source-links {
@@ -7392,19 +7413,15 @@
 }
 
 .sme-match-search-panel .sme-match-section-heading--search {
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--tl-space-4);
     margin: 0;
-    padding: var(--tl-space-4);
-}
-
-.sme-match-search-panel .sme-match-section-heading > div:first-child > span {
-    color: var(--tl-text-primary);
-    font-size: var(--tl-font-size-lg);
-    font-weight: var(--tl-font-weight-semibold);
-    letter-spacing: normal;
-    text-transform: none;
+    padding: var(--tl-space-3) var(--tl-space-4) 0;
 }
 
 .sme-match-search-panel .sme-match-section-heading p {
+    margin: 0;
     color: var(--tl-text-secondary);
     font-size: var(--tl-font-size-sm);
 }
@@ -7425,6 +7442,9 @@
     border-radius: 0;
     color: var(--tl-text-secondary);
     background: transparent;
+    font-size: var(--tl-font-size-sm);
+    font-weight: var(--tl-font-weight-semibold);
+    text-transform: none;
 }
 
 ::deep .sme-match-search-mode.is-active {
@@ -7461,7 +7481,7 @@
 }
 
 .sme-match-independence-note {
-    margin-top: var(--tl-space-3);
+    margin-block: var(--tl-space-3) var(--tl-space-4);
     padding: var(--tl-space-3);
     border: 1px solid var(--tl-status-info-border);
     border-radius: var(--tl-radius-md);
@@ -7509,5 +7529,134 @@
     .sme-match-collapsed-actions {
         align-items: stretch;
         flex-direction: column;
+    }
+}
+
+/* Artwork uses an in-workspace type rail and a single, consistent gallery canvas. */
+.sme-artwork-workspace {
+    display: grid;
+    grid-template-columns: minmax(calc(var(--tl-space-10) * 5), calc(var(--tl-space-10) * 5.8)) minmax(0, 1fr);
+    min-height: calc(var(--tl-space-10) * 14);
+    overflow: hidden;
+    border: 1px solid var(--tl-border-default);
+    border-radius: var(--tl-radius-xl);
+    background: var(--tl-bg-surface-raised);
+}
+
+.sme-artwork-type-rail {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--tl-space-5);
+    padding: var(--tl-space-5) var(--tl-space-3);
+    border-right: 1px solid var(--tl-divider);
+    background: var(--tl-bg-surface);
+}
+
+.sme-artwork-type-rail .sme-artwork-context {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--tl-space-3);
+    margin: 0;
+    padding: 0 var(--tl-space-2);
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+}
+
+.sme-artwork-type-rail .sme-artwork-context > .mud-icon-root {
+    margin-top: var(--tl-space-1);
+    color: var(--tl-accent-primary-hover);
+}
+
+.sme-artwork-type-rail .sme-artwork-context > div {
+    display: grid;
+    min-width: 0;
+    gap: var(--tl-space-2);
+}
+
+.sme-artwork-type-rail .sme-artwork-context strong {
+    color: var(--tl-text-primary);
+    font-size: var(--tl-font-size-md);
+    font-weight: var(--tl-font-weight-semibold);
+}
+
+.sme-artwork-type-rail .sme-artwork-context span {
+    color: var(--tl-text-secondary);
+    font-size: var(--tl-font-size-sm);
+    font-weight: var(--tl-font-weight-regular);
+    line-height: var(--tl-line-height-relaxed);
+}
+
+.sme-artwork-type-picker {
+    display: grid;
+    gap: var(--tl-space-2);
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+}
+
+::deep .sme-artwork-rail-item {
+    width: 100%;
+    min-height: calc(var(--tl-space-10) + var(--tl-space-4));
+    justify-content: flex-start;
+    padding-inline: var(--tl-space-4) !important;
+    border-color: transparent;
+    border-radius: var(--tl-radius-lg);
+    font-size: var(--tl-font-size-sm);
+    font-weight: var(--tl-font-weight-semibold);
+}
+
+::deep .sme-artwork-rail-item .mud-button-label {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--tl-space-3);
+    width: 100%;
+}
+
+::deep .sme-artwork-rail-item--active {
+    border-color: transparent;
+    color: var(--tl-accent-primary-hover);
+}
+
+.sme-artwork-type-rail .sme-artwork-context-actions {
+    display: grid;
+    gap: var(--tl-space-2);
+    margin-top: auto;
+}
+
+.sme-artwork-main {
+    min-width: 0;
+    padding: var(--tl-space-5);
+}
+
+.sme-artwork-editor-heading h3 {
+    font-size: var(--tl-font-size-xl);
+}
+
+@media (max-width: 1040px) {
+    .sme-artwork-workspace {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .sme-artwork-type-rail {
+        border-right: 0;
+        border-bottom: 1px solid var(--tl-divider);
+    }
+
+    .sme-artwork-type-picker {
+        display: flex;
+        overflow-x: auto;
+    }
+
+    ::deep .sme-artwork-rail-item {
+        width: auto;
+        flex: 0 0 auto;
+    }
+
+    .sme-artwork-type-rail .sme-artwork-context-actions {
+        display: flex;
+        margin-top: 0;
     }
 }

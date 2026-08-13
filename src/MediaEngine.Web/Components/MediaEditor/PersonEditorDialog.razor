@@ -142,14 +142,15 @@
             {
                 var selectedSlot = SelectedPersonArtworkSlot;
                 var selectedVariant = SelectedPersonArtworkVariant;
-                <div class="person-editor__artwork-context">
-                    <div>
-                        <strong>Person artwork</strong>
-                        <span>Choose the durable portrait and supporting artwork used throughout Tuvima Library.</span>
-                    </div>
-                </div>
                 <section class="person-editor__artwork-workspace">
-                    <div class="person-editor__artwork-main">
+                    <aside class="person-editor__artwork-type-rail">
+                        <div class="person-editor__artwork-context">
+                            <MudIcon Icon="@Icons.Material.Outlined.Collections" Size="Size.Small" />
+                            <div>
+                                <strong>Person artwork</strong>
+                                <span>Manage all artwork for this person.</span>
+                            </div>
+                        </div>
                         <div class="person-editor__artwork-type-picker" role="tablist" aria-label="Artwork types">
                             @foreach (var slot in _artwork?.Slots ?? [])
                             {
@@ -163,6 +164,8 @@
                                 </AppButton>
                             }
                         </div>
+                    </aside>
+                    <div class="person-editor__artwork-main">
                         @if (selectedSlot is null)
                         {
                             <div class="person-editor__artwork-empty">No editable artwork types are available for this person.</div>

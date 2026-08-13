@@ -871,33 +871,30 @@
                                 <section class="sme-match-search-panel @(!_showMatchSearch ? "sme-match-search-panel--collapsed" : null)" aria-hidden="@(!_showMatchSearch)">
                                     @if (SupportsCanonicalSearch)
                                     {
+                                        <div class="sme-match-search-modes" role="tablist" aria-label="Match search type">
+                                            <AppNativeButton Type="button"
+                                                             Class="@(!IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
+                                                             role="tab"
+                                                             aria-selected="@(!IsWikidataSearchMode)"
+                                                             OnClick="@(() => SelectMatchSearchMode("retail"))">
+                                                Retail Provider
+                                            </AppNativeButton>
+                                            <AppNativeButton Type="button"
+                                                             Class="@(IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
+                                                             role="tab"
+                                                             aria-selected="@IsWikidataSearchMode"
+                                                             OnClick="@(() => SelectMatchSearchMode("wikidata"))">
+                                                Canonical Identity
+                                            </AppNativeButton>
+                                        </div>
+
                                         <div class="sme-match-section-heading sme-match-section-heading--search">
-                                            <div>
-                                                <span>Find a better match</span>
-                                                <p>@(IsWikidataSearchMode
-                                                    ? "Search Wikidata for the shared canonical identity, even when no retail title match exists."
-                                                    : "Search retail providers for the edition, release, or title represented by this file.")</p>
-                                            </div>
+                                            <p>@(IsWikidataSearchMode
+                                                ? "Select the shared Wikidata identity and relationships represented by this item."
+                                                : "Select the retail provider record that represents this specific edition or release.")</p>
                                             <AppButton Label="Cancel change"
                                                        StartIcon="@Icons.Material.Outlined.Close"
                                                        OnClick="CloseMatchSearch" />
-                                        </div>
-
-                                        <div class="sme-match-search-modes" role="group" aria-label="Match search type">
-                                            <AppButton Variant="Variant.Text"
-                                                       Color="Color.Inherit"
-                                                       Class="@(!IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
-                                                       StartIcon="@Icons.Material.Outlined.Storefront"
-                                                       OnClick="@(() => SelectMatchSearchMode("retail"))">
-                                                <span><strong>Retail Provider</strong><small>Edition, release, or provider listing</small></span>
-                                            </AppButton>
-                                            <AppButton Variant="Variant.Text"
-                                                       Color="Color.Inherit"
-                                                       Class="@(IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
-                                                       StartIcon="@Icons.Material.Outlined.Hub"
-                                                       OnClick="@(() => SelectMatchSearchMode("wikidata"))">
-                                                <span><strong>Canonical Identity</strong><small>Shared Wikidata identity and relationships</small></span>
-                                            </AppButton>
                                         </div>
 
                                     @if (QuickSearchTargets.Count > 1)
@@ -916,13 +913,6 @@
                                             }
                                         </div>
                                     }
-
-                                        <div class="sme-match-independence-note">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                                            <span>@(IsWikidataSearchMode
-                                                ? "Changing the canonical identity does not replace the selected retail edition or provider record."
-                                                : "Changing the retail provider match does not change the canonical Wikidata identity.")</span>
-                                        </div>
 
                                         <div class="sme-search-row">
                                             <AppTextField T="string"
@@ -1166,6 +1156,13 @@
                                                 }
                                             }
                                         </div>
+
+                                        <div class="sme-match-independence-note">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                            <span>@(IsWikidataSearchMode
+                                                ? "Changing the canonical identity does not replace the selected retail edition or provider record."
+                                                : "Changing the retail provider match does not change the canonical Wikidata identity.")</span>
+                                        </div>
                                     }
                                     else if (!string.IsNullOrWhiteSpace(CanonicalSearchUnavailableReason))
                                     {
@@ -1234,28 +1231,15 @@
                     <div class="sme-artwork">
                         @if (IsSingleItem)
                         {
-                            <div class="sme-artwork-context">
-                                <div>
-                                    <strong>@(ArtworkScope?.Label ?? "Artwork") artwork</strong>
-                                    <span>@GetArtworkTabExplanation()</span>
-                                </div>
-                                @if (ArtworkSlots.Count > 0 && GetRelatedArtworkScopeTargets().Count > 0)
-                                {
-                                    <div class="sme-artwork-context-actions">
-                                        @foreach (var scope in GetRelatedArtworkScopeTargets())
-                                        {
-                                            <AppButton Variant="Variant.Outlined"
-                                                       Color="Color.Inherit"
-                                                       Class="sme-inline-btn"
-                                                       OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
-                                                Open @scope.Label Artwork
-                                            </AppButton>
-                                        }
-                                    </div>
-                                }
-                            </div>
                             <section class="sme-artwork-workspace">
-                                <div class="sme-artwork-main">
+                                <aside class="sme-artwork-type-rail">
+                                    <div class="sme-artwork-context">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Collections" Size="Size.Small" />
+                                        <div>
+                                            <strong>@(ArtworkScope?.Label ?? "Artwork") artwork</strong>
+                                            <span>@GetArtworkTabExplanation()</span>
+                                        </div>
+                                    </div>
                                     <div class="sme-artwork-type-picker" role="tablist" aria-label="Artwork types">
                                         @foreach (var slotItem in ArtworkSlots)
                                         {
@@ -1273,6 +1257,22 @@
                                             </AppButton>
                                         }
                                     </div>
+                                    @if (ArtworkSlots.Count > 0 && GetRelatedArtworkScopeTargets().Count > 0)
+                                    {
+                                        <div class="sme-artwork-context-actions">
+                                            @foreach (var scope in GetRelatedArtworkScopeTargets())
+                                            {
+                                                <AppButton Variant="Variant.Outlined"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-inline-btn"
+                                                           OnClick="@(() => SelectArtworkScopeAsync(scope.ScopeId))">
+                                                    Open @scope.Label Artwork
+                                                </AppButton>
+                                            }
+                                        </div>
+                                    }
+                                </aside>
+                                <div class="sme-artwork-main">
                                     @if (ArtworkSlots.Count == 0)
                                     {
                                         <div class="sme-artwork-readonly">
