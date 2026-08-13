@@ -285,9 +285,16 @@ public sealed class CollectionRuleEvaluator
         // relationship graph may contain assistant or supplementary credits.
         if (field == "person_qid")
         {
-            var pName = $"@p{paramIdx++}";
-            parameters.Add((pName, effectiveValues[0]));
-            return ($"w.id IN (SELECT e_p.work_id FROM editions e_p INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id INNER JOIN primary_person_media_credits credit ON credit.media_asset_id = ma_p.id WHERE credit.person_qid = {pName} COLLATE NOCASE)", parameters);
+            var predicates = new List<string>();
+            foreach (var value in effectiveValues.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var pName = $"@p{paramIdx++}";
+                parameters.Add((pName, value));
+                predicates.Add($"EXISTS (SELECT 1 FROM editions e_p INNER JOIN media_assets ma_p ON ma_p.edition_id = e_p.id INNER JOIN primary_person_media_credits credit ON credit.media_asset_id = ma_p.id WHERE e_p.work_id = w.id AND credit.person_qid = {pName} COLLATE NOCASE)");
+            }
+
+            var joiner = op is "any_of" or "in" ? " OR " : " AND ";
+            return ($"({string.Join(joiner, predicates)})", parameters);
         }
 
         if (field is "has_source_work" or "is_adaptation" or "source_work_owned" or "has_adaptation" or "adaptation_owned")

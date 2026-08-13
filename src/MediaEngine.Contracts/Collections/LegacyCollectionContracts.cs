@@ -135,6 +135,7 @@ public sealed class CollectionCreateRequest
     [JsonPropertyName("display_limit")] public int DisplayLimit { get; init; }
     [JsonPropertyName("live_updating")] public bool LiveUpdating { get; init; } = true;
     [JsonPropertyName("placements")] public List<CollectionPlacementRequest>? Placements { get; init; }
+    [JsonPropertyName("work_ids")] public List<Guid> WorkIds { get; init; } = [];
 }
 
 public sealed class CollectionPlacementRequest

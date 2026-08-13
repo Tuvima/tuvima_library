@@ -526,6 +526,22 @@ public sealed partial class EngineApiClient
         string visibility,
         Guid? profileId = null,
         CancellationToken ct = default)
+        => await CreateCollectionWithItemsAsync(name, description, iconName, collectionType, rules, matchMode, sortField, sortDirection, liveUpdating, visibility, [], profileId, ct);
+
+    public async Task<Guid?> CreateCollectionWithItemsAsync(
+        string name,
+        string? description,
+        string? iconName,
+        string collectionType,
+        List<CollectionRulePredicateViewModel> rules,
+        string matchMode,
+        string? sortField,
+        string sortDirection,
+        bool liveUpdating,
+        string visibility,
+        IReadOnlyList<Guid> workIds,
+        Guid? profileId = null,
+        CancellationToken ct = default)
     {
         try
         {
@@ -541,6 +557,7 @@ public sealed partial class EngineApiClient
                 SortField = sortField,
                 SortDirection = sortDirection,
                 LiveUpdating = liveUpdating,
+                WorkIds = workIds.Where(id => id != Guid.Empty).Distinct().ToList(),
             };
             var url = AppendCollectionProfileQuery("/collections", profileId);
             var response = await _http.PostAsJsonAsync(url, body, ct);

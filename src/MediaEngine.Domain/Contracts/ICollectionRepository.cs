@@ -38,6 +38,13 @@ public interface ICollectionRepository
     /// </summary>
     Task<Guid> UpsertAsync(Collection collection, CancellationToken ct = default);
 
+    /// <summary>Creates one managed collection and its initial materialized members atomically.</summary>
+    Task<Guid> CreateManagedCollectionAsync(
+        Collection collection,
+        IReadOnlyList<CollectionItem> items,
+        CancellationToken ct = default) =>
+        throw new NotSupportedException("This collection repository does not support atomic managed-collection creation.");
+
     /// <summary>
     /// Bulk-inserts collection relationship rows. Idempotent — duplicates are ignored.
     /// </summary>

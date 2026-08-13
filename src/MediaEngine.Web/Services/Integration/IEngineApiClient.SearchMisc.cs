@@ -111,6 +111,8 @@ public partial interface IEngineApiClient
     /// <summary>POST /collections — create a new collection.</summary>
     Task<Guid?> CreateCollectionAndReturnIdAsync(string name, string? description, string? iconName, string collectionType, List<CollectionRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, string visibility, Guid? profileId = null, CancellationToken ct = default);
 
+    Task<Guid?> CreateCollectionWithItemsAsync(string name, string? description, string? iconName, string collectionType, List<CollectionRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, string visibility, IReadOnlyList<Guid> workIds, Guid? profileId = null, CancellationToken ct = default);
+
     Task<bool> CreateCollectionAsync(string name, string? description, string? iconName, string collectionType, List<CollectionRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, string visibility, Guid? profileId = null, CancellationToken ct = default);
 
     /// <summary>PUT /collections/{id} — update a collection.</summary>

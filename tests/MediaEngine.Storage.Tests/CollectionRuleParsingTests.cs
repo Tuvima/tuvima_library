@@ -25,4 +25,15 @@ public sealed class CollectionRuleParsingTests
 
         Assert.Contains("JSON array", error.Message, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ParseRules_PreservesMultiPersonAllOperatorAndDurableValues()
+    {
+        var rules = CollectionRuleEvaluator.ParseRules(
+            """[{"field":"person_qid","op":"all_of","values":["Q25191","Q17714"],"displayValue":"Christopher Nolan + Matt Damon"}]""");
+
+        var rule = Assert.Single(rules);
+        Assert.Equal("all_of", rule.Op);
+        Assert.Equal(["Q25191", "Q17714"], Assert.IsType<string[]>(rule.Values));
+    }
 }

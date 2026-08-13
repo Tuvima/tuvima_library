@@ -303,7 +303,7 @@
                     EditingCollection = collection,
                     ActiveProfileId = collection.ProfileId,
                     CanManageSharedCollections = Model.IsAdminView || collection.CanShare,
-                    Mode = "Collection",
+                    Mode = CollectionEditorMode.CuratedCollection,
                 });
 
                 if (collectionApplied)
@@ -472,13 +472,16 @@
             {
                 { nameof(AddToCollectionDialog.WorkId), workId },
                 { nameof(AddToCollectionDialog.WorkTitle), Model.Title },
+                { nameof(AddToCollectionDialog.MediaType), Model.Facts?.MediaKind ?? Model.EntityType.ToString() },
+                { nameof(AddToCollectionDialog.Year), Model.Facts?.Year },
+                { nameof(AddToCollectionDialog.ArtworkUrl), Model.Artwork.CoverUrl ?? Model.Artwork.PosterUrl ?? Model.Artwork.PortraitUrl },
             },
             new DialogOptions
             {
                 CloseButton = false,
                 NoHeader = true,
                 MaxWidth = MaxWidth.Medium,
-                FullWidth = true,
+                FullWidth = false,
                 BackdropClick = true,
                 CloseOnEscapeKey = true,
             });

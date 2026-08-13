@@ -114,8 +114,8 @@
     ];
 
     private CollectionListItemViewModel? EditingCollection => Request.EditingCollection;
-    private bool IsPlaylistLaunch => string.Equals(Request.Mode, "Playlist", StringComparison.OrdinalIgnoreCase);
-    private bool IsSmartPlaylistLaunch => string.Equals(Request.Mode, "SmartPlaylist", StringComparison.OrdinalIgnoreCase);
+    private bool IsPlaylistLaunch => Request.Mode == CollectionEditorMode.ManualPlaylist;
+    private bool IsSmartPlaylistLaunch => Request.Mode == CollectionEditorMode.SmartPlaylist;
     private bool IsPlaylistDialog => IsPlaylistLaunch || IsSmartPlaylistLaunch;
     private (string Id, string Label)[] VisibleTabs => IsPlaylistLaunch ? PlaylistTabs : IsSmartPlaylistLaunch ? SmartPlaylistTabs : Tabs;
 

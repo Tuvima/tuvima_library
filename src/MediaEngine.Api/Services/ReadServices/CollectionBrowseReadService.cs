@@ -524,11 +524,20 @@ public sealed class CollectionBrowseReadService(
             LIMIT @Limit
             """,
         };
-        var rows = await conn.QueryAsync<CollectionRuleValueDto>(new CommandDefinition(
+        var rows = await conn.QueryAsync<CollectionRuleValueRow>(new CommandDefinition(
             sql,
             new { Field = field, Limit = take },
             cancellationToken: ct)).ConfigureAwait(false);
-        return rows.AsList();
+        return rows
+            .Select(row => new CollectionRuleValueDto(row.Value, row.Label, checked((int)row.LocalCount)))
+            .ToList();
+    }
+
+    private sealed class CollectionRuleValueRow
+    {
+        public string Value { get; init; } = string.Empty;
+        public string Label { get; init; } = string.Empty;
+        public long LocalCount { get; init; }
     }
 
     public async Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(

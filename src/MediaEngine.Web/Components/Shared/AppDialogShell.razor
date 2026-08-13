@@ -4,7 +4,16 @@
      role="@(Modal ? "dialog" : "region")"
      aria-modal="@(Modal ? "true" : null)"
      aria-labelledby="@TitleId">
-    <header class="app-dialog-shell__header">
+    <header class="@HeaderClass">
+        @if (OnBack.HasDelegate)
+        {
+            <MudIconButton Icon="@Icons.Material.Outlined.ArrowBack"
+                           Size="MudBlazor.Size.Small"
+                           Color="Color.Inherit"
+                           Class="app-dialog-shell__back"
+                           aria-label="Go back"
+                           OnClick="OnBack" />
+        }
         @if (HeaderArt is not null)
         {
             <div class="app-dialog-shell__art">@HeaderArt</div>
@@ -60,9 +69,12 @@
     [Parameter] public RenderFragment? HeaderArt { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public EventCallback OnBack { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public bool CenterTitle { get; set; }
     [Parameter] public bool Modal { get; set; } = true;
     private string TitleId { get; } = $"dialog-title-{Guid.NewGuid():N}";
+    private string HeaderClass => $"app-dialog-shell__header{(CenterTitle ? " app-dialog-shell__header--centered" : string.Empty)}";
 
     private string SizeClass => Size.Trim().ToLowerInvariant() switch
     {

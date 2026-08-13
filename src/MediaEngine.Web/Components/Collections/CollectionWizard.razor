@@ -1,0 +1,785 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Contracts.Collections
+@using MediaEngine.Web.Models.ViewDTOs
+@using MediaEngine.Web.Services.Editing
+
+@inject IEngineApiClient ApiClient
+@inject ISnackbar Snackbar
+
+<NavigationLock ConfirmExternalNavigation="@_dirty" />
+
+<AppDialogShell Title="@DialogTitle"
+                Size="Medium"
+                Modal="true"
+                CenterTitle="true"
+                OnBack="BackOrCancel"
+                OnClose="Cancel">
+    <ChildContent>
+        <div class="collection-wizard">
+            <div class="collection-wizard__mobile-progress">
+                Step @_step of 4 <span aria-hidden="true">·</span> <strong>@StepLabel(_step)</strong>
+            </div>
+
+            <nav class="collection-wizard__stepper" aria-label="Collection creation progress">
+                @for (var step = 1; step <= 4; step++)
+                {
+                    @RenderStepperStep(step)
+                    @if (step < 4)
+                    {
+                        <span class="collection-wizard__step-line" aria-hidden="true"></span>
+                    }
+                }
+            </nav>
+
+            @if (HasTriggeringItem)
+            {
+                <div class="collection-wizard__origin">
+                    @if (!string.IsNullOrWhiteSpace(Request.TriggeringArtworkUrl))
+                    {
+                        <img src="@Request.TriggeringArtworkUrl" alt="" />
+                    }
+                    <div>
+                        <span>Starting from</span>
+                        <strong>@Request.TriggeringWorkTitle</strong>
+                        <small>@TriggeringMeta</small>
+                    </div>
+                </div>
+            }
+
+            <div class="collection-wizard__content">
+                @switch (_step)
+                {
+                    case 1:
+                        @RenderTypeStep()
+                        break;
+                    case 2:
+                        @RenderDetailsStep()
+                        break;
+                    case 3:
+                        @RenderContentsStep()
+                        break;
+                    default:
+                        @RenderReviewStep()
+                        break;
+                }
+            </div>
+        </div>
+    </ChildContent>
+    <FooterContent>
+        <div class="collection-wizard__footer">
+            <AppButton Variant="Variant.Outlined"
+                       Color="Color.Inherit"
+                       StartIcon="@(_step == 1 ? null : Icons.Material.Outlined.ArrowBack)"
+                       OnClick="BackOrCancel"
+                       Disabled="@_saving">
+                @(_step == 1 ? "Cancel" : "Back")
+            </AppButton>
+            <AppButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       Class="collection-wizard__primary"
+                       EndIcon="@(_step == 4 ? null : Icons.Material.Outlined.ArrowForward)"
+                       OnClick="ContinueOrSave"
+                       Disabled="@(_saving || !CanContinue)">
+                @if (_saving)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                }
+                @(_step == 4 ? FinalActionLabel : "Continue")
+            </AppButton>
+        </div>
+    </FooterContent>
+</AppDialogShell>
+
+@code {
+    [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter, EditorRequired] public CollectionEditorLaunchRequest Request { get; set; } = new();
+
+    private int _step = 1;
+    private int _furthestStep = 1;
+    private CollectionEditorMode _mode;
+    private string _name = string.Empty;
+    private string? _description;
+    private bool _dynamic;
+    private string _matchMode = "all";
+    private bool _dirty;
+    private bool _saving;
+    private bool _loadingItems;
+    private string _itemSearch = string.Empty;
+    private string _activeRuleCategory = "people";
+    private IBrowserFile? _artworkFile;
+    private string? _artworkPreviewUrl;
+    private List<CollectionMediaLookupDto> _lookupItems = [];
+    private List<CollectionWizardItem> _manualItems = [];
+    private List<CollectionRulePredicateViewModel> _rules = [];
+    private IReadOnlyList<CollectionRuleValueDto> _peopleOptions = [];
+    private CollectionPreviewResult? _preview;
+    private CancellationTokenSource? _previewCts;
+
+    private static readonly RuleCategory[] RuleCategories =
+    [
+        new("people", "People", Icons.Material.Outlined.Person),
+        new("genre", "Genre", Icons.Material.Outlined.TheaterComedy),
+        new("media", "Media type", Icons.Material.Outlined.Movie),
+        new("series", "Series", Icons.Material.Outlined.Tv),
+        new("universe", "Universe", Icons.Material.Outlined.Public),
+        new("rating", "Rating", Icons.Material.Outlined.StarBorder),
+        new("date", "Date", Icons.Material.Outlined.CalendarToday),
+    ];
+
+    private bool HasTriggeringItem => Request.TriggeringWorkId.HasValue;
+    private bool IsPlaylist => _mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist;
+    private string DialogTitle => IsPlaylist ? "Create Playlist" : "Create Collection";
+    private string FinalActionLabel => IsPlaylist ? "Create Playlist" : "Create Collection";
+    private string VisibilityLabel => IsPlaylist ? "Personal" : "Published";
+    private string CollectionType => IsPlaylist ? (_dynamic ? "Smart" : "Playlist") : "Custom";
+    private string TriggeringMeta => JoinMeta(Request.TriggeringMediaType, Request.TriggeringYear);
+    private bool CanContinue => _step switch
+    {
+        1 => true,
+        2 => !string.IsNullOrWhiteSpace(_name),
+        3 => _dynamic ? _rules.Any(IsCompleteRule) : _manualItems.Count > 0,
+        _ => true,
+    };
+
+    protected override void OnInitialized()
+    {
+        _mode = Request.Mode;
+        _dynamic = Request.InitialRulesEnabled ?? Request.Mode == CollectionEditorMode.SmartPlaylist;
+        _name = Request.InitialTitle ?? string.Empty;
+        if (HasTriggeringItem)
+        {
+            _manualItems.Add(new CollectionWizardItem(
+                Request.TriggeringWorkId!.Value,
+                Request.TriggeringWorkTitle ?? "Library item",
+                Request.TriggeringMediaType ?? "Media",
+                Request.TriggeringYear,
+                Request.TriggeringArtworkUrl));
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _peopleOptions = await ApiClient.GetCollectionEntityFieldValuesAsync("person_qid", 100);
+    }
+
+    private RenderFragment RenderTypeStep() => @<section class="collection-wizard__step">
+        <h3>What are you creating?</h3>
+        <div class="collection-wizard__type-options">
+            @if (Request.CanManageSharedCollections || Request.Mode == CollectionEditorMode.CuratedCollection)
+            {
+                <AppNativeButton Type="button"
+                                 Class="@TypeCardClass(!IsPlaylist)"
+                                 OnClick="@(() => SelectMode(CollectionEditorMode.CuratedCollection))">
+                    <span class="collection-wizard__type-icon"><MudIcon Icon="@Icons.Material.Outlined.Layers" /></span>
+                    <span class="collection-wizard__type-copy">
+                        <strong>Curated Collection</strong>
+                        <small>A published collection can mix books, movies, music, comics, and other media.</small>
+                    </span>
+                    <span class="collection-wizard__radio" aria-hidden="true"></span>
+                </AppNativeButton>
+            }
+            @if (CanOfferPlaylist)
+            {
+                <AppNativeButton Type="button"
+                                 Class="@TypeCardClass(IsPlaylist)"
+                                 OnClick="@(() => SelectMode(CollectionEditorMode.ManualPlaylist))">
+                    <span class="collection-wizard__type-icon"><MudIcon Icon="@Icons.Material.Outlined.QueueMusic" /></span>
+                    <span class="collection-wizard__type-copy">
+                        <strong>Playlist</strong>
+                        <small>A personal Listen queue containing music and audiobooks from this profile.</small>
+                    </span>
+                    <span class="collection-wizard__radio" aria-hidden="true"></span>
+                </AppNativeButton>
+            }
+        </div>
+        <div class="collection-wizard__scope-note">
+            <MudIcon Icon="@(IsPlaylist ? Icons.Material.Outlined.Headphones : Icons.Material.Outlined.Public)" />
+            <div>
+                <strong>@(IsPlaylist ? "Listen · Personal" : "Cross-media · Published")</strong>
+                <span>@(IsPlaylist
+                    ? "Playlist membership is limited to Listen media and belongs to the active profile."
+                    : "Curated collections are administrator-authored and available to every profile.")</span>
+            </div>
+        </div>
+    </section>;
+
+    private RenderFragment RenderStepperStep(int step) => @<AppNativeButton Type="button"
+        Class="@StepClass(step)"
+        Disabled="@(step > _furthestStep)"
+        OnClick="@(() => GoToStep(step))"
+        AriaLabel="@($"Go to {StepLabel(step)} step")">
+        <span class="collection-wizard__step-number">@(step < _step ? "✓" : step)</span>
+        <span>@StepLabel(step)</span>
+    </AppNativeButton>;
+
+    private RenderFragment RenderDetailsStep() => @<section class="collection-wizard__step">
+        <div class="collection-wizard__field">
+            <label>Name</label>
+            <AppTextField T="string"
+                          Value="@_name"
+                          ValueChanged="OnNameChanged"
+                          Placeholder="Name this collection"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          Class="app-dialog-field" />
+        </div>
+        @if (NameSuggestions.Count > 0)
+        {
+            <div class="collection-wizard__suggestions">
+                <span>Suggestions (optional)</span>
+                <div>
+                    @foreach (var suggestion in NameSuggestions)
+                    {
+                        <AppNativeButton Type="button" OnClick="@(() => OnNameChanged(suggestion))">@suggestion</AppNativeButton>
+                    }
+                </div>
+            </div>
+        }
+        <div class="collection-wizard__field">
+            <label>Description <span>(optional)</span></label>
+            <AppTextarea Value="@_description"
+                         ValueChanged="OnDescriptionChanged"
+                         Placeholder="Describe what belongs here"
+                         Lines="3"
+                         Immediate="true"
+                         Class="app-dialog-field app-dialog-textarea" />
+        </div>
+        <div class="collection-wizard__detail-grid">
+            <div>
+                <label>Visibility</label>
+                <div class="collection-wizard__visibility is-selected">
+                    <MudIcon Icon="@(IsPlaylist ? Icons.Material.Outlined.Person : Icons.Material.Outlined.Public)" />
+                    <span>@VisibilityLabel</span>
+                </div>
+                <small>@(IsPlaylist ? "Visible only to the active profile." : "Published in the shared library for every profile.")</small>
+            </div>
+            <div>
+                <label>Artwork</label>
+                <div class="collection-wizard__artwork-row">
+                    <div class="collection-wizard__artwork-preview">
+                        @if (!string.IsNullOrWhiteSpace(_artworkPreviewUrl))
+                        {
+                            <img src="@_artworkPreviewUrl" alt="Selected collection artwork" />
+                        }
+                        else if (_manualItems.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.ArtworkUrl)) is { } art)
+                        {
+                            <img src="@art.ArtworkUrl" alt="Generated artwork preview" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+                        }
+                    </div>
+                    <InputFile id="collection-artwork-file"
+                               class="collection-wizard__file-input"
+                               OnChange="OnArtworkSelected"
+                               accept=".jpg,.jpeg,.png" />
+                    <label for="collection-artwork-file" class="collection-wizard__artwork-change">
+                        <MudIcon Icon="@Icons.Material.Outlined.Edit" /> Change
+                    </label>
+                </div>
+                <small>Generated automatically unless you choose an image.</small>
+            </div>
+        </div>
+    </section>;
+
+    private RenderFragment RenderContentsStep() => @<section class="collection-wizard__step">
+        <h3>How should this @(IsPlaylist ? "playlist" : "collection") stay updated?</h3>
+        <div class="collection-wizard__segmented" role="group" aria-label="Membership mode">
+            <AppNativeButton Type="button" Class="@(!_dynamic ? "is-selected" : null)" OnClick="@(() => SetDynamic(false))">Manual</AppNativeButton>
+            <AppNativeButton Type="button" Class="@(_dynamic ? "is-selected" : null)" OnClick="@(() => SetDynamic(true))">Dynamic</AppNativeButton>
+        </div>
+
+        @if (_dynamic)
+        {
+            @RenderDynamicContents()
+        }
+        else
+        {
+            @RenderManualContents()
+        }
+    </section>;
+
+    private RenderFragment RenderManualContents() => @<div class="collection-wizard__manual">
+        <h4>Included items</h4>
+        <div class="collection-wizard__included-list">
+            @foreach (var item in _manualItems)
+            {
+                <div class="collection-wizard__media-row is-included" @key="item.WorkId">
+                    @MediaArtwork(item.ArtworkUrl, item.Title)
+                    <div><strong>@item.Title</strong><small>@JoinMeta(item.MediaType, item.Year)</small></div>
+                    <AppIconButton Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Primary" Size="Size.Small" OnClick="@(() => RemoveItem(item.WorkId))" aria-label="Remove included item" />
+                </div>
+            }
+        </div>
+        <div class="collection-wizard__search-row">
+            <AppTextField T="string"
+                          Value="@_itemSearch"
+                          ValueChanged="SearchItemsAsync"
+                          Placeholder="@(IsPlaylist ? "Search music and audiobooks" : "Search your library")"
+                          Variant="Variant.Outlined"
+                          Immediate="true"
+                          DebounceInterval="300"
+                          Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Outlined.Search"
+                          Class="app-dialog-field" />
+        </div>
+        @if (_loadingItems)
+        {
+            <div class="collection-wizard__loading"><MudProgressCircular Indeterminate="true" Size="Size.Small" /> Searching…</div>
+        }
+        else
+        {
+            <div class="collection-wizard__lookup-list">
+                @foreach (var item in _lookupItems.Where(item => !_manualItems.Any(selected => selected.WorkId == item.WorkId)).Take(8))
+                {
+                    <div class="collection-wizard__media-row" @key="item.WorkId">
+                        @MediaArtwork(item.ArtworkUrl, item.Title)
+                        <div><strong>@item.Title</strong><small>@JoinMeta(item.MediaType, item.Year)</small></div>
+                        <AppIconButton Icon="@Icons.Material.Outlined.AddCircleOutline" Size="Size.Small" OnClick="@(() => AddItem(item))" aria-label="@($"Add {item.Title}")" />
+                    </div>
+                }
+            </div>
+        }
+        <div class="collection-wizard__count">@_manualItems.Count @(_manualItems.Count == 1 ? "item" : "items") included</div>
+    </div>;
+
+    private RenderFragment RenderDynamicContents() => @<div class="collection-wizard__dynamic">
+        <h4>Build your rules</h4>
+        <div class="collection-wizard__rule-categories">
+            @foreach (var category in RuleCategories)
+            {
+                <AppNativeButton Type="button"
+                                 Class="@(category.Key == _activeRuleCategory ? "is-selected" : null)"
+                                 OnClick="@(() => SelectRuleCategory(category.Key))">
+                    <MudIcon Icon="@category.Icon" /><span>@category.Label</span>
+                </AppNativeButton>
+            }
+        </div>
+
+        @if (_activeRuleCategory == "people")
+        {
+            @RenderPeopleRule()
+        }
+
+        <div class="collection-wizard__rule-stack">
+            @foreach (var rule in _rules.Where(rule => rule.Field != "person_qid"))
+            {
+                <div class="collection-wizard__rule-card" @key="rule">
+                    <span class="collection-wizard__rule-icon"><MudIcon Icon="@IconForRule(rule.Field)" /></span>
+                    <div>
+                        <strong>@RuleLabel(rule.Field)</strong>
+                        <small>@RuleDescription(rule)</small>
+                    </div>
+                    <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small" OnClick="@(() => RemoveRule(rule))" aria-label="Remove rule" />
+                </div>
+                <span class="collection-wizard__and">AND</span>
+            }
+        </div>
+
+        <div class="collection-wizard__preview-summary">
+            <span><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /> @(_preview?.Count ?? 0) matching items</span>
+            <AppButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Visibility" OnClick="RunPreviewAsync">Preview</AppButton>
+        </div>
+    </div>;
+
+    private RenderFragment RenderPeopleRule() => @<div class="collection-wizard__people-rule">
+        <div class="collection-wizard__people-header">
+            <span class="collection-wizard__rule-icon"><MudIcon Icon="@Icons.Material.Outlined.Person" /></span>
+            <strong>People</strong>
+        </div>
+        <div class="collection-wizard__person-chips">
+            @foreach (var person in SelectedPeople)
+            {
+                <span @key="person.Value"><MudIcon Icon="@Icons.Material.Outlined.AccountCircle" /> @person.Label <AppNativeButton Type="button" OnClick="@(() => RemovePerson(person.Value))" AriaLabel="@($"Remove {person.Label}")">×</AppNativeButton></span>
+            }
+            <AppSelect T="string"
+                       Value="@string.Empty"
+                       ValueChanged="AddPerson"
+                       Placeholder="Add person"
+                       Variant="Variant.Outlined"
+                       Dense="true"
+                       Class="collection-wizard__person-select app-dialog-field app-dialog-select">
+                @foreach (var option in _peopleOptions.Where(option => !SelectedPeople.Any(person => person.Value == option.Value)))
+                {
+                    <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
+                }
+            </AppSelect>
+        </div>
+        @if (SelectedPeople.Count > 0)
+        {
+            <label>Items associated with</label>
+            <div class="collection-wizard__people-match">
+                <AppNativeButton Type="button" Class="@(_matchMode == "all" ? "is-selected" : null)" OnClick="@(() => SetPeopleMatchMode("all"))">
+                    <strong>All people selected</strong><small>Match items with every person above</small>
+                </AppNativeButton>
+                <AppNativeButton Type="button" Class="@(_matchMode == "any" ? "is-selected" : null)" OnClick="@(() => SetPeopleMatchMode("any"))">
+                    <strong>Any person selected</strong><small>Match items with any person above</small>
+                </AppNativeButton>
+            </div>
+        }
+    </div>;
+
+    private RenderFragment RenderReviewStep() => @<section class="collection-wizard__step collection-wizard__review">
+        <div class="collection-wizard__review-identity">
+            <div class="collection-wizard__review-art">
+                @foreach (var item in ReviewItems.Take(4))
+                {
+                    @MediaArtwork(item.CoverUrl, item.Title)
+                }
+            </div>
+            <div>
+                <h3>@_name</h3>
+                <p>@(IsPlaylist ? "Playlist · Listen" : "Collection · Cross-media") · @(_dynamic ? "Dynamic" : "Manual") · @VisibilityLabel</p>
+            </div>
+        </div>
+
+        <div class="collection-wizard__review-panel">
+            <div class="collection-wizard__review-heading"><strong>@(_dynamic ? "Matching now" : "Included items")</strong><span>@ReviewItems.Count items</span></div>
+            <div class="collection-wizard__review-items">
+                @foreach (var item in ReviewItems.Take(4))
+                {
+                    <div @key="item.EntityId">@MediaArtwork(item.CoverUrl, item.Title)<span>@item.Title</span></div>
+                }
+            </div>
+        </div>
+
+        @if (_dynamic)
+        {
+            <div class="collection-wizard__review-panel">
+                <strong>Automatically includes items where:</strong>
+                <div class="collection-wizard__review-rules">
+                    @foreach (var rule in _rules.Where(IsCompleteRule))
+                    {
+                        <div @key="rule"><MudIcon Icon="@IconForRule(rule.Field)" /> <span>@HumanizeRule(rule)</span></div>
+                    }
+                </div>
+            </div>
+        }
+        <div class="collection-wizard__review-visibility"><MudIcon Icon="@Icons.Material.Outlined.Lock" /><span>Visibility</span><strong>@VisibilityLabel</strong></div>
+    </section>;
+
+    private bool CanOfferPlaylist =>
+        Request.ActiveProfileId.HasValue
+        && (Request.Mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist
+            || IsListenMedia(Request.TriggeringMediaType));
+
+    private IReadOnlyList<string> NameSuggestions
+    {
+        get
+        {
+            var people = SelectedPeople.Select(person => person.Label).Take(2).ToArray();
+            if (people.Length == 2)
+                return [$"{people[0]} + {people[1]}", $"{people[0]} & {people[1]}"];
+            if (HasTriggeringItem && !string.IsNullOrWhiteSpace(Request.TriggeringWorkTitle))
+                return [$"More like {Request.TriggeringWorkTitle}"];
+            return [];
+        }
+    }
+
+    private CollectionRulePredicateViewModel? PeopleRule => _rules.FirstOrDefault(rule => rule.Field == "person_qid");
+    private IReadOnlyList<CollectionRuleValueDto> SelectedPeople =>
+        (PeopleRule?.Values ?? [])
+            .Select(value => _peopleOptions.FirstOrDefault(option => option.Value == value) ?? new CollectionRuleValueDto(value, value, 0))
+            .ToList();
+
+    private IReadOnlyList<CollectionResolvedItemViewModel> ReviewItems => _dynamic
+        ? _preview?.Items ?? []
+        : _manualItems.Select(item => new CollectionResolvedItemViewModel
+        {
+            EntityId = item.WorkId,
+            Title = item.Title,
+            MediaType = item.MediaType,
+            Year = item.Year,
+            CoverUrl = item.ArtworkUrl,
+        }).ToList();
+
+    private void SelectMode(CollectionEditorMode mode)
+    {
+        if (_mode == mode)
+            return;
+        _mode = mode;
+        _dynamic = mode == CollectionEditorMode.SmartPlaylist || (!IsPlaylist && (Request.InitialRulesEnabled ?? true));
+        if (IsPlaylist)
+            _manualItems.RemoveAll(item => !IsListenMedia(item.MediaType));
+        _dirty = true;
+    }
+
+    private async Task SetDynamic(bool dynamic)
+    {
+        _dynamic = dynamic;
+        _mode = IsPlaylist
+            ? (dynamic ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist)
+            : CollectionEditorMode.CuratedCollection;
+        _dirty = true;
+        if (dynamic)
+            await RunPreviewAsync();
+    }
+
+    private void GoToStep(int step)
+    {
+        if (step <= _furthestStep)
+            _step = step;
+    }
+
+    private async Task ContinueOrSave()
+    {
+        if (_step < 4)
+        {
+            if (_step == 3 && _dynamic)
+                await RunPreviewAsync();
+            _step++;
+            _furthestStep = Math.Max(_furthestStep, _step);
+            return;
+        }
+        await SaveAsync();
+    }
+
+    private void BackOrCancel()
+    {
+        if (_step == 1)
+            Cancel();
+        else
+            _step--;
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+
+    private Task OnNameChanged(string value)
+    {
+        _name = value;
+        _dirty = true;
+        return Task.CompletedTask;
+    }
+
+    private Task OnDescriptionChanged(string? value)
+    {
+        _description = value;
+        _dirty = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task OnArtworkSelected(InputFileChangeEventArgs args)
+    {
+        _artworkFile = args.File;
+        await using var stream = _artworkFile.OpenReadStream(5 * 1024 * 1024);
+        using var memory = new MemoryStream();
+        await stream.CopyToAsync(memory);
+        _artworkPreviewUrl = $"data:{_artworkFile.ContentType};base64,{Convert.ToBase64String(memory.ToArray())}";
+        _dirty = true;
+    }
+
+    private async Task SearchItemsAsync(string value)
+    {
+        _itemSearch = value;
+        _loadingItems = true;
+        try
+        {
+            _lookupItems = await ApiClient.LookupCollectionMediaAsync(
+                string.IsNullOrWhiteSpace(value) ? null : value,
+                mediaTypes: IsPlaylist ? "Music,Audiobook" : null,
+                limit: 24,
+                profileId: Request.ActiveProfileId);
+        }
+        finally
+        {
+            _loadingItems = false;
+        }
+    }
+
+    private void AddItem(CollectionMediaLookupDto item)
+    {
+        if (_manualItems.All(selected => selected.WorkId != item.WorkId))
+            _manualItems.Add(new CollectionWizardItem(item.WorkId, item.Title, item.MediaType, item.Year, item.ArtworkUrl));
+        _dirty = true;
+    }
+
+    private void RemoveItem(Guid workId)
+    {
+        _manualItems.RemoveAll(item => item.WorkId == workId);
+        _dirty = true;
+    }
+
+    private void SelectRuleCategory(string category)
+    {
+        _activeRuleCategory = category;
+        if (category == "people")
+            return;
+
+        var rule = category switch
+        {
+            "genre" => new CollectionRulePredicateViewModel { Field = "genre", Op = "contains", Value = "Drama", DisplayValue = "Drama" },
+            "series" => new CollectionRulePredicateViewModel { Field = "series", Op = "known" },
+            "universe" => new CollectionRulePredicateViewModel { Field = "fictional_universe", Op = "known" },
+            "rating" => new CollectionRulePredicateViewModel { Field = "provider_rating", Op = "gte", Value = "4", DisplayValue = "4 stars or higher" },
+            "date" => new CollectionRulePredicateViewModel { Field = "added_within_days", Op = "lte", Value = "30", DisplayValue = "Added in the last 30 days" },
+            _ => new CollectionRulePredicateViewModel { Field = "media_type", Op = "eq", Value = IsPlaylist ? "Music" : Request.TriggeringMediaType ?? "Movie", DisplayValue = IsPlaylist ? "Music" : Request.TriggeringMediaType ?? "Movie" },
+        };
+        if (_rules.All(existing => existing.Field != rule.Field))
+            _rules.Add(rule);
+        _dirty = true;
+        _ = SchedulePreviewAsync();
+    }
+
+    private Task AddPerson(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return Task.CompletedTask;
+        var rule = PeopleRule;
+        if (rule is null)
+        {
+            rule = new CollectionRulePredicateViewModel { Field = "person_qid", Op = "all_of", Values = [] };
+            _rules.Insert(0, rule);
+        }
+        rule.Values = (rule.Values ?? []).Append(value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        rule.Op = _matchMode == "any" ? "any_of" : "all_of";
+        rule.DisplayValue = string.Join(" + ", SelectedPeople.Select(person => person.Label));
+        _dirty = true;
+        return SchedulePreviewAsync();
+    }
+
+    private void RemovePerson(string value)
+    {
+        var rule = PeopleRule;
+        if (rule is null)
+            return;
+        rule.Values = (rule.Values ?? []).Where(item => item != value).ToArray();
+        if (rule.Values.Length == 0)
+            _rules.Remove(rule);
+        _dirty = true;
+        _ = SchedulePreviewAsync();
+    }
+
+    private void SetPeopleMatchMode(string mode)
+    {
+        _matchMode = mode;
+        if (PeopleRule is { } rule)
+            rule.Op = mode == "any" ? "any_of" : "all_of";
+        _dirty = true;
+        _ = SchedulePreviewAsync();
+    }
+
+    private void RemoveRule(CollectionRulePredicateViewModel rule)
+    {
+        _rules.Remove(rule);
+        _dirty = true;
+        _ = SchedulePreviewAsync();
+    }
+
+    private async Task SchedulePreviewAsync()
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = new CancellationTokenSource();
+        try
+        {
+            await Task.Delay(350, _previewCts.Token);
+            await RunPreviewAsync(_previewCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private Task RunPreviewAsync() => RunPreviewAsync(CancellationToken.None);
+
+    private async Task RunPreviewAsync(CancellationToken ct)
+    {
+        var rules = _rules.Where(IsCompleteRule).ToList();
+        _preview = rules.Count == 0 ? null : await ApiClient.PreviewCollectionRulesAsync(rules, "all", 24, ct);
+    }
+
+    private async Task SaveAsync()
+    {
+        _saving = true;
+        try
+        {
+            var collectionId = await ApiClient.CreateCollectionWithItemsAsync(
+                _name.Trim(),
+                string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
+                IsPlaylist ? Icons.Material.Outlined.QueueMusic : Icons.Material.Outlined.Collections,
+                CollectionType,
+                _dynamic ? _rules.Where(IsCompleteRule).ToList() : [],
+                "all",
+                null,
+                "desc",
+                _dynamic,
+                IsPlaylist ? "private" : "shared",
+                _dynamic ? [] : _manualItems.Select(item => item.WorkId).ToList(),
+                Request.ActiveProfileId);
+
+            if (!collectionId.HasValue)
+            {
+                Snackbar.Add($"The {(_mode == CollectionEditorMode.CuratedCollection ? "collection" : "playlist")} could not be created.", Severity.Error);
+                return;
+            }
+
+            if (_artworkFile is not null)
+            {
+                await using var stream = _artworkFile.OpenReadStream(5 * 1024 * 1024);
+                if (!await ApiClient.UploadCollectionCoverArtworkAsync(collectionId.Value, stream, _artworkFile.Name, Request.ActiveProfileId))
+                    Snackbar.Add("The collection was created, but its custom artwork could not be saved.", Severity.Warning);
+            }
+
+            _dirty = false;
+            Snackbar.Add($"{(IsPlaylist ? "Playlist" : "Collection")} \"{_name.Trim()}\" created.", Severity.Success);
+            MudDialog.Close(DialogResult.Ok(collectionId.Value));
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private RenderFragment MediaArtwork(string? url, string title) => @<div class="collection-wizard__media-art">
+        @if (!string.IsNullOrWhiteSpace(url))
+        {
+            <img src="@url" alt="" />
+        }
+        else
+        {
+            <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" />
+        }
+    </div>;
+
+    private string StepClass(int step) => $"collection-wizard__step-button {(step == _step ? "is-active" : step < _step ? "is-complete" : string.Empty)}";
+    private static string StepLabel(int step) => step switch { 1 => "Type", 2 => "Details", 3 => "Contents", _ => "Review" };
+    private static string TypeCardClass(bool selected) => $"collection-wizard__type-card {(selected ? "is-selected" : string.Empty)}";
+    private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
+        !string.IsNullOrWhiteSpace(rule.Field)
+        && (rule.Op is "known" or "unknown" || (rule.Values?.Length > 0) || !string.IsNullOrWhiteSpace(rule.Value));
+    private static bool IsListenMedia(string? mediaType) => mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true
+        || mediaType?.Contains("track", StringComparison.OrdinalIgnoreCase) == true;
+    private static string JoinMeta(string? first, string? second) => string.Join(" · ", new[] { first, second }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    private static string RuleLabel(string field) => field switch { "media_type" => "Media type", "provider_rating" => "Rating", "added_within_days" => "Date", "fictional_universe" => "Universe", _ => char.ToUpperInvariant(field[0]) + field[1..].Replace('_', ' ') };
+    private static string IconForRule(string field) => field switch
+    {
+        "person_qid" => Icons.Material.Outlined.Person,
+        "media_type" => Icons.Material.Outlined.Movie,
+        "provider_rating" => Icons.Material.Outlined.StarBorder,
+        "added_within_days" => Icons.Material.Outlined.CalendarToday,
+        "genre" => Icons.Material.Outlined.TheaterComedy,
+        "series" => Icons.Material.Outlined.Tv,
+        _ => Icons.Material.Outlined.Public,
+    };
+    private static string RuleDescription(CollectionRulePredicateViewModel rule) => rule.DisplayValue ?? rule.Value ?? "Known value";
+    private string HumanizeRule(CollectionRulePredicateViewModel rule)
+    {
+        if (rule.Field == "person_qid")
+        {
+            var names = SelectedPeople.Select(person => person.Label).ToArray();
+            return names.Length == 0 ? "A selected person is associated" : $"{string.Join(_matchMode == "any" ? " or " : " and ", names)} {(names.Length == 1 ? "is" : "are")} associated";
+        }
+        return rule.Field switch
+        {
+            "media_type" => $"Media type is {RuleDescription(rule)}",
+            "provider_rating" => $"Rating is {RuleDescription(rule)}",
+            "added_within_days" => RuleDescription(rule),
+            _ => $"{RuleLabel(rule.Field)} is {RuleDescription(rule)}",
+        };
+    }
+
+    private sealed record RuleCategory(string Key, string Label, string Icon);
+    private sealed record CollectionWizardItem(Guid WorkId, string Title, string MediaType, string? Year, string? ArtworkUrl);
+}

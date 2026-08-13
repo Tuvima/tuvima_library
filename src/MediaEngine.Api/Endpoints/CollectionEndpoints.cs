@@ -2119,6 +2119,7 @@ public static class CollectionEndpoints
             ICollectionRepository collectionRepo,
             ICollectionPlacementRepository placementRepo,
             IProfileRepository profileRepo,
+            CollectionCatalogReadService catalogReadService,
             CancellationToken ct) =>
         {
             if (string.IsNullOrWhiteSpace(body.Name))
@@ -2168,6 +2169,21 @@ public static class CollectionEndpoints
                 ? CollectionResolution.Materialized
                 : CollectionResolution.Query;
 
+            if (resolution == CollectionResolution.Query && body.WorkIds.Count > 0)
+            {
+                return ApiErrors.BadRequest("Rule-driven collections cannot store direct item membership.");
+            }
+
+            var resolvedWorkIds = new List<Guid>();
+            if (body.WorkIds.Count > 0)
+            {
+                foreach (var workId in body.WorkIds.Where(id => id != Guid.Empty).Distinct())
+                {
+                    resolvedWorkIds.Add(await catalogReadService.ResolveMembershipWorkIdAsync(workId, ct));
+                }
+                resolvedWorkIds = resolvedWorkIds.Distinct().ToList();
+            }
+
             var collection = new Collection
             {
                 Id = Guid.NewGuid(),
@@ -2191,7 +2207,18 @@ public static class CollectionEndpoints
                 CollectionUniverseStatus.Unknown);
             CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile.Id);
 
-            await collectionRepo.UpsertAsync(collection, ct);
+            var initialItems = resolvedWorkIds
+                .Select((workId, index) => new CollectionItem
+                {
+                    Id = Guid.NewGuid(),
+                    CollectionId = collection.Id,
+                    WorkId = workId,
+                    SortOrder = index + 1,
+                    AddedAt = DateTimeOffset.UtcNow,
+                })
+                .ToList();
+
+            await collectionRepo.CreateManagedCollectionAsync(collection, initialItems, ct);
 
             // Create placements
             if (body.Placements is { Count: > 0 })

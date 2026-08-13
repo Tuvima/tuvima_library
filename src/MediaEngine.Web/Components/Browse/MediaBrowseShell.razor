@@ -1575,7 +1575,7 @@
         {
             ActiveProfileId = activeProfile.Id,
             CanManageSharedCollections = activeProfile.Role is "Administrator" or "Curator",
-            Mode = smart ? "SmartPlaylist" : "Playlist",
+            Mode = smart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
             InitialCollectionType = smart ? "Smart" : "Playlist",
             InitialRulesEnabled = smart,
             InitialTitle = string.Empty,

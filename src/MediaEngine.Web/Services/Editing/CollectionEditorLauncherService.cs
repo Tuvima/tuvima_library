@@ -24,8 +24,11 @@ public sealed class CollectionEditorLauncherService
     public async Task<bool> OpenAsync(CollectionEditorLaunchRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var isManualPlaylist = string.Equals(request.Mode, "Playlist", StringComparison.OrdinalIgnoreCase);
-        var isSmartPlaylist = string.Equals(request.Mode, "SmartPlaylist", StringComparison.OrdinalIgnoreCase);
+        var isManualPlaylist = request.Mode == CollectionEditorMode.ManualPlaylist;
+        var isSmartPlaylist = request.Mode == CollectionEditorMode.SmartPlaylist;
+
+        if (request.EditingCollection is null)
+            return await OpenWizardAsync(request);
 
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
             request.EditingCollection is null ? DialogTitleFor(request) : EditDialogTitleFor(request),
@@ -50,19 +53,44 @@ public sealed class CollectionEditorLauncherService
         return result is not null && !result.Canceled;
     }
 
+    private async Task<bool> OpenWizardAsync(CollectionEditorLaunchRequest request)
+    {
+        var dialog = await _dialogService.ShowAsync<CollectionWizard>(
+            DialogTitleFor(request),
+            new DialogParameters
+            {
+                { nameof(CollectionWizard.Request), request },
+            },
+            new DialogOptions
+            {
+                CloseButton = false,
+                NoHeader = true,
+                MaxWidth = MaxWidth.Medium,
+                FullWidth = false,
+                BackdropClick = false,
+                CloseOnEscapeKey = true,
+            });
+
+        if (dialog is null)
+            return false;
+
+        var result = await dialog.Result;
+        return result is not null && !result.Canceled;
+    }
+
     private static string DialogTitleFor(CollectionEditorLaunchRequest request) =>
         request.Mode switch
         {
-            "Playlist" => "New Playlist",
-            "SmartPlaylist" => "New Smart Playlist",
+            CollectionEditorMode.ManualPlaylist => "New Playlist",
+            CollectionEditorMode.SmartPlaylist => "New Smart Playlist",
             _ => "New Collection",
         };
 
     private static string EditDialogTitleFor(CollectionEditorLaunchRequest request) =>
         request.Mode switch
         {
-            "Playlist" => "Edit Playlist",
-            "SmartPlaylist" => "Edit Smart Playlist",
+            CollectionEditorMode.ManualPlaylist => "Edit Playlist",
+            CollectionEditorMode.SmartPlaylist => "Edit Smart Playlist",
             _ => "Edit Collection",
         };
 }

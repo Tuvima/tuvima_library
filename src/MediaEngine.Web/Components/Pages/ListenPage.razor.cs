@@ -775,7 +775,7 @@ public partial class ListenPage
         {
             ActiveProfileId = _activeProfileId,
             CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
-            Mode = isSmart ? "SmartPlaylist" : "Playlist",
+            Mode = isSmart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
             InitialCollectionType = isSmart ? "Smart" : "Playlist",
             InitialRulesEnabled = isSmart,
             InitialTitle = string.Empty,
@@ -819,8 +819,8 @@ public partial class ListenPage
             CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
             EditingCollection = ToCollectionEditorItem(ActivePlaylistCollection),
             Mode = string.Equals(ActivePlaylistCollection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-                ? "SmartPlaylist"
-                : "Playlist",
+                ? CollectionEditorMode.SmartPlaylist
+                : CollectionEditorMode.ManualPlaylist,
         });
 
         if (changed)
@@ -860,8 +860,8 @@ public partial class ListenPage
                 CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
                 EditingCollection = ToCollectionEditorItem(collection),
                 Mode = string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
-                    ? "SmartPlaylist"
-                    : "Playlist",
+                    ? CollectionEditorMode.SmartPlaylist
+                    : CollectionEditorMode.ManualPlaylist,
             });
 
             if (changed)

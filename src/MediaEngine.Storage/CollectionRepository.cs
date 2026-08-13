@@ -645,6 +645,81 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
+    public Task<Guid> CreateManagedCollectionAsync(
+        Collection collection,
+        IReadOnlyList<CollectionItem> items,
+        CancellationToken ct = default)
+    {
+        ct.ThrowIfCancellationRequested();
+        return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
+        {
+            innerCt.ThrowIfCancellationRequested();
+            conn.Execute("""
+                INSERT INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
+                    universe_status, wikidata_qid, collection_type, description, icon_name,
+                    cover_artwork_path, cover_artwork_mime_type, scope, profile_id,
+                    is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
+                    group_by_field, match_mode, sort_field, sort_direction, live_updating)
+                VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
+                    @coverArtworkPath, @coverArtworkMimeType, @scope, @pid,
+                    @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
+                    @groupByField, @matchMode, @sortField, @sortDirection, @liveUpdating)
+                """,
+                new
+                {
+                    id = collection.Id,
+                    uid = collection.UniverseId,
+                    phid = collection.ParentCollectionId,
+                    dn = collection.DisplayName,
+                    ca = collection.CreatedAt.ToString("O"),
+                    us = collection.UniverseStatus.ToStorageValue(),
+                    wqid = collection.WikidataQid,
+                    ht = collection.CollectionType.ToStorageValue(),
+                    desc = collection.Description,
+                    icon = collection.IconName,
+                    coverArtworkPath = collection.CoverArtworkPath,
+                    coverArtworkMimeType = collection.CoverArtworkMimeType,
+                    scope = collection.Scope.ToStorageValue(),
+                    pid = collection.ProfileId,
+                    enabled = collection.IsEnabled ? 1 : 0,
+                    featured = collection.IsFeatured ? 1 : 0,
+                    minItems = collection.MinItems,
+                    ruleJson = collection.RuleJson,
+                    resolution = collection.Resolution.ToStorageValue(),
+                    ruleHash = collection.RuleHash,
+                    groupByField = collection.GroupByField,
+                    matchMode = collection.MatchMode.ToStorageValue(),
+                    sortField = collection.SortField,
+                    sortDirection = collection.SortDirection.ToStorageValue(),
+                    liveUpdating = collection.LiveUpdating ? 1 : 0,
+                },
+                transaction: tx);
+
+            foreach (var item in items)
+            {
+                innerCt.ThrowIfCancellationRequested();
+                conn.Execute("""
+                    INSERT INTO collection_items (id, collection_id, work_id, sort_order, progress_state, progress_position, added_at)
+                    VALUES (@Id, @CollectionId, @WorkId, @SortOrder, @ProgressState, @ProgressPosition, @AddedAt)
+                    """,
+                    new
+                    {
+                        Id = item.Id == Guid.Empty ? Guid.NewGuid() : item.Id,
+                        item.CollectionId,
+                        item.WorkId,
+                        item.SortOrder,
+                        item.ProgressState,
+                        item.ProgressPosition,
+                        AddedAt = item.AddedAt == default ? DateTimeOffset.UtcNow.ToString("o") : item.AddedAt.ToString("o"),
+                    },
+                    transaction: tx);
+            }
+
+            return collection.Id;
+        }, ct);
+    }
+
+    /// <inheritdoc/>
     public Task SetUniverseMismatchAsync(Guid workId, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();

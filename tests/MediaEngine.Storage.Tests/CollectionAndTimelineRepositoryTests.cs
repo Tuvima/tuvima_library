@@ -70,6 +70,34 @@ public sealed class CollectionAndTimelineRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateManagedCollectionAsync_PersistsDefinitionAndInitialMembershipTogether()
+    {
+        var repository = new CollectionRepository(_db);
+        var collection = CreateCollection("Weekend Watchlist");
+        collection.ClassifyAs(CollectionType.Playlist);
+        var workId = InsertWork(collectionId: null, "Movies", 1);
+
+        await repository.CreateManagedCollectionAsync(collection,
+        [
+            new CollectionItem
+            {
+                Id = Guid.NewGuid(),
+                CollectionId = collection.Id,
+                WorkId = workId,
+                SortOrder = 1,
+                AddedAt = DateTimeOffset.UtcNow,
+            },
+        ]);
+
+        var saved = await repository.GetByIdAsync(collection.Id);
+        var items = await repository.GetCollectionItemsAsync(collection.Id, 10);
+
+        Assert.NotNull(saved);
+        Assert.Equal(CollectionType.Playlist, saved.CollectionType);
+        Assert.Equal(workId, Assert.Single(items).WorkId);
+    }
+
+    [Fact]
     public async Task EntityTimelineRepository_RoundTripsEventsAndFieldChanges()
     {
         var repository = new EntityTimelineRepository(_db);
@@ -145,7 +173,7 @@ public sealed class CollectionAndTimelineRepositoryTests : IDisposable
         return collection;
     }
 
-    private Guid InsertWork(Guid collectionId, string mediaType, int ordinal)
+    private Guid InsertWork(Guid? collectionId, string mediaType, int ordinal)
     {
         var workId = Guid.NewGuid();
         using var conn = _db.CreateConnection();
@@ -155,7 +183,7 @@ public sealed class CollectionAndTimelineRepositoryTests : IDisposable
             VALUES (@id, @collectionId, @mediaType, @ordinal);
             """;
         cmd.Parameters.Add("@id", SqliteType.Blob).Value = GuidSql.ToBlob(workId);
-        cmd.Parameters.Add("@collectionId", SqliteType.Blob).Value = GuidSql.ToBlob(collectionId);
+        cmd.Parameters.Add("@collectionId", SqliteType.Blob).Value = collectionId.HasValue ? GuidSql.ToBlob(collectionId.Value) : DBNull.Value;
         cmd.Parameters.AddWithValue("@mediaType", mediaType);
         cmd.Parameters.AddWithValue("@ordinal", ordinal);
         cmd.ExecuteNonQuery();

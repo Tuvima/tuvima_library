@@ -215,6 +215,22 @@ public sealed class CollectionsHubTests
     }
 
     [Fact]
+    public void CollectionCreation_UsesSharedFourStepResponsiveWizard()
+    {
+        var wizard = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionWizard.razor"));
+        var css = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionWizard.razor.css"));
+        var launcher = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Editing\CollectionEditorLauncherService.cs"));
+
+        Assert.Contains("Step @_step of 4", wizard, StringComparison.Ordinal);
+        Assert.Contains("How should this", wizard, StringComparison.Ordinal);
+        Assert.Contains("all_of", wizard, StringComparison.Ordinal);
+        Assert.Contains("CreateCollectionWithItemsAsync", wizard, StringComparison.Ordinal);
+        var sharedDialogCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\AppDialogShell.razor.css"));
+        Assert.Contains("100dvh", sharedDialogCss, StringComparison.Ordinal);
+        Assert.Contains("OpenWizardAsync", launcher, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TuvimaArtworkStack_IsGenericSeededAndShapeAware()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\TuvimaArtworkStack.razor"));
