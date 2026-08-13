@@ -61,6 +61,7 @@ public sealed partial class RetailMatchWorker
     private readonly RetailCandidateScorer _candidateScorer;
     private readonly CoverArtWorker? _coverArtWorker;
     private readonly MusicBrainzReleaseClient? _musicBrainzReleaseClient;
+    private readonly PersonEnrichmentWorker? _personEnrichment;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -102,7 +103,8 @@ public sealed partial class RetailMatchWorker
         RetailCandidateScorer? candidateScorer = null,
         CoverArtWorker? coverArtWorker = null,
         IPipelineExecutionSnapshotProvider? configurationSnapshots = null,
-        MusicBrainzReleaseClient? musicBrainzReleaseClient = null)
+        MusicBrainzReleaseClient? musicBrainzReleaseClient = null,
+        PersonEnrichmentWorker? personEnrichment = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -140,6 +142,7 @@ public sealed partial class RetailMatchWorker
         _candidateScorer = candidateScorer ?? new RetailCandidateScorer();
         _coverArtWorker = coverArtWorker;
         _musicBrainzReleaseClient = musicBrainzReleaseClient;
+        _personEnrichment = personEnrichment;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any
@@ -155,6 +158,31 @@ public sealed partial class RetailMatchWorker
             _configLoader.LoadHydration(),
             _configLoader.LoadPipelines(),
             _configLoader.LoadAllProviders());
+
+    private async Task EnrichPeopleWithoutMediaMatchAsync(Guid entityId, CancellationToken ct)
+    {
+        if (_personEnrichment is null)
+            return;
+
+        try
+        {
+            await _concurrency.RunAsync(
+                EnrichmentWorkKind.Wikidata,
+                token => _personEnrichment.EnrichFromClaimsAsync(entityId, token),
+                ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Contributor enrichment was partial after media matching found no result for entity {EntityId}",
+                entityId);
+        }
+    }
 
     /// <summary>
     /// Polls for <see cref="IdentityJobState.Queued"/> jobs and processes them.

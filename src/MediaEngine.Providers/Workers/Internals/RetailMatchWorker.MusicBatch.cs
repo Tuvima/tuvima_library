@@ -487,6 +487,7 @@ public sealed partial class RetailMatchWorker
         {
             // No reasonable track match found — route to no-match.
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
+            await EnrichPeopleWithoutMediaMatchAsync(job.EntityId, ct).ConfigureAwait(false);
             await _outcomeFactory.CreateRetailFailedAsync(
                 job.EntityId, job.MediaType, job.IngestionRunId, null, ct);
             var titleHint = fileHints.GetValueOrDefault(MetadataFieldConstants.Title) ?? "(unknown)";
@@ -661,6 +662,7 @@ public sealed partial class RetailMatchWorker
         else
         {
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
+            await EnrichPeopleWithoutMediaMatchAsync(job.EntityId, ct).ConfigureAwait(false);
             await _outcomeFactory.CreateRetailFailedAsync(
                 job.EntityId, job.MediaType, job.IngestionRunId, null, ct);
             var titleHint = fileHints.GetValueOrDefault(MetadataFieldConstants.Title) ?? "(unknown)";

@@ -110,6 +110,13 @@ public sealed class PersonEnrichmentWorker
         var tmdbImageHints = BuildTmdbImageHints(providerClaims);
         var readOnlyCanonicalArrays = ToReadOnlyCanonicalArrays(canonicalArrays);
 
+        _logger.LogDebug(
+            "Person source data for entity {EntityId}: {ClaimCount} claim(s), {CanonicalCount} scalar(s), array keys [{ArrayKeys}]",
+            entityId,
+            claims.Count,
+            canonicals.Count,
+            string.Join(", ", readOnlyCanonicalArrays.Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase)));
+
         // Extract person refs — prefer raw claims (QID-first), fall back to canonicals
         var personRefs = PersonReferenceExtractor.FromRawClaims(providerClaims, mediaType)
             .Concat(PersonReferenceExtractor.FromCanonicalArrays(readOnlyCanonicalArrays, mediaType))
@@ -196,6 +203,11 @@ public sealed class PersonEnrichmentWorker
                 .Select(group => group.First())
                 .ToList();
             var titleHint = ResolvePersonWorkTitleHint(canonicals, mediaType) ?? "";
+
+            _logger.LogDebug(
+                "Standalone person reconciliation for entity {EntityId}: {Count} unlinked contributor(s)",
+                entityId,
+                unlinkedRefs.Count);
 
             foreach (var unlinked in unlinkedRefs)
             {

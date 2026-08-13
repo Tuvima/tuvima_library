@@ -243,6 +243,34 @@ public sealed class PersonReferenceExtractorTests
         Assert.Contains(refs, reference => reference.Name == "Dido" && reference.Role == "Performer");
     }
 
+    [Fact]
+    public void FromRawClaimsUnlinked_MusicAlbumArtistCredits_AreResolvedWithoutAWorkQid()
+    {
+        var claims = new List<ProviderClaim>
+        {
+            new("album_artist", "Jon Batiste, Ludwig van Beethoven", 0.82),
+        };
+
+        var refs = PersonReferenceExtractor.FromRawClaimsUnlinked(claims, MediaType.Music);
+
+        Assert.Equal(2, refs.Count);
+        Assert.Contains(refs, reference => reference.Name == "Jon Batiste" && reference.Role == "Performer");
+        Assert.Contains(refs, reference => reference.Name == "Ludwig van Beethoven" && reference.Role == "Performer");
+    }
+
+    [Theory]
+    [InlineData("Batiste, Jon")]
+    [InlineData("Earth, Wind & Fire")]
+    public void FromRawClaimsUnlinked_MusicAlbumArtist_DoesNotSplitANameOrGroup(string credit)
+    {
+        var claims = new List<ProviderClaim> { new("album_artist", credit, 0.82) };
+
+        var refs = PersonReferenceExtractor.FromRawClaimsUnlinked(claims, MediaType.Music);
+
+        Assert.Single(refs);
+        Assert.Equal(credit, refs[0].Name);
+    }
+
     // ── FromCanonicals ──────────────────────────────────────────────────────
 
     [Fact]
@@ -288,6 +316,44 @@ public sealed class PersonReferenceExtractorTests
 
         Assert.Single(refs);
         Assert.Equal("Performer", refs[0].Role);
+    }
+
+    [Fact]
+    public void FromCanonicalArrays_MusicAlbumArtistAggregate_IsSeparatedForReconciliation()
+    {
+        var arrays = CanonicalArrays("album_artist",
+        [
+            new CanonicalArrayEntry { Ordinal = 0, Value = "Jon Batiste, Ludwig van Beethoven" },
+        ]);
+
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays, MediaType.Music);
+
+        Assert.Equal(2, refs.Count);
+        Assert.Contains(refs, reference => reference.Name == "Jon Batiste" && reference.Role == "Performer");
+        Assert.Contains(refs, reference => reference.Name == "Ludwig van Beethoven" && reference.Role == "Performer");
+    }
+
+    [Fact]
+    public void FromCanonicalArrays_AlbumArtistEvidence_InfersMusicWhenAssetTypeIsUnknown()
+    {
+        var arrays = new Dictionary<string, IReadOnlyList<CanonicalArrayEntry>>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Artist] =
+            [
+                new CanonicalArrayEntry { Ordinal = 0, Value = "Jon Batiste, Ludwig van Beethoven" },
+            ],
+            ["album_artist"] =
+            [
+                new CanonicalArrayEntry { Ordinal = 0, Value = "Jon Batiste, Ludwig van Beethoven" },
+            ],
+        };
+
+        var refs = PersonReferenceExtractor.FromCanonicalArrays(arrays, MediaType.Unknown);
+
+        Assert.Equal(2, refs.Count);
+        Assert.All(refs, reference => Assert.Equal("Performer", reference.Role));
+        Assert.Contains(refs, reference => reference.Name == "Jon Batiste");
+        Assert.Contains(refs, reference => reference.Name == "Ludwig van Beethoven");
     }
 
     [Fact]

@@ -24,13 +24,15 @@ public static class PersonReferenceExtractor
         MediaType mediaType = MediaType.Unknown)
     {
         var byKey = AccumulateByKey(rawClaims);
-        var performerRole = ResolvePerformerRole(mediaType);
+        var splitMusicCredit = mediaType == MediaType.Music || byKey.ContainsKey("album_artist");
+        var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
         AddPersonRefsFromLists(refs, "Author",       byKey, MetadataFieldConstants.Author,   "author_qid");
         AddPersonRefsFromLists(refs, "Narrator",     byKey, MetadataFieldConstants.Narrator, "narrator_qid");
         AddPersonRefsFromLists(refs, performerRole,  byKey, "performer",                     "performer_qid");
-        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist,   "artist_qid");
+        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist,   "artist_qid", splitMusicCredit);
+        AddPersonRefsFromLists(refs, performerRole,  byKey, "album_artist",                  "album_artist_qid", splitMusicCredit);
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",                      "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter",                  "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
@@ -66,13 +68,15 @@ public static class PersonReferenceExtractor
         MediaType mediaType = MediaType.Unknown)
     {
         var byKey = AccumulateByKey(rawClaims);
-        var performerRole = ResolvePerformerRole(mediaType);
+        var splitMusicCredit = mediaType == MediaType.Music || byKey.ContainsKey("album_artist");
+        var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
         AddPersonRefsFromLists(refs, "Author",       byKey, MetadataFieldConstants.Author,   "author_qid");
         AddPersonRefsFromLists(refs, "Narrator",     byKey, MetadataFieldConstants.Narrator, "narrator_qid");
         AddPersonRefsFromLists(refs, performerRole,  byKey, "performer",                     "performer_qid");
-        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist,   "artist_qid");
+        AddPersonRefsFromLists(refs, performerRole,  byKey, MetadataFieldConstants.Artist,   "artist_qid", splitMusicCredit);
+        AddPersonRefsFromLists(refs, performerRole,  byKey, "album_artist",                  "album_artist_qid", splitMusicCredit);
         AddPersonRefsFromLists(refs, "Director",     byKey, "director",                      "director_qid");
         AddPersonRefsFromLists(refs, "Screenwriter", byKey, "screenwriter",                  "screenwriter_qid");
         AddPersonRefsFromLists(refs, "Composer",     byKey, "composer",                      "composer_qid");
@@ -105,13 +109,15 @@ public static class PersonReferenceExtractor
         IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> arrays,
         MediaType mediaType = MediaType.Unknown)
     {
-        var performerRole = ResolvePerformerRole(mediaType);
+        var splitMusicCredit = mediaType == MediaType.Music || arrays.ContainsKey("album_artist");
+        var performerRole = splitMusicCredit ? "Performer" : ResolvePerformerRole(mediaType);
 
         var refs = new List<PersonReference>();
         AddPersonRefsFromArrays(refs, "Author",       arrays, MetadataFieldConstants.Author,   "author_qid");
         AddPersonRefsFromArrays(refs, "Narrator",     arrays, MetadataFieldConstants.Narrator, "narrator_qid");
         AddPersonRefsFromArrays(refs, performerRole,  arrays, "performer",                     "performer_qid");
-        AddPersonRefsFromArrays(refs, performerRole,  arrays, MetadataFieldConstants.Artist,   "artist_qid");
+        AddPersonRefsFromArrays(refs, performerRole,  arrays, MetadataFieldConstants.Artist,   "artist_qid", splitMusicCredit);
+        AddPersonRefsFromArrays(refs, performerRole,  arrays, "album_artist",                  "album_artist_qid", splitMusicCredit);
         AddPersonRefsFromArrays(refs, "Director",     arrays, "director",                      "director_qid");
         AddPersonRefsFromArrays(refs, "Screenwriter", arrays, "screenwriter",                  "screenwriter_qid");
         AddPersonRefsFromArrays(refs, "Composer",     arrays, "composer",                      "composer_qid");
@@ -154,12 +160,13 @@ public static class PersonReferenceExtractor
         string role,
         Dictionary<string, List<string>> byKey,
         string nameKey,
-        string qidKey)
+        string qidKey,
+        bool splitMusicCredit = false)
     {
         if (!byKey.TryGetValue(nameKey, out var storedNames))
             return;
 
-        var names = ExpandJoinedPersonValues(storedNames);
+        var names = ExpandJoinedPersonValues(storedNames, splitMusicCredit);
         byKey.TryGetValue(qidKey, out var storedQids);
         var qids = ExpandJoinedPersonValues(storedQids);
 
@@ -190,14 +197,51 @@ public static class PersonReferenceExtractor
         }
     }
 
-    private static IReadOnlyList<string> ExpandJoinedPersonValues(IReadOnlyList<string>? values)
+    private static IReadOnlyList<string> ExpandJoinedPersonValues(
+        IReadOnlyList<string>? values,
+        bool splitMusicCredit = false)
     {
         if (values is null || values.Count == 0)
             return [];
 
         return values
-            .SelectMany(value => value.Split(';', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+            .SelectMany(value => SplitPersonValue(value, splitMusicCredit))
             .ToList();
+    }
+
+    private static IReadOnlyList<string> SplitPersonValue(string value, bool splitMusicCredit)
+    {
+        var semicolonParts = value.Split(
+            ';',
+            StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+        if (!splitMusicCredit)
+            return semicolonParts;
+
+        var result = new List<string>();
+        foreach (var part in semicolonParts)
+        {
+            var commaParts = part.Split(
+                ',',
+                StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries);
+
+            // MusicBrainz joins distinct artist-credit entries with their
+            // provider join phrase. A comma is a contributor delimiter only
+            // when every segment looks like a complete multi-token name. This
+            // keeps names such as "Batiste, Jon" and groups such as
+            // "Earth, Wind & Fire" intact while separating credits such as
+            // "Jon Batiste, Ludwig van Beethoven".
+            if (commaParts.Length is >= 2 and <= 8
+                && commaParts.All(segment => segment.Contains(' ')))
+            {
+                result.AddRange(commaParts);
+            }
+            else
+            {
+                result.Add(part);
+            }
+        }
+
+        return result;
     }
 
     private static void AddPersonRefsFromArrays(
@@ -205,12 +249,25 @@ public static class PersonReferenceExtractor
         string role,
         IReadOnlyDictionary<string, IReadOnlyList<CanonicalArrayEntry>> arrays,
         string nameKey,
-        string qidKey)
+        string qidKey,
+        bool splitMusicCredit = false)
     {
         if (!arrays.TryGetValue(nameKey, out var names) || names.Count == 0)
             return;
 
         arrays.TryGetValue(qidKey, out var qidEntries);
+        if (splitMusicCredit && qidEntries is null)
+        {
+            names = names
+                .SelectMany(entry => SplitPersonValue(entry.Value, splitMusicCredit)
+                    .Select((name, index) => new CanonicalArrayEntry
+                    {
+                        Ordinal = (entry.Ordinal * 100) + index,
+                        Value = name,
+                    }))
+                .OrderBy(entry => entry.Ordinal)
+                .ToList();
+        }
 
         var maxCount = Math.Max(names.Count, qidEntries?.Count ?? 0);
         for (int i = 0; i < maxCount; i++)

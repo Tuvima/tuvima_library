@@ -185,26 +185,61 @@
                             </div>
 
                             <div class="person-editor__artwork-editor-grid">
-                                <div class="person-editor__artwork-center">
-                                    <div class="person-editor__artwork-primary-row person-editor__artwork-primary-row--@GetArtworkPreviewClass(selectedSlot.AssetType)">
+                                <div class="person-editor__artwork-showcase">
+                                    <div class="person-editor__artwork-primary-card person-editor__artwork-primary-card--@GetArtworkPreviewClass(selectedSlot.AssetType)">
                                         @if (selectedVariant is not null)
                                         {
-                                            <div class="person-editor__artwork-primary-card person-editor__artwork-primary-card--@GetArtworkPreviewClass(selectedSlot.AssetType)">
-                                                <div class="person-editor__artwork-stage person-editor__artwork-stage--@GetArtworkPreviewClass(selectedSlot.AssetType)">
-                                                    <img src="@selectedVariant.ImageUrl" alt="@FormatArtworkType(selectedSlot.AssetType)" />
-                                                    @if (selectedVariant.IsPreferred)
-                                                    {
-                                                        <span class="person-editor__artwork-check" aria-label="Preferred artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
-                                                    }
-                                                </div>
-                                                <strong>@(selectedVariant.IsPreferred ? "Primary artwork" : "Selected artwork")</strong>
+                                            <div class="person-editor__artwork-stage person-editor__artwork-stage--@GetArtworkPreviewClass(selectedSlot.AssetType)">
+                                                <img src="@selectedVariant.ImageUrl" alt="@FormatArtworkType(selectedSlot.AssetType)" />
+                                                @if (selectedVariant.IsPreferred)
+                                                {
+                                                    <span class="person-editor__artwork-check" aria-label="Primary artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
+                                                    <span class="person-editor__artwork-primary-badge">Primary</span>
+                                                }
+                                            </div>
+                                            <div class="person-editor__artwork-primary-actions">
+                                                <AppButton Label="Preview" StartIcon="@Icons.Material.Outlined.Visibility" OnClick="@(() => _previewArtwork = selectedVariant)" />
+                                                @if (!selectedVariant.IsPreferred)
+                                                {
+                                                    <AppButton Label="Set primary" StartIcon="@Icons.Material.Outlined.StarOutline" OnClick="@(() => SetPreferredAsync(selectedVariant.Id))" />
+                                                }
+                                                <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.SwapHoriz" Class="person-editor__artwork-upload-button">
+                                                    Replace
+                                                    <span class="person-editor__artwork-file-shell">
+                                                        <InputFile class="person-editor__artwork-file-input"
+                                                                   accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
+                                                                   OnChange="@((args) => UploadArtworkAsync(selectedSlot.AssetType, args))" />
+                                                    </span>
+                                                </AppButton>
+                                                @if (selectedVariant.CanDelete)
+                                                {
+                                                    <AppButton Label="Remove" StartIcon="@Icons.Material.Outlined.Delete" Tone="AppUiTone.Error" OnClick="@(() => DeleteArtworkAsync(selectedVariant.Id))" />
+                                                }
                                             </div>
                                         }
-                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" Class="person-editor__artwork-add-card">
-                                            <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                            <strong>Add artwork</strong>
-                                            <span>Upload a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() image</span>
-                                            <small>JPG or PNG, up to 20 MB</small>
+                                        else
+                                        {
+                                            <div class="person-editor__artwork-primary-empty"><MudIcon Icon="@GetArtworkIcon(selectedSlot.AssetType)" /><span>No artwork yet</span></div>
+                                        }
+                                    </div>
+
+                                    <aside class="person-editor__artwork-details">
+                                        <h3>Artwork details</h3>
+                                        <dl>
+                                            <div><dt>Artwork type</dt><dd>@FormatArtworkType(selectedSlot.AssetType)</dd></div>
+                                            <div><dt>Source</dt><dd>@GetArtworkSource(selectedVariant)</dd></div>
+                                            <div><dt>Image size</dt><dd>@GetArtworkImageSize(selectedVariant)</dd></div>
+                                            <div><dt>Added</dt><dd>@(selectedVariant?.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy") ?? "Provider managed")</dd></div>
+                                        </dl>
+                                    </aside>
+
+                                    <div class="person-editor__artwork-add-panel">
+                                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
+                                        <strong>Add artwork</strong>
+                                        <span>Upload a new @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() image.</span>
+                                        <small>JPG or PNG, up to 20 MB</small>
+                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="person-editor__artwork-upload-button">
+                                            Upload file
                                             <span class="person-editor__artwork-file-shell">
                                                 <InputFile class="person-editor__artwork-file-input"
                                                            accept="@GetArtworkAcceptedTypes(selectedSlot.AssetType)"
@@ -212,54 +247,7 @@
                                             </span>
                                         </AppButton>
                                     </div>
-
-                                    @if (selectedSlot.Variants.Count > 1)
-                                    {
-                                        <section class="person-editor__artwork-variants-section">
-                                            <h4>Other @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() options</h4>
-                                            <div class="person-editor__artwork-variant-strip">
-                                                @foreach (var variant in selectedSlot.Variants)
-                                                {
-                                                    var isSelected = variant.Id == selectedVariant?.Id;
-                                                    <AppNativeButton Type="button"
-                                                                     Class="@(isSelected ? "person-editor__artwork-variant is-selected" : "person-editor__artwork-variant")"
-                                                                     aria-label="@GetArtworkVariantLabel(selectedSlot, variant)"
-                                                                     OnClick="@(() => SelectPersonArtworkVariantAsync(variant))">
-                                                        <span class="person-editor__artwork-stage person-editor__artwork-stage--@GetArtworkPreviewClass(selectedSlot.AssetType)">
-                                                            <img src="@variant.ImageUrl" alt="" />
-                                                        </span>
-                                                    </AppNativeButton>
-                                                }
-                                            </div>
-                                        </section>
-                                    }
                                 </div>
-
-                                <aside class="person-editor__artwork-details">
-                                    <h3>Artwork details</h3>
-                                    <p>@(selectedVariant?.IsPreferred == true ? "Primary artwork for this person." : "Selected artwork variant.")</p>
-                                    <dl>
-                                        <div><dt>Artwork type</dt><dd>@FormatArtworkType(selectedSlot.AssetType)</dd></div>
-                                        <div><dt>Source</dt><dd>@GetArtworkSource(selectedVariant)</dd></div>
-                                        <div><dt>Image size</dt><dd>@GetArtworkImageSize(selectedVariant)</dd></div>
-                                        <div><dt>Added</dt><dd>@(selectedVariant?.CreatedAt?.LocalDateTime.ToString("MMM d, yyyy") ?? "Provider managed")</dd></div>
-                                    </dl>
-                                    @if (selectedVariant is not null)
-                                    {
-                                        <AppButton Label="Preview artwork"
-                                                   StartIcon="@Icons.Material.Outlined.ZoomIn"
-                                                   FullWidth="true"
-                                                   OnClick="@(() => _previewArtwork = selectedVariant)" />
-                                        @if (selectedVariant.CanDelete)
-                                        {
-                                            <AppButton Label="Remove artwork"
-                                                       StartIcon="@Icons.Material.Outlined.Delete"
-                                                       Tone="AppUiTone.Error"
-                                                       FullWidth="true"
-                                                       OnClick="@(() => DeleteArtworkAsync(selectedVariant.Id))" />
-                                        }
-                                    }
-                                </aside>
 
                                 <div class="person-editor__artwork-tips person-editor__artwork-tips--banner">
                                     <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
@@ -268,6 +256,30 @@
                                         <span>@GetArtworkGuidance(selectedSlot.AssetType)</span>
                                     </div>
                                 </div>
+
+                                @if (selectedSlot.Variants.Count > 1)
+                                {
+                                    <section class="person-editor__artwork-variants-section">
+                                        <div class="person-editor__artwork-variants-heading">
+                                            <h4>Other @FormatArtworkType(selectedSlot.AssetType).ToLowerInvariant() options</h4>
+                                            <span>@selectedSlot.Variants.Count options</span>
+                                        </div>
+                                        <div class="person-editor__artwork-variant-strip">
+                                            @foreach (var variant in selectedSlot.Variants)
+                                            {
+                                                var isSelected = variant.Id == selectedVariant?.Id;
+                                                <AppNativeButton Type="button"
+                                                                 Class="@(isSelected ? "person-editor__artwork-variant is-selected" : "person-editor__artwork-variant")"
+                                                                 aria-label="@GetArtworkVariantLabel(selectedSlot, variant)"
+                                                                 OnClick="@(() => SelectPersonArtworkVariantAsync(variant))">
+                                                    <span class="person-editor__artwork-stage person-editor__artwork-stage--@GetArtworkPreviewClass(selectedSlot.AssetType)">
+                                                        <img src="@variant.ImageUrl" alt="" />
+                                                    </span>
+                                                </AppNativeButton>
+                                            }
+                                        </div>
+                                    </section>
+                                }
                             </div>
                         }
                     </div>

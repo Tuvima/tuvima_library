@@ -245,11 +245,12 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("sme-match-current-panel", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel", shell, StringComparison.Ordinal);
-        Assert.Contains("Current match", shell, StringComparison.Ordinal);
-        Assert.Contains("Canonical identity", shell, StringComparison.Ordinal);
-        Assert.Contains("Change Match", shell, StringComparison.Ordinal);
+        Assert.Contains("Retail Provider", shell, StringComparison.Ordinal);
+        Assert.Contains("Canonical Identity", shell, StringComparison.Ordinal);
+        Assert.Contains("Change match", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-current-grid", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-search-panel--collapsed", shell, StringComparison.Ordinal);
-        Assert.Contains("Advanced canonical identity", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Advanced canonical identity", shell, StringComparison.Ordinal);
         Assert.Contains("Label=\"Customize\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
@@ -276,7 +277,13 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("CanonicalEndpointEntityId,", code, StringComparison.Ordinal);
         Assert.Contains("\"Unknown\" => \"Books\"", code, StringComparison.Ordinal);
         Assert.Contains("MediaType = _selectedMediaType", code, StringComparison.Ordinal);
-        Assert.Contains("ToggleAdvancedMatch", code, StringComparison.Ordinal);
+        Assert.Contains("Retail Provider", shell, StringComparison.Ordinal);
+        Assert.Contains("Canonical Identity", shell, StringComparison.Ordinal);
+        Assert.Contains("does not change the canonical Wikidata identity", shell, StringComparison.Ordinal);
+        Assert.Contains("Cancel change", shell, StringComparison.Ordinal);
+        Assert.Contains("Cancel search", shell, StringComparison.Ordinal);
+        Assert.Contains("SelectMatchSearchMode", code, StringComparison.Ordinal);
+        Assert.Contains("CancelCanonicalSearch", code, StringComparison.Ordinal);
         Assert.Contains(".sme-match-workflow", styles, StringComparison.Ordinal);
         Assert.Contains(".sme-match-result-card--selected", styles, StringComparison.Ordinal);
     }

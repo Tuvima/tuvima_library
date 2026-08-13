@@ -639,6 +639,7 @@ public sealed partial class RetailMatchWorker
         else
         {
             await _jobRepo.UpdateStateAsync(job.Id, IdentityJobState.RetailNoMatch, ct: ct);
+            await EnrichPeopleWithoutMediaMatchAsync(job.EntityId, ct).ConfigureAwait(false);
 
             var titleHint = hints.GetValueOrDefault(MetadataFieldConstants.Title);
 

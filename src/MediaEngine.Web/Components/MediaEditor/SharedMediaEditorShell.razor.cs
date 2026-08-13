@@ -104,6 +104,7 @@ public partial class SharedMediaEditorShell
     private readonly Dictionary<string, bool> _contentGroupExpandedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
     private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
+    private CancellationTokenSource? _canonicalSearchCts;
     private RetailCandidateDetailDto? _retailCandidateDetail;
     private readonly MediaEditorTabState _tabState = new();
     private string _activeTab => _tabState.ActiveTab;
@@ -142,8 +143,7 @@ public partial class SharedMediaEditorShell
     private string _lastNonFileTab => _tabState.LastNonFileTab;
     private bool _showArtworkUrlInput;
     private bool _matchActionPending;
-    private bool _showMatchSearch;
-    private bool _showAdvancedMatch;
+    private bool _showMatchSearch = true;
     private bool _customizeMatchChanges;
     private bool _hasCommittedChanges;
     private string? _matchActionStatus;
@@ -172,7 +172,6 @@ public partial class SharedMediaEditorShell
             .OrderBy(scope => scope.Order)
             .ToList();
     protected int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
-    protected int MatchSearchModeIndex => string.Equals(_activeMatchSearchMode, "wikidata", StringComparison.OrdinalIgnoreCase) ? 1 : 0;
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
     protected bool UsesLandscapeHeaderArtwork =>
@@ -1610,7 +1609,6 @@ public partial class SharedMediaEditorShell
             case MediaEditorIdentityIntent.FixWikidataMatch:
             case MediaEditorIdentityIntent.ConfirmWikidataMatch:
                 _showMatchSearch = true;
-                _showAdvancedMatch = true;
                 _activeMatchSearchMode = "wikidata";
                 _canonicalSearchResponse = null;
                 _selectedCandidateId = null;
@@ -1671,6 +1669,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task HandleClose()
     {
+        CancelCanonicalSearch();
         if (IsDirty)
         {
             _confirmDiscard = true;
@@ -1985,16 +1984,6 @@ public partial class SharedMediaEditorShell
             .First();
 
         return OnTabChanged(artworkTabIndex);
-    }
-
-    protected Task OnMatchSearchModeChanged(int index)
-    {
-        _activeMatchSearchMode = index == 1 ? "wikidata" : "retail";
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
-        _selectedSuggestedFieldKeys.Clear();
-        _canonicalSearchQuery = BuildSuggestedSearchQuery();
-        return Task.CompletedTask;
     }
 
     private void ApplyArtworkSlotSelection(string assetType, bool clearTransientUi = true)
@@ -2326,6 +2315,9 @@ public partial class SharedMediaEditorShell
         if (!IsSingleItem || IsFileScope)
             return;
 
+        CancelCanonicalSearch();
+        var searchCts = new CancellationTokenSource();
+        _canonicalSearchCts = searchCts;
         _searchingCanonical = true;
         StateHasChanged();
 
@@ -2341,7 +2333,10 @@ public partial class SharedMediaEditorShell
                     DraftFields = BuildDraftFields(),
                     QueryOverride = string.IsNullOrWhiteSpace(_canonicalSearchQuery) ? null : _canonicalSearchQuery.Trim(),
                     SearchMode = GetCanonicalSearchMode(),
-                });
+                }, searchCts.Token);
+
+            if (searchCts.IsCancellationRequested)
+                return;
 
             _canonicalSearchResponse = response;
             _selectedCandidateId = null;
@@ -2371,7 +2366,13 @@ public partial class SharedMediaEditorShell
         }
         finally
         {
-            _searchingCanonical = false;
+            if (ReferenceEquals(_canonicalSearchCts, searchCts))
+            {
+                _canonicalSearchCts = null;
+                _searchingCanonical = false;
+                searchCts.Dispose();
+                await InvokeAsync(StateHasChanged);
+            }
         }
     }
 
@@ -2816,17 +2817,46 @@ public partial class SharedMediaEditorShell
     protected void OpenMatchSearch()
     {
         _showMatchSearch = true;
-        _showAdvancedMatch = false;
         _activeMatchSearchMode = "retail";
     }
 
-    protected void ToggleAdvancedMatch()
+    protected void CloseMatchSearch()
     {
-        _showAdvancedMatch = !_showAdvancedMatch;
-        _activeMatchSearchMode = _showAdvancedMatch ? "wikidata" : "retail";
+        CancelCanonicalSearch();
+        _showMatchSearch = false;
         _canonicalSearchResponse = null;
         _selectedCandidateId = null;
         _retailCandidateDetail = null;
+        _customizeMatchChanges = false;
+    }
+
+    protected void SelectMatchSearchMode(string mode)
+    {
+        var normalized = string.Equals(mode, "wikidata", StringComparison.OrdinalIgnoreCase)
+            ? "wikidata"
+            : "retail";
+        if (string.Equals(_activeMatchSearchMode, normalized, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        CancelCanonicalSearch();
+        _activeMatchSearchMode = normalized;
+        _canonicalSearchResponse = null;
+        _selectedCandidateId = null;
+        _retailCandidateDetail = null;
+        _selectedSuggestedFieldKeys.Clear();
+    }
+
+    protected void CancelCanonicalSearch()
+    {
+        var cts = _canonicalSearchCts;
+        _canonicalSearchCts = null;
+        if (cts is not null)
+        {
+            cts.Cancel();
+            cts.Dispose();
+        }
+
+        _searchingCanonical = false;
     }
 
     protected string FormatCandidateDuration(double? seconds)

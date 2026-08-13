@@ -775,107 +775,97 @@
                                     var currentRetail = BuildCurrentRetailMatchCard();
                                     var currentQid = BuildCurrentWikidataMatchCard();
                                 }
-                                <section class="sme-match-current-panel @(_showMatchSearch ? "sme-match-current-panel--compact" : null)">
-                                    <div class="sme-match-section-heading">
-                                        <div>
-                                            <span>Current match</span>
-                                            @if (!_showMatchSearch)
-                                            {
-                                                <p>The provider identity currently used for this item.</p>
-                                            }
+                                <div class="sme-match-current-grid">
+                                    <section class="sme-match-current-panel sme-match-summary-card">
+                                        <div class="sme-match-summary-heading">
+                                            <h3>Retail Provider</h3>
+                                            <span class="sme-match-state @(HasCurrentRetailMatch ? "sme-match-state--success" : "sme-match-state--neutral")">
+                                                <MudIcon Icon="@(HasCurrentRetailMatch ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Info)" Size="Size.Small" />
+                                                @CurrentMatchStatusLabel
+                                            </span>
                                         </div>
-                                        <span class="sme-match-state sme-match-state--success">
-                                            <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                            @CurrentMatchStatusLabel
-                                        </span>
-                                    </div>
-                                    <div class="sme-match-identity-card">
-                                        <div class="sme-match-identity-art @ArtworkShapeClass">
-                                            @if (!string.IsNullOrWhiteSpace(currentRetail.CoverUrl))
-                                            {
-                                                <img src="@currentRetail.CoverUrl" alt="@currentRetail.Title" />
-                                            }
-                                            else
-                                            {
-                                                <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-32px tl-u-opacity-0-24" />
-                                            }
-                                        </div>
-                                        <div class="sme-match-identity-copy">
-                                            <h3>@currentRetail.Title</h3>
-                                            @if (!string.IsNullOrWhiteSpace(currentRetail.Creator))
-                                            {
-                                                <p>@NormalizeContributorDisplay(currentRetail.Creator)</p>
-                                            }
-                                            @if (!string.IsNullOrWhiteSpace(currentRetail.Year))
-                                            {
-                                                <p>@currentRetail.Year</p>
-                                            }
-                                        </div>
-                                        <div class="sme-match-provider-column">
+                                        <div class="sme-match-summary-body">
+                                            <div class="sme-match-identity-art @ArtworkShapeClass">
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.CoverUrl))
+                                                {
+                                                    <img src="@currentRetail.CoverUrl" alt="@currentRetail.Title" />
+                                                }
+                                                else
+                                                {
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-32px tl-u-opacity-0-24" />
+                                                }
+                                            </div>
+                                            <div class="sme-match-identity-copy">
+                                                <h3>@currentRetail.Title</h3>
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.Creator))
+                                                {
+                                                    <p>@NormalizeContributorDisplay(currentRetail.Creator)</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(currentRetail.Year))
+                                                {
+                                                    <p>@currentRetail.Year</p>
+                                                }
+                                            </div>
                                             <dl class="sme-match-provider-facts">
                                                 <div><dt>Provider</dt><dd>@currentRetail.Badge</dd></div>
                                                 <div><dt>Provider ID</dt><dd>@CurrentProviderId</dd></div>
                                             </dl>
-                                            @if (currentRetail.Links.Count > 0)
-                                            {
-                                                <div class="sme-match-source-links" aria-label="Retail match sources">
-                                                    @foreach (var link in currentRetail.Links)
-                                                    {
-                                                        <a href="@link.Url" target="_blank" rel="noopener noreferrer">
-                                                            <span>@link.Label</span>
-                                                            <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
-                                                        </a>
-                                                    }
-                                                </div>
-                                            }
                                         </div>
-                                    </div>
-                                </section>
-
-                                @if (!_showMatchSearch)
-                                {
-                                    <section class="sme-canonical-identity-panel">
-                                        <div class="sme-match-section-heading">
-                                            <div>
-                                                <span>Canonical identity</span>
-                                                <p>The identity shared across your library and connected services.</p>
+                                        @if (currentRetail.Links.Count > 0)
+                                        {
+                                            <div class="sme-match-source-links" aria-label="Retail match sources">
+                                                @foreach (var link in currentRetail.Links)
+                                                {
+                                                    <a href="@link.Url" target="_blank" rel="noopener noreferrer"><span>@link.Label</span><MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
+                                                }
                                             </div>
-                                        </div>
-                                        <div class="sme-canonical-identity-row">
-                                            <span class="sme-canonical-identity-icon"><MudIcon Icon="@Icons.Material.Outlined.Public" /></span>
-                                            <span><small>Wikidata QID</small><strong>@CurrentCanonicalQid</strong></span>
+                                        }
+                                    </section>
+
+                                    <section class="sme-canonical-identity-panel sme-match-summary-card">
+                                        <div class="sme-match-summary-heading">
+                                            <h3>Canonical Identity</h3>
                                             <span class="sme-match-state @(HasCurrentCanonicalIdentity ? "sme-match-state--success" : "sme-match-state--neutral")">
                                                 <MudIcon Icon="@(HasCurrentCanonicalIdentity ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Info)" Size="Size.Small" />
                                                 @CurrentCanonicalStatusLabel
                                             </span>
+                                        </div>
+                                        <div class="sme-match-summary-body">
+                                            <div class="sme-match-canonical-art"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></div>
+                                            <div class="sme-match-identity-copy">
+                                                <h3>@currentQid.Title</h3>
+                                                @if (!string.IsNullOrWhiteSpace(currentQid.Creator))
+                                                {
+                                                    <p>@currentQid.Creator</p>
+                                                }
+                                                @if (!string.IsNullOrWhiteSpace(currentQid.Year))
+                                                {
+                                                    <p>@currentQid.Year</p>
+                                                }
+                                            </div>
+                                            <dl class="sme-match-provider-facts">
+                                                <div><dt>Source</dt><dd>Wikidata</dd></div>
+                                                <div><dt>Canonical ID</dt><dd>@CurrentCanonicalQid</dd></div>
+                                            </dl>
                                         </div>
                                         @if (currentQid.Links.Count > 0)
                                         {
                                             <div class="sme-match-source-links" aria-label="Canonical identity sources">
                                                 @foreach (var link in currentQid.Links)
                                                 {
-                                                    <a href="@link.Url" target="_blank" rel="noopener noreferrer">
-                                                        <span>@link.Label</span>
-                                                        <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" />
-                                                    </a>
+                                                    <a href="@link.Url" target="_blank" rel="noopener noreferrer"><span>@link.Label</span><MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
                                                 }
                                             </div>
                                         }
-                                        <div class="sme-match-primary-actions">
-                                            <div>
-                                                <AppButton Label="Change Match"
-                                                           StartIcon="@Icons.Material.Outlined.Sync"
-                                                           ButtonStyle="AppButtonStyle.Filled"
-                                                           Tone="AppUiTone.Primary"
-                                                           OnClick="OpenMatchSearch" />
-                                                <small>Choose a different provider identity if this match is incorrect.</small>
-                                            </div>
-                                            <div class="sme-match-current-note">
-                                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                                                <span><strong>This item is currently matched.</strong><small>Your metadata and files continue to use this identity.</small></span>
-                                            </div>
-                                        </div>
                                     </section>
+                                </div>
+
+                                @if (!_showMatchSearch)
+                                {
+                                    <div class="sme-match-collapsed-actions">
+                                        <span><strong>Current identities remain unchanged.</strong><small>Search only when you need to correct one of these matches.</small></span>
+                                        <AppButton Label="Change match" StartIcon="@Icons.Material.Outlined.Sync" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="OpenMatchSearch" />
+                                    </div>
                                 }
 
                                 <section class="sme-match-search-panel @(!_showMatchSearch ? "sme-match-search-panel--collapsed" : null)" aria-hidden="@(!_showMatchSearch)">
@@ -884,11 +874,30 @@
                                         <div class="sme-match-section-heading sme-match-section-heading--search">
                                             <div>
                                                 <span>Find a better match</span>
-                                                <p>Search for the correct identity to replace the current match.</p>
+                                                <p>@(IsWikidataSearchMode
+                                                    ? "Search Wikidata for the shared canonical identity, even when no retail title match exists."
+                                                    : "Search retail providers for the edition, release, or title represented by this file.")</p>
                                             </div>
-                                            <AppButton Label="@(_showAdvancedMatch ? "Provider search" : "Advanced canonical identity")"
+                                            <AppButton Label="Cancel change"
+                                                       StartIcon="@Icons.Material.Outlined.Close"
+                                                       OnClick="CloseMatchSearch" />
+                                        </div>
+
+                                        <div class="sme-match-search-modes" role="group" aria-label="Match search type">
+                                            <AppButton Variant="Variant.Text"
+                                                       Color="Color.Inherit"
+                                                       Class="@(!IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
+                                                       StartIcon="@Icons.Material.Outlined.Storefront"
+                                                       OnClick="@(() => SelectMatchSearchMode("retail"))">
+                                                <span><strong>Retail Provider</strong><small>Edition, release, or provider listing</small></span>
+                                            </AppButton>
+                                            <AppButton Variant="Variant.Text"
+                                                       Color="Color.Inherit"
+                                                       Class="@(IsWikidataSearchMode ? "sme-match-search-mode is-active" : "sme-match-search-mode")"
                                                        StartIcon="@Icons.Material.Outlined.Hub"
-                                                       OnClick="ToggleAdvancedMatch" />
+                                                       OnClick="@(() => SelectMatchSearchMode("wikidata"))">
+                                                <span><strong>Canonical Identity</strong><small>Shared Wikidata identity and relationships</small></span>
+                                            </AppButton>
                                         </div>
 
                                     @if (QuickSearchTargets.Count > 1)
@@ -908,6 +917,13 @@
                                         </div>
                                     }
 
+                                        <div class="sme-match-independence-note">
+                                            <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                            <span>@(IsWikidataSearchMode
+                                                ? "Changing the canonical identity does not replace the selected retail edition or provider record."
+                                                : "Changing the retail provider match does not change the canonical Wikidata identity.")</span>
+                                        </div>
+
                                         <div class="sme-search-row">
                                             <AppTextField T="string"
                                                           Value="@_canonicalSearchQuery"
@@ -917,14 +933,26 @@
                                                           Margin="Margin.Dense"
                                                           Immediate="true"
                                                           Class="sme-text-input" />
-                                            <AppButton Variant="Variant.Filled"
-                                                       Color="Color.Primary"
-                                                       Class="sme-inline-btn sme-inline-btn--primary"
-                                                       Disabled="@_searchingCanonical"
-                                                       StartIcon="@Icons.Material.Outlined.Search"
-                                                       OnClick="SearchCanonicalAsync">
-                                                @(_searchingCanonical ? "Searching..." : "Search")
-                                            </AppButton>
+                                            @if (_searchingCanonical)
+                                            {
+                                                <AppButton Variant="Variant.Outlined"
+                                                           Color="Color.Inherit"
+                                                           Class="sme-inline-btn"
+                                                           StartIcon="@Icons.Material.Outlined.StopCircle"
+                                                           OnClick="CancelCanonicalSearch">
+                                                    Cancel search
+                                                </AppButton>
+                                            }
+                                            else
+                                            {
+                                                <AppButton Variant="Variant.Filled"
+                                                           Color="Color.Primary"
+                                                           Class="sme-inline-btn sme-inline-btn--primary"
+                                                           StartIcon="@Icons.Material.Outlined.Search"
+                                                           OnClick="SearchCanonicalAsync">
+                                                    Search
+                                                </AppButton>
+                                            }
                                         </div>
 
                                         <div class="sme-match-search-tip">Include title, creator, year, ISBN, or provider identifiers for the best results.</div>
@@ -1278,93 +1306,111 @@
                                                  @ondragleave="@(() => ClearArtworkDragTarget(slot.AssetType))"
                                                  @ondragover:preventDefault="true"
                                                  @ondrop="@(() => ClearArtworkDragTarget(slot.AssetType))">
-                                            <div class="sme-artwork-editor-center">
-                                                <div class="sme-artwork-editor-heading">
-                                                    <div>
-                                                        <h3>@slot.Label artwork</h3>
-                                                        <p>Choose the preferred @slot.Label.ToLowerInvariant() or add a new image.</p>
-                                                    </div>
-                                                    <div class="sme-artwork-editor-actions">
-                                                        <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
-                                                            Upload
-                                                            <span class="sme-art-slot-input-shell">
-                                                                <InputFile class="sme-art-slot-file-input"
-                                                                           OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
-                                                                           accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
-                                                            </span>
-                                                        </AppButton>
-                                                        <AppButton Label="From URL"
-                                                                   StartIcon="@Icons.Material.Outlined.Link"
-                                                                   OnClick="ToggleArtworkUrlInput" />
-                                                        @if (CanRefreshProviderArtwork(ArtworkScope))
-                                                        {
-                                                            <AppButton Label="@(_providerArtworkRefreshing ? "Refreshing..." : "Refresh artwork")"
-                                                                       StartIcon="@Icons.Material.Outlined.Sync"
-                                                                       Disabled="@IsArtworkBusy"
-                                                                       OnClick="RefreshProviderArtworkAsync" />
-                                                        }
-                                                    </div>
+                                            <div class="sme-artwork-editor-heading">
+                                                <div>
+                                                    <h3>@slot.Label artwork</h3>
+                                                    <p>Choose the preferred @slot.Label.ToLowerInvariant() or add a new image.</p>
                                                 </div>
-
-                                                <div class="sme-artwork-primary-row sme-artwork-primary-row--@focusedPreviewClass">
-                                                    @if (focusedItem is not null)
-                                                    {
-                                                        <div class="sme-artwork-primary-card sme-artwork-primary-card--@focusedPreviewClass">
-                                                            <div class="sme-art-row-stage sme-art-row-stage--@focusedPreviewClass">
-                                                                @if (!string.IsNullOrWhiteSpace(focusedItem.ImageUrl))
-                                                                {
-                                                                    <img src="@focusedItem.ImageUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
-                                                                }
-                                                                else
-                                                                {
-                                                                    <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" /></div>
-                                                                }
-                                                                @if (focusedItem.IsPreferred)
-                                                                {
-                                                                    <span class="sme-artwork-gallery-check" aria-label="Preferred artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
-                                                                }
-                                                            </div>
-                                                            <strong>@(focusedItem.IsPreferred ? "Primary artwork" : "Selected artwork")</strong>
-                                                        </div>
-                                                    }
-                                                    <AppButton Variant="Variant.Outlined"
-                                                               Color="Color.Inherit"
-                                                               Class="sme-artwork-add-card">
-                                                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
-                                                        <strong>Add artwork</strong>
-                                                        <span>Upload or link a new @slot.Label.ToLowerInvariant() image</span>
-                                                        <small>@slot.MetaLabel</small>
+                                                <div class="sme-artwork-editor-actions">
+                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
+                                                        Upload
                                                         <span class="sme-art-slot-input-shell">
                                                             <InputFile class="sme-art-slot-file-input"
                                                                        OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
                                                                        accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
                                                         </span>
                                                     </AppButton>
+                                                    <AppButton Label="From URL"
+                                                               StartIcon="@Icons.Material.Outlined.Link"
+                                                               OnClick="ToggleArtworkUrlInput" />
+                                                    @if (CanRefreshProviderArtwork(ArtworkScope))
+                                                    {
+                                                        <AppButton Label="@(_providerArtworkRefreshing ? "Refreshing..." : "Refresh")"
+                                                                   StartIcon="@Icons.Material.Outlined.Sync"
+                                                                   Disabled="@IsArtworkBusy"
+                                                                   OnClick="RefreshProviderArtworkAsync" />
+                                                    }
                                                 </div>
+                                            </div>
 
-                                                @if (rowItems.Count > 1)
-                                                {
-                                                    <div class="sme-artwork-variants-section">
-                                                        <h4>Other @slot.Label.ToLowerInvariant() options</h4>
-                                                        <div class="sme-artwork-variant-strip">
-                                                            @foreach (var item in rowItems)
+                                            <div class="sme-artwork-showcase">
+                                                <div class="sme-artwork-primary-card sme-artwork-primary-card--@focusedPreviewClass">
+                                                    @if (focusedItem is not null)
+                                                    {
+                                                        <div class="sme-art-row-stage sme-art-row-stage--@focusedPreviewClass">
+                                                            @if (!string.IsNullOrWhiteSpace(focusedItem.ImageUrl))
                                                             {
-                                                                var itemPreviewClass = GetArtworkPreviewClass(slot, item);
-                                                                <AppNativeButton Type="button"
-                                                                                 Class="@($"sme-artwork-variant-card sme-artwork-variant-card--{itemPreviewClass} {(focusedItem?.Key == item.Key ? "is-selected" : string.Empty)}")"
-                                                                                 aria-label="@BuildArtworkVariantHoverLabel(slot, item)"
-                                                                                 OnClick="@(() => HandleArtworkVariantClickAsync(slot, item))">
-                                                                    <span class="sme-art-row-stage sme-art-row-stage--@itemPreviewClass">
-                                                                        @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
-                                                                        {
-                                                                            <img src="@item.ImageUrl" alt="" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
-                                                                        }
-                                                                    </span>
-                                                                </AppNativeButton>
+                                                                <img src="@focusedItem.ImageUrl" alt="@slot.Label" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                            }
+                                                            else
+                                                            {
+                                                                <div class="sme-cover-fallback sme-art-slot-placeholder"><MudIcon Icon="@slot.Icon" /></div>
+                                                            }
+                                                            @if (focusedItem.IsPreferred)
+                                                            {
+                                                                <span class="sme-artwork-gallery-check" aria-label="Primary artwork"><MudIcon Icon="@Icons.Material.Filled.Check" /></span>
+                                                                <span class="sme-artwork-primary-badge">Primary</span>
                                                             }
                                                         </div>
-                                                    </div>
-                                                }
+                                                        <div class="sme-artwork-primary-actions">
+                                                            <AppButton Label="Preview" StartIcon="@Icons.Material.Outlined.Visibility" OnClick="@(() => OpenArtworkZoom(slot, focusedItem))" />
+                                                            @if (!focusedItem.IsPreferred && focusedItem.VariantId != Guid.Empty)
+                                                            {
+                                                                <AppButton Label="Set primary" StartIcon="@Icons.Material.Outlined.StarOutline" OnClick="@(() => SetPreferredArtworkVariantAsync(focusedItem.VariantId))" />
+                                                            }
+                                                            <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.SwapHoriz" Class="sme-artwork-action-upload">
+                                                                Replace
+                                                                <span class="sme-art-slot-input-shell">
+                                                                    <InputFile class="sme-art-slot-file-input"
+                                                                               OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
+                                                                               accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
+                                                                </span>
+                                                            </AppButton>
+                                                            @if (focusedItem.VariantId != Guid.Empty && !IsArtworkDeleteConfirming(focusedItem))
+                                                            {
+                                                                <AppButton Label="Remove" StartIcon="@Icons.Material.Outlined.Delete" Tone="AppUiTone.Error" OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
+                                                            }
+                                                        </div>
+                                                        @if (IsArtworkDeleteConfirming(focusedItem))
+                                                        {
+                                                            <div class="sme-artwork-delete-confirm">
+                                                                <span>Remove this artwork?</span>
+                                                                <AppButton Label="Cancel" OnClick="@(() => CancelArtworkDelete(focusedItem))" />
+                                                                <AppButton Label="Remove" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
+                                                            </div>
+                                                        }
+                                                    }
+                                                    else
+                                                    {
+                                                        <div class="sme-artwork-primary-empty"><MudIcon Icon="@slot.Icon" /><span>No @slot.Label.ToLowerInvariant() artwork yet</span></div>
+                                                    }
+                                                </div>
+
+                                                <aside class="sme-artwork-details-panel">
+                                                    <h3>Artwork details</h3>
+                                                    <dl>
+                                                        <div><dt>Artwork type</dt><dd>@slot.Label</dd></div>
+                                                        <div><dt>Source</dt><dd>@(focusedItem is null ? "Not available" : GetArtworkCardSource(focusedItem))</dd></div>
+                                                        <div><dt>Image size</dt><dd>@GetArtworkImageSize(focusedItem)</dd></div>
+                                                        <div><dt>Added</dt><dd>@(focusedItem?.CreatedAt?.LocalDateTime.ToString("g", CultureInfo.CurrentCulture) ?? "Provider managed")</dd></div>
+                                                    </dl>
+                                                </aside>
+
+                                                <div class="sme-artwork-add-panel">
+                                                    <MudIcon Icon="@Icons.Material.Outlined.Add" />
+                                                    <strong>Add artwork</strong>
+                                                    <span>Upload or link a new @slot.Label.ToLowerInvariant() image.</span>
+                                                    <AppButton Variant="Variant.Outlined" Color="Color.Inherit" StartIcon="@Icons.Material.Outlined.CloudUpload" Class="sme-artwork-action-upload">
+                                                        Upload file
+                                                        <span class="sme-art-slot-input-shell">
+                                                            <InputFile class="sme-art-slot-file-input"
+                                                                       OnChange="@((InputFileChangeEventArgs args) => HandleArtworkSelectedAsync(slot.AssetType, args))"
+                                                                       accept="@GetArtworkAcceptedTypes(slot.AssetType)" />
+                                                        </span>
+                                                    </AppButton>
+                                                    <AppButton Label="From URL" StartIcon="@Icons.Material.Outlined.Link" OnClick="ToggleArtworkUrlInput" />
+                                                </div>
+                                            </div>
 
                                             @if (_showArtworkUrlInput && string.Equals(slot.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase))
                                             {
@@ -1402,46 +1448,6 @@
                                                 <div class="sme-artwork-import-error">@GetArtworkUploadError(slot.AssetType)</div>
                                             }
 
-                                            </div>
-
-                                            <aside class="sme-artwork-details-panel">
-                                                <h3>Artwork details</h3>
-                                                <p>@(focusedItem?.IsPreferred == true ? "Primary artwork for this item." : "Selected artwork variant.")</p>
-                                                <dl>
-                                                    <div><dt>Artwork type</dt><dd>@slot.Label</dd></div>
-                                                    <div><dt>Source</dt><dd>@(focusedItem is null ? "Not available" : GetArtworkCardSource(focusedItem))</dd></div>
-                                                    <div><dt>Image size</dt><dd>@GetArtworkImageSize(focusedItem)</dd></div>
-                                                    <div><dt>Added</dt><dd>@(focusedItem?.CreatedAt?.LocalDateTime.ToString("g", CultureInfo.CurrentCulture) ?? "Provider managed")</dd></div>
-                                                </dl>
-                                                @if (focusedItem is not null && !string.IsNullOrWhiteSpace(focusedItem.ImageUrl))
-                                                {
-                                                    <AppButton Label="Preview artwork"
-                                                               StartIcon="@Icons.Material.Outlined.ZoomIn"
-                                                               FullWidth="true"
-                                                               OnClick="@(() => OpenArtworkZoom(slot, focusedItem))" />
-                                                }
-                                                @if (focusedItem is not null && focusedItem.VariantId != Guid.Empty)
-                                                {
-                                                    @if (IsArtworkDeleteConfirming(focusedItem))
-                                                    {
-                                                        <div class="sme-artwork-delete-confirm">
-                                                            <span>Remove this artwork?</span>
-                                                            <AppButton Label="Cancel" OnClick="@(() => CancelArtworkDelete(focusedItem))" />
-                                                            <AppButton Label="Remove" Tone="AppUiTone.Error" OnClick="@(() => ConfirmArtworkDeleteAsync(focusedItem))" />
-                                                        </div>
-                                                    }
-                                                    else
-                                                    {
-                                                        <AppButton Label="Remove artwork"
-                                                                   StartIcon="@Icons.Material.Outlined.Delete"
-                                                                   Tone="AppUiTone.Error"
-                                                                   Class="sme-artwork-remove-action"
-                                                                   FullWidth="true"
-                                                                   OnClick="@(() => DeleteArtworkVariantWithConfirmationAsync(focusedItem))" />
-                                                    }
-                                                }
-                                            </aside>
-
                                             <div class="sme-artwork-tips sme-artwork-tips--banner">
                                                 <MudIcon Icon="@Icons.Material.Outlined.Lightbulb" Size="Size.Small" />
                                                 <div>
@@ -1449,6 +1455,33 @@
                                                     <span>@GetArtworkGuidance(slot)</span>
                                                 </div>
                                             </div>
+
+                                            @if (rowItems.Count > 1)
+                                            {
+                                                <div class="sme-artwork-variants-section">
+                                                    <div class="sme-artwork-variants-heading">
+                                                        <h4>Other @slot.Label.ToLowerInvariant() options</h4>
+                                                        <span>@rowItems.Count options</span>
+                                                    </div>
+                                                    <div class="sme-artwork-variant-strip">
+                                                        @foreach (var item in rowItems)
+                                                        {
+                                                            var itemPreviewClass = GetArtworkPreviewClass(slot, item);
+                                                            <AppNativeButton Type="button"
+                                                                             Class="@($"sme-artwork-variant-card sme-artwork-variant-card--{itemPreviewClass} {(focusedItem?.Key == item.Key ? "is-selected" : string.Empty)}")"
+                                                                             aria-label="@BuildArtworkVariantHoverLabel(slot, item)"
+                                                                             OnClick="@(() => HandleArtworkVariantClickAsync(slot, item))">
+                                                                <span class="sme-art-row-stage sme-art-row-stage--@itemPreviewClass">
+                                                                    @if (!string.IsNullOrWhiteSpace(item.ImageUrl))
+                                                                    {
+                                                                        <img src="@item.ImageUrl" alt="" class="sme-art-slot-image sme-art-slot-image--@slot.ImageClass" />
+                                                                    }
+                                                                </span>
+                                                            </AppNativeButton>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
                                         </section>
 
                                     }
