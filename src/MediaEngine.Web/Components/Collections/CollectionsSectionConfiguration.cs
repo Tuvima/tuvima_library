@@ -40,7 +40,6 @@ internal static class CollectionsSectionConfiguration
         new("Shortcuts",
         [
             new("Cross-media", "/collections/automatic?lane=CrossMedia", Icons.Material.Outlined.Hub, Exact: true),
-            new("Published", "/collections/curated?status=published", Icons.Material.Outlined.Public, Exact: true),
             new("Recently Updated", "/collections/curated?sort=recent", Icons.Material.Outlined.Schedule, Exact: true),
         ]),
     ];

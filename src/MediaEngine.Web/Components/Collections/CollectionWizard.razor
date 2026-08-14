@@ -105,12 +105,7 @@
     private string _matchMode = "all";
     private bool _dirty;
     private bool _saving;
-    private bool _loadingItems;
-    private string _itemSearch = string.Empty;
     private string _activeRuleCategory = "people";
-    private IBrowserFile? _artworkFile;
-    private string? _artworkPreviewUrl;
-    private List<CollectionMediaLookupDto> _lookupItems = [];
     private List<CollectionWizardItem> _manualItems = [];
     private List<CollectionRulePredicateViewModel> _rules = [];
     private IReadOnlyList<CollectionRuleValueDto> _peopleOptions = [];
@@ -133,7 +128,6 @@
     private bool IsPlaylist => _mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist;
     private string DialogTitle => IsPlaylist ? "Create Playlist" : "Create Collection";
     private string FinalActionLabel => IsPlaylist ? "Create Playlist" : "Create Collection";
-    private string VisibilityLabel => IsPlaylist ? "Personal" : "Published";
     private string CollectionType => IsPlaylist ? (_dynamic ? "Smart" : "Playlist") : "Custom";
     private string TriggeringMeta => JoinMeta(Request.TriggeringMediaType, Request.TriggeringYear);
     private IReadOnlyList<int> VisibleSteps => _includeTypeStep ? [1, 2, 3, 4] : [2, 3, 4];
@@ -143,7 +137,7 @@
     {
         1 => true,
         2 => !string.IsNullOrWhiteSpace(_name),
-        3 => _dynamic ? _rules.Any(IsCompleteRule) : _manualItems.Count > 0,
+        3 => !_dynamic || _rules.Any(IsCompleteRule),
         _ => true,
     };
 
@@ -182,7 +176,7 @@
                     <span class="collection-wizard__type-icon"><MudIcon Icon="@Icons.Material.Outlined.Layers" /></span>
                     <span class="collection-wizard__type-copy">
                         <strong>Curated Collection</strong>
-                        <small>A published collection can mix books, movies, music, comics, and other media.</small>
+                        <small>A collection can mix books, movies, music, comics, and other media.</small>
                     </span>
                     <span class="collection-wizard__radio" aria-hidden="true"></span>
                 </AppNativeButton>
@@ -204,7 +198,7 @@
         <div class="collection-wizard__scope-note">
             <MudIcon Icon="@(IsPlaylist ? Icons.Material.Outlined.Headphones : Icons.Material.Outlined.Public)" />
             <div>
-                <strong>@(IsPlaylist ? "Listen · Personal" : "Cross-media · Published")</strong>
+                <strong>@(IsPlaylist ? "Listen playlist" : "Cross-media collection")</strong>
                 <span>@(IsPlaylist
                     ? "Playlist membership is limited to Listen media and belongs to the active profile."
                     : "Curated collections are administrator-authored and available to every profile.")</span>
@@ -253,43 +247,6 @@
                          Immediate="true"
                          Class="app-dialog-field app-dialog-textarea" />
         </div>
-        <div class="collection-wizard__detail-grid">
-            <div>
-                <label>Visibility</label>
-                <div class="collection-wizard__visibility is-selected">
-                    <MudIcon Icon="@(IsPlaylist ? Icons.Material.Outlined.Person : Icons.Material.Outlined.Public)" />
-                    <span>@VisibilityLabel</span>
-                </div>
-                <small>@(IsPlaylist ? "Visible only to the active profile." : "Published in the shared library for every profile.")</small>
-            </div>
-            <div>
-                <label>Artwork</label>
-                <div class="collection-wizard__artwork-row">
-                    <div class="collection-wizard__artwork-preview">
-                        @if (!string.IsNullOrWhiteSpace(_artworkPreviewUrl))
-                        {
-                            <img src="@_artworkPreviewUrl" alt="Selected collection artwork" />
-                        }
-                        else if (_manualItems.FirstOrDefault(item => !string.IsNullOrWhiteSpace(item.ArtworkUrl)) is { } art)
-                        {
-                            <img src="@art.ArtworkUrl" alt="Generated artwork preview" />
-                        }
-                        else
-                        {
-                            <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
-                        }
-                    </div>
-                    <InputFile id="collection-artwork-file"
-                               class="collection-wizard__file-input"
-                               OnChange="OnArtworkSelected"
-                               accept=".jpg,.jpeg,.png" />
-                    <label for="collection-artwork-file" class="collection-wizard__artwork-change">
-                        <MudIcon Icon="@Icons.Material.Outlined.Edit" /> Change
-                    </label>
-                </div>
-                <small>Generated automatically unless you choose an image.</small>
-            </div>
-        </div>
     </section>;
 
     private RenderFragment RenderContentsStep() => @<section class="collection-wizard__step">
@@ -310,47 +267,31 @@
     </section>;
 
     private RenderFragment RenderManualContents() => @<div class="collection-wizard__manual">
-        <h4>Included items</h4>
-        <div class="collection-wizard__included-list">
-            @foreach (var item in _manualItems)
-            {
-                <div class="collection-wizard__media-row is-included" @key="item.WorkId">
-                    @MediaArtwork(item.ArtworkUrl, item.Title)
-                    <div><strong>@item.Title</strong><small>@JoinMeta(item.MediaType, item.Year)</small></div>
-                    <AppIconButton Icon="@Icons.Material.Outlined.CheckCircle" Color="Color.Primary" Size="Size.Small" OnClick="@(() => RemoveItem(item.WorkId))" aria-label="Remove included item" />
-                </div>
-            }
-        </div>
-        <div class="collection-wizard__search-row">
-            <AppTextField T="string"
-                          Value="@_itemSearch"
-                          ValueChanged="SearchItemsAsync"
-                          Placeholder="@(IsPlaylist ? "Search music and audiobooks" : "Search your library")"
-                          Variant="Variant.Outlined"
-                          Immediate="true"
-                          DebounceInterval="300"
-                          Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Outlined.Search"
-                          Class="app-dialog-field" />
-        </div>
-        @if (_loadingItems)
+        @if (_manualItems.Count > 0)
         {
-            <div class="collection-wizard__loading"><MudProgressCircular Indeterminate="true" Size="Size.Small" /> Searching…</div>
-        }
-        else
-        {
-            <div class="collection-wizard__lookup-list">
-                @foreach (var item in _lookupItems.Where(item => !_manualItems.Any(selected => selected.WorkId == item.WorkId)).Take(8))
+            <h4>Starting item</h4>
+            <div class="collection-wizard__included-list">
+                @foreach (var item in _manualItems)
                 {
-                    <div class="collection-wizard__media-row" @key="item.WorkId">
+                    <div class="collection-wizard__media-row is-included" @key="item.WorkId">
                         @MediaArtwork(item.ArtworkUrl, item.Title)
                         <div><strong>@item.Title</strong><small>@JoinMeta(item.MediaType, item.Year)</small></div>
-                        <AppIconButton Icon="@Icons.Material.Outlined.AddCircleOutline" Size="Size.Small" OnClick="@(() => AddItem(item))" aria-label="@($"Add {item.Title}")" />
+                        <span class="collection-wizard__included-check" aria-label="Included"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span>
                     </div>
                 }
             </div>
         }
-        <div class="collection-wizard__count">@_manualItems.Count @(_manualItems.Count == 1 ? "item" : "items") included</div>
+        <div class="collection-wizard__editor-note">
+            <MudIcon Icon="@Icons.Material.Outlined.EditNote" />
+            <div>
+                <strong>@(_manualItems.Count > 0 ? "Add more items after creation" : "Add items after creation")</strong>
+                <span>Use the full @(IsPlaylist ? "playlist" : "collection") editor to manage membership.</span>
+            </div>
+        </div>
+        @if (_manualItems.Count == 0)
+        {
+            <div class="collection-wizard__count">The @(IsPlaylist ? "playlist" : "collection") will be created empty.</div>
+        }
     </div>;
 
     private RenderFragment RenderDynamicContents() => @<div class="collection-wizard__dynamic">
@@ -439,7 +380,7 @@
             </div>
             <div>
                 <h3>@_name</h3>
-                <p>@(IsPlaylist ? "Playlist · Listen" : "Collection · Cross-media") · @(_dynamic ? "Dynamic" : "Manual") · @VisibilityLabel</p>
+                <p>@(IsPlaylist ? "Playlist · Listen" : "Collection · Cross-media") · @(_dynamic ? "Dynamic" : "Manual")</p>
             </div>
         </div>
 
@@ -465,7 +406,6 @@
                 </div>
             </div>
         }
-        <div class="collection-wizard__review-visibility"><MudIcon Icon="@Icons.Material.Outlined.Lock" /><span>Visibility</span><strong>@VisibilityLabel</strong></div>
     </section>;
 
     private bool CanOfferPlaylist =>
@@ -566,47 +506,6 @@
         _description = value;
         _dirty = true;
         return Task.CompletedTask;
-    }
-
-    private async Task OnArtworkSelected(InputFileChangeEventArgs args)
-    {
-        _artworkFile = args.File;
-        await using var stream = _artworkFile.OpenReadStream(5 * 1024 * 1024);
-        using var memory = new MemoryStream();
-        await stream.CopyToAsync(memory);
-        _artworkPreviewUrl = $"data:{_artworkFile.ContentType};base64,{Convert.ToBase64String(memory.ToArray())}";
-        _dirty = true;
-    }
-
-    private async Task SearchItemsAsync(string value)
-    {
-        _itemSearch = value;
-        _loadingItems = true;
-        try
-        {
-            _lookupItems = await ApiClient.LookupCollectionMediaAsync(
-                string.IsNullOrWhiteSpace(value) ? null : value,
-                mediaTypes: IsPlaylist ? "Music,Audiobook" : null,
-                limit: 24,
-                profileId: Request.ActiveProfileId);
-        }
-        finally
-        {
-            _loadingItems = false;
-        }
-    }
-
-    private void AddItem(CollectionMediaLookupDto item)
-    {
-        if (_manualItems.All(selected => selected.WorkId != item.WorkId))
-            _manualItems.Add(new CollectionWizardItem(item.WorkId, item.Title, item.MediaType, item.Year, item.ArtworkUrl));
-        _dirty = true;
-    }
-
-    private void RemoveItem(Guid workId)
-    {
-        _manualItems.RemoveAll(item => item.WorkId == workId);
-        _dirty = true;
     }
 
     private void SelectRuleCategory(string category)
@@ -721,13 +620,6 @@
             {
                 Snackbar.Add($"The {(_mode == CollectionEditorMode.CuratedCollection ? "collection" : "playlist")} could not be created.", Severity.Error);
                 return;
-            }
-
-            if (_artworkFile is not null)
-            {
-                await using var stream = _artworkFile.OpenReadStream(5 * 1024 * 1024);
-                if (!await ApiClient.UploadCollectionCoverArtworkAsync(collectionId.Value, stream, _artworkFile.Name, Request.ActiveProfileId))
-                    Snackbar.Add("The collection was created, but its custom artwork could not be saved.", Severity.Warning);
             }
 
             _dirty = false;

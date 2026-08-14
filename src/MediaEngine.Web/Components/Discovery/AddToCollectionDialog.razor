@@ -42,7 +42,7 @@
                     {
                         <AppNativeButton Type="button" OnClick="@(() => CreateAsync(CollectionEditorMode.CuratedCollection))">
                             <span><MudIcon Icon="@Icons.Material.Outlined.Layers" /></span>
-                            <div><strong>Curated Collection</strong><small>Publish a manual or dynamic cross-media collection.</small></div>
+                            <div><strong>Curated Collection</strong><small>Create a manual or dynamic cross-media collection.</small></div>
                             <MudIcon Icon="@Icons.Material.Outlined.ArrowForward" />
                         </AppNativeButton>
                     }
@@ -309,8 +309,8 @@
             "Playlist" => "Playlist",
             _ => collection.TypeLabel,
         };
-        var scope = collection.IsShared ? "Published" : "Personal";
-        return $"{type} · {scope} · {collection.ItemCount} {((collection.ItemCount == 1) ? "item" : "items")}";
+        var scope = string.Equals(collection.CollectionType, "Playlist", StringComparison.OrdinalIgnoreCase) ? " · Personal" : string.Empty;
+        return $"{type}{scope} · {collection.ItemCount} {((collection.ItemCount == 1) ? "item" : "items")}";
     }
 
     private static bool IsListenMedia(string? mediaType) => mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true

@@ -223,6 +223,9 @@ public sealed class CollectionsHubTests
         var request = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Editing\CollectionEditorModels.cs"));
         var picker = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor"));
         var pickerCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor.css"));
+        var editor = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor"));
+        var collectionsPage = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
+        var sectionConfiguration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsSectionConfiguration.cs"));
 
         Assert.Contains("Step @VisibleStepOrdinal(_step) of @VisibleSteps.Count", wizard, StringComparison.Ordinal);
         Assert.Contains("!Request.TypeSelectionConfirmed && CanOfferCurated && CanOfferPlaylist", wizard, StringComparison.Ordinal);
@@ -233,6 +236,17 @@ public sealed class CollectionsHubTests
         Assert.Contains("How should this", wizard, StringComparison.Ordinal);
         Assert.Contains("all_of", wizard, StringComparison.Ordinal);
         Assert.Contains("CreateCollectionWithItemsAsync", wizard, StringComparison.Ordinal);
+        Assert.Contains("Use the full @(IsPlaylist ? \"playlist\" : \"collection\") editor to manage membership.", wizard, StringComparison.Ordinal);
+        Assert.Contains("3 => !_dynamic || _rules.Any(IsCompleteRule)", wizard, StringComparison.Ordinal);
+        Assert.DoesNotContain("collection-artwork-file", wizard, StringComparison.Ordinal);
+        Assert.DoesNotContain("VisibilityLabel", wizard, StringComparison.Ordinal);
+        Assert.DoesNotContain("LookupCollectionMediaAsync", wizard, StringComparison.Ordinal);
+        Assert.DoesNotContain("Remove included item", wizard, StringComparison.Ordinal);
+        Assert.Contains("PersistenceVisibility", editor, StringComparison.Ordinal);
+        Assert.Contains("RenderItemsTab", editor, StringComparison.Ordinal);
+        Assert.DoesNotContain("collection-editor-section-title\">Publication", editor, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Publication\"", collectionsPage, StringComparison.Ordinal);
+        Assert.DoesNotContain("status=published", sectionConfiguration, StringComparison.Ordinal);
         Assert.Contains("var(--tl-accent-collection)", css, StringComparison.Ordinal);
         Assert.Contains("::deep button.add-to-collection__create", pickerCss, StringComparison.Ordinal);
         var sharedDialogCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\AppDialogShell.razor.css"));

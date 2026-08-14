@@ -196,8 +196,7 @@
 }
 
 .collection-wizard__type-copy small,
-.collection-wizard__scope-note span,
-.collection-wizard__detail-grid small {
+.collection-wizard__scope-note span {
     color: rgba(255, 255, 255, 0.58);
     font-size: 0.82rem;
     line-height: 1.45;
@@ -234,15 +233,13 @@
     gap: 3px;
 }
 
-.collection-wizard__field,
-.collection-wizard__detail-grid > div {
+.collection-wizard__field {
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
 
 .collection-wizard__field > label,
-.collection-wizard__detail-grid label,
 .collection-wizard__people-rule > label {
     font-size: 0.78rem;
     font-weight: 600;
@@ -278,37 +275,6 @@
     font-size: 0.75rem;
 }
 
-.collection-wizard__detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 22px;
-}
-
-.collection-wizard__visibility {
-    width: fit-content;
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 0 14px;
-    border: 1px solid var(--wizard-accent);
-    border-radius: 999px;
-    background: var(--wizard-accent-soft);
-    font-size: 0.8rem;
-}
-
-.collection-wizard__visibility ::deep .mud-icon-root {
-    font-size: 18px;
-}
-
-.collection-wizard__artwork-row {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.collection-wizard__artwork-preview,
 .collection-wizard__media-art {
     overflow: hidden;
     display: inline-flex;
@@ -320,40 +286,10 @@
     color: rgba(255, 255, 255, 0.32);
 }
 
-.collection-wizard__artwork-preview {
-    width: 78px;
-    height: 48px;
-}
-
-.collection-wizard__artwork-preview img,
 .collection-wizard__media-art img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
-
-.collection-wizard__artwork-change {
-    min-height: 36px;
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 0 13px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    border-radius: var(--app-radius-sm);
-    cursor: pointer;
-    font-size: 0.78rem;
-}
-
-.collection-wizard ::deep .collection-wizard__file-input {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    clip-path: inset(50%);
-    white-space: nowrap;
 }
 
 .collection-wizard__segmented {
@@ -423,25 +359,54 @@
 }
 
 .collection-wizard__media-row small,
-.collection-wizard__count,
-.collection-wizard__loading {
+.collection-wizard__count {
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.76rem;
 }
 
-.collection-wizard__lookup-list,
 .collection-wizard__included-list {
     display: grid;
     gap: 6px;
 }
 
-.collection-wizard__lookup-list {
-    max-height: 230px;
-    overflow-y: auto;
-}
-
 .collection-wizard__count {
     text-align: center;
+}
+
+.collection-wizard__included-check {
+    display: inline-flex;
+    color: var(--wizard-accent);
+}
+
+.collection-wizard__editor-note {
+    min-height: 68px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--wizard-border);
+    border-radius: var(--app-radius-md);
+    background: var(--wizard-accent-soft);
+}
+
+.collection-wizard__editor-note > .mud-icon-root {
+    color: var(--wizard-accent);
+    font-size: 24px;
+}
+
+.collection-wizard__editor-note > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.collection-wizard__editor-note strong {
+    font-size: 0.9rem;
+}
+
+.collection-wizard__editor-note span {
+    color: rgba(255, 255, 255, 0.58);
+    font-size: 0.8rem;
 }
 
 .collection-wizard__rule-categories {
@@ -480,8 +445,7 @@
 
 .collection-wizard__people-rule,
 .collection-wizard__rule-card,
-.collection-wizard__review-panel,
-.collection-wizard__review-visibility {
+.collection-wizard__review-panel {
     border: 1px solid rgba(255, 255, 255, 0.09);
     border-radius: var(--app-radius-md);
     background: rgba(255, 255, 255, 0.022);
@@ -727,21 +691,6 @@
     font-size: 18px;
 }
 
-.collection-wizard__review-visibility {
-    min-height: 48px;
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 10px;
-    padding: 0 13px;
-    font-size: 0.78rem;
-}
-
-.collection-wizard__review-visibility ::deep .mud-icon-root {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 18px;
-}
-
 .collection-wizard__footer {
     display: flex;
     justify-content: space-between;
@@ -827,24 +776,9 @@
         height: 52px;
     }
 
-    .collection-wizard__detail-grid,
     .collection-wizard__people-match,
     .collection-wizard__review-identity {
         grid-template-columns: 1fr;
-    }
-
-    .collection-wizard__detail-grid > div,
-    .collection-wizard__artwork-row {
-        width: 100%;
-        min-width: 0;
-    }
-
-    .collection-wizard__artwork-preview {
-        flex: 0 0 78px;
-    }
-
-    .collection-wizard__artwork-change {
-        margin-left: auto;
     }
 
     .collection-wizard__people-match ::deep button + button {

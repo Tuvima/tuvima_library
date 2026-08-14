@@ -126,7 +126,6 @@
     private IBrowserFile? _artworkFile;
     private string? _artworkPreviewUrl;
     private string _collectionType = "Custom";
-    private string _visibility = "shared";
     private bool _rulesEnabled = true;
     private List<CollectionRulePredicateViewModel> _rules = [new()];
     private readonly Dictionary<string, IReadOnlyList<CollectionRuleValueDto>> _entityRuleValues = new(StringComparer.OrdinalIgnoreCase);
@@ -147,6 +146,7 @@
 
     private bool IsPlaylist => string.Equals(_collectionType, "Playlist", StringComparison.OrdinalIgnoreCase);
     private bool IsSmartPlaylist => string.Equals(_collectionType, "Smart", StringComparison.OrdinalIgnoreCase);
+    private string PersistenceVisibility => IsPlaylistDialog || IsPlaylist || IsSmartPlaylist ? "private" : "shared";
     private bool SupportsManualItems => IsPlaylist || !_rulesEnabled;
     private string CollectionTypeIcon => !string.IsNullOrWhiteSpace(_iconName)
         ? _iconName
@@ -207,7 +207,6 @@
         {
             _name = Request.InitialTitle ?? string.Empty;
             _collectionType = Request.InitialCollectionType ?? "Custom";
-            _visibility = IsPlaylistDialog ? "private" : "shared";
             _rulesEnabled = Request.InitialRulesEnabled ?? !IsPlaylist;
             _iconName = DefaultIconForCollectionType(_collectionType);
             _liveUpdating = _rulesEnabled;
@@ -221,7 +220,6 @@
         _description = EditingCollection.Description;
         _iconName = EditingCollection.IconName;
         _collectionType = EditingCollection.CollectionType;
-        _visibility = EditingCollection.Visibility;
         _matchMode = EditingCollection.MatchMode;
         _sortField = EditingCollection.SortField ?? string.Empty;
         _sortDirection = string.IsNullOrWhiteSpace(EditingCollection.SortDirection) ? "desc" : EditingCollection.SortDirection;
@@ -667,10 +665,7 @@
             return;
         }
 
-        if (!Request.CanManageSharedCollections)
-            _visibility = "private";
-
-        if (!string.Equals(_visibility, "shared", StringComparison.OrdinalIgnoreCase) && !Request.ActiveProfileId.HasValue)
+        if (string.Equals(PersistenceVisibility, "private", StringComparison.OrdinalIgnoreCase) && !Request.ActiveProfileId.HasValue)
         {
             Snackbar.Add("An active profile is required to save a private collection.", Severity.Warning);
             _activeTab = "details";
@@ -699,7 +694,7 @@
                     _iconName,
                     rules,
                     _matchMode,
-                    _visibility,
+                    PersistenceVisibility,
                     normalizedSortField,
                     _sortDirection,
                     _rulesEnabled && _liveUpdating,
@@ -719,7 +714,7 @@
                     normalizedSortField,
                     _sortDirection,
                     _rulesEnabled && _liveUpdating,
-                    _visibility,
+                    PersistenceVisibility,
                     Request.ActiveProfileId);
                 ok = savedCollectionId.HasValue;
             }
@@ -781,7 +776,7 @@
         var createdCollection = collections
             .Where(collection => string.Equals(collection.Name, _name, StringComparison.OrdinalIgnoreCase))
             .Where(collection => string.Equals(collection.CollectionType, _collectionType, StringComparison.OrdinalIgnoreCase))
-            .Where(collection => string.Equals(collection.Visibility, _visibility, StringComparison.OrdinalIgnoreCase))
+            .Where(collection => string.Equals(collection.Visibility, PersistenceVisibility, StringComparison.OrdinalIgnoreCase))
             .OrderByDescending(collection => collection.CreatedAt)
             .FirstOrDefault();
 
@@ -1033,16 +1028,6 @@
                 </div>
             }
         </section>
-
-        @if (!IsPlaylistDialog)
-        {
-            <section class="collection-editor-section">
-                <div class="collection-editor-section-title">Publication</div>
-                <div class="collection-editor-note">
-                    <span>Curated collections are published to every profile. Only administrators can create or change them.</span>
-                </div>
-            </section>
-        }
 
         @if (IsSmartPlaylistLaunch)
         {

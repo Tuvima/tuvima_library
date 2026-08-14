@@ -184,17 +184,6 @@
                                         <MudSelectItem T="string" Value="@("manual")">Hand-picked</MudSelectItem>
                                         <MudSelectItem T="string" Value="@("rules")">Rule-driven</MudSelectItem>
                                     </AppSelect>
-                                    <AppSelect T="string"
-                                               Value="@_status"
-                                               ValueChanged="OnStatusChanged"
-                                               Label="Publication"
-                                               Variant="Variant.Outlined"
-                                               Dense="true"
-                                               Class="collections-filter-select">
-                                        <MudSelectItem T="string" Value="@("all")">All states</MudSelectItem>
-                                        <MudSelectItem T="string" Value="@("published")">Published</MudSelectItem>
-                                        <MudSelectItem T="string" Value="@("unpublished")">Unpublished</MudSelectItem>
-                                    </AppSelect>
                                 }
                                 else if (_activeSection == CollectionsSectionConfiguration.Shelves)
                                 {
@@ -368,7 +357,6 @@
     private string _lane = "all";
     private string _kind = "all";
     private string _membership = "all";
-    private string _status = "all";
     private string _role = "all";
     private string _sortBy = "title";
     private int _tileSize = 176;
@@ -426,7 +414,7 @@
     {
         Key = "curated-collections",
         Title = "Curated Collections",
-        Subtitle = "Published selections maintained by your library administrators",
+        Subtitle = "Selections maintained by your library administrators",
         Items = SortCollectionTiles(CuratedTiles).Take(12).ToList(),
         SeeAllRoute = "/collections/curated",
     };
@@ -568,7 +556,7 @@
     private string SectionDescription => _activeSection switch
     {
         CollectionsSectionConfiguration.Automatic => "Broader franchise, universe, and related-work rollups discovered from trusted library relationships.",
-        CollectionsSectionConfiguration.Curated => "Published collections intentionally assembled or rule-maintained by administrators.",
+        CollectionsSectionConfiguration.Curated => "Collections intentionally assembled or rule-maintained by administrators.",
         CollectionsSectionConfiguration.Shelves => "Multi-title shelves built around canonical primary contributors, with tracks, episodes, and format variants collapsed to their owned work.",
         CollectionsSectionConfiguration.People => "Primary contributors with owned work in your library, using the same canonical credits as detail pages.",
         _ => string.Empty,
@@ -598,8 +586,8 @@
         {
             CollectionsSectionConfiguration.Automatic => "Automatic collections appear when trusted relationships connect multiple shelves.",
             CollectionsSectionConfiguration.Curated => CanManageCuratedCollections
-                ? "Create and publish a collection to make it available to every profile."
-                : "An administrator has not published any curated collections yet.",
+                ? "Create a collection to make it available to every profile."
+                : "An administrator has not created any curated collections yet.",
             CollectionsSectionConfiguration.Shelves => "Shelves appear when a primary contributor has at least two distinct owned works in the same role.",
             _ => "Try another section.",
         }
@@ -610,7 +598,6 @@
         .. _lane == "all" ? [] : new[] { new ActiveFilterChip("lane", _lane) },
         .. _kind == "all" ? [] : new[] { new ActiveFilterChip("kind", KindFilterLabel) },
         .. _membership == "all" ? [] : new[] { new ActiveFilterChip("membership", MembershipFilterLabel) },
-        .. _status == "all" ? [] : new[] { new ActiveFilterChip("status", StatusFilterLabel) },
         .. _role == "all" ? [] : new[] { new ActiveFilterChip("role", RoleDisplayLabel(_role)) },
     ];
 
@@ -627,8 +614,6 @@
             };
 
     private string MembershipFilterLabel => _membership == "manual" ? "Hand-picked" : "Rule-driven";
-    private string StatusFilterLabel => _status == "published" ? "Published" : "Unpublished";
-
     protected override async Task OnParametersSetAsync()
     {
         _activeSection = CollectionsSectionConfiguration.NormalizeSection(Section);
@@ -782,10 +767,6 @@
             collections = collections.Where(collection => string.Equals(collection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase));
         else if (_membership == "rules")
             collections = collections.Where(collection => string.Equals(collection.Resolution, "query", StringComparison.OrdinalIgnoreCase));
-        if (_status == "published")
-            collections = collections.Where(collection => collection.IsGlobal);
-        else if (_status == "unpublished")
-            collections = collections.Where(collection => !collection.IsGlobal);
         return SortCollectionTiles(collections.Select(CollectionSurfaceTileComposer.FromCollection));
     }
 
@@ -838,7 +819,6 @@
         _lane = query["lane"] ?? "all";
         _kind = query["kind"] ?? "all";
         _membership = query["membership"] ?? "all";
-        _status = query["status"] ?? "all";
         _role = query["role"] ?? "all";
         _sortBy = ResolveSort(query["sort"]);
         _tileSize = int.TryParse(query["tile"], out var tileSize)
@@ -885,13 +865,6 @@
         return Task.CompletedTask;
     }
 
-    private Task OnStatusChanged(string value)
-    {
-        _status = value;
-        NavigateWithFilters();
-        return Task.CompletedTask;
-    }
-
     private async Task OnRoleChanged(string value)
     {
         _role = value;
@@ -928,8 +901,6 @@
             query.Add($"kind={Uri.EscapeDataString(_kind)}");
         if (_membership != "all" && _activeSection == CollectionsSectionConfiguration.Curated)
             query.Add($"membership={Uri.EscapeDataString(_membership)}");
-        if (_status != "all" && _activeSection == CollectionsSectionConfiguration.Curated)
-            query.Add($"status={Uri.EscapeDataString(_status)}");
         if (_role != "all" && _activeSection == CollectionsSectionConfiguration.People)
             query.Add($"role={Uri.EscapeDataString(_role)}");
         if (_sortBy != ResolveSort(null))
@@ -950,7 +921,6 @@
             case "lane": _lane = "all"; break;
             case "kind": _kind = "all"; break;
             case "membership": _membership = "all"; break;
-            case "status": _status = "all"; break;
             case "role": _role = "all"; break;
         }
         NavigateWithFilters();
@@ -962,7 +932,6 @@
         _lane = "all";
         _kind = "all";
         _membership = "all";
-        _status = "all";
         _role = "all";
         NavigateWithFilters();
         return Task.CompletedTask;
