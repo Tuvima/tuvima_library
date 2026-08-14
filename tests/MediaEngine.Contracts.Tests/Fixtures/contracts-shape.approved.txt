@@ -562,6 +562,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCr
   DisplayLimit: System.Int32 | nullability=not-null | accessors=get,init
   LiveUpdating: System.Boolean | nullability=not-null | accessors=get,init
   Placements: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionPlacementRequest> | nullability=nullable | accessors=get,init
+  WorkIds: System.Collections.Generic.List<System.Guid> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCreatedResponse
   id: System.Guid | nullability=not-null | accessors=get,init
@@ -2571,6 +2572,7 @@ MediaEngine.Contracts.Matching.MediaEngine.Contracts.Matching.ItemCanonicalRetai
   Confidence: System.Double | nullability=not-null | accessors=get,set
   ExtraFields: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
   CompositeScore: System.Double | nullability=not-null | accessors=get,set
+  MatchScores: MediaEngine.Contracts.Search.FieldMatchScoresDto | nullability=nullable | accessors=get,set
   LinkState: System.String | nullability=not-null | accessors=get,set
   LinkStatusLabel: System.String | nullability=not-null | accessors=get,set
   IsApplicable: System.Boolean | nullability=not-null | accessors=get,set

@@ -677,7 +677,8 @@
   DisplayLimit: System.Int32 | json=display_limit | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LiveUpdating: System.Boolean | json=live_updating | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Placements: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionPlacementRequest> | json=placements | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"name":"sample","description":"sample","visibility":"sample","icon_name":"sample","collection_type":"sample","rules":[],"match_mode":"sample","sort_field":"sample","sort_direction":"sample","display_limit":7,"live_updating":true,"placements":[]}
+  WorkIds: System.Collections.Generic.List<System.Guid> | json=work_ids | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"name":"sample","description":"sample","visibility":"sample","icon_name":"sample","collection_type":"sample","rules":[],"match_mode":"sample","sort_field":"sample","sort_direction":"sample","display_limit":7,"live_updating":true,"placements":[],"work_ids":[]}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionCreatedResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3145,6 +3146,7 @@
   Confidence: System.Double | json=confidence | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ExtraFields: System.Collections.Generic.Dictionary<System.String, System.String> | json=extra_fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CompositeScore: System.Double | json=composite_score | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MatchScores: MediaEngine.Contracts.Search.FieldMatchScoresDto | json=match_scores | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LinkState: System.String | json=link_state | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LinkStatusLabel: System.String | json=link_status_label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IsApplicable: System.Boolean | json=is_applicable | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -3153,7 +3155,7 @@
   SuggestedFields: System.Collections.Generic.Dictionary<System.String, System.String> | json=suggested_fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   BridgeIds: System.Collections.Generic.Dictionary<System.String, System.String> | json=bridge_ids | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   QidFields: System.Collections.Generic.Dictionary<System.String, System.String> | json=qid_fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"candidate_id":"sample","provider_id":"sample","provider_name":"sample","provider_item_id":"sample","title":"sample","year":"sample","author":"sample","director":"sample","description":"sample","cover_url":"sample","confidence":7,"extra_fields":{},"composite_score":7,"link_state":"sample","link_status_label":"sample","is_applicable":true,"blocked_reason":"sample","required_fields":{},"suggested_fields":{},"bridge_ids":{},"qid_fields":{}}
+  sample={"candidate_id":"sample","provider_id":"sample","provider_name":"sample","provider_item_id":"sample","title":"sample","year":"sample","author":"sample","director":"sample","description":"sample","cover_url":"sample","confidence":7,"extra_fields":{},"composite_score":7,"match_scores":null,"link_state":"sample","link_status_label":"sample","is_applicable":true,"blocked_reason":"sample","required_fields":{},"suggested_fields":{},"bridge_ids":{},"qid_fields":{}}
 
 [contracts] MediaEngine.Contracts.Matching.ItemCanonicalSearchRequestDto
   kind=class | converter=default | number-handling=default | unmapped=default

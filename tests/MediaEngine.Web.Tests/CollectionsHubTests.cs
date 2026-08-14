@@ -215,18 +215,29 @@ public sealed class CollectionsHubTests
     }
 
     [Fact]
-    public void CollectionCreation_UsesSharedFourStepResponsiveWizard()
+    public void CollectionCreation_UsesResponsiveWizardWithoutRepeatingAConfirmedType()
     {
         var wizard = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionWizard.razor"));
         var css = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionWizard.razor.css"));
         var launcher = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Editing\CollectionEditorLauncherService.cs"));
+        var request = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Services\Editing\CollectionEditorModels.cs"));
+        var picker = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor"));
+        var pickerCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor.css"));
 
-        Assert.Contains("Step @_step of 4", wizard, StringComparison.Ordinal);
+        Assert.Contains("Step @VisibleStepOrdinal(_step) of @VisibleSteps.Count", wizard, StringComparison.Ordinal);
+        Assert.Contains("!Request.TypeSelectionConfirmed && CanOfferCurated && CanOfferPlaylist", wizard, StringComparison.Ordinal);
+        Assert.Contains("[2, 3, 4]", wizard, StringComparison.Ordinal);
+        Assert.Contains("TypeSelectionConfirmed", request, StringComparison.Ordinal);
+        Assert.Contains("TypeSelectionConfirmed = true", picker, StringComparison.Ordinal);
+        Assert.Contains("is-three-step", css, StringComparison.Ordinal);
         Assert.Contains("How should this", wizard, StringComparison.Ordinal);
         Assert.Contains("all_of", wizard, StringComparison.Ordinal);
         Assert.Contains("CreateCollectionWithItemsAsync", wizard, StringComparison.Ordinal);
+        Assert.Contains("var(--tl-accent-collection)", css, StringComparison.Ordinal);
+        Assert.Contains("::deep button.add-to-collection__create", pickerCss, StringComparison.Ordinal);
         var sharedDialogCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\AppDialogShell.razor.css"));
         Assert.Contains("100dvh", sharedDialogCss, StringComparison.Ordinal);
+        Assert.Contains("grid-column: 2", sharedDialogCss, StringComparison.Ordinal);
         Assert.Contains("OpenWizardAsync", launcher, StringComparison.Ordinal);
     }
 

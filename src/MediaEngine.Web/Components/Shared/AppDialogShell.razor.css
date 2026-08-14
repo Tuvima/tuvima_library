@@ -38,7 +38,12 @@
 }
 
 .app-dialog-shell__header--centered .app-dialog-shell__copy {
+    grid-column: 2;
     text-align: center;
+}
+
+.app-dialog-shell__header--centered .app-dialog-shell__back {
+    grid-column: 1;
 }
 
 .app-dialog-shell__header--centered .app-dialog-shell__close {
@@ -87,7 +92,7 @@
 
 .app-dialog-shell__title {
     margin: 0;
-    font-size: 1.2rem;
+    font-size: 1.4rem;
     line-height: 1.2;
     font-weight: 700;
     letter-spacing: 0;
@@ -126,5 +131,9 @@
 
     .app-dialog-shell__header {
         padding: 16px;
+    }
+
+    .app-dialog-shell__title {
+        font-size: 1.3rem;
     }
 }

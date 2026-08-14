@@ -17,14 +17,15 @@
     <ChildContent>
         <div class="collection-wizard">
             <div class="collection-wizard__mobile-progress">
-                Step @_step of 4 <span aria-hidden="true">·</span> <strong>@StepLabel(_step)</strong>
+                Step @VisibleStepOrdinal(_step) of @VisibleSteps.Count <span aria-hidden="true">·</span> <strong>@StepLabel(_step)</strong>
             </div>
 
-            <nav class="collection-wizard__stepper" aria-label="Collection creation progress">
-                @for (var step = 1; step <= 4; step++)
+            <nav class="@StepperClass" aria-label="Collection creation progress">
+                @for (var index = 0; index < VisibleSteps.Count; index++)
                 {
-                    @RenderStepperStep(step)
-                    @if (step < 4)
+                    var step = VisibleSteps[index];
+                    @RenderStepperStep(step, index + 1)
+                    @if (index < VisibleSteps.Count - 1)
                     {
                         <span class="collection-wizard__step-line" aria-hidden="true"></span>
                     }
@@ -69,10 +70,10 @@
         <div class="collection-wizard__footer">
             <AppButton Variant="Variant.Outlined"
                        Color="Color.Inherit"
-                       StartIcon="@(_step == 1 ? null : Icons.Material.Outlined.ArrowBack)"
+                       StartIcon="@(_step == FirstStep ? null : Icons.Material.Outlined.ArrowBack)"
                        OnClick="BackOrCancel"
                        Disabled="@_saving">
-                @(_step == 1 ? "Cancel" : "Back")
+                @(_step == FirstStep ? "Cancel" : "Back")
             </AppButton>
             <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
@@ -96,6 +97,7 @@
 
     private int _step = 1;
     private int _furthestStep = 1;
+    private bool _includeTypeStep;
     private CollectionEditorMode _mode;
     private string _name = string.Empty;
     private string? _description;
@@ -127,12 +129,16 @@
     ];
 
     private bool HasTriggeringItem => Request.TriggeringWorkId.HasValue;
+    private bool CanOfferCurated => Request.CanManageSharedCollections || Request.Mode == CollectionEditorMode.CuratedCollection;
     private bool IsPlaylist => _mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist;
     private string DialogTitle => IsPlaylist ? "Create Playlist" : "Create Collection";
     private string FinalActionLabel => IsPlaylist ? "Create Playlist" : "Create Collection";
     private string VisibilityLabel => IsPlaylist ? "Personal" : "Published";
     private string CollectionType => IsPlaylist ? (_dynamic ? "Smart" : "Playlist") : "Custom";
     private string TriggeringMeta => JoinMeta(Request.TriggeringMediaType, Request.TriggeringYear);
+    private IReadOnlyList<int> VisibleSteps => _includeTypeStep ? [1, 2, 3, 4] : [2, 3, 4];
+    private int FirstStep => VisibleSteps[0];
+    private string StepperClass => $"collection-wizard__stepper{(_includeTypeStep ? string.Empty : " is-three-step")}";
     private bool CanContinue => _step switch
     {
         1 => true,
@@ -144,6 +150,9 @@
     protected override void OnInitialized()
     {
         _mode = Request.Mode;
+        _includeTypeStep = !Request.TypeSelectionConfirmed && CanOfferCurated && CanOfferPlaylist;
+        _step = FirstStep;
+        _furthestStep = FirstStep;
         _dynamic = Request.InitialRulesEnabled ?? Request.Mode == CollectionEditorMode.SmartPlaylist;
         _name = Request.InitialTitle ?? string.Empty;
         if (HasTriggeringItem)
@@ -165,7 +174,7 @@
     private RenderFragment RenderTypeStep() => @<section class="collection-wizard__step">
         <h3>What are you creating?</h3>
         <div class="collection-wizard__type-options">
-            @if (Request.CanManageSharedCollections || Request.Mode == CollectionEditorMode.CuratedCollection)
+            @if (CanOfferCurated)
             {
                 <AppNativeButton Type="button"
                                  Class="@TypeCardClass(!IsPlaylist)"
@@ -203,12 +212,12 @@
         </div>
     </section>;
 
-    private RenderFragment RenderStepperStep(int step) => @<AppNativeButton Type="button"
+    private RenderFragment RenderStepperStep(int step, int ordinal) => @<AppNativeButton Type="button"
         Class="@StepClass(step)"
         Disabled="@(step > _furthestStep)"
         OnClick="@(() => GoToStep(step))"
         AriaLabel="@($"Go to {StepLabel(step)} step")">
-        <span class="collection-wizard__step-number">@(step < _step ? "✓" : step)</span>
+        <span class="collection-wizard__step-number">@(step < _step ? "✓" : ordinal)</span>
         <span>@StepLabel(step)</span>
     </AppNativeButton>;
 
@@ -518,7 +527,7 @@
 
     private void GoToStep(int step)
     {
-        if (step <= _furthestStep)
+        if (VisibleSteps.Contains(step) && step <= _furthestStep)
             _step = step;
     }
 
@@ -537,10 +546,10 @@
 
     private void BackOrCancel()
     {
-        if (_step == 1)
+        if (_step == FirstStep)
             Cancel();
         else
-            _step--;
+            _step = VisibleSteps[VisibleStepOrdinal(_step) - 2];
     }
 
     private void Cancel() => MudDialog.Cancel();
@@ -743,6 +752,7 @@
     </div>;
 
     private string StepClass(int step) => $"collection-wizard__step-button {(step == _step ? "is-active" : step < _step ? "is-complete" : string.Empty)}";
+    private int VisibleStepOrdinal(int step) => VisibleSteps.TakeWhile(candidate => candidate != step).Count() + 1;
     private static string StepLabel(int step) => step switch { 1 => "Type", 2 => "Details", 3 => "Contents", _ => "Review" };
     private static string TypeCardClass(bool selected) => $"collection-wizard__type-card {(selected ? "is-selected" : string.Empty)}";
     private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>

@@ -7,6 +7,7 @@ public sealed class CollectionEditorLaunchRequest
     public CollectionListItemViewModel? EditingCollection { get; init; }
     public Guid? ActiveProfileId { get; init; }
     public bool CanManageSharedCollections { get; init; }
+    public bool TypeSelectionConfirmed { get; init; }
     public CollectionEditorMode Mode { get; init; } = CollectionEditorMode.CuratedCollection;
     public string? InitialCollectionType { get; init; }
     public bool? InitialRulesEnabled { get; init; }

@@ -33,7 +33,7 @@ public sealed class LegacyCollectionContractTests
     {
         AssertJsonFields<CollectionCreateRequest>(
             "name", "description", "visibility", "icon_name", "collection_type", "rules",
-            "match_mode", "sort_field", "sort_direction", "display_limit", "live_updating", "placements");
+            "match_mode", "sort_field", "sort_direction", "display_limit", "live_updating", "placements", "work_ids");
         AssertJsonFields<CollectionUpdateRequest>(
             "name", "description", "visibility", "icon_name", "rules", "match_mode",
             "sort_field", "sort_direction", "live_updating", "is_enabled", "is_featured");

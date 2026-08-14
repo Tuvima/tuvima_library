@@ -112,7 +112,12 @@
                 @if (CanCreate)
                 {
                     <AppNativeButton Type="button" Class="add-to-collection__create" OnClick="ShowCreate">
-                        <MudIcon Icon="@Icons.Material.Outlined.AddCircleOutline" /> Create new
+                        <span class="add-to-collection__create-icon"><MudIcon Icon="@Icons.Material.Outlined.Add" /></span>
+                        <span class="add-to-collection__create-copy">
+                            <strong>Create new</strong>
+                            <small>@(CanCreatePlaylist ? "Create a collection or personal playlist" : "Build a curated collection")</small>
+                        </span>
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" />
                     </AppNativeButton>
                 }
             }
@@ -272,6 +277,7 @@
         {
             ActiveProfileId = _profile?.Id,
             CanManageSharedCollections = CanCreateCurated,
+            TypeSelectionConfirmed = true,
             Mode = mode,
             InitialCollectionType = mode == CollectionEditorMode.CuratedCollection ? "Custom" : "Playlist",
             InitialRulesEnabled = false,

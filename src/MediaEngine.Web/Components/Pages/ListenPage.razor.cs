@@ -775,6 +775,7 @@ public partial class ListenPage
         {
             ActiveProfileId = _activeProfileId,
             CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
+            TypeSelectionConfirmed = true,
             Mode = isSmart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
             InitialCollectionType = isSmart ? "Smart" : "Playlist",
             InitialRulesEnabled = isSmart,

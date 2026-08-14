@@ -17,6 +17,11 @@
     --tl-accent-secondary: #38BDF8;
     --tl-accent-secondary-soft: rgba(56, 189, 248, 0.14);
     --tl-accent-secondary-border: rgba(56, 189, 248, 0.36);
+    --tl-accent-collection: #D6A84F;
+    --tl-accent-collection-hover: #E2B75E;
+    --tl-accent-collection-soft: rgba(214, 168, 79, 0.14);
+    --tl-accent-collection-border: rgba(214, 168, 79, 0.46);
+    --tl-text-on-collection: #17120A;
 
     --tl-bg-root: #070A12;
     --tl-bg-shell: #0B1020;
