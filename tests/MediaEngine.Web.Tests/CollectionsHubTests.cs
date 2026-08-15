@@ -235,6 +235,9 @@ public sealed class CollectionsHubTests
 
         Assert.Contains("Step @VisibleStepOrdinal(_step) of @VisibleSteps.Count", wizard, StringComparison.Ordinal);
         Assert.Contains("VisibleSteps => [1, 2, 3]", wizard, StringComparison.Ordinal);
+        Assert.Contains("<MediaEditorSurface>", wizard, StringComparison.Ordinal);
+        Assert.Contains("collection-setup-workspace", wizard, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppDialogShell", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("TypeSelectionConfirmed", request, StringComparison.Ordinal);
         Assert.DoesNotContain("TriggeringWork", request, StringComparison.Ordinal);
         Assert.False(File.Exists(pickerPath), "The media-detail Add to Collection dialog must stay removed.");
@@ -254,6 +257,11 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("collection-wizard__included-list", css, StringComparison.Ordinal);
         Assert.Contains("PersistenceVisibility", editor, StringComparison.Ordinal);
         Assert.Contains("RenderItemsTab", editor, StringComparison.Ordinal);
+        Assert.Contains("OpenItemPickerAsync", editor, StringComparison.Ordinal);
+        Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
+        Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);
+        Assert.Contains("UsesLibraryValueOptions", editor, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionFieldValuesAsync", editor, StringComparison.Ordinal);
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);
         Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);
@@ -267,9 +275,11 @@ public sealed class CollectionsHubTests
         var sharedDialogCss = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Shared\AppDialogShell.razor.css"));
         Assert.Contains("100dvh", sharedDialogCss, StringComparison.Ordinal);
         Assert.Contains("grid-column: 2", sharedDialogCss, StringComparison.Ordinal);
-        Assert.Contains("OpenWizardAsync", launcher, StringComparison.Ordinal);
+        Assert.Contains("OpenGuidedSetupAsync", launcher, StringComparison.Ordinal);
         Assert.Contains("MaxWidth.ExtraLarge", launcher, StringComparison.Ordinal);
         Assert.Contains("FullWidth = isCollectionEditor", launcher, StringComparison.Ordinal);
+        Assert.Contains("request.Mode == CollectionEditorMode.CuratedCollection ? MaxWidth.ExtraLarge", launcher, StringComparison.Ordinal);
+        Assert.Contains("FullWidth = request.Mode == CollectionEditorMode.CuratedCollection", launcher, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -801,6 +801,9 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("app-artwork-picker", source);
         Assert.Contains("app-artwork-picker__edit", source);
         Assert.Contains("collection-editor-field", source);
+        Assert.Equal(1, source.Split("OnClick=\"SaveCollection\"", StringSplitOptions.None).Length - 1);
+        Assert.Contains("GetRuleValueOptions", source);
+        Assert.Contains("collection-editor-item-list--members", source);
         Assert.DoesNotContain("Choose file", source);
         Assert.DoesNotContain("listen-create-modal", source);
     }

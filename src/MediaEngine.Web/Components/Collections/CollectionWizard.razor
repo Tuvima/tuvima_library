@@ -2,19 +2,32 @@
 @using MediaEngine.Contracts.Collections
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
+@using MediaEngine.Web.Components.MediaEditor
 
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
 
 <NavigationLock ConfirmExternalNavigation="@_dirty" />
 
-<AppDialogShell Title="@DialogTitle"
-                Size="Medium"
-                Modal="true"
-                CenterTitle="true"
-                OnBack="BackOrCancel"
-                OnClose="Cancel">
-    <ChildContent>
+<MediaEditorSurface>
+    <div class="collection-setup-workspace">
+        <header class="collection-setup-header">
+            <div class="collection-setup-header__icon" aria-hidden="true">
+                <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+            </div>
+            <div class="collection-setup-header__copy">
+                <div class="collection-setup-header__kicker">Guided setup</div>
+                <h2>@DialogTitle</h2>
+                <p>Set the essentials now, then use the full editor for artwork, contents, rules, and behavior.</p>
+            </div>
+            <AppIconButton Icon="@Icons.Material.Outlined.Close"
+                           Size="Size.Small"
+                           Color="Color.Inherit"
+                           Tooltip="Close setup"
+                           AriaLabel="Close setup"
+                           OnClick="Cancel" />
+        </header>
+
         <div class="collection-wizard">
             <div class="collection-wizard__mobile-progress">
                 Step @VisibleStepOrdinal(_step) of @VisibleSteps.Count <span aria-hidden="true">·</span> <strong>@StepLabel(_step)</strong>
@@ -32,7 +45,7 @@
                 }
             </nav>
 
-            <div class="collection-wizard__content">
+            <main class="collection-wizard__content">
                 @switch (_step)
                 {
                     case 1:
@@ -45,11 +58,8 @@
                         @RenderReviewStep()
                         break;
                 }
-            </div>
-        </div>
-    </ChildContent>
-    <FooterContent>
-        <div class="collection-wizard__footer">
+            </main>
+            <footer class="collection-wizard__footer">
             <AppButton Variant="Variant.Outlined"
                        Color="Color.Inherit"
                        StartIcon="@(_step == FirstStep ? null : Icons.Material.Outlined.ArrowBack)"
@@ -69,9 +79,10 @@
                 }
                 @(_step == 3 ? FinalActionLabel : "Continue")
             </AppButton>
+            </footer>
         </div>
-    </FooterContent>
-</AppDialogShell>
+    </div>
+</MediaEditorSurface>
 
 @code {
     [CascadingParameter] private IMudDialogInstance MudDialog { get; set; } = null!;

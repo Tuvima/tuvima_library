@@ -107,6 +107,7 @@ public partial interface IEngineApiClient
     Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(List<CollectionRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default);
 
     Task<IReadOnlyList<CollectionRuleValueDto>> GetCollectionEntityFieldValuesAsync(string field, int limit = 100, CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetCollectionFieldValuesAsync(string field, int limit = 100, CancellationToken ct = default);
 
     /// <summary>POST /collections — create a new collection.</summary>
     Task<Guid?> CreateCollectionAndReturnIdAsync(string name, string? description, string? iconName, string collectionType, List<CollectionRulePredicateViewModel> rules, string matchMode, string? sortField, string sortDirection, bool liveUpdating, string visibility, Guid? profileId = null, CancellationToken ct = default);

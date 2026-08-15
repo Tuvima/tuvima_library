@@ -272,6 +272,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("Label = \"Add to Collection\"", composer);
         Assert.Contains("HasPrimaryOverflowCluster", source);
         Assert.Contains("tl-detail-primary-actions--with-overflow", source);
+        Assert.Contains("HasCollectionPrimaryOverflowCluster", source);
+        Assert.Contains("tl-detail-primary-actions--collection-overflow", source);
+        Assert.Contains("action.Key == \"shuffle-collection\"", source);
+        Assert.Contains(".tl-detail-primary-actions--collection-overflow .app-overflow-menu", styles);
         Assert.Contains("flex-wrap: nowrap", styles);
         Assert.Contains("BuildMyListAction", composer);
         Assert.Contains("BuildReactionAction", composer);

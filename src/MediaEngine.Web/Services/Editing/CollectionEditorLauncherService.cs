@@ -28,7 +28,7 @@ public sealed class CollectionEditorLauncherService
         var isSmartPlaylist = request.Mode == CollectionEditorMode.SmartPlaylist;
 
         if (request.EditingCollection is null)
-            return await OpenWizardAsync(request);
+            return await OpenGuidedSetupAsync(request);
 
         var isCollectionEditor = !isManualPlaylist && !isSmartPlaylist;
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
@@ -54,7 +54,7 @@ public sealed class CollectionEditorLauncherService
         return result is not null && !result.Canceled;
     }
 
-    private async Task<bool> OpenWizardAsync(CollectionEditorLaunchRequest request)
+    private async Task<bool> OpenGuidedSetupAsync(CollectionEditorLaunchRequest request)
     {
         var dialog = await _dialogService.ShowAsync<CollectionWizard>(
             DialogTitleFor(request),
@@ -66,8 +66,8 @@ public sealed class CollectionEditorLauncherService
             {
                 CloseButton = false,
                 NoHeader = true,
-                MaxWidth = MaxWidth.Medium,
-                FullWidth = false,
+                MaxWidth = request.Mode == CollectionEditorMode.CuratedCollection ? MaxWidth.ExtraLarge : MaxWidth.Medium,
+                FullWidth = request.Mode == CollectionEditorMode.CuratedCollection,
                 BackdropClick = false,
                 CloseOnEscapeKey = true,
             });

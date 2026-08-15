@@ -2,7 +2,7 @@
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-actions @(IsPrimaryHeroActionRow ? "tl-detail-actions--watch" : null)">
-    <div class="tl-detail-primary-actions @(HasPrimaryOverflowCluster ? "tl-detail-primary-actions--with-overflow" : null)">
+    <div class="tl-detail-primary-actions @(HasPrimaryOverflowCluster ? "tl-detail-primary-actions--with-overflow" : null) @(HasCollectionPrimaryOverflowCluster ? "tl-detail-primary-actions--collection-overflow" : null)">
         @foreach (var action in PrimaryActions)
         {
             <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
@@ -159,6 +159,8 @@
 
     private IReadOnlyList<DetailAction> OverflowMenuActions => OverflowActions;
     private bool HasPrimaryOverflowCluster => OverflowMenuActions.Count > 0 && VisibleSecondaryActions.Count == 0;
+    private bool HasCollectionPrimaryOverflowCluster =>
+        HasPrimaryOverflowCluster && PrimaryActions.Any(action => action.Key == "shuffle-collection");
 
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);

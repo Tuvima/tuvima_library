@@ -811,6 +811,32 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task FieldValues_UseCurrentWorkSchemaAndIncludeArrayBackedMetadata()
+    {
+        var workId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@WorkId, 'FieldValueTest', 'standalone');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES (@WorkId, 'genre', 'Scalar Genre', @LastScoredAt);
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value)
+                VALUES (@WorkId, 'genre', 0, 'Array Genre');
+                """,
+                new { WorkId = workId, LastScoredAt = DateTimeOffset.UtcNow.ToString("O") });
+        }
+
+        var mediaTypes = await _browse.GetFieldValuesAsync("media_type", 500, CancellationToken.None);
+        var genres = await _browse.GetFieldValuesAsync("genre", 500, CancellationToken.None);
+
+        Assert.Contains("FieldValueTest", mediaTypes);
+        Assert.Contains("Scalar Genre", genres);
+        Assert.Contains("Array Genre", genres);
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();

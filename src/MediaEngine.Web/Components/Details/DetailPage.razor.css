@@ -11399,7 +11399,7 @@
 
 /* More belongs with the primary task controls (beside Shuffle where present)
    but retains the quiet utility treatment used by My List and Collection. */
-.tl-detail-stage ::deep .tl-detail-primary-actions .app-overflow-menu.tl-detail-more-action {
+.tl-detail-stage ::deep .tl-detail-primary-actions--collection-overflow .app-overflow-menu.tl-detail-more-action {
     width: auto !important;
     min-width: 6.75rem !important;
     min-height: var(--tl-primary-action-height) !important;
@@ -11410,7 +11410,7 @@
     margin: 0 !important;
 }
 
-.tl-detail-stage ::deep .tl-detail-primary-actions .app-overflow-menu__trigger.tl-detail-more-action {
+.tl-detail-stage ::deep .tl-detail-primary-actions--collection-overflow .app-overflow-menu__trigger.tl-detail-more-action {
     min-width: 6.75rem !important;
     min-height: var(--tl-primary-action-height) !important;
     height: var(--tl-primary-action-height) !important;
@@ -11419,7 +11419,6 @@
 }
 
 .tl-detail-stage ::deep .tl-detail-primary-actions--with-overflow {
-    --tl-primary-action-height: clamp(3.35rem, 6svh, 4rem);
     display: flex !important;
     width: min(28rem, 100%) !important;
     max-width: 100%;
@@ -11429,25 +11428,17 @@
     gap: 0.65rem !important;
 }
 
-.tl-detail-stage ::deep .tl-detail-primary-actions--with-overflow .tl-detail-action--primary {
+.tl-detail-stage ::deep .tl-detail-primary-actions--collection-overflow {
+    --tl-primary-action-height: clamp(3.35rem, 6svh, 4rem);
+}
+
+.tl-detail-stage ::deep .tl-detail-primary-actions--collection-overflow .tl-detail-action--primary {
     width: auto !important;
     min-width: clamp(8rem, 12vw, 12rem) !important;
     min-height: var(--tl-primary-action-height) !important;
     height: var(--tl-primary-action-height) !important;
     max-height: var(--tl-primary-action-height) !important;
     flex: 1 1 auto;
-}
-
-/* In normal media utility rows, More is indistinguishable in geometry from
-   My List and Rate. */
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action {
-    width: auto !important;
-    min-width: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    align-self: center;
 }
 
 /* Person actions keep their warm identity accent but share one height and

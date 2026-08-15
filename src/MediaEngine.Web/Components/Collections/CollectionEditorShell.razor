@@ -36,13 +36,6 @@
                         Preview
                     </AppButton>
                 }
-                <AppButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           StartIcon="@Icons.Material.Outlined.Save"
-                           Disabled="@_saving"
-                           OnClick="SaveCollection">
-                    @(_saving ? "Saving..." : SaveButtonText)
-                </AppButton>
                 <AppIconButton Icon="@Icons.Material.Outlined.Close"
                                Size="Size.Small"
                                Color="Color.Inherit"
@@ -193,7 +186,7 @@
     private string _collectionType = "Custom";
     private bool _rulesEnabled = true;
     private List<CollectionRulePredicateViewModel> _rules = [new()];
-    private readonly Dictionary<string, IReadOnlyList<CollectionRuleValueDto>> _entityRuleValues = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IReadOnlyList<CollectionRuleValueDto>> _ruleValueOptions = new(StringComparer.OrdinalIgnoreCase);
     private string _matchMode = "all";
     private string _sortField = string.Empty;
     private string _sortDirection = "desc";
@@ -205,6 +198,7 @@
     private string _itemSearchText = string.Empty;
     private bool _loadingLibraryItems;
     private bool _loadingManualItems;
+    private bool _showItemPicker;
     private List<CollectionMediaLookupDto> _lookupItems = [];
     private List<ManualCollectionItem> _manualItems = [];
 
@@ -320,11 +314,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        foreach (var field in _rules.Select(rule => rule.Field).Where(IsEntityRuleField).Distinct(StringComparer.OrdinalIgnoreCase))
-            await EnsureEntityRuleValuesAsync(field);
+        foreach (var field in _rules.Select(rule => rule.Field).Where(UsesLibraryValueOptions).Distinct(StringComparer.OrdinalIgnoreCase))
+            await EnsureRuleValueOptionsAsync(field);
 
         if (SupportsManualItems && !IsPlaylistDialog)
-            await EnsureManualCollectionContextAsync();
+            await LoadManualItemsAsync();
     }
 
     private Task OnTabChanged(int index)
@@ -388,10 +382,16 @@
         await CloseEditorAsync(applied: false);
     }
 
-    private async Task EnsureManualCollectionContextAsync()
+    private async Task OpenItemPickerAsync()
     {
+        _showItemPicker = true;
         await EnsureLibraryItemsLoadedAsync();
-        await LoadManualItemsAsync();
+    }
+
+    private void CloseItemPicker()
+    {
+        _showItemPicker = false;
+        _itemSearchText = string.Empty;
     }
 
     private async Task EnsureLibraryItemsLoadedAsync()
@@ -509,7 +509,7 @@
         {
             _liveUpdating = false;
             _previewResult = null;
-            await EnsureManualCollectionContextAsync();
+            await LoadManualItemsAsync();
         }
         else if (_rules.Any(IsCompleteRule))
         {
@@ -557,7 +557,7 @@
         }
 
         if (SupportsManualItems)
-            await EnsureManualCollectionContextAsync();
+            await LoadManualItemsAsync();
         else if (_rules.Any(IsCompleteRule))
             await RunPreview();
 
@@ -577,8 +577,8 @@
         rule.Op = GetOperatorsForField(value).First().Key;
         rule.Value = null;
         rule.DisplayValue = null;
-        if (IsEntityRuleField(value))
-            await EnsureEntityRuleValuesAsync(value);
+        if (UsesLibraryValueOptions(value))
+            await EnsureRuleValueOptionsAsync(value);
         MarkDirty();
         await RunPreview();
     }
@@ -586,8 +586,8 @@
     private Task OnRuleValueChanged(CollectionRulePredicateViewModel rule, string? value)
     {
         rule.Value = value;
-        rule.DisplayValue = IsEntityRuleField(rule.Field)
-            ? GetEntityRuleValues(rule.Field).FirstOrDefault(option => option.Value == value)?.Label
+        rule.DisplayValue = UsesLibraryValueOptions(rule.Field)
+            ? GetRuleValueOptions(rule.Field).FirstOrDefault(option => option.Value == value)?.Label
             : null;
         MarkDirty();
         return RunPreview();
@@ -605,15 +605,26 @@
         return RunPreview();
     }
 
-    private async Task EnsureEntityRuleValuesAsync(string field)
+    private async Task EnsureRuleValueOptionsAsync(string field)
     {
-        if (_entityRuleValues.ContainsKey(field))
+        if (_ruleValueOptions.ContainsKey(field))
             return;
-        _entityRuleValues[field] = await ApiClient.GetCollectionEntityFieldValuesAsync(field, 200);
+
+        if (IsEntityRuleField(field))
+        {
+            _ruleValueOptions[field] = await ApiClient.GetCollectionEntityFieldValuesAsync(field, 200);
+            return;
+        }
+
+        var values = await ApiClient.GetCollectionFieldValuesAsync(field, 200);
+        _ruleValueOptions[field] = values
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => new CollectionRuleValueDto(value, value, 0))
+            .ToList();
     }
 
-    private IReadOnlyList<CollectionRuleValueDto> GetEntityRuleValues(string field) =>
-        _entityRuleValues.TryGetValue(field, out var values) ? values : [];
+    private IReadOnlyList<CollectionRuleValueDto> GetRuleValueOptions(string field) =>
+        _ruleValueOptions.TryGetValue(field, out var values) ? values : [];
 
     private async Task AddManualItemAsync(CollectionMediaLookupDto work)
     {
@@ -954,6 +965,9 @@
     private static bool IsEntityRuleField(string field) =>
         RuleFields.FirstOrDefault(definition => definition.Key.Equals(field, StringComparison.OrdinalIgnoreCase))?.Entity == true;
 
+    private static bool UsesLibraryValueOptions(string field) =>
+        IsEntityRuleField(field) || field is "media_type" or "genre" or "series";
+
     private static bool IsBooleanRuleField(string field) =>
         field is "is_adaptation" or "source_work_owned" or "adaptation_owned";
 
@@ -1250,7 +1264,7 @@
                                     <MudSelectItem T="string" Value="@("false")">No</MudSelectItem>
                                 </AppSelect>
                             }
-                            else if (IsEntityRuleField(rule.Field))
+                            else if (UsesLibraryValueOptions(rule.Field))
                             {
                                 <AppSelect T="string"
                                            Value="@rule.Value"
@@ -1259,9 +1273,11 @@
                                            Variant="Variant.Outlined"
                                            Dense="true"
                                            Class="collection-editor-rule-input app-dialog-field app-dialog-select">
-                                    @foreach (var option in GetEntityRuleValues(rule.Field))
+                                    @foreach (var option in GetRuleValueOptions(rule.Field))
                                     {
-                                        <MudSelectItem T="string" Value="@option.Value">@option.Label (@option.LocalCount)</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@option.Value">
+                                            @option.Label@if (option.LocalCount > 0){<text> (@option.LocalCount)</text>}
+                                        </MudSelectItem>
                                     }
                                 </AppSelect>
                             }
@@ -1293,11 +1309,11 @@
 
     private RenderFragment RenderItemsTab() => @<div class="collection-editor-pane">
         <section class="collection-editor-section">
-            <div class="collection-editor-section-title">Items</div>
+            <div class="collection-editor-section-title">Contents</div>
 
             @if (SupportsManualItems)
             {
-                @if (_loadingLibraryItems || _loadingManualItems)
+                @if (_loadingManualItems)
                 {
                     <div class="collection-editor-empty">
                         <MudProgressCircular Indeterminate="true" Size="Size.Small" />
@@ -1306,20 +1322,78 @@
                 }
                 else
                 {
-                    <AppTextField T="string"
-                                  Value="@_itemSearchText"
-                                  ValueChanged="OnItemSearchChanged"
-                                  Label="Add items"
-                                  Placeholder="Search title, creator, or media type"
-                                  Variant="Variant.Outlined"
-                                  Immediate="true"
-                                  DebounceInterval="300"
-                                  Class="collection-editor-field" />
+                    <div class="collection-editor-contents-toolbar">
+                        <div>
+                            <strong>@_manualItems.Count item(s) in this collection</strong>
+                            <span>Reorder or remove the items already included here.</span>
+                        </div>
+                        @if (EditingCollection is not null && !_showItemPicker)
+                        {
+                            <AppButton Variant="Variant.Outlined"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Outlined.Add"
+                                       OnClick="OpenItemPickerAsync">
+                                Add items
+                            </AppButton>
+                        }
+                    </div>
 
-                    <div class="collection-editor-item-grid">
-                        <div class="collection-editor-item-column">
-                            <div class="collection-editor-column-title">Available</div>
-                            @if (FilteredLibraryItems.Count == 0)
+                    @if (_manualItems.Count == 0)
+                    {
+                        <div class="collection-editor-empty collection-editor-empty--compact">
+                            <MudIcon Icon="@Icons.Material.Outlined.Inventory2" />
+                            <span>This collection does not contain any items yet.</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="collection-editor-item-list collection-editor-item-list--members">
+                            @foreach (var item in _manualItems.OrderBy(item => item.SortOrder))
+                            {
+                                <div class="collection-editor-item-row">
+                                    @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                    {
+                                        <img class="collection-editor-item-art" src="@item.CoverUrl" alt="" />
+                                    }
+                                    <div class="collection-editor-item-copy">
+                                        <div class="collection-editor-item-title">@item.Title</div>
+                                        <div class="collection-editor-item-meta">@FormatManualItemMeta(item)</div>
+                                    </div>
+                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (_showItemPicker)
+                    {
+                        <div class="collection-editor-item-picker">
+                            <div class="collection-editor-item-picker-header">
+                                <div>
+                                    <strong>Add items</strong>
+                                    <span>Search the library and add titles to this collection.</span>
+                                </div>
+                                <AppButton Variant="Variant.Text" Color="Color.Inherit" OnClick="CloseItemPicker">Done</AppButton>
+                            </div>
+                            <AppTextField T="string"
+                                          Value="@_itemSearchText"
+                                          ValueChanged="OnItemSearchChanged"
+                                          Label="Search library"
+                                          Placeholder="Search title, creator, or media type"
+                                          Variant="Variant.Outlined"
+                                          Immediate="true"
+                                          DebounceInterval="300"
+                                          Class="collection-editor-field" />
+                            @if (_loadingLibraryItems)
+                            {
+                                <div class="collection-editor-empty collection-editor-empty--compact">
+                                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                                    <span>Searching the library...</span>
+                                </div>
+                            }
+                            else if (FilteredLibraryItems.Count == 0)
                             {
                                 <div class="collection-editor-empty collection-editor-empty--compact">
                                     <span>No matching items are available to add.</span>
@@ -1335,42 +1409,13 @@
                                                 <div class="collection-editor-item-title">@work.Title</div>
                                                 <div class="collection-editor-item-meta">@FormatWorkMeta(work)</div>
                                             </div>
-                                            <AppIconButton Icon="@Icons.Material.Outlined.AddCircle" Size="Size.Small" OnClick="@(() => AddManualItemAsync(work))" aria-label="Add item" />
+                                            <AppButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add" OnClick="@(() => AddManualItemAsync(work))">Add</AppButton>
                                         </div>
                                     }
                                 </div>
                             }
                         </div>
-
-                        <div class="collection-editor-item-column">
-                            <div class="collection-editor-column-title">Saved</div>
-                            @if (_manualItems.Count == 0)
-                            {
-                                <div class="collection-editor-empty collection-editor-empty--compact">
-                                    <span>@(EditingCollection is null
-                                        ? "Add items now and they will be attached after the collection is created."
-                                        : "This collection does not have any saved items yet.")</span>
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="collection-editor-item-list">
-                                    @foreach (var item in _manualItems.OrderBy(item => item.SortOrder))
-                                    {
-                                        <div class="collection-editor-item-row">
-                                            <div class="collection-editor-item-copy">
-                                                <div class="collection-editor-item-title">@item.Title</div>
-                                                <div class="collection-editor-item-meta">@FormatManualItemMeta(item)</div>
-                                            </div>
-                                            <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Min(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, -1))" aria-label="Move item up" />
-                                            <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown" Size="Size.Small" Disabled="@(item.SortOrder == _manualItems.Max(existing => existing.SortOrder))" OnClick="@(() => MoveManualItemAsync(item, 1))" aria-label="Move item down" />
-                                            <AppIconButton Icon="@Icons.Material.Outlined.RemoveCircle" Size="Size.Small" Color="Color.Error" OnClick="@(() => RemoveManualItemAsync(item))" aria-label="Remove item" />
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </div>
+                    }
                 }
             }
             else

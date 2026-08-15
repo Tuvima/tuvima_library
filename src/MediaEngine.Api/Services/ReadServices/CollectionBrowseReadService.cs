@@ -453,33 +453,42 @@ public sealed class CollectionBrowseReadService(
         int limit = 0) =>
         _ruleEvaluator.Evaluate(predicates, matchMode, sortField, sortDirection, limit);
 
-    public async Task<IReadOnlyList<string>> GetFieldValuesAsync(
+    public Task<IReadOnlyList<string>> GetFieldValuesAsync(
         string field,
         int limit,
         CancellationToken ct)
     {
+        ct.ThrowIfCancellationRequested();
         var take = Math.Clamp(limit, 1, 500);
         using var conn = db.CreateConnection();
         var sql = string.Equals(field, "media_type", StringComparison.OrdinalIgnoreCase)
             ? """
               SELECT DISTINCT media_type
               FROM works
-              WHERE status NOT IN ('InReview','Rejected')
+              WHERE NULLIF(media_type, '') IS NOT NULL
               ORDER BY media_type
               LIMIT @Limit
               """
             : """
               SELECT DISTINCT value
-              FROM canonical_values
-              WHERE key = @Field AND value IS NOT NULL AND value != ''
+              FROM (
+                  SELECT value
+                  FROM canonical_values
+                  WHERE key = @Field
+                  UNION ALL
+                  SELECT value
+                  FROM canonical_value_arrays
+                  WHERE key = @Field
+              )
+              WHERE NULLIF(value, '') IS NOT NULL
               ORDER BY value
               LIMIT @Limit
               """;
-        var rows = await conn.QueryAsync<string>(new CommandDefinition(
+        var rows = conn.Query<string>(new CommandDefinition(
             sql,
             new { Field = field, Limit = take },
-            cancellationToken: ct)).ConfigureAwait(false);
-        return rows.AsList();
+            cancellationToken: ct));
+        return Task.FromResult<IReadOnlyList<string>>(rows.AsList());
     }
 
     public async Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(
