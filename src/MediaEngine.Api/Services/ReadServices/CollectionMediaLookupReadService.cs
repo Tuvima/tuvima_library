@@ -141,6 +141,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                    COALESCE(NULLIF(show_root.value, ''), NULLIF(title_root.value, ''), NULLIF(episode_title.value, ''), NULLIF(title_work.value, ''), NULLIF(title_asset.value, ''), 'Untitled') AS Title,
                    COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_root.value, ''), NULLIF(artist_work.value, ''), NULLIF(author_asset.value, ''), NULLIF(artist_asset.value, '')) AS Creator,
                    {lookupDisplayYearSql} AS Year,
+                   CAST(NULLIF(cover_root.value, '') AS TEXT) AS RootArtworkUrl,
                    COALESCE(NULLIF(cover_root.value, ''), NULLIF(cover_work.value, ''), NULLIF(cover_asset.value, '')) AS ArtworkUrl,
                    COALESCE(NULLIF(show_root.value, ''), NULLIF(show_work.value, ''), NULLIF(title_root.value, '')) AS ShowName,
                    COALESCE(NULLIF(season_work.value, ''), NULLIF(season_asset.value, '')) AS SeasonNumber,
@@ -157,7 +158,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             LEFT JOIN canonical_value_arrays artist_work ON artist_work.entity_id = w.id AND artist_work.key = 'artist' AND artist_work.ordinal = 0
             LEFT JOIN canonical_value_arrays artist_root ON artist_root.entity_id = COALESCE(gp.id, p.id, w.id) AND artist_root.key = 'album_artist' AND artist_root.ordinal = 0
             LEFT JOIN canonical_values cover_work ON cover_work.entity_id = w.id AND cover_work.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
-            LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover', 'poster_url', 'poster', 'episode_still_url', 'episode_still', 'still_url', 'still')
+            LEFT JOIN canonical_values cover_root ON cover_root.entity_id = COALESCE(gp.id, p.id, w.id) AND cover_root.key IN ('cover_url', 'cover', 'poster_url', 'poster')
             LEFT JOIN canonical_values show_work ON show_work.entity_id = w.id AND show_work.key = 'show_name'
             LEFT JOIN canonical_values show_root ON show_root.entity_id = COALESCE(gp.id, p.id, w.id) AND show_root.key IN ('show_name', 'title')
             LEFT JOIN canonical_values season_work ON season_work.entity_id = w.id AND season_work.key = 'season_number'
@@ -210,9 +211,11 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             Creator = row.Creator,
             MediaType = row.MediaType,
             Year = row.Year,
-            ArtworkUrl = !string.IsNullOrWhiteSpace(row.ArtworkUrl)
-                ? row.ArtworkUrl
-                : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value}/cover" : null,
+            ArtworkUrl = IsTvContainer(row.WorkKind, row.MediaType)
+                ? row.RootArtworkUrl
+                : !string.IsNullOrWhiteSpace(row.ArtworkUrl)
+                    ? row.ArtworkUrl
+                    : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value}/cover" : null,
             ParentContext = BuildLookupParentContext(row),
             Route = BuildLookupRoute(row),
             AlreadyInCollection = existingWorkIds.Contains(row.WorkId),
@@ -277,6 +280,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                    CAST(COALESCE(NULLIF(title_work.value, ''), NULLIF(show_name.value, ''), NULLIF(series_item.item_label, ''), 'Untitled') AS TEXT) AS Title,
                    CAST(COALESCE(NULLIF(author_work.value, ''), NULLIF(artist_work.value, '')) AS TEXT) AS Creator,
                    w.media_type AS MediaType,
+                   w.work_kind AS WorkKind,
                    CAST(NULLIF(cover_work.value, '') AS TEXT) AS CoverUrl,
                    ra.AssetId,
                    CAST(display_work.SortOrder AS INTEGER) AS SortOrder
@@ -314,11 +318,43 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             Title = row.Title,
             Creator = row.Creator,
             MediaType = row.MediaType,
-            CoverUrl = !string.IsNullOrWhiteSpace(row.CoverUrl)
+            CoverUrl = IsTvContainer(row.WorkKind, row.MediaType)
                 ? row.CoverUrl
-                : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
+                : !string.IsNullOrWhiteSpace(row.CoverUrl)
+                    ? row.CoverUrl
+                    : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
             SortOrder = row.SortOrder,
+            DetailRoute = BuildResolvedItemRoute(row),
         }).ToList();
+    }
+
+    private static bool IsTvContainer(string? workKind, string mediaType) =>
+        string.Equals(workKind, "parent", StringComparison.OrdinalIgnoreCase)
+        && mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase);
+
+    private static string BuildResolvedItemRoute(ResolvedCollectionItemRow row)
+    {
+        if (IsTvContainer(row.WorkKind, row.MediaType))
+        {
+            return $"/details/tvshow/{row.WorkId:D}?context=watch";
+        }
+
+        if (string.Equals(row.WorkKind, "parent", StringComparison.OrdinalIgnoreCase)
+            && row.MediaType.Contains("Music", StringComparison.OrdinalIgnoreCase))
+        {
+            return $"/details/musicalbum/{row.WorkId:D}?context=listen";
+        }
+
+        var context = row.MediaType.Contains("TV", StringComparison.OrdinalIgnoreCase)
+                      || row.MediaType.Contains("movie", StringComparison.OrdinalIgnoreCase)
+            ? "watch"
+            : row.MediaType.Contains("music", StringComparison.OrdinalIgnoreCase)
+              || row.MediaType.Contains("audio", StringComparison.OrdinalIgnoreCase)
+                ? "listen"
+                : row.MediaType.Contains("comic", StringComparison.OrdinalIgnoreCase)
+                    ? "comics"
+                    : "read";
+        return $"/details/work/{row.WorkId:D}?context={context}";
     }
 
     private static string? BuildLookupSubtitle(CollectionMediaLookupRow row)
@@ -452,21 +488,24 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         return $"/details/work/{row.WorkId:D}?context=read";
     }
 
-    private sealed record CollectionMediaLookupRow(
-        Guid WorkId,
-        Guid? CollectionId,
-        string MediaType,
-        string? WorkKind,
-        int? Ordinal,
-        Guid? AssetId,
-        string Title,
-        string? Creator,
-        string? Year,
-        string? ArtworkUrl,
-        string? ShowName,
-        string? SeasonNumber,
-        string? Album,
-        string? Artist);
+    private sealed class CollectionMediaLookupRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? CollectionId { get; init; }
+        public string MediaType { get; init; } = string.Empty;
+        public string? WorkKind { get; init; }
+        public int? Ordinal { get; init; }
+        public Guid? AssetId { get; init; }
+        public string Title { get; init; } = string.Empty;
+        public string? Creator { get; init; }
+        public string? Year { get; init; }
+        public string? RootArtworkUrl { get; init; }
+        public string? ArtworkUrl { get; init; }
+        public string? ShowName { get; init; }
+        public string? SeasonNumber { get; init; }
+        public string? Album { get; init; }
+        public string? Artist { get; init; }
+    }
 
     private sealed class ResolvedCollectionItemRow
     {
@@ -475,6 +514,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         public string Title { get; init; } = string.Empty;
         public string? Creator { get; init; }
         public string MediaType { get; init; } = string.Empty;
+        public string? WorkKind { get; init; }
         public string? CoverUrl { get; init; }
         public Guid? AssetId { get; init; }
         public int SortOrder { get; init; }

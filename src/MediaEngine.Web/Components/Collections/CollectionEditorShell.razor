@@ -14,7 +14,7 @@
 <NavigationLock ConfirmExternalNavigation="@_hasUnsavedChanges"
                 OnBeforeInternalNavigation="ConfirmNavigationWithUnsavedChanges" />
 
-<MediaEditorSurface Inline="@Inline">
+<MediaEditorSurface Inline="@Inline" DialogClass="sme-dialog collection-editor-dialog">
         <AppDialogShell Eyebrow="@DialogEyebrow"
                         Title="@DialogTitle"
                         Subtitle="@HeaderSubtitle"
@@ -133,7 +133,6 @@
     private string _sortField = string.Empty;
     private string _sortDirection = "desc";
     private bool _liveUpdating = true;
-    private bool _isEnabled = true;
     private bool _isFeatured;
     private bool _saving;
     private bool _hasUnsavedChanges;
@@ -173,7 +172,7 @@
                 ? "Choose artwork and name a playlist for this profile."
                 : EditingCollection is null
                     ? "Create a saved collection using either live rules or manual membership."
-                    : "Update the collection settings, rules, and saved items without leaving the collections page.";
+                    : "Update the collection settings, rules, and saved items.";
 
     private int ActiveTabIndex => GetSelectedIndex(VisibleTabs.Select(tab => tab.Id), _activeTab);
 
@@ -224,7 +223,6 @@
         _sortField = EditingCollection.SortField ?? string.Empty;
         _sortDirection = string.IsNullOrWhiteSpace(EditingCollection.SortDirection) ? "desc" : EditingCollection.SortDirection;
         _liveUpdating = EditingCollection.LiveUpdating;
-        _isEnabled = EditingCollection.IsEnabled;
         _isFeatured = EditingCollection.IsFeatured;
         _rulesEnabled = !string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
@@ -289,6 +287,13 @@
     private Task OnDescriptionChanged(string? value)
     {
         _description = value;
+        MarkDirty();
+        return Task.CompletedTask;
+    }
+
+    private Task OnIconChanged(string value)
+    {
+        _iconName = value;
         MarkDirty();
         return Task.CompletedTask;
     }
@@ -698,7 +703,7 @@
                     normalizedSortField,
                     _sortDirection,
                     _rulesEnabled && _liveUpdating,
-                    _isEnabled,
+                    true,
                     _isFeatured,
                     Request.ActiveProfileId);
             }
@@ -946,6 +951,10 @@
         _ => Icons.Material.Outlined.Collections,
     };
 
+    private static string? IconLabelFor(string? icon) =>
+        IconChoices.FirstOrDefault(choice => string.Equals(choice.Icon, icon, StringComparison.Ordinal)).Label
+        ?? "Collection";
+
     private RenderFragment RenderDetailsTab() => @<div class="collection-editor-pane">
         <section class="collection-editor-section">
             @if (IsPlaylistDialog)
@@ -973,16 +982,18 @@
             }
 
             <AppTextField T="string"
-                          Value="_name"
+                          Value="@_name"
                           ValueChanged="OnNameChanged"
-                          Placeholder="Playlist Title"
+                          Label="Name"
+                          Placeholder="Name this collection"
                           Variant="Variant.Outlined"
                           Immediate="true"
                           Class="collection-editor-field app-dialog-field" />
 
-            <AppTextarea Value="_description"
+            <AppTextarea Value="@_description"
                          ValueChanged="OnDescriptionChanged"
-                         Placeholder="Description (Optional)"
+                         Label="Description (optional)"
+                         Placeholder="Describe what belongs here"
                          Lines="3"
                          Immediate="true"
                          Class="collection-editor-field app-dialog-field app-dialog-textarea" />
@@ -991,7 +1002,7 @@
             {
                 <div class="collection-editor-grid">
                 <AppSelect T="string"
-                           Value="_collectionType"
+                           Value="@_collectionType"
                            ValueChanged="OnCollectionTypeChanged"
                            Label="Collection type"
                            Variant="Variant.Outlined"
@@ -1000,13 +1011,21 @@
                     <MudSelectItem T="string" Value="@("Custom")">Curated Collection</MudSelectItem>
                 </AppSelect>
 
-                <AppTextField T="string"
-                              @bind-Value="_iconName"
-                              Label="Icon"
-                              Placeholder="Optional MudBlazor icon"
-                              Variant="Variant.Outlined"
-                              Immediate="true"
-                              Class="collection-editor-field app-dialog-field" />
+                <AppSelect T="string"
+                           Value="@(_iconName ?? string.Empty)"
+                           ValueChanged="OnIconChanged"
+                           ToStringFunc="IconLabelFor"
+                           Label="Icon"
+                           Variant="Variant.Outlined"
+                           Class="collection-editor-field app-dialog-field app-dialog-select">
+                    @foreach (var choice in IconChoices)
+                    {
+                        <MudSelectItem T="string" Value="@choice.Icon">
+                            <MudIcon Icon="@choice.Icon" Size="Size.Small" />
+                            @choice.Label
+                        </MudSelectItem>
+                    }
+                </AppSelect>
                 </div>
             }
 
@@ -1019,7 +1038,7 @@
                     }
                     else if (SupportsManualItems)
                     {
-                        <span>This collection is in manual mode right now. Use the Items tab to curate membership directly.</span>
+                        <span>This collection is in manual mode right now. Use the Contents tab to curate membership directly.</span>
                     }
                     else
                     {
@@ -1041,7 +1060,7 @@
 
     private RenderFragment RenderRulesSection() => @<section class="collection-editor-section">
         <AppCheckbox
-                     Value="_rulesEnabled"
+                     Value="@_rulesEnabled"
                      ValueChanged="OnRulesEnabledChanged"
                      Color="Color.Primary"
                      Dense="true"
@@ -1058,7 +1077,7 @@
 
                     <div class="collection-editor-rule-row">
                         <AppSelect T="string"
-                                   Value="rule.Field"
+                                   Value="@rule.Field"
                                    Variant="Variant.Outlined"
                                    Dense="true"
                                    Class="app-dialog-field app-dialog-select"
@@ -1074,7 +1093,7 @@
                         </AppSelect>
 
                         <AppSelect T="string"
-                                   Value="rule.Op"
+                                   Value="@rule.Op"
                                    ValueChanged="@(value => OnRuleOperatorChanged(rule, value))"
                                    Variant="Variant.Outlined"
                                    Dense="true"
@@ -1090,7 +1109,7 @@
                             if (IsBooleanRuleField(rule.Field))
                             {
                                 <AppSelect T="string"
-                                           Value="rule.Value"
+                                           Value="@rule.Value"
                                            ValueChanged="@(value => OnRuleValueChanged(rule, value))"
                                            Variant="Variant.Outlined"
                                            Dense="true"
@@ -1102,7 +1121,7 @@
                             else if (IsEntityRuleField(rule.Field))
                             {
                                 <AppSelect T="string"
-                                           Value="rule.Value"
+                                           Value="@rule.Value"
                                            ValueChanged="@(value => OnRuleValueChanged(rule, value))"
                                            Placeholder="Choose a value from this library"
                                            Variant="Variant.Outlined"
@@ -1117,7 +1136,7 @@
                             else
                             {
                                 <AppTextField T="string"
-                                              Value="rule.Value"
+                                              Value="@rule.Value"
                                               ValueChanged="@(value => OnRuleValueChanged(rule, value))"
                                               Variant="Variant.Outlined"
                                               Margin="Margin.Dense"
@@ -1137,9 +1156,6 @@
                 }
             </div>
 
-            <div class="collection-editor-rule-extras">
-                <AppCheckbox @bind-Value="_liveUpdating" Color="Color.Primary" Dense="true" Label="Live updating" />
-            </div>
         }
     </section>;
 
@@ -1159,7 +1175,7 @@
                 else
                 {
                     <AppTextField T="string"
-                                  Value="_itemSearchText"
+                                  Value="@_itemSearchText"
                                   ValueChanged="OnItemSearchChanged"
                                   Label="Add items"
                                   Placeholder="Search title, creator, or media type"
@@ -1288,7 +1304,7 @@
 
         @if (!SupportsManualItems)
         {
-            <AppCheckbox @bind-Value="_liveUpdating" Color="Color.Error" Dense="true" Label="Live updating" />
+            <AppCheckbox @bind-Value="_liveUpdating" Color="Color.Primary" Dense="true" Label="Live updating" />
             <div class="collection-editor-note collection-editor-note--tight">
                 <span>When enabled, this collection re-evaluates itself as the library changes.</span>
             </div>
@@ -1303,7 +1319,6 @@
         @if (EditingCollection is not null)
         {
             <div class="collection-editor-toggle-grid">
-                <AppCheckbox @bind-Value="_isEnabled" Color="Color.Primary" Dense="true" Label="Enabled" />
                 <AppCheckbox @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
             </div>
         }

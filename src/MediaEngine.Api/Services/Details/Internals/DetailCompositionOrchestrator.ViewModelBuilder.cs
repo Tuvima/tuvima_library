@@ -632,14 +632,6 @@ internal sealed partial class DetailCompositionOrchestrator
         {
             actions.Add(BuildMyListAction(isFavorite));
             actions.Add(BuildReactionAction());
-            actions.Add(new DetailAction
-            {
-                Key = "add-to-collection",
-                Label = "Add to Collection",
-                Icon = "account_tree",
-                Tooltip = "Add to collection",
-                DisplayStyle = "icon",
-            });
         }
 
         if (hasReadListenCompanion)

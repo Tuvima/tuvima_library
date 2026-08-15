@@ -1243,7 +1243,7 @@
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [new DisplayActionDto("openCollection", "Explore", null, null, group.CollectionId, navigationUrl)],
-            Flags: new DisplayCardFlagsDto(IsPlayableMedia(group.PrimaryMediaType), IsReadMedia(group.PrimaryMediaType), false, true, false),
+            Flags: new DisplayCardFlagsDto(IsPlayableMedia(group.PrimaryMediaType), IsReadMedia(group.PrimaryMediaType), true, false),
             SortTimestamp: group.CreatedAt)
         {
             PreviewItems = group.PreviewItems
@@ -1574,8 +1574,6 @@
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = activeProfile.Id,
-            CanManageSharedCollections = activeProfile.Role is "Administrator" or "Curator",
-            TypeSelectionConfirmed = true,
             Mode = smart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
             InitialCollectionType = smart ? "Smart" : "Playlist",
             InitialRulesEnabled = smart,

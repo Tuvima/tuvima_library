@@ -1680,7 +1680,6 @@ MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardDto
 MediaEngine.Contracts.Display.MediaEngine.Contracts.Display.DisplayCardFlagsDto
   IsPlayable: System.Boolean | nullability=not-null | accessors=get,init
   IsReadable: System.Boolean | nullability=not-null | accessors=get,init
-  CanAddToCollection: System.Boolean | nullability=not-null | accessors=get,init
   IsCollection: System.Boolean | nullability=not-null | accessors=get,init
   IsFavorite: System.Boolean | nullability=not-null | accessors=get,init
 

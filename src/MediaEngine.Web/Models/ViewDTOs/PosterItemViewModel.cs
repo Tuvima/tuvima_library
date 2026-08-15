@@ -130,7 +130,7 @@ public sealed record PosterItemViewModel
             PreviewPlacement: IsReadable(work.MediaType) ? "bottom" : "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(IsPlayable(work.MediaType), IsReadable(work.MediaType), true, false, false),
+            Flags: new DisplayCardFlagsDto(IsPlayable(work.MediaType), IsReadable(work.MediaType), false, false),
             SortTimestamp: work.CreatedAt);
     }
 

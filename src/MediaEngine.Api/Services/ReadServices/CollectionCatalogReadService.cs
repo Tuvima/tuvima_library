@@ -1055,11 +1055,16 @@ public sealed class CollectionCatalogReadService(
                                  cva.ordinal
                         LIMIT 1)) AS Creator,
                    w.media_type AS MediaType,
-                   COALESCE(
-                       NULLIF(cover_asset.value, ''),
-                       NULLIF(cover_work.value, ''),
-                       CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
-                   ) AS CoverUrl,
+                   CASE
+                       WHEN LOWER(COALESCE(w.work_kind, '')) = 'parent'
+                            AND LOWER(COALESCE(w.media_type, '')) LIKE '%tv%'
+                           THEN NULLIF(cover_work.value, '')
+                       ELSE COALESCE(
+                           NULLIF(cover_work.value, ''),
+                           NULLIF(cover_asset.value, ''),
+                           CASE WHEN ra.AssetId IS NOT NULL THEN '/stream/' || ra.AssetId || '/cover' END
+                       )
+                   END AS CoverUrl,
                    (SELECT c.id
                     FROM work_tree member_tree
                     INNER JOIN collection_items member_item

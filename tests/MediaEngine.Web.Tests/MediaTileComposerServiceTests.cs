@@ -88,7 +88,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "bottom",
             Progress: new DisplayProgressDto(32, "32%", DateTimeOffset.Parse("2026-04-24T12:00:00Z"), resumeAction),
             Actions: [resumeAction, new DisplayActionDto("openWork", "Details", WorkId: workId, WebUrl: $"/book/{workId}")],
-            Flags: new DisplayCardFlagsDto(IsPlayable: false, IsReadable: true, CanAddToCollection: true, IsCollection: false, IsFavorite: false),
+            Flags: new DisplayCardFlagsDto(IsPlayable: false, IsReadable: true, IsCollection: false, IsFavorite: false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
             Description = "1965 science fiction novel",
@@ -159,7 +159,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [new DisplayActionDto("openCollection", "Explore", CollectionId: albumId, WebUrl: $"/listen/music/albums/{albumId}")],
-            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -196,7 +196,7 @@ public sealed class MediaTileComposerServiceTests
                 new DisplayActionDto("playAsset", "Resume", trackId, WebUrl: $"/listen/music?browse=songs&track={trackId:D}"),
                 new DisplayActionDto("playAlbum", "Play Album", trackId, CollectionId: albumId, WebUrl: albumRoute),
             ],
-            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: DateTimeOffset.Parse("2026-07-14T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -226,7 +226,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            Flags: new DisplayCardFlagsDto(true, false, false, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
             Badges = [new DisplayCardBadgeDto("quality", "4K"), new DisplayCardBadgeDto("source", "HBO")],
@@ -265,7 +265,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(mediaType is "Audiobook" or "Music", mediaType is "Book" or "Comic", true, false, false),
+            Flags: new DisplayCardFlagsDto(mediaType is "Audiobook" or "Music", mediaType is "Book" or "Comic", false, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -321,7 +321,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -372,7 +372,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [new DisplayActionDto("openSeries", "Details", CollectionId: collectionId, WebUrl: $"/watch/tv/{collectionId}")],
-            Flags: new DisplayCardFlagsDto(true, false, true, true, false),
+            Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: DateTimeOffset.Parse("2026-07-11T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -425,7 +425,7 @@ public sealed class MediaTileComposerServiceTests
                 new DisplayActionDto("playAsset", "Resume S1 E3", episodeId, WebUrl: $"/watch/player/{episodeId:D}"),
                 new DisplayActionDto("openWork", "Details", episodeId, WebUrl: $"/watch/tv/show/{Guid.NewGuid():D}?episode={episodeId:D}"),
             ],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            Flags: new DisplayCardFlagsDto(true, false, false, false),
             SortTimestamp: DateTimeOffset.Parse("2026-07-14T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -460,7 +460,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(false, true, false, true, false),
+            Flags: new DisplayCardFlagsDto(false, true, true, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
 
         var mapped = MediaTileComposerService.FromDisplayCard(card);
@@ -521,7 +521,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(false, true, false, true, false),
+            Flags: new DisplayCardFlagsDto(false, true, true, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
             PreviewItems =
@@ -607,7 +607,7 @@ public sealed class MediaTileComposerServiceTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            Flags: new DisplayCardFlagsDto(true, false, false, false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
         var page = new DisplayPageDto(
             Key: "watch",
@@ -662,7 +662,7 @@ public sealed class MediaTileComposerServiceTests
                     PreviewPlacement: "smart",
                     Progress: null,
                     Actions: [action],
-                    Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+                    Flags: new DisplayCardFlagsDto(true, false, false, false),
                     SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"));
             })
             .ToList();

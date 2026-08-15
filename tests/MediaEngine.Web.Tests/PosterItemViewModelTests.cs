@@ -53,7 +53,7 @@ public sealed class PosterItemViewModelTests
             PreviewPlacement: "bottom",
             Progress: new DisplayProgressDto(37, "37%", DateTimeOffset.Parse("2026-04-24T12:00:00Z"), action),
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(false, true, true, false, false),
+            Flags: new DisplayCardFlagsDto(false, true, false, false),
             SortTimestamp: DateTimeOffset.UtcNow);
 
         var item = PosterItemViewModel.FromDisplayCard(card);

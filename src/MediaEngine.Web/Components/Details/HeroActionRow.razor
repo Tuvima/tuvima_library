@@ -2,7 +2,7 @@
 @using MediaEngine.Contracts.Details
 
 <div class="tl-detail-actions @(IsPrimaryHeroActionRow ? "tl-detail-actions--watch" : null)">
-    <div class="tl-detail-primary-actions">
+    <div class="tl-detail-primary-actions @(HasPrimaryOverflowCluster ? "tl-detail-primary-actions--with-overflow" : null)">
         @foreach (var action in PrimaryActions)
         {
             <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
@@ -10,7 +10,7 @@
                 <span>@PrimaryLabel(action)</span>
             </AppNativeButton>
         }
-        @if (OverflowMenuActions.Count > 0 && VisibleSecondaryActions.Count == 0)
+        @if (HasPrimaryOverflowCluster)
         {
             <OverflowActionMenu Actions="OverflowMenuActions"
                                 Label="More"
@@ -98,17 +98,6 @@
                     </div>
                 </div>
             }
-            else if (UsePrimaryHeroChrome && action.Key == "add-to-collection")
-            {
-                <div class="tl-detail-secondary-action tl-detail-secondary-action--watch">
-                    <MudTooltip Text="@TooltipFor(action)" Placement="Placement.Bottom">
-                        <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--flat tl-detail-flat-action {ActionStateClass(action)} {(action.IsStub ? " tl-detail-flat-action--stub" : null)}")' AriaLabel="@action.Label" Disabled="@action.IsDisabled" OnClick="@(() => Select(action))">
-                            <MudIcon Icon="@IconFor(action)" Size="Size.Small" />
-                            <span>@SecondaryLabel(action)</span>
-                        </AppNativeButton>
-                    </MudTooltip>
-                </div>
-            }
             else if (action.DisplayStyle == "button")
             {
                 <div class="tl-detail-secondary-action tl-detail-secondary-action--button">
@@ -169,6 +158,7 @@
     private IReadOnlyList<DetailAction> VisibleSecondaryActions => SecondaryActions;
 
     private IReadOnlyList<DetailAction> OverflowMenuActions => OverflowActions;
+    private bool HasPrimaryOverflowCluster => OverflowMenuActions.Count > 0 && VisibleSecondaryActions.Count == 0;
 
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);
@@ -192,7 +182,6 @@
 
     private static string SecondaryLabel(DetailAction action) => action.Key switch
     {
-        "add-to-collection" => action.Label,
         "reaction-menu" => "Rate",
         "format-tools" => "Tools",
         _ => action.Label,

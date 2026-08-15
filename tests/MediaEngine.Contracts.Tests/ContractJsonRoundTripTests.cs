@@ -189,7 +189,7 @@ public sealed class ContractJsonRoundTripTests
             PreviewPlacement: "bottom",
             Progress: new DisplayProgressDto(42, "42%", DateTimeOffset.Parse("2026-04-24T12:00:00Z"), action),
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, true),
+            Flags: new DisplayCardFlagsDto(true, false, false, true),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
             Description = "2016 science fiction film",

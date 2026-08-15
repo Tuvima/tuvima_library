@@ -774,8 +774,6 @@ public partial class ListenPage
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = _activeProfileId,
-            CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
-            TypeSelectionConfirmed = true,
             Mode = isSmart ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist,
             InitialCollectionType = isSmart ? "Smart" : "Playlist",
             InitialRulesEnabled = isSmart,
@@ -817,7 +815,6 @@ public partial class ListenPage
         var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
         {
             ActiveProfileId = _activeProfileId,
-            CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
             EditingCollection = ToCollectionEditorItem(ActivePlaylistCollection),
             Mode = string.Equals(ActivePlaylistCollection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
                 ? CollectionEditorMode.SmartPlaylist
@@ -858,7 +855,6 @@ public partial class ListenPage
             var changed = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
             {
                 ActiveProfileId = _activeProfileId,
-                CanManageSharedCollections = _activeProfile?.Role is "Administrator" or "Curator",
                 EditingCollection = ToCollectionEditorItem(collection),
                 Mode = string.Equals(collection.CollectionType, "Smart", StringComparison.OrdinalIgnoreCase)
                     ? CollectionEditorMode.SmartPlaylist
@@ -1375,7 +1371,6 @@ public partial class ListenPage
                         new DetailAction { Key = "reaction-love", Label = "I love this", Icon = "favorite" },
                     ],
                 },
-                new DetailAction { Key = "add-to-collection", Label = "Add to Collection", Icon = "add", Tooltip = "Add to collection", DisplayStyle = "icon" },
                 new DetailAction { Key = "shuffle", Label = "Shuffle", Icon = "shuffle", DisplayStyle = "icon" },
             ],
             OverflowActions = [],
@@ -2476,7 +2471,7 @@ public partial class ListenPage
             PreviewPlacement: "smart",
             Progress: journey is null ? null : new DisplayProgressDto(journey.ProgressPct, journey.ProgressDisplay, journey.LastAccessed, null),
             Actions: [new DisplayActionDto("openWork", "Open", WorkId: workId, WebUrl: $"/details/work/{workId:D}?context=listen")],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            Flags: new DisplayCardFlagsDto(true, false, false, false),
             SortTimestamp: journey?.LastAccessed ?? DateTimeOffset.MinValue);
 
         return new AudiobookDisplayItem(fallback, null);

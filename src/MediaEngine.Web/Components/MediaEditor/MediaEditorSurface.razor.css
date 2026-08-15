@@ -43,3 +43,14 @@
 .sme-inline-surface ::deep .app-dialog-shell__body {
     overflow: visible;
 }
+
+::deep .sme-dialog {
+    width: auto !important;
+    max-width: min(100vw - 32px, 980px) !important;
+    background: transparent !important;
+}
+
+::deep .sme-dialog > .mud-dialog-content {
+    padding: 0 !important;
+    overflow: visible !important;
+}

@@ -32,31 +32,13 @@
                 }
             </nav>
 
-            @if (HasTriggeringItem)
-            {
-                <div class="collection-wizard__origin">
-                    @if (!string.IsNullOrWhiteSpace(Request.TriggeringArtworkUrl))
-                    {
-                        <img src="@Request.TriggeringArtworkUrl" alt="" />
-                    }
-                    <div>
-                        <span>Starting from</span>
-                        <strong>@Request.TriggeringWorkTitle</strong>
-                        <small>@TriggeringMeta</small>
-                    </div>
-                </div>
-            }
-
             <div class="collection-wizard__content">
                 @switch (_step)
                 {
                     case 1:
-                        @RenderTypeStep()
-                        break;
-                    case 2:
                         @RenderDetailsStep()
                         break;
-                    case 3:
+                    case 2:
                         @RenderContentsStep()
                         break;
                     default:
@@ -78,14 +60,14 @@
             <AppButton Variant="Variant.Filled"
                        Color="Color.Primary"
                        Class="collection-wizard__primary"
-                       EndIcon="@(_step == 4 ? null : Icons.Material.Outlined.ArrowForward)"
+                       EndIcon="@(_step == 3 ? null : Icons.Material.Outlined.ArrowForward)"
                        OnClick="ContinueOrSave"
                        Disabled="@(_saving || !CanContinue)">
                 @if (_saving)
                 {
                     <MudProgressCircular Indeterminate="true" Size="Size.Small" />
                 }
-                @(_step == 4 ? FinalActionLabel : "Continue")
+                @(_step == 3 ? FinalActionLabel : "Continue")
             </AppButton>
         </div>
     </FooterContent>
@@ -97,7 +79,6 @@
 
     private int _step = 1;
     private int _furthestStep = 1;
-    private bool _includeTypeStep;
     private CollectionEditorMode _mode;
     private string _name = string.Empty;
     private string? _description;
@@ -106,7 +87,6 @@
     private bool _dirty;
     private bool _saving;
     private string _activeRuleCategory = "people";
-    private List<CollectionWizardItem> _manualItems = [];
     private List<CollectionRulePredicateViewModel> _rules = [];
     private IReadOnlyList<CollectionRuleValueDto> _peopleOptions = [];
     private CollectionPreviewResult? _preview;
@@ -123,88 +103,33 @@
         new("date", "Date", Icons.Material.Outlined.CalendarToday),
     ];
 
-    private bool HasTriggeringItem => Request.TriggeringWorkId.HasValue;
-    private bool CanOfferCurated => Request.CanManageSharedCollections || Request.Mode == CollectionEditorMode.CuratedCollection;
     private bool IsPlaylist => _mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist;
     private string DialogTitle => IsPlaylist ? "Create Playlist" : "Create Collection";
     private string FinalActionLabel => IsPlaylist ? "Create Playlist" : "Create Collection";
     private string CollectionType => IsPlaylist ? (_dynamic ? "Smart" : "Playlist") : "Custom";
-    private string TriggeringMeta => JoinMeta(Request.TriggeringMediaType, Request.TriggeringYear);
-    private IReadOnlyList<int> VisibleSteps => _includeTypeStep ? [1, 2, 3, 4] : [2, 3, 4];
+    private IReadOnlyList<int> VisibleSteps => [1, 2, 3];
     private int FirstStep => VisibleSteps[0];
-    private string StepperClass => $"collection-wizard__stepper{(_includeTypeStep ? string.Empty : " is-three-step")}";
+    private string StepperClass => "collection-wizard__stepper is-three-step";
     private bool CanContinue => _step switch
     {
-        1 => true,
-        2 => !string.IsNullOrWhiteSpace(_name),
-        3 => !_dynamic || _rules.Any(IsCompleteRule),
+        1 => !string.IsNullOrWhiteSpace(_name),
+        2 => !_dynamic || _rules.Any(IsCompleteRule),
         _ => true,
     };
 
     protected override void OnInitialized()
     {
         _mode = Request.Mode;
-        _includeTypeStep = !Request.TypeSelectionConfirmed && CanOfferCurated && CanOfferPlaylist;
         _step = FirstStep;
         _furthestStep = FirstStep;
         _dynamic = Request.InitialRulesEnabled ?? Request.Mode == CollectionEditorMode.SmartPlaylist;
         _name = Request.InitialTitle ?? string.Empty;
-        if (HasTriggeringItem)
-        {
-            _manualItems.Add(new CollectionWizardItem(
-                Request.TriggeringWorkId!.Value,
-                Request.TriggeringWorkTitle ?? "Library item",
-                Request.TriggeringMediaType ?? "Media",
-                Request.TriggeringYear,
-                Request.TriggeringArtworkUrl));
-        }
     }
 
     protected override async Task OnInitializedAsync()
     {
         _peopleOptions = await ApiClient.GetCollectionEntityFieldValuesAsync("person_qid", 100);
     }
-
-    private RenderFragment RenderTypeStep() => @<section class="collection-wizard__step">
-        <h3>What are you creating?</h3>
-        <div class="collection-wizard__type-options">
-            @if (CanOfferCurated)
-            {
-                <AppNativeButton Type="button"
-                                 Class="@TypeCardClass(!IsPlaylist)"
-                                 OnClick="@(() => SelectMode(CollectionEditorMode.CuratedCollection))">
-                    <span class="collection-wizard__type-icon"><MudIcon Icon="@Icons.Material.Outlined.Layers" /></span>
-                    <span class="collection-wizard__type-copy">
-                        <strong>Curated Collection</strong>
-                        <small>A collection can mix books, movies, music, comics, and other media.</small>
-                    </span>
-                    <span class="collection-wizard__radio" aria-hidden="true"></span>
-                </AppNativeButton>
-            }
-            @if (CanOfferPlaylist)
-            {
-                <AppNativeButton Type="button"
-                                 Class="@TypeCardClass(IsPlaylist)"
-                                 OnClick="@(() => SelectMode(CollectionEditorMode.ManualPlaylist))">
-                    <span class="collection-wizard__type-icon"><MudIcon Icon="@Icons.Material.Outlined.QueueMusic" /></span>
-                    <span class="collection-wizard__type-copy">
-                        <strong>Playlist</strong>
-                        <small>A personal Listen queue containing music and audiobooks from this profile.</small>
-                    </span>
-                    <span class="collection-wizard__radio" aria-hidden="true"></span>
-                </AppNativeButton>
-            }
-        </div>
-        <div class="collection-wizard__scope-note">
-            <MudIcon Icon="@(IsPlaylist ? Icons.Material.Outlined.Headphones : Icons.Material.Outlined.Public)" />
-            <div>
-                <strong>@(IsPlaylist ? "Listen playlist" : "Cross-media collection")</strong>
-                <span>@(IsPlaylist
-                    ? "Playlist membership is limited to Listen media and belongs to the active profile."
-                    : "Curated collections are administrator-authored and available to every profile.")</span>
-            </div>
-        </div>
-    </section>;
 
     private RenderFragment RenderStepperStep(int step, int ordinal) => @<AppNativeButton Type="button"
         Class="@StepClass(step)"
@@ -267,31 +192,14 @@
     </section>;
 
     private RenderFragment RenderManualContents() => @<div class="collection-wizard__manual">
-        @if (_manualItems.Count > 0)
-        {
-            <h4>Starting item</h4>
-            <div class="collection-wizard__included-list">
-                @foreach (var item in _manualItems)
-                {
-                    <div class="collection-wizard__media-row is-included" @key="item.WorkId">
-                        @MediaArtwork(item.ArtworkUrl, item.Title)
-                        <div><strong>@item.Title</strong><small>@JoinMeta(item.MediaType, item.Year)</small></div>
-                        <span class="collection-wizard__included-check" aria-label="Included"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></span>
-                    </div>
-                }
-            </div>
-        }
         <div class="collection-wizard__editor-note">
             <MudIcon Icon="@Icons.Material.Outlined.EditNote" />
             <div>
-                <strong>@(_manualItems.Count > 0 ? "Add more items after creation" : "Add items after creation")</strong>
+                <strong>Add items after creation</strong>
                 <span>Use the full @(IsPlaylist ? "playlist" : "collection") editor to manage membership.</span>
             </div>
         </div>
-        @if (_manualItems.Count == 0)
-        {
-            <div class="collection-wizard__count">The @(IsPlaylist ? "playlist" : "collection") will be created empty.</div>
-        }
+        <div class="collection-wizard__count">The @(IsPlaylist ? "playlist" : "collection") will be created empty.</div>
     </div>;
 
     private RenderFragment RenderDynamicContents() => @<div class="collection-wizard__dynamic">
@@ -408,11 +316,6 @@
         }
     </section>;
 
-    private bool CanOfferPlaylist =>
-        Request.ActiveProfileId.HasValue
-        && (Request.Mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist
-            || IsListenMedia(Request.TriggeringMediaType));
-
     private IReadOnlyList<string> NameSuggestions
     {
         get
@@ -420,8 +323,6 @@
             var people = SelectedPeople.Select(person => person.Label).Take(2).ToArray();
             if (people.Length == 2)
                 return [$"{people[0]} + {people[1]}", $"{people[0]} & {people[1]}"];
-            if (HasTriggeringItem && !string.IsNullOrWhiteSpace(Request.TriggeringWorkTitle))
-                return [$"More like {Request.TriggeringWorkTitle}"];
             return [];
         }
     }
@@ -434,25 +335,7 @@
 
     private IReadOnlyList<CollectionResolvedItemViewModel> ReviewItems => _dynamic
         ? _preview?.Items ?? []
-        : _manualItems.Select(item => new CollectionResolvedItemViewModel
-        {
-            EntityId = item.WorkId,
-            Title = item.Title,
-            MediaType = item.MediaType,
-            Year = item.Year,
-            CoverUrl = item.ArtworkUrl,
-        }).ToList();
-
-    private void SelectMode(CollectionEditorMode mode)
-    {
-        if (_mode == mode)
-            return;
-        _mode = mode;
-        _dynamic = mode == CollectionEditorMode.SmartPlaylist || (!IsPlaylist && (Request.InitialRulesEnabled ?? true));
-        if (IsPlaylist)
-            _manualItems.RemoveAll(item => !IsListenMedia(item.MediaType));
-        _dirty = true;
-    }
+        : [];
 
     private async Task SetDynamic(bool dynamic)
     {
@@ -473,9 +356,9 @@
 
     private async Task ContinueOrSave()
     {
-        if (_step < 4)
+        if (_step < 3)
         {
-            if (_step == 3 && _dynamic)
+            if (_step == 2 && _dynamic)
                 await RunPreviewAsync();
             _step++;
             _furthestStep = Math.Max(_furthestStep, _step);
@@ -521,7 +404,7 @@
             "universe" => new CollectionRulePredicateViewModel { Field = "fictional_universe", Op = "known" },
             "rating" => new CollectionRulePredicateViewModel { Field = "provider_rating", Op = "gte", Value = "4", DisplayValue = "4 stars or higher" },
             "date" => new CollectionRulePredicateViewModel { Field = "added_within_days", Op = "lte", Value = "30", DisplayValue = "Added in the last 30 days" },
-            _ => new CollectionRulePredicateViewModel { Field = "media_type", Op = "eq", Value = IsPlaylist ? "Music" : Request.TriggeringMediaType ?? "Movie", DisplayValue = IsPlaylist ? "Music" : Request.TriggeringMediaType ?? "Movie" },
+            _ => new CollectionRulePredicateViewModel { Field = "media_type", Op = "eq", Value = IsPlaylist ? "Music" : "Movie", DisplayValue = IsPlaylist ? "Music" : "Movie" },
         };
         if (_rules.All(existing => existing.Field != rule.Field))
             _rules.Add(rule);
@@ -613,7 +496,7 @@
                 "desc",
                 _dynamic,
                 IsPlaylist ? "private" : "shared",
-                _dynamic ? [] : _manualItems.Select(item => item.WorkId).ToList(),
+                [],
                 Request.ActiveProfileId);
 
             if (!collectionId.HasValue)
@@ -645,15 +528,10 @@
 
     private string StepClass(int step) => $"collection-wizard__step-button {(step == _step ? "is-active" : step < _step ? "is-complete" : string.Empty)}";
     private int VisibleStepOrdinal(int step) => VisibleSteps.TakeWhile(candidate => candidate != step).Count() + 1;
-    private static string StepLabel(int step) => step switch { 1 => "Type", 2 => "Details", 3 => "Contents", _ => "Review" };
-    private static string TypeCardClass(bool selected) => $"collection-wizard__type-card {(selected ? "is-selected" : string.Empty)}";
+    private static string StepLabel(int step) => step switch { 1 => "Basics", 2 => "Setup", _ => "Review" };
     private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
         !string.IsNullOrWhiteSpace(rule.Field)
         && (rule.Op is "known" or "unknown" || (rule.Values?.Length > 0) || !string.IsNullOrWhiteSpace(rule.Value));
-    private static bool IsListenMedia(string? mediaType) => mediaType?.Contains("music", StringComparison.OrdinalIgnoreCase) == true
-        || mediaType?.Contains("audio", StringComparison.OrdinalIgnoreCase) == true
-        || mediaType?.Contains("track", StringComparison.OrdinalIgnoreCase) == true;
-    private static string JoinMeta(string? first, string? second) => string.Join(" · ", new[] { first, second }.Where(value => !string.IsNullOrWhiteSpace(value)));
     private static string RuleLabel(string field) => field switch { "media_type" => "Media type", "provider_rating" => "Rating", "added_within_days" => "Date", "fictional_universe" => "Universe", _ => char.ToUpperInvariant(field[0]) + field[1..].Replace('_', ' ') };
     private static string IconForRule(string field) => field switch
     {
@@ -683,5 +561,4 @@
     }
 
     private sealed record RuleCategory(string Key, string Label, string Icon);
-    private sealed record CollectionWizardItem(Guid WorkId, string Title, string MediaType, string? Year, string? ArtworkUrl);
 }

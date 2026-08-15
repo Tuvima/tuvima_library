@@ -187,7 +187,7 @@ public sealed class DisplayCardBuilder
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(false, false, false, true, false),
+            Flags: new DisplayCardFlagsDto(false, false, true, false),
             SortTimestamp: row.CreatedAt)
         {
             Description = row.Subtitle,
@@ -432,7 +432,7 @@ public sealed class DisplayCardBuilder
         };
 
     private static DisplayCardFlagsDto FlagsFor(string mediaType, bool isCollection) =>
-        new(DisplayMediaRules.IsWatchKind(mediaType) || DisplayMediaRules.IsListenKind(mediaType), DisplayMediaRules.IsReadKind(mediaType), !isCollection, isCollection, false);
+        new(DisplayMediaRules.IsWatchKind(mediaType) || DisplayMediaRules.IsListenKind(mediaType), DisplayMediaRules.IsReadKind(mediaType), isCollection, false);
 
     private static DisplayArtworkDto ArtworkFor(IDisplayArtworkRow row, Guid? assetId = null)
     {

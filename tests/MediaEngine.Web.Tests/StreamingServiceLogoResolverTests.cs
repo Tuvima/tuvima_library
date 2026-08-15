@@ -331,10 +331,10 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
             [
                 new DetailAction
                 {
-                    Key = "add-to-collection",
-                    Label = AddActionLabelFor(entityType),
-                    Icon = "add",
-                    Tooltip = AddActionLabelFor(entityType),
+                    Key = "my-list",
+                    Label = LibraryActionLabelFor(entityType),
+                    Icon = "favorite",
+                    Tooltip = LibraryActionLabelFor(entityType),
                     DisplayStyle = entityType is DetailEntityType.Book or DetailEntityType.ComicIssue ? "button" : "icon",
                 },
             ],
@@ -385,12 +385,12 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
             _ => "menu_book",
         };
 
-    private static string AddActionLabelFor(DetailEntityType entityType)
+    private static string LibraryActionLabelFor(DetailEntityType entityType)
         => entityType switch
         {
             DetailEntityType.Book or DetailEntityType.ComicIssue => "Want to Read",
             DetailEntityType.Audiobook => "Want to Listen",
             DetailEntityType.Movie or DetailEntityType.MovieSeries or DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode => "Watchlist",
-            _ => "Add to collection",
+            _ => "My List",
         };
 }

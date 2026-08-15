@@ -761,7 +761,7 @@ internal class EngineApiClientStub : DispatchProxy
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            Flags: new DisplayCardFlagsDto(true, false, false, false),
             SortTimestamp: DateTimeOffset.UtcNow);
 
         return new DisplayPageDto(
@@ -821,7 +821,7 @@ internal class EngineApiClientStub : DispatchProxy
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, true, false, false),
+            Flags: new DisplayCardFlagsDto(true, false, false, false),
             SortTimestamp: DateTimeOffset.UtcNow.AddDays(-2));
 
         return new DisplayPageDto(

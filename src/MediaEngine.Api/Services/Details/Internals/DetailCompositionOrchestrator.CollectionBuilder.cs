@@ -840,9 +840,12 @@ internal sealed partial class DetailCompositionOrchestrator
                 ? StringHelpers.FirstNonBlankOr(string.Empty, work.Artist, work.Year, FormatTrackDuration(work.Duration))
                 : StringHelpers.FirstNonBlankOr(string.Empty, FormatSeasonEpisode(work.Season, work.Episode), work.Year, FormatTrackDuration(work.Duration)),
             Description = work.Description,
-            ArtworkUrl = entityType == DetailEntityType.TvEpisode
-                ? StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl)
-                : StringHelpers.FirstNonBlankOr(string.Empty, work.ArtworkUrl, work.BackgroundUrl),
+            ArtworkUrl = entityType switch
+            {
+                DetailEntityType.TvEpisode => StringHelpers.FirstNonBlankOr(string.Empty, work.BackgroundUrl, work.ArtworkUrl),
+                DetailEntityType.TvShow => work.ArtworkUrl,
+                _ => StringHelpers.FirstNonBlankOr(string.Empty, work.ArtworkUrl, work.BackgroundUrl),
+            },
             TrackNumber = work.TrackNumber,
             Duration = FormatTrackDuration(work.Duration),
             Artist = work.Artist,

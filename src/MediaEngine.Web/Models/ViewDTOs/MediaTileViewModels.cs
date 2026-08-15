@@ -158,7 +158,6 @@ public sealed class MediaTileViewModel
                 or MediaTilePresentation.Album
                 or MediaTilePresentation.Artist));
 
-    public bool CanAddToCollection => WorkId.HasValue && !IsCollection;
 }
 
 public sealed class MediaTileShelfViewModel

@@ -8,7 +8,7 @@
 }
 else
 {
-    <AppDialog Class="sme-dialog">
+    <AppDialog Class="@DialogClass">
         <DialogContent>
             @ChildContent
         </DialogContent>
@@ -18,5 +18,6 @@ else
 @code {
     [Parameter] public bool Inline { get; set; }
     [Parameter] public bool HeroConstrained { get; set; }
+    [Parameter] public string DialogClass { get; set; } = "sme-dialog";
     [Parameter, EditorRequired] public RenderFragment? ChildContent { get; set; }
 }

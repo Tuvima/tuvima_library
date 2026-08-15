@@ -1,85 +1,7 @@
-﻿.collection-editor-dialog {
-    background: transparent !important;
-    border: 0 !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-}
-
-::deep .collection-editor-dialog .mud-dialog-content {
-    padding: 0 !important;
-    background: transparent !important;
-}
-
-.collection-editor-shell {
-    display: flex;
-    flex-direction: column;
-    min-height: 76vh;
-    max-height: 84vh;
-    background: linear-gradient(180deg, rgba(27, 27, 32, 0.98), rgba(19, 19, 24, 0.98));
-    color: rgba(248, 248, 248, 0.94);
-    border: 1px solid var(--tl-border-subtle);
-    border-radius: var(--app-radius-md);
-    overflow: hidden;
-}
-
-.collection-editor-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 18px;
-    padding: 28px 30px 18px;
-    border-bottom: 1px solid var(--tl-border-subtle);
-}
-
-.collection-editor-icon {
-    width: 72px;
-    height: 72px;
-    border-radius: var(--app-radius-md);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: linear-gradient(135deg, rgba(201, 146, 46, 0.24), rgba(201, 146, 46, 0.08));
-    border: 1px solid rgba(201, 146, 46, 0.18);
-    color: #f0c062;
-    flex-shrink: 0;
-}
-
-.collection-editor-header-copy {
-    min-width: 0;
-    flex: 1;
-}
-
-.collection-editor-kicker,
-.collection-editor-subtitle,
 .collection-editor-note,
 .collection-editor-item-meta,
 .collection-editor-footer-copy {
     color: rgba(255, 255, 255, 0.58);
-}
-
-.collection-editor-kicker {
-    font-size: 0.72rem;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: 8px;
-}
-
-.collection-editor-title {
-    margin: 0;
-    font-size: 1.85rem;
-    line-height: 1.08;
-    font-weight: 700;
-}
-
-.collection-editor-subtitle {
-    margin-top: 8px;
-    max-width: 700px;
-}
-
-.collection-editor-close {
-    width: 34px;
-    height: 34px;
-    border-radius: var(--app-radius-md);
-    background: rgba(255, 255, 255, 0.05);
 }
 
 .collection-editor-tabs {
@@ -102,8 +24,15 @@
 }
 
 ::deep .collection-editor-tabs .mud-tab.mud-tab-active {
-    color: var(--tl-accent-primary);
+    color: var(--tl-accent-collection, #e3b95f);
     box-shadow: none;
+}
+
+::deep .collection-editor-tabs .mud-tab-slider {
+    top: auto !important;
+    bottom: 0 !important;
+    height: 2px !important;
+    background: var(--tl-accent-collection, #e3b95f) !important;
 }
 
 .collection-editor-body {
@@ -115,10 +44,6 @@
 
 .collection-editor-artwork-picker {
     margin: 0 auto 16px;
-}
-
-.collection-editor-icon-picker {
-    max-width: 620px;
 }
 
 .collection-editor-pane {
@@ -196,10 +121,6 @@
 
 .collection-editor-rule-row > * {
     min-width: 0;
-}
-
-.collection-editor-rule-extras {
-    margin-top: 14px;
 }
 
 .collection-editor-rule-input {
@@ -345,13 +266,6 @@
 }
 
 @media (max-width: 960px) {
-    .collection-editor-shell {
-        min-height: 100vh;
-        max-height: 100vh;
-        border-radius: 0;
-    }
-
-    .collection-editor-header,
     .collection-editor-body,
     .collection-editor-footer,
     .collection-editor-tabs {

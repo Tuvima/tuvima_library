@@ -120,6 +120,48 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionItems_CollapseTvEpisodesToShowPosterAndShowRoute()
+    {
+        var collectionId = Guid.NewGuid();
+        var showId = Guid.NewGuid();
+        var seasonId = Guid.NewGuid();
+        var episodeId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        var itemId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind) VALUES (@ShowId, 'TV', 'parent');
+                INSERT INTO works (id, parent_work_id, media_type, work_kind) VALUES (@SeasonId, @ShowId, 'TV', 'parent');
+                INSERT INTO works (id, parent_work_id, media_type, work_kind) VALUES (@EpisodeId, @SeasonId, 'TV', 'child');
+                INSERT INTO editions (id, work_id) VALUES (@EditionId, @EpisodeId);
+                INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                VALUES (@AssetId, @EditionId, 'collection-tv-poster-test', 'C:/library/Test Show/S01E01.mkv');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at) VALUES
+                    (@ShowId, 'title', 'Test Show', @Now),
+                    (@ShowId, 'poster_url', '/art/test-show-poster.jpg', @Now),
+                    (@EpisodeId, 'episode_still_url', '/art/test-show-s01e01.jpg', @Now);
+                """,
+                new { ShowId = showId, SeasonId = seasonId, EpisodeId = episodeId, EditionId = editionId, AssetId = assetId, Now = now });
+        }
+
+        var result = Assert.Single(await _lookup.ResolveItemsAsync(
+            collectionId,
+            [new CollectionItem { Id = itemId, CollectionId = collectionId, WorkId = episodeId, SortOrder = 1 }],
+            CancellationToken.None));
+
+        Assert.Equal(showId, result.WorkId);
+        Assert.Equal("Test Show", result.Title);
+        Assert.Equal("/art/test-show-poster.jpg", result.CoverUrl);
+        Assert.Equal($"/details/tvshow/{showId:D}?context=watch", result.DetailRoute);
+        Assert.DoesNotContain("s01e01", result.CoverUrl, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public async Task SystemViewGroups_ReturnOrderedArtworkPreviewsAndNullableSqliteDimensions()
     {
         var first = await SeedBookSeriesMemberAsync("First Book", "1", 1649, "book-series-first", 1997);

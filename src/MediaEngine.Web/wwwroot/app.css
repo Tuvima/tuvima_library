@@ -3434,6 +3434,28 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     background: transparent !important;
 }
 
+/* Collection editing is intentionally compact; the broader shared media editor
+   keeps the large workspace geometry above. */
+.mud-dialog.sme-dialog.collection-editor-dialog {
+    width: min(100vw - 32px, 980px) !important;
+    max-width: min(100vw - 32px, 980px) !important;
+}
+
+.collection-editor-tabs .mud-tabs-tabbar {
+    background: transparent !important;
+    border-bottom: 1px solid var(--tl-border-subtle) !important;
+}
+
+.collection-editor-tabs .mud-tab.mud-tab-active {
+    color: var(--tl-accent-collection, #e3b95f) !important;
+    background: color-mix(in srgb, var(--tl-accent-collection, #e3b95f) 10%, transparent) !important;
+}
+
+.collection-editor-tabs .mud-tab-slider {
+    height: 2px !important;
+    background: var(--tl-accent-collection, #e3b95f) !important;
+}
+
 .layout-shell__profile-popover.mud-popover,
 .layout-shell__profile-popover.mud-popover .mud-paper,
 .layout-shell__profile-menu-list.mud-list {

@@ -55,7 +55,7 @@ public sealed class DisplayContractTests
             PreviewPlacement: "bottom",
             Progress: new DisplayProgressDto(Percent: 42, Label: "42%", LastAccessed: DateTimeOffset.Parse("2026-04-24T12:00:00Z"), ResumeAction: primaryAction),
             Actions: [primaryAction],
-            Flags: new DisplayCardFlagsDto(IsPlayable: true, IsReadable: false, CanAddToCollection: true, IsCollection: false, IsFavorite: false),
+            Flags: new DisplayCardFlagsDto(IsPlayable: true, IsReadable: false, IsCollection: false, IsFavorite: false),
             SortTimestamp: DateTimeOffset.Parse("2026-04-24T12:00:00Z"))
         {
             Description = "2016 science fiction film",

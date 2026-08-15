@@ -102,7 +102,7 @@ public sealed class ArchitecturalHardeningTests
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [],
-            Flags: new DisplayCardFlagsDto(false, true, false, false, false),
+            Flags: new DisplayCardFlagsDto(false, true, false, false),
             SortTimestamp: DateTimeOffset.Parse("2026-06-01T12:00:00Z"))
         {
             PreviewItems =

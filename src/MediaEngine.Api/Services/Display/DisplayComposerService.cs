@@ -809,7 +809,7 @@ public sealed class DisplayComposerService
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
             Tagline = representative.Tagline,
@@ -877,7 +877,7 @@ public sealed class DisplayComposerService
             PreviewPlacement: "smart",
             Progress: null,
             Actions: [action],
-            Flags: new DisplayCardFlagsDto(true, false, false, true, false),
+            Flags: new DisplayCardFlagsDto(true, false, true, false),
             SortTimestamp: works.Max(work => work.CreatedAt))
         {
             Genres = works

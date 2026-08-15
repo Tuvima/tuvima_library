@@ -11482,7 +11482,7 @@
     font: inherit;
 }
 
-/* Shared secondary hero actions. My List, Rate, Add to Collection, and More
+/* Shared secondary hero actions. My List, Rate, and More
    use one quiet purple treatment so the primary action remains dominant. */
 .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
     align-items: center;
@@ -11558,24 +11558,24 @@
     margin: 0 !important;
 }
 
-.tl-detail-stage ::deep .tl-detail-primary-actions:has(.tl-detail-more-action) {
+.tl-detail-stage ::deep .tl-detail-primary-actions--with-overflow {
     display: flex !important;
-    width: auto !important;
+    width: min(28rem, 100%) !important;
     max-width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: stretch;
     justify-content: flex-start;
     gap: 0.65rem !important;
 }
 
-.tl-detail-stage ::deep .tl-detail-primary-actions:has(.tl-detail-more-action) .tl-detail-action--primary {
+.tl-detail-stage ::deep .tl-detail-primary-actions--with-overflow .tl-detail-action--primary {
     width: auto !important;
     min-width: clamp(8rem, 12vw, 12rem) !important;
-    flex: 1 1 9rem;
+    flex: 1 1 auto;
 }
 
 /* In normal media utility rows, More is indistinguishable in geometry from
-   My List, Rate, and Add to Collection. */
+   My List and Rate. */
 .tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action {
     width: auto !important;
     min-width: 0 !important;

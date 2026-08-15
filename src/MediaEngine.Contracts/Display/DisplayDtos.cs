@@ -181,6 +181,5 @@ public sealed record DisplayActionDto(
 public sealed record DisplayCardFlagsDto(
     bool IsPlayable,
     bool IsReadable,
-    bool CanAddToCollection,
     bool IsCollection,
     bool IsFavorite);

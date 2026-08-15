@@ -81,39 +81,6 @@
     background: rgba(255, 255, 255, 0.13);
 }
 
-.collection-wizard__origin {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 10px 28px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.55);
-}
-
-.collection-wizard__origin img {
-    width: 38px;
-    height: 54px;
-    object-fit: cover;
-    border-radius: 4px;
-}
-
-.collection-wizard__origin > div {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    min-width: 0;
-}
-
-.collection-wizard__origin strong {
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.86rem;
-}
-
-.collection-wizard__origin small::before {
-    content: "·";
-    margin-right: 6px;
-}
-
 .collection-wizard__content {
     padding: 22px 28px 28px;
 }
@@ -141,96 +108,12 @@
     font-size: 0.88rem;
 }
 
-.collection-wizard__type-options {
-    display: grid;
-    gap: 12px;
-}
-
-.collection-wizard ::deep .collection-wizard__type-card {
-    display: grid;
-    grid-template-columns: 72px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 16px;
-    padding: 17px 18px;
-    border: 1px solid var(--wizard-border);
-    border-radius: var(--app-radius-md);
-    background: rgba(255, 255, 255, 0.018);
-    color: inherit;
-    text-align: left;
-}
-
-.collection-wizard ::deep .collection-wizard__type-card.is-selected {
-    border-color: var(--wizard-accent);
-    background: linear-gradient(110deg, var(--wizard-accent-soft), rgba(255, 255, 255, 0.025));
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--wizard-accent) 12%, transparent);
-}
-
-.collection-wizard__type-icon,
 .collection-wizard__rule-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: var(--wizard-accent);
     background: var(--wizard-accent-soft);
-}
-
-.collection-wizard__type-icon {
-    width: 70px;
-    height: 62px;
-    border: 1px solid color-mix(in srgb, var(--wizard-accent) 14%, transparent);
-    border-radius: var(--app-radius-md);
-}
-
-.collection-wizard__type-icon ::deep .mud-icon-root {
-    font-size: 34px;
-}
-
-.collection-wizard__type-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-}
-
-.collection-wizard__type-copy strong {
-    font-size: 1.07rem;
-}
-
-.collection-wizard__type-copy small,
-.collection-wizard__scope-note span {
-    color: rgba(255, 255, 255, 0.58);
-    font-size: 0.82rem;
-    line-height: 1.45;
-}
-
-.collection-wizard__radio {
-    width: 22px;
-    height: 22px;
-    border: 1px solid rgba(255, 255, 255, 0.55);
-    border-radius: 50%;
-}
-
-.is-selected > .collection-wizard__radio {
-    border: 6px solid var(--wizard-accent);
-}
-
-.collection-wizard__scope-note {
-    display: flex;
-    align-items: center;
-    gap: 13px;
-    padding: 14px 16px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--app-radius-md);
-    background: rgba(255, 255, 255, 0.018);
-}
-
-.collection-wizard__scope-note ::deep .mud-icon-root {
-    color: var(--wizard-accent);
-}
-
-.collection-wizard__scope-note > div {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
 }
 
 .collection-wizard__field {
@@ -321,61 +204,18 @@
     gap: 12px;
 }
 
-.collection-wizard__media-row {
-    min-height: 58px;
-    display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 12px;
-    padding: 7px 10px;
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--app-radius-sm);
-    background: rgba(255, 255, 255, 0.018);
-}
-
-.collection-wizard__media-row.is-included {
-    background: rgba(255, 255, 255, 0.032);
-}
-
 .collection-wizard__media-art {
     width: 48px;
     height: 48px;
 }
 
-.collection-wizard__media-row > div:nth-child(2) {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-}
-
-.collection-wizard__media-row strong {
-    overflow: hidden;
-    color: rgba(255, 255, 255, 0.92);
-    font-size: 0.86rem;
-    font-weight: 600;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-}
-
-.collection-wizard__media-row small,
 .collection-wizard__count {
     color: rgba(255, 255, 255, 0.5);
     font-size: 0.76rem;
 }
 
-.collection-wizard__included-list {
-    display: grid;
-    gap: 6px;
-}
-
 .collection-wizard__count {
     text-align: center;
-}
-
-.collection-wizard__included-check {
-    display: inline-flex;
-    color: var(--wizard-accent);
 }
 
 .collection-wizard__editor-note {
@@ -731,49 +571,12 @@
         display: none;
     }
 
-    .collection-wizard__origin {
-        padding: 14px 20px;
-    }
-
-    .collection-wizard__origin img {
-        width: 44px;
-        height: 64px;
-    }
-
-    .collection-wizard__origin > div {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 2px;
-    }
-
-    .collection-wizard__origin > div > span {
-        display: none;
-    }
-
-    .collection-wizard__origin strong {
-        font-size: 0.95rem;
-    }
-
-    .collection-wizard__origin small::before {
-        content: none;
-    }
-
     .collection-wizard__content {
         padding: 18px 20px 24px;
     }
 
     .collection-wizard__step {
         gap: 20px;
-    }
-
-    .collection-wizard ::deep .collection-wizard__type-card {
-        grid-template-columns: 54px minmax(0, 1fr) auto;
-        padding: 14px;
-    }
-
-    .collection-wizard__type-icon {
-        width: 52px;
-        height: 52px;
     }
 
     .collection-wizard__people-match,

@@ -266,7 +266,7 @@ public sealed class Phase3BrowseFoundationTests : TestContext
             PreviewPlacement: "bottom",
             Progress: includeProgress ? new DisplayProgressDto(48, "48%", DateTimeOffset.UtcNow, resume) : null,
             Actions: [details],
-            Flags: new DisplayCardFlagsDto(false, true, true, false, false),
+            Flags: new DisplayCardFlagsDto(false, true, false, false),
             SortTimestamp: DateTimeOffset.UtcNow);
 
         return new DisplayPageDto(

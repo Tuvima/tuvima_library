@@ -463,7 +463,7 @@ public sealed class DetailComposerServiceTests
         Assert.DoesNotContain("Key = \"watch-party\"", source);
         Assert.Contains("Label = isSelected ? \"In My List\" : \"My List\"", source);
         Assert.Contains("Key = \"my-list\"", source);
-        Assert.Contains("Label = \"Add to Collection\"", source);
+        Assert.DoesNotContain("Label = \"Add to Collection\"", source);
         Assert.Contains("BuildReactionAction", source);
         Assert.Contains("Key = \"reaction-menu\"", source);
         Assert.Contains("Key = \"reaction-dislike\"", source);
@@ -483,6 +483,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("var allowChildArtworkFallback = entityType != DetailEntityType.TvShow", source);
         Assert.Contains("allowChildArtworkFallback ? relatedArt : []", source);
         Assert.Contains("var collectionBackdrop = IsStructuralContainer(entityType)", source);
+        Assert.Contains("DetailEntityType.TvShow => work.ArtworkUrl", source);
         Assert.Contains("var collectionCover = IsStructuralContainer(entityType)", source);
         Assert.Contains("'hero_url', 'hero'", source);
         Assert.Contains("SelectMany(w => new[] { w.BackgroundUrl, w.ArtworkUrl })", source);
