@@ -158,44 +158,6 @@ body {
 .mud-dialog {
     z-index: var(--app-z-modal) !important;
 }
-/* Collection editors use the Mud dialog itself as the form surface. */
-.mud-dialog.collection-editor-dialog {
-    background: var(--tl-bg-surface-elevated) !important;
-    border: 1px solid var(--app-border) !important;
-    border-radius: var(--app-radius-md) !important;
-    box-shadow: var(--app-shadow-lg) !important;
-    overflow: hidden !important;
-}
-
-.mud-dialog.collection-editor-dialog .mud-dialog-content {
-    padding: 0 !important;
-    background: transparent !important;
-}
-
-.mud-dialog.collection-editor-dialog .app-dialog-shell {
-    width: 100% !important;
-    max-height: min(88vh, 900px) !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
-.mud-dialog.collection-editor-dialog .collection-editor-field:not(.app-dialog-textarea) .mud-input-control,
-.mud-dialog.collection-editor-dialog .collection-editor-field:not(.app-dialog-textarea) .mud-input {
-    min-height: 42px !important;
-}
-
-.mud-dialog.collection-editor-dialog .collection-editor-field:not(.app-dialog-textarea) input.mud-input-root {
-    padding-top: 9px !important;
-    padding-bottom: 9px !important;
-}
-
-.mud-dialog.collection-editor-dialog .collection-editor-field.app-dialog-textarea {
-    margin-top: 8px !important;
-}
-
-
 /* Paces-style default tabs: simple bordered navigation, no heavy pill/card treatment. */
 .mud-tabs-toolbar {
     min-height: 42px !important;
@@ -3395,29 +3357,7 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     transform: translateX(16px) !important;
 }
 
-/* Dialog-specific overrides must stay after the global surface layer. */
-.mud-dialog.collection-editor-dialog {
-    background: var(--tl-bg-surface-elevated) !important;
-    border: 1px solid var(--app-border) !important;
-    border-radius: var(--app-radius-md) !important;
-    box-shadow: var(--app-shadow-lg) !important;
-    overflow: hidden !important;
-}
-
-.mud-dialog.collection-editor-dialog .mud-dialog-content {
-    padding: 0 !important;
-    background: transparent !important;
-}
-
-.mud-dialog.collection-editor-dialog .app-dialog-shell {
-    width: 100% !important;
-    max-height: min(88vh, 900px) !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-}
-
+/* Shared media and collection editors use the same large workspace geometry. */
 .mud-dialog.sme-dialog {
     width: min(100vw - 24px, 1440px) !important;
     max-width: min(100vw - 24px, 1440px) !important;
@@ -3432,28 +3372,6 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     padding: 0 !important;
     overflow: hidden !important;
     background: transparent !important;
-}
-
-/* Collection editing is intentionally compact; the broader shared media editor
-   keeps the large workspace geometry above. */
-.mud-dialog.sme-dialog.collection-editor-dialog {
-    width: min(100vw - 32px, 980px) !important;
-    max-width: min(100vw - 32px, 980px) !important;
-}
-
-.collection-editor-tabs .mud-tabs-tabbar {
-    background: transparent !important;
-    border-bottom: 1px solid var(--tl-border-subtle) !important;
-}
-
-.collection-editor-tabs .mud-tab.mud-tab-active {
-    color: var(--tl-accent-collection, #e3b95f) !important;
-    background: color-mix(in srgb, var(--tl-accent-collection, #e3b95f) 10%, transparent) !important;
-}
-
-.collection-editor-tabs .mud-tab-slider {
-    height: 2px !important;
-    background: var(--tl-accent-collection, #e3b95f) !important;
 }
 
 .layout-shell__profile-popover.mud-popover,
@@ -5233,53 +5151,6 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
 .app-overflow-menu__trigger--icon:focus-visible {
     border-color: var(--tl-secondary-action-border-hover) !important;
     background: var(--tl-secondary-action-bg-hover) !important;
-}
-
-/* MudMenu renders the activator itself. Reset MudButton/MudIconButton's
-   built-in dimensions so every caller receives the exact shared geometry. */
-.app-overflow-menu__trigger > .mud-button-root {
-    min-width: 0 !important;
-    min-height: 3rem !important;
-    margin: 0 !important;
-    padding: 0.58rem 1rem !important;
-    border: 1px solid var(--tl-secondary-action-border) !important;
-    border-radius: var(--tl-radius-md) !important;
-    background: var(--tl-secondary-action-bg) !important;
-    color: var(--tl-text-primary) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
-}
-
-.app-overflow-menu__trigger > .mud-button-root .mud-button-label {
-    gap: 0.58rem;
-    font-size: 0.94rem;
-    font-weight: 600;
-    text-transform: none;
-    letter-spacing: normal;
-}
-
-.app-overflow-menu__trigger:hover > .mud-button-root,
-.app-overflow-menu__trigger:focus-within > .mud-button-root,
-.app-overflow-menu__trigger.mud-expanded > .mud-button-root {
-    border-color: var(--tl-secondary-action-border-hover) !important;
-    background: var(--tl-secondary-action-bg-hover) !important;
-}
-
-.app-overflow-menu__trigger--icon > .mud-icon-button {
-    width: var(--tl-control-height-lg) !important;
-    min-width: var(--tl-control-height-lg) !important;
-    height: var(--tl-control-height-lg) !important;
-    min-height: var(--tl-control-height-lg) !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 1px solid var(--tl-secondary-action-border) !important;
-    border-radius: var(--tl-radius-md) !important;
-    background: var(--tl-secondary-action-bg) !important;
-}
-
-.app-overflow-menu__trigger > .mud-button-root::before,
-.app-overflow-menu__trigger > .mud-icon-button::before,
-.app-overflow-menu__trigger .mud-ripple-container {
-    display: none !important;
 }
 
 .app-dismissible-surface--contents {

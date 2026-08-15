@@ -787,15 +787,20 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
-    public void CollectionEditor_PlaylistMode_UsesSharedDialogArtworkPickerAndCompactFields()
+    public void CollectionEditor_UsesSharedLargeEditorWorkspaceAndKeepsPlaylistArtworkPicker()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
 
-        Assert.Contains("<AppDialogShell", source);
+        Assert.Contains("<MediaEditorSurface", source);
+        Assert.Contains("sme-shell collection-editor-workspace", source);
+        Assert.Contains("sme-section-nav collection-editor-rail", source);
+        Assert.Contains("collection-editor-header-actions", source);
+        Assert.DoesNotContain("<AppDialogShell", source);
+        Assert.DoesNotContain("collection-editor-dialog", source);
         Assert.Contains("IsPlaylistLaunch", source);
         Assert.Contains("app-artwork-picker", source);
         Assert.Contains("app-artwork-picker__edit", source);
-        Assert.Contains("app-dialog-field", source);
+        Assert.Contains("collection-editor-field", source);
         Assert.DoesNotContain("Choose file", source);
         Assert.DoesNotContain("listen-create-modal", source);
     }

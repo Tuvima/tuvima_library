@@ -6,8 +6,8 @@
     <AppOverflowMenu Icon="@Icons.Material.Outlined.MoreHoriz"
                      Label="@Label"
                      AriaLabel="More actions"
-                     Class="tl-detail-overflow"
-                     TriggerClass="@EffectiveButtonClass"
+                     Class="tl-detail-overflow tl-detail-more-action"
+                     TriggerClass="@ButtonClass"
                      PopoverClass="@PopoverRootClass"
                      AnchorOrigin="Origin.BottomRight"
                      TransformOrigin="Origin.TopRight">
@@ -23,7 +23,4 @@
 
     private string PopoverRootClass =>
         $"tl-detail-overflow-popover {(Actions.Count == 1 ? "tl-detail-overflow-popover--compact" : null)}";
-    private string EffectiveButtonClass =>
-        string.Join(" ", ButtonClass.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Where(value => !string.Equals(value, "tl-detail-more-action", StringComparison.Ordinal)));
 }

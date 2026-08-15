@@ -30,8 +30,9 @@ public sealed class CollectionEditorLauncherService
         if (request.EditingCollection is null)
             return await OpenWizardAsync(request);
 
+        var isCollectionEditor = !isManualPlaylist && !isSmartPlaylist;
         var dialog = await _dialogService.ShowAsync<CollectionEditorShell>(
-            request.EditingCollection is null ? DialogTitleFor(request) : EditDialogTitleFor(request),
+            EditDialogTitleFor(request),
             new DialogParameters
             {
                 { nameof(CollectionEditorShell.Request), request },
@@ -40,8 +41,8 @@ public sealed class CollectionEditorLauncherService
             {
                 CloseButton = false,
                 NoHeader = true,
-                MaxWidth = isManualPlaylist ? MaxWidth.Small : isSmartPlaylist ? MaxWidth.Medium : MaxWidth.Large,
-                FullWidth = false,
+                MaxWidth = isCollectionEditor ? MaxWidth.ExtraLarge : isManualPlaylist ? MaxWidth.Small : MaxWidth.Medium,
+                FullWidth = isCollectionEditor,
                 BackdropClick = false,
                 CloseOnEscapeKey = true,
             });

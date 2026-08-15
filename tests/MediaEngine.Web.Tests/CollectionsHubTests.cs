@@ -212,8 +212,10 @@ public sealed class CollectionsHubTests
 
         Assert.Contains("<AppTextarea Value=\"@_description\"", source, StringComparison.Ordinal);
         Assert.Contains("Value=\"@_name\"", source, StringComparison.Ordinal);
-        Assert.Contains("Value=\"@_collectionType\"", source, StringComparison.Ordinal);
+        Assert.Contains("Curated collection", source, StringComparison.Ordinal);
+        Assert.Contains("Cross-media", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Enabled\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Visibility\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Value=\"rule.", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppTextField T=\"string\"\r\n                          Value=\"_description\"", source, StringComparison.Ordinal);
     }
@@ -252,6 +254,12 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("collection-wizard__included-list", css, StringComparison.Ordinal);
         Assert.Contains("PersistenceVisibility", editor, StringComparison.Ordinal);
         Assert.Contains("RenderItemsTab", editor, StringComparison.Ordinal);
+        Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
+        Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);
+        Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);
+        Assert.Contains("RenderHistoryTab", editor, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppDialogShell", editor, StringComparison.Ordinal);
+        Assert.DoesNotContain("collection-editor-tabs", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-section-title\">Publication", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("Label=\"Publication\"", collectionsPage, StringComparison.Ordinal);
         Assert.DoesNotContain("status=published", sectionConfiguration, StringComparison.Ordinal);
@@ -260,6 +268,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("100dvh", sharedDialogCss, StringComparison.Ordinal);
         Assert.Contains("grid-column: 2", sharedDialogCss, StringComparison.Ordinal);
         Assert.Contains("OpenWizardAsync", launcher, StringComparison.Ordinal);
+        Assert.Contains("MaxWidth.ExtraLarge", launcher, StringComparison.Ordinal);
+        Assert.Contains("FullWidth = isCollectionEditor", launcher, StringComparison.Ordinal);
     }
 
     [Fact]

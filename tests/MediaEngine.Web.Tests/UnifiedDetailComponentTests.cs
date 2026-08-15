@@ -451,6 +451,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Actions.Count > 0", menu);
         Assert.Contains("<AppOverflowMenu", menu);
         Assert.Contains("PopoverClass=\"@PopoverRootClass\"", menu);
+        Assert.Contains("Class=\"tl-detail-overflow tl-detail-more-action\"", menu);
+        Assert.Contains("TriggerClass=\"@ButtonClass\"", menu);
+        Assert.DoesNotContain("EffectiveButtonClass", menu);
         Assert.Contains("Actions.Count == 1", menu);
         Assert.Contains("Label=\"More\"", actions);
         Assert.Contains("tl-detail-primary-actions", actions);
@@ -462,6 +465,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".app-menu-popover.mud-popover", appStyles);
         Assert.Contains(".app-menu-item", appStyles);
         Assert.Contains("--tl-secondary-action-border", appStyles);
+        var detailStyles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+        Assert.Contains("--tl-primary-action-height", detailStyles);
+        Assert.Contains("max-height: var(--tl-primary-action-height) !important", detailStyles);
     }
 
     [Fact]

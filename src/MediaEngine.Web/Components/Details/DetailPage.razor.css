@@ -6023,155 +6023,6 @@
     }
 }
 
-/* Final MudMenu trigger normalization. The wrapper participates only in
-   layout; the inner native control receives the visual state once. */
-.tl-detail-stage ::deep .app-overflow-menu.tl-detail-more-action,
-.tl-detail-stage ::deep .app-overflow-menu.tl-detail-person-more-action {
-    width: auto !important;
-    min-width: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    color: inherit !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action > .mud-button-root {
-    width: auto !important;
-    min-width: 0 !important;
-    height: 3rem !important;
-    min-height: 3rem !important;
-    padding: 0.58rem 1rem !important;
-    border: 1px solid var(--tl-secondary-action-border) !important;
-    border-radius: var(--tl-radius-md) !important;
-    background: var(--tl-secondary-action-bg) !important;
-    color: rgba(255, 255, 255, 0.94) !important;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035) !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:hover > .mud-button-root,
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:focus-within > .mud-button-root,
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action.mud-expanded > .mud-button-root {
-    border-color: var(--tl-secondary-action-border-hover) !important;
-    background: var(--tl-secondary-action-bg-hover) !important;
-    color: #fff !important;
-    box-shadow: var(--tl-shadow-focus) !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-primary-actions .tl-detail-more-action > .mud-button-root {
-    min-width: 6.75rem !important;
-    min-height: clamp(3.35rem, 6svh, 4rem) !important;
-    height: 100% !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button {
-    width: 2.7rem !important;
-    min-width: 2.7rem !important;
-    height: 2.7rem !important;
-    min-height: 2.7rem !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 1px solid rgba(255,255,255,0.16) !important;
-    border-radius: 0.42rem !important;
-    background: rgba(255,255,255,0.065) !important;
-    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff) !important;
-    box-shadow: none !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-person-more-action:hover > .mud-icon-button,
-.tl-detail-stage ::deep .tl-detail-person-more-action:focus-within > .mud-icon-button,
-.tl-detail-stage ::deep .tl-detail-person-more-action.mud-expanded > .mud-icon-button {
-    border-color: rgba(255,255,255,0.16) !important;
-    background: rgba(255,255,255,0.12) !important;
-    color: #fff8eb !important;
-    box-shadow: none !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button .mud-icon-root {
-    margin: 0 !important;
-    font-size: 1.18rem !important;
-    line-height: 1 !important;
-}
-
-/* MudMenu contributes a layout wrapper around its activator. Keep that wrapper
-   visually inert so hover/focus paint exactly once on the real button. */
-.tl-detail-stage ::deep .app-overflow-menu.tl-detail-more-action,
-.tl-detail-stage ::deep .app-overflow-menu.tl-detail-person-more-action {
-    width: auto !important;
-    min-width: 0 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    color: inherit !important;
-    box-shadow: none !important;
-    backdrop-filter: none !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action > .mud-button-root {
-    width: auto !important;
-    min-width: 0 !important;
-    height: 3rem !important;
-    min-height: 3rem !important;
-    padding: 0.58rem 1rem !important;
-    border: 1px solid var(--tl-secondary-action-border) !important;
-    border-radius: var(--tl-radius-md) !important;
-    background: var(--tl-secondary-action-bg) !important;
-    color: rgba(255, 255, 255, 0.94) !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:hover > .mud-button-root,
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action:focus-within > .mud-button-root,
-.tl-detail-stage ::deep .tl-detail-secondary-actions .tl-detail-more-action.mud-expanded > .mud-button-root {
-    border-color: var(--tl-secondary-action-border-hover) !important;
-    background: var(--tl-secondary-action-bg-hover) !important;
-    color: #fff !important;
-    box-shadow: var(--tl-shadow-focus) !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-primary-actions .tl-detail-more-action > .mud-button-root {
-    min-width: 6.75rem !important;
-    min-height: clamp(3.35rem, 6svh, 4rem) !important;
-    height: 100% !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button {
-    width: 2.7rem !important;
-    min-width: 2.7rem !important;
-    height: 2.7rem !important;
-    min-height: 2.7rem !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: 1px solid rgba(255,255,255,0.16) !important;
-    border-radius: 0.42rem !important;
-    background: rgba(255,255,255,0.065) !important;
-    color: color-mix(in srgb, var(--tl-detail-primary, #c9922e) 86%, #fff) !important;
-    box-shadow: none !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-person-more-action:hover > .mud-icon-button,
-.tl-detail-stage ::deep .tl-detail-person-more-action:focus-within > .mud-icon-button,
-.tl-detail-stage ::deep .tl-detail-person-more-action.mud-expanded > .mud-icon-button {
-    border-color: rgba(255,255,255,0.16) !important;
-    background: rgba(255,255,255,0.12) !important;
-    color: #fff8eb !important;
-    box-shadow: none !important;
-}
-
-.tl-detail-stage ::deep .tl-detail-person-more-action > .mud-icon-button .mud-icon-root {
-    margin: 0 !important;
-    font-size: 1.18rem !important;
-    line-height: 1 !important;
-}
-
 /* Compact cinematic watch hierarchy shared by TV and movie details. */
 ::deep .tl-detail-hero--watch .tl-detail-metadata-stack {
     width: min(47.5rem, 100%);
@@ -11548,22 +11399,32 @@
 
 /* More belongs with the primary task controls (beside Shuffle where present)
    but retains the quiet utility treatment used by My List and Collection. */
-.tl-detail-stage ::deep .tl-detail-primary-actions .tl-detail-more-action {
+.tl-detail-stage ::deep .tl-detail-primary-actions .app-overflow-menu.tl-detail-more-action {
     width: auto !important;
     min-width: 6.75rem !important;
-    min-height: clamp(3.35rem, 6svh, 4rem) !important;
-    height: auto !important;
-    align-self: stretch;
+    min-height: var(--tl-primary-action-height) !important;
+    height: var(--tl-primary-action-height) !important;
+    max-height: var(--tl-primary-action-height) !important;
+    align-self: center;
     justify-self: start;
     margin: 0 !important;
 }
 
+.tl-detail-stage ::deep .tl-detail-primary-actions .app-overflow-menu__trigger.tl-detail-more-action {
+    min-width: 6.75rem !important;
+    min-height: var(--tl-primary-action-height) !important;
+    height: var(--tl-primary-action-height) !important;
+    max-height: var(--tl-primary-action-height) !important;
+    align-self: center;
+}
+
 .tl-detail-stage ::deep .tl-detail-primary-actions--with-overflow {
+    --tl-primary-action-height: clamp(3.35rem, 6svh, 4rem);
     display: flex !important;
     width: min(28rem, 100%) !important;
     max-width: 100%;
     flex-wrap: nowrap;
-    align-items: stretch;
+    align-items: center;
     justify-content: flex-start;
     gap: 0.65rem !important;
 }
@@ -11571,6 +11432,9 @@
 .tl-detail-stage ::deep .tl-detail-primary-actions--with-overflow .tl-detail-action--primary {
     width: auto !important;
     min-width: clamp(8rem, 12vw, 12rem) !important;
+    min-height: var(--tl-primary-action-height) !important;
+    height: var(--tl-primary-action-height) !important;
+    max-height: var(--tl-primary-action-height) !important;
     flex: 1 1 auto;
 }
 

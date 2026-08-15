@@ -46,7 +46,7 @@
 
 ::deep .sme-dialog {
     width: auto !important;
-    max-width: min(100vw - 32px, 980px) !important;
+    max-width: min(100vw - 32px, 1440px) !important;
     background: transparent !important;
 }
 
