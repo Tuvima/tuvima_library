@@ -97,22 +97,8 @@
     private string _matchMode = "all";
     private bool _dirty;
     private bool _saving;
-    private string _activeRuleCategory = "people";
     private List<CollectionRulePredicateViewModel> _rules = [];
-    private IReadOnlyList<CollectionRuleValueDto> _peopleOptions = [];
     private CollectionPreviewResult? _preview;
-    private CancellationTokenSource? _previewCts;
-
-    private static readonly RuleCategory[] RuleCategories =
-    [
-        new("people", "People", Icons.Material.Outlined.Person),
-        new("genre", "Genre", Icons.Material.Outlined.TheaterComedy),
-        new("media", "Media type", Icons.Material.Outlined.Movie),
-        new("series", "Series", Icons.Material.Outlined.Tv),
-        new("universe", "Universe", Icons.Material.Outlined.Public),
-        new("rating", "Rating", Icons.Material.Outlined.StarBorder),
-        new("date", "Date", Icons.Material.Outlined.CalendarToday),
-    ];
 
     private bool IsPlaylist => _mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist;
     private string DialogTitle => IsPlaylist ? "Create Playlist" : "Create Collection";
@@ -135,11 +121,6 @@
         _furthestStep = FirstStep;
         _dynamic = Request.InitialRulesEnabled ?? Request.Mode == CollectionEditorMode.SmartPlaylist;
         _name = Request.InitialTitle ?? string.Empty;
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        _peopleOptions = await ApiClient.GetCollectionEntityFieldValuesAsync("person_qid", 100);
     }
 
     private RenderFragment RenderStepperStep(int step, int ordinal) => @<AppNativeButton Type="button"
@@ -213,81 +194,16 @@
         <div class="collection-wizard__count">The @(IsPlaylist ? "playlist" : "collection") will be created empty.</div>
     </div>;
 
-    private RenderFragment RenderDynamicContents() => @<div class="collection-wizard__dynamic">
-        <h4>Build your rules</h4>
-        <div class="collection-wizard__rule-categories">
-            @foreach (var category in RuleCategories)
-            {
-                <AppNativeButton Type="button"
-                                 Class="@(category.Key == _activeRuleCategory ? "is-selected" : null)"
-                                 OnClick="@(() => SelectRuleCategory(category.Key))">
-                    <MudIcon Icon="@category.Icon" /><span>@category.Label</span>
-                </AppNativeButton>
-            }
-        </div>
-
-        @if (_activeRuleCategory == "people")
-        {
-            @RenderPeopleRule()
-        }
-
-        <div class="collection-wizard__rule-stack">
-            @foreach (var rule in _rules.Where(rule => rule.Field != "person_qid"))
-            {
-                <div class="collection-wizard__rule-card" @key="rule">
-                    <span class="collection-wizard__rule-icon"><MudIcon Icon="@IconForRule(rule.Field)" /></span>
-                    <div>
-                        <strong>@RuleLabel(rule.Field)</strong>
-                        <small>@RuleDescription(rule)</small>
-                    </div>
-                    <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline" Size="Size.Small" OnClick="@(() => RemoveRule(rule))" aria-label="Remove rule" />
-                </div>
-                <span class="collection-wizard__and">AND</span>
-            }
-        </div>
-
-        <div class="collection-wizard__preview-summary">
-            <span><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /> @(_preview?.Count ?? 0) matching items</span>
-            <AppButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Visibility" OnClick="RunPreviewAsync">Preview</AppButton>
-        </div>
-    </div>;
-
-    private RenderFragment RenderPeopleRule() => @<div class="collection-wizard__people-rule">
-        <div class="collection-wizard__people-header">
-            <span class="collection-wizard__rule-icon"><MudIcon Icon="@Icons.Material.Outlined.Person" /></span>
-            <strong>People</strong>
-        </div>
-        <div class="collection-wizard__person-chips">
-            @foreach (var person in SelectedPeople)
-            {
-                <span @key="person.Value"><MudIcon Icon="@Icons.Material.Outlined.AccountCircle" /> @person.Label <AppNativeButton Type="button" OnClick="@(() => RemovePerson(person.Value))" AriaLabel="@($"Remove {person.Label}")">×</AppNativeButton></span>
-            }
-            <AppSelect T="string"
-                       Value="@string.Empty"
-                       ValueChanged="AddPerson"
-                       Placeholder="Add person"
-                       Variant="Variant.Outlined"
-                       Dense="true"
-                       Class="collection-wizard__person-select app-dialog-field app-dialog-select">
-                @foreach (var option in _peopleOptions.Where(option => !SelectedPeople.Any(person => person.Value == option.Value)))
-                {
-                    <MudSelectItem T="string" Value="@option.Value">@option.Label</MudSelectItem>
-                }
-            </AppSelect>
-        </div>
-        @if (SelectedPeople.Count > 0)
-        {
-            <label>Items associated with</label>
-            <div class="collection-wizard__people-match">
-                <AppNativeButton Type="button" Class="@(_matchMode == "all" ? "is-selected" : null)" OnClick="@(() => SetPeopleMatchMode("all"))">
-                    <strong>All people selected</strong><small>Match items with every person above</small>
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="@(_matchMode == "any" ? "is-selected" : null)" OnClick="@(() => SetPeopleMatchMode("any"))">
-                    <strong>Any person selected</strong><small>Match items with any person above</small>
-                </AppNativeButton>
-            </div>
-        }
-    </div>;
+    private RenderFragment RenderDynamicContents() => @<CollectionRuleBuilder @ref="_ruleBuilder"
+                                                                                  Rules="@_rules"
+                                                                                  RulesChanged="OnRulesChanged"
+                                                                                  MatchMode="@_matchMode"
+                                                                                  MatchModeChanged="OnMatchModeChanged"
+                                                                                  Preview="@_preview"
+                                                                                  PreviewChanged="OnPreviewChanged"
+                                                                                  Changed="OnRuleBuilderChanged"
+                                                                                  IsPlaylist="@IsPlaylist"
+                                                                                  Density="wizard" />;
 
     private RenderFragment RenderReviewStep() => @<section class="collection-wizard__step collection-wizard__review">
         <div class="collection-wizard__review-identity">
@@ -331,22 +247,23 @@
     {
         get
         {
-            var people = SelectedPeople.Select(person => person.Label).Take(2).ToArray();
+            var people = _rules
+                .Where(rule => rule.Field == "person_qid")
+                .Select(rule => rule.DisplayValue ?? rule.Value)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Cast<string>()
+                .Take(2)
+                .ToArray();
             if (people.Length == 2)
                 return [$"{people[0]} + {people[1]}", $"{people[0]} & {people[1]}"];
             return [];
         }
     }
 
-    private CollectionRulePredicateViewModel? PeopleRule => _rules.FirstOrDefault(rule => rule.Field == "person_qid");
-    private IReadOnlyList<CollectionRuleValueDto> SelectedPeople =>
-        (PeopleRule?.Values ?? [])
-            .Select(value => _peopleOptions.FirstOrDefault(option => option.Value == value) ?? new CollectionRuleValueDto(value, value, 0))
-            .ToList();
-
     private IReadOnlyList<CollectionResolvedItemViewModel> ReviewItems => _dynamic
         ? _preview?.Items ?? []
         : [];
+    private CollectionRuleBuilder? _ruleBuilder;
 
     private async Task SetDynamic(bool dynamic)
     {
@@ -355,8 +272,7 @@
             ? (dynamic ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist)
             : CollectionEditorMode.CuratedCollection;
         _dirty = true;
-        if (dynamic)
-            await RunPreviewAsync();
+        await Task.CompletedTask;
     }
 
     private void GoToStep(int step)
@@ -369,8 +285,8 @@
     {
         if (_step < 3)
         {
-            if (_step == 2 && _dynamic)
-                await RunPreviewAsync();
+            if (_step == 2 && _dynamic && _ruleBuilder is not null)
+                await _ruleBuilder.RefreshAsync();
             _step++;
             _furthestStep = Math.Max(_furthestStep, _step);
             return;
@@ -402,93 +318,28 @@
         return Task.CompletedTask;
     }
 
-    private void SelectRuleCategory(string category)
+    private Task OnRulesChanged(List<CollectionRulePredicateViewModel> rules)
     {
-        _activeRuleCategory = category;
-        if (category == "people")
-            return;
+        _rules = rules;
+        return Task.CompletedTask;
+    }
 
-        var rule = category switch
-        {
-            "genre" => new CollectionRulePredicateViewModel { Field = "genre", Op = "contains", Value = "Drama", DisplayValue = "Drama" },
-            "series" => new CollectionRulePredicateViewModel { Field = "series", Op = "known" },
-            "universe" => new CollectionRulePredicateViewModel { Field = "fictional_universe", Op = "known" },
-            "rating" => new CollectionRulePredicateViewModel { Field = "provider_rating", Op = "gte", Value = "4", DisplayValue = "4 stars or higher" },
-            "date" => new CollectionRulePredicateViewModel { Field = "added_within_days", Op = "lte", Value = "30", DisplayValue = "Added in the last 30 days" },
-            _ => new CollectionRulePredicateViewModel { Field = "media_type", Op = "eq", Value = IsPlaylist ? "Music" : "Movie", DisplayValue = IsPlaylist ? "Music" : "Movie" },
-        };
-        if (_rules.All(existing => existing.Field != rule.Field))
-            _rules.Add(rule);
+    private Task OnMatchModeChanged(string value)
+    {
+        _matchMode = value;
+        return Task.CompletedTask;
+    }
+
+    private Task OnPreviewChanged(CollectionPreviewResult? preview)
+    {
+        _preview = preview;
+        return Task.CompletedTask;
+    }
+
+    private Task OnRuleBuilderChanged()
+    {
         _dirty = true;
-        _ = SchedulePreviewAsync();
-    }
-
-    private Task AddPerson(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return Task.CompletedTask;
-        var rule = PeopleRule;
-        if (rule is null)
-        {
-            rule = new CollectionRulePredicateViewModel { Field = "person_qid", Op = "all_of", Values = [] };
-            _rules.Insert(0, rule);
-        }
-        rule.Values = (rule.Values ?? []).Append(value).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        rule.Op = _matchMode == "any" ? "any_of" : "all_of";
-        rule.DisplayValue = string.Join(" + ", SelectedPeople.Select(person => person.Label));
-        _dirty = true;
-        return SchedulePreviewAsync();
-    }
-
-    private void RemovePerson(string value)
-    {
-        var rule = PeopleRule;
-        if (rule is null)
-            return;
-        rule.Values = (rule.Values ?? []).Where(item => item != value).ToArray();
-        if (rule.Values.Length == 0)
-            _rules.Remove(rule);
-        _dirty = true;
-        _ = SchedulePreviewAsync();
-    }
-
-    private void SetPeopleMatchMode(string mode)
-    {
-        _matchMode = mode;
-        if (PeopleRule is { } rule)
-            rule.Op = mode == "any" ? "any_of" : "all_of";
-        _dirty = true;
-        _ = SchedulePreviewAsync();
-    }
-
-    private void RemoveRule(CollectionRulePredicateViewModel rule)
-    {
-        _rules.Remove(rule);
-        _dirty = true;
-        _ = SchedulePreviewAsync();
-    }
-
-    private async Task SchedulePreviewAsync()
-    {
-        _previewCts?.Cancel();
-        _previewCts?.Dispose();
-        _previewCts = new CancellationTokenSource();
-        try
-        {
-            await Task.Delay(350, _previewCts.Token);
-            await RunPreviewAsync(_previewCts.Token);
-        }
-        catch (OperationCanceledException)
-        {
-        }
-    }
-
-    private Task RunPreviewAsync() => RunPreviewAsync(CancellationToken.None);
-
-    private async Task RunPreviewAsync(CancellationToken ct)
-    {
-        var rules = _rules.Where(IsCompleteRule).ToList();
-        _preview = rules.Count == 0 ? null : await ApiClient.PreviewCollectionRulesAsync(rules, "all", 24, ct);
+        return Task.CompletedTask;
     }
 
     private async Task SaveAsync()
@@ -502,7 +353,7 @@
                 IsPlaylist ? Icons.Material.Outlined.QueueMusic : Icons.Material.Outlined.Collections,
                 CollectionType,
                 _dynamic ? _rules.Where(IsCompleteRule).ToList() : [],
-                "all",
+                _matchMode,
                 null,
                 "desc",
                 _dynamic,
@@ -559,8 +410,8 @@
     {
         if (rule.Field == "person_qid")
         {
-            var names = SelectedPeople.Select(person => person.Label).ToArray();
-            return names.Length == 0 ? "A selected person is associated" : $"{string.Join(_matchMode == "any" ? " or " : " and ", names)} {(names.Length == 1 ? "is" : "are")} associated";
+            var name = rule.DisplayValue ?? rule.Value;
+            return string.IsNullOrWhiteSpace(name) ? "A selected person is associated" : $"{name} is associated";
         }
         return rule.Field switch
         {
@@ -570,6 +421,4 @@
             _ => $"{RuleLabel(rule.Field)} is {RuleDescription(rule)}",
         };
     }
-
-    private sealed record RuleCategory(string Key, string Label, string Icon);
 }

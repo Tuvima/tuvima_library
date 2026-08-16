@@ -364,8 +364,7 @@
 
 .collection-editor-history-list,
 .collection-editor-item-list,
-.collection-editor-preview,
-.collection-editor-rules { display: flex; flex-direction: column; gap: 10px; }
+.collection-editor-preview { display: flex; flex-direction: column; gap: 10px; }
 
 .collection-editor-history-entry {
     display: grid;
@@ -390,11 +389,6 @@
 .collection-editor-section-title { margin-bottom: 14px; color: rgba(248, 250, 252, 0.96); font-size: 1rem; font-weight: 700; }
 .collection-editor-grid,
 .collection-editor-toggle-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-.collection-editor-rules { margin-top: 14px; }
-.collection-editor-rule-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto auto; align-items: center; gap: 8px; }
-.collection-editor-rule-row > *,
-.collection-editor-rule-input { min-width: 0; }
-.collection-editor-add-rule,
 .collection-editor-inline { margin-top: 12px; }
 .collection-editor-inline-label { display: block; margin-bottom: 10px; color: rgba(226, 232, 240, 0.72); font-size: 0.76rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 
@@ -455,7 +449,6 @@
     .collection-editor-body { padding: 16px; }
     .collection-editor-grid,
     .collection-editor-toggle-grid,
-    .collection-editor-rule-row { grid-template-columns: 1fr; }
     .collection-editor-artwork-preview { min-height: 360px; }
     .collection-editor-actions-row,
     .collection-editor-footer { align-items: stretch; flex-direction: column; }

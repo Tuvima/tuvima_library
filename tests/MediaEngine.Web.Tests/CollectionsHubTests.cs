@@ -230,6 +230,7 @@ public sealed class CollectionsHubTests
         var pickerPath = GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor");
         var pickerCssPath = GetRepoFilePath(@"src\MediaEngine.Web\Components\Discovery\AddToCollectionDialog.razor.css");
         var editor = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor"));
+        var ruleBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleBuilder.razor"));
         var collectionsPage = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
         var sectionConfiguration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsSectionConfiguration.cs"));
 
@@ -244,7 +245,12 @@ public sealed class CollectionsHubTests
         Assert.False(File.Exists(pickerCssPath), "The removed Add to Collection dialog must not retain stale CSS.");
         Assert.Contains("is-three-step", css, StringComparison.Ordinal);
         Assert.Contains("How should this", wizard, StringComparison.Ordinal);
-        Assert.Contains("all_of", wizard, StringComparison.Ordinal);
+        Assert.Contains("<CollectionRuleBuilder", wizard, StringComparison.Ordinal);
+        Assert.Contains("<CollectionRuleBuilder", editor, StringComparison.Ordinal);
+        Assert.Contains("Build your rules", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Live matches", ruleBuilder, StringComparison.Ordinal);
+        Assert.DoesNotContain("SelectRuleCategory", wizard, StringComparison.Ordinal);
+        Assert.DoesNotContain("RunPreviewAsync", wizard, StringComparison.Ordinal);
         Assert.Contains("CreateCollectionWithItemsAsync", wizard, StringComparison.Ordinal);
         Assert.Contains("Use the full @(IsPlaylist ? \"playlist\" : \"collection\") editor to manage membership.", wizard, StringComparison.Ordinal);
         Assert.Contains("2 => !_dynamic || _rules.Any(IsCompleteRule)", wizard, StringComparison.Ordinal);
@@ -260,8 +266,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("OpenItemPickerAsync", editor, StringComparison.Ordinal);
         Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);
-        Assert.Contains("UsesLibraryValueOptions", editor, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionFieldValuesAsync", editor, StringComparison.Ordinal);
+        Assert.Contains("UsesLibraryValues", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionFieldValuesAsync", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);
         Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);

@@ -790,6 +790,7 @@ public sealed class UiShellRenderTests : TestContext
     public void CollectionEditor_UsesSharedLargeEditorWorkspaceAndKeepsPlaylistArtworkPicker()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
+        var ruleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleBuilder.razor"));
 
         Assert.Contains("<MediaEditorSurface", source);
         Assert.Contains("sme-shell collection-editor-workspace", source);
@@ -802,7 +803,9 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("app-artwork-picker__edit", source);
         Assert.Contains("collection-editor-field", source);
         Assert.Equal(1, source.Split("OnClick=\"SaveCollection\"", StringSplitOptions.None).Length - 1);
-        Assert.Contains("GetRuleValueOptions", source);
+        Assert.Contains("<CollectionRuleBuilder", source);
+        Assert.Contains("OptionsFor", ruleBuilder);
+        Assert.Contains("GetCollectionFieldValuesAsync", ruleBuilder);
         Assert.Contains("collection-editor-item-list--members", source);
         Assert.DoesNotContain("Choose file", source);
         Assert.DoesNotContain("listen-create-modal", source);
@@ -812,15 +815,17 @@ public sealed class UiShellRenderTests : TestContext
     public void CollectionEditor_SmartPlaylistMode_RendersSimplifiedMusicRuleControls()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
+        var ruleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleBuilder.razor"));
 
         Assert.Contains("SmartPlaylist", source);
         Assert.Contains("Smart Playlist", source);
         Assert.DoesNotContain("app-icon-picker__item", source);
         Assert.DoesNotContain("Show in My Profile and Search", source);
         Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);
-        Assert.Contains("Add rule", source);
-        Assert.Contains("collection-editor-rule-row", source);
-        Assert.Contains("app-dialog-select", source);
+        Assert.Contains("RenderRulesSection", source);
+        Assert.Contains("Add rule", ruleBuilder);
+        Assert.Contains("collection-rule-builder__rule-card", ruleBuilder);
+        Assert.Contains("app-dialog-select", ruleBuilder);
     }
 
     [Fact]

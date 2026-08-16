@@ -1,0 +1,505 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Contracts.Collections
+@using MediaEngine.Web.Models.ViewDTOs
+@implements IDisposable
+
+@inject IEngineApiClient ApiClient
+
+<section class="collection-rule-builder @($"collection-rule-builder--{Density}")">
+    <header class="collection-rule-builder__header">
+        <div>
+            <span class="collection-rule-builder__eyebrow">Smart membership</span>
+            <h3>Build your rules</h3>
+            <p>Choose a rule family, add conditions, and see matching library items update automatically.</p>
+        </div>
+        <div class="collection-rule-builder__match-mode" role="group" aria-label="Rule match mode">
+            <AppNativeButton Type="button" Class="@(MatchMode == "all" ? "is-selected" : null)" OnClick="@(() => SetMatchModeAsync("all"))">
+                <strong>All rules</strong><span>AND</span>
+            </AppNativeButton>
+            <AppNativeButton Type="button" Class="@(MatchMode == "any" ? "is-selected" : null)" OnClick="@(() => SetMatchModeAsync("any"))">
+                <strong>Any rule</strong><span>OR</span>
+            </AppNativeButton>
+        </div>
+    </header>
+
+    <nav class="collection-rule-builder__categories" aria-label="Rule families">
+        @foreach (var category in Categories)
+        {
+            <AppNativeButton Type="button"
+                             Class="@(category.Key == _activeCategory ? "is-selected" : null)"
+                             OnClick="@(() => SelectCategory(category.Key))"
+                             AriaLabel="@($"Choose {category.Label} rules")">
+                <MudIcon Icon="@category.Icon" />
+                <span>@category.Label</span>
+            </AppNativeButton>
+        }
+    </nav>
+
+    <div class="collection-rule-builder__workspace">
+        <div class="collection-rule-builder__conditions">
+            <div class="collection-rule-builder__add-card">
+                <span class="collection-rule-builder__family-icon"><MudIcon Icon="@ActiveCategory.Icon" /></span>
+                <div>
+                    <strong>Add @ActiveCategory.Label rule</strong>
+                    <span>@ActiveCategory.Description</span>
+                </div>
+                <AppSelect T="string"
+                           Value="@_pendingField"
+                           ValueChanged="OnPendingFieldChanged"
+                           Variant="Variant.Outlined"
+                           Dense="true"
+                           Class="collection-rule-builder__add-select app-dialog-field app-dialog-select">
+                    @foreach (var field in ActiveFields)
+                    {
+                        <MudSelectItem T="string" Value="@field.Key">@field.Label</MudSelectItem>
+                    }
+                </AppSelect>
+                <AppButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Outlined.Add"
+                           OnClick="AddPendingRuleAsync">
+                    Add rule
+                </AppButton>
+            </div>
+
+            @if (Rules.Count == 0)
+            {
+                <div class="collection-rule-builder__empty">
+                    <MudIcon Icon="@Icons.Material.Outlined.FilterAlt" />
+                    <div><strong>No rules yet</strong><span>Choose a rule above to define this smart collection.</span></div>
+                </div>
+            }
+            else
+            {
+                <div class="collection-rule-builder__rule-list">
+                    @for (var index = 0; index < Rules.Count; index++)
+                    {
+                        var rule = Rules[index];
+                        var ruleIndex = index;
+                        <article class="collection-rule-builder__rule-card" @key="rule">
+                            <span class="collection-rule-builder__rule-icon"><MudIcon Icon="@IconForField(rule.Field)" /></span>
+                            <div class="collection-rule-builder__rule-copy">
+                                <strong>@LabelForField(rule.Field)</strong>
+                                <span>@DescriptionForRule(rule)</span>
+                            </div>
+                            <div class="collection-rule-builder__rule-controls">
+                                <AppSelect T="string"
+                                           Value="@rule.Field"
+                                           ValueChanged="@(value => OnRuleFieldChangedAsync(rule, value))"
+                                           Label="Field"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Class="app-dialog-field app-dialog-select">
+                                    @foreach (var category in Categories)
+                                    {
+                                        <MudSelectItem T="string" Value="@($"__{category.Key}")" Disabled="true">@category.Label</MudSelectItem>
+                                        @foreach (var field in FieldsFor(category.Key))
+                                        {
+                                            <MudSelectItem T="string" Value="@field.Key">@field.Label</MudSelectItem>
+                                        }
+                                    }
+                                </AppSelect>
+                                <AppSelect T="string"
+                                           Value="@rule.Op"
+                                           ValueChanged="@(value => OnRuleOperatorChangedAsync(rule, value))"
+                                           Label="Condition"
+                                           Variant="Variant.Outlined"
+                                           Dense="true"
+                                           Class="app-dialog-field app-dialog-select">
+                                    @foreach (var op in OperatorsFor(rule.Field))
+                                    {
+                                        <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
+                                    }
+                                </AppSelect>
+                                @if (IsValueFreeOperator(rule.Op))
+                                {
+                                    <div class="collection-rule-builder__no-value">No value needed</div>
+                                }
+                                else if (IsBooleanField(rule.Field))
+                                {
+                                    <AppSelect T="string"
+                                               Value="@rule.Value"
+                                               ValueChanged="@(value => OnRuleValueChangedAsync(rule, value))"
+                                               Label="Value"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="app-dialog-field app-dialog-select">
+                                        <MudSelectItem T="string" Value="@("true")">Yes</MudSelectItem>
+                                        <MudSelectItem T="string" Value="@("false")">No</MudSelectItem>
+                                    </AppSelect>
+                                }
+                                else if (UsesLibraryValues(rule.Field))
+                                {
+                                    <AppSelect T="string"
+                                               Value="@rule.Value"
+                                               ValueChanged="@(value => OnRuleValueChangedAsync(rule, value))"
+                                               Label="Value"
+                                               Placeholder="Choose from this library"
+                                               Variant="Variant.Outlined"
+                                               Dense="true"
+                                               Class="app-dialog-field app-dialog-select">
+                                        @foreach (var option in OptionsFor(rule.Field))
+                                        {
+                                            <MudSelectItem T="string" Value="@option.Value">@option.Label@if (option.LocalCount > 0){<text> (@option.LocalCount)</text>}</MudSelectItem>
+                                        }
+                                    </AppSelect>
+                                }
+                                else
+                                {
+                                    <AppTextField T="string"
+                                                  Value="@rule.Value"
+                                                  ValueChanged="@(value => OnRuleValueChangedAsync(rule, value))"
+                                                  Label="Value"
+                                                  Variant="Variant.Outlined"
+                                                  Margin="Margin.Dense"
+                                                  Immediate="true"
+                                                  DebounceInterval="350"
+                                                  Class="app-dialog-field" />
+                                }
+                            </div>
+                            <AppIconButton Icon="@Icons.Material.Outlined.DeleteOutline"
+                                           Size="Size.Small"
+                                           Color="Color.Inherit"
+                                           Tooltip="Remove rule"
+                                           AriaLabel="@($"Remove {LabelForField(rule.Field)} rule")"
+                                           OnClick="@(() => RemoveRuleAsync(ruleIndex))" />
+                        </article>
+                        @if (ruleIndex < Rules.Count - 1)
+                        {
+                            <span class="collection-rule-builder__join">@(MatchMode == "any" ? "OR" : "AND")</span>
+                        }
+                    }
+                </div>
+            }
+        </div>
+
+        <aside class="collection-rule-builder__results" aria-live="polite">
+            <div class="collection-rule-builder__results-heading">
+                <div>
+                    <span>Live matches</span>
+                    <strong>@ResultHeading</strong>
+                </div>
+                @if (_previewLoading)
+                {
+                    <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+                }
+                else
+                {
+                    <MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_previewError))
+            {
+                <div class="collection-rule-builder__result-state is-error">
+                    <MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" />
+                    <span>@_previewError</span>
+                    <AppButton Variant="Variant.Text" Color="Color.Primary" OnClick="RunPreviewAsync">Retry</AppButton>
+                </div>
+            }
+            else if (CompleteRules.Count == 0)
+            {
+                <div class="collection-rule-builder__result-state">
+                    <MudIcon Icon="@Icons.Material.Outlined.FilterAlt" />
+                    <span>Add a complete rule to see matching items.</span>
+                </div>
+            }
+            else if (!_previewLoading && Preview is { Count: 0 })
+            {
+                <div class="collection-rule-builder__result-state">
+                    <MudIcon Icon="@Icons.Material.Outlined.SearchOff" />
+                    <span>No library items match these rules.</span>
+                </div>
+            }
+            else if (Preview is not null)
+            {
+                <div class="collection-rule-builder__result-grid">
+                    @foreach (var item in Preview.Items.Take(8))
+                    {
+                        <div class="collection-rule-builder__result-item" title="@item.Title">
+                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                            {
+                                <img src="@item.CoverUrl" alt="" />
+                            }
+                            else
+                            {
+                                <span><MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" /></span>
+                            }
+                            <strong>@item.Title</strong>
+                            <small>@item.MediaType</small>
+                        </div>
+                    }
+                </div>
+                @if (Preview.Count > Preview.Items.Count)
+                {
+                    <div class="collection-rule-builder__more-results">Showing @Preview.Items.Count of @Preview.Count matching items</div>
+                }
+            }
+        </aside>
+    </div>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public List<CollectionRulePredicateViewModel> Rules { get; set; } = [];
+    [Parameter] public EventCallback<List<CollectionRulePredicateViewModel>> RulesChanged { get; set; }
+    [Parameter] public string MatchMode { get; set; } = "all";
+    [Parameter] public EventCallback<string> MatchModeChanged { get; set; }
+    [Parameter] public CollectionPreviewResult? Preview { get; set; }
+    [Parameter] public EventCallback<CollectionPreviewResult?> PreviewChanged { get; set; }
+    [Parameter] public EventCallback Changed { get; set; }
+    [Parameter] public bool IsPlaylist { get; set; }
+    [Parameter] public string Density { get; set; } = "editor";
+
+    private string _activeCategory = "media";
+    private string _pendingField = "media_type";
+    private bool _previewLoading;
+    private string? _previewError;
+    private bool _initialPreviewQueued;
+    private CancellationTokenSource? _previewCts;
+    private readonly Dictionary<string, IReadOnlyList<CollectionRuleValueDto>> _valueOptions = new(StringComparer.OrdinalIgnoreCase);
+
+    private static readonly RuleCategory[] Categories =
+    [
+        new("media", "Media", Icons.Material.Outlined.Movie, "Type, genre, year, language, and origin."),
+        new("people", "People & organizations", Icons.Material.Outlined.People, "Contributors, companies, labels, and networks."),
+        new("story", "Story & world", Icons.Material.Outlined.Public, "Series, universes, subjects, locations, and adaptations."),
+        new("recognition", "Recognition", Icons.Material.Outlined.StarBorder, "Ratings and awards."),
+        new("production", "Production", Icons.Material.Outlined.MovieFilter, "Release, filming, color, and sound details."),
+        new("library", "My library", Icons.Material.Outlined.Inventory2, "Added date, completion, and playback activity."),
+    ];
+
+    private static readonly RuleField[] Fields =
+    [
+        new("media", "media_type", "Media type"), new("media", "genre", "Genre"), new("media", "year", "Year"), new("media", "decade", "Decade"),
+        new("media", "language", "Language", true), new("media", "original_language", "Original language", true), new("media", "country_of_origin", "Country of origin", true),
+        new("people", "person_qid", "Person", true), new("people", "author", "Author", true), new("people", "narrator", "Narrator", true),
+        new("people", "director", "Director", true), new("people", "cast_member", "Actor / cast member", true), new("people", "voice_actor", "Voice actor", true),
+        new("people", "artist", "Artist / performer", true), new("people", "composer", "Composer", true), new("people", "screenwriter", "Screenwriter", true),
+        new("people", "illustrator", "Illustrator", true), new("people", "production_company", "Production company", true), new("people", "publisher", "Publisher", true),
+        new("people", "record_label", "Record label", true), new("people", "network", "Network / broadcaster", true),
+        new("story", "series", "Series"), new("story", "wikidata_franchise", "Franchise / universe", true), new("story", "based_on", "Based on", true),
+        new("story", "narrative_location", "Narrative location", true), new("story", "set_in_period", "Set in period", true), new("story", "main_subject", "Main subject", true),
+        new("story", "characters", "Character", true), new("story", "fictional_universe", "Universe", true), new("story", "is_adaptation", "Is an adaptation"),
+        new("story", "source_work_owned", "Source work is owned"), new("story", "adaptation_owned", "Adaptation is owned"),
+        new("recognition", "provider_rating", "Rating"), new("recognition", "award_received", "Award won", true), new("recognition", "award_nominated", "Award nominated", true),
+        new("recognition", "award_family", "Award family", true), new("recognition", "nomination_family", "Nomination family", true),
+        new("production", "filming_location", "Filming location", true),
+        new("library", "added_within_days", "Added within days"),
+    ];
+
+    private RuleCategory ActiveCategory => Categories.First(category => category.Key == _activeCategory);
+    private IReadOnlyList<RuleField> ActiveFields => FieldsFor(_activeCategory);
+    private List<CollectionRulePredicateViewModel> CompleteRules => Rules.Where(IsCompleteRule).ToList();
+    private string ResultHeading => _previewLoading
+        ? "Updating…"
+        : Preview is null
+            ? "Not evaluated"
+            : $"{Preview.Count} matching item{(Preview.Count == 1 ? string.Empty : "s")}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        foreach (var field in Rules.Select(rule => rule.Field).Where(UsesLibraryValues).Distinct(StringComparer.OrdinalIgnoreCase))
+            await EnsureOptionsAsync(field);
+    }
+
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialPreviewQueued)
+        {
+            _initialPreviewQueued = true;
+            _ = SchedulePreviewAsync(immediate: true);
+        }
+        return Task.CompletedTask;
+    }
+
+    private IReadOnlyList<RuleField> FieldsFor(string category) => Fields.Where(field => field.Category == category).ToList();
+
+    private void SelectCategory(string category)
+    {
+        _activeCategory = category;
+        _pendingField = FieldsFor(category).First().Key;
+    }
+
+    private Task OnPendingFieldChanged(string value)
+    {
+        _pendingField = value;
+        return Task.CompletedTask;
+    }
+
+    private async Task AddPendingRuleAsync()
+    {
+        var field = Fields.First(definition => definition.Key == _pendingField);
+        var rule = new CollectionRulePredicateViewModel { Field = field.Key, Op = OperatorsFor(field.Key).First().Key };
+        Rules.Add(rule);
+        if (UsesLibraryValues(field.Key))
+            await EnsureOptionsAsync(field.Key);
+        await NotifyChangedAsync();
+    }
+
+    private async Task RemoveRuleAsync(int index)
+    {
+        Rules.RemoveAt(index);
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnRuleFieldChangedAsync(CollectionRulePredicateViewModel rule, string value)
+    {
+        rule.Field = value;
+        rule.Op = OperatorsFor(value).First().Key;
+        rule.Value = null;
+        rule.DisplayValue = null;
+        rule.Values = null;
+        if (UsesLibraryValues(value))
+            await EnsureOptionsAsync(value);
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnRuleOperatorChangedAsync(CollectionRulePredicateViewModel rule, string value)
+    {
+        rule.Op = value;
+        if (IsValueFreeOperator(value))
+        {
+            rule.Value = null;
+            rule.DisplayValue = null;
+            rule.Values = null;
+        }
+        await NotifyChangedAsync();
+    }
+
+    private async Task OnRuleValueChangedAsync(CollectionRulePredicateViewModel rule, string? value)
+    {
+        rule.Value = value;
+        rule.Values = null;
+        rule.DisplayValue = UsesLibraryValues(rule.Field)
+            ? OptionsFor(rule.Field).FirstOrDefault(option => option.Value == value)?.Label
+            : null;
+        await NotifyChangedAsync();
+    }
+
+    private async Task SetMatchModeAsync(string value)
+    {
+        MatchMode = value;
+        await MatchModeChanged.InvokeAsync(value);
+        await Changed.InvokeAsync();
+        await SchedulePreviewAsync();
+    }
+
+    private async Task NotifyChangedAsync()
+    {
+        await RulesChanged.InvokeAsync(Rules);
+        await Changed.InvokeAsync();
+        await SchedulePreviewAsync();
+    }
+
+    private async Task SchedulePreviewAsync(bool immediate = false)
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = new CancellationTokenSource();
+        try
+        {
+            if (!immediate)
+                await Task.Delay(350, _previewCts.Token);
+            await RunPreviewAsync(_previewCts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private Task RunPreviewAsync() => RunPreviewAsync(CancellationToken.None);
+
+    public async Task RefreshAsync()
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+        _previewCts = new CancellationTokenSource();
+        await RunPreviewAsync(_previewCts.Token);
+    }
+
+    private async Task RunPreviewAsync(CancellationToken cancellationToken)
+    {
+        var rules = CompleteRules;
+        _previewError = null;
+        if (rules.Count == 0)
+        {
+            Preview = null;
+            await PreviewChanged.InvokeAsync(null);
+            await InvokeAsync(StateHasChanged);
+            return;
+        }
+
+        _previewLoading = true;
+        await InvokeAsync(StateHasChanged);
+        try
+        {
+            Preview = await ApiClient.PreviewCollectionRulesAsync(rules, MatchMode, 24, cancellationToken);
+            await PreviewChanged.InvokeAsync(Preview);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch
+        {
+            _previewError = "Matching items could not be loaded.";
+        }
+        finally
+        {
+            _previewLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task EnsureOptionsAsync(string field)
+    {
+        if (_valueOptions.ContainsKey(field))
+            return;
+        if (IsEntityField(field))
+        {
+            _valueOptions[field] = await ApiClient.GetCollectionEntityFieldValuesAsync(field, 200);
+            return;
+        }
+        var values = await ApiClient.GetCollectionFieldValuesAsync(field, 200);
+        _valueOptions[field] = values.Where(value => !string.IsNullOrWhiteSpace(value)).Select(value => new CollectionRuleValueDto(value, value, 0)).ToList();
+    }
+
+    private IReadOnlyList<CollectionRuleValueDto> OptionsFor(string field) => _valueOptions.TryGetValue(field, out var options) ? options : [];
+    private static bool IsEntityField(string field) => Fields.FirstOrDefault(definition => definition.Key == field)?.Entity == true;
+    private static bool UsesLibraryValues(string field) => field is "media_type" or "genre" or "series" or "language" or "original_language" or "country_of_origin" or "person_qid" or "author" or "narrator" or "director" or "cast_member" or "voice_actor" or "artist" or "composer" or "screenwriter" or "illustrator" or "production_company" or "publisher" or "record_label" or "network" or "wikidata_franchise" or "award_received" or "characters" or "fictional_universe" or "narrative_location" or "set_in_period" or "main_subject" or "based_on" or "filming_location";
+    private static bool IsBooleanField(string field) => field is "is_adaptation" or "source_work_owned" or "adaptation_owned";
+    private static bool IsValueFreeOperator(string op) => op is "known" or "unknown" or "has_any_value" or "has_no_known_value";
+    private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) => !string.IsNullOrWhiteSpace(rule.Field) && (IsValueFreeOperator(rule.Op) || !string.IsNullOrWhiteSpace(rule.Value) || rule.Values?.Length > 0);
+    private static bool SupportsUnknownField(string field) => field is "person_qid" or "author" or "narrator" or "director" or "cast_member" or "voice_actor" or "artist" or "composer" or "screenwriter" or "illustrator" or "production_company" or "publisher" or "record_label" or "network" or "wikidata_franchise" or "award_received" or "award_nominated" or "award_family" or "nomination_family" or "characters" or "fictional_universe" or "narrative_location" or "set_in_period" or "main_subject" or "based_on" or "filming_location";
+
+    private static List<RuleOperator> OperatorsFor(string field) => field switch
+    {
+        "is_adaptation" or "source_work_owned" or "adaptation_owned" => [new("eq", "is")],
+        "media_type" => [new("eq", "is"), new("neq", "is not")],
+        "year" or "provider_rating" or "added_within_days" => [new("eq", "is"), new("gt", "greater than"), new("lt", "less than"), new("between", "between"), new("gte", "at least"), new("lte", "at most")],
+        "decade" => [new("eq", "is")],
+        _ when IsEntityField(field) && SupportsUnknownField(field) => [new("eq", "is"), new("neq", "is not"), new("known", "is known"), new("unknown", "is unknown"), new("has_any_value", "has any value")],
+        _ when IsEntityField(field) => [new("eq", "is"), new("neq", "is not"), new("known", "is known"), new("has_any_value", "has any value")],
+        _ => [new("eq", "is"), new("neq", "is not"), new("contains", "contains"), new("known", "is known")],
+    };
+
+    private static string LabelForField(string field) => Fields.FirstOrDefault(definition => definition.Key == field)?.Label ?? "Rule";
+    private static string IconForField(string field) => Categories.FirstOrDefault(category => FieldsForStatic(category.Key).Any(definition => definition.Key == field))?.Icon ?? Icons.Material.Outlined.FilterAlt;
+    private static IEnumerable<RuleField> FieldsForStatic(string category) => Fields.Where(field => field.Category == category);
+    private static string DescriptionForRule(CollectionRulePredicateViewModel rule)
+    {
+        var op = OperatorsFor(rule.Field).FirstOrDefault(option => option.Key == rule.Op)?.Label ?? rule.Op;
+        var value = rule.DisplayValue ?? rule.Value;
+        return IsValueFreeOperator(rule.Op) ? op : string.IsNullOrWhiteSpace(value) ? "Choose a value" : $"{op} {value}";
+    }
+
+    public void Dispose()
+    {
+        _previewCts?.Cancel();
+        _previewCts?.Dispose();
+    }
+
+    private sealed record RuleCategory(string Key, string Label, string Icon, string Description);
+    private sealed record RuleField(string Category, string Key, string Label, bool Entity = false);
+    private sealed record RuleOperator(string Key, string Label);
+}

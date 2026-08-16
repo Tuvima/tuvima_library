@@ -26,16 +26,6 @@
                 <div class="sme-subtitle">@HeaderSubtitle</div>
             </div>
             <div class="collection-editor-header-actions">
-                @if (!SupportsManualItems)
-                {
-                    <AppButton Variant="Variant.Outlined"
-                               Color="Color.Inherit"
-                               StartIcon="@Icons.Material.Outlined.Visibility"
-                               Disabled="@_saving"
-                               OnClick="RunPreview">
-                        Preview
-                    </AppButton>
-                }
                 <AppIconButton Icon="@Icons.Material.Outlined.Close"
                                Size="Size.Small"
                                Color="Color.Inherit"
@@ -186,7 +176,6 @@
     private string _collectionType = "Custom";
     private bool _rulesEnabled = true;
     private List<CollectionRulePredicateViewModel> _rules = [new()];
-    private readonly Dictionary<string, IReadOnlyList<CollectionRuleValueDto>> _ruleValueOptions = new(StringComparer.OrdinalIgnoreCase);
     private string _matchMode = "all";
     private string _sortField = string.Empty;
     private string _sortDirection = "desc";
@@ -314,9 +303,6 @@
 
     protected override async Task OnInitializedAsync()
     {
-        foreach (var field in _rules.Select(rule => rule.Field).Where(UsesLibraryValueOptions).Distinct(StringComparer.OrdinalIgnoreCase))
-            await EnsureRuleValueOptionsAsync(field);
-
         if (SupportsManualItems && !IsPlaylistDialog)
             await LoadManualItemsAsync();
     }
@@ -483,42 +469,6 @@
         }
     }
 
-    private void AddRule(int afterIndex)
-    {
-        _rules.Insert(afterIndex + 1, new CollectionRulePredicateViewModel());
-        MarkDirty();
-    }
-
-    private void RemoveRule(int index)
-    {
-        if (_rules.Count > 1)
-        {
-            _rules.RemoveAt(index);
-            MarkDirty();
-        }
-
-        _ = RunPreview();
-    }
-
-    private async Task OnRulesEnabledChanged(bool value)
-    {
-        _rulesEnabled = value;
-        MarkDirty();
-
-        if (!_rulesEnabled)
-        {
-            _liveUpdating = false;
-            _previewResult = null;
-            await LoadManualItemsAsync();
-        }
-        else if (_rules.Any(IsCompleteRule))
-        {
-            await RunPreview();
-        }
-
-        StateHasChanged();
-    }
-
     private async Task OnArtworkSelected(InputFileChangeEventArgs args)
     {
         var file = args.File;
@@ -540,91 +490,30 @@
         }
     }
 
-    private async Task OnCollectionTypeChanged(string value)
-    {
-        _collectionType = value;
-        MarkDirty();
-
-        if (IsPlaylist)
-        {
-            _rulesEnabled = false;
-            _liveUpdating = false;
-            _previewResult = null;
-        }
-        else if (!_rules.Any(IsCompleteRule))
-        {
-            _rulesEnabled = true;
-        }
-
-        if (SupportsManualItems)
-            await LoadManualItemsAsync();
-        else if (_rules.Any(IsCompleteRule))
-            await RunPreview();
-
-        StateHasChanged();
-    }
-
     private Task OnMatchModeChanged(string value)
     {
         _matchMode = value;
         MarkDirty();
-        return RunPreview();
+        return Task.CompletedTask;
     }
 
-    private async Task OnRuleFieldChanged(CollectionRulePredicateViewModel rule, string value)
+    private Task OnRuleBuilderRulesChanged(List<CollectionRulePredicateViewModel> rules)
     {
-        rule.Field = value;
-        rule.Op = GetOperatorsForField(value).First().Key;
-        rule.Value = null;
-        rule.DisplayValue = null;
-        if (UsesLibraryValueOptions(value))
-            await EnsureRuleValueOptionsAsync(value);
+        _rules = rules;
+        return Task.CompletedTask;
+    }
+
+    private Task OnRuleBuilderPreviewChanged(CollectionPreviewResult? preview)
+    {
+        _previewResult = preview;
+        return Task.CompletedTask;
+    }
+
+    private Task OnRuleBuilderChanged()
+    {
         MarkDirty();
-        await RunPreview();
+        return Task.CompletedTask;
     }
-
-    private Task OnRuleValueChanged(CollectionRulePredicateViewModel rule, string? value)
-    {
-        rule.Value = value;
-        rule.DisplayValue = UsesLibraryValueOptions(rule.Field)
-            ? GetRuleValueOptions(rule.Field).FirstOrDefault(option => option.Value == value)?.Label
-            : null;
-        MarkDirty();
-        return RunPreview();
-    }
-
-    private Task OnRuleOperatorChanged(CollectionRulePredicateViewModel rule, string value)
-    {
-        rule.Op = value;
-        if (IsValueFreeOperator(value))
-        {
-            rule.Value = null;
-            rule.DisplayValue = null;
-        }
-        MarkDirty();
-        return RunPreview();
-    }
-
-    private async Task EnsureRuleValueOptionsAsync(string field)
-    {
-        if (_ruleValueOptions.ContainsKey(field))
-            return;
-
-        if (IsEntityRuleField(field))
-        {
-            _ruleValueOptions[field] = await ApiClient.GetCollectionEntityFieldValuesAsync(field, 200);
-            return;
-        }
-
-        var values = await ApiClient.GetCollectionFieldValuesAsync(field, 200);
-        _ruleValueOptions[field] = values
-            .Where(value => !string.IsNullOrWhiteSpace(value))
-            .Select(value => new CollectionRuleValueDto(value, value, 0))
-            .ToList();
-    }
-
-    private IReadOnlyList<CollectionRuleValueDto> GetRuleValueOptions(string field) =>
-        _ruleValueOptions.TryGetValue(field, out var values) ? values : [];
 
     private async Task AddManualItemAsync(CollectionMediaLookupDto work)
     {
@@ -916,73 +805,12 @@
         return parts.Count == 0 ? "Matching item" : string.Join("  -  ", parts);
     }
 
-    private sealed record OpDef(string Key, string Label);
-    private sealed record RuleFieldDef(string Category, string Key, string Label, bool Entity = false);
-
-    private static readonly RuleFieldDef[] RuleFields =
-    [
-        new("Media", "media_type", "Media type"),
-        new("Media", "genre", "Genre"),
-        new("Media", "year", "Year"),
-        new("Media", "decade", "Decade"),
-        new("Media", "language", "Language", true),
-        new("Media", "original_language", "Original language", true),
-        new("Media", "country_of_origin", "Country of origin", true),
-        new("People & Organizations", "person_qid", "Person", true),
-        new("People & Organizations", "author", "Author", true),
-        new("People & Organizations", "narrator", "Narrator", true),
-        new("People & Organizations", "director", "Director", true),
-        new("People & Organizations", "cast_member", "Actor / cast member", true),
-        new("People & Organizations", "voice_actor", "Voice actor", true),
-        new("People & Organizations", "artist", "Artist / performer", true),
-        new("People & Organizations", "composer", "Composer", true),
-        new("People & Organizations", "screenwriter", "Screenwriter", true),
-        new("People & Organizations", "illustrator", "Illustrator", true),
-        new("People & Organizations", "production_company", "Production company", true),
-        new("People & Organizations", "publisher", "Publisher", true),
-        new("People & Organizations", "record_label", "Record label", true),
-        new("People & Organizations", "network", "Network / broadcaster", true),
-        new("Story & World", "series", "Series"),
-        new("Story & World", "wikidata_franchise", "Franchise / universe", true),
-        new("Story & World", "based_on", "Based on", true),
-        new("Story & World", "narrative_location", "Narrative location", true),
-        new("Story & World", "set_in_period", "Set in period", true),
-        new("Story & World", "main_subject", "Main subject", true),
-        new("Story & World", "characters", "Character", true),
-        new("Story & World", "fictional_universe", "Universe", true),
-        new("Relationships", "is_adaptation", "Is an adaptation"),
-        new("Relationships", "source_work_owned", "Source work is owned"),
-        new("Relationships", "adaptation_owned", "Adaptation is owned"),
-        new("Recognition", "award_received", "Award won", true),
-        new("Recognition", "award_nominated", "Award nominated", true),
-        new("Recognition", "award_family", "Award family", true),
-        new("Recognition", "nomination_family", "Nomination family", true),
-        new("Production", "filming_location", "Filming location", true),
-        new("My Library", "provider_rating", "Provider rating"),
-        new("My Library", "added_within_days", "Added within days"),
-    ];
-
-    private static bool IsEntityRuleField(string field) =>
-        RuleFields.FirstOrDefault(definition => definition.Key.Equals(field, StringComparison.OrdinalIgnoreCase))?.Entity == true;
-
-    private static bool UsesLibraryValueOptions(string field) =>
-        IsEntityRuleField(field) || field is "media_type" or "genre" or "series";
-
-    private static bool IsBooleanRuleField(string field) =>
-        field is "is_adaptation" or "source_work_owned" or "adaptation_owned";
-
-    private static bool SupportsUnknownRuleField(string field) => field is
-        "award_received" or "award_nominated" or "award_family" or "nomination_family"
-        or "country_of_origin" or "language" or "original_language"
-        or "production_company" or "publisher" or "record_label" or "network"
-        or "narrative_location" or "set_in_period" or "main_subject" or "based_on" or "filming_location";
-
     private static bool IsValueFreeOperator(string op) =>
         op is "known" or "unknown" or "has_any_value" or "has_no_known_value";
 
     private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
         !string.IsNullOrWhiteSpace(rule.Field)
-        && (IsValueFreeOperator(rule.Op) || !string.IsNullOrWhiteSpace(rule.Value));
+        && (IsValueFreeOperator(rule.Op) || !string.IsNullOrWhiteSpace(rule.Value) || rule.Values?.Length > 0);
 
     private sealed record ManualCollectionItem
     {
@@ -994,20 +822,6 @@
         public string? CoverUrl { get; init; }
         public int SortOrder { get; init; }
     }
-
-    private static List<OpDef> GetOperatorsForField(string field) => field switch
-    {
-        "is_adaptation" or "source_work_owned" or "adaptation_owned" => [new("eq", "is")],
-        "media_type" => [new("eq", "is"), new("neq", "is not")],
-        "year" or "provider_rating" or "added_within_days" =>
-            [new("eq", "is"), new("gt", "greater than"), new("lt", "less than"), new("between", "between"), new("gte", "at least"), new("lte", "at most")],
-        "decade" => [new("eq", "is")],
-        _ when IsEntityRuleField(field) && SupportsUnknownRuleField(field) =>
-            [new("eq", "is"), new("neq", "is not"), new("known", "is known"), new("unknown", "is unknown"), new("has_any_value", "has any value")],
-        _ when IsEntityRuleField(field) =>
-            [new("eq", "is"), new("neq", "is not"), new("known", "is known"), new("has_any_value", "has any value")],
-        _ => [new("eq", "is"), new("neq", "is not"), new("contains", "contains"), new("known", "is known")],
-    };
 
     private static string DefaultIconForCollectionType(string collectionType) => collectionType switch
     {
@@ -1204,106 +1018,26 @@
         @RenderRulesSection()
     </div>;
 
-    private RenderFragment RenderRulesSection() => @<section class="collection-editor-section">
-        <AppCheckbox
-                     Value="@_rulesEnabled"
-                     ValueChanged="OnRulesEnabledChanged"
-                     Color="Color.Primary"
-                     Dense="true"
-                     Disabled="@IsPlaylist"
-                     Label="Match for the following rule:" />
-
+    private RenderFragment RenderRulesSection() => @<section class="collection-editor-section collection-editor-section--rules">
         @if (_rulesEnabled)
         {
-            <div class="collection-editor-rules">
-                @for (var i = 0; i < _rules.Count; i++)
-                {
-                    var idx = i;
-                    var rule = _rules[idx];
-
-                    <div class="collection-editor-rule-row">
-                        <AppSelect T="string"
-                                   Value="@rule.Field"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="app-dialog-field app-dialog-select"
-                                   ValueChanged="@(value => OnRuleFieldChanged(rule, value))">
-                            @foreach (var category in RuleFields.GroupBy(field => field.Category))
-                            {
-                                <MudSelectItem T="string" Value="@($"__{category.Key}")" Disabled="true">@category.Key</MudSelectItem>
-                                @foreach (var field in category)
-                                {
-                                    <MudSelectItem T="string" Value="@field.Key">@field.Label</MudSelectItem>
-                                }
-                            }
-                        </AppSelect>
-
-                        <AppSelect T="string"
-                                   Value="@rule.Op"
-                                   ValueChanged="@(value => OnRuleOperatorChanged(rule, value))"
-                                   Variant="Variant.Outlined"
-                                   Dense="true"
-                                   Class="app-dialog-field app-dialog-select">
-                            @foreach (var op in GetOperatorsForField(rule.Field))
-                            {
-                                <MudSelectItem T="string" Value="@op.Key">@op.Label</MudSelectItem>
-                            }
-                        </AppSelect>
-
-                        @if (!IsValueFreeOperator(rule.Op))
-                        {
-                            if (IsBooleanRuleField(rule.Field))
-                            {
-                                <AppSelect T="string"
-                                           Value="@rule.Value"
-                                           ValueChanged="@(value => OnRuleValueChanged(rule, value))"
-                                           Variant="Variant.Outlined"
-                                           Dense="true"
-                                           Class="collection-editor-rule-input app-dialog-field app-dialog-select">
-                                    <MudSelectItem T="string" Value="@("true")">Yes</MudSelectItem>
-                                    <MudSelectItem T="string" Value="@("false")">No</MudSelectItem>
-                                </AppSelect>
-                            }
-                            else if (UsesLibraryValueOptions(rule.Field))
-                            {
-                                <AppSelect T="string"
-                                           Value="@rule.Value"
-                                           ValueChanged="@(value => OnRuleValueChanged(rule, value))"
-                                           Placeholder="Choose a value from this library"
-                                           Variant="Variant.Outlined"
-                                           Dense="true"
-                                           Class="collection-editor-rule-input app-dialog-field app-dialog-select">
-                                    @foreach (var option in GetRuleValueOptions(rule.Field))
-                                    {
-                                        <MudSelectItem T="string" Value="@option.Value">
-                                            @option.Label@if (option.LocalCount > 0){<text> (@option.LocalCount)</text>}
-                                        </MudSelectItem>
-                                    }
-                                </AppSelect>
-                            }
-                            else
-                            {
-                                <AppTextField T="string"
-                                              Value="@rule.Value"
-                                              ValueChanged="@(value => OnRuleValueChanged(rule, value))"
-                                              Variant="Variant.Outlined"
-                                              Margin="Margin.Dense"
-                                              Immediate="true"
-                                              DebounceInterval="350"
-                                              Class="collection-editor-rule-input app-dialog-field" />
-                            }
-                        }
-                        else
-                        {
-                            <span class="collection-editor-rule-input">No value needed</span>
-                        }
-
-                        <AppIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small" OnClick="@(() => AddRule(idx))" aria-label="Add rule" />
-                        <AppIconButton Icon="@Icons.Material.Filled.MoreHoriz" Size="Size.Small" Disabled="@(_rules.Count == 1)" OnClick="@(() => RemoveRule(idx))" aria-label="Remove rule" />
-                    </div>
-                }
+            <CollectionRuleBuilder Rules="@_rules"
+                                   RulesChanged="OnRuleBuilderRulesChanged"
+                                   MatchMode="@_matchMode"
+                                   MatchModeChanged="OnMatchModeChanged"
+                                   Preview="@_previewResult"
+                                   PreviewChanged="OnRuleBuilderPreviewChanged"
+                                   Changed="OnRuleBuilderChanged"
+                                   IsPlaylist="@IsPlaylist"
+                                   Density="editor" />
+        }
+        else
+        {
+            <div class="collection-editor-empty">
+                <MudIcon Icon="@Icons.Material.Outlined.Inventory2" />
+                <strong>This collection uses manual membership.</strong>
+                <span>Switch to smart membership from Details to build automatic rules.</span>
             </div>
-
         }
     </section>;
 
