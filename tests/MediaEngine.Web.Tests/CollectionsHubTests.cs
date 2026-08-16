@@ -254,8 +254,11 @@ public sealed class CollectionsHubTests
         Assert.Contains("<CollectionRuleBuilder", editor, StringComparison.Ordinal);
         Assert.Contains("Build rules", ruleBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("Live matches", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Collection order", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Add rule group", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Sort results", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Add group", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Add condition", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Search rule types", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("SecondarySortField", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("SearchOptionsAsync", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("SortFieldChanged", ruleBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("SelectRuleCategory", wizard, StringComparison.Ordinal);
@@ -288,8 +291,11 @@ public sealed class CollectionsHubTests
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);
         Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);
-        Assert.Contains("(\"artwork-background\", \"Background\"", editor, StringComparison.Ordinal);
-        Assert.Contains("(\"artwork-logo\", \"Logo\"", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork\", \"poster\", \"Poster / Cover\"", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork-background\", \"background\", \"Background\"", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork-banner\", \"banner\", \"Banner\"", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork-logo\", \"logo\", \"Logo\"", editor, StringComparison.Ordinal);
+        Assert.Contains("sme-section-nav__nested", editor, StringComparison.Ordinal);
         Assert.Contains("RenderHistoryTab", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppDialogShell", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-tabs", editor, StringComparison.Ordinal);

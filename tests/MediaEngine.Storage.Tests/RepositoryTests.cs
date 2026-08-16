@@ -1916,6 +1916,37 @@ public sealed class RepositoryTests : IDisposable
 public sealed class CollectionRuleEvaluatorHashTests
 {
     [Fact]
+    public void GroupRelationship_ChangesMembershipHash()
+    {
+        var first = new CollectionRuleGroup
+        {
+            Conditions = [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Movies" }],
+        };
+        var second = new CollectionRuleGroup
+        {
+            JoinWithPrevious = "or",
+            Conditions = [new CollectionRulePredicate { Field = "genre", Op = "eq", Value = "Drama" }],
+        };
+        var orDefinition = new CollectionRuleDefinition { Groups = [first, second] };
+        var andDefinition = new CollectionRuleDefinition
+        {
+            Groups =
+            [
+                first,
+                new CollectionRuleGroup
+                {
+                    JoinWithPrevious = "and",
+                    Conditions = second.Conditions,
+                },
+            ],
+        };
+
+        Assert.NotEqual(
+            CollectionRuleEvaluator.ComputeRuleHash(orDefinition),
+            CollectionRuleEvaluator.ComputeRuleHash(andDefinition));
+    }
+
+    [Fact]
     public void SameRules_SameHash()
     {
         var rules1 = new CollectionRulePredicate[] { new() { Field = "media_type", Op = "eq", Value = "Books" } };

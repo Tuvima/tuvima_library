@@ -450,7 +450,7 @@ public sealed partial class EngineApiClient
     }
 
     public async Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(
-        CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string? query = null, int limit = 20, CancellationToken ct = default)
+        CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string? query = null, int limit = 20, CancellationToken ct = default, string? secondarySortField = null, string? secondarySortDirection = null)
     {
         try
         {
@@ -459,6 +459,8 @@ public sealed partial class EngineApiClient
                 RuleDefinition = ToContract(definition),
                 SortField = sortField,
                 SortDirection = sortDirection,
+                SecondarySortField = secondarySortField,
+                SecondarySortDirection = secondarySortDirection,
                 Query = query,
                 Limit = limit,
             };
@@ -526,8 +528,10 @@ public sealed partial class EngineApiClient
         string sortDirection,
         string visibility,
         Guid? profileId = null,
-        CancellationToken ct = default)
-        => await CreateCollectionAndReturnIdAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, profileId, ct) is not null;
+        CancellationToken ct = default,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null)
+        => await CreateCollectionAndReturnIdAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, profileId, ct, secondarySortField, secondarySortDirection) is not null;
 
     public async Task<Guid?> CreateCollectionAndReturnIdAsync(
         string name,
@@ -539,8 +543,10 @@ public sealed partial class EngineApiClient
         string sortDirection,
         string visibility,
         Guid? profileId = null,
-        CancellationToken ct = default)
-        => await CreateCollectionWithItemsAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, [], profileId, ct);
+        CancellationToken ct = default,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null)
+        => await CreateCollectionWithItemsAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, [], profileId, ct, secondarySortField, secondarySortDirection);
 
     public async Task<Guid?> CreateCollectionWithItemsAsync(
         string name,
@@ -553,7 +559,9 @@ public sealed partial class EngineApiClient
         string visibility,
         IReadOnlyList<Guid> workIds,
         Guid? profileId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null)
     {
         try
         {
@@ -567,6 +575,8 @@ public sealed partial class EngineApiClient
                 RuleDefinition = ToContract(definition),
                 SortField = sortField,
                 SortDirection = sortDirection,
+                SecondarySortField = secondarySortField,
+                SecondarySortDirection = secondarySortDirection,
                 WorkIds = workIds.Where(id => id != Guid.Empty).Distinct().ToList(),
             };
             var url = AppendCollectionProfileQuery("/collections", profileId);
@@ -625,7 +635,9 @@ public sealed partial class EngineApiClient
         bool? isEnabled,
         bool? isFeatured,
         Guid? profileId = null,
-        CancellationToken ct = default)
+        CancellationToken ct = default,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null)
     {
         try
         {
@@ -638,6 +650,8 @@ public sealed partial class EngineApiClient
                 RuleDefinition = definition is null ? null : ToContract(definition),
                 SortField = sortField,
                 SortDirection = sortDirection,
+                SecondarySortField = secondarySortField,
+                SecondarySortDirection = secondarySortDirection,
                 IsEnabled = isEnabled,
                 IsFeatured = isFeatured,
             };
@@ -680,6 +694,7 @@ public sealed partial class EngineApiClient
         Groups = source.Groups.Select(group => new CollectionRuleGroupDto
         {
             Id = group.Id,
+            JoinWithPrevious = group.JoinWithPrevious,
             MatchMode = group.MatchMode,
             Conditions = group.Conditions.Select(ToContract).ToList(),
         }).ToList(),

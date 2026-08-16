@@ -101,6 +101,8 @@ public sealed class Collection
 
     public string? BackgroundArtworkPath { get; set; }
     public string? BackgroundArtworkMimeType { get; set; }
+    public string? BannerArtworkPath { get; set; }
+    public string? BannerArtworkMimeType { get; set; }
     public string? LogoArtworkPath { get; set; }
     public string? LogoArtworkMimeType { get; set; }
 
@@ -139,6 +141,12 @@ public sealed class Collection
 
     /// <summary>Sort direction: "asc" or "desc".</summary>
     public CollectionSortDirection SortDirection { get; private set; } = CollectionSortDirection.Desc;
+
+    /// <summary>Optional tie-break sort field for collection results.</summary>
+    public string? SecondarySortField { get; set; }
+
+    /// <summary>Optional tie-break direction. Null when no secondary sort is configured.</summary>
+    public CollectionSortDirection? SecondarySortDirection { get; set; }
 
     /// <summary>Cron expression or descriptive schedule for mix refresh.</summary>
     public string? RefreshSchedule { get; set; }

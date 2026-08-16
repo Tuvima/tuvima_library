@@ -20,10 +20,13 @@ public sealed class CollectionListItemViewModel
     public string MatchMode { get; init; } = "all";
     public string? SortField { get; init; }
     public string SortDirection { get; init; } = "desc";
+    public string? SecondarySortField { get; init; }
+    public string? SecondarySortDirection { get; init; }
     public string Status => !IsEnabled ? "Disabled" : ItemCount == 0 ? "Empty" : "Active";
     public string? PrimaryMediaType { get; init; }
     public string? CoverUrl { get; init; }
     public string? BackgroundUrl { get; init; }
+    public string? BannerUrl { get; init; }
     public string? LogoUrl { get; init; }
     public string? Creator { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
@@ -65,6 +68,7 @@ public sealed class CollectionRulePredicateViewModel
 public sealed class CollectionRuleGroupViewModel
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string JoinWithPrevious { get; set; } = "or";
     public string MatchMode { get; set; } = "all";
     public List<CollectionRulePredicateViewModel> Conditions { get; set; } = [];
 }

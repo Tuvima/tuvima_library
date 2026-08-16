@@ -824,7 +824,7 @@ public sealed class UiShellRenderTests : TestContext
         Assert.DoesNotContain("Show in My Profile and Search", source);
         Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);
         Assert.Contains("RenderRulesSection", source);
-        Assert.Contains("Add rule group", ruleBuilder);
+        Assert.Contains("Add group", ruleBuilder);
         Assert.Contains("collection-rule-builder__group", ruleBuilder);
         Assert.Contains("collection-rule-builder__row", ruleBuilder);
         Assert.Contains("app-dialog-select", ruleBuilder);

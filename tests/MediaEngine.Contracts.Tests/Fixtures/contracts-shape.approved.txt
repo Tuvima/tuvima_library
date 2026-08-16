@@ -559,6 +559,8 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionCr
   RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=not-null | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=not-null | accessors=get,init
+  SecondarySortField: System.String | nullability=nullable | accessors=get,init
+  SecondarySortDirection: System.String | nullability=nullable | accessors=get,init
   DisplayLimit: System.Int32 | nullability=not-null | accessors=get,init
   Placements: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionPlacementRequest> | nullability=nullable | accessors=get,init
   WorkIds: System.Collections.Generic.List<System.Guid> | nullability=not-null | accessors=get,init
@@ -685,6 +687,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionMa
   IconName: System.String | nullability=nullable | accessors=get,init
   CoverArtworkUrl: System.String | nullability=nullable | accessors=get,set
   BackgroundArtworkUrl: System.String | nullability=nullable | accessors=get,set
+  BannerArtworkUrl: System.String | nullability=nullable | accessors=get,set
   LogoArtworkUrl: System.String | nullability=nullable | accessors=get,set
   CollectionType: System.String | nullability=not-null | accessors=get,init
   Scope: System.String | nullability=not-null | accessors=get,init
@@ -699,6 +702,8 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionMa
   MatchMode: System.String | nullability=not-null | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=not-null | accessors=get,init
+  SecondarySortField: System.String | nullability=nullable | accessors=get,init
+  SecondarySortDirection: System.String | nullability=nullable | accessors=get,init
   RefreshSchedule: System.String | nullability=nullable | accessors=get,init
   ItemCount: System.Int32 | nullability=not-null | accessors=get,set
   Status: System.String | nullability=not-null | accessors=get,init
@@ -781,6 +786,8 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionPr
   RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=not-null | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=not-null | accessors=get,init
+  SecondarySortField: System.String | nullability=nullable | accessors=get,init
+  SecondarySortDirection: System.String | nullability=nullable | accessors=get,init
   Query: System.String | nullability=nullable | accessors=get,init
   Limit: System.Int32 | nullability=not-null | accessors=get,init
 
@@ -803,6 +810,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRu
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRuleGroupDto
   Id: System.String | nullability=not-null | accessors=get,init
+  JoinWithPrevious: System.String | nullability=not-null | accessors=get,init
   MatchMode: System.String | nullability=not-null | accessors=get,init
   Conditions: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionRulePredicateDto> | nullability=not-null | accessors=get,init
 
@@ -827,6 +835,8 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionUp
   RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | nullability=nullable | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=nullable | accessors=get,init
+  SecondarySortField: System.String | nullability=nullable | accessors=get,init
+  SecondarySortDirection: System.String | nullability=nullable | accessors=get,init
   IsEnabled: System.Boolean? | nullability=nullable | accessors=get,init
   IsFeatured: System.Boolean? | nullability=nullable | accessors=get,init
 
@@ -949,6 +959,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ManagedColle
   IconName: System.String | nullability=nullable | accessors=get,init
   CoverArtworkUrl: System.String | nullability=nullable | accessors=get,set
   BackgroundArtworkUrl: System.String | nullability=nullable | accessors=get,set
+  BannerArtworkUrl: System.String | nullability=nullable | accessors=get,set
   LogoArtworkUrl: System.String | nullability=nullable | accessors=get,set
   CollectionType: System.String | nullability=not-null | accessors=get,init
   Scope: System.String | nullability=not-null | accessors=get,init
@@ -963,6 +974,8 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.ManagedColle
   MatchMode: System.String | nullability=not-null | accessors=get,init
   SortField: System.String | nullability=nullable | accessors=get,init
   SortDirection: System.String | nullability=not-null | accessors=get,init
+  SecondarySortField: System.String | nullability=nullable | accessors=get,init
+  SecondarySortDirection: System.String | nullability=nullable | accessors=get,init
   RefreshSchedule: System.String | nullability=nullable | accessors=get,init
   ItemCount: System.Int32 | nullability=not-null | accessors=get,set
   Status: System.String | nullability=not-null | accessors=get,init

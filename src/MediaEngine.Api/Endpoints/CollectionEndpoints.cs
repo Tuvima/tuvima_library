@@ -1715,7 +1715,7 @@ public static class CollectionEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // Collection artwork slots: poster, background, and transparent logo.
+        // Collection artwork slots mirror the shared editor: poster, background, banner, and transparent logo.
         group.MapGet("/{id:guid}/artwork/{slot}", async (
             Guid id,
             string slot,
@@ -1737,7 +1737,7 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out var artworkMimeType))
-                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, banner, or logo.");
 
             if (string.IsNullOrWhiteSpace(artworkPath) || !File.Exists(artworkPath))
             {
@@ -1784,7 +1784,7 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var currentPath, out _))
-                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, banner, or logo.");
 
             if (!request.HasFormContentType)
             {
@@ -1867,7 +1867,7 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out _))
-                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, banner, or logo.");
 
             if (!string.IsNullOrWhiteSpace(artworkPath) && File.Exists(artworkPath))
             {
@@ -1997,7 +1997,9 @@ public static class CollectionEndpoints
                 definition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
-                limit ?? 0);
+                limit ?? 0,
+                secondarySortField: collection.SecondarySortField,
+                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue());
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(resolved);
@@ -2117,7 +2119,9 @@ public static class CollectionEndpoints
                 body.SortField,
                 body.SortDirection,
                 0,
-                body.Query);
+                body.Query,
+                body.SecondarySortField,
+                body.SecondarySortDirection);
             var displayWorkIds = await catalogReadService.GetDisplayWorkIdsAsync(matchedWorkIds, ct);
             var total = displayWorkIds.Count;
             var entityIds = displayWorkIds
@@ -2226,6 +2230,11 @@ public static class CollectionEndpoints
                 RuleJson = ruleJson,
                 RuleHash = ruleHash,
                 SortField = body.SortField,
+                SecondarySortField = body.SecondarySortField,
+                SecondarySortDirection = string.IsNullOrWhiteSpace(body.SecondarySortField)
+                    || string.IsNullOrWhiteSpace(body.SecondarySortDirection)
+                    ? null
+                    : AggregateStateSerializer.ParseCollectionSortDirection(body.SecondarySortDirection),
                 CreatedAt = DateTimeOffset.UtcNow,
             };
             collection.RestoreDefinition(
@@ -2328,6 +2337,14 @@ public static class CollectionEndpoints
                     collection.MatchMode,
                     AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection));
             }
+
+            collection.SecondarySortField = string.IsNullOrWhiteSpace(body.SecondarySortField)
+                ? null
+                : body.SecondarySortField;
+            collection.SecondarySortDirection = collection.SecondarySortField is null
+                || string.IsNullOrWhiteSpace(body.SecondarySortDirection)
+                ? null
+                : AggregateStateSerializer.ParseCollectionSortDirection(body.SecondarySortDirection);
 
             if (body.IsEnabled.HasValue)
             {
@@ -2545,11 +2562,13 @@ public static class CollectionEndpoints
         {
             "poster" => (collection.CoverArtworkPath, collection.CoverArtworkMimeType),
             "background" => (collection.BackgroundArtworkPath, collection.BackgroundArtworkMimeType),
+            "banner" => (collection.BannerArtworkPath, collection.BannerArtworkMimeType),
             "logo" => (collection.LogoArtworkPath, collection.LogoArtworkMimeType),
             _ => (null, null),
         };
         return slot.Equals("poster", StringComparison.OrdinalIgnoreCase)
             || slot.Equals("background", StringComparison.OrdinalIgnoreCase)
+            || slot.Equals("banner", StringComparison.OrdinalIgnoreCase)
             || slot.Equals("logo", StringComparison.OrdinalIgnoreCase);
     }
 

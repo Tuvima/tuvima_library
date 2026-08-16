@@ -450,8 +450,10 @@ public sealed class CollectionBrowseReadService(
         string? sortField = null,
         string sortDirection = "desc",
         int limit = 0,
-        string? query = null) =>
-        _ruleEvaluator.Evaluate(definition, sortField, sortDirection, limit, query);
+        string? query = null,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null) =>
+        _ruleEvaluator.Evaluate(definition, sortField, sortDirection, limit, query, secondarySortField, secondarySortDirection);
 
     public int CountRuleMatches(CollectionRuleDefinition definition, string? query = null) =>
         _ruleEvaluator.Count(definition, query);
@@ -596,7 +598,9 @@ public sealed class CollectionBrowseReadService(
             var workIds = EvaluateRules(
                 definition,
                 collection.SortField,
-                collection.SortDirection.ToStorageValue());
+                collection.SortDirection.ToStorageValue(),
+                secondarySortField: collection.SecondarySortField,
+                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue());
             var primaryMediaType = predicates
                 .FirstOrDefault(predicate => predicate.Field.Equals("media_type", StringComparison.OrdinalIgnoreCase))
                 ?.Value ?? "Unknown";

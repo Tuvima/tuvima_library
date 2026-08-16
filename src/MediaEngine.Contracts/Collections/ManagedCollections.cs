@@ -27,6 +27,9 @@ public class ManagedCollectionDto
     [JsonPropertyName("background_artwork_url")]
     public string? BackgroundArtworkUrl { get; set; }
 
+    [JsonPropertyName("banner_artwork_url")]
+    public string? BannerArtworkUrl { get; set; }
+
     [JsonPropertyName("logo_artwork_url")]
     public string? LogoArtworkUrl { get; set; }
 
@@ -68,6 +71,12 @@ public class ManagedCollectionDto
 
     [JsonPropertyName("sort_direction")]
     public string SortDirection { get; init; } = "desc";
+
+    [JsonPropertyName("secondary_sort_field")]
+    public string? SecondarySortField { get; init; }
+
+    [JsonPropertyName("secondary_sort_direction")]
+    public string? SecondarySortDirection { get; init; }
 
     [JsonPropertyName("refresh_schedule")]
     public string? RefreshSchedule { get; init; }

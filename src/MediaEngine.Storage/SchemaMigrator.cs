@@ -23,6 +23,14 @@ internal sealed class SchemaMigrator
             "ALTER TABLE collections ADD COLUMN logo_artwork_path TEXT;");
         AddColumnIfMissing(conn, "collections", "logo_artwork_mime_type",
             "ALTER TABLE collections ADD COLUMN logo_artwork_mime_type TEXT;");
+        AddColumnIfMissing(conn, "collections", "banner_artwork_path",
+            "ALTER TABLE collections ADD COLUMN banner_artwork_path TEXT;");
+        AddColumnIfMissing(conn, "collections", "banner_artwork_mime_type",
+            "ALTER TABLE collections ADD COLUMN banner_artwork_mime_type TEXT;");
+        AddColumnIfMissing(conn, "collections", "secondary_sort_field",
+            "ALTER TABLE collections ADD COLUMN secondary_sort_field TEXT;");
+        AddColumnIfMissing(conn, "collections", "secondary_sort_direction",
+            "ALTER TABLE collections ADD COLUMN secondary_sort_direction TEXT;");
         AddColumnIfMissing(
             conn,
             "media_assets",

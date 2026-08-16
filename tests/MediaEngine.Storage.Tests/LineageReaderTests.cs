@@ -285,6 +285,71 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionRule_Evaluate_AppliesSecondarySortAsResultTieBreaker()
+    {
+        var (alpha, _, alphaAsset) = await BuildStandaloneWorkAsync("Movies");
+        var (zebra, _, zebraAsset) = await BuildStandaloneWorkAsync("Movies");
+        var (newer, _, newerAsset) = await BuildStandaloneWorkAsync("Movies");
+        await InsertCanonicalAsync(alphaAsset, "title", "Alpha");
+        await InsertCanonicalAsync(zebraAsset, "title", "Zebra");
+        await InsertCanonicalAsync(newerAsset, "title", "Beta");
+        await InsertCanonicalAsync(alpha, "year", "2020");
+        await InsertCanonicalAsync(zebra, "year", "2020");
+        await InsertCanonicalAsync(newer, "year", "2021");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var definition = CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Movies" }]);
+
+        var matches = evaluator.Evaluate(
+            definition,
+            "year",
+            "desc",
+            secondarySortField: "title",
+            secondarySortDirection: "desc");
+
+        Assert.Equal([newer, zebra, alpha], matches);
+        Assert.Equal(
+            CollectionRuleEvaluator.ComputeRuleHash(definition),
+            CollectionRuleEvaluator.ComputeRuleHash(definition));
+    }
+
+    [Fact]
+    public async Task CollectionRule_Evaluate_UsesPersistedRelationshipBetweenGroups()
+    {
+        var (scienceMovie, _, scienceMovieAsset) = await BuildStandaloneWorkAsync("Movies");
+        var (dramaMovie, _, dramaMovieAsset) = await BuildStandaloneWorkAsync("Movies");
+        var (scienceBook, _, scienceBookAsset) = await BuildStandaloneWorkAsync("Books");
+        await InsertCanonicalArrayAsync(scienceMovieAsset, "genre", "Science Fiction");
+        await InsertCanonicalArrayAsync(dramaMovieAsset, "genre", "Drama");
+        await InsertCanonicalArrayAsync(scienceBookAsset, "genre", "Science Fiction");
+
+        var definition = new CollectionRuleDefinition
+        {
+            Groups =
+            [
+                new CollectionRuleGroup
+                {
+                    MatchMode = "all",
+                    Conditions = [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Movies" }],
+                },
+                new CollectionRuleGroup
+                {
+                    JoinWithPrevious = "and",
+                    MatchMode = "all",
+                    Conditions = [new CollectionRulePredicate { Field = "genre", Op = "eq", Value = "Science Fiction" }],
+                },
+            ],
+        };
+
+        var matches = new CollectionRuleEvaluator(_db).Evaluate(definition, "title", "asc");
+
+        Assert.Equal([scienceMovie], matches);
+        Assert.DoesNotContain(dramaMovie, matches);
+        Assert.DoesNotContain(scienceBook, matches);
+    }
+
+    [Fact]
     public async Task CollectionRule_NotEqualRequiresKnownValueAndUnknownIsExplicit()
     {
         var (winner, _, _) = await BuildStandaloneWorkAsync("Movies");

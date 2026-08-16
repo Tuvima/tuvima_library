@@ -104,20 +104,20 @@ public partial interface IEngineApiClient
     Task<bool> UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default);
 
     /// <summary>POST /collections/preview — evaluate rules without saving.</summary>
-    Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string? query = null, int limit = 20, CancellationToken ct = default);
+    Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string? query = null, int limit = 20, CancellationToken ct = default, string? secondarySortField = null, string? secondarySortDirection = null);
 
     Task<IReadOnlyList<CollectionRuleValueDto>> GetCollectionEntityFieldValuesAsync(string field, string? query = null, int limit = 100, CancellationToken ct = default);
     Task<IReadOnlyList<string>> GetCollectionFieldValuesAsync(string field, string? query = null, int limit = 100, CancellationToken ct = default);
 
     /// <summary>POST /collections — create a new collection.</summary>
-    Task<Guid?> CreateCollectionAndReturnIdAsync(string name, string? description, string? iconName, string collectionType, CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string visibility, Guid? profileId = null, CancellationToken ct = default);
+    Task<Guid?> CreateCollectionAndReturnIdAsync(string name, string? description, string? iconName, string collectionType, CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string visibility, Guid? profileId = null, CancellationToken ct = default, string? secondarySortField = null, string? secondarySortDirection = null);
 
-    Task<Guid?> CreateCollectionWithItemsAsync(string name, string? description, string? iconName, string collectionType, CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string visibility, IReadOnlyList<Guid> workIds, Guid? profileId = null, CancellationToken ct = default);
+    Task<Guid?> CreateCollectionWithItemsAsync(string name, string? description, string? iconName, string collectionType, CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string visibility, IReadOnlyList<Guid> workIds, Guid? profileId = null, CancellationToken ct = default, string? secondarySortField = null, string? secondarySortDirection = null);
 
-    Task<bool> CreateCollectionAsync(string name, string? description, string? iconName, string collectionType, CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string visibility, Guid? profileId = null, CancellationToken ct = default);
+    Task<bool> CreateCollectionAsync(string name, string? description, string? iconName, string collectionType, CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string visibility, Guid? profileId = null, CancellationToken ct = default, string? secondarySortField = null, string? secondarySortDirection = null);
 
     /// <summary>PUT /collections/{id} — update a collection.</summary>
-    Task<bool> UpdateCollectionAsync(Guid collectionId, string? name, string? description, string? iconName, CollectionRuleDefinitionViewModel? definition, string? visibility, string? sortField, string? sortDirection, bool? isEnabled, bool? isFeatured, Guid? profileId = null, CancellationToken ct = default);
+    Task<bool> UpdateCollectionAsync(Guid collectionId, string? name, string? description, string? iconName, CollectionRuleDefinitionViewModel? definition, string? visibility, string? sortField, string? sortDirection, bool? isEnabled, bool? isFeatured, Guid? profileId = null, CancellationToken ct = default, string? secondarySortField = null, string? secondarySortDirection = null);
 
     Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
 

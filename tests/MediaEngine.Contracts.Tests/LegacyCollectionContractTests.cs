@@ -33,12 +33,12 @@ public sealed class LegacyCollectionContractTests
     {
         AssertJsonFields<CollectionCreateRequest>(
             "name", "description", "visibility", "icon_name", "collection_type", "rule_definition",
-            "sort_field", "sort_direction", "display_limit", "placements", "work_ids");
+            "sort_field", "sort_direction", "secondary_sort_field", "secondary_sort_direction", "display_limit", "placements", "work_ids");
         AssertJsonFields<CollectionUpdateRequest>(
             "name", "description", "visibility", "icon_name", "rule_definition",
-            "sort_field", "sort_direction", "is_enabled", "is_featured");
+            "sort_field", "sort_direction", "secondary_sort_field", "secondary_sort_direction", "is_enabled", "is_featured");
         AssertJsonFields<CollectionRuleDefinitionDto>("version", "groups");
-        AssertJsonFields<CollectionRuleGroupDto>("id", "match_mode", "conditions");
+        AssertJsonFields<CollectionRuleGroupDto>("id", "join_with_previous", "match_mode", "conditions");
         AssertJsonFields<CollectionRulePredicateDto>("display_value", "field", "op", "value", "values");
     }
 

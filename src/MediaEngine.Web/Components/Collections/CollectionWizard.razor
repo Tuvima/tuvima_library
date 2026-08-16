@@ -97,6 +97,8 @@
     private bool _dynamic;
     private string _sortField = "title";
     private string _sortDirection = "asc";
+    private string? _secondarySortField;
+    private string? _secondarySortDirection;
     private string _manualCategory = "all";
     private string _manualSearch = string.Empty;
     private bool _dirty;
@@ -278,6 +280,10 @@
                                                                                   SortFieldChanged="@(value => _sortField = value ?? "title")"
                                                                                   SortDirection="@_sortDirection"
                                                                                   SortDirectionChanged="@(value => _sortDirection = value)"
+                                                                                  SecondarySortField="@_secondarySortField"
+                                                                                  SecondarySortFieldChanged="@(value => _secondarySortField = value)"
+                                                                                  SecondarySortDirection="@_secondarySortDirection"
+                                                                                  SecondarySortDirectionChanged="@(value => _secondarySortDirection = value)"
                                                                                   Preview="@_preview"
                                                                                   PreviewChanged="OnPreviewChanged"
                                                                                   Changed="OnRuleBuilderChanged"
@@ -508,7 +514,9 @@
                 _sortDirection,
                 IsPlaylist ? "private" : "shared",
                 _dynamic ? [] : _selectedManualItems.Keys.ToList(),
-                Request.ActiveProfileId);
+                Request.ActiveProfileId,
+                secondarySortField: _secondarySortField,
+                secondarySortDirection: _secondarySortDirection);
 
             if (!collectionId.HasValue)
             {
@@ -552,6 +560,7 @@
         Groups = _ruleDefinition.Groups.Select(group => new CollectionRuleGroupViewModel
         {
             Id = group.Id,
+            JoinWithPrevious = group.JoinWithPrevious,
             MatchMode = group.MatchMode,
             Conditions = group.Conditions.Where(IsCompleteRule).ToList(),
         }).Where(group => group.Conditions.Count > 0).ToList(),

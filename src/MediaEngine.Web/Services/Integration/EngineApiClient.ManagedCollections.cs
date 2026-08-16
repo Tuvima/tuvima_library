@@ -34,6 +34,8 @@ public sealed partial class EngineApiClient
                     collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
                 if (collection.BackgroundArtworkUrl is not null)
                     collection.BackgroundArtworkUrl = AbsoluteUrl(collection.BackgroundArtworkUrl);
+                if (collection.BannerArtworkUrl is not null)
+                    collection.BannerArtworkUrl = AbsoluteUrl(collection.BannerArtworkUrl);
                 if (collection.LogoArtworkUrl is not null)
                     collection.LogoArtworkUrl = AbsoluteUrl(collection.LogoArtworkUrl);
             }

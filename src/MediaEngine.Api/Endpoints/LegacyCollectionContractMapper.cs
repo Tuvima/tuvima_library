@@ -101,6 +101,7 @@ internal static class LegacyCollectionContractMapper
         Groups = source.Groups.Select(group => new MediaEngine.Domain.Models.CollectionRuleGroup
         {
             Id = group.Id,
+            JoinWithPrevious = group.JoinWithPrevious,
             MatchMode = group.MatchMode,
             Conditions = group.Conditions.Select(ToDomain).ToList(),
         }).ToList(),

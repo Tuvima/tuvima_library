@@ -31,13 +31,15 @@ public sealed class CollectionRulePredicate
 public sealed class CollectionRuleGroup
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    /// <summary>How this group is combined with the preceding group. Ignored for the first group.</summary>
+    public string JoinWithPrevious { get; set; } = "or";
     public string MatchMode { get; set; } = "all";
     public List<CollectionRulePredicate> Conditions { get; set; } = [];
 }
 
 /// <summary>
-/// Versioned smart-collection definition. Groups are combined with OR; conditions
-/// inside a group use the group's match mode.
+/// Versioned smart-collection definition. Each group declares how it joins the
+/// preceding group; conditions inside a group use the group's match mode.
 /// </summary>
 public sealed class CollectionRuleDefinition
 {

@@ -23,6 +23,8 @@ internal static class ManagedCollectionMapper
                 : $"/collections/{collection.Id}/artwork/poster?profileId={activeProfile.Id:D}",
         BackgroundArtworkUrl = string.IsNullOrWhiteSpace(collection.BackgroundArtworkPath) ? null
             : activeProfile is null ? $"/collections/{collection.Id}/artwork/background" : $"/collections/{collection.Id}/artwork/background?profileId={activeProfile.Id:D}",
+        BannerArtworkUrl = string.IsNullOrWhiteSpace(collection.BannerArtworkPath) ? null
+            : activeProfile is null ? $"/collections/{collection.Id}/artwork/banner" : $"/collections/{collection.Id}/artwork/banner?profileId={activeProfile.Id:D}",
         LogoArtworkUrl = string.IsNullOrWhiteSpace(collection.LogoArtworkPath) ? null
             : activeProfile is null ? $"/collections/{collection.Id}/artwork/logo" : $"/collections/{collection.Id}/artwork/logo?profileId={activeProfile.Id:D}",
         CollectionType = collection.CollectionType.ToStorageValue(),
@@ -38,6 +40,8 @@ internal static class ManagedCollectionMapper
         MatchMode = collection.MatchMode.ToStorageValue(),
         SortField = collection.SortField,
         SortDirection = collection.SortDirection.ToStorageValue(),
+        SecondarySortField = collection.SecondarySortField,
+        SecondarySortDirection = collection.SecondarySortDirection?.ToStorageValue(),
         RefreshSchedule = collection.RefreshSchedule,
         ItemCount = itemCount,
         Status = !collection.IsEnabled ? "Disabled" : itemCount == 0 ? "Empty" : "Active",
@@ -71,6 +75,7 @@ internal static class ManagedCollectionMapper
             IconName = baseDto.IconName,
             CoverArtworkUrl = baseDto.CoverArtworkUrl,
             BackgroundArtworkUrl = baseDto.BackgroundArtworkUrl,
+            BannerArtworkUrl = baseDto.BannerArtworkUrl,
             LogoArtworkUrl = baseDto.LogoArtworkUrl,
             CollectionType = classification.CollectionType,
             Scope = baseDto.Scope,
@@ -85,6 +90,8 @@ internal static class ManagedCollectionMapper
             MatchMode = baseDto.MatchMode,
             SortField = baseDto.SortField,
             SortDirection = baseDto.SortDirection,
+            SecondarySortField = baseDto.SecondarySortField,
+            SecondarySortDirection = baseDto.SecondarySortDirection,
             RefreshSchedule = baseDto.RefreshSchedule,
             ItemCount = baseDto.ItemCount,
             Status = baseDto.Status,

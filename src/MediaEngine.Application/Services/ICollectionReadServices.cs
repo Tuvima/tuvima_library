@@ -25,7 +25,9 @@ public interface ICollectionBrowseReadService
         string? sortField = null,
         string sortDirection = "desc",
         int limit = 0,
-        string? query = null);
+        string? query = null,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null);
     int CountRuleMatches(CollectionRuleDefinition definition, string? query = null);
     Task<IReadOnlyList<string>> GetFieldValuesAsync(string field, string? query, int limit, CancellationToken ct);
     Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(string field, string? query, int limit, CancellationToken ct)

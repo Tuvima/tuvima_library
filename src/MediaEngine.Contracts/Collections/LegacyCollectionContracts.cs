@@ -119,6 +119,7 @@ public sealed class CollectionRulePredicateDto
 public sealed class CollectionRuleGroupDto
 {
     [JsonPropertyName("id")] public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    [JsonPropertyName("join_with_previous")] public string JoinWithPrevious { get; init; } = "or";
     [JsonPropertyName("match_mode")] public string MatchMode { get; init; } = "all";
     [JsonPropertyName("conditions")] public List<CollectionRulePredicateDto> Conditions { get; init; } = [];
 }
@@ -145,6 +146,8 @@ public sealed class CollectionCreateRequest
     [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto RuleDefinition { get; init; } = new();
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string SortDirection { get; init; } = "desc";
+    [JsonPropertyName("secondary_sort_field")] public string? SecondarySortField { get; init; }
+    [JsonPropertyName("secondary_sort_direction")] public string? SecondarySortDirection { get; init; }
     [JsonPropertyName("display_limit")] public int DisplayLimit { get; init; }
     [JsonPropertyName("placements")] public List<CollectionPlacementRequest>? Placements { get; init; }
     [JsonPropertyName("work_ids")] public List<Guid> WorkIds { get; init; } = [];
@@ -167,6 +170,8 @@ public sealed class CollectionUpdateRequest
     [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto? RuleDefinition { get; init; }
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string? SortDirection { get; init; }
+    [JsonPropertyName("secondary_sort_field")] public string? SecondarySortField { get; init; }
+    [JsonPropertyName("secondary_sort_direction")] public string? SecondarySortDirection { get; init; }
     [JsonPropertyName("is_enabled")] public bool? IsEnabled { get; init; }
     [JsonPropertyName("is_featured")] public bool? IsFeatured { get; init; }
 }
@@ -176,6 +181,8 @@ public sealed class CollectionPreviewRequest
     [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto RuleDefinition { get; init; } = new();
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string SortDirection { get; init; } = "desc";
+    [JsonPropertyName("secondary_sort_field")] public string? SecondarySortField { get; init; }
+    [JsonPropertyName("secondary_sort_direction")] public string? SecondarySortDirection { get; init; }
     [JsonPropertyName("query")] public string? Query { get; init; }
     [JsonPropertyName("limit")] public int Limit { get; init; } = 20;
 }

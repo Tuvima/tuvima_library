@@ -157,7 +157,9 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
             string? sortField = null,
             string sortDirection = "desc",
             int limit = 0,
-            string? query = null) =>
+            string? query = null,
+            string? secondarySortField = null,
+            string? secondarySortDirection = null) =>
             [];
 
         public int CountRuleMatches(CollectionRuleDefinition definition, string? query = null) => 0;

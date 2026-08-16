@@ -820,7 +820,9 @@ public sealed class CollectionCatalogReadService(
                 definition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
-                0);
+                0,
+                secondarySortField: collection.SecondarySortField,
+                secondarySortDirection: collection.SecondarySortDirection?.ToStorageValue());
         }
 
         var items = await collectionRepo.GetCollectionItemsAsync(collection.Id, 5000, ct).ConfigureAwait(false);

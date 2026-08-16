@@ -105,7 +105,9 @@ public sealed class CollectionRuleEvaluator
         string? sortField = null,
         string sortDirection = "desc",
         int limit = 0,
-        string? query = null)
+        string? query = null,
+        string? secondarySortField = null,
+        string? secondarySortDirection = null)
     {
         if (definition.Groups.Count == 0) return [];
 
@@ -126,7 +128,7 @@ public sealed class CollectionRuleEvaluator
             searchClause = $"AND ({CvForWork("'title'")} LIKE {queryParameter} COLLATE NOCASE)";
         }
 
-        var orderBy = ResolveOrderBy(sortField, sortDirection);
+        var orderBy = ResolveOrderBy(sortField, sortDirection, secondarySortField, secondarySortDirection);
 
         var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state");
         cmd.CommandText = $"""
@@ -180,7 +182,7 @@ public sealed class CollectionRuleEvaluator
         System.Data.Common.DbCommand cmd,
         ref int paramIdx)
     {
-        var groupSql = new List<string>();
+        var groupSql = new List<(string Sql, string Join)>();
         foreach (var group in definition.Groups)
         {
             var conditions = new List<string>();
@@ -203,11 +205,20 @@ public sealed class CollectionRuleEvaluator
                 var joiner = string.Equals(group.MatchMode, "any", StringComparison.OrdinalIgnoreCase)
                     ? " OR "
                     : " AND ";
-                groupSql.Add($"({string.Join(joiner, conditions)})");
+                var groupJoin = string.Equals(group.JoinWithPrevious, "and", StringComparison.OrdinalIgnoreCase)
+                    ? "AND"
+                    : "OR";
+                groupSql.Add(($"({string.Join(joiner, conditions)})", groupJoin));
             }
         }
 
-        return string.Join(" OR ", groupSql);
+        if (groupSql.Count == 0)
+            return string.Empty;
+
+        var expression = groupSql[0].Sql;
+        for (var index = 1; index < groupSql.Count; index++)
+            expression = $"({expression} {groupSql[index].Join} {groupSql[index].Sql})";
+        return expression;
     }
 
     // Internal convenience for built-in definitions and low-level evaluator tests.
@@ -223,8 +234,11 @@ public sealed class CollectionRuleEvaluator
     public static string ComputeRuleHash(CollectionRuleDefinition definition)
     {
         var normalized = definition.Groups
-            .Select(group => new
+            .Select((group, index) => new
             {
+                join_with_previous = index == 0
+                    ? "root"
+                    : string.Equals(group.JoinWithPrevious, "and", StringComparison.OrdinalIgnoreCase) ? "and" : "or",
                 match_mode = string.Equals(group.MatchMode, "any", StringComparison.OrdinalIgnoreCase) ? "any" : "all",
                 conditions = group.Conditions
                     .Select(condition => new
@@ -243,8 +257,6 @@ public sealed class CollectionRuleEvaluator
                     .ThenBy(condition => string.Join('\u001f', condition.values), StringComparer.Ordinal)
                     .ToArray(),
             })
-            .OrderBy(group => group.match_mode, StringComparer.Ordinal)
-            .ThenBy(group => JsonSerializer.Serialize(group.conditions), StringComparer.Ordinal)
             .ToArray();
 
         var json = JsonSerializer.Serialize(normalized);
@@ -526,18 +538,49 @@ public sealed class CollectionRuleEvaluator
         return (CvLookup($"cv.key = {pField} AND {column} IN ({inList})", arraysOnly: isEntity), parameters);
     }
 
-    private static string ResolveOrderBy(string? sortField, string sortDirection)
+    private static string ResolveOrderBy(
+        string? sortField,
+        string sortDirection,
+        string? secondarySortField,
+        string? secondarySortDirection)
     {
-        var dir = sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
-        return sortField?.ToLowerInvariant() switch
+        var primaryKey = NormalizeSortField(sortField);
+        var secondaryKey = string.IsNullOrWhiteSpace(secondarySortField) ? null : NormalizeSortField(secondarySortField);
+        var clauses = new List<string>
         {
-            "title" => $"ORDER BY {CvForWork("'title'")} COLLATE NOCASE {dir}, w.id ASC",
-            "creator" => $"ORDER BY COALESCE({CvForWork("'author'")}, {CvForWork("'director'")}, {CvForWork("'artist'")}, {CvForWork("'narrator'")}) COLLATE NOCASE {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
-            "year" or "release_date" => $"ORDER BY CAST({CvForWork("'year'")} AS INTEGER) {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
-            "provider_rating" or "rating" => $"ORDER BY CAST({CvForWork("'rating'")} AS REAL) {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
-            "media_type" => $"ORDER BY w.media_type COLLATE NOCASE {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
-            "newest" or "created_at" or "added_at" => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
-            _ => $"ORDER BY {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
+            $"{ResolveSortExpression(primaryKey)} {NormalizeSortDirection(sortDirection)}",
         };
+
+        if (secondaryKey is not null && !string.Equals(secondaryKey, primaryKey, StringComparison.OrdinalIgnoreCase))
+            clauses.Add($"{ResolveSortExpression(secondaryKey)} {NormalizeSortDirection(secondarySortDirection)}");
+
+        if (!string.Equals(primaryKey, "title", StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(secondaryKey, "title", StringComparison.OrdinalIgnoreCase))
+            clauses.Add($"{CvForWork("'title'")} COLLATE NOCASE ASC");
+
+        clauses.Add("w.id ASC");
+        return $"ORDER BY {string.Join(", ", clauses)}";
     }
+
+    private static string NormalizeSortField(string? sortField) => sortField?.Trim().ToLowerInvariant() switch
+    {
+        "release_date" => "year",
+        "rating" => "provider_rating",
+        "newest" or "created_at" => "added_at",
+        "creator" or "year" or "provider_rating" or "media_type" or "added_at" => sortField.Trim().ToLowerInvariant(),
+        _ => "title",
+    };
+
+    private static string NormalizeSortDirection(string? direction) =>
+        string.Equals(direction, "asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
+
+    private static string ResolveSortExpression(string sortField) => sortField switch
+    {
+        "creator" => $"COALESCE({CvForWork("'author'")}, {CvForWork("'director'")}, {CvForWork("'artist'")}, {CvForWork("'narrator'")}) COLLATE NOCASE",
+        "year" => $"CAST({CvForWork("'year'")} AS INTEGER)",
+        "provider_rating" => $"CAST({CvForWork("'rating'")} AS REAL)",
+        "media_type" => "w.media_type COLLATE NOCASE",
+        "added_at" => "(SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id)",
+        _ => $"{CvForWork("'title'")} COLLATE NOCASE",
+    };
 }

@@ -56,6 +56,8 @@ public sealed class CollectionRepository : ICollectionRepository
         cover_artwork_mime_type  AS CoverArtworkMimeType,
         background_artwork_path       AS BackgroundArtworkPath,
         background_artwork_mime_type  AS BackgroundArtworkMimeType,
+        banner_artwork_path       AS BannerArtworkPath,
+        banner_artwork_mime_type  AS BannerArtworkMimeType,
         logo_artwork_path       AS LogoArtworkPath,
         logo_artwork_mime_type  AS LogoArtworkMimeType,
         scope             AS Scope,
@@ -70,6 +72,8 @@ public sealed class CollectionRepository : ICollectionRepository
         match_mode        AS MatchMode,
         sort_field        AS SortField,
         sort_direction    AS SortDirection,
+        secondary_sort_field     AS SecondarySortField,
+        secondary_sort_direction AS SecondarySortDirection,
         refresh_schedule  AS RefreshSchedule,
         last_refreshed_at AS LastRefreshedAt,
         modified_at       AS ModifiedAt
@@ -596,14 +600,14 @@ public sealed class CollectionRepository : ICollectionRepository
             INSERT OR IGNORE INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
                 universe_status, wikidata_qid, collection_type, description, icon_name,
                 cover_artwork_path, cover_artwork_mime_type, background_artwork_path, background_artwork_mime_type,
-                logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
+                banner_artwork_path, banner_artwork_mime_type, logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
                 is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
-                group_by_field, match_mode, sort_field, sort_direction)
+                group_by_field, match_mode, sort_field, sort_direction, secondary_sort_field, secondary_sort_direction)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
                     @coverArtworkPath, @coverArtworkMimeType, @backgroundArtworkPath, @backgroundArtworkMimeType,
-                    @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
+                    @bannerArtworkPath, @bannerArtworkMimeType, @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
-                    @groupByField, @matchMode, @sortField, @sortDirection);
+                    @groupByField, @matchMode, @sortField, @sortDirection, @secondarySortField, @secondarySortDirection);
             UPDATE collections SET display_name = @dn, universe_status = @us, parent_collection_id = @phid,
                             wikidata_qid = @wqid, collection_type = @ht, description = @desc,
                             icon_name = @icon,
@@ -611,13 +615,16 @@ public sealed class CollectionRepository : ICollectionRepository
                             cover_artwork_mime_type = @coverArtworkMimeType,
                             background_artwork_path = @backgroundArtworkPath,
                             background_artwork_mime_type = @backgroundArtworkMimeType,
+                            banner_artwork_path = @bannerArtworkPath,
+                            banner_artwork_mime_type = @bannerArtworkMimeType,
                             logo_artwork_path = @logoArtworkPath,
                             logo_artwork_mime_type = @logoArtworkMimeType,
                             scope = @scope, profile_id = @pid,
                             is_enabled = @enabled, is_featured = @featured, min_items = @minItems,
                             rule_json = @ruleJson, resolution = @resolution, rule_hash = @ruleHash,
                             group_by_field = @groupByField, match_mode = @matchMode,
-                            sort_field = @sortField, sort_direction = @sortDirection
+                            sort_field = @sortField, sort_direction = @sortDirection,
+                            secondary_sort_field = @secondarySortField, secondary_sort_direction = @secondarySortDirection
                     WHERE id = @id;
             """,
             new
@@ -636,6 +643,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 coverArtworkMimeType = collection.CoverArtworkMimeType,
                 backgroundArtworkPath = collection.BackgroundArtworkPath,
                 backgroundArtworkMimeType = collection.BackgroundArtworkMimeType,
+                bannerArtworkPath = collection.BannerArtworkPath,
+                bannerArtworkMimeType = collection.BannerArtworkMimeType,
                 logoArtworkPath = collection.LogoArtworkPath,
                 logoArtworkMimeType = collection.LogoArtworkMimeType,
                 scope = collection.Scope.ToStorageValue(),
@@ -650,6 +659,8 @@ public sealed class CollectionRepository : ICollectionRepository
                 matchMode = collection.MatchMode.ToStorageValue(),
                 sortField = collection.SortField,
                 sortDirection = collection.SortDirection.ToStorageValue(),
+                secondarySortField = collection.SecondarySortField,
+                secondarySortDirection = collection.SecondarySortDirection?.ToStorageValue(),
             });
 
         return Task.FromResult(collection.Id);
@@ -669,14 +680,14 @@ public sealed class CollectionRepository : ICollectionRepository
                 INSERT INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
                     universe_status, wikidata_qid, collection_type, description, icon_name,
                     cover_artwork_path, cover_artwork_mime_type, background_artwork_path, background_artwork_mime_type,
-                    logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
+                    banner_artwork_path, banner_artwork_mime_type, logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
                     is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
-                    group_by_field, match_mode, sort_field, sort_direction)
+                    group_by_field, match_mode, sort_field, sort_direction, secondary_sort_field, secondary_sort_direction)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
                     @coverArtworkPath, @coverArtworkMimeType, @backgroundArtworkPath, @backgroundArtworkMimeType,
-                    @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
+                    @bannerArtworkPath, @bannerArtworkMimeType, @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
-                    @groupByField, @matchMode, @sortField, @sortDirection)
+                    @groupByField, @matchMode, @sortField, @sortDirection, @secondarySortField, @secondarySortDirection)
                 """,
                 new
                 {
@@ -694,6 +705,8 @@ public sealed class CollectionRepository : ICollectionRepository
                     coverArtworkMimeType = collection.CoverArtworkMimeType,
                     backgroundArtworkPath = collection.BackgroundArtworkPath,
                     backgroundArtworkMimeType = collection.BackgroundArtworkMimeType,
+                    bannerArtworkPath = collection.BannerArtworkPath,
+                    bannerArtworkMimeType = collection.BannerArtworkMimeType,
                     logoArtworkPath = collection.LogoArtworkPath,
                     logoArtworkMimeType = collection.LogoArtworkMimeType,
                     scope = collection.Scope.ToStorageValue(),
@@ -708,6 +721,8 @@ public sealed class CollectionRepository : ICollectionRepository
                     matchMode = collection.MatchMode.ToStorageValue(),
                     sortField = collection.SortField,
                     sortDirection = collection.SortDirection.ToStorageValue(),
+                    secondarySortField = collection.SecondarySortField,
+                    secondarySortDirection = collection.SecondarySortDirection?.ToStorageValue(),
                 },
                 transaction: tx);
 
@@ -1293,6 +1308,7 @@ public sealed class CollectionRepository : ICollectionRepository
         {
             "poster" => ("cover_artwork_path", "cover_artwork_mime_type"),
             "background" => ("background_artwork_path", "background_artwork_mime_type"),
+            "banner" => ("banner_artwork_path", "banner_artwork_mime_type"),
             "logo" => ("logo_artwork_path", "logo_artwork_mime_type"),
             _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown collection artwork slot."),
         };

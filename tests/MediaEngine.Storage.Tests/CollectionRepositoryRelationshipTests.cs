@@ -149,15 +149,22 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
     {
         var repo = new CollectionRepository(_db);
         var collection = CreateCollection("Road Trip Mix", "Playlist");
+        collection.SortField = "year";
+        collection.SecondarySortField = "title";
+        collection.SecondarySortDirection = MediaEngine.Domain.Enums.CollectionSortDirection.Asc;
 
         await repo.UpsertAsync(collection);
         await repo.UpdateCollectionArtworkAsync(collection.Id, "poster", @"C:\Tuvima\collections\road-trip.jpg", "image/jpeg");
+        await repo.UpdateCollectionArtworkAsync(collection.Id, "banner", @"C:\Tuvima\collections\road-trip-banner.jpg", "image/jpeg");
 
         var saved = await repo.GetByIdAsync(collection.Id);
 
         Assert.NotNull(saved);
         Assert.Equal(@"C:\Tuvima\collections\road-trip.jpg", saved!.CoverArtworkPath);
         Assert.Equal("image/jpeg", saved.CoverArtworkMimeType);
+        Assert.Equal(@"C:\Tuvima\collections\road-trip-banner.jpg", saved.BannerArtworkPath);
+        Assert.Equal("title", saved.SecondarySortField);
+        Assert.Equal(MediaEngine.Domain.Enums.CollectionSortDirection.Asc, saved.SecondarySortDirection);
     }
 
     [Fact]
