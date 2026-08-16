@@ -259,11 +259,15 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("SelectRuleCategory", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("RunPreviewAsync", wizard, StringComparison.Ordinal);
         Assert.Contains("CreateCollectionWithItemsAsync", wizard, StringComparison.Ordinal);
-        Assert.Contains("Use the full @(IsPlaylist ? \"playlist\" : \"collection\") editor to manage membership.", wizard, StringComparison.Ordinal);
-        Assert.Contains("2 => !_dynamic || _ruleDefinition.AllConditions.Any(IsCompleteRule)", wizard, StringComparison.Ordinal);
+        Assert.Contains("Fine-tune it in the full editor", wizard, StringComparison.Ordinal);
+        Assert.Contains("_selectedManualItems.Count > 0", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-artwork-file", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("VisibilityLabel", wizard, StringComparison.Ordinal);
-        Assert.DoesNotContain("LookupCollectionMediaAsync", wizard, StringComparison.Ordinal);
+        Assert.Contains("LookupCollectionMediaAsync", wizard, StringComparison.Ordinal);
+        Assert.Contains("ManualCategories", wizard, StringComparison.Ordinal);
+        Assert.Contains("Choose items from your library", wizard, StringComparison.Ordinal);
+        Assert.Contains("Search titles, creators, series, or shows", wizard, StringComparison.Ordinal);
+        Assert.Contains("_selectedManualItems.Keys.ToList()", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("Remove included item", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-wizard__type-card", css, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-wizard__origin", css, StringComparison.Ordinal);

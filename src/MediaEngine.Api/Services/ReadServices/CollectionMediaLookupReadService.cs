@@ -27,12 +27,21 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             "w.media_type");
         var rows = await conn.QueryAsync<ResolvedMetadataRow>(new CommandDefinition(
             $"""
-            WITH representative_assets AS (
-                SELECT e.work_id AS WorkId, MIN(ma.id) AS AssetId
-                FROM editions e
+            WITH RECURSIVE work_tree(RootWorkId, WorkId) AS (
+                SELECT w.id, w.id
+                FROM works w
+                WHERE w.id IN @WorkIds
+                UNION ALL
+                SELECT work_tree.RootWorkId, child.id
+                FROM works child
+                INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
+            ),
+            representative_assets AS (
+                SELECT work_tree.RootWorkId AS WorkId, MIN(ma.id) AS AssetId
+                FROM work_tree
+                INNER JOIN editions e ON e.work_id = work_tree.WorkId
                 INNER JOIN media_assets ma ON ma.edition_id = e.id
-                WHERE e.work_id IN @WorkIds
-                GROUP BY e.work_id
+                GROUP BY work_tree.RootWorkId
             )
             SELECT w.id AS WorkId,
                    w.media_type AS MediaType,
@@ -55,7 +64,20 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                           AND key IN ('album_artist', 'artist', 'author', 'director')
                         ORDER BY CASE key WHEN 'album_artist' THEN 1 WHEN 'artist' THEN 2 WHEN 'author' THEN 3 ELSE 4 END, ordinal
                         LIMIT 1)) AS TEXT) AS Creator,
-                   CAST({resolvedDisplayYearSql} AS TEXT) AS Year
+                   CAST({resolvedDisplayYearSql} AS TEXT) AS Year,
+                   CAST(COALESCE(
+                       (SELECT NULLIF(value, '')
+                        FROM canonical_values
+                        WHERE entity_id = w.id AND key IN ('cover_url', 'cover')
+                        ORDER BY CASE key WHEN 'cover_url' THEN 1 ELSE 2 END
+                        LIMIT 1),
+                       (SELECT NULLIF(value, '')
+                        FROM canonical_values
+                        WHERE entity_id = w.id AND key IN ('poster_url', 'poster')
+                        ORDER BY CASE key WHEN 'poster_url' THEN 1 ELSE 2 END
+                        LIMIT 1),
+                       NULL
+                   ) AS TEXT) AS CoverUrl
             FROM works w
             LEFT JOIN works p ON p.id = w.parent_work_id
             LEFT JOIN works gp ON gp.id = p.parent_work_id
@@ -71,11 +93,13 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             var row = byId[workId];
             return new CollectionResolvedItemDto
             {
-            EntityId = row.WorkId,
-            Title = row.Title,
-            Creator = row.Creator,
-            MediaType = row.MediaType,
-            CoverUrl = row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
+                EntityId = row.WorkId,
+                Title = row.Title,
+                Creator = row.Creator,
+                MediaType = row.MediaType,
+                CoverUrl = !string.IsNullOrWhiteSpace(row.CoverUrl)
+                    ? row.CoverUrl
+                    : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
                 Year = row.Year,
             };
         }).ToList();
@@ -528,5 +552,6 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         public string Title { get; init; } = string.Empty;
         public string? Creator { get; init; }
         public string? Year { get; init; }
+        public string? CoverUrl { get; init; }
     }
 }

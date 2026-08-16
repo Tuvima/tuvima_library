@@ -2,9 +2,11 @@ using Dapper;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
+using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
 
@@ -35,7 +37,8 @@ public sealed class CollectionReadServicesTests : IDisposable
             new PersonRepository(_database),
             new ArtworkPaletteService(),
             _lookup,
-            _database);
+            _database,
+            NullLogger<CollectionCatalogReadService>.Instance);
     }
 
     [Fact]
@@ -104,6 +107,97 @@ public sealed class CollectionReadServicesTests : IDisposable
             CancellationToken.None);
 
         Assert.Equal([second.TrackWorkId, first.TrackWorkId], results.Select(item => item.EntityId));
+    }
+
+    [Fact]
+    public async Task CollectionCatalog_SkipsUnsupportedAndDisabledManagedCollections()
+    {
+        var supportedId = Guid.NewGuid();
+        var unsupportedId = Guid.NewGuid();
+        var disabledId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, is_enabled)
+                VALUES (
+                    @SupportedId, 'Supported collection', 'Custom', 'library', 'materialized', 1);
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, is_enabled, rule_json)
+                VALUES (
+                    @UnsupportedId, 'Unsupported collection', 'Custom', 'library', 'query', 1,
+                    '{"field":"genre","operator":"equals","value":"Drama"}');
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, is_enabled)
+                VALUES (
+                    @DisabledId, 'Disabled collection', 'Custom', 'library', 'materialized', 0);
+                """,
+                new { SupportedId = supportedId, UnsupportedId = unsupportedId, DisabledId = disabledId });
+        }
+
+        var managed = await _catalog.GetManagedAsync(null, CancellationToken.None);
+        var entry = Assert.Single(managed);
+        Assert.Equal(supportedId, entry.Id);
+    }
+
+    [Fact]
+    public async Task QueryCollection_UsesItsPersistedSortForActualItems()
+    {
+        var collectionId = Guid.NewGuid();
+        var alphaId = Guid.NewGuid();
+        var zuluId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        var definition = CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Movies" }]);
+        var ruleJson = JsonSerializer.Serialize(definition);
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, is_enabled,
+                    rule_json, sort_field, sort_direction)
+                VALUES (
+                    @CollectionId, 'Sorted movies', 'Custom', 'library', 'query', 1,
+                    @RuleJson, 'title', 'desc');
+
+                INSERT INTO works (id, media_type, work_kind, ownership, curator_state)
+                VALUES
+                    (@AlphaId, 'Movies', 'standalone', 'Owned', 'Accepted'),
+                    (@ZuluId, 'Movies', 'standalone', 'Owned', 'Accepted');
+                INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                VALUES
+                    (@AlphaId, 'title', 'Alpha', @Now),
+                    (@ZuluId, 'title', 'Zulu', @Now);
+                """,
+                new { CollectionId = collectionId, AlphaId = alphaId, ZuluId = zuluId, RuleJson = ruleJson, Now = now });
+
+            foreach (var workId in new[] { alphaId, zuluId })
+            {
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO editions (id, work_id) VALUES (@EditionId, @WorkId);
+                    INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES (@AssetId, @EditionId, @ContentHash, @FilePath);
+                    """,
+                    new
+                    {
+                        EditionId = Guid.NewGuid(),
+                        WorkId = workId,
+                        AssetId = Guid.NewGuid(),
+                        ContentHash = $"sort-{workId:N}",
+                        FilePath = $"C:/library/{workId:N}.mkv",
+                    });
+            }
+        }
+
+        var result = await _catalog.GetItemsAsync(collectionId, null, 20, CancellationToken.None);
+
+        Assert.True(result.Found);
+        Assert.Equal(["Zulu", "Alpha"], result.Items.Select(item => item.Title));
     }
 
     [Fact]

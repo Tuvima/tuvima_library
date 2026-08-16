@@ -2102,6 +2102,7 @@ public static class CollectionEndpoints
         group.MapPost("/preview", async (
             CollectionPreviewRequest body,
             ICollectionBrowseReadService browseReadService,
+            CollectionCatalogReadService catalogReadService,
             ICollectionMediaLookupReadService mediaLookupReadService,
             CancellationToken ct) =>
         {
@@ -2111,13 +2112,17 @@ public static class CollectionEndpoints
                 return Results.Ok(new CollectionPreviewResponse(0, []));
             }
 
-            var entityIds = browseReadService.EvaluateRules(
+            var matchedWorkIds = browseReadService.EvaluateRules(
                 definition,
                 body.SortField,
                 body.SortDirection,
-                body.Limit > 0 ? body.Limit : 20,
+                0,
                 body.Query);
-            var total = browseReadService.CountRuleMatches(definition, body.Query);
+            var displayWorkIds = await catalogReadService.GetDisplayWorkIdsAsync(matchedWorkIds, ct);
+            var total = displayWorkIds.Count;
+            var entityIds = displayWorkIds
+                .Take(body.Limit > 0 ? body.Limit : 20)
+                .ToList();
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
             return Results.Ok(new CollectionPreviewResponse(total, resolved));

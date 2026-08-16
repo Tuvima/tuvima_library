@@ -571,9 +571,17 @@ public sealed partial class EngineApiClient
             var url = AppendCollectionProfileQuery("/collections", profileId);
             var response = await _http.PostAsJsonAsync(url, body, ct);
             if (!response.IsSuccessStatusCode)
+            {
+                LastError = await ReadCollectionFailureAsync(response, ct);
+                _logger.LogWarning(
+                    "POST /collections failed with HTTP {StatusCode}: {Error}",
+                    (int)response.StatusCode,
+                    LastError);
                 return null;
+            }
 
             var result = await response.Content.ReadFromJsonAsync<CollectionCreatedResponse>(cancellationToken: ct);
+            LastError = result is null ? "The Engine returned an empty response after creating the collection." : null;
             return result?.id;
         }
         catch (Exception ex)
@@ -582,6 +590,26 @@ public sealed partial class EngineApiClient
             LastError = ex.Message;
             return null;
         }
+    }
+
+    private static async Task<string> ReadCollectionFailureAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(ct);
+            using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+            var root = document.RootElement;
+            if (root.TryGetProperty("detail", out var detail) && detail.ValueKind == JsonValueKind.String)
+                return SafeProblemText(detail.GetString(), 600, $"The Engine rejected the collection (HTTP {(int)response.StatusCode}).");
+            if (root.TryGetProperty("title", out var title) && title.ValueKind == JsonValueKind.String)
+                return SafeProblemText(title.GetString(), 300, $"The Engine rejected the collection (HTTP {(int)response.StatusCode}).");
+        }
+        catch (Exception ex) when (ex is JsonException or IOException or InvalidOperationException)
+        {
+            // Fall through to a stable user-facing message while the caller logs the status.
+        }
+
+        return $"The Engine rejected the collection (HTTP {(int)response.StatusCode}).";
     }
 
     public async Task<bool> UpdateCollectionAsync(

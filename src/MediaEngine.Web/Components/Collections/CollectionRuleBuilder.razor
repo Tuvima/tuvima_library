@@ -14,11 +14,16 @@
         </div>
     </header>
 
-    <nav class="collection-rule-builder__categories" aria-label="Rule families">
+    <div class="collection-rule-builder__category-heading">
+        <strong>Choose a rule category</strong>
+        <span>The selected category filters each Field menu and determines which field is added next.</span>
+    </div>
+    <nav class="collection-rule-builder__categories" aria-label="Filter rule fields by category">
         @foreach (var category in Categories)
         {
             <AppNativeButton Type="button" Class="@(category.Key == _activeCategory ? "is-selected" : null)"
-                             OnClick="@(() => SelectCategory(category.Key))">
+                             OnClick="@(() => SelectCategory(category.Key))"
+                             AriaLabel="@($"Use {category.Label} rule fields")">
                 <MudIcon Icon="@category.Icon" /><span>@category.Label</span>
             </AppNativeButton>
         }
@@ -61,13 +66,9 @@
                                 <AppSelect T="string" Value="@condition.Field"
                                            ValueChanged="@(value => OnFieldChangedAsync(condition, value))"
                                            Label="Field" Variant="Variant.Outlined" Dense="true" Class="app-dialog-select">
-                                    @foreach (var category in Categories)
+                                    @foreach (var field in FieldsForCondition(condition))
                                     {
-                                        <MudSelectItem T="string" Value="@($"__{category.Key}")" Disabled="true">@category.Label</MudSelectItem>
-                                        @foreach (var field in FieldsFor(category.Key))
-                                        {
-                                            <MudSelectItem T="string" Value="@field.Key">@field.Label</MudSelectItem>
-                                        }
+                                        <MudSelectItem T="string" Value="@field.Key">@field.Label</MudSelectItem>
                                     }
                                 </AppSelect>
                                 <AppSelect T="string" Value="@condition.Op"
@@ -122,7 +123,7 @@
                         }
                     </div>
                     <AppButton Variant="Variant.Text" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
-                               OnClick="@(() => AddConditionAsync(group))">Add condition</AppButton>
+                               OnClick="@(() => AddConditionAsync(group))">Add @ActiveCategoryLabel condition</AppButton>
                 </article>
 
                 @if (groupIndex < Definition.Groups.Count - 1)
@@ -250,6 +251,15 @@
 
     private static CollectionRuleGroupViewModel NewGroup() => new() { Conditions = [new CollectionRulePredicateViewModel()] };
     private IReadOnlyList<RuleField> FieldsFor(string category) => Fields.Where(field => field.Category == category).ToList();
+    private IReadOnlyList<RuleField> FieldsForCondition(CollectionRulePredicateViewModel condition)
+    {
+        var visible = FieldsFor(_activeCategory).ToList();
+        var current = Fields.FirstOrDefault(field => string.Equals(field.Key, condition.Field, StringComparison.OrdinalIgnoreCase));
+        if (current is not null && visible.All(field => !string.Equals(field.Key, current.Key, StringComparison.OrdinalIgnoreCase)))
+            visible.Insert(0, current);
+        return visible;
+    }
+    private string ActiveCategoryLabel => Categories.First(category => category.Key == _activeCategory).Label;
     private void SelectCategory(string category) => _activeCategory = category;
 
     private async Task AddConditionAsync(CollectionRuleGroupViewModel group)

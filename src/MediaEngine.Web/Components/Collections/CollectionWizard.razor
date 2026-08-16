@@ -3,6 +3,7 @@
 @using MediaEngine.Web.Models.ViewDTOs
 @using MediaEngine.Web.Services.Editing
 @using MediaEngine.Web.Components.MediaEditor
+@implements IDisposable
 
 @inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
@@ -96,8 +97,15 @@
     private bool _dynamic;
     private string _sortField = "title";
     private string _sortDirection = "asc";
+    private string _manualCategory = "all";
+    private string _manualSearch = string.Empty;
     private bool _dirty;
     private bool _saving;
+    private bool _manualLoading;
+    private string? _manualError;
+    private readonly List<CollectionMediaLookupDto> _manualItems = [];
+    private readonly Dictionary<Guid, CollectionMediaLookupDto> _selectedManualItems = [];
+    private CancellationTokenSource? _manualLookupCts;
     private CollectionRuleDefinitionViewModel _ruleDefinition = new()
     {
         Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
@@ -114,7 +122,9 @@
     private bool CanContinue => _step switch
     {
         1 => !string.IsNullOrWhiteSpace(_name),
-        2 => !_dynamic || _ruleDefinition.AllConditions.Any(IsCompleteRule),
+        2 => _dynamic
+            ? _ruleDefinition.AllConditions.Any(IsCompleteRule)
+            : _selectedManualItems.Count > 0,
         _ => true,
     };
 
@@ -188,14 +198,77 @@
     </section>;
 
     private RenderFragment RenderManualContents() => @<div class="collection-wizard__manual">
+        <div class="collection-wizard__manual-heading">
+            <div>
+                <span class="collection-wizard__eyebrow">Manual membership</span>
+                <h3>Choose items from your library</h3>
+                <p>Filter by media type, search the library, and select the top-level works to include.</p>
+            </div>
+            <strong>@_selectedManualItems.Count selected</strong>
+        </div>
+        <nav class="collection-wizard__media-filters" aria-label="Filter library items by media type">
+            @foreach (var category in ManualCategories)
+            {
+                <AppNativeButton Type="button"
+                                 Class="@(category.Key == _manualCategory ? "is-selected" : null)"
+                                 OnClick="@(() => SelectManualCategoryAsync(category.Key))"
+                                 AriaLabel="@($"Show {category.Label}")">
+                    <MudIcon Icon="@category.Icon" />
+                    <span>@category.Label</span>
+                </AppNativeButton>
+            }
+        </nav>
+        <AppTextField T="string"
+                      Value="@_manualSearch"
+                      ValueChanged="OnManualSearchChangedAsync"
+                      Placeholder="Search titles, creators, series, or shows"
+                      Adornment="Adornment.Start"
+                      AdornmentIcon="@Icons.Material.Outlined.Search"
+                      Immediate="true"
+                      DebounceInterval="300"
+                      Class="collection-wizard__manual-search" />
+
+        <div class="collection-wizard__manual-results" aria-live="polite">
+            @if (_manualLoading)
+            {
+                <div class="collection-wizard__manual-state"><MudProgressCircular Indeterminate="true" Size="Size.Small" /><span>Loading library items…</span></div>
+            }
+            else if (!string.IsNullOrWhiteSpace(_manualError))
+            {
+                <div class="collection-wizard__manual-state is-error"><MudIcon Icon="@Icons.Material.Outlined.ErrorOutline" /><span>@_manualError</span></div>
+            }
+            else if (_manualItems.Count == 0)
+            {
+                <div class="collection-wizard__manual-state"><MudIcon Icon="@Icons.Material.Outlined.SearchOff" /><span>No library items match this filter.</span></div>
+            }
+            else
+            {
+                @foreach (var item in _manualItems)
+                {
+                    var selected = _selectedManualItems.ContainsKey(item.WorkId);
+                    <AppNativeButton Type="button"
+                                     Class="@($"collection-wizard__manual-item {(selected ? "is-selected" : string.Empty)}")"
+                                     OnClick="@(() => ToggleManualItem(item))"
+                                     AriaLabel="@($"{(selected ? "Remove" : "Include")} {item.Title}")">
+                        @MediaArtwork(item.ArtworkUrl, item.Title)
+                        <span class="collection-wizard__manual-item-copy">
+                            <strong>@item.Title</strong>
+                            <small>@FormatManualItemMeta(item)</small>
+                        </span>
+                        <span class="collection-wizard__manual-item-state" aria-hidden="true">
+                            <MudIcon Icon="@(selected ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.AddCircleOutline)" />
+                        </span>
+                    </AppNativeButton>
+                }
+            }
+        </div>
         <div class="collection-wizard__editor-note">
             <MudIcon Icon="@Icons.Material.Outlined.EditNote" />
             <div>
-                <strong>Add items after creation</strong>
-                <span>Use the full @(IsPlaylist ? "playlist" : "collection") editor to manage membership.</span>
+                <strong>Fine-tune it in the full editor</strong>
+                <span>You can add, remove, and reorder items after creation.</span>
             </div>
         </div>
-        <div class="collection-wizard__count">The @(IsPlaylist ? "playlist" : "collection") will be created empty.</div>
     </div>;
 
     private RenderFragment RenderDynamicContents() => @<CollectionRuleBuilder @ref="_ruleBuilder"
@@ -225,7 +298,7 @@
         </div>
 
         <div class="collection-wizard__review-panel">
-            <div class="collection-wizard__review-heading"><strong>@(_dynamic ? "Matching now" : "Included items")</strong><span>@ReviewItems.Count items</span></div>
+            <div class="collection-wizard__review-heading"><strong>@(_dynamic ? "Matching now" : "Included items")</strong><span>@ReviewItems.Count @(ReviewItems.Count == 1 ? "item" : "items")</span></div>
             <div class="collection-wizard__review-items">
                 @foreach (var item in ReviewItems.Take(4))
                 {
@@ -267,8 +340,27 @@
 
     private IReadOnlyList<CollectionResolvedItemViewModel> ReviewItems => _dynamic
         ? _preview?.Items ?? []
-        : [];
+        : _selectedManualItems.Values.Select(item => new CollectionResolvedItemViewModel
+        {
+            EntityId = item.WorkId,
+            Title = item.Title,
+            Creator = item.Creator,
+            MediaType = item.MediaType,
+            CoverUrl = item.ArtworkUrl,
+            Year = item.Year,
+        }).ToList();
     private CollectionRuleBuilder? _ruleBuilder;
+
+    private static readonly ManualMediaCategory[] ManualCategories =
+    [
+        new("all", "All", Icons.Material.Outlined.Apps, null),
+        new("movies", "Movies", Icons.Material.Outlined.Movie, "Movies"),
+        new("tv", "TV shows", Icons.Material.Outlined.Tv, "TV"),
+        new("books", "Books", Icons.Material.Outlined.MenuBook, "Books"),
+        new("comics", "Comics", Icons.Material.Outlined.AutoStories, "Comics"),
+        new("music", "Music", Icons.Material.Outlined.Album, "Music"),
+        new("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones, "Audiobooks"),
+    ];
 
     private async Task SetDynamic(bool dynamic)
     {
@@ -277,7 +369,8 @@
             ? (dynamic ? CollectionEditorMode.SmartPlaylist : CollectionEditorMode.ManualPlaylist)
             : CollectionEditorMode.CuratedCollection;
         _dirty = true;
-        await Task.CompletedTask;
+        if (!dynamic)
+            await LoadManualItemsAsync();
     }
 
     private void GoToStep(int step)
@@ -292,6 +385,8 @@
         {
             if (_step == 2 && _dynamic && _ruleBuilder is not null)
                 await _ruleBuilder.RefreshAsync();
+            if (_step == 1 && !_dynamic)
+                await LoadManualItemsAsync();
             _step++;
             _furthestStep = Math.Max(_furthestStep, _step);
             return;
@@ -341,6 +436,63 @@
         return Task.CompletedTask;
     }
 
+    private async Task SelectManualCategoryAsync(string category)
+    {
+        if (string.Equals(_manualCategory, category, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _manualCategory = category;
+        await LoadManualItemsAsync();
+    }
+
+    private async Task OnManualSearchChangedAsync(string value)
+    {
+        _manualSearch = value;
+        await LoadManualItemsAsync();
+    }
+
+    private void ToggleManualItem(CollectionMediaLookupDto item)
+    {
+        if (!_selectedManualItems.Remove(item.WorkId))
+            _selectedManualItems[item.WorkId] = item;
+        _dirty = true;
+    }
+
+    private async Task LoadManualItemsAsync()
+    {
+        _manualLookupCts?.Cancel();
+        _manualLookupCts?.Dispose();
+        _manualLookupCts = new CancellationTokenSource();
+        var token = _manualLookupCts.Token;
+        _manualLoading = true;
+        _manualError = null;
+        try
+        {
+            var mediaTypes = ManualCategories.First(category => category.Key == _manualCategory).MediaTypes;
+            var items = await ApiClient.LookupCollectionMediaAsync(
+                string.IsNullOrWhiteSpace(_manualSearch) ? null : _manualSearch.Trim(),
+                mediaTypes: mediaTypes,
+                limit: 100,
+                profileId: Request.ActiveProfileId,
+                ct: token);
+            _manualItems.Clear();
+            _manualItems.AddRange(items);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch
+        {
+            _manualError = "Library items could not be loaded.";
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+                _manualLoading = false;
+        }
+    }
+
     private async Task SaveAsync()
     {
         _saving = true;
@@ -355,12 +507,15 @@
                 _sortField,
                 _sortDirection,
                 IsPlaylist ? "private" : "shared",
-                [],
+                _dynamic ? [] : _selectedManualItems.Keys.ToList(),
                 Request.ActiveProfileId);
 
             if (!collectionId.HasValue)
             {
-                Snackbar.Add($"The {(_mode == CollectionEditorMode.CuratedCollection ? "collection" : "playlist")} could not be created.", Severity.Error);
+                var reason = string.IsNullOrWhiteSpace(ApiClient.LastError)
+                    ? $"The {(_mode == CollectionEditorMode.CuratedCollection ? "collection" : "playlist")} could not be created."
+                    : ApiClient.LastError;
+                Snackbar.Add(reason, Severity.Error);
                 return;
             }
 
@@ -427,5 +582,20 @@
             "added_within_days" => RuleDescription(rule),
             _ => $"{RuleLabel(rule.Field)} is {RuleDescription(rule)}",
         };
+    }
+
+    private static string FormatManualItemMeta(CollectionMediaLookupDto item)
+    {
+        var values = new[] { item.Creator, item.Year, item.MediaType }
+            .Where(value => !string.IsNullOrWhiteSpace(value));
+        return string.Join(" · ", values);
+    }
+
+    private sealed record ManualMediaCategory(string Key, string Label, string Icon, string? MediaTypes);
+
+    public void Dispose()
+    {
+        _manualLookupCts?.Cancel();
+        _manualLookupCts?.Dispose();
     }
 }

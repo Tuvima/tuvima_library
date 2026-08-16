@@ -25,14 +25,16 @@ public sealed class CollectionCatalogReadService(
     IPersonRepository personRepo,
     IArtworkPaletteService artworkPaletteService,
     ICollectionMediaLookupReadService mediaLookupReadService,
-    IDatabaseConnection db)
+    IDatabaseConnection db,
+    ILogger<CollectionCatalogReadService> logger)
 {
     public async Task<List<ManagedCollectionDto>> GetManagedAsync(
         Profile? activeProfile,
         CancellationToken ct = default)
     {
         var collections = (await collectionRepo.GetManagedCollectionsAsync(ct).ConfigureAwait(false))
-            .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            .Where(collection => collection.IsEnabled
+                && CollectionAccessPolicy.CanAccess(collection, activeProfile))
             .ToList();
         var materializedCounts = await collectionRepo.GetCollectionItemCountsAsync(
             collections
@@ -43,6 +45,15 @@ public sealed class CollectionCatalogReadService(
         var results = new List<ManagedCollectionDto>(collections.Count);
         foreach (var collection in collections)
         {
+            if (!HasSupportedRuleDefinition(collection))
+            {
+                logger.LogWarning(
+                    "Skipping collection {CollectionId} ({CollectionName}) because its rule definition is unsupported.",
+                    collection.Id,
+                    collection.DisplayName);
+                continue;
+            }
+
             var count = collection.Resolution == CollectionResolution.Query
                 ? (await GetCollectionWorkIdsAsync(collection, ct).ConfigureAwait(false)).Count
                 : GetManagedCollectionItemCount(collection, materializedCounts, []);
@@ -71,6 +82,15 @@ public sealed class CollectionCatalogReadService(
         var candidates = new List<CollectionManagementCatalogCandidate>();
         foreach (var collection in collections)
         {
+            if (!HasSupportedRuleDefinition(collection))
+            {
+                logger.LogWarning(
+                    "Skipping collection {CollectionId} ({CollectionName}) because its rule definition is unsupported.",
+                    collection.Id,
+                    collection.DisplayName);
+                continue;
+            }
+
             var classification = ClassifyCollectionForCatalog(collection);
             var sourceWorkIds = await GetCollectionCatalogSourceWorkIdsAsync(collection, collections, ct).ConfigureAwait(false);
             var workIds = await GetOwnedCollectionCatalogDisplayWorkIdsAsync(sourceWorkIds, ct).ConfigureAwait(false);
@@ -222,7 +242,8 @@ public sealed class CollectionCatalogReadService(
     {
         var collections = await collectionRepo.GetAllAsync(ct).ConfigureAwait(false);
         return collections
-            .Where(collection => CollectionAccessPolicy.CanAccess(collection, activeProfile))
+            .Where(collection => collection.IsEnabled
+                && CollectionAccessPolicy.CanAccess(collection, activeProfile))
             .ToList();
     }
 
@@ -1133,6 +1154,24 @@ public sealed class CollectionCatalogReadService(
                 SortOrder = preserveRequestedOrder ? index : row.SortOrder,
                 DetailRoute = BuildCollectionItemDetailRoute(row),
             }).ToList();
+    }
+
+    private static bool HasSupportedRuleDefinition(Collection collection)
+    {
+        if (string.IsNullOrWhiteSpace(collection.RuleJson))
+        {
+            return true;
+        }
+
+        try
+        {
+            _ = CollectionRuleEvaluator.ParseDefinition(collection.RuleJson);
+            return true;
+        }
+        catch (FormatException)
+        {
+            return false;
+        }
     }
 
     private static string BuildCollectionItemDetailRoute(GeneratedCollectionItemRow row)
