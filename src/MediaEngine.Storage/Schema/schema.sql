@@ -151,7 +151,7 @@ CREATE TABLE IF NOT EXISTS collections (
     wikidata_qid      TEXT,
     universe_status   TEXT NOT NULL DEFAULT 'Unknown',
     created_at        TEXT NOT NULL DEFAULT (datetime('now'))
-, resolution TEXT NOT NULL DEFAULT 'query', rule_hash TEXT, group_by_field TEXT, match_mode TEXT NOT NULL DEFAULT 'all', sort_field TEXT, sort_direction TEXT NOT NULL DEFAULT 'desc', live_updating INTEGER NOT NULL DEFAULT 1, cover_artwork_path TEXT, cover_artwork_mime_type TEXT);
+, resolution TEXT NOT NULL DEFAULT 'query', rule_hash TEXT, group_by_field TEXT, match_mode TEXT NOT NULL DEFAULT 'all', sort_field TEXT, sort_direction TEXT NOT NULL DEFAULT 'desc', cover_artwork_path TEXT, cover_artwork_mime_type TEXT, background_artwork_path TEXT, background_artwork_mime_type TEXT, logo_artwork_path TEXT, logo_artwork_mime_type TEXT);
 
 CREATE TABLE IF NOT EXISTS deferred_enrichment_queue (
     id           BLOB NOT NULL PRIMARY KEY,
@@ -1292,6 +1292,9 @@ CREATE INDEX IF NOT EXISTS idx_collections_collection_type ON collections(collec
 CREATE INDEX IF NOT EXISTS idx_collections_resolution ON collections(resolution);
 
 CREATE INDEX IF NOT EXISTS idx_collections_rule_hash ON collections(rule_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_collections_custom_rule_hash
+    ON collections(rule_hash)
+    WHERE rule_hash IS NOT NULL AND is_enabled = 1 AND collection_type = 'Custom';
 
 CREATE INDEX IF NOT EXISTS idx_cva_key_qid
     ON canonical_value_arrays(key, value_qid);

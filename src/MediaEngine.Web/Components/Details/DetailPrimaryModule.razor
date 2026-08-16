@@ -157,11 +157,18 @@
             .ToList();
 
     private IReadOnlyList<MediaGroupingItemViewModel> FilteredItems
-        => AllItems
-            .Where(item => _selectedLane == "all" || string.Equals(ResolveLane(item), _selectedLane, StringComparison.OrdinalIgnoreCase))
-            .Where(item => _selectedRole == "all" || item.Roles.Contains(_selectedRole, StringComparer.OrdinalIgnoreCase))
-            .OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+    {
+        get
+        {
+            var filtered = AllItems
+                .Where(item => _selectedLane == "all" || string.Equals(ResolveLane(item), _selectedLane, StringComparison.OrdinalIgnoreCase))
+                .Where(item => _selectedRole == "all" || item.Roles.Contains(_selectedRole, StringComparer.OrdinalIgnoreCase));
+
+            return Model.PrimaryModule.Kind == DetailPrimaryModuleKind.CollectionItems
+                ? filtered.ToList()
+                : filtered.OrderBy(item => item.Title, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+    }
 
     private IReadOnlyList<FilterOption> LaneOptions
     {

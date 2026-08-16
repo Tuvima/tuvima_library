@@ -21,13 +21,14 @@ public interface ICollectionBrowseReadService
         string? artistName,
         CancellationToken ct);
     IReadOnlyList<Guid> EvaluateRules(
-        IReadOnlyList<CollectionRulePredicate> predicates,
-        string matchMode = "all",
+        CollectionRuleDefinition definition,
         string? sortField = null,
         string sortDirection = "desc",
-        int limit = 0);
-    Task<IReadOnlyList<string>> GetFieldValuesAsync(string field, int limit, CancellationToken ct);
-    Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(string field, int limit, CancellationToken ct)
+        int limit = 0,
+        string? query = null);
+    int CountRuleMatches(CollectionRuleDefinition definition, string? query = null);
+    Task<IReadOnlyList<string>> GetFieldValuesAsync(string field, string? query, int limit, CancellationToken ct);
+    Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(string field, string? query, int limit, CancellationToken ct)
         => Task.FromResult<IReadOnlyList<CollectionRuleValueDto>>([]);
     Task<List<ContentGroupDto>> GetSystemViewGroupsAsync(string? mediaType, string? groupField, CancellationToken ct);
 }

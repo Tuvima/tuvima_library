@@ -54,6 +54,10 @@ public sealed class CollectionRepository : ICollectionRepository
         icon_name         AS IconName,
         cover_artwork_path       AS CoverArtworkPath,
         cover_artwork_mime_type  AS CoverArtworkMimeType,
+        background_artwork_path       AS BackgroundArtworkPath,
+        background_artwork_mime_type  AS BackgroundArtworkMimeType,
+        logo_artwork_path       AS LogoArtworkPath,
+        logo_artwork_mime_type  AS LogoArtworkMimeType,
         scope             AS Scope,
         profile_id        AS ProfileId,
         is_enabled        AS IsEnabled,
@@ -66,7 +70,6 @@ public sealed class CollectionRepository : ICollectionRepository
         match_mode        AS MatchMode,
         sort_field        AS SortField,
         sort_direction    AS SortDirection,
-        live_updating     AS LiveUpdating,
         refresh_schedule  AS RefreshSchedule,
         last_refreshed_at AS LastRefreshedAt,
         modified_at       AS ModifiedAt
@@ -592,24 +595,29 @@ public sealed class CollectionRepository : ICollectionRepository
         conn.Execute("""
             INSERT OR IGNORE INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
                 universe_status, wikidata_qid, collection_type, description, icon_name,
-                cover_artwork_path, cover_artwork_mime_type, scope, profile_id,
+                cover_artwork_path, cover_artwork_mime_type, background_artwork_path, background_artwork_mime_type,
+                logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
                 is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
-                group_by_field, match_mode, sort_field, sort_direction, live_updating)
+                group_by_field, match_mode, sort_field, sort_direction)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
-                    @coverArtworkPath, @coverArtworkMimeType, @scope, @pid,
+                    @coverArtworkPath, @coverArtworkMimeType, @backgroundArtworkPath, @backgroundArtworkMimeType,
+                    @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
-                    @groupByField, @matchMode, @sortField, @sortDirection, @liveUpdating);
+                    @groupByField, @matchMode, @sortField, @sortDirection);
             UPDATE collections SET display_name = @dn, universe_status = @us, parent_collection_id = @phid,
                             wikidata_qid = @wqid, collection_type = @ht, description = @desc,
                             icon_name = @icon,
                             cover_artwork_path = @coverArtworkPath,
                             cover_artwork_mime_type = @coverArtworkMimeType,
+                            background_artwork_path = @backgroundArtworkPath,
+                            background_artwork_mime_type = @backgroundArtworkMimeType,
+                            logo_artwork_path = @logoArtworkPath,
+                            logo_artwork_mime_type = @logoArtworkMimeType,
                             scope = @scope, profile_id = @pid,
                             is_enabled = @enabled, is_featured = @featured, min_items = @minItems,
                             rule_json = @ruleJson, resolution = @resolution, rule_hash = @ruleHash,
                             group_by_field = @groupByField, match_mode = @matchMode,
-                            sort_field = @sortField, sort_direction = @sortDirection,
-                            live_updating = @liveUpdating
+                            sort_field = @sortField, sort_direction = @sortDirection
                     WHERE id = @id;
             """,
             new
@@ -626,6 +634,10 @@ public sealed class CollectionRepository : ICollectionRepository
                 icon = collection.IconName,
                 coverArtworkPath = collection.CoverArtworkPath,
                 coverArtworkMimeType = collection.CoverArtworkMimeType,
+                backgroundArtworkPath = collection.BackgroundArtworkPath,
+                backgroundArtworkMimeType = collection.BackgroundArtworkMimeType,
+                logoArtworkPath = collection.LogoArtworkPath,
+                logoArtworkMimeType = collection.LogoArtworkMimeType,
                 scope = collection.Scope.ToStorageValue(),
                 pid  = collection.ProfileId,
                 enabled = collection.IsEnabled ? 1 : 0,
@@ -638,7 +650,6 @@ public sealed class CollectionRepository : ICollectionRepository
                 matchMode = collection.MatchMode.ToStorageValue(),
                 sortField = collection.SortField,
                 sortDirection = collection.SortDirection.ToStorageValue(),
-                liveUpdating = collection.LiveUpdating ? 1 : 0,
             });
 
         return Task.FromResult(collection.Id);
@@ -657,13 +668,15 @@ public sealed class CollectionRepository : ICollectionRepository
             conn.Execute("""
                 INSERT INTO collections(id, universe_id, parent_collection_id, display_name, created_at,
                     universe_status, wikidata_qid, collection_type, description, icon_name,
-                    cover_artwork_path, cover_artwork_mime_type, scope, profile_id,
+                    cover_artwork_path, cover_artwork_mime_type, background_artwork_path, background_artwork_mime_type,
+                    logo_artwork_path, logo_artwork_mime_type, scope, profile_id,
                     is_enabled, is_featured, min_items, rule_json, resolution, rule_hash,
-                    group_by_field, match_mode, sort_field, sort_direction, live_updating)
+                    group_by_field, match_mode, sort_field, sort_direction)
                 VALUES (@id, @uid, @phid, @dn, @ca, @us, @wqid, @ht, @desc, @icon,
-                    @coverArtworkPath, @coverArtworkMimeType, @scope, @pid,
+                    @coverArtworkPath, @coverArtworkMimeType, @backgroundArtworkPath, @backgroundArtworkMimeType,
+                    @logoArtworkPath, @logoArtworkMimeType, @scope, @pid,
                     @enabled, @featured, @minItems, @ruleJson, @resolution, @ruleHash,
-                    @groupByField, @matchMode, @sortField, @sortDirection, @liveUpdating)
+                    @groupByField, @matchMode, @sortField, @sortDirection)
                 """,
                 new
                 {
@@ -679,6 +692,10 @@ public sealed class CollectionRepository : ICollectionRepository
                     icon = collection.IconName,
                     coverArtworkPath = collection.CoverArtworkPath,
                     coverArtworkMimeType = collection.CoverArtworkMimeType,
+                    backgroundArtworkPath = collection.BackgroundArtworkPath,
+                    backgroundArtworkMimeType = collection.BackgroundArtworkMimeType,
+                    logoArtworkPath = collection.LogoArtworkPath,
+                    logoArtworkMimeType = collection.LogoArtworkMimeType,
                     scope = collection.Scope.ToStorageValue(),
                     pid = collection.ProfileId,
                     enabled = collection.IsEnabled ? 1 : 0,
@@ -691,7 +708,6 @@ public sealed class CollectionRepository : ICollectionRepository
                     matchMode = collection.MatchMode.ToStorageValue(),
                     sortField = collection.SortField,
                     sortDirection = collection.SortDirection.ToStorageValue(),
-                    liveUpdating = collection.LiveUpdating ? 1 : 0,
                 },
                 transaction: tx);
 
@@ -1270,17 +1286,24 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     /// <inheritdoc/>
-    public Task UpdateCollectionCoverArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default)
+    public Task UpdateCollectionArtworkAsync(Guid collectionId, string slot, string? localPath, string? mimeType, CancellationToken ct = default)
     {
         ct.ThrowIfCancellationRequested();
+        var (pathColumn, mimeColumn) = slot.ToLowerInvariant() switch
+        {
+            "poster" => ("cover_artwork_path", "cover_artwork_mime_type"),
+            "background" => ("background_artwork_path", "background_artwork_mime_type"),
+            "logo" => ("logo_artwork_path", "logo_artwork_mime_type"),
+            _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown collection artwork slot."),
+        };
         return _db.ExecuteWriteAsync((conn, tx, innerCt) =>
         {
             innerCt.ThrowIfCancellationRequested();
             conn.Execute(
-                """
+                $"""
                 UPDATE collections
-                SET cover_artwork_path = @LocalPath,
-                    cover_artwork_mime_type = @MimeType,
+                SET {pathColumn} = @LocalPath,
+                    {mimeColumn} = @MimeType,
                     modified_at = datetime('now')
                 WHERE id = @Id
                 """,

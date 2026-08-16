@@ -44,37 +44,23 @@
                     var tab = VisibleTabs[index];
                     <AppButton Variant="Variant.Text"
                                Color="Color.Inherit"
-                               Class="@(tab.Id == _activeTab ? "sme-section-nav__item is-active" : "sme-section-nav__item")"
+                               Class="@TabClass(tab.Id)"
                                OnClick="@(() => OnTabChanged(tabIndex))">
                         <MudIcon Icon="@tab.Icon" Size="Size.Small" />
                         <span>@tab.Label</span>
                     </AppButton>
-                    @if (tab.Id == "artwork" && _activeTab == "artwork")
-                    {
-                        <div class="sme-section-nav__nested" role="tablist" aria-label="Collection artwork types">
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
-                                       Class="@(_activeArtworkSlot == "poster" ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
-                                       OnClick="@(() => _activeArtworkSlot = "poster")">
-                                <MudIcon Icon="@Icons.Material.Outlined.Portrait" Size="Size.Small" />
-                                <span>Poster / Cover</span>
-                            </AppButton>
-                            <AppButton Variant="Variant.Text"
-                                       Color="Color.Inherit"
-                                       Class="@(_activeArtworkSlot == "background" ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
-                                       OnClick="@(() => _activeArtworkSlot = "background")">
-                                <MudIcon Icon="@Icons.Material.Outlined.Panorama" Size="Size.Small" />
-                                <span>Background</span>
-                            </AppButton>
-                        </div>
-                    }
                 }
 
                 @if (EditingCollection is not null)
                 {
                     <div class="collection-editor-rail-footer">
-                        <span>@(SupportsManualItems ? "Manual membership" : "Dynamic membership")</span>
-                        <small>@EditingCollection.ItemCount item(s)</small>
+                        @if (CanDeleteCollection)
+                        {
+                            <AppButton Variant="Variant.Outlined" Color="Color.Error"
+                                       StartIcon="@Icons.Material.Outlined.DeleteOutline"
+                                       OnClick="DeleteCollectionAsync" Disabled="@_saving">Delete collection</AppButton>
+                            <small>Media remains in your library.</small>
+                        }
                     </div>
                 }
             </nav>
@@ -87,6 +73,8 @@
                             @RenderDetailsTab()
                             break;
                         case "artwork":
+                        case "artwork-background":
+                        case "artwork-logo":
                             @RenderArtworkTab()
                             break;
                         case "rules":
@@ -99,7 +87,7 @@
                             @RenderHistoryTab()
                             break;
                         default:
-                            @RenderOptionsTab()
+                            @RenderDetailsTab()
                             break;
                     }
                 </div>
@@ -141,9 +129,10 @@
     [
         ("details", "Details", Icons.Material.Outlined.Article),
         ("artwork", "Artwork", Icons.Material.Outlined.PhotoLibrary),
+        ("artwork-background", "Background", Icons.Material.Outlined.Panorama),
+        ("artwork-logo", "Logo", Icons.Material.Outlined.BrandingWatermark),
         ("items", "Contents", Icons.Material.Outlined.Inventory2),
         ("rules", "Rules", Icons.Material.Outlined.FilterAlt),
-        ("options", "Behavior", Icons.Material.Outlined.AutoAwesome),
         ("history", "History", Icons.Material.Outlined.History),
     ];
     private static readonly (string Id, string Label, string Icon)[] PlaylistTabs = [("details", "Details", Icons.Material.Outlined.Article)];
@@ -171,15 +160,17 @@
     private string _name = string.Empty;
     private string? _description;
     private string? _iconName;
-    private IBrowserFile? _artworkFile;
-    private string? _artworkPreviewUrl;
+    private readonly Dictionary<string, IBrowserFile> _artworkFiles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _artworkPreviewUrls = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _removedArtworkSlots = new(StringComparer.OrdinalIgnoreCase);
     private string _collectionType = "Custom";
     private bool _rulesEnabled = true;
-    private List<CollectionRulePredicateViewModel> _rules = [new()];
-    private string _matchMode = "all";
-    private string _sortField = string.Empty;
-    private string _sortDirection = "desc";
-    private bool _liveUpdating = true;
+    private CollectionRuleDefinitionViewModel _ruleDefinition = new()
+    {
+        Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
+    };
+    private string _sortField = "title";
+    private string _sortDirection = "asc";
     private bool _isFeatured;
     private bool _saving;
     private bool _hasUnsavedChanges;
@@ -195,6 +186,8 @@
     private bool IsSmartPlaylist => string.Equals(_collectionType, "Smart", StringComparison.OrdinalIgnoreCase);
     private string PersistenceVisibility => IsPlaylistDialog || IsPlaylist || IsSmartPlaylist ? "private" : "shared";
     private bool SupportsManualItems => IsPlaylist || !_rulesEnabled;
+    private bool CanDeleteCollection => EditingCollection is not null
+        && EditingCollection.CollectionType is "Custom" or "Playlist" or "Smart";
     private string CollectionTypeIcon => !string.IsNullOrWhiteSpace(_iconName)
         ? _iconName
         : _collectionType switch
@@ -203,6 +196,19 @@
             "Playlist" => Icons.Material.Outlined.QueueMusic,
             _ => Icons.Material.Outlined.Collections,
         };
+
+    private string TabClass(string tabId)
+    {
+        var classes = new List<string> { "sme-section-nav__item" };
+        if (string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase))
+            classes.Add("is-active");
+        if (tabId.StartsWith("artwork-", StringComparison.OrdinalIgnoreCase))
+            classes.Add("is-nested");
+        if (string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
+            && _activeTab.StartsWith("artwork-", StringComparison.OrdinalIgnoreCase))
+            classes.Add("is-section-active");
+        return string.Join(' ', classes);
+    }
     private string DialogEyebrow => IsPlaylistDialog ? "Playlist editor" : "Collection editor";
     private string DialogTitle => EditingCollection is not null
         ? "Edit Collection"
@@ -254,7 +260,6 @@
             _collectionType = Request.InitialCollectionType ?? "Custom";
             _rulesEnabled = Request.InitialRulesEnabled ?? !IsPlaylist;
             _iconName = DefaultIconForCollectionType(_collectionType);
-            _liveUpdating = _rulesEnabled;
             return;
         }
 
@@ -265,10 +270,8 @@
         _description = EditingCollection.Description;
         _iconName = EditingCollection.IconName;
         _collectionType = EditingCollection.CollectionType;
-        _matchMode = EditingCollection.MatchMode;
-        _sortField = EditingCollection.SortField ?? string.Empty;
-        _sortDirection = string.IsNullOrWhiteSpace(EditingCollection.SortDirection) ? "desc" : EditingCollection.SortDirection;
-        _liveUpdating = EditingCollection.LiveUpdating;
+        _sortField = EditingCollection.SortField ?? "title";
+        _sortDirection = string.IsNullOrWhiteSpace(EditingCollection.SortDirection) ? "asc" : EditingCollection.SortDirection;
         _isFeatured = EditingCollection.IsFeatured;
         _rulesEnabled = !string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
@@ -277,20 +280,26 @@
 
         try
         {
-            var parsed = JsonSerializer.Deserialize<List<CollectionRulePredicateDto>>(
+            var parsed = JsonSerializer.Deserialize<CollectionRuleDefinitionDto>(
                 EditingCollection.RuleJson,
                 MediaEngineJson.CaseInsensitive);
 
-            if (parsed is { Count: > 0 })
+            if (parsed is { Groups.Count: > 0 })
             {
-                _rules = parsed.Select(rule => new CollectionRulePredicateViewModel
+                _ruleDefinition = new CollectionRuleDefinitionViewModel
                 {
-                    Field = rule.Field,
-                    Op = rule.Op,
-                    Value = rule.Value,
-                    DisplayValue = rule.DisplayValue,
-                    Values = rule.Values,
-                }).ToList();
+                    Version = parsed.Version,
+                    Groups = parsed.Groups.Select(group => new CollectionRuleGroupViewModel
+                    {
+                        Id = group.Id,
+                        MatchMode = group.MatchMode,
+                        Conditions = group.Conditions.Select(rule => new CollectionRulePredicateViewModel
+                        {
+                            Field = rule.Field, Op = rule.Op, Value = rule.Value,
+                            DisplayValue = rule.DisplayValue, Values = rule.Values,
+                        }).ToList(),
+                    }).ToList(),
+                };
                 if (!string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase))
                     _rulesEnabled = true;
             }
@@ -315,6 +324,13 @@
         }
 
         _activeTab = VisibleTabs[index].Id;
+        _activeArtworkSlot = _activeTab switch
+        {
+            "artwork-background" => "background",
+            "artwork-logo" => "logo",
+            "artwork" => "poster",
+            _ => _activeArtworkSlot,
+        };
         return Task.CompletedTask;
     }
 
@@ -355,7 +371,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (firstRender && _rulesEnabled && _rules.Any(IsCompleteRule))
+        if (firstRender && _rulesEnabled && _ruleDefinition.AllConditions.Any(IsCompleteRule))
             await RunPreview();
     }
 
@@ -472,7 +488,14 @@
     private async Task OnArtworkSelected(InputFileChangeEventArgs args)
     {
         var file = args.File;
-        _artworkFile = file;
+        var slot = IsPlaylistDialog ? "poster" : _activeArtworkSlot;
+        if (slot == "logo" && !string.Equals(Path.GetExtension(file.Name), ".png", StringComparison.OrdinalIgnoreCase))
+        {
+            Snackbar.Add("Collection logos must be transparent PNG files.", Severity.Warning);
+            return;
+        }
+        _artworkFiles[slot] = file;
+        _removedArtworkSlots.Remove(slot);
         MarkDirty();
 
         try
@@ -480,26 +503,19 @@
             await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
             using var ms = new MemoryStream();
             await stream.CopyToAsync(ms);
-            _artworkPreviewUrl = $"data:{file.ContentType ?? "image/jpeg"};base64,{Convert.ToBase64String(ms.ToArray())}";
+            _artworkPreviewUrls[slot] = $"data:{file.ContentType ?? "image/jpeg"};base64,{Convert.ToBase64String(ms.ToArray())}";
         }
         catch
         {
-            _artworkFile = null;
-            _artworkPreviewUrl = null;
+            _artworkFiles.Remove(slot);
+            _artworkPreviewUrls.Remove(slot);
             Snackbar.Add("Artwork preview could not be loaded.", Severity.Warning);
         }
     }
 
-    private Task OnMatchModeChanged(string value)
+    private Task OnRuleDefinitionChanged(CollectionRuleDefinitionViewModel definition)
     {
-        _matchMode = value;
-        MarkDirty();
-        return Task.CompletedTask;
-    }
-
-    private Task OnRuleBuilderRulesChanged(List<CollectionRulePredicateViewModel> rules)
-    {
-        _rules = rules;
+        _ruleDefinition = definition;
         return Task.CompletedTask;
     }
 
@@ -615,9 +631,7 @@
             return;
         }
 
-        var validRules = _rules
-            .Where(IsCompleteRule)
-            .ToList();
+        var validRules = _ruleDefinition.AllConditions.Where(IsCompleteRule).ToList();
 
         if (validRules.Count == 0)
         {
@@ -626,7 +640,7 @@
             return;
         }
 
-        _previewResult = await ApiClient.PreviewCollectionRulesAsync(validRules, _matchMode, 24);
+        _previewResult = await ApiClient.PreviewCollectionRulesAsync(_ruleDefinition, _sortField, _sortDirection, limit: 24);
         StateHasChanged();
     }
 
@@ -651,9 +665,7 @@
 
         try
         {
-            var rules = _rulesEnabled
-                ? _rules.Where(IsCompleteRule).ToList()
-                : [];
+            var definition = _rulesEnabled ? BuildPersistableDefinition() : new CollectionRuleDefinitionViewModel();
 
             var normalizedSortField = string.IsNullOrWhiteSpace(_sortField) ? null : _sortField;
             Guid? savedCollectionId = EditingCollection?.Id;
@@ -666,12 +678,10 @@
                     _name,
                     _description,
                     _iconName,
-                    rules,
-                    _matchMode,
+                    definition,
                     PersistenceVisibility,
                     normalizedSortField,
                     _sortDirection,
-                    _rulesEnabled && _liveUpdating,
                     true,
                     _isFeatured,
                     Request.ActiveProfileId);
@@ -683,11 +693,9 @@
                     _description,
                     _iconName,
                     _collectionType,
-                    rules,
-                    _matchMode,
+                    definition,
                     normalizedSortField,
                     _sortDirection,
-                    _rulesEnabled && _liveUpdating,
                     PersistenceVisibility,
                     Request.ActiveProfileId);
                 ok = savedCollectionId.HasValue;
@@ -699,12 +707,14 @@
                 return;
             }
 
-            if (savedCollectionId.HasValue && _artworkFile is not null)
+            if (savedCollectionId.HasValue)
             {
-                await using var stream = _artworkFile.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
-                var uploaded = await ApiClient.UploadCollectionCoverArtworkAsync(savedCollectionId.Value, stream, _artworkFile.Name, Request.ActiveProfileId);
-                if (!uploaded)
-                    Snackbar.Add("Collection saved, but artwork could not be uploaded.", Severity.Warning);
+                foreach (var (slot, file) in _artworkFiles)
+                {
+                    await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+                    if (!await ApiClient.UploadCollectionArtworkAsync(savedCollectionId.Value, slot, stream, file.Name, Request.ActiveProfileId))
+                        Snackbar.Add($"Collection saved, but {slot} artwork could not be uploaded.", Severity.Warning);
+                }
             }
 
             if (EditingCollection is null && SupportsManualItems && _manualItems.Count > 0)
@@ -812,6 +822,103 @@
         !string.IsNullOrWhiteSpace(rule.Field)
         && (IsValueFreeOperator(rule.Op) || !string.IsNullOrWhiteSpace(rule.Value) || rule.Values?.Length > 0);
 
+    private string? SelectedArtworkPreviewUrl => _artworkPreviewUrls.GetValueOrDefault(_activeArtworkSlot);
+    private string? CurrentArtworkUrl => _removedArtworkSlots.Contains(_activeArtworkSlot) ? null : _activeArtworkSlot switch
+    {
+        "background" => EditingCollection?.BackgroundUrl,
+        "logo" => EditingCollection?.LogoUrl,
+        _ => EditingCollection?.CoverUrl,
+    };
+    private string ArtworkSlotTitle => _activeArtworkSlot switch { "background" => "Background", "logo" => "Logo", _ => "Poster / Cover" };
+    private string ArtworkSlotDescription => _activeArtworkSlot switch
+    {
+        "background" => "Optional custom landscape artwork behind the collection detail presentation.",
+        "logo" => "Optional transparent collection branding shown without a boxed background.",
+        _ => "Automatic representative artwork or an optional custom portrait image.",
+    };
+    private string ArtworkUploadDescription => _activeArtworkSlot switch { "background" => "Upload a cinematic landscape image.", "logo" => "Upload transparent collection branding.", _ => "Upload a custom portrait image or keep the automatic stack." };
+    private string ArtworkFileRequirements => _activeArtworkSlot == "logo" ? "Transparent PNG, up to 5 MB" : "JPG or PNG, up to 5 MB";
+    private string ArtworkAccept => _activeArtworkSlot == "logo" ? ".png" : ".jpg,.jpeg,.png";
+    private string ArtworkGuidance => _activeArtworkSlot switch
+    {
+        "background" => "Use high-contrast 16:9 artwork near 1920 × 1080. Keep important subjects away from text areas.",
+        "logo" => "Use a wide transparent canvas near 1600 × 600 with generous clear padding. Do not bake in a background.",
+        _ => "Automatic stacked is the default and updates with membership. Custom posters work best at a 2:3 ratio near 1000 × 1500.",
+    };
+    private string ArtworkEmptyTitle => _activeArtworkSlot switch { "background" => "Neutral collection background", "logo" => "No custom logo", _ => "Automatic stacked artwork" };
+    private string ArtworkEmptyDescription => _activeArtworkSlot switch { "background" => "The standard Tuvima collection wash will be used until a custom background is uploaded.", "logo" => "The collection name remains the visual identity until a transparent logo is uploaded.", _ => "Representative item art appears as members become available." };
+    private string ArtworkSlotIcon => _activeArtworkSlot switch { "background" => Icons.Material.Outlined.Panorama, "logo" => Icons.Material.Outlined.BrandingWatermark, _ => Icons.Material.Outlined.AutoAwesomeMotion };
+    private IReadOnlyList<ArtworkStackItem> AutomaticArtworkItems => (SupportsManualItems
+            ? _manualItems.Select(item => (item.WorkId, item.Title, item.CoverUrl, item.MediaType))
+            : (_previewResult?.Items ?? []).Select(item => (item.EntityId, item.Title, item.CoverUrl, item.MediaType)))
+        .Where(item => !string.IsNullOrWhiteSpace(item.Item3))
+        .Take(4)
+        .Select(item => new ArtworkStackItem
+        {
+            Id = item.Item1.ToString("N"), WorkId = item.Item1, Title = item.Item2,
+            ImageUrl = item.Item3!, MediaType = item.Item4,
+            Shape = item.Item4.Equals("Music", StringComparison.OrdinalIgnoreCase) ? ArtworkShape.Square : ArtworkShape.Portrait,
+        }).ToList();
+
+    private async Task RemoveArtworkAsync()
+    {
+        if (EditingCollection is null)
+            return;
+        if (!await ApiClient.DeleteCollectionArtworkAsync(EditingCollection.Id, _activeArtworkSlot, Request.ActiveProfileId))
+        {
+            Snackbar.Add("Artwork could not be removed.", Severity.Error);
+            return;
+        }
+        _artworkFiles.Remove(_activeArtworkSlot);
+        _artworkPreviewUrls.Remove(_activeArtworkSlot);
+        _removedArtworkSlots.Add(_activeArtworkSlot);
+        Snackbar.Add(_activeArtworkSlot == "poster" ? "Automatic stacked artwork restored." : $"{ArtworkSlotTitle} removed.", Severity.Success);
+    }
+
+    private CollectionRuleDefinitionViewModel BuildPersistableDefinition() => new()
+    {
+        Version = _ruleDefinition.Version,
+        Groups = _ruleDefinition.Groups
+            .Select(group => new CollectionRuleGroupViewModel
+            {
+                Id = group.Id,
+                MatchMode = group.MatchMode,
+                Conditions = group.Conditions.Where(IsCompleteRule).ToList(),
+            })
+            .Where(group => group.Conditions.Count > 0)
+            .ToList(),
+    };
+
+    private async Task DeleteCollectionAsync()
+    {
+        if (!CanDeleteCollection || EditingCollection is null)
+            return;
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            $"Delete collection '{EditingCollection.Name}'? The media in it will remain in your library.");
+        if (!confirmed)
+            return;
+
+        _saving = true;
+        try
+        {
+            if (!await ApiClient.DeleteCollectionAsync(EditingCollection.Id, Request.ActiveProfileId))
+            {
+                Snackbar.Add("The collection could not be deleted.", Severity.Error);
+                return;
+            }
+
+            _hasUnsavedChanges = false;
+            Snackbar.Add($"Collection \"{EditingCollection.Name}\" deleted.", Severity.Success);
+            await CloseEditorAsync(applied: true);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
     private sealed record ManualCollectionItem
     {
         public Guid Id { get; init; }
@@ -843,9 +950,9 @@
                     @if (IsPlaylistDialog)
                     {
                         <label class="app-artwork-picker collection-editor-artwork-picker">
-                            @if (!string.IsNullOrWhiteSpace(_artworkPreviewUrl))
+                            @if (_artworkPreviewUrls.TryGetValue("poster", out var playlistPreview))
                             {
-                                <img src="@_artworkPreviewUrl" alt="Selected playlist artwork" />
+                                <img src="@playlistPreview" alt="Selected playlist artwork" />
                             }
                             else if (!string.IsNullOrWhiteSpace(EditingCollection?.CoverUrl))
                             {
@@ -874,7 +981,7 @@
                                  Placeholder="Describe what belongs here"
                                  Lines="5"
                                  Immediate="true"
-                                 Class="collection-editor-field" />
+                                 Class="collection-editor-field collection-editor-field--multiline" />
                 </MediaEditorPanel>
 
                 @if (!IsPlaylistDialog)
@@ -903,6 +1010,13 @@
                             }
                         </AppSelect>
                     </MediaEditorPanel>
+
+                    @if (EditingCollection is not null)
+                    {
+                        <MediaEditorPanel Title="Discovery & placement" Description="Choose whether this curated collection is highlighted on supported collection surfaces.">
+                            <AppCheckbox @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
+                        </MediaEditorPanel>
+                    }
                 }
             </div>
 
@@ -942,52 +1056,62 @@
     </div>;
 
     private RenderFragment RenderArtworkTab() => @<div class="collection-editor-pane collection-editor-artwork-page">
-        @if (_activeArtworkSlot == "background")
-        {
-            <MediaEditorPanel Title="Background" Description="Landscape artwork used behind the collection detail presentation.">
-                <div class="collection-editor-empty collection-editor-empty--artwork">
-                    <MudIcon Icon="@Icons.Material.Outlined.Panorama" />
-                    <strong>No collection background is configured</strong>
-                    <span>Background artwork requires its own collection asset slot and is never stored in the poster field.</span>
+        <div class="collection-editor-artwork-grid">
+            <MediaEditorPanel Title="@ArtworkSlotTitle" Description="@ArtworkSlotDescription">
+                <div class="collection-editor-artwork-preview @($"is-{_activeArtworkSlot}")">
+                    @if (!string.IsNullOrWhiteSpace(SelectedArtworkPreviewUrl))
+                    {
+                        <img src="@SelectedArtworkPreviewUrl" alt="Selected @ArtworkSlotTitle artwork" />
+                    }
+                    else if (!string.IsNullOrWhiteSpace(CurrentArtworkUrl))
+                    {
+                        <img src="@CurrentArtworkUrl" alt="Current @ArtworkSlotTitle artwork" />
+                    }
+                    else if (_activeArtworkSlot == "poster" && AutomaticArtworkItems.Count > 0)
+                    {
+                        <div class="collection-editor-automatic-stack">
+                            <MediaArtworkGroupPreview Items="@AutomaticArtworkItems" TotalCount="@(EditingCollection?.ItemCount ?? AutomaticArtworkItems.Count)"
+                                                      Layout="MediaArtworkGroupPreviewLayout.Cluster" ShowOverflowCount="false"
+                                                      AriaLabel="Automatic stacked collection artwork" />
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="collection-editor-empty collection-editor-empty--artwork">
+                            <MudIcon Icon="@ArtworkSlotIcon" />
+                            <strong>@ArtworkEmptyTitle</strong>
+                            <span>@ArtworkEmptyDescription</span>
+                        </div>
+                    }
+                </div>
+
+                @if (_activeArtworkSlot == "poster")
+                {
+                    <div class="collection-editor-artwork-choice is-selected">
+                        <MudIcon Icon="@Icons.Material.Outlined.AutoAwesomeMotion" />
+                        <div><strong>Automatic stacked</strong><span>Uses up to four representative items and stays current as membership changes.</span></div>
+                    </div>
+                }
+            </MediaEditorPanel>
+
+            <MediaEditorPanel Title="Add or replace artwork" Description="@ArtworkUploadDescription">
+                <label class="collection-editor-upload">
+                    <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" />
+                    <strong>Upload file</strong>
+                    <span>@ArtworkFileRequirements</span>
+                    <InputFile OnChange="OnArtworkSelected" accept="@ArtworkAccept" />
+                </label>
+                @if (!string.IsNullOrWhiteSpace(CurrentArtworkUrl) && EditingCollection is not null)
+                {
+                    <AppButton Variant="Variant.Outlined" Color="Color.Error" StartIcon="@Icons.Material.Outlined.Restore"
+                               OnClick="RemoveArtworkAsync">@(_activeArtworkSlot == "poster" ? "Use Automatic stacked" : "Remove artwork")</AppButton>
+                }
+                <div class="collection-editor-artwork-tip">
+                    <MudIcon Icon="@Icons.Material.Outlined.Info" />
+                    <span>@ArtworkGuidance</span>
                 </div>
             </MediaEditorPanel>
-        }
-        else
-        {
-            <div class="collection-editor-artwork-grid">
-                <MediaEditorPanel Title="Poster / Cover" Description="Primary artwork used for this collection across library surfaces.">
-                    <div class="collection-editor-artwork-preview">
-                        @if (!string.IsNullOrWhiteSpace(_artworkPreviewUrl))
-                        {
-                            <img src="@_artworkPreviewUrl" alt="Selected collection artwork" />
-                        }
-                        else if (!string.IsNullOrWhiteSpace(EditingCollection?.CoverUrl))
-                        {
-                            <img src="@EditingCollection.CoverUrl" alt="Current collection artwork" />
-                        }
-                        else
-                        {
-                            <div class="collection-editor-artwork-fallback">
-                                <MudIcon Icon="@CollectionTypeIcon" />
-                            </div>
-                        }
-                    </div>
-                </MediaEditorPanel>
-
-                <MediaEditorPanel Title="Add or replace artwork" Description="Upload a portrait image for the collection poster or cover.">
-                    <label class="collection-editor-upload">
-                        <MudIcon Icon="@Icons.Material.Outlined.CloudUpload" />
-                        <strong>Upload file</strong>
-                        <span>JPG or PNG, up to 5 MB</span>
-                        <InputFile OnChange="OnArtworkSelected" accept=".jpg,.jpeg,.png" />
-                    </label>
-                    <div class="collection-editor-artwork-tip">
-                        <MudIcon Icon="@Icons.Material.Outlined.Info" />
-                        <span>Use vertical artwork close to a 2:3 ratio. The selected image is saved with the collection.</span>
-                    </div>
-                </MediaEditorPanel>
-            </div>
-        }
+        </div>
     </div>;
 
     private RenderFragment RenderHistoryTab() => @<div class="collection-editor-pane">
@@ -1021,14 +1145,15 @@
     private RenderFragment RenderRulesSection() => @<section class="collection-editor-section collection-editor-section--rules">
         @if (_rulesEnabled)
         {
-            <CollectionRuleBuilder Rules="@_rules"
-                                   RulesChanged="OnRuleBuilderRulesChanged"
-                                   MatchMode="@_matchMode"
-                                   MatchModeChanged="OnMatchModeChanged"
+            <CollectionRuleBuilder Definition="@_ruleDefinition"
+                                   DefinitionChanged="OnRuleDefinitionChanged"
+                                   SortField="@_sortField"
+                                   SortFieldChanged="@(value => { _sortField = value ?? "title"; MarkDirty(); })"
+                                   SortDirection="@_sortDirection"
+                                   SortDirectionChanged="@(value => { _sortDirection = value; MarkDirty(); })"
                                    Preview="@_previewResult"
                                    PreviewChanged="OnRuleBuilderPreviewChanged"
                                    Changed="OnRuleBuilderChanged"
-                                   IsPlaylist="@IsPlaylist"
                                    Density="editor" />
         }
         else
@@ -1190,49 +1315,5 @@
             }
         </section>
     </div>;
-
-    private RenderFragment RenderOptionsTab() => @<div class="collection-editor-pane">
-        @RenderOptionsSection()
-    </div>;
-
-    private RenderFragment RenderOptionsSection() => @<section class="collection-editor-section">
-        <div class="collection-editor-section-title">Options</div>
-
-        <div class="collection-editor-grid">
-            <AppSelect T="string" @bind-Value="_sortField" Label="Sort field" Variant="Variant.Outlined" Class="collection-editor-field">
-                <MudSelectItem T="string" Value="@string.Empty">Library default</MudSelectItem>
-                <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
-                <MudSelectItem T="string" Value="@("creator")">Creator</MudSelectItem>
-                <MudSelectItem T="string" Value="@("year")">Year</MudSelectItem>
-                <MudSelectItem T="string" Value="@("added_at")">Date Added</MudSelectItem>
-            </AppSelect>
-
-            <AppSelect T="string" @bind-Value="_sortDirection" Label="Sort direction" Variant="Variant.Outlined" Class="collection-editor-field">
-                <MudSelectItem T="string" Value="@("asc")">Ascending</MudSelectItem>
-                <MudSelectItem T="string" Value="@("desc")">Descending</MudSelectItem>
-            </AppSelect>
-        </div>
-
-        @if (!SupportsManualItems)
-        {
-            <AppCheckbox @bind-Value="_liveUpdating" Color="Color.Primary" Dense="true" Label="Live updating" />
-            <div class="collection-editor-note collection-editor-note--tight">
-                <span>When enabled, this collection re-evaluates itself as the library changes.</span>
-            </div>
-        }
-        else
-        {
-            <div class="collection-editor-note collection-editor-note--tight">
-                <span>Manual collections keep the items you save. Sort settings act as defaults when the collection is displayed elsewhere.</span>
-            </div>
-        }
-
-        @if (EditingCollection is not null)
-        {
-            <div class="collection-editor-toggle-grid">
-                <AppCheckbox @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
-            </div>
-        }
-    </section>;
 
 }

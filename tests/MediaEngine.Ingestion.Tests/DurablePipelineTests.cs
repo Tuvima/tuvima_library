@@ -1659,7 +1659,7 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<IReadOnlyList<CollectionItem>> GetCollectionItemsAsync(Guid collectionId, int limit = 20, CancellationToken ct = default) => Task.FromResult<IReadOnlyList<CollectionItem>>([]);
         public Task<int> GetCollectionItemCountAsync(Guid collectionId, CancellationToken ct = default) => Task.FromResult(0);
         public Task<Dictionary<Guid, int>> GetCollectionItemCountsAsync(IEnumerable<Guid> collectionIds, CancellationToken ct = default) => Task.FromResult(new Dictionary<Guid, int>());
-        public Task UpdateCollectionCoverArtworkAsync(Guid collectionId, string? localPath, string? mimeType, CancellationToken ct = default) => Task.CompletedTask;
+        public Task UpdateCollectionArtworkAsync(Guid collectionId, string slot, string? localPath, string? mimeType, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionEnabledAsync(Guid collectionId, bool enabled, CancellationToken ct = default) => Task.CompletedTask;
         public Task UpdateCollectionFeaturedAsync(Guid collectionId, bool featured, CancellationToken ct = default) => Task.CompletedTask;
         public Task AddCollectionItemAsync(CollectionItem item, CancellationToken ct = default) => Task.CompletedTask;

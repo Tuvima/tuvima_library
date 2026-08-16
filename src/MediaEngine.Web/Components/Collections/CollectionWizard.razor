@@ -18,7 +18,7 @@
             <div class="collection-setup-header__copy">
                 <div class="collection-setup-header__kicker">Guided setup</div>
                 <h2>@DialogTitle</h2>
-                <p>Set the essentials now, then use the full editor for artwork, contents, rules, and behavior.</p>
+                <p>Set the essentials and membership rules now, then refine artwork and contents in the same full editor.</p>
             </div>
             <AppIconButton Icon="@Icons.Material.Outlined.Close"
                            Size="Size.Small"
@@ -94,10 +94,14 @@
     private string _name = string.Empty;
     private string? _description;
     private bool _dynamic;
-    private string _matchMode = "all";
+    private string _sortField = "title";
+    private string _sortDirection = "asc";
     private bool _dirty;
     private bool _saving;
-    private List<CollectionRulePredicateViewModel> _rules = [];
+    private CollectionRuleDefinitionViewModel _ruleDefinition = new()
+    {
+        Groups = [new CollectionRuleGroupViewModel { Conditions = [new CollectionRulePredicateViewModel()] }],
+    };
     private CollectionPreviewResult? _preview;
 
     private bool IsPlaylist => _mode is CollectionEditorMode.ManualPlaylist or CollectionEditorMode.SmartPlaylist;
@@ -110,7 +114,7 @@
     private bool CanContinue => _step switch
     {
         1 => !string.IsNullOrWhiteSpace(_name),
-        2 => !_dynamic || _rules.Any(IsCompleteRule),
+        2 => !_dynamic || _ruleDefinition.AllConditions.Any(IsCompleteRule),
         _ => true,
     };
 
@@ -195,14 +199,15 @@
     </div>;
 
     private RenderFragment RenderDynamicContents() => @<CollectionRuleBuilder @ref="_ruleBuilder"
-                                                                                  Rules="@_rules"
-                                                                                  RulesChanged="OnRulesChanged"
-                                                                                  MatchMode="@_matchMode"
-                                                                                  MatchModeChanged="OnMatchModeChanged"
+                                                                                  Definition="@_ruleDefinition"
+                                                                                  DefinitionChanged="OnDefinitionChanged"
+                                                                                  SortField="@_sortField"
+                                                                                  SortFieldChanged="@(value => _sortField = value ?? "title")"
+                                                                                  SortDirection="@_sortDirection"
+                                                                                  SortDirectionChanged="@(value => _sortDirection = value)"
                                                                                   Preview="@_preview"
                                                                                   PreviewChanged="OnPreviewChanged"
                                                                                   Changed="OnRuleBuilderChanged"
-                                                                                  IsPlaylist="@IsPlaylist"
                                                                                   Density="wizard" />;
 
     private RenderFragment RenderReviewStep() => @<section class="collection-wizard__step collection-wizard__review">
@@ -234,7 +239,7 @@
             <div class="collection-wizard__review-panel">
                 <strong>Automatically includes items where:</strong>
                 <div class="collection-wizard__review-rules">
-                    @foreach (var rule in _rules.Where(IsCompleteRule))
+                    @foreach (var rule in _ruleDefinition.AllConditions.Where(IsCompleteRule))
                     {
                         <div @key="rule"><MudIcon Icon="@IconForRule(rule.Field)" /> <span>@HumanizeRule(rule)</span></div>
                     }
@@ -247,7 +252,7 @@
     {
         get
         {
-            var people = _rules
+            var people = _ruleDefinition.AllConditions
                 .Where(rule => rule.Field == "person_qid")
                 .Select(rule => rule.DisplayValue ?? rule.Value)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -318,15 +323,9 @@
         return Task.CompletedTask;
     }
 
-    private Task OnRulesChanged(List<CollectionRulePredicateViewModel> rules)
+    private Task OnDefinitionChanged(CollectionRuleDefinitionViewModel definition)
     {
-        _rules = rules;
-        return Task.CompletedTask;
-    }
-
-    private Task OnMatchModeChanged(string value)
-    {
-        _matchMode = value;
+        _ruleDefinition = definition;
         return Task.CompletedTask;
     }
 
@@ -352,11 +351,9 @@
                 string.IsNullOrWhiteSpace(_description) ? null : _description.Trim(),
                 IsPlaylist ? Icons.Material.Outlined.QueueMusic : Icons.Material.Outlined.Collections,
                 CollectionType,
-                _dynamic ? _rules.Where(IsCompleteRule).ToList() : [],
-                _matchMode,
-                null,
-                "desc",
-                _dynamic,
+                _dynamic ? BuildPersistableDefinition() : new CollectionRuleDefinitionViewModel(),
+                _sortField,
+                _sortDirection,
                 IsPlaylist ? "private" : "shared",
                 [],
                 Request.ActiveProfileId);
@@ -394,6 +391,16 @@
     private static bool IsCompleteRule(CollectionRulePredicateViewModel rule) =>
         !string.IsNullOrWhiteSpace(rule.Field)
         && (rule.Op is "known" or "unknown" || (rule.Values?.Length > 0) || !string.IsNullOrWhiteSpace(rule.Value));
+    private CollectionRuleDefinitionViewModel BuildPersistableDefinition() => new()
+    {
+        Version = _ruleDefinition.Version,
+        Groups = _ruleDefinition.Groups.Select(group => new CollectionRuleGroupViewModel
+        {
+            Id = group.Id,
+            MatchMode = group.MatchMode,
+            Conditions = group.Conditions.Where(IsCompleteRule).ToList(),
+        }).Where(group => group.Conditions.Count > 0).ToList(),
+    };
     private static string RuleLabel(string field) => field switch { "media_type" => "Media type", "provider_rating" => "Rating", "added_within_days" => "Date", "fictional_universe" => "Universe", _ => char.ToUpperInvariant(field[0]) + field[1..].Replace('_', ' ') };
     private static string IconForRule(string field) => field switch
     {

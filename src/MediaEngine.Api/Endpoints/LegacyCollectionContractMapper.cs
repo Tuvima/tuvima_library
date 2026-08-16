@@ -94,4 +94,15 @@ internal static class LegacyCollectionContractMapper
         DisplayValue = source.DisplayValue,
         Values = source.Values,
     };
+
+    public static MediaEngine.Domain.Models.CollectionRuleDefinition ToDomain(this CollectionRuleDefinitionDto source) => new()
+    {
+        Version = source.Version,
+        Groups = source.Groups.Select(group => new MediaEngine.Domain.Models.CollectionRuleGroup
+        {
+            Id = group.Id,
+            MatchMode = group.MatchMode,
+            Conditions = group.Conditions.Select(ToDomain).ToList(),
+        }).ToList(),
+    };
 }

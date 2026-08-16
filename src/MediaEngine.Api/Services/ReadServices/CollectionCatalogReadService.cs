@@ -191,7 +191,11 @@ public sealed class CollectionCatalogReadService(
                 .Distinct()
                 .Take(take)
                 .ToList();
-            dtos = await ResolveCollectionWorkIdsToItemsAsync(collectionId, workIds, ct).ConfigureAwait(false);
+            dtos = await ResolveCollectionWorkIdsToItemsAsync(
+                collectionId,
+                workIds,
+                preserveRequestedOrder: false,
+                ct).ConfigureAwait(false);
         }
         else if (collection.Resolution == CollectionResolution.Materialized)
         {
@@ -204,7 +208,11 @@ public sealed class CollectionCatalogReadService(
                 .Distinct()
                 .Take(take)
                 .ToList();
-            dtos = await ResolveCollectionWorkIdsToItemsAsync(collectionId, workIds, ct).ConfigureAwait(false);
+            dtos = await ResolveCollectionWorkIdsToItemsAsync(
+                collectionId,
+                workIds,
+                preserveRequestedOrder: true,
+                ct).ConfigureAwait(false);
         }
 
         return new CollectionItemReadResult(true, false, dtos);
@@ -418,7 +426,7 @@ public sealed class CollectionCatalogReadService(
     private static IEnumerable<CatalogPersonReference> GetCatalogPersonReferences(Collection collection)
     {
         var foundExplicitReference = false;
-        foreach (var rule in CollectionRuleEvaluator.ParseRules(collection.RuleJson))
+        foreach (var rule in CollectionRuleEvaluator.ParseDefinition(collection.RuleJson).AllConditions)
         {
             var field = rule.Field.Trim().ToLowerInvariant();
             if (!IsExactPersonRule(rule, field))
@@ -780,16 +788,15 @@ public sealed class CollectionCatalogReadService(
         if (collection.Resolution == CollectionResolution.Query
             && !string.IsNullOrWhiteSpace(collection.RuleJson))
         {
-            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-            if (predicates.Count == 0)
+            var definition = CollectionRuleEvaluator.ParseDefinition(collection.RuleJson);
+            if (definition.AllConditions.Count == 0)
             {
                 return [];
             }
 
             var evaluator = new CollectionRuleEvaluator(db);
             return evaluator.Evaluate(
-                predicates,
-                collection.MatchMode.ToStorageValue(),
+                definition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
                 0);
@@ -918,6 +925,7 @@ public sealed class CollectionCatalogReadService(
                 INNER JOIN work_tree ON child.parent_work_id = work_tree.WorkId
             )
             SELECT DISTINCT
+                   SourceWorkId,
                    CASE
                        WHEN LOWER(RootMediaType) LIKE '%tv%'
                          OR LOWER(RootMediaType) LIKE '%comic%'
@@ -939,8 +947,11 @@ public sealed class CollectionCatalogReadService(
             new { WorkIds = workIds.Select(GuidSql.ToBlob).ToArray() },
             cancellationToken: ct)).ConfigureAwait(false);
 
-        return rows
-            .Select(row => row.WorkId)
+        var rowsBySource = rows
+            .GroupBy(row => row.SourceWorkId ?? row.WorkId)
+            .ToDictionary(group => group.Key, group => group.Select(row => row.WorkId).ToList());
+        return workIds
+            .SelectMany(workId => rowsBySource.GetValueOrDefault(workId) ?? [])
             .Distinct()
             .ToList();
     }
@@ -986,6 +997,7 @@ public sealed class CollectionCatalogReadService(
     private async Task<List<CollectionItemDto>> ResolveCollectionWorkIdsToItemsAsync(
         Guid collectionId,
         IReadOnlyList<Guid> workIds,
+        bool preserveRequestedOrder,
         CancellationToken ct)
     {
         var displayWorkIds = await GetCollectionCatalogDisplayWorkIdsAsync(workIds, ct).ConfigureAwait(false);
@@ -1099,10 +1111,18 @@ public sealed class CollectionCatalogReadService(
             },
             cancellationToken: ct))).ToList();
 
-        return rows
+        var requestedPosition = displayWorkIds
+            .Select((workId, index) => (workId, index))
+            .ToDictionary(entry => entry.workId, entry => entry.index);
+        var selectedRows = rows
             .GroupBy(row => row.WorkId)
-            .Select(group => group.OrderBy(row => row.SortOrder).ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase).First())
-            .Select(row => new CollectionItemDto
+            .Select(group => group.OrderBy(row => row.SortOrder).ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase).First());
+        selectedRows = preserveRequestedOrder
+            ? selectedRows.OrderBy(row => requestedPosition.GetValueOrDefault(row.WorkId, int.MaxValue))
+            : selectedRows.OrderBy(row => row.SortOrder).ThenBy(row => row.Title, StringComparer.OrdinalIgnoreCase);
+
+        return selectedRows
+            .Select((row, index) => new CollectionItemDto
             {
                 Id = DeterministicCollectionItemId(collectionId, row.WorkId),
                 WorkId = row.WorkId,
@@ -1110,7 +1130,7 @@ public sealed class CollectionCatalogReadService(
                 Creator = ToNullableText(row.Creator),
                 MediaType = row.MediaType,
                 CoverUrl = row.CoverUrl,
-                SortOrder = row.SortOrder,
+                SortOrder = preserveRequestedOrder ? index : row.SortOrder,
                 DetailRoute = BuildCollectionItemDetailRoute(row),
             }).ToList();
     }
@@ -1417,7 +1437,11 @@ public sealed class CollectionCatalogReadService(
         public int SortOrder { get; init; }
     }
 
-    private sealed record CollectionDisplayWorkRow(Guid WorkId);
+    private sealed class CollectionDisplayWorkRow
+    {
+        public Guid WorkId { get; init; }
+        public Guid? SourceWorkId { get; init; }
+    }
 
     private sealed record CollectionCatalogAggregation(string Key, string? Label);
 

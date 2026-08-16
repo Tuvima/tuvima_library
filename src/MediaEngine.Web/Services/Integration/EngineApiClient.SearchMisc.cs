@@ -450,14 +450,16 @@ public sealed partial class EngineApiClient
     }
 
     public async Task<CollectionPreviewResult?> PreviewCollectionRulesAsync(
-        List<CollectionRulePredicateViewModel> rules, string matchMode, int limit = 20, CancellationToken ct = default)
+        CollectionRuleDefinitionViewModel definition, string? sortField, string sortDirection, string? query = null, int limit = 20, CancellationToken ct = default)
     {
         try
         {
             var body = new CollectionPreviewRequest
             {
-                Rules = rules.Select(ToContract).ToList(),
-                MatchMode = matchMode,
+                RuleDefinition = ToContract(definition),
+                SortField = sortField,
+                SortDirection = sortDirection,
+                Query = query,
                 Limit = limit,
             };
             var response = await _http.PostAsJsonAsync("/collections/preview", body, ct);
@@ -487,6 +489,7 @@ public sealed partial class EngineApiClient
 
     public async Task<IReadOnlyList<CollectionRuleValueDto>> GetCollectionEntityFieldValuesAsync(
         string field,
+        string? query = null,
         int limit = 100,
         CancellationToken ct = default)
     {
@@ -494,12 +497,13 @@ public sealed partial class EngineApiClient
             "GET /collections/entity-field-values/{field}",
             $"/collections/entity-field-values/{Uri.EscapeDataString(field)}",
             static () => [],
-            new Dictionary<string, string?> { ["limit"] = Math.Clamp(limit, 1, 500).ToString() },
+            new Dictionary<string, string?> { ["q"] = query, ["limit"] = Math.Clamp(limit, 1, 500).ToString() },
             ct: ct);
     }
 
     public async Task<IReadOnlyList<string>> GetCollectionFieldValuesAsync(
         string field,
+        string? query = null,
         int limit = 100,
         CancellationToken ct = default)
     {
@@ -507,7 +511,7 @@ public sealed partial class EngineApiClient
             "GET /collections/field-values/{field}",
             $"/collections/field-values/{Uri.EscapeDataString(field)}",
             static () => [],
-            new Dictionary<string, string?> { ["limit"] = Math.Clamp(limit, 1, 500).ToString() },
+            new Dictionary<string, string?> { ["q"] = query, ["limit"] = Math.Clamp(limit, 1, 500).ToString() },
             ct: ct);
     }
 
@@ -516,41 +520,35 @@ public sealed partial class EngineApiClient
         string? description,
         string? iconName,
         string collectionType,
-        List<CollectionRulePredicateViewModel> rules,
-        string matchMode,
+        CollectionRuleDefinitionViewModel definition,
         string? sortField,
         string sortDirection,
-        bool liveUpdating,
         string visibility,
         Guid? profileId = null,
         CancellationToken ct = default)
-        => await CreateCollectionAndReturnIdAsync(name, description, iconName, collectionType, rules, matchMode, sortField, sortDirection, liveUpdating, visibility, profileId, ct) is not null;
+        => await CreateCollectionAndReturnIdAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, profileId, ct) is not null;
 
     public async Task<Guid?> CreateCollectionAndReturnIdAsync(
         string name,
         string? description,
         string? iconName,
         string collectionType,
-        List<CollectionRulePredicateViewModel> rules,
-        string matchMode,
+        CollectionRuleDefinitionViewModel definition,
         string? sortField,
         string sortDirection,
-        bool liveUpdating,
         string visibility,
         Guid? profileId = null,
         CancellationToken ct = default)
-        => await CreateCollectionWithItemsAsync(name, description, iconName, collectionType, rules, matchMode, sortField, sortDirection, liveUpdating, visibility, [], profileId, ct);
+        => await CreateCollectionWithItemsAsync(name, description, iconName, collectionType, definition, sortField, sortDirection, visibility, [], profileId, ct);
 
     public async Task<Guid?> CreateCollectionWithItemsAsync(
         string name,
         string? description,
         string? iconName,
         string collectionType,
-        List<CollectionRulePredicateViewModel> rules,
-        string matchMode,
+        CollectionRuleDefinitionViewModel definition,
         string? sortField,
         string sortDirection,
-        bool liveUpdating,
         string visibility,
         IReadOnlyList<Guid> workIds,
         Guid? profileId = null,
@@ -565,11 +563,9 @@ public sealed partial class EngineApiClient
                 IconName = iconName,
                 Visibility = visibility,
                 CollectionType = collectionType,
-                Rules = rules.Select(ToContract).ToList(),
-                MatchMode = matchMode,
+                RuleDefinition = ToContract(definition),
                 SortField = sortField,
                 SortDirection = sortDirection,
-                LiveUpdating = liveUpdating,
                 WorkIds = workIds.Where(id => id != Guid.Empty).Distinct().ToList(),
             };
             var url = AppendCollectionProfileQuery("/collections", profileId);
@@ -593,12 +589,10 @@ public sealed partial class EngineApiClient
         string? name,
         string? description,
         string? iconName,
-        List<CollectionRulePredicateViewModel>? rules,
-        string? matchMode,
+        CollectionRuleDefinitionViewModel? definition,
         string? visibility,
         string? sortField,
         string? sortDirection,
-        bool? liveUpdating,
         bool? isEnabled,
         bool? isFeatured,
         Guid? profileId = null,
@@ -612,11 +606,9 @@ public sealed partial class EngineApiClient
                 Description = description,
                 IconName = iconName,
                 Visibility = visibility,
-                Rules = rules?.Select(ToContract).ToList(),
-                MatchMode = matchMode,
+                RuleDefinition = definition is null ? null : ToContract(definition),
                 SortField = sortField,
                 SortDirection = sortDirection,
-                LiveUpdating = liveUpdating,
                 IsEnabled = isEnabled,
                 IsFeatured = isFeatured,
             };
@@ -641,8 +633,28 @@ public sealed partial class EngineApiClient
         Values = source.Values,
     };
 
-    public async Task<bool> UploadCollectionCoverArtworkAsync(
+    private static CollectionRuleDefinitionDto ToContract(CollectionRuleDefinitionViewModel source) => new()
+    {
+        Version = source.Version,
+        Groups = source.Groups.Select(group => new CollectionRuleGroupDto
+        {
+            Id = group.Id,
+            MatchMode = group.MatchMode,
+            Conditions = group.Conditions.Select(ToContract).ToList(),
+        }).ToList(),
+    };
+
+    public async Task<bool> DeleteCollectionAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default)
+    {
+        return await DeleteAsync(
+            "DELETE /collections/{id}",
+            AppendCollectionProfileQuery($"/collections/{collectionId}", profileId),
+            ct: ct);
+    }
+
+    public async Task<bool> UploadCollectionArtworkAsync(
         Guid collectionId,
+        string slot,
         Stream fileStream,
         string fileName,
         Guid? profileId = null,
@@ -655,16 +667,24 @@ public sealed partial class EngineApiClient
             fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(GetImageContentType(fileName));
             content.Add(fileContent, "file", fileName);
 
-            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/cover-artwork", profileId);
+            var url = AppendCollectionProfileQuery($"/collections/{collectionId}/artwork/{Uri.EscapeDataString(slot)}", profileId);
             var response = await _http.PostAsync(url, content, ct);
             return response.IsSuccessStatusCode;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "POST /collections/{CollectionId}/cover-artwork failed", collectionId);
+            _logger.LogWarning(ex, "POST /collections/{CollectionId}/artwork/{Slot} failed", collectionId, slot);
             LastError = ex.Message;
             return false;
         }
+    }
+
+    public async Task<bool> DeleteCollectionArtworkAsync(Guid collectionId, string slot, Guid? profileId = null, CancellationToken ct = default)
+    {
+        return await DeleteAsync(
+            "DELETE /collections/{id}/artwork/{slot}",
+            AppendCollectionProfileQuery($"/collections/{collectionId}/artwork/{Uri.EscapeDataString(slot)}", profileId),
+            ct: ct);
     }
 
 }

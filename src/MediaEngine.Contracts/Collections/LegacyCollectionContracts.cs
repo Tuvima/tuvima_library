@@ -116,10 +116,24 @@ public sealed class CollectionRulePredicateDto
     [JsonPropertyName("values")] public string[]? Values { get; init; }
 }
 
+public sealed class CollectionRuleGroupDto
+{
+    [JsonPropertyName("id")] public string Id { get; init; } = Guid.NewGuid().ToString("N");
+    [JsonPropertyName("match_mode")] public string MatchMode { get; init; } = "all";
+    [JsonPropertyName("conditions")] public List<CollectionRulePredicateDto> Conditions { get; init; } = [];
+}
+
+public sealed class CollectionRuleDefinitionDto
+{
+    [JsonPropertyName("version")] public int Version { get; init; } = 1;
+    [JsonPropertyName("groups")] public List<CollectionRuleGroupDto> Groups { get; init; } = [];
+}
+
 public sealed record CollectionRuleValueDto(
     [property: JsonPropertyName("value")] string Value,
     [property: JsonPropertyName("label")] string Label,
-    [property: JsonPropertyName("local_count")] int LocalCount);
+    [property: JsonPropertyName("local_count")] int LocalCount,
+    [property: JsonPropertyName("group")] string Group = "Cross-media");
 
 public sealed class CollectionCreateRequest
 {
@@ -128,12 +142,10 @@ public sealed class CollectionCreateRequest
     [JsonPropertyName("visibility")] public string Visibility { get; init; } = "private";
     [JsonPropertyName("icon_name")] public string? IconName { get; init; }
     [JsonPropertyName("collection_type")] public string CollectionType { get; init; } = "Custom";
-    [JsonPropertyName("rules")] public List<CollectionRulePredicateDto> Rules { get; init; } = [];
-    [JsonPropertyName("match_mode")] public string MatchMode { get; init; } = "all";
+    [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto RuleDefinition { get; init; } = new();
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string SortDirection { get; init; } = "desc";
     [JsonPropertyName("display_limit")] public int DisplayLimit { get; init; }
-    [JsonPropertyName("live_updating")] public bool LiveUpdating { get; init; } = true;
     [JsonPropertyName("placements")] public List<CollectionPlacementRequest>? Placements { get; init; }
     [JsonPropertyName("work_ids")] public List<Guid> WorkIds { get; init; } = [];
 }
@@ -152,19 +164,19 @@ public sealed class CollectionUpdateRequest
     [JsonPropertyName("description")] public string? Description { get; init; }
     [JsonPropertyName("visibility")] public string? Visibility { get; init; }
     [JsonPropertyName("icon_name")] public string? IconName { get; init; }
-    [JsonPropertyName("rules")] public List<CollectionRulePredicateDto>? Rules { get; init; }
-    [JsonPropertyName("match_mode")] public string? MatchMode { get; init; }
+    [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto? RuleDefinition { get; init; }
     [JsonPropertyName("sort_field")] public string? SortField { get; init; }
     [JsonPropertyName("sort_direction")] public string? SortDirection { get; init; }
-    [JsonPropertyName("live_updating")] public bool? LiveUpdating { get; init; }
     [JsonPropertyName("is_enabled")] public bool? IsEnabled { get; init; }
     [JsonPropertyName("is_featured")] public bool? IsFeatured { get; init; }
 }
 
 public sealed class CollectionPreviewRequest
 {
-    [JsonPropertyName("rules")] public List<CollectionRulePredicateDto> Rules { get; init; } = [];
-    [JsonPropertyName("match_mode")] public string MatchMode { get; init; } = "all";
+    [JsonPropertyName("rule_definition")] public CollectionRuleDefinitionDto RuleDefinition { get; init; } = new();
+    [JsonPropertyName("sort_field")] public string? SortField { get; init; }
+    [JsonPropertyName("sort_direction")] public string SortDirection { get; init; } = "desc";
+    [JsonPropertyName("query")] public string? Query { get; init; }
     [JsonPropertyName("limit")] public int Limit { get; init; } = 20;
 }
 

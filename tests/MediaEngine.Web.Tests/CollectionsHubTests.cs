@@ -209,6 +209,7 @@ public sealed class CollectionsHubTests
     public void CollectionEditor_UsesTypedTextareaForDescription()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor"));
+        var styles = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor.css"));
 
         Assert.Contains("<AppTextarea Value=\"@_description\"", source, StringComparison.Ordinal);
         Assert.Contains("Value=\"@_name\"", source, StringComparison.Ordinal);
@@ -218,6 +219,9 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("Label=\"Visibility\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Value=\"rule.", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppTextField T=\"string\"\r\n                          Value=\"_description\"", source, StringComparison.Ordinal);
+        Assert.Contains("min-height: 172px !important", styles, StringComparison.Ordinal);
+        Assert.Contains("EditingCollection.CollectionType is \"Custom\" or \"Playlist\" or \"Smart\"", source, StringComparison.Ordinal);
+        Assert.Contains(">Delete collection</AppButton>", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -247,13 +251,16 @@ public sealed class CollectionsHubTests
         Assert.Contains("How should this", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", editor, StringComparison.Ordinal);
-        Assert.Contains("Build your rules", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Build rules", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("Live matches", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Add rule group", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("SearchOptionsAsync", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("SortFieldChanged", ruleBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("SelectRuleCategory", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("RunPreviewAsync", wizard, StringComparison.Ordinal);
         Assert.Contains("CreateCollectionWithItemsAsync", wizard, StringComparison.Ordinal);
         Assert.Contains("Use the full @(IsPlaylist ? \"playlist\" : \"collection\") editor to manage membership.", wizard, StringComparison.Ordinal);
-        Assert.Contains("2 => !_dynamic || _rules.Any(IsCompleteRule)", wizard, StringComparison.Ordinal);
+        Assert.Contains("2 => !_dynamic || _ruleDefinition.AllConditions.Any(IsCompleteRule)", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-artwork-file", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("VisibilityLabel", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("LookupCollectionMediaAsync", wizard, StringComparison.Ordinal);
@@ -271,6 +278,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);
         Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork-background\", \"Background\"", editor, StringComparison.Ordinal);
+        Assert.Contains("(\"artwork-logo\", \"Logo\"", editor, StringComparison.Ordinal);
         Assert.Contains("RenderHistoryTab", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppDialogShell", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-tabs", editor, StringComparison.Ordinal);

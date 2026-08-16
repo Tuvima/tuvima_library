@@ -127,11 +127,9 @@ public sealed class FavoriteService : IDisposable
                 "Profile-level favorites across the library.",
                 Icons.Material.Outlined.FavoriteBorder,
                 "Playlist",
-                [],
-                "all",
+                new CollectionRuleDefinitionViewModel(),
                 null,
                 "desc",
-                false,
                 "private",
                 profileId,
                 ct);

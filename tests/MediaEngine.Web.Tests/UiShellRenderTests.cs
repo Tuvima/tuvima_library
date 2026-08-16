@@ -804,7 +804,8 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("collection-editor-field", source);
         Assert.Equal(1, source.Split("OnClick=\"SaveCollection\"", StringSplitOptions.None).Length - 1);
         Assert.Contains("<CollectionRuleBuilder", source);
-        Assert.Contains("OptionsFor", ruleBuilder);
+        Assert.Contains("SearchOptionsAsync", ruleBuilder);
+        Assert.Contains("<AppAutocomplete", ruleBuilder);
         Assert.Contains("GetCollectionFieldValuesAsync", ruleBuilder);
         Assert.Contains("collection-editor-item-list--members", source);
         Assert.DoesNotContain("Choose file", source);
@@ -823,8 +824,9 @@ public sealed class UiShellRenderTests : TestContext
         Assert.DoesNotContain("Show in My Profile and Search", source);
         Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);
         Assert.Contains("RenderRulesSection", source);
-        Assert.Contains("Add rule", ruleBuilder);
-        Assert.Contains("collection-rule-builder__rule-card", ruleBuilder);
+        Assert.Contains("Add rule group", ruleBuilder);
+        Assert.Contains("collection-rule-builder__group", ruleBuilder);
+        Assert.Contains("collection-rule-builder__row", ruleBuilder);
         Assert.Contains("app-dialog-select", ruleBuilder);
     }
 

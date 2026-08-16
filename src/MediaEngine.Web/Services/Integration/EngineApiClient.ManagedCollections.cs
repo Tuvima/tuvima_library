@@ -32,6 +32,10 @@ public sealed partial class EngineApiClient
             {
                 if (collection.CoverArtworkUrl is not null)
                     collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
+                if (collection.BackgroundArtworkUrl is not null)
+                    collection.BackgroundArtworkUrl = AbsoluteUrl(collection.BackgroundArtworkUrl);
+                if (collection.LogoArtworkUrl is not null)
+                    collection.LogoArtworkUrl = AbsoluteUrl(collection.LogoArtworkUrl);
             }
 
             return collections;
@@ -98,6 +102,10 @@ public sealed partial class EngineApiClient
     {
         if (collection.CoverArtworkUrl is not null)
             collection.CoverArtworkUrl = AbsoluteUrl(collection.CoverArtworkUrl);
+        if (collection.BackgroundArtworkUrl is not null)
+            collection.BackgroundArtworkUrl = AbsoluteUrl(collection.BackgroundArtworkUrl);
+        if (collection.LogoArtworkUrl is not null)
+            collection.LogoArtworkUrl = AbsoluteUrl(collection.LogoArtworkUrl);
 
         if (collection.Person?.HeadshotUrl is not null)
             collection.Person.HeadshotUrl = AbsoluteUrl(collection.Person.HeadshotUrl);

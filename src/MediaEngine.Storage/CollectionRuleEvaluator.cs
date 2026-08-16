@@ -98,43 +98,33 @@ public sealed class CollectionRuleEvaluator
     public CollectionRuleEvaluator(IDatabaseConnection db) => _db = db;
 
     /// <summary>
-    /// Evaluates the given rule predicates and returns matching work IDs from the works table.
+    /// Evaluates a grouped rule definition and returns matching work IDs from the works table.
     /// </summary>
     public IReadOnlyList<Guid> Evaluate(
-        IReadOnlyList<CollectionRulePredicate> predicates,
-        string matchMode = "all",
+        CollectionRuleDefinition definition,
         string? sortField = null,
         string sortDirection = "desc",
-        int limit = 0)
+        int limit = 0,
+        string? query = null)
     {
-        if (predicates.Count == 0) return [];
+        if (definition.Groups.Count == 0) return [];
 
         using var conn = _db.CreateConnection();
         using var cmd = conn.CreateCommand();
-
-        var conditions = new List<string>();
         int paramIdx = 0;
+        var whereClause = BuildWhereClause(definition, cmd, ref paramIdx);
+        if (string.IsNullOrWhiteSpace(whereClause)) return [];
 
-        foreach (var pred in predicates)
+        var searchClause = string.Empty;
+        if (!string.IsNullOrWhiteSpace(query))
         {
-            var (sql, parameters) = TranslatePredicate(pred, ref paramIdx);
-            if (sql is not null)
-            {
-                conditions.Add(sql);
-                foreach (var (name, value) in parameters)
-                {
-                    var p = cmd.CreateParameter();
-                    p.ParameterName = name;
-                    p.Value = value;
-                    cmd.Parameters.Add(p);
-                }
-            }
+            var queryParameter = $"@p{paramIdx++}";
+            var parameter = cmd.CreateParameter();
+            parameter.ParameterName = queryParameter;
+            parameter.Value = $"%{query.Trim()}%";
+            cmd.Parameters.Add(parameter);
+            searchClause = $"AND ({CvForWork("'title'")} LIKE {queryParameter} COLLATE NOCASE)";
         }
-
-        if (conditions.Count == 0) return [];
-
-        var joiner = matchMode == "any" ? " OR " : " AND ";
-        var whereClause = string.Join(joiner, conditions.Select(c => $"({c})"));
 
         var orderBy = ResolveOrderBy(sortField, sortDirection);
 
@@ -144,6 +134,7 @@ public sealed class CollectionRuleEvaluator
             FROM works w
             WHERE {visibleWorkPredicate}
               AND ({whereClause})
+              {searchClause}
             {orderBy}
             {(limit > 0 ? $"LIMIT {limit}" : "")}
             """;
@@ -158,50 +149,151 @@ public sealed class CollectionRuleEvaluator
         return results;
     }
 
-    /// <summary>Computes a SHA-256 hash of normalized rule predicates for deduplication.</summary>
-    public static string ComputeRuleHash(IReadOnlyList<CollectionRulePredicate> predicates)
+    /// <summary>Returns the uncapped number of works matching the definition.</summary>
+    public int Count(CollectionRuleDefinition definition, string? query = null)
     {
-        // Normalize: sort by field+op, lowercase values
-        var normalized = predicates
-            .OrderBy(p => p.Field, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(p => p.Op, StringComparer.OrdinalIgnoreCase)
-            .Select(p => new
+        if (definition.Groups.Count == 0) return 0;
+        using var conn = _db.CreateConnection();
+        using var cmd = conn.CreateCommand();
+        var paramIdx = 0;
+        var whereClause = BuildWhereClause(definition, cmd, ref paramIdx);
+        if (string.IsNullOrWhiteSpace(whereClause)) return 0;
+
+        var searchClause = string.Empty;
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            var queryParameter = $"@p{paramIdx++}";
+            var parameter = cmd.CreateParameter();
+            parameter.ParameterName = queryParameter;
+            parameter.Value = $"%{query.Trim()}%";
+            cmd.Parameters.Add(parameter);
+            searchClause = $"AND ({CvForWork("'title'")} LIKE {queryParameter} COLLATE NOCASE)";
+        }
+
+        var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state");
+        cmd.CommandText = $"SELECT COUNT(DISTINCT w.id) FROM works w WHERE {visibleWorkPredicate} AND ({whereClause}) {searchClause};";
+        return Convert.ToInt32(cmd.ExecuteScalar(), System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private string BuildWhereClause(
+        CollectionRuleDefinition definition,
+        System.Data.Common.DbCommand cmd,
+        ref int paramIdx)
+    {
+        var groupSql = new List<string>();
+        foreach (var group in definition.Groups)
+        {
+            var conditions = new List<string>();
+            foreach (var condition in group.Conditions)
             {
-                field = p.Field.ToLowerInvariant().Trim(),
-                op = p.Op.ToLowerInvariant().Trim(),
-                values = IsValueFreeOperator(p.Op)
-                    ? []
-                    : p.GetEffectiveValues().Select(v => v.ToLowerInvariant().Trim()).OrderBy(v => v).ToArray(),
-            });
+                var (sql, parameters) = TranslatePredicate(condition, ref paramIdx);
+                if (sql is null) continue;
+                conditions.Add($"({sql})");
+                foreach (var (name, value) in parameters)
+                {
+                    var parameter = cmd.CreateParameter();
+                    parameter.ParameterName = name;
+                    parameter.Value = value;
+                    cmd.Parameters.Add(parameter);
+                }
+            }
+
+            if (conditions.Count > 0)
+            {
+                var joiner = string.Equals(group.MatchMode, "any", StringComparison.OrdinalIgnoreCase)
+                    ? " OR "
+                    : " AND ";
+                groupSql.Add($"({string.Join(joiner, conditions)})");
+            }
+        }
+
+        return string.Join(" OR ", groupSql);
+    }
+
+    // Internal convenience for built-in definitions and low-level evaluator tests.
+    public IReadOnlyList<Guid> Evaluate(
+        IReadOnlyList<CollectionRulePredicate> predicates,
+        string matchMode = "all",
+        string? sortField = null,
+        string sortDirection = "desc",
+        int limit = 0) =>
+        Evaluate(CollectionRuleDefinition.SingleGroup(predicates, matchMode), sortField, sortDirection, limit);
+
+    /// <summary>Computes a SHA-256 hash of normalized rule predicates for deduplication.</summary>
+    public static string ComputeRuleHash(CollectionRuleDefinition definition)
+    {
+        var normalized = definition.Groups
+            .Select(group => new
+            {
+                match_mode = string.Equals(group.MatchMode, "any", StringComparison.OrdinalIgnoreCase) ? "any" : "all",
+                conditions = group.Conditions
+                    .Select(condition => new
+                    {
+                        field = condition.Field.ToLowerInvariant().Trim(),
+                        op = condition.Op.ToLowerInvariant().Trim(),
+                        values = IsValueFreeOperator(condition.Op)
+                            ? []
+                            : condition.GetEffectiveValues()
+                                .Select(value => value.ToLowerInvariant().Trim())
+                                .OrderBy(value => value, StringComparer.Ordinal)
+                                .ToArray(),
+                    })
+                    .OrderBy(condition => condition.field, StringComparer.Ordinal)
+                    .ThenBy(condition => condition.op, StringComparer.Ordinal)
+                    .ThenBy(condition => string.Join('\u001f', condition.values), StringComparer.Ordinal)
+                    .ToArray(),
+            })
+            .OrderBy(group => group.match_mode, StringComparer.Ordinal)
+            .ThenBy(group => JsonSerializer.Serialize(group.conditions), StringComparer.Ordinal)
+            .ToArray();
 
         var json = JsonSerializer.Serialize(normalized);
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(json));
         return Convert.ToHexString(hash).ToLowerInvariant();
     }
 
+    public static string ComputeRuleHash(IReadOnlyList<CollectionRulePredicate> predicates) =>
+        ComputeRuleHash(CollectionRuleDefinition.SingleGroup(predicates));
+
     private static bool IsValueFreeOperator(string? op) =>
         op?.Trim().ToLowerInvariant() is "known" or "is_known" or "has_any_value"
             or "unknown" or "is_unknown" or "has_no_known_value";
 
-    /// <summary>Parses RuleJson string into predicates.</summary>
-    public static IReadOnlyList<CollectionRulePredicate> ParseRules(string? ruleJson)
+    /// <summary>Parses the current versioned RuleJson definition.</summary>
+    public static CollectionRuleDefinition ParseDefinition(string? ruleJson)
     {
-        if (string.IsNullOrWhiteSpace(ruleJson)) return [];
+        if (string.IsNullOrWhiteSpace(ruleJson)) return new CollectionRuleDefinition();
 
         try
         {
-            return JsonSerializer.Deserialize<List<CollectionRulePredicate>>(ruleJson,
+            using var document = JsonDocument.Parse(ruleJson);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !document.RootElement.EnumerateObject().Any(property =>
+                    string.Equals(property.Name, "version", StringComparison.OrdinalIgnoreCase))
+                || !document.RootElement.EnumerateObject().Any(property =>
+                    string.Equals(property.Name, "groups", StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new FormatException(
+                    "Collection rule_json must be a versioned grouped rule definition.");
+            }
+
+            var definition = JsonSerializer.Deserialize<CollectionRuleDefinition>(ruleJson,
                 MediaEngineJson.CaseInsensitive)
-                ?? [];
+                ?? new CollectionRuleDefinition();
+            if (definition.Version != 1)
+                throw new FormatException($"Unsupported collection rule definition version '{definition.Version}'.");
+            return definition;
         }
         catch (JsonException ex)
         {
             throw new FormatException(
-                "Collection rule_json must be a JSON array of rule predicates.",
+                "Collection rule_json must be a versioned grouped rule definition.",
                 ex);
         }
-
     }
+
+    public static IReadOnlyList<CollectionRulePredicate> ParseRules(string? ruleJson) =>
+        ParseDefinition(ruleJson).AllConditions;
 
     private (string? sql, List<(string name, object value)> parameters) TranslatePredicate(
         CollectionRulePredicate pred, ref int paramIdx)
@@ -439,10 +531,13 @@ public sealed class CollectionRuleEvaluator
         var dir = sortDirection.Equals("asc", StringComparison.OrdinalIgnoreCase) ? "ASC" : "DESC";
         return sortField?.ToLowerInvariant() switch
         {
-            "title" => $"ORDER BY {CvForWork("'title'")} {dir}",
-            "year" => $"ORDER BY CAST({CvForWork("'year'")} AS INTEGER) {dir}",
-            "newest" or "created_at" => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}",
-            _ => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}",
+            "title" => $"ORDER BY {CvForWork("'title'")} COLLATE NOCASE {dir}, w.id ASC",
+            "creator" => $"ORDER BY COALESCE({CvForWork("'author'")}, {CvForWork("'director'")}, {CvForWork("'artist'")}, {CvForWork("'narrator'")}) COLLATE NOCASE {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
+            "year" or "release_date" => $"ORDER BY CAST({CvForWork("'year'")} AS INTEGER) {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
+            "provider_rating" or "rating" => $"ORDER BY CAST({CvForWork("'rating'")} AS REAL) {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
+            "media_type" => $"ORDER BY w.media_type COLLATE NOCASE {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
+            "newest" or "created_at" or "added_at" => $"ORDER BY (SELECT MIN(mc.claimed_at) FROM editions e_mc INNER JOIN media_assets ma_mc ON ma_mc.edition_id = e_mc.id INNER JOIN metadata_claims mc ON mc.entity_id = ma_mc.id WHERE e_mc.work_id = w.id) {dir}, {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
+            _ => $"ORDER BY {CvForWork("'title'")} COLLATE NOCASE ASC, w.id ASC",
         };
     }
 }

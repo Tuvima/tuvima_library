@@ -15,6 +15,14 @@ internal sealed class SchemaMigrator
 
     private static void EnsureCurrentColumns(SqliteConnection conn)
     {
+        AddColumnIfMissing(conn, "collections", "background_artwork_path",
+            "ALTER TABLE collections ADD COLUMN background_artwork_path TEXT;");
+        AddColumnIfMissing(conn, "collections", "background_artwork_mime_type",
+            "ALTER TABLE collections ADD COLUMN background_artwork_mime_type TEXT;");
+        AddColumnIfMissing(conn, "collections", "logo_artwork_path",
+            "ALTER TABLE collections ADD COLUMN logo_artwork_path TEXT;");
+        AddColumnIfMissing(conn, "collections", "logo_artwork_mime_type",
+            "ALTER TABLE collections ADD COLUMN logo_artwork_mime_type TEXT;");
         AddColumnIfMissing(
             conn,
             "media_assets",
@@ -236,6 +244,10 @@ internal sealed class SchemaMigrator
             CREATE UNIQUE INDEX IF NOT EXISTS ux_review_queue_pending_entity_trigger
                 ON review_queue(entity_id, trigger)
                 WHERE status = 'Pending';
+
+            CREATE UNIQUE INDEX IF NOT EXISTS ux_collections_custom_rule_hash
+                ON collections(rule_hash)
+                WHERE rule_hash IS NOT NULL AND is_enabled = 1 AND collection_type = 'Custom';
             """;
         cmd.ExecuteNonQuery();
     }

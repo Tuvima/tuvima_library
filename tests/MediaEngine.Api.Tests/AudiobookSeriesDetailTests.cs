@@ -153,15 +153,18 @@ public sealed class AudiobookSeriesDetailTests : IDisposable
         }
 
         public IReadOnlyList<Guid> EvaluateRules(
-            IReadOnlyList<CollectionRulePredicate> predicates,
-            string matchMode = "all",
+            CollectionRuleDefinition definition,
             string? sortField = null,
             string sortDirection = "desc",
-            int limit = 0) =>
+            int limit = 0,
+            string? query = null) =>
             [];
+
+        public int CountRuleMatches(CollectionRuleDefinition definition, string? query = null) => 0;
 
         public Task<IReadOnlyList<string>> GetFieldValuesAsync(
             string field,
+            string? query,
             int limit,
             CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<string>>([]);

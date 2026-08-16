@@ -29,11 +29,11 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("BannerUrl = combinedBanner", source, StringComparison.Ordinal);
         Assert.Contains("HeroUrl = combinedHero", source, StringComparison.Ordinal);
         Assert.Contains("LogoUrl = combinedLogo", source, StringComparison.Ordinal);
-        Assert.Contains("MapGet(\"/{id:guid}/cover-artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("MapPost(\"/{id:guid}/cover-artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("MapDelete(\"/{id:guid}/cover-artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("UpdateCollectionCoverArtworkAsync(id, targetPath, mimeType", source, StringComparison.Ordinal);
-        Assert.Contains("UpdateCollectionCoverArtworkAsync(id, null, null", source, StringComparison.Ordinal);
+        Assert.Contains("MapGet(\"/{id:guid}/artwork/{slot}\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapPost(\"/{id:guid}/artwork/{slot}\"", source, StringComparison.Ordinal);
+        Assert.Contains("MapDelete(\"/{id:guid}/artwork/{slot}\"", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateCollectionArtworkAsync(id, normalizedSlot, targetPath, mimeType", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateCollectionArtworkAsync(id, slot, null, null", source, StringComparison.Ordinal);
         Assert.Contains("GetSystemViewGroupsAsync", browseReadServiceSource, StringComparison.Ordinal);
         Assert.Contains("PreviewItems = group.Items", source, StringComparison.Ordinal);
         Assert.Contains("w.media_type = 'Music'", browseReadServiceSource, StringComparison.Ordinal);
@@ -204,7 +204,7 @@ public sealed class CollectionEndpointRouteTests
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
         Assert.Contains("IPersonRepository personRepo", source, StringComparison.Ordinal);
         Assert.Contains("ResolveCatalogPersonAsync", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionRuleEvaluator.ParseRules(collection.RuleJson)", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionRuleEvaluator.ParseDefinition(collection.RuleJson)", source, StringComparison.Ordinal);
         Assert.Contains("FindByQidsAsync(", source, StringComparison.Ordinal);
         Assert.Contains("FindByNamesAsync(", source, StringComparison.Ordinal);
         Assert.DoesNotContain("FindByQidAsync(reference.LookupValue", source, StringComparison.Ordinal);

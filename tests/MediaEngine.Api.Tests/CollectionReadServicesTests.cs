@@ -92,6 +92,21 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task MetadataLookup_PreservesEvaluatorSortOrderForResolvedCollections()
+    {
+        var first = await SeedMusicHierarchyAsync("First Track", "hash-sorted-first");
+        var second = await SeedMusicHierarchyAsync("Second Track", "hash-sorted-second");
+
+        // CollectionRuleEvaluator supplies work IDs in the persisted collection sort.
+        // The metadata lookup must not silently re-sort that result by title.
+        var results = await _lookup.ResolveMetadataAsync(
+            [second.TrackWorkId, first.TrackWorkId],
+            CancellationToken.None);
+
+        Assert.Equal([second.TrackWorkId, first.TrackWorkId], results.Select(item => item.EntityId));
+    }
+
+    [Fact]
     public async Task CollectionItems_ResolveGuidBlobMembershipAndManagedArtwork()
     {
         var seeded = await SeedMusicHierarchyAsync();
@@ -828,8 +843,8 @@ public sealed class CollectionReadServicesTests : IDisposable
                 new { WorkId = workId, LastScoredAt = DateTimeOffset.UtcNow.ToString("O") });
         }
 
-        var mediaTypes = await _browse.GetFieldValuesAsync("media_type", 500, CancellationToken.None);
-        var genres = await _browse.GetFieldValuesAsync("genre", 500, CancellationToken.None);
+        var mediaTypes = await _browse.GetFieldValuesAsync("media_type", null, 500, CancellationToken.None);
+        var genres = await _browse.GetFieldValuesAsync("genre", null, 500, CancellationToken.None);
 
         Assert.Contains("FieldValueTest", mediaTypes);
         Assert.Contains("Scalar Genre", genres);
@@ -843,7 +858,7 @@ public sealed class CollectionReadServicesTests : IDisposable
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            _browse.GetFieldValuesAsync("artist", 20, cancellation.Token));
+            _browse.GetFieldValuesAsync("artist", null, 20, cancellation.Token));
     }
 
     private async Task<SeededMusic> SeedMusicHierarchyAsync(

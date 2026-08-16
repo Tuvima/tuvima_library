@@ -73,11 +73,9 @@ public sealed class WatchlistService
             "Quick-save shows and movies to watch later.",
             Icons.Material.Outlined.BookmarkAdded,
             "Playlist",
-            [],
-            "all",
+            new CollectionRuleDefinitionViewModel(),
             null,
             "desc",
-            false,
             "private",
             profileId,
             ct);

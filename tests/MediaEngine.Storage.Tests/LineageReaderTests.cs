@@ -259,6 +259,32 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionRule_Evaluate_AppliesPersistedSortFieldAndDirection()
+    {
+        var (alpha, _, alphaAsset) = await BuildStandaloneWorkAsync("Movies");
+        var (bravo, _, bravoAsset) = await BuildStandaloneWorkAsync("Movies");
+        var (charlie, _, charlieAsset) = await BuildStandaloneWorkAsync("Movies");
+
+        await InsertCanonicalAsync(alphaAsset, "title", "Alpha");
+        await InsertCanonicalAsync(bravoAsset, "title", "Bravo");
+        await InsertCanonicalAsync(charlieAsset, "title", "Charlie");
+        await InsertCanonicalAsync(alpha, "year", "2020");
+        await InsertCanonicalAsync(bravo, "year", "2000");
+        await InsertCanonicalAsync(charlie, "year", "2010");
+        await InsertCanonicalAsync(alpha, "rating", "3.5");
+        await InsertCanonicalAsync(bravo, "rating", "4.8");
+        await InsertCanonicalAsync(charlie, "rating", "4.2");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var definition = CollectionRuleDefinition.SingleGroup(
+            [new CollectionRulePredicate { Field = "media_type", Op = "eq", Value = "Movies" }]);
+
+        Assert.Equal([bravo, charlie, alpha], evaluator.Evaluate(definition, "provider_rating", "desc"));
+        Assert.Equal([bravo, charlie, alpha], evaluator.Evaluate(definition, "release_date", "asc"));
+        Assert.Equal([charlie, bravo, alpha], evaluator.Evaluate(definition, "title", "desc"));
+    }
+
+    [Fact]
     public async Task CollectionRule_NotEqualRequiresKnownValueAndUnknownIsExplicit()
     {
         var (winner, _, _) = await BuildStandaloneWorkAsync("Movies");

@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=563; api=0; web-client=85
+# scopes: contracts=565; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -618,6 +618,11 @@
   LocalImagePath: System.String | json=localImagePath | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=Always | converter=default | number-handling=default | extension-data=no
   sample={"work_id":"11111111-2222-3333-4444-555555555555","title":"sample","media_type":"sample","cover_url":"sample","description":"sample","facts":[],"primary_color":"sample","secondary_color":"sample","accent_color":"sample","artwork_shape":"sample"}
 
+[contracts] MediaEngine.Contracts.Collections.CollectionArtworkUploadResponse
+  kind=class | converter=default | number-handling=default | unmapped=default
+  artwork_url: System.String | json=artwork_url | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  slot: System.String | json=slot | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
 [contracts] MediaEngine.Contracts.Collections.CollectionBackfillRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   DryRun: System.Boolean | json=dry_run | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -659,10 +664,6 @@
   createdAt: System.DateTimeOffset | json=createdAt | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   universeStatus: System.String | json=universeStatus | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
-[contracts] MediaEngine.Contracts.Collections.CollectionCoverArtworkUploadResponse
-  kind=class | converter=default | number-handling=default | unmapped=default
-  cover_artwork_url: System.String | json=cover_artwork_url | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
 [contracts] MediaEngine.Contracts.Collections.CollectionCreateRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -670,15 +671,13 @@
   Visibility: System.String | json=visibility | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Rules: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionRulePredicateDto> | json=rules | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sort_direction | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DisplayLimit: System.Int32 | json=display_limit | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LiveUpdating: System.Boolean | json=live_updating | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Placements: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionPlacementRequest> | json=placements | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   WorkIds: System.Collections.Generic.List<System.Guid> | json=work_ids | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"name":"sample","description":"sample","visibility":"sample","icon_name":"sample","collection_type":"sample","rules":[],"match_mode":"sample","sort_field":"sample","sort_direction":"sample","display_limit":7,"live_updating":true,"placements":[],"work_ids":[]}
+  sample={"name":"sample","description":"sample","visibility":"sample","icon_name":"sample","collection_type":"sample","rule_definition":null,"sort_field":"sample","sort_direction":"sample","display_limit":7,"placements":[],"work_ids":[]}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionCreatedResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -820,6 +819,8 @@
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BackgroundArtworkUrl: System.String | json=background_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LogoArtworkUrl: System.String | json=logo_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -833,7 +834,6 @@
   MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sort_direction | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LiveUpdating: System.Boolean | json=live_updating | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RefreshSchedule: System.String | json=refresh_schedule | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ItemCount: System.Int32 | json=item_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -865,7 +865,7 @@
   ArtworkItems: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Collections.CollectionArtworkItemDto> | json=artwork_items | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ArtworkPalette: MediaEngine.Domain.Models.ArtworkPalette | json=artwork_palette | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Person: MediaEngine.Contracts.Collections.CollectionCatalogPersonDto | json=person | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"family":"sample","system_key":"sample","primary_lane":"sample","is_global":true,"is_system":true,"is_cross_media":true,"watch_count":7,"listen_count":7,"read_count":7,"other_count":7,"movie_count":7,"tv_count":7,"book_count":7,"comic_count":7,"music_count":7,"audiobook_count":7,"earliest_year":7,"latest_year":7,"can_delete":true,"can_rename":true,"can_toggle_global":true,"artwork_items":[],"artwork_palette":null,"person":null,"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","cover_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
+  sample={"family":"sample","system_key":"sample","primary_lane":"sample","is_global":true,"is_system":true,"is_cross_media":true,"watch_count":7,"listen_count":7,"read_count":7,"other_count":7,"movie_count":7,"tv_count":7,"book_count":7,"comic_count":7,"music_count":7,"audiobook_count":7,"earliest_year":7,"latest_year":7,"can_delete":true,"can_rename":true,"can_toggle_global":true,"artwork_items":[],"artwork_palette":null,"person":null,"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","cover_artwork_url":"sample","background_artwork_url":"sample","logo_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionMediaCounts
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -922,10 +922,12 @@
 
 [contracts] MediaEngine.Contracts.Collections.CollectionPreviewRequest
   kind=class | converter=default | number-handling=default | unmapped=default
-  Rules: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionRulePredicateDto> | json=rules | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SortDirection: System.String | json=sort_direction | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Query: System.String | json=query | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Limit: System.Int32 | json=limit | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"rules":[],"match_mode":"sample","limit":7}
+  sample={"rule_definition":null,"sort_field":"sample","sort_direction":"sample","query":"sample","limit":7}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionPreviewResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -942,6 +944,19 @@
   Year: System.String | json=year | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"entity_id":"11111111-2222-3333-4444-555555555555","title":"sample","creator":"sample","media_type":"sample","cover_url":"sample","year":"sample"}
 
+[contracts] MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Version: System.Int32 | json=version | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Groups: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionRuleGroupDto> | json=groups | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"version":7,"groups":[]}
+
+[contracts] MediaEngine.Contracts.Collections.CollectionRuleGroupDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Id: System.String | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Conditions: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionRulePredicateDto> | json=conditions | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"sample","match_mode":"sample","conditions":[]}
+
 [contracts] MediaEngine.Contracts.Collections.CollectionRulePredicateDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Field: System.String | json=field | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -956,6 +971,7 @@
   Value: System.String | json=value | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Label: System.String | json=label | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LocalCount: System.Int32 | json=local_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Group: System.String | json=group | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Collections.CollectionUpdateRequest
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -963,14 +979,12 @@
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Visibility: System.String | json=visibility | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Rules: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionRulePredicateDto> | json=rules | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MatchMode: System.String | json=match_mode | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sort_direction | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LiveUpdating: System.Boolean? | json=live_updating | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IsEnabled: System.Boolean? | json=is_enabled | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IsFeatured: System.Boolean? | json=is_featured | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"name":"sample","description":"sample","visibility":"sample","icon_name":"sample","rules":[],"match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"is_enabled":true,"is_featured":true}
+  sample={"name":"sample","description":"sample","visibility":"sample","icon_name":"sample","rule_definition":null,"sort_field":"sample","sort_direction":"sample","is_enabled":true,"is_featured":true}
 
 [contracts] MediaEngine.Contracts.Collections.ContentGroupDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -1106,6 +1120,8 @@
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BackgroundArtworkUrl: System.String | json=background_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LogoArtworkUrl: System.String | json=logo_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1119,7 +1135,6 @@
   MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sort_direction | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LiveUpdating: System.Boolean | json=live_updating | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RefreshSchedule: System.String | json=refresh_schedule | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ItemCount: System.Int32 | json=item_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1127,7 +1142,7 @@
   ModifiedAt: System.DateTimeOffset? | json=modified_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanEdit: System.Boolean | json=can_edit | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CanShare: System.Boolean | json=can_share | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","cover_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","live_updating":true,"refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
+  sample={"id":"11111111-2222-3333-4444-555555555555","name":"sample","description":"sample","icon_name":"sample","cover_artwork_url":"sample","background_artwork_url":"sample","logo_artwork_url":"sample","collection_type":"sample","scope":"sample","profile_id":"11111111-2222-3333-4444-555555555555","visibility":"sample","is_enabled":true,"is_featured":true,"min_items":7,"rule_json":"sample","resolution":"sample","rule_hash":"sample","match_mode":"sample","sort_field":"sample","sort_direction":"sample","refresh_schedule":"sample","item_count":7,"status":"sample","created_at":"2025-01-02T03:04:05+00:00","modified_at":"2025-01-02T03:04:05+00:00","can_edit":true,"can_share":true}
 
 [contracts] MediaEngine.Contracts.Collections.ParentCollectionDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6359,6 +6374,8 @@
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BackgroundArtworkUrl: System.String | json=background_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LogoArtworkUrl: System.String | json=logo_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6372,7 +6389,6 @@
   MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sort_direction | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LiveUpdating: System.Boolean | json=live_updating | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RefreshSchedule: System.String | json=refresh_schedule | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ItemCount: System.Int32 | json=item_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6420,6 +6436,19 @@
   CoverUrl: System.String | json=coverUrl | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Year: System.String | json=year | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"entityId":"11111111-2222-3333-4444-555555555555","title":"sample","creator":"sample","mediaType":"sample","coverUrl":"sample","year":"sample"}
+
+[web-client] MediaEngine.Web.Models.ViewDTOs.CollectionRuleDefinitionViewModel
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Version: System.Int32 | json=version | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Groups: System.Collections.Generic.List<MediaEngine.Web.Models.ViewDTOs.CollectionRuleGroupViewModel> | json=groups | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AllConditions: System.Collections.Generic.IEnumerable<MediaEngine.Web.Models.ViewDTOs.CollectionRulePredicateViewModel> | json=allConditions | nullability=not-null | accessors=get | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[web-client] MediaEngine.Web.Models.ViewDTOs.CollectionRuleGroupViewModel
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Id: System.String | json=id | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MatchMode: System.String | json=matchMode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Conditions: System.Collections.Generic.List<MediaEngine.Web.Models.ViewDTOs.CollectionRulePredicateViewModel> | json=conditions | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"id":"sample","matchMode":"sample","conditions":[]}
 
 [web-client] MediaEngine.Web.Models.ViewDTOs.CollectionRulePredicateViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6885,6 +6914,8 @@
   Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   IconName: System.String | json=icon_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CoverArtworkUrl: System.String | json=cover_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  BackgroundArtworkUrl: System.String | json=background_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  LogoArtworkUrl: System.String | json=logo_artwork_url | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CollectionType: System.String | json=collection_type | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Scope: System.String | json=scope | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ProfileId: System.Guid? | json=profile_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -6898,7 +6929,6 @@
   MatchMode: System.String | json=match_mode | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortField: System.String | json=sort_field | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SortDirection: System.String | json=sort_direction | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LiveUpdating: System.Boolean | json=live_updating | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RefreshSchedule: System.String | json=refresh_schedule | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ItemCount: System.Int32 | json=item_count | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Status: System.String | json=status | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no

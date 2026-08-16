@@ -32,11 +32,13 @@ public sealed class LegacyCollectionContractTests
     public void Collection_mutation_contracts_keep_all_rule_and_setting_fields()
     {
         AssertJsonFields<CollectionCreateRequest>(
-            "name", "description", "visibility", "icon_name", "collection_type", "rules",
-            "match_mode", "sort_field", "sort_direction", "display_limit", "live_updating", "placements", "work_ids");
+            "name", "description", "visibility", "icon_name", "collection_type", "rule_definition",
+            "sort_field", "sort_direction", "display_limit", "placements", "work_ids");
         AssertJsonFields<CollectionUpdateRequest>(
-            "name", "description", "visibility", "icon_name", "rules", "match_mode",
-            "sort_field", "sort_direction", "live_updating", "is_enabled", "is_featured");
+            "name", "description", "visibility", "icon_name", "rule_definition",
+            "sort_field", "sort_direction", "is_enabled", "is_featured");
+        AssertJsonFields<CollectionRuleDefinitionDto>("version", "groups");
+        AssertJsonFields<CollectionRuleGroupDto>("id", "match_mode", "conditions");
         AssertJsonFields<CollectionRulePredicateDto>("display_value", "field", "op", "value", "values");
     }
 

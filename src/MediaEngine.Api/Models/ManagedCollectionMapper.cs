@@ -19,8 +19,12 @@ internal static class ManagedCollectionMapper
         CoverArtworkUrl = string.IsNullOrWhiteSpace(collection.CoverArtworkPath)
             ? null
             : activeProfile is null
-                ? $"/collections/{collection.Id}/cover-artwork"
-                : $"/collections/{collection.Id}/cover-artwork?profileId={activeProfile.Id:D}",
+                ? $"/collections/{collection.Id}/artwork/poster"
+                : $"/collections/{collection.Id}/artwork/poster?profileId={activeProfile.Id:D}",
+        BackgroundArtworkUrl = string.IsNullOrWhiteSpace(collection.BackgroundArtworkPath) ? null
+            : activeProfile is null ? $"/collections/{collection.Id}/artwork/background" : $"/collections/{collection.Id}/artwork/background?profileId={activeProfile.Id:D}",
+        LogoArtworkUrl = string.IsNullOrWhiteSpace(collection.LogoArtworkPath) ? null
+            : activeProfile is null ? $"/collections/{collection.Id}/artwork/logo" : $"/collections/{collection.Id}/artwork/logo?profileId={activeProfile.Id:D}",
         CollectionType = collection.CollectionType.ToStorageValue(),
         Scope = collection.Scope.ToStorageValue(),
         ProfileId = collection.ProfileId,
@@ -34,7 +38,6 @@ internal static class ManagedCollectionMapper
         MatchMode = collection.MatchMode.ToStorageValue(),
         SortField = collection.SortField,
         SortDirection = collection.SortDirection.ToStorageValue(),
-        LiveUpdating = collection.LiveUpdating,
         RefreshSchedule = collection.RefreshSchedule,
         ItemCount = itemCount,
         Status = !collection.IsEnabled ? "Disabled" : itemCount == 0 ? "Empty" : "Active",
@@ -67,6 +70,8 @@ internal static class ManagedCollectionMapper
             Description = baseDto.Description,
             IconName = baseDto.IconName,
             CoverArtworkUrl = baseDto.CoverArtworkUrl,
+            BackgroundArtworkUrl = baseDto.BackgroundArtworkUrl,
+            LogoArtworkUrl = baseDto.LogoArtworkUrl,
             CollectionType = classification.CollectionType,
             Scope = baseDto.Scope,
             ProfileId = baseDto.ProfileId,
@@ -80,7 +85,6 @@ internal static class ManagedCollectionMapper
             MatchMode = baseDto.MatchMode,
             SortField = baseDto.SortField,
             SortDirection = baseDto.SortDirection,
-            LiveUpdating = baseDto.LiveUpdating,
             RefreshSchedule = baseDto.RefreshSchedule,
             ItemCount = baseDto.ItemCount,
             Status = baseDto.Status,

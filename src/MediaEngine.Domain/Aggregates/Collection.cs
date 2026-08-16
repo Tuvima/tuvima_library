@@ -99,6 +99,11 @@ public sealed class Collection
     /// <summary>MIME type for <see cref="CoverArtworkPath"/>.</summary>
     public string? CoverArtworkMimeType { get; set; }
 
+    public string? BackgroundArtworkPath { get; set; }
+    public string? BackgroundArtworkMimeType { get; set; }
+    public string? LogoArtworkPath { get; set; }
+    public string? LogoArtworkMimeType { get; set; }
+
     /// <summary>"library" for library-scoped collections, "user" for per-profile collections.</summary>
     public CollectionScope Scope { get; private set; } = CollectionScope.Library;
 
@@ -134,9 +139,6 @@ public sealed class Collection
 
     /// <summary>Sort direction: "asc" or "desc".</summary>
     public CollectionSortDirection SortDirection { get; private set; } = CollectionSortDirection.Desc;
-
-    /// <summary>Whether query-resolved results auto-refresh when library changes.</summary>
-    public bool LiveUpdating { get; set; } = true;
 
     /// <summary>Cron expression or descriptive schedule for mix refresh.</summary>
     public string? RefreshSchedule { get; set; }

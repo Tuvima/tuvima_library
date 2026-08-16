@@ -1975,11 +1975,9 @@ public partial class ListenPage
             description: "Created from the Listen grid.",
             iconName: Icons.Material.Outlined.QueueMusic,
             collectionType: "Playlist",
-            rules: [],
-            matchMode: "all",
+            definition: new CollectionRuleDefinitionViewModel(),
             sortField: null,
             sortDirection: "asc",
-            liveUpdating: false,
             visibility: "private",
             profileId: _activeProfileId.Value);
 
@@ -2944,8 +2942,9 @@ public partial class ListenPage
             MatchMode = collection.MatchMode,
             SortField = collection.SortField,
             SortDirection = collection.SortDirection,
-            LiveUpdating = collection.LiveUpdating,
             CoverUrl = collection.CoverArtworkUrl,
+            BackgroundUrl = collection.BackgroundArtworkUrl,
+            LogoUrl = collection.LogoArtworkUrl,
             CreatedAt = collection.CreatedAt,
             CanEdit = collection.CanEdit,
         };

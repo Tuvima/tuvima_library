@@ -21,6 +21,7 @@ public sealed record BuiltInBrowseCollectionDefinition(
 {
     public Collection ToCollection()
     {
+        var definition = CollectionRuleDefinition.SingleGroup(Rules, MatchMode);
         var collection = new Collection
         {
             Id = CreateDeterministicGuid(Name),
@@ -28,11 +29,10 @@ public sealed record BuiltInBrowseCollectionDefinition(
             Description = Description,
             IconName = Icon,
             IsEnabled = true,
-            RuleJson = System.Text.Json.JsonSerializer.Serialize(Rules),
-            RuleHash = CollectionRuleEvaluator.ComputeRuleHash(Rules),
+            RuleJson = System.Text.Json.JsonSerializer.Serialize(definition),
+            RuleHash = CollectionRuleEvaluator.ComputeRuleHash(definition),
             GroupByField = GroupByField,
             SortField = SortField,
-            LiveUpdating = true,
             CreatedAt = DateTimeOffset.UnixEpoch,
         };
         collection.RestoreDefinition(

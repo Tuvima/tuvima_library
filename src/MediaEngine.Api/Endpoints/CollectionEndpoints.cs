@@ -1715,9 +1715,10 @@ public static class CollectionEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // GET /collections/{id}/cover-artwork — serve collection-owned primary artwork.
-        group.MapGet("/{id:guid}/cover-artwork", async (
+        // Collection artwork slots: poster, background, and transparent logo.
+        group.MapGet("/{id:guid}/artwork/{slot}", async (
             Guid id,
+            string slot,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             Guid? profileId,
@@ -1735,28 +1736,29 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            if (string.IsNullOrWhiteSpace(collection.CoverArtworkPath) || !File.Exists(collection.CoverArtworkPath))
+            if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out var artworkMimeType))
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+
+            if (string.IsNullOrWhiteSpace(artworkPath) || !File.Exists(artworkPath))
             {
-                return ApiErrors.NotFound($"Collection '{id}' has no cover artwork.");
+                return ApiErrors.NotFound($"Collection '{id}' has no {slot} artwork.");
             }
 
-            var bytes = await File.ReadAllBytesAsync(collection.CoverArtworkPath, ct);
+            var bytes = await File.ReadAllBytesAsync(artworkPath, ct);
             return Results.File(
                 bytes,
-                string.IsNullOrWhiteSpace(collection.CoverArtworkMimeType)
-                    ? GetCollectionArtworkMimeType(collection.CoverArtworkPath)
-                    : collection.CoverArtworkMimeType,
-                Path.GetFileName(collection.CoverArtworkPath));
+                string.IsNullOrWhiteSpace(artworkMimeType) ? GetCollectionArtworkMimeType(artworkPath) : artworkMimeType,
+                Path.GetFileName(artworkPath));
         })
-        .WithName("GetCollectionCoverArtwork")
-        .WithSummary("Serves custom primary cover artwork for a collection.")
+        .WithName("GetCollectionArtwork")
+        .WithSummary("Serves one custom collection artwork slot.")
         .Produces(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        // POST /collections/{id}/cover-artwork — upload collection-owned primary artwork.
-        group.MapPost("/{id:guid}/cover-artwork", async (
+        group.MapPost("/{id:guid}/artwork/{slot}", async (
             Guid id,
+            string slot,
             HttpRequest request,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
@@ -1780,6 +1782,9 @@ public static class CollectionEndpoints
             {
                 return Results.Forbid();
             }
+
+            if (!TryGetCollectionArtwork(collection, slot, out var currentPath, out _))
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
 
             if (!request.HasFormContentType)
             {
@@ -1808,13 +1813,17 @@ public static class CollectionEndpoints
             dataPaths.EnsureRootExists();
             var directory = Path.Combine(dataPaths.Root, "collections", id.ToString("D"));
             Directory.CreateDirectory(directory);
-            var targetPath = Path.Combine(directory, $"cover{extension}");
+            if (slot.Equals("logo", StringComparison.OrdinalIgnoreCase) && mimeType != "image/png")
+                return ApiErrors.BadRequest("Collection logos must be transparent PNG images.");
 
-            if (!string.IsNullOrWhiteSpace(collection.CoverArtworkPath)
-                && !string.Equals(collection.CoverArtworkPath, targetPath, StringComparison.OrdinalIgnoreCase)
-                && File.Exists(collection.CoverArtworkPath))
+            var normalizedSlot = slot.ToLowerInvariant();
+            var targetPath = Path.Combine(directory, $"{normalizedSlot}{extension}");
+
+            if (!string.IsNullOrWhiteSpace(currentPath)
+                && !string.Equals(currentPath, targetPath, StringComparison.OrdinalIgnoreCase)
+                && File.Exists(currentPath))
             {
-                File.Delete(collection.CoverArtworkPath);
+                File.Delete(currentPath);
             }
 
             await using (var stream = File.Create(targetPath))
@@ -1823,18 +1832,18 @@ public static class CollectionEndpoints
                 await upload.CopyToAsync(stream, ct);
             }
 
-            await collectionRepo.UpdateCollectionCoverArtworkAsync(id, targetPath, mimeType, ct);
-            return Results.Ok(new CollectionCoverArtworkUploadResponse($"/collections/{id}/cover-artwork"));
+            await collectionRepo.UpdateCollectionArtworkAsync(id, normalizedSlot, targetPath, mimeType, ct);
+            return Results.Ok(new CollectionArtworkUploadResponse($"/collections/{id}/artwork/{normalizedSlot}", normalizedSlot));
         })
-        .WithName("UploadCollectionCoverArtwork")
-        .WithSummary("Uploads custom primary cover artwork for a managed collection.")
-        .Produces<CollectionCoverArtworkUploadResponse>(StatusCodes.Status200OK)
+        .WithName("UploadCollectionArtwork")
+        .WithSummary("Uploads one custom artwork slot for a managed collection.")
+        .Produces<CollectionArtworkUploadResponse>(StatusCodes.Status200OK)
         .DisableAntiforgery()
         .RequireAnyRole();
 
-        // DELETE /collections/{id}/cover-artwork — clear collection-owned primary artwork.
-        group.MapDelete("/{id:guid}/cover-artwork", async (
+        group.MapDelete("/{id:guid}/artwork/{slot}", async (
             Guid id,
+            string slot,
             ICollectionRepository collectionRepo,
             IProfileRepository profileRepo,
             Guid? profileId,
@@ -1857,16 +1866,19 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            if (!string.IsNullOrWhiteSpace(collection.CoverArtworkPath) && File.Exists(collection.CoverArtworkPath))
+            if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out _))
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
+
+            if (!string.IsNullOrWhiteSpace(artworkPath) && File.Exists(artworkPath))
             {
-                File.Delete(collection.CoverArtworkPath);
+                File.Delete(artworkPath);
             }
 
-            await collectionRepo.UpdateCollectionCoverArtworkAsync(id, null, null, ct);
+            await collectionRepo.UpdateCollectionArtworkAsync(id, slot, null, null, ct);
             return Results.Ok();
         })
-        .WithName("DeleteCollectionCoverArtwork")
-        .WithSummary("Clears custom cover artwork for a managed collection.")
+        .WithName("DeleteCollectionArtwork")
+        .WithSummary("Clears one custom artwork slot for a managed collection.")
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
@@ -1975,15 +1987,14 @@ public static class CollectionEndpoints
             }
 
             // For query-resolved collections, evaluate rules
-            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-            if (predicates.Count == 0)
+            var definition = CollectionRuleEvaluator.ParseDefinition(collection.RuleJson);
+            if (definition.AllConditions.Count == 0)
             {
                 return Results.Ok(new List<CollectionResolvedItemDto>());
             }
 
             var entityIds = browseReadService.EvaluateRules(
-                predicates,
-                collection.MatchMode.ToStorageValue(),
+                definition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
                 limit ?? 0);
@@ -2017,23 +2028,22 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("name parameter is required");
             }
 
-            var definition = BuiltInBrowseCollectionCatalog.FindByName(name);
-            var collection = definition?.ToCollection();
+            var builtInDefinition = BuiltInBrowseCollectionCatalog.FindByName(name);
+            var collection = builtInDefinition?.ToCollection();
 
             if (collection is null)
             {
                 return ApiErrors.NotFound($"No dynamic browse view found with name '{name}'");
             }
 
-            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
-            if (predicates.Count == 0)
+            var ruleDefinition = CollectionRuleEvaluator.ParseDefinition(collection.RuleJson);
+            if (ruleDefinition.AllConditions.Count == 0)
             {
                 return Results.Ok(new List<CollectionResolvedItemDto>());
             }
 
             var entityIds = browseReadService.EvaluateRules(
-                predicates,
-                collection.MatchMode.ToStorageValue(),
+                ruleDefinition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue(),
                 limit ?? 200);
@@ -2095,17 +2105,22 @@ public static class CollectionEndpoints
             ICollectionMediaLookupReadService mediaLookupReadService,
             CancellationToken ct) =>
         {
-            if (body.Rules.Count == 0)
+            var definition = body.RuleDefinition.ToDomain();
+            if (definition.AllConditions.Count == 0)
             {
                 return Results.Ok(new CollectionPreviewResponse(0, []));
             }
 
-            var rules = body.Rules.Select(rule => rule.ToDomain()).ToList();
             var entityIds = browseReadService.EvaluateRules(
-                rules, body.MatchMode, limit: body.Limit > 0 ? body.Limit : 20);
+                definition,
+                body.SortField,
+                body.SortDirection,
+                body.Limit > 0 ? body.Limit : 20,
+                body.Query);
+            var total = browseReadService.CountRuleMatches(definition, body.Query);
 
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
-            return Results.Ok(new CollectionPreviewResponse(entityIds.Count, resolved));
+            return Results.Ok(new CollectionPreviewResponse(total, resolved));
         })
         .WithName("PreviewCollection")
         .WithSummary("Evaluate collection rules and return matching items without saving.")
@@ -2156,18 +2171,25 @@ public static class CollectionEndpoints
                 return Results.Forbid();
             }
 
-            var rules = body.Rules.Select(rule => rule.ToDomain()).ToList();
-            var ruleJson = rules.Count > 0
-                ? System.Text.Json.JsonSerializer.Serialize(body.Rules)
+            var definition = body.RuleDefinition.ToDomain();
+            var ruleJson = definition.AllConditions.Count > 0
+                ? System.Text.Json.JsonSerializer.Serialize(definition)
                 : null;
 
-            var ruleHash = rules.Count > 0
-                ? CollectionRuleEvaluator.ComputeRuleHash(rules)
+            var ruleHash = definition.AllConditions.Count > 0
+                ? CollectionRuleEvaluator.ComputeRuleHash(definition)
                 : null;
 
-            var resolution = body.CollectionType is "Playlist" || body.Rules.Count == 0
+            var resolution = body.CollectionType is "Playlist" || definition.AllConditions.Count == 0
                 ? CollectionResolution.Materialized
                 : CollectionResolution.Query;
+
+            if (ruleHash is not null)
+            {
+                var duplicate = await collectionRepo.FindByRuleHashAsync(ruleHash, ct);
+                if (duplicate is not null && duplicate.IsEnabled)
+                    return ApiErrors.Conflict($"These rules already define '{duplicate.DisplayName ?? "an existing collection"}' ({duplicate.Id}).");
+            }
 
             if (resolution == CollectionResolution.Query && body.WorkIds.Count > 0)
             {
@@ -2195,14 +2217,13 @@ public static class CollectionEndpoints
                 RuleJson = ruleJson,
                 RuleHash = ruleHash,
                 SortField = body.SortField,
-                LiveUpdating = resolution == CollectionResolution.Query && body.LiveUpdating,
                 CreatedAt = DateTimeOffset.UtcNow,
             };
             collection.RestoreDefinition(
                 AggregateStateSerializer.ParseCollectionType(body.CollectionType),
                 CollectionScope.Library,
                 resolution,
-                AggregateStateSerializer.ParseCollectionMatchMode(body.MatchMode),
+                CollectionMatchMode.All,
                 AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection),
                 CollectionUniverseStatus.Unknown);
             CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile.Id);
@@ -2287,13 +2308,6 @@ public static class CollectionEndpoints
                 collection.IconName = body.IconName;
             }
 
-            if (body.MatchMode is not null)
-            {
-                collection.ChangeRuleOrdering(
-                    AggregateStateSerializer.ParseCollectionMatchMode(body.MatchMode),
-                    collection.SortDirection);
-            }
-
             if (body.SortField is not null)
             {
                 collection.SortField = body.SortField;
@@ -2304,11 +2318,6 @@ public static class CollectionEndpoints
                 collection.ChangeRuleOrdering(
                     collection.MatchMode,
                     AggregateStateSerializer.ParseCollectionSortDirection(body.SortDirection));
-            }
-
-            if (body.LiveUpdating.HasValue)
-            {
-                collection.LiveUpdating = body.LiveUpdating.Value;
             }
 
             if (body.IsEnabled.HasValue)
@@ -2340,13 +2349,16 @@ public static class CollectionEndpoints
                 CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile?.Id);
             }
 
-            if (body.Rules is not null)
+            if (body.RuleDefinition is not null)
             {
-                if (body.Rules.Count > 0)
+                var definition = body.RuleDefinition.ToDomain();
+                if (definition.AllConditions.Count > 0)
                 {
-                    collection.RuleJson = System.Text.Json.JsonSerializer.Serialize(body.Rules);
-                    collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(
-                        body.Rules.Select(rule => rule.ToDomain()).ToList());
+                    collection.RuleJson = System.Text.Json.JsonSerializer.Serialize(definition);
+                    collection.RuleHash = CollectionRuleEvaluator.ComputeRuleHash(definition);
+                    var duplicate = await collectionRepo.FindByRuleHashAsync(collection.RuleHash, ct);
+                    if (duplicate is not null && duplicate.Id != collection.Id && duplicate.IsEnabled)
+                        return ApiErrors.Conflict($"These rules already define '{duplicate.DisplayName ?? "an existing collection"}' ({duplicate.Id}).");
                     collection.ChangeResolution(CollectionResolution.Query);
                 }
                 else
@@ -2355,11 +2367,6 @@ public static class CollectionEndpoints
                     collection.RuleHash = null;
                     collection.ChangeResolution(CollectionResolution.Materialized);
                 }
-            }
-
-            if (collection.Resolution == CollectionResolution.Materialized)
-            {
-                collection.LiveUpdating = false;
             }
 
             collection.ModifiedAt = DateTimeOffset.UtcNow;
@@ -2412,12 +2419,13 @@ public static class CollectionEndpoints
         // GET /collections/field-values/{field} — distinct values for autocomplete
         group.MapGet("/field-values/{field}", async (
             string field,
+            string? q,
             int? limit,
             ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
         {
             var page = PagedRequest.From(null, limit, defaultLimit: 50);
-            var values = await browseReadService.GetFieldValuesAsync(field, page.Limit, ct);
+            var values = await browseReadService.GetFieldValuesAsync(field, q, page.Limit, ct);
             return Results.Ok(values);
         })
         .WithName("GetFieldValues")
@@ -2427,6 +2435,7 @@ public static class CollectionEndpoints
 
         group.MapGet("/entity-field-values/{field}", async (
             string field,
+            string? q,
             int? limit,
             ICollectionBrowseReadService browseReadService,
             CancellationToken ct) =>
@@ -2437,7 +2446,7 @@ public static class CollectionEndpoints
                 return ApiErrors.BadRequest("The requested collection field is not entity-backed.");
 
             var page = PagedRequest.From(null, limit, defaultLimit: 100);
-            return Results.Ok(await browseReadService.GetEntityFieldValuesAsync(field, page.Limit, ct));
+            return Results.Ok(await browseReadService.GetEntityFieldValuesAsync(field, q, page.Limit, ct));
         })
         .WithName("GetEntityFieldValues")
         .WithSummary("Returns local QID-backed values and labels for the collection rule editor.")
@@ -2519,6 +2528,20 @@ public static class CollectionEndpoints
         }
 
         return await profileRepo.GetByIdAsync(profileId.Value, ct);
+    }
+
+    private static bool TryGetCollectionArtwork(Collection collection, string slot, out string? path, out string? mimeType)
+    {
+        (path, mimeType) = slot.ToLowerInvariant() switch
+        {
+            "poster" => (collection.CoverArtworkPath, collection.CoverArtworkMimeType),
+            "background" => (collection.BackgroundArtworkPath, collection.BackgroundArtworkMimeType),
+            "logo" => (collection.LogoArtworkPath, collection.LogoArtworkMimeType),
+            _ => (null, null),
+        };
+        return slot.Equals("poster", StringComparison.OrdinalIgnoreCase)
+            || slot.Equals("background", StringComparison.OrdinalIgnoreCase)
+            || slot.Equals("logo", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string? BuildCoverStreamUrl(Work? w, Guid? assetId = null)

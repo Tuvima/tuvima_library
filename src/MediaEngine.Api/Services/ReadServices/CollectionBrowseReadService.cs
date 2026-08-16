@@ -446,15 +446,19 @@ public sealed class CollectionBrowseReadService(
     }
 
     public IReadOnlyList<Guid> EvaluateRules(
-        IReadOnlyList<CollectionRulePredicate> predicates,
-        string matchMode = "all",
+        CollectionRuleDefinition definition,
         string? sortField = null,
         string sortDirection = "desc",
-        int limit = 0) =>
-        _ruleEvaluator.Evaluate(predicates, matchMode, sortField, sortDirection, limit);
+        int limit = 0,
+        string? query = null) =>
+        _ruleEvaluator.Evaluate(definition, sortField, sortDirection, limit, query);
+
+    public int CountRuleMatches(CollectionRuleDefinition definition, string? query = null) =>
+        _ruleEvaluator.Count(definition, query);
 
     public Task<IReadOnlyList<string>> GetFieldValuesAsync(
         string field,
+        string? query,
         int limit,
         CancellationToken ct)
     {
@@ -466,6 +470,7 @@ public sealed class CollectionBrowseReadService(
               SELECT DISTINCT media_type
               FROM works
               WHERE NULLIF(media_type, '') IS NOT NULL
+              AND (@Query IS NULL OR media_type LIKE @Query COLLATE NOCASE)
               ORDER BY media_type
               LIMIT @Limit
               """
@@ -481,18 +486,20 @@ public sealed class CollectionBrowseReadService(
                   WHERE key = @Field
               )
               WHERE NULLIF(value, '') IS NOT NULL
+                AND (@Query IS NULL OR value LIKE @Query COLLATE NOCASE)
               ORDER BY value
               LIMIT @Limit
               """;
         var rows = conn.Query<string>(new CommandDefinition(
             sql,
-            new { Field = field, Limit = take },
+            new { Field = field, Query = string.IsNullOrWhiteSpace(query) ? null : $"%{query.Trim()}%", Limit = take },
             cancellationToken: ct));
         return Task.FromResult<IReadOnlyList<string>>(rows.AsList());
     }
 
     public async Task<IReadOnlyList<CollectionRuleValueDto>> GetEntityFieldValuesAsync(
         string field,
+        string? query,
         int limit,
         CancellationToken ct)
     {
@@ -507,6 +514,7 @@ public sealed class CollectionBrowseReadService(
                 FROM primary_person_media_credits
                 WHERE NULLIF(person_qid, '') IS NOT NULL
                 GROUP BY person_qid
+                HAVING @Query IS NULL OR MIN(person_name) LIKE @Query COLLATE NOCASE
                 ORDER BY LocalCount DESC, Label COLLATE NOCASE
                 LIMIT @Limit
                 """,
@@ -517,6 +525,7 @@ public sealed class CollectionBrowseReadService(
                 FROM collection_relationships
                 WHERE rel_type IN ('franchise','fictional_universe')
                 GROUP BY rel_qid
+                HAVING @Query IS NULL OR MIN(COALESCE(NULLIF(rel_label, ''), rel_qid)) LIKE @Query COLLATE NOCASE
                 ORDER BY LocalCount DESC, Label COLLATE NOCASE
                 LIMIT @Limit
                 """,
@@ -529,18 +538,28 @@ public sealed class CollectionBrowseReadService(
               AND NULLIF(value_qid, '') IS NOT NULL
               AND NULLIF(value, '') IS NOT NULL
             GROUP BY value_qid
+            HAVING @Query IS NULL OR MIN(value) LIKE @Query COLLATE NOCASE
             ORDER BY LocalCount DESC, Label COLLATE NOCASE
             LIMIT @Limit
             """,
         };
         var rows = await conn.QueryAsync<CollectionRuleValueRow>(new CommandDefinition(
             sql,
-            new { Field = field, Limit = take },
+            new { Field = field, Query = string.IsNullOrWhiteSpace(query) ? null : $"%{query.Trim()}%", Limit = take },
             cancellationToken: ct)).ConfigureAwait(false);
         return rows
-            .Select(row => new CollectionRuleValueDto(row.Value, row.Label, checked((int)row.LocalCount)))
+            .Select(row => new CollectionRuleValueDto(row.Value, row.Label, checked((int)row.LocalCount), RuleOptionGroup(field)))
             .ToList();
     }
+
+    private static string RuleOptionGroup(string field) => field.ToLowerInvariant() switch
+    {
+        "award_received" or "award_nominated" or "award_family" or "nomination_family" or "director" or "cast_member" or "screenwriter" or "production_company" or "filming_location" or "network" => "Movies & TV",
+        "author" or "illustrator" or "publisher" => "Books & Comics",
+        "narrator" => "Audiobooks",
+        "artist" or "composer" or "record_label" => "Music",
+        _ => "Cross-media",
+    };
 
     private sealed class CollectionRuleValueRow
     {
@@ -567,15 +586,15 @@ public sealed class CollectionBrowseReadService(
         foreach (var collection in definitions)
         {
             ct.ThrowIfCancellationRequested();
-            var predicates = CollectionRuleEvaluator.ParseRules(collection.RuleJson);
+            var definition = CollectionRuleEvaluator.ParseDefinition(collection.RuleJson);
+            var predicates = definition.AllConditions;
             if (predicates.Count == 0 || string.IsNullOrWhiteSpace(collection.GroupByField))
             {
                 continue;
             }
 
             var workIds = EvaluateRules(
-                predicates,
-                collection.MatchMode.ToStorageValue(),
+                definition,
                 collection.SortField,
                 collection.SortDirection.ToStorageValue());
             var primaryMediaType = predicates

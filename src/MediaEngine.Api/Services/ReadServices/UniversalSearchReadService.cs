@@ -140,7 +140,7 @@ public sealed class UniversalSearchReadService(
                 $"{row.ItemCount} {(row.ItemCount == 1 ? "item" : "items")}",
                 null,
                 null,
-                string.IsNullOrWhiteSpace(row.CoverArtworkPath) ? null : $"/collections/{row.Id:D}/cover-artwork",
+                string.IsNullOrWhiteSpace(row.CoverArtworkPath) ? null : $"/collections/{row.Id:D}/artwork/poster",
                 row.Description,
                 route,
                 isPlaylist ? "Open Playlist" : entityType == "series" ? "View Series" : "Open Collection",

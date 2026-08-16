@@ -20,10 +20,11 @@ public sealed class CollectionListItemViewModel
     public string MatchMode { get; init; } = "all";
     public string? SortField { get; init; }
     public string SortDirection { get; init; } = "desc";
-    public bool LiveUpdating { get; init; } = true;
     public string Status => !IsEnabled ? "Disabled" : ItemCount == 0 ? "Empty" : "Active";
     public string? PrimaryMediaType { get; init; }
     public string? CoverUrl { get; init; }
+    public string? BackgroundUrl { get; init; }
+    public string? LogoUrl { get; init; }
     public string? Creator { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public bool CanEdit { get; init; }
@@ -58,4 +59,20 @@ public sealed class CollectionRulePredicateViewModel
     public string? Value { get; set; }
     public string? DisplayValue { get; set; }
     public string[]? Values { get; set; }
+}
+
+public sealed class CollectionRuleGroupViewModel
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string MatchMode { get; set; } = "all";
+    public List<CollectionRulePredicateViewModel> Conditions { get; set; } = [];
+}
+
+public sealed class CollectionRuleDefinitionViewModel
+{
+    public int Version { get; set; } = 1;
+    public List<CollectionRuleGroupViewModel> Groups { get; set; } = [];
+
+    public IEnumerable<CollectionRulePredicateViewModel> AllConditions =>
+        Groups.SelectMany(group => group.Conditions);
 }

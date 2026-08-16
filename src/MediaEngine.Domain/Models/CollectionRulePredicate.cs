@@ -1,8 +1,9 @@
+using System.Text.Json.Serialization;
+
 namespace MediaEngine.Domain.Models;
 
 /// <summary>
-/// A single filter predicate in a collection's rule set.
-/// Rules are stored as a JSON array of predicates in Collection.RuleJson.
+/// A single condition in a collection rule group.
 /// </summary>
 public sealed class CollectionRulePredicate
 {
@@ -24,4 +25,40 @@ public sealed class CollectionRulePredicate
     /// <summary>Returns the effective value(s) — prefers Values array, falls back to single Value.</summary>
     public string[] GetEffectiveValues() =>
         Values is { Length: > 0 } ? Values : (Value is not null ? [Value] : []);
+}
+
+/// <summary>A group of conditions evaluated using either ALL (AND) or ANY (OR).</summary>
+public sealed class CollectionRuleGroup
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string MatchMode { get; set; } = "all";
+    public List<CollectionRulePredicate> Conditions { get; set; } = [];
+}
+
+/// <summary>
+/// Versioned smart-collection definition. Groups are combined with OR; conditions
+/// inside a group use the group's match mode.
+/// </summary>
+public sealed class CollectionRuleDefinition
+{
+    public int Version { get; set; } = 1;
+    public List<CollectionRuleGroup> Groups { get; set; } = [];
+
+    [JsonIgnore]
+    public IReadOnlyList<CollectionRulePredicate> AllConditions =>
+        Groups.SelectMany(group => group.Conditions).ToList();
+
+    public static CollectionRuleDefinition SingleGroup(
+        IEnumerable<CollectionRulePredicate> conditions,
+        string matchMode = "all") => new()
+    {
+        Groups =
+        [
+            new CollectionRuleGroup
+            {
+                MatchMode = string.Equals(matchMode, "any", StringComparison.OrdinalIgnoreCase) ? "any" : "all",
+                Conditions = conditions.ToList(),
+            },
+        ],
+    };
 }
