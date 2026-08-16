@@ -46,6 +46,17 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             SELECT w.id AS WorkId,
                    w.media_type AS MediaType,
                    ra.AssetId,
+                   (SELECT ea.id
+                    FROM entity_assets ea
+                    WHERE ea.entity_id = w.id
+                      AND ea.entity_type = 'Work'
+                      AND ea.asset_type IN ('CoverArt', 'SeasonPoster')
+                      AND COALESCE(
+                          NULLIF(ea.local_image_path_s, ''),
+                          NULLIF(ea.local_image_path_m, ''),
+                          NULLIF(ea.local_image_path, '')) IS NOT NULL
+                    ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, ea.created_at DESC
+                    LIMIT 1) AS CoverAssetId,
                    CAST(COALESCE(
                        (SELECT value FROM canonical_values WHERE entity_id = ra.AssetId AND key = 'title' LIMIT 1),
                        (SELECT value FROM canonical_values WHERE entity_id = w.id AND key = 'title' LIMIT 1),
@@ -97,12 +108,50 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                 Title = row.Title,
                 Creator = row.Creator,
                 MediaType = row.MediaType,
-                CoverUrl = !string.IsNullOrWhiteSpace(row.CoverUrl)
-                    ? row.CoverUrl
-                    : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
+                CoverUrl = row.CoverAssetId.HasValue
+                    ? $"/stream/artwork/{row.CoverAssetId.Value:D}"
+                    : !string.IsNullOrWhiteSpace(row.CoverUrl)
+                        ? row.CoverUrl
+                        : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
                 Year = row.Year,
             };
         }).ToList();
+    }
+
+    public async Task<Dictionary<string, int>> CountMediaTypesAsync(
+        IReadOnlyList<Guid> workIds,
+        CancellationToken ct)
+    {
+        if (workIds.Count == 0)
+        {
+            return [];
+        }
+
+        using var conn = db.CreateConnection();
+        var rows = await conn.QueryAsync<MediaTypeCountRow>(new CommandDefinition(
+            """
+            WITH requested(WorkHex) AS (
+                SELECT UPPER(CAST(value AS TEXT))
+                FROM json_each(@WorkIdsJson)
+            )
+            SELECT w.media_type AS MediaType,
+                   COUNT(*) AS ItemCount
+            FROM works w
+            INNER JOIN requested ON hex(w.id) = requested.WorkHex
+            GROUP BY w.media_type
+            ORDER BY w.media_type COLLATE NOCASE;
+            """,
+            new
+            {
+                WorkIdsJson = System.Text.Json.JsonSerializer.Serialize(
+                    workIds.Select(workId => workId.ToString("N"))),
+            },
+            cancellationToken: ct)).ConfigureAwait(false);
+
+        return rows.ToDictionary(
+            row => row.MediaType,
+            row => checked((int)row.ItemCount),
+            StringComparer.OrdinalIgnoreCase);
     }
 
     public async Task<List<CollectionMediaLookupDto>> LookupAsync(
@@ -306,6 +355,17 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
                    w.media_type AS MediaType,
                    w.work_kind AS WorkKind,
                    CAST(NULLIF(cover_work.value, '') AS TEXT) AS CoverUrl,
+                   (SELECT ea.id
+                    FROM entity_assets ea
+                    WHERE ea.entity_id = display_work.WorkId
+                      AND ea.entity_type = 'Work'
+                      AND ea.asset_type IN ('CoverArt', 'SeasonPoster')
+                      AND COALESCE(
+                          NULLIF(ea.local_image_path_s, ''),
+                          NULLIF(ea.local_image_path_m, ''),
+                          NULLIF(ea.local_image_path, '')) IS NOT NULL
+                    ORDER BY ea.is_user_override DESC, ea.is_preferred DESC, ea.created_at DESC
+                    LIMIT 1) AS CoverAssetId,
                    ra.AssetId,
                    CAST(display_work.SortOrder AS INTEGER) AS SortOrder
             FROM display_work
@@ -342,8 +402,8 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
             Title = row.Title,
             Creator = row.Creator,
             MediaType = row.MediaType,
-            CoverUrl = IsTvContainer(row.WorkKind, row.MediaType)
-                ? row.CoverUrl
+            CoverUrl = row.CoverAssetId.HasValue
+                ? $"/stream/artwork/{row.CoverAssetId.Value:D}"
                 : !string.IsNullOrWhiteSpace(row.CoverUrl)
                     ? row.CoverUrl
                     : row.AssetId.HasValue ? $"/stream/{row.AssetId.Value:D}/cover" : null,
@@ -355,6 +415,12 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
     private static bool IsTvContainer(string? workKind, string mediaType) =>
         string.Equals(workKind, "parent", StringComparison.OrdinalIgnoreCase)
         && mediaType.Contains("TV", StringComparison.OrdinalIgnoreCase);
+
+    private sealed class MediaTypeCountRow
+    {
+        public string MediaType { get; init; } = string.Empty;
+        public long ItemCount { get; init; }
+    }
 
     private static string BuildResolvedItemRoute(ResolvedCollectionItemRow row)
     {
@@ -540,6 +606,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         public string MediaType { get; init; } = string.Empty;
         public string? WorkKind { get; init; }
         public string? CoverUrl { get; init; }
+        public Guid? CoverAssetId { get; init; }
         public Guid? AssetId { get; init; }
         public int SortOrder { get; init; }
     }
@@ -549,6 +616,7 @@ public sealed class CollectionMediaLookupReadService(IDatabaseConnection db) : I
         public Guid WorkId { get; init; }
         public string MediaType { get; init; } = string.Empty;
         public Guid? AssetId { get; init; }
+        public Guid? CoverAssetId { get; init; }
         public string Title { get; init; } = string.Empty;
         public string? Creator { get; init; }
         public string? Year { get; init; }

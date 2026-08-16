@@ -452,6 +452,7 @@
 .collection-editor-preview-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid rgba(148, 163, 184, 0.14); border-radius: 10px; background: rgba(255, 255, 255, 0.025); }
 .collection-editor-item-list--members { margin-top: 16px; }
 .collection-editor-item-art { width: 44px; height: 62px; flex: 0 0 auto; border-radius: 5px; object-fit: cover; background: rgba(2, 8, 23, 0.54); }
+.collection-editor-item-art--placeholder { display: grid; place-items: center; color: rgba(226, 232, 240, 0.38); }
 .collection-editor-contents-toolbar,
 .collection-editor-item-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
 .collection-editor-contents-toolbar > div,

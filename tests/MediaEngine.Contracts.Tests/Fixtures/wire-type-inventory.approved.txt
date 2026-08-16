@@ -933,6 +933,7 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Count: System.Int32 | json=count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Items: System.Collections.Generic.List<MediaEngine.Contracts.Collections.CollectionResolvedItemDto> | json=items | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  MediaTypeCounts: System.Collections.Generic.Dictionary<System.String, System.Int32> | json=media_type_counts | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.Collections.CollectionResolvedItemDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6425,7 +6426,8 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Count: System.Int32 | json=count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Items: System.Collections.Generic.List<MediaEngine.Web.Models.ViewDTOs.CollectionResolvedItemViewModel> | json=items | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"count":7,"items":[]}
+  MediaTypeCounts: System.Collections.Generic.Dictionary<System.String, System.Int32> | json=mediaTypeCounts | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"count":7,"items":[],"mediaTypeCounts":{}}
 
 [web-client] MediaEngine.Web.Models.ViewDTOs.CollectionResolvedItemViewModel
   kind=class | converter=default | number-handling=default | unmapped=default

@@ -51,6 +51,10 @@ public interface ICollectionMediaLookupReadService
     Task<List<CollectionResolvedItemDto>> ResolveMetadataAsync(
         IReadOnlyList<Guid> workIds,
         CancellationToken ct);
+
+    Task<Dictionary<string, int>> CountMediaTypesAsync(
+        IReadOnlyList<Guid> workIds,
+        CancellationToken ct);
 }
 
 public interface ICollectionSearchReadService

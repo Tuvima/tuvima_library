@@ -49,6 +49,7 @@ public sealed class CollectionPreviewResult
 {
     public int Count { get; init; }
     public List<CollectionResolvedItemViewModel> Items { get; init; } = [];
+    public Dictionary<string, int> MediaTypeCounts { get; init; } = [];
 }
 
 /// <summary>A rule predicate for the collection builder.</summary>

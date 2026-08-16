@@ -201,6 +201,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("@page \"/details/{EntityType}/{Id:guid}\"", route, StringComparison.Ordinal);
         Assert.Contains("/details/collection/", composer, StringComparison.Ordinal);
         Assert.Contains("CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest", detail, StringComparison.Ordinal);
+        Assert.Contains("ActiveProfileId = activeProfile?.Id ?? collection.ProfileId", detail, StringComparison.Ordinal);
         Assert.Contains("<DetailPrimaryModule Model=\"Model\"", detail, StringComparison.Ordinal);
         Assert.Contains("<DetailTabs Tabs=\"VisibleTabs\"", detail, StringComparison.Ordinal);
     }
@@ -252,7 +253,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("<CollectionRuleBuilder", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", editor, StringComparison.Ordinal);
         Assert.Contains("Build rules", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Live matches", ruleBuilder, StringComparison.Ordinal);
+        Assert.DoesNotContain("Live matches", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Collection order", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("Add rule group", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("SearchOptionsAsync", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("SortFieldChanged", ruleBuilder, StringComparison.Ordinal);
@@ -274,6 +276,10 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("collection-wizard__included-list", css, StringComparison.Ordinal);
         Assert.Contains("PersistenceVisibility", editor, StringComparison.Ordinal);
         Assert.Contains("RenderItemsTab", editor, StringComparison.Ordinal);
+        Assert.Contains("MediaTileArtworkUrl.Sized(coverUrl, \"s\")", editor, StringComparison.Ordinal);
+        Assert.Contains("collection-editor-item-art--placeholder", editor, StringComparison.Ordinal);
+        Assert.Contains("FormatMatchSummary(_previewResult)", editor, StringComparison.Ordinal);
+        Assert.Contains("Variant=\"Variant.Filled\" Color=\"Color.Error\"", editor, StringComparison.Ordinal);
         Assert.Contains("OpenItemPickerAsync", editor, StringComparison.Ordinal);
         Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);

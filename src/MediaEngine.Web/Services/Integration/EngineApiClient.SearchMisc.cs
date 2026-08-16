@@ -468,6 +468,7 @@ public sealed partial class EngineApiClient
             return result is null ? null : new CollectionPreviewResult
             {
                 Count = result.Count,
+                MediaTypeCounts = result.MediaTypeCounts,
                 Items = result.Items.Select(item => new CollectionResolvedItemViewModel
                 {
                     EntityId = item.EntityId,
@@ -642,7 +643,19 @@ public sealed partial class EngineApiClient
             };
             var url = AppendCollectionProfileQuery($"/collections/{collectionId}", profileId);
             var response = await _http.PutAsJsonAsync(url, body, ct);
-            return response.IsSuccessStatusCode;
+            if (!response.IsSuccessStatusCode)
+            {
+                LastError = await ReadCollectionFailureAsync(response, ct);
+                _logger.LogWarning(
+                    "PUT /collections/{CollectionId} failed with HTTP {StatusCode}: {Error}",
+                    collectionId,
+                    (int)response.StatusCode,
+                    LastError);
+                return false;
+            }
+
+            LastError = null;
+            return true;
         }
         catch (Exception ex)
         {

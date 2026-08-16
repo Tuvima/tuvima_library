@@ -182,7 +182,11 @@ public sealed class CollectionPreviewRequest
 
 public sealed record CollectionPreviewResponse(
     [property: JsonPropertyName("count")] int Count,
-    [property: JsonPropertyName("items")] List<CollectionResolvedItemDto> Items);
+    [property: JsonPropertyName("items")] List<CollectionResolvedItemDto> Items)
+{
+    [JsonPropertyName("media_type_counts")]
+    public Dictionary<string, int> MediaTypeCounts { get; init; } = [];
+}
 
 public sealed class CollectionItemAddRequest
 {

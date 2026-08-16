@@ -110,6 +110,33 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task MediaTypeCounts_AreCalculatedForEveryMatchedRootWork()
+    {
+        var movieId = Guid.NewGuid();
+        var comicOneId = Guid.NewGuid();
+        var comicTwoId = Guid.NewGuid();
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind) VALUES
+                    (@MovieId, 'Movies', 'standalone'),
+                    (@ComicOneId, 'Comics', 'standalone'),
+                    (@ComicTwoId, 'Comics', 'standalone');
+                """,
+                new { MovieId = movieId, ComicOneId = comicOneId, ComicTwoId = comicTwoId });
+        }
+
+        var counts = await _lookup.CountMediaTypesAsync(
+            [movieId, comicOneId, comicTwoId],
+            CancellationToken.None);
+
+        Assert.Equal(1, counts["Movies"]);
+        Assert.Equal(2, counts["Comics"]);
+    }
+
+    [Fact]
     public async Task CollectionCatalog_SkipsUnsupportedAndDisabledManagedCollections()
     {
         var supportedId = Guid.NewGuid();
@@ -237,6 +264,7 @@ public sealed class CollectionReadServicesTests : IDisposable
         var episodeId = Guid.NewGuid();
         var editionId = Guid.NewGuid();
         var assetId = Guid.NewGuid();
+        var posterAssetId = Guid.NewGuid();
         var itemId = Guid.NewGuid();
         var now = DateTimeOffset.UtcNow.ToString("O");
 
@@ -254,8 +282,14 @@ public sealed class CollectionReadServicesTests : IDisposable
                     (@ShowId, 'title', 'Test Show', @Now),
                     (@ShowId, 'poster_url', '/art/test-show-poster.jpg', @Now),
                     (@EpisodeId, 'episode_still_url', '/art/test-show-s01e01.jpg', @Now);
+                INSERT INTO entity_assets (
+                    id, entity_id, entity_type, asset_type, aspect_class,
+                    local_image_path, is_preferred, created_at)
+                VALUES (
+                    @PosterAssetId, @ShowId, 'Work', 'SeasonPoster', 'Portrait',
+                    'C:/managed-art/test-show-poster.jpg', 1, @Now);
                 """,
-                new { ShowId = showId, SeasonId = seasonId, EpisodeId = episodeId, EditionId = editionId, AssetId = assetId, Now = now });
+                new { ShowId = showId, SeasonId = seasonId, EpisodeId = episodeId, EditionId = editionId, AssetId = assetId, PosterAssetId = posterAssetId, Now = now });
         }
 
         var result = Assert.Single(await _lookup.ResolveItemsAsync(
@@ -265,7 +299,7 @@ public sealed class CollectionReadServicesTests : IDisposable
 
         Assert.Equal(showId, result.WorkId);
         Assert.Equal("Test Show", result.Title);
-        Assert.Equal("/art/test-show-poster.jpg", result.CoverUrl);
+        Assert.Equal($"/stream/artwork/{posterAssetId:D}", result.CoverUrl);
         Assert.Equal($"/details/tvshow/{showId:D}?context=watch", result.DetailRoute);
         Assert.DoesNotContain("s01e01", result.CoverUrl, StringComparison.OrdinalIgnoreCase);
     }

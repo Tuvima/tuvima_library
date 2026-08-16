@@ -1592,7 +1592,7 @@ public static class CollectionEndpoints
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
             {
-                return Results.Forbid();
+                return ApiErrors.Forbidden("The active profile cannot edit this collection.");
             }
 
             if (!CollectionAccessPolicy.IsManagedCollectionType(collection.CollectionType)
@@ -2124,8 +2124,12 @@ public static class CollectionEndpoints
                 .Take(body.Limit > 0 ? body.Limit : 20)
                 .ToList();
 
+            var mediaTypeCounts = await mediaLookupReadService.CountMediaTypesAsync(displayWorkIds, ct);
             var resolved = await mediaLookupReadService.ResolveMetadataAsync(entityIds, ct);
-            return Results.Ok(new CollectionPreviewResponse(total, resolved));
+            return Results.Ok(new CollectionPreviewResponse(total, resolved)
+            {
+                MediaTypeCounts = mediaTypeCounts,
+            });
         })
         .WithName("PreviewCollection")
         .WithSummary("Evaluate collection rules and return matching items without saving.")
@@ -2295,7 +2299,7 @@ public static class CollectionEndpoints
 
             if (!CollectionAccessPolicy.CanEdit(collection, activeProfile))
             {
-                return Results.Forbid();
+                return ApiErrors.Forbidden("The active profile cannot edit this collection.");
             }
 
             if (body.Name is not null)
@@ -2348,7 +2352,7 @@ public static class CollectionEndpoints
                 if (string.Equals(normalizedVisibility, CollectionAccessPolicy.SharedVisibility, StringComparison.OrdinalIgnoreCase)
                     && !CollectionAccessPolicy.CanManageSharedCollections(activeProfile))
                 {
-                    return Results.Forbid();
+                    return ApiErrors.Forbidden("The active profile cannot publish shared collections.");
                 }
 
                 CollectionAccessPolicy.ApplyVisibility(collection, normalizedVisibility, activeProfile?.Id);

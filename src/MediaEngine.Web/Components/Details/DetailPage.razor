@@ -281,6 +281,7 @@
         try
         {
             var target = ResolveEditorTarget(entityId);
+            var activeProfile = await Orchestrator.GetActiveProfileAsync();
             if (string.Equals(target.EntityKind, "Collection", StringComparison.OrdinalIgnoreCase))
             {
                 var collection = await ResolveManagedCollectionForEditorAsync(target.EntityId);
@@ -293,7 +294,7 @@
                 var collectionApplied = await CollectionEditorLauncher.OpenAsync(new CollectionEditorLaunchRequest
                 {
                     EditingCollection = collection,
-                    ActiveProfileId = collection.ProfileId,
+                    ActiveProfileId = activeProfile?.Id ?? collection.ProfileId,
                     Mode = CollectionEditorMode.CuratedCollection,
                 });
 
@@ -303,7 +304,6 @@
                 return;
             }
 
-            var activeProfile = await Orchestrator.GetActiveProfileAsync();
             var request = new MediaEditorLaunchRequest
             {
                 EntityIds = [target.EntityId],

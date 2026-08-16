@@ -46,6 +46,7 @@ public sealed class CollectionEndpointRouteTests
         var accessPolicySource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Models\CollectionAccessPolicy.cs"));
         Assert.Contains("Smart", accessPolicySource, StringComparison.Ordinal);
         Assert.Contains("PlaylistFolder", accessPolicySource, StringComparison.Ordinal);
+        Assert.Contains("ApiErrors.Forbidden(\"The active profile cannot edit this collection.\")", source, StringComparison.Ordinal);
     }
 
     [Fact]

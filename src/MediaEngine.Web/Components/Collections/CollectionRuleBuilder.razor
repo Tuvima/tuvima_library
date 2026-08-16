@@ -134,59 +134,28 @@
 
             <AppButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
                        Class="collection-rule-builder__add-group" OnClick="AddGroupAsync">Add rule group</AppButton>
-        </div>
 
-        <aside class="collection-rule-builder__results" aria-live="polite">
-            <div class="collection-rule-builder__results-heading">
-                <div><span>Live matches</span><strong>@ResultHeading</strong></div>
-                @if (_previewLoading){<MudProgressCircular Indeterminate="true" Size="Size.Small" />}
-                else{<MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" />}
-            </div>
-            <AppTextField T="string" Value="@_resultSearch" ValueChanged="OnResultSearchChangedAsync"
-                          Placeholder="Search matches" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
-                          Immediate="true" DebounceInterval="300" Class="collection-rule-builder__result-search" />
-            <div class="collection-rule-builder__sort">
-                <AppSelect T="string" Value="@(SortField ?? "title")" ValueChanged="OnSortFieldChangedAsync" Label="Sort by" Dense="true">
-                    <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("creator")">Creator</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("year")">Release year</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("provider_rating")">Provider rating</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("added_at")">Date added</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("media_type")">Media type</MudSelectItem>
-                </AppSelect>
-                <AppSelect T="string" Value="@SortDirection" ValueChanged="OnSortDirectionChangedAsync" Label="Direction" Dense="true">
-                    <MudSelectItem T="string" Value="@("asc")">Ascending</MudSelectItem>
-                    <MudSelectItem T="string" Value="@("desc")">Descending</MudSelectItem>
-                </AppSelect>
-            </div>
-
-            @if (!string.IsNullOrWhiteSpace(_previewError))
-            {
-                <div class="collection-rule-builder__result-state is-error"><span>@_previewError</span></div>
-            }
-            else if (CompleteConditions.Count == 0)
-            {
-                <div class="collection-rule-builder__result-state"><span>Add a complete condition to see matching items.</span></div>
-            }
-            else if (!_previewLoading && Preview is { Count: 0 })
-            {
-                <div class="collection-rule-builder__result-state"><span>No library items match these rules.</span></div>
-            }
-            else if (Preview is not null)
-            {
-                <div class="collection-rule-builder__result-list">
-                    @foreach (var item in Preview.Items)
-                    {
-                        <div class="collection-rule-builder__result-item" title="@item.Title">
-                            @if (!string.IsNullOrWhiteSpace(item.CoverUrl)){<img src="@item.CoverUrl" alt="" />}
-                            else{<span class="collection-rule-builder__result-placeholder"><MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" /></span>}
-                            <div><strong>@item.Title</strong><small>@item.MediaType@if (!string.IsNullOrWhiteSpace(item.Year)){<text> · @item.Year</text>}</small></div>
-                        </div>
-                    }
+            <div class="collection-rule-builder__ordering">
+                <div>
+                    <strong>Collection order</strong>
+                    <span>This order is saved and used wherever the collection is displayed.</span>
                 </div>
-                <div class="collection-rule-builder__more-results">Showing @Preview.Items.Count of @Preview.Count matching items</div>
-            }
-        </aside>
+                <div class="collection-rule-builder__sort">
+                    <AppSelect T="string" Value="@(SortField ?? "title")" ValueChanged="OnSortFieldChangedAsync" Label="Sort by" Dense="true">
+                        <MudSelectItem T="string" Value="@("title")">Title</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("creator")">Creator</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("year")">Release year</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("provider_rating")">Provider rating</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("added_at")">Date added</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("media_type")">Media type</MudSelectItem>
+                    </AppSelect>
+                    <AppSelect T="string" Value="@SortDirection" ValueChanged="OnSortDirectionChangedAsync" Label="Direction" Dense="true">
+                        <MudSelectItem T="string" Value="@("asc")">Ascending</MudSelectItem>
+                        <MudSelectItem T="string" Value="@("desc")">Descending</MudSelectItem>
+                    </AppSelect>
+                </div>
+            </div>
+        </div>
     </div>
 </section>
 
@@ -203,9 +172,6 @@
     [Parameter] public string Density { get; set; } = "editor";
 
     private string _activeCategory = "media";
-    private string _resultSearch = string.Empty;
-    private bool _previewLoading;
-    private string? _previewError;
     private bool _initialPreviewQueued;
     private CancellationTokenSource? _previewCts;
 
@@ -235,7 +201,6 @@
     ];
 
     private List<CollectionRulePredicateViewModel> CompleteConditions => Definition.AllConditions.Where(IsComplete).ToList();
-    private string ResultHeading => _previewLoading ? "Updating…" : Preview is null ? "Not evaluated" : $"{Preview.Count} matching item{(Preview.Count == 1 ? "" : "s")}";
 
     protected override void OnParametersSet()
     {
@@ -290,7 +255,6 @@
         return values.Select(value => new CollectionRuleValueDto(value, value, 0, OptionGroup(field)));
     }
 
-    private async Task OnResultSearchChangedAsync(string value){_resultSearch = value; await SchedulePreviewAsync();}
     private async Task OnSortFieldChangedAsync(string value){SortField = value; await SortFieldChanged.InvokeAsync(value); await Changed.InvokeAsync(); await SchedulePreviewAsync();}
     private async Task OnSortDirectionChangedAsync(string value){SortDirection = value; await SortDirectionChanged.InvokeAsync(value); await Changed.InvokeAsync(); await SchedulePreviewAsync();}
     private async Task NotifyChangedAsync(){await DefinitionChanged.InvokeAsync(Definition); await Changed.InvokeAsync(); await SchedulePreviewAsync();}
@@ -303,12 +267,11 @@
     public async Task RefreshAsync(){_previewCts?.Cancel(); _previewCts?.Dispose(); _previewCts = new CancellationTokenSource(); await RunPreviewAsync(_previewCts.Token);}
     private async Task RunPreviewAsync(CancellationToken token)
     {
-        _previewError = null;
         if (CompleteConditions.Count == 0){Preview = null; await PreviewChanged.InvokeAsync(null); await InvokeAsync(StateHasChanged); return;}
-        _previewLoading = true; await InvokeAsync(StateHasChanged);
-        try{Preview = await ApiClient.PreviewCollectionRulesAsync(Definition, SortField, SortDirection, _resultSearch, 15, token); await PreviewChanged.InvokeAsync(Preview);}
-        catch(OperationCanceledException){throw;} catch{_previewError = "Matching items could not be loaded.";}
-        finally{_previewLoading = false; await InvokeAsync(StateHasChanged);}
+        await InvokeAsync(StateHasChanged);
+        try{Preview = await ApiClient.PreviewCollectionRulesAsync(Definition, SortField, SortDirection, limit: 15, ct: token); await PreviewChanged.InvokeAsync(Preview);}
+        catch(OperationCanceledException){throw;} catch{Preview = null; await PreviewChanged.InvokeAsync(null);}
+        finally{await InvokeAsync(StateHasChanged);}
     }
 
     private static bool IsEntityField(string field) => Fields.FirstOrDefault(item => item.Key == field)?.Entity == true;

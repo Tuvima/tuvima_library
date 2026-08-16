@@ -56,7 +56,8 @@
                     <div class="collection-editor-rail-footer">
                         @if (CanDeleteCollection)
                         {
-                            <AppButton Variant="Variant.Outlined" Color="Color.Error"
+                            <AppButton Variant="Variant.Filled" Color="Color.Error"
+                                       Class="collection-editor-delete-button"
                                        StartIcon="@Icons.Material.Outlined.DeleteOutline"
                                        OnClick="DeleteCollectionAsync" Disabled="@_saving">Delete collection</AppButton>
                             <small>Media remains in your library.</small>
@@ -93,7 +94,7 @@
                 </div>
 
                 <footer class="sme-footer collection-editor-footer">
-                    <div class="collection-editor-footer-copy">@FooterSummary</div>
+                    <div class="collection-editor-footer-copy" aria-live="polite">@FooterSummary</div>
                     <div class="collection-editor-footer-actions">
                         <AppButton Variant="Variant.Text"
                                    Color="Color.Inherit"
@@ -234,8 +235,8 @@
             : SupportsManualItems
                 ? $"{_manualItems.Count} item(s) staged for this collection."
                 : _previewResult is null
-                    ? "Rule-based collection. Add at least one rule value to preview matching items."
-                    : $"{_previewResult.Count} item(s) currently match these rules.";
+                    ? "Add at least one complete rule to calculate membership."
+                    : FormatMatchSummary(_previewResult);
     private string SaveButtonText => EditingCollection is not null
         ? "Save"
         : IsSmartPlaylistLaunch
@@ -703,7 +704,11 @@
 
             if (!ok)
             {
-                Snackbar.Add("Failed to save collection.", Severity.Error);
+                Snackbar.Add(
+                    string.IsNullOrWhiteSpace(ApiClient.LastError)
+                        ? "Failed to save collection."
+                        : ApiClient.LastError,
+                    Severity.Error);
                 return;
             }
 
@@ -814,6 +819,46 @@
             parts.Add(item.Year);
         return parts.Count == 0 ? "Matching item" : string.Join("  -  ", parts);
     }
+
+    private static string FormatMatchSummary(CollectionPreviewResult preview)
+    {
+        if (preview.Count == 0)
+            return "No items match these rules.";
+
+        var normalized = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (mediaType, count) in preview.MediaTypeCounts)
+        {
+            var key = NormalizeMediaType(mediaType);
+            normalized[key] = normalized.GetValueOrDefault(key) + count;
+        }
+
+        var ordered = new[] { "movie", "TV show", "book", "comic", "music item", "audiobook", "item" };
+        var parts = ordered
+            .Where(normalized.ContainsKey)
+            .Select(key => FormatMediaCount(key, normalized[key]))
+            .ToList();
+
+        return parts.Count == 0
+            ? $"{preview.Count} {(preview.Count == 1 ? "item" : "items")} matched"
+            : $"{string.Join(" · ", parts)} matched";
+    }
+
+    private static string NormalizeMediaType(string? mediaType) => mediaType?.Trim().ToLowerInvariant() switch
+    {
+        "movie" or "movies" or "film" or "films" => "movie",
+        "tv" or "television" or "tv show" or "tv shows" or "series" => "TV show",
+        "book" or "books" => "book",
+        "comic" or "comics" => "comic",
+        "music" or "album" or "albums" => "music item",
+        "audiobook" or "audiobooks" => "audiobook",
+        _ => "item",
+    };
+
+    private static string FormatMediaCount(string label, int count) =>
+        $"{count} {label}{(count == 1 ? string.Empty : "s")}";
+
+    private static string? ContentThumbnailUrl(string? coverUrl) =>
+        MediaTileArtworkUrl.Sized(coverUrl, "s") ?? coverUrl;
 
     private static bool IsValueFreeOperator(string op) =>
         op is "known" or "unknown" or "has_any_value" or "has_no_known_value";
@@ -1212,7 +1257,13 @@
                                 <div class="collection-editor-item-row">
                                     @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
                                     {
-                                        <img class="collection-editor-item-art" src="@item.CoverUrl" alt="" />
+                                        <img class="collection-editor-item-art"
+                                             src="@ContentThumbnailUrl(item.CoverUrl)"
+                                             alt=""
+                                             width="44"
+                                             height="62"
+                                             loading="lazy"
+                                             decoding="async" />
                                     }
                                     <div class="collection-editor-item-copy">
                                         <div class="collection-editor-item-title">@item.Title</div>
@@ -1303,6 +1354,22 @@
                         @foreach (var item in _previewResult.Items)
                         {
                             <div class="collection-editor-preview-item">
+                                @if (!string.IsNullOrWhiteSpace(item.CoverUrl))
+                                {
+                                    <img class="collection-editor-item-art"
+                                         src="@ContentThumbnailUrl(item.CoverUrl)"
+                                         alt=""
+                                         width="44"
+                                         height="62"
+                                         loading="lazy"
+                                         decoding="async" />
+                                }
+                                else
+                                {
+                                    <span class="collection-editor-item-art collection-editor-item-art--placeholder" aria-hidden="true">
+                                        <MudIcon Icon="@Icons.Material.Outlined.ImageNotSupported" Size="Size.Small" />
+                                    </span>
+                                }
                                 <div class="collection-editor-preview-copy">
                                     <div class="collection-editor-item-title">@item.Title</div>
                                     <div class="collection-editor-item-meta">@FormatPreviewMeta(item)</div>
