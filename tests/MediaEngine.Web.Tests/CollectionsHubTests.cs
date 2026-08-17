@@ -67,7 +67,9 @@ public sealed class CollectionsHubTests
         Assert.Contains("/persons/role-counts?catalog=true", peopleClientSource, StringComparison.Ordinal);
         Assert.Contains("CollectionSurfaceTileComposer.FromCollection", source, StringComparison.Ordinal);
         Assert.Contains("CollectionSurfaceTileComposer.FromContentGroup", source, StringComparison.Ordinal);
-        Assert.Contains("shelf.WorkCount >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("shelf.DistinctTitleCount >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("\"Books\" or \"Movies\" or \"Audiobooks\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Books\" or \"Comics\" or \"Movies\" or \"Albums\"", source, StringComparison.Ordinal);
         Assert.Contains("<PeopleCatalogList", source, StringComparison.Ordinal);
         Assert.Contains("PeoplePageSize = 100", source, StringComparison.Ordinal);
         Assert.Contains("Load more people", source, StringComparison.Ordinal);
@@ -117,9 +119,10 @@ public sealed class CollectionsHubTests
         Assert.Contains("Search shelves", source, StringComparison.Ordinal);
         Assert.Contains("All media", source, StringComparison.Ordinal);
         Assert.Contains("ShelfLanePreviews", source, StringComparison.Ordinal);
-        Assert.Contains("Book series and comic volumes in your library", source, StringComparison.Ordinal);
+        Assert.Contains("Book series in your library", source, StringComparison.Ordinal);
         Assert.Contains("Movie series in your library", source, StringComparison.Ordinal);
-        Assert.Contains("Albums and audiobook series in your library", source, StringComparison.Ordinal);
+        Assert.Contains("Audiobook series in your library", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Book series and comic volumes in your library", source, StringComparison.Ordinal);
         Assert.DoesNotContain("All shelf types", source, StringComparison.Ordinal);
         Assert.Contains("Search people or roles", source, StringComparison.Ordinal);
         Assert.Contains("Recently Updated", configurationSource, StringComparison.Ordinal);
@@ -222,7 +225,7 @@ public sealed class CollectionsHubTests
             DisplayName = "The Dark Knight Collection",
             PrimaryMediaType = "Movies",
             WorkCount = 3,
-            DistinctTitleCount = 1,
+            DistinctTitleCount = 3,
             EarliestYear = 2005,
             LatestYear = 2012,
             PreviewItems =

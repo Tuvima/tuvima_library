@@ -1228,11 +1228,15 @@ public static class CollectionEndpoints
 
             var dtos = collections.Select(h =>
             {
-                // Primary media type is whichever appears most among this collection's works.
-                var primaryMediaType = h.Works
+                // Mixed-format groups belong to cross-media Collections rather than
+                // being presented as a lane-local shelf based on a simple majority.
+                var mediaTypeGroups = h.Works
                     .GroupBy(w => w.MediaType.ToString())
                     .OrderByDescending(g => g.Count())
-                    .FirstOrDefault()?.Key ?? "Unknown";
+                    .ToList();
+                var primaryMediaType = mediaTypeGroups.Count > 1
+                    ? "CrossMedia"
+                    : mediaTypeGroups.FirstOrDefault()?.Key ?? "Unknown";
 
                 // Cover from the first work that has a media asset.
                 string? cover = null;

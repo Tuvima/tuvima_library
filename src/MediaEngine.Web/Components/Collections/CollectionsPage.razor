@@ -526,9 +526,7 @@
     private static IReadOnlyList<(string Value, string Label)> ShelfMediaOptions { get; } =
     [
         ("Books", "Books"),
-        ("Comics", "Comics"),
         ("Movies", "Movies"),
-        ("Albums", "Albums"),
         ("Audiobooks", "Audiobooks"),
     ];
 
@@ -542,13 +540,13 @@
     [
         BuildShelfLanePreview(
             "Read",
-            "Book series and comic volumes in your library"),
+            "Book series in your library"),
         BuildShelfLanePreview(
             "Watch",
             "Movie series in your library"),
         BuildShelfLanePreview(
             "Listen",
-            "Albums and audiobook series in your library"),
+            "Audiobook series in your library"),
     ];
 
     private string SectionTitle => _activeSection switch
@@ -695,7 +693,7 @@
     {
         _shelves.Clear();
         _shelves.AddRange(shelves
-            .Where(shelf => shelf.WorkCount >= 2 && IsShelfMediaType(shelf.PrimaryMediaType))
+            .Where(shelf => shelf.DistinctTitleCount >= 2 && IsShelfMediaType(shelf.PrimaryMediaType))
             .GroupBy(shelf => $"{NormalizeShelfMediaType(shelf.PrimaryMediaType)}:{shelf.DisplayName}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First()));
     }
@@ -795,7 +793,7 @@
     }
 
     private static bool IsShelfMediaType(string? mediaType) => NormalizeShelfMediaType(mediaType) is
-        "Books" or "Comics" or "Movies" or "Albums" or "Audiobooks";
+        "Books" or "Movies" or "Audiobooks";
 
     private static string NormalizeShelfMediaType(string? mediaType)
     {

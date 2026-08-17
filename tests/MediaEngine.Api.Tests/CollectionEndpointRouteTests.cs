@@ -200,7 +200,9 @@ public sealed class CollectionEndpointRouteTests
             < source.IndexOf("TryGetStructuralParentAggregation", StringComparison.Ordinal));
         Assert.Contains("TryGetRelationshipAggregation(collection, \"series\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldIncludeCatalogGroup(entries)", source, StringComparison.Ordinal);
-        Assert.Contains(".Count() >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("generatedCollectionCount >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("entry.MediaCounts.IsCrossMedia", source, StringComparison.Ordinal);
+        Assert.Contains("CountDistinctOwnedTitles(entry) >= 2", source, StringComparison.Ordinal);
         Assert.Contains("SelectMany(entry => entry.WorkIds)", source, StringComparison.Ordinal);
         Assert.Contains("ISeriesManifestRepository manifestRepo", source, StringComparison.Ordinal);
         Assert.Contains("IPersonRepository personRepo", source, StringComparison.Ordinal);

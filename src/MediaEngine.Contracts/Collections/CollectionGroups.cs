@@ -239,8 +239,8 @@ public sealed class LibraryPipelineStageDto
 }
 
 /// <summary>
-/// A structural Content Group, Series, or Universe collection (album, TV series, book series, movie series)
-/// that contains works of a single media type.
+/// A structural Content Group, Series, or Universe collection (album, TV series, book series, movie series).
+/// Mixed-media groups report CrossMedia as their primary media type so consumers do not misclassify them as lane-local shelves.
 /// </summary>
 public class ContentGroupDto
 {

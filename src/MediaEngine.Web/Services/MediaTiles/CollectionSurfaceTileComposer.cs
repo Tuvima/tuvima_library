@@ -40,7 +40,7 @@ public static class CollectionSurfaceTileComposer
             artworkItems.FirstOrDefault()?.ImageUrl,
             group.BackgroundUrl,
             group.BannerUrl);
-        var count = group.WorkCount;
+        var count = group.DistinctTitleCount ?? group.WorkCount;
 
         return new MediaTileViewModel
         {

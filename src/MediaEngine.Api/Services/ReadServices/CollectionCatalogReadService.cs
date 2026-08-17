@@ -2,6 +2,7 @@ using System.Globalization;
 using Dapper;
 using MediaEngine.Api.Endpoints;
 using MediaEngine.Api.Models;
+using MediaEngine.Api.Services.Collections;
 using MediaEngine.Contracts.Collections;
 using MediaEngine.Api.Services.Display;
 using MediaEngine.Domain;
@@ -615,11 +616,29 @@ public sealed class CollectionCatalogReadService(
             return true;
         }
 
-        return generatedEntries
+        var generatedCollectionCount = generatedEntries
             .Where(entry => entry.Collection.Works.Count > 0)
             .Select(entry => entry.Collection.Id)
             .Distinct()
-            .Count() >= 2;
+            .Count();
+        if (generatedCollectionCount >= 2)
+        {
+            return true;
+        }
+
+        // A single structural series can still be a truthful cross-media
+        // collection when the library owns at least two distinct titles across
+        // lanes (for example, Harry Potter books plus an audiobook edition).
+        return generatedEntries.Any(entry =>
+            entry.MediaCounts.IsCrossMedia
+            && CountDistinctOwnedTitles(entry) >= 2);
+    }
+
+    private static int CountDistinctOwnedTitles(CollectionManagementCatalogCandidate entry)
+    {
+        var ownedWorkIds = entry.WorkIds.ToHashSet();
+        return CollectionResponseFormatting.CountDistinctWorkTitles(
+            entry.Collection.Works.Where(work => ownedWorkIds.Contains(work.Id)));
     }
 
     private static bool TryGetRelationshipAggregation(

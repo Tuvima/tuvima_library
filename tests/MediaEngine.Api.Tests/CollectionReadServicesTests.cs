@@ -662,6 +662,73 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionCatalog_IncludesSingleSeriesGroupWithMultipleOwnedTitlesAcrossLanes()
+    {
+        var collectionId = Guid.NewGuid();
+        var fixtures = new[]
+        {
+            (WorkId: Guid.NewGuid(), MediaType: "Books", Title: "Harry Potter and the Philosopher's Stone"),
+            (WorkId: Guid.NewGuid(), MediaType: "Audiobooks", Title: "Harry Potter and the Philosopher's Stone"),
+            (WorkId: Guid.NewGuid(), MediaType: "Books", Title: "Harry Potter and the Chamber of Secrets"),
+        };
+        var now = DateTimeOffset.UtcNow.ToString("O");
+
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO collections (
+                    id, display_name, collection_type, scope, resolution, wikidata_qid, group_by_field)
+                VALUES (
+                    @CollectionId, 'Harry Potter', 'ContentGroup', 'library', 'materialized', 'Q8337', 'series');
+                INSERT INTO collection_relationships (
+                    id, collection_id, rel_type, rel_qid, rel_label, confidence)
+                VALUES (
+                    @RelationshipId, @CollectionId, 'franchise', 'Q30739117', 'Wizarding World', 1.0);
+                """,
+                new { CollectionId = collectionId, RelationshipId = Guid.NewGuid() });
+
+            foreach (var fixture in fixtures)
+            {
+                var editionId = Guid.NewGuid();
+                var assetId = Guid.NewGuid();
+                await connection.ExecuteAsync(
+                    """
+                    INSERT INTO works (
+                        id, collection_id, media_type, work_kind, ownership, curator_state)
+                    VALUES (
+                        @WorkId, @CollectionId, @MediaType, 'standalone', 'Owned', 'Accepted');
+                    INSERT INTO editions (id, work_id)
+                    VALUES (@EditionId, @WorkId);
+                    INSERT INTO media_assets (id, edition_id, content_hash, file_path_root)
+                    VALUES (@AssetId, @EditionId, @ContentHash, @FilePath);
+                    INSERT INTO canonical_values (entity_id, key, value, last_scored_at)
+                    VALUES (@WorkId, 'title', @Title, @Now);
+                    """,
+                    new
+                    {
+                        fixture.WorkId,
+                        CollectionId = collectionId,
+                        fixture.MediaType,
+                        fixture.Title,
+                        EditionId = editionId,
+                        AssetId = assetId,
+                        ContentHash = $"harry-potter-{assetId:N}",
+                        FilePath = $"C:/library/{assetId:N}.media",
+                        Now = now,
+                    });
+            }
+        }
+
+        var entry = Assert.Single(await _catalog.GetCatalogAsync(null, CancellationToken.None));
+
+        Assert.Equal("Harry Potter", entry.Name);
+        Assert.Equal("CrossMedia", entry.PrimaryLane);
+        Assert.Equal(2, entry.BookCount);
+        Assert.Equal(1, entry.AudiobookCount);
+    }
+
+    [Fact]
     public async Task CollectionCatalog_ResolvesEpisodesAndComicIssuesToCoverLedSeriesEntries()
     {
         var universeId = Guid.NewGuid();
