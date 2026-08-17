@@ -255,6 +255,12 @@ public sealed class CollectionsHubTests
         Assert.DoesNotContain("<AppTextField T=\"string\"\r\n                          Value=\"_description\"", source, StringComparison.Ordinal);
         Assert.Contains("min-height: 172px !important", styles, StringComparison.Ordinal);
         Assert.Contains("EditingCollection.CollectionType is \"Custom\" or \"Playlist\" or \"Smart\"", source, StringComparison.Ordinal);
+        Assert.Contains("SetMembershipModeAsync", source, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Membership mode\"", source, StringComparison.Ordinal);
+        Assert.Contains("Add at least one complete rule before saving a dynamic collection.", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Discovery & placement", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Featured\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("_isFeatured", source, StringComparison.Ordinal);
         Assert.Contains(">Delete collection</AppButton>", source, StringComparison.Ordinal);
     }
 

@@ -1621,6 +1621,26 @@ public sealed class UnifiedDetailComponentTests
     }
 
     [Theory]
+    [InlineData("description")]
+    [InlineData("short_description")]
+    public void AudiobookHero_MovesDescriptionLikeSecondaryTextBelowActions(string secondaryKind)
+    {
+        var model = new DetailPageViewModel
+        {
+            EntityType = DetailEntityType.Audiobook,
+            Title = "Example Audiobook",
+            SecondaryTitleText = "A short description that was previously shown under the title.",
+            SecondaryTitleTextKind = secondaryKind,
+            Description = "The audiobook description belongs below the action rows.",
+        };
+
+        var presentation = DetailHeroPresentation.From(model);
+
+        Assert.Null(presentation.SecondaryTitleText);
+        Assert.Equal(model.Description, presentation.HeroCopy);
+    }
+
+    [Theory]
     [InlineData("First paragraph.\\n\\nSecond paragraph.")]
     [InlineData("First paragraph.\r\n \r\nSecond paragraph.")]
     [InlineData("<p>First paragraph.</p><p>Second paragraph.</p>")]

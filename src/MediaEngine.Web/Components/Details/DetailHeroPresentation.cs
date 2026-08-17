@@ -67,15 +67,19 @@ public sealed class DetailHeroPresentation
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
         var hasHeroTagline = !string.IsNullOrWhiteSpace(model.Tagline);
+        var moveSecondaryDescriptionToSynopsis = model.EntityType == DetailEntityType.Audiobook
+            && IsDescriptionKind(model.SecondaryTitleTextKind);
         var copySource = hasHeroTagline
             ? model.Tagline
-            : string.Equals(model.SecondaryTitleTextKind, "description", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : model.Description;
-        var secondaryTitleText = hasHeroTagline
+            : moveSecondaryDescriptionToSynopsis
+                ? StringHelpers.FirstNonBlank(model.Description, model.SecondaryTitleText)
+                : IsDescriptionKind(model.SecondaryTitleTextKind)
+                    ? null
+                    : model.Description;
+        var hideSecondaryTitleText = hasHeroTagline
             && string.Equals(model.SecondaryTitleTextKind, "tagline", StringComparison.OrdinalIgnoreCase)
-                ? null
-                : model.SecondaryTitleText;
+            || moveSecondaryDescriptionToSynopsis;
+        var secondaryTitleText = hideSecondaryTitleText ? null : model.SecondaryTitleText;
         var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
         var usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero;
         var firstParagraph = usesFullParagraphCopy
@@ -191,6 +195,10 @@ public sealed class DetailHeroPresentation
             or DetailEntityType.ComicIssue
             or DetailEntityType.ComicSeries
             or DetailEntityType.Work;
+
+    private static bool IsDescriptionKind(string? kind)
+        => !string.IsNullOrWhiteSpace(kind)
+           && kind.Contains("description", StringComparison.OrdinalIgnoreCase);
 
     private static string? FirstParagraph(string? value)
         => NormalizeDescriptionParagraphs(value).FirstOrDefault();

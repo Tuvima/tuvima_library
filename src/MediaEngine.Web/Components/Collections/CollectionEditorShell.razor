@@ -197,7 +197,6 @@
     private string _sortDirection = "asc";
     private string? _secondarySortField;
     private string? _secondarySortDirection;
-    private bool _isFeatured;
     private bool _saving;
     private bool _hasUnsavedChanges;
     private CollectionPreviewResult? _previewResult;
@@ -294,7 +293,6 @@
         _sortDirection = string.IsNullOrWhiteSpace(EditingCollection.SortDirection) ? "asc" : EditingCollection.SortDirection;
         _secondarySortField = EditingCollection.SecondarySortField;
         _secondarySortDirection = EditingCollection.SecondarySortDirection;
-        _isFeatured = EditingCollection.IsFeatured;
         _rulesEnabled = !string.Equals(EditingCollection.Resolution, "materialized", StringComparison.OrdinalIgnoreCase);
 
         if (string.IsNullOrWhiteSpace(EditingCollection.RuleJson))
@@ -393,6 +391,25 @@
         _iconName = value;
         MarkDirty();
         return Task.CompletedTask;
+    }
+
+    private async Task SetMembershipModeAsync(bool rulesEnabled)
+    {
+        if (_rulesEnabled == rulesEnabled)
+            return;
+
+        _rulesEnabled = rulesEnabled;
+        _previewResult = null;
+        MarkDirty();
+
+        if (rulesEnabled)
+        {
+            if (_ruleDefinition.AllConditions.Any(IsCompleteRule))
+                await RunPreview();
+            return;
+        }
+
+        await LoadManualItemsAsync();
     }
 
     private async Task ConfirmNavigationWithUnsavedChanges(LocationChangingContext context)
@@ -698,6 +715,13 @@
             return;
         }
 
+        if (_rulesEnabled && !_ruleDefinition.AllConditions.Any(IsCompleteRule))
+        {
+            Snackbar.Add("Add at least one complete rule before saving a dynamic collection.", Severity.Warning);
+            _activeTab = "rules";
+            return;
+        }
+
         _saving = true;
         StateHasChanged();
 
@@ -721,7 +745,7 @@
                     normalizedSortField,
                     _sortDirection,
                     true,
-                    _isFeatured,
+                    null,
                     Request.ActiveProfileId,
                     secondarySortField: _secondarySortField,
                     secondarySortDirection: _secondarySortDirection);
@@ -1084,6 +1108,25 @@
                             <div><MudIcon Icon="@Icons.Material.Outlined.Sync" /><span>Membership</span><strong>@(SupportsManualItems ? "Manual" : "Dynamic")</strong></div>
                         </div>
 
+                        <div class="collection-editor-membership-mode">
+                            <span>Membership mode</span>
+                            <div class="collection-editor-membership-mode__options" role="group" aria-label="Membership mode">
+                                <AppNativeButton Type="button"
+                                                 Class="@(!_rulesEnabled ? "is-selected" : null)"
+                                                 OnClick="@(() => SetMembershipModeAsync(false))">
+                                    Manual
+                                </AppNativeButton>
+                                <AppNativeButton Type="button"
+                                                 Class="@(_rulesEnabled ? "is-selected" : null)"
+                                                 OnClick="@(() => SetMembershipModeAsync(true))">
+                                    Dynamic
+                                </AppNativeButton>
+                            </div>
+                            <small>@(_rulesEnabled
+                                ? "Rules automatically keep this collection up to date."
+                                : "You choose and order the items in this collection.")</small>
+                        </div>
+
                         <AppSelect T="string"
                                    Value="@(_iconName ?? string.Empty)"
                                    ValueChanged="OnIconChanged"
@@ -1101,12 +1144,6 @@
                         </AppSelect>
                     </MediaEditorPanel>
 
-                    @if (EditingCollection is not null)
-                    {
-                        <MediaEditorPanel Title="Discovery & placement" Description="Choose whether this curated collection is highlighted on supported collection surfaces.">
-                            <AppCheckbox @bind-Value="_isFeatured" Color="Color.Primary" Dense="true" Label="Featured" />
-                        </MediaEditorPanel>
-                    }
                 }
             </div>
 
