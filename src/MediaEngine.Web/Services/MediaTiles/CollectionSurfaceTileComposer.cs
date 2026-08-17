@@ -15,6 +15,87 @@ namespace MediaEngine.Web.Services.MediaTiles;
 /// </summary>
 public static class CollectionSurfaceTileComposer
 {
+    public static MediaTileViewModel FromContentGroup(ContentGroupViewModel group)
+    {
+        var mediaType = NormalizeMediaType(group.PrimaryMediaType);
+        var navigationUrl = SeriesNavigationUrl(group, mediaType);
+        var artworkItems = group.PreviewItems
+            .Where(item => !string.IsNullOrWhiteSpace(item.ImageUrl))
+            .Take(4)
+            .Select(item => new ArtworkStackItem
+            {
+                Id = item.WorkId.ToString("D"),
+                WorkId = item.WorkId,
+                Title = item.Title,
+                ImageUrl = MediaTileArtworkUrl.Sized(item.ImageUrl, "s") ?? item.ImageUrl,
+                MediaType = group.PrimaryMediaType,
+                NavigationUrl = MediaNavigation.ForMedia(group.PrimaryMediaType, item.WorkId),
+                Shape = ToArtworkShape(item.Shape, group.PrimaryMediaType),
+                Description = item.Description,
+                Facts = item.Facts ?? [],
+            })
+            .ToList();
+        var primaryArtwork = StringHelpers.FirstNonBlank(
+            group.CoverUrl,
+            artworkItems.FirstOrDefault()?.ImageUrl,
+            group.BackgroundUrl,
+            group.BannerUrl);
+        var count = group.WorkCount;
+
+        return new MediaTileViewModel
+        {
+            Id = group.CollectionId,
+            CollectionId = group.CollectionId,
+            RepresentativeEntityId = group.RootWorkId,
+            Title = NormalizeSeriesTitle(group.DisplayName),
+            Subtitle = SeriesCountLabel(mediaType, count),
+            Description = group.Description,
+            CoverUrl = primaryArtwork,
+            BackgroundUrl = group.BackgroundUrl,
+            BannerUrl = group.BannerUrl,
+            LogoUrl = group.LogoUrl,
+            PreviewImages = artworkItems.Select(item => item.ImageUrl).ToList(),
+            ArtworkStackItems = artworkItems,
+            MediaCounts = [ToMediaCount(mediaType, count)],
+            GroupSummary = new MediaTileGroupSummaryViewModel
+            {
+                OwnedCount = count,
+                EarliestYear = group.EarliestYear,
+                LatestYear = group.LatestYear,
+                RelationshipLabel = "Ordered series",
+            },
+            HoverFacts =
+            [
+                SeriesCountLabel(mediaType, count),
+                .. group.EarliestYear.HasValue && group.LatestYear.HasValue
+                    ? new[] { group.EarliestYear == group.LatestYear ? group.EarliestYear.Value.ToString() : $"{group.EarliestYear}-{group.LatestYear}" }
+                    : [],
+            ],
+            MediaKind = "Shelf",
+            AccentColor = AccentForMedia(mediaType),
+            SecondaryAccentColor = "#111827",
+            Shape = MediaTileShape.Landscape,
+            HoverArtworkShape = MediaTileShape.Landscape,
+            Presentation = PresentationForMedia(mediaType),
+            SurfaceKind = MediaTileSurfaceKind.BannerLandscape,
+            HoverLayout = MediaTileHoverLayout.ArtOnlyPopover,
+            TileTextMode = MediaTileTextMode.CoverOnly,
+            TileImageUrl = primaryArtwork,
+            HoverImageUrl = StringHelpers.FirstNonBlank(group.BackgroundUrl, group.BannerUrl, primaryArtwork),
+            HeroBackgroundImageUrl = StringHelpers.FirstNonBlank(group.HeroUrl, group.BackgroundUrl, group.BannerUrl),
+            NavigationUrl = navigationUrl,
+            PrimaryNavigationUrl = navigationUrl,
+            DetailsNavigationUrl = navigationUrl,
+            PrimaryActionLabel = "Open",
+            CollectionKey = mediaType,
+            PreviewTotalCount = count,
+            SortYear = group.LatestYear ?? group.EarliestYear ?? 0,
+            SortTimestamp = group.CreatedAt,
+            IsCollection = true,
+            UseLandscapeGroupTile = true,
+        };
+    }
+
     public static MediaTileViewModel FromContributorShelf(ContributorShelfDto shelf)
     {
         var route = $"/details/person/{shelf.PersonId:D}";
@@ -302,6 +383,63 @@ public static class CollectionSurfaceTileComposer
             return "Books";
 
         return string.Empty;
+    }
+
+    private static string SeriesNavigationUrl(ContentGroupViewModel group, string mediaType) => mediaType switch
+    {
+        "Movies" => $"/details/movieseries/{group.CollectionId:D}?context=watch",
+        "Books" => $"/details/bookseries/{group.CollectionId:D}?context=read",
+        "Comics" => $"/details/comicseries/{group.CollectionId:D}?context=comics",
+        "Music" => $"/details/musicalbum/{(group.RootWorkId ?? group.CollectionId):D}?context=listen",
+        "Audiobooks" => $"/details/collection/{group.CollectionId:D}?context=listen",
+        _ => $"/details/collection/{group.CollectionId:D}",
+    };
+
+    private static MediaTilePresentation PresentationForMedia(string mediaType) => mediaType switch
+    {
+        "Movies" => MediaTilePresentation.MovieSeries,
+        "Books" => MediaTilePresentation.BookSeries,
+        "Comics" => MediaTilePresentation.ComicSeries,
+        "Audiobooks" => MediaTilePresentation.AudiobookSeries,
+        "Music" => MediaTilePresentation.Album,
+        _ => MediaTilePresentation.Default,
+    };
+
+    private static string AccentForMedia(string mediaType) => mediaType switch
+    {
+        "Movies" => "var(--tl-media-video)",
+        "Comics" => "var(--tl-media-comic)",
+        "Music" or "Audiobooks" => "var(--tl-media-audio)",
+        _ => "var(--tl-media-book)",
+    };
+
+    private static string SeriesCountLabel(string mediaType, int count)
+    {
+        var noun = mediaType switch
+        {
+            "Movies" => count == 1 ? "movie" : "movies",
+            "Books" => count == 1 ? "book" : "books",
+            "Comics" => count == 1 ? "owned issue" : "owned issues",
+            "Music" => count == 1 ? "track" : "tracks",
+            "Audiobooks" => count == 1 ? "audiobook" : "audiobooks",
+            _ => count == 1 ? "item" : "items",
+        };
+        return $"{count} {noun}";
+    }
+
+    private static string NormalizeSeriesTitle(string title)
+    {
+        var normalized = title.Trim();
+        foreach (var suffix in new[] { " collection", " series" })
+        {
+            if (normalized.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)
+                && normalized.Length > suffix.Length)
+            {
+                return normalized[..^suffix.Length].TrimEnd();
+            }
+        }
+
+        return normalized;
     }
 
     private static int MediaCountSort(string label) => label switch

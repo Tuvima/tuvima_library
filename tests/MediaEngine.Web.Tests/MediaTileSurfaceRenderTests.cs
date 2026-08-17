@@ -162,7 +162,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         Assert.Contains("media-tile-grid--size-168", grid.ClassList);
         Assert.Null(grid.GetAttribute("style"));
         Assert.Equal("All of Us Strangers", cut.Find(".media-tile-caption__title").TextContent);
-        Assert.Equal("Andrew Scott", cut.Find(".media-tile-caption__subtitle").TextContent);
+        Assert.Empty(cut.FindAll(".media-tile-caption__subtitle"));
         Assert.Equal("2023", cut.Find(".media-tile-caption__year").TextContent);
         Assert.True(cut.FindComponent<MediaTile>().Instance.ShowCompactCaption);
     }

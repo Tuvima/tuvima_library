@@ -1,3 +1,7 @@
+using MediaEngine.Contracts.Collections;
+using MediaEngine.Web.Models.ViewDTOs;
+using MediaEngine.Web.Services.MediaTiles;
+
 namespace MediaEngine.Web.Tests;
 
 public sealed class CollectionsHubTests
@@ -37,6 +41,8 @@ public sealed class CollectionsHubTests
         var sectionShellStyles = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\MediaHub\MediaSectionShell.razor.css"));
 
         Assert.Contains("@page \"/collections/{Section}\"", routeSource, StringComparison.Ordinal);
+        Assert.Contains("[SupplyParameterFromQuery(Name = \"lane\")]", routeSource, StringComparison.Ordinal);
+        Assert.Contains("LaneQuery=\"@LaneQuery\"", routeSource, StringComparison.Ordinal);
         Assert.Contains("<MediaSectionShell", source, StringComparison.Ordinal);
         Assert.Contains("<LibrarySectionHeader", source, StringComparison.Ordinal);
         Assert.Contains("<SurfaceNavigationBar", headerSource, StringComparison.Ordinal);
@@ -48,8 +54,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("new(\"Browse library\"", configurationSource, StringComparison.Ordinal);
         Assert.Contains("new(\"Shortcuts\"", configurationSource, StringComparison.Ordinal);
         Assert.Contains("GetCollectionCatalogAsync", source, StringComparison.Ordinal);
-        Assert.Contains("GetContributorShelvesAsync", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("GetContentGroupsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetContributorShelvesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("GetContentGroupsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GetSystemViewGroupsAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetPersonsPageAsync", source, StringComparison.Ordinal);
         Assert.Contains("GetPersonPresenceAsync", source, StringComparison.Ordinal);
@@ -60,8 +66,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("/persons?catalog=true", peopleClientSource, StringComparison.Ordinal);
         Assert.Contains("/persons/role-counts?catalog=true", peopleClientSource, StringComparison.Ordinal);
         Assert.Contains("CollectionSurfaceTileComposer.FromCollection", source, StringComparison.Ordinal);
-        Assert.Contains("CollectionSurfaceTileComposer.FromContributorShelf", source, StringComparison.Ordinal);
-        Assert.Contains("shelf.OwnedCount >= 2", source, StringComparison.Ordinal);
+        Assert.Contains("CollectionSurfaceTileComposer.FromContentGroup", source, StringComparison.Ordinal);
+        Assert.Contains("shelf.WorkCount >= 2", source, StringComparison.Ordinal);
         Assert.Contains("<PeopleCatalogList", source, StringComparison.Ordinal);
         Assert.Contains("PeoplePageSize = 100", source, StringComparison.Ordinal);
         Assert.Contains("Load more people", source, StringComparison.Ordinal);
@@ -76,7 +82,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("browse-shell__control-label\">Filter by", source, StringComparison.Ordinal);
         Assert.Contains("browse-shell__display-label\">Display", source, StringComparison.Ordinal);
         Assert.DoesNotContain("collections-overview__intro", source, StringComparison.Ordinal);
-        Assert.Contains("_activeSection == CollectionsSectionConfiguration.Curated && CanManageCuratedCollections", source, StringComparison.Ordinal);
+        Assert.Contains("@if (CanManageCuratedCollections)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<CinematicHeroCarousel", source, StringComparison.Ordinal);
         Assert.Contains("<MediaTileGrid", source, StringComparison.Ordinal);
         Assert.Contains("MediaTileArtworkResolver.Resolve(", composerSource, StringComparison.Ordinal);
@@ -111,9 +117,9 @@ public sealed class CollectionsHubTests
         Assert.Contains("Search shelves", source, StringComparison.Ordinal);
         Assert.Contains("All media", source, StringComparison.Ordinal);
         Assert.Contains("ShelfLanePreviews", source, StringComparison.Ordinal);
-        Assert.Contains("Books and comics grouped by their primary authors and creators", source, StringComparison.Ordinal);
-        Assert.Contains("Movies grouped by their primary directors", source, StringComparison.Ordinal);
-        Assert.Contains("Albums and audiobooks grouped by their primary artists", source, StringComparison.Ordinal);
+        Assert.Contains("Book series and comic volumes in your library", source, StringComparison.Ordinal);
+        Assert.Contains("Movie series in your library", source, StringComparison.Ordinal);
+        Assert.Contains("Albums and audiobook series in your library", source, StringComparison.Ordinal);
         Assert.DoesNotContain("All shelf types", source, StringComparison.Ordinal);
         Assert.Contains("Search people or roles", source, StringComparison.Ordinal);
         Assert.Contains("Recently Updated", configurationSource, StringComparison.Ordinal);
@@ -204,6 +210,33 @@ public sealed class CollectionsHubTests
         Assert.Contains("ActiveProfileId = activeProfile?.Id ?? collection.ProfileId", detail, StringComparison.Ordinal);
         Assert.Contains("<DetailPrimaryModule Model=\"Model\"", detail, StringComparison.Ordinal);
         Assert.Contains("<DetailTabs Tabs=\"VisibleTabs\"", detail, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StructuralShelfComposer_UsesSeriesIdentityCountAndDetailRoute()
+    {
+        var collectionId = Guid.NewGuid();
+        var tile = CollectionSurfaceTileComposer.FromContentGroup(new ContentGroupViewModel
+        {
+            CollectionId = collectionId,
+            DisplayName = "The Dark Knight Collection",
+            PrimaryMediaType = "Movies",
+            WorkCount = 3,
+            DistinctTitleCount = 1,
+            EarliestYear = 2005,
+            LatestYear = 2012,
+            PreviewItems =
+            [
+                new ContentGroupPreviewItemDto(Guid.NewGuid(), "Batman Begins", "/art/batman-begins.jpg", "portrait", "1"),
+                new ContentGroupPreviewItemDto(Guid.NewGuid(), "The Dark Knight", "/art/dark-knight.jpg", "portrait", "2"),
+            ],
+        });
+
+        Assert.Equal("The Dark Knight", tile.Title);
+        Assert.Equal(3, tile.PreviewTotalCount);
+        Assert.Equal(MediaTilePresentation.MovieSeries, tile.Presentation);
+        Assert.Equal($"/details/movieseries/{collectionId:D}?context=watch", tile.DetailsNavigationUrl);
+        Assert.Null(tile.Person);
     }
 
     [Fact]

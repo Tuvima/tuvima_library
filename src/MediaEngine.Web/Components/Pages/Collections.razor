@@ -3,8 +3,22 @@
 @namespace MediaEngine.Web.Components.Pages
 
 <PageTitle>Collections  -  Tuvima</PageTitle>
-<CollectionsPage Section="@Section" />
+<CollectionsPage Section="@Section"
+                 SearchQuery="@SearchQuery"
+                 LaneQuery="@LaneQuery"
+                 KindQuery="@KindQuery"
+                 MembershipQuery="@MembershipQuery"
+                 RoleQuery="@RoleQuery"
+                 SortQuery="@SortQuery"
+                 TileQuery="@TileQuery" />
 
 @code {
     [Parameter] public string? Section { get; set; }
+    [SupplyParameterFromQuery(Name = "q")] public string? SearchQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "lane")] public string? LaneQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "kind")] public string? KindQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "membership")] public string? MembershipQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "role")] public string? RoleQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "sort")] public string? SortQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "tile")] public int? TileQuery { get; set; }
 }

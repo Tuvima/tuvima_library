@@ -1215,7 +1215,7 @@ public static class CollectionEndpoints
 
         // ── Content Groups ───────────────────────────────────────────────────────
 
-        // GET /collections/content-groups — Universe collections that have child works (albums, TV series, book series, movie series).
+        // GET /collections/content-groups — structural collections that have child works (albums, TV series, book series, movie series).
         group.MapGet("/content-groups", async (
             ICollectionRepository collectionRepo,
             ICollectionBrowseReadService browseReadService,
@@ -1382,7 +1382,7 @@ public static class CollectionEndpoints
             return Results.Ok(dtos);
         })
         .WithName("GetContentGroups")
-        .WithSummary("Returns Universe-type collections that contain works (albums, TV series, book series, movie series), grouped by primary media type.")
+        .WithSummary("Returns structural collections that contain works (albums, TV series, book series, movie series), grouped by primary media type.")
         .Produces<List<ContentGroupDto>>(StatusCodes.Status200OK)
         .RequireAnyRole();
 

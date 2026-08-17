@@ -1396,7 +1396,7 @@ public sealed class CollectionRepository : ICollectionRepository
     }
 
     // -------------------------------------------------------------------------
-    // Content Groups — Universe collections that contain works (albums, series, etc.)
+    // Content Groups — structural collections that contain works (albums, series, etc.)
     // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
@@ -1408,7 +1408,7 @@ public sealed class CollectionRepository : ICollectionRepository
         var collections  = new Dictionary<Guid, Collection>();
         var works = new Dictionary<Guid, Work>();
 
-        // Universe collections that have at least one work assigned.
+        // Structural collection types that have at least one work assigned.
         using (var cmd = conn.CreateCommand())
         {
             var visibleWorkPredicate = HomeVisibilitySql.VisibleWorkPredicate("w.id", "w.curator_state", "w.is_catalog_only");
@@ -1424,7 +1424,7 @@ public sealed class CollectionRepository : ICollectionRepository
                 FROM   collections h
                 INNER JOIN works w ON w.collection_id = h.id
                                AND {visibleWorkPredicate}
-                WHERE  h.collection_type IN ('ContentGroup', 'Universe')
+                WHERE  h.collection_type IN ('ContentGroup', 'Series', 'Universe')
                 ORDER  BY h.display_name, h.created_at, w.ordinal, w.id;
                 """;
 

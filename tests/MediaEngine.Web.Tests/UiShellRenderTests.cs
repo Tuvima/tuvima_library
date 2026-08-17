@@ -471,6 +471,35 @@ public sealed class UiShellRenderTests : TestContext
     }
 
     [Fact]
+    public void CollectionsShelves_RendersStructuralSeriesAndWorkingLaneRoutes()
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<CollectionsPage>(3);
+            builder.AddAttribute(4, nameof(CollectionsPage.Section), "shelves");
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Contains("Dune", cut.Markup);
+            Assert.Contains("The Dark Knight", cut.Markup);
+            Assert.DoesNotContain("Octavia Butler", cut.Markup);
+            var viewAllRoutes = cut.FindAll(".media-tile-shelf-link")
+                .Select(link => link.GetAttribute("href"))
+                .ToList();
+            Assert.Contains("/collections/shelves?lane=Read", viewAllRoutes);
+            Assert.Contains("/collections/shelves?lane=Watch", viewAllRoutes);
+        });
+    }
+
+    [Fact]
     public void CollectionsPeople_RendersPagedCanonicalContributorList()
     {
         var cut = Render(builder =>

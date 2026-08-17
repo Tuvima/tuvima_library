@@ -76,7 +76,7 @@ public partial interface IEngineApiClient
     /// <summary>GET /collections/managed/counts — collection count grouped by type for stats bar.</summary>
     Task<CollectionManagementCatalogViewModel?> GetCollectionSummaryAsync(Guid collectionId, Guid? profileId = null, CancellationToken ct = default);
 
-    /// <summary>GET /collections/content-groups — Universe-type collections (albums, TV series, book series, movie series) for the Content Groups section.</summary>
+    /// <summary>GET /collections/content-groups — structural collections (albums, TV series, book series, movie series) for grouped browse surfaces.</summary>
     Task<List<ContentGroupViewModel>> GetContentGroupsAsync(CancellationToken ct = default);
 
     /// <summary>GET /collections/system-views?mediaType=&amp;groupField= — system-view collections resolved as grouped content groups where no routed collection detail exists.</summary>

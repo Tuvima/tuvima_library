@@ -159,6 +159,7 @@ public sealed class DashboardReliabilityGuardrailTests
         Assert.Contains("--hero-wash-accent", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("tl-detail-media-stage--background::before", surfaceStyles, StringComparison.Ordinal);
         Assert.Contains("content: none", surfaceStyles, StringComparison.Ordinal);
+        Assert.DoesNotContain("tl-detail-media-stage__cover-wrap", surfaceStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("tl-detail-media-stage__background", carouselStyles, StringComparison.Ordinal);
         Assert.DoesNotContain("object-fit: cover", carouselStyles, StringComparison.Ordinal);
         Assert.Contains("min-height: 95svh", carouselStyles, StringComparison.Ordinal);

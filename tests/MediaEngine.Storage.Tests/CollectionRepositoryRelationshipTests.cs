@@ -254,6 +254,26 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
         Assert.Contains(episode.CanonicalValues, value => value.EntityId == assetId && value.Key == "duration_seconds" && value.Value == "2700");
     }
 
+    [Fact]
+    public async Task GetContentGroupsAsync_IncludesStructuralSeriesCollections()
+    {
+        var repo = new CollectionRepository(_db);
+        var collection = CreateCollection("Dune", "Series");
+        await repo.UpsertAsync(collection);
+
+        var workId = Guid.NewGuid();
+        var editionId = Guid.NewGuid();
+        var assetId = Guid.NewGuid();
+        InsertWork(workId, collection.Id, mediaType: "Books");
+        InsertEditionAndAsset(editionId, workId, assetId);
+
+        var group = Assert.Single(await repo.GetContentGroupsAsync());
+
+        Assert.Equal(collection.Id, group.Id);
+        Assert.Equal("Dune", group.DisplayName);
+        Assert.Equal(workId, Assert.Single(group.Works).Id);
+    }
+
     private static Collection CreateCollection(string name, string type = "Universe")
     {
         var collection = new Collection

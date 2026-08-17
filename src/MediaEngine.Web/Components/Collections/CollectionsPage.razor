@@ -23,7 +23,7 @@
                           Modes="@CollectionsSectionConfiguration.Modes"
                           ActiveMode="@_activeSection">
         <Actions>
-            @if (_activeSection == CollectionsSectionConfiguration.Curated && CanManageCuratedCollections)
+            @if (CanManageCuratedCollections)
             {
                 <AppButton Variant="Variant.Filled"
                            Color="Color.Primary"
@@ -345,9 +345,16 @@
     private const int PeoplePageSize = 100;
 
     [Parameter] public string? Section { get; set; }
+    [Parameter] public string? SearchQuery { get; set; }
+    [Parameter] public string? LaneQuery { get; set; }
+    [Parameter] public string? KindQuery { get; set; }
+    [Parameter] public string? MembershipQuery { get; set; }
+    [Parameter] public string? RoleQuery { get; set; }
+    [Parameter] public string? SortQuery { get; set; }
+    [Parameter] public int? TileQuery { get; set; }
 
     private readonly List<CollectionManagementCatalogViewModel> _collections = [];
-    private readonly List<ContributorShelfDto> _shelves = [];
+    private readonly List<ContentGroupViewModel> _shelves = [];
     private readonly List<PersonListItemResponse> _people = [];
     private readonly Dictionary<string, Dictionary<string, int>> _peoplePresence = new(StringComparer.OrdinalIgnoreCase);
     private Dictionary<string, int> _peopleRoleCounts = new(StringComparer.OrdinalIgnoreCase);
@@ -399,7 +406,7 @@
         CuratedCollections.Select(CollectionSurfaceTileComposer.FromCollection).ToList();
 
     private IReadOnlyList<MediaTileViewModel> ShelfTiles =>
-        _shelves.Select(CollectionSurfaceTileComposer.FromContributorShelf).ToList();
+        _shelves.Select(CollectionSurfaceTileComposer.FromContentGroup).ToList();
 
     private MediaTileShelfViewModel OverviewAutomaticShelf => new()
     {
@@ -423,7 +430,7 @@
     {
         Key = "library-shelves",
         Title = "Shelves Across Your Library",
-        Subtitle = "Multi-title shelves organized by the authors, directors, artists, and narrators behind your library",
+        Subtitle = "Series, volumes, albums, and audiobook sequences grouped within their media type",
         Items = SortCollectionTiles(ShelfTiles).Take(12).ToList(),
         SeeAllRoute = "/collections/shelves",
     };
@@ -535,13 +542,13 @@
     [
         BuildShelfLanePreview(
             "Read",
-            "Books and comics grouped by their primary authors and creators"),
+            "Book series and comic volumes in your library"),
         BuildShelfLanePreview(
             "Watch",
-            "Movies grouped by their primary directors"),
+            "Movie series in your library"),
         BuildShelfLanePreview(
             "Listen",
-            "Albums and audiobooks grouped by their primary artists, authors, and narrators"),
+            "Albums and audiobook series in your library"),
     ];
 
     private string SectionTitle => _activeSection switch
@@ -557,7 +564,7 @@
     {
         CollectionsSectionConfiguration.Automatic => "Broader franchise, universe, and related-work rollups discovered from trusted library relationships.",
         CollectionsSectionConfiguration.Curated => "Collections intentionally assembled or rule-maintained by administrators.",
-        CollectionsSectionConfiguration.Shelves => "Multi-title shelves built around canonical primary contributors, with tracks, episodes, and format variants collapsed to their owned work.",
+        CollectionsSectionConfiguration.Shelves => "Series, volumes, albums, and audiobook sequences grouped within one media type.",
         CollectionsSectionConfiguration.People => "Primary contributors with owned work in your library, using the same canonical credits as detail pages.",
         _ => string.Empty,
     };
@@ -588,7 +595,7 @@
             CollectionsSectionConfiguration.Curated => CanManageCuratedCollections
                 ? "Create a collection to make it available to every profile."
                 : "An administrator has not created any curated collections yet.",
-            CollectionsSectionConfiguration.Shelves => "Shelves appear when a primary contributor has at least two distinct owned works in the same role.",
+            CollectionsSectionConfiguration.Shelves => "Shelves appear when at least two owned works belong to the same series, volume, album, or audiobook sequence.",
             _ => "Try another section.",
         }
         : "Clear the search or remove a filter to broaden the results.";
@@ -639,7 +646,7 @@
             _activeProfile = await Orchestrator.GetActiveProfileAsync();
 
             var catalogTask = ApiClient.GetCollectionCatalogAsync(_activeProfile?.Id);
-            var shelvesTask = ApiClient.GetContributorShelvesAsync();
+            var shelvesTask = ApiClient.GetContentGroupsAsync();
             var peopleRolesTask = ApiClient.GetPersonRoleCountsAsync();
             var peopleTask = ApiClient.GetPersonsPageAsync(
                 search: _activeSection == CollectionsSectionConfiguration.People ? NullIfBlank(_searchText) : null,
@@ -684,12 +691,12 @@
         return LoadAsync();
     }
 
-    private void BuildShelves(IReadOnlyList<ContributorShelfDto> shelves)
+    private void BuildShelves(IReadOnlyList<ContentGroupViewModel> shelves)
     {
         _shelves.Clear();
         _shelves.AddRange(shelves
-            .Where(shelf => shelf.OwnedCount >= 2)
-            .GroupBy(shelf => shelf.Key, StringComparer.OrdinalIgnoreCase)
+            .Where(shelf => shelf.WorkCount >= 2 && IsShelfMediaType(shelf.PrimaryMediaType))
+            .GroupBy(shelf => $"{NormalizeShelfMediaType(shelf.PrimaryMediaType)}:{shelf.DisplayName}", StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First()));
     }
 
@@ -699,8 +706,8 @@
         Title = lane,
         Subtitle = subtitle,
         Items = SortCollectionTiles(_shelves
-                .Where(shelf => string.Equals(shelf.Lane, lane, StringComparison.OrdinalIgnoreCase))
-                .Select(CollectionSurfaceTileComposer.FromContributorShelf))
+                .Where(shelf => string.Equals(ShelfLane(shelf.PrimaryMediaType), lane, StringComparison.OrdinalIgnoreCase))
+                .Select(CollectionSurfaceTileComposer.FromContentGroup))
             .Take(12)
             .ToList(),
         SeeAllRoute = $"/collections/shelves?lane={lane}",
@@ -776,25 +783,37 @@
         if (!string.IsNullOrWhiteSpace(_searchText))
         {
             shelves = shelves.Where(entry =>
-                entry.Title.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-                || entry.PersonName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
-                || entry.Role.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+                entry.DisplayName.Contains(_searchText, StringComparison.OrdinalIgnoreCase)
+                || (entry.Description?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false)
+                || (entry.Creator?.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ?? false));
         }
         if (_lane != "all")
-            shelves = shelves.Where(entry => string.Equals(entry.Lane, _lane, StringComparison.OrdinalIgnoreCase));
+            shelves = shelves.Where(entry => string.Equals(ShelfLane(entry.PrimaryMediaType), _lane, StringComparison.OrdinalIgnoreCase));
         if (_kind != "all")
-            shelves = shelves.Where(entry => ShelfMatchesMedia(entry.ShelfType, _kind));
-        return SortCollectionTiles(shelves.Select(CollectionSurfaceTileComposer.FromContributorShelf));
+            shelves = shelves.Where(entry => string.Equals(NormalizeShelfMediaType(entry.PrimaryMediaType), _kind, StringComparison.OrdinalIgnoreCase));
+        return SortCollectionTiles(shelves.Select(CollectionSurfaceTileComposer.FromContentGroup));
     }
 
-    private static bool ShelfMatchesMedia(string shelfType, string media) => media switch
+    private static bool IsShelfMediaType(string? mediaType) => NormalizeShelfMediaType(mediaType) is
+        "Books" or "Comics" or "Movies" or "Albums" or "Audiobooks";
+
+    private static string NormalizeShelfMediaType(string? mediaType)
     {
-        "Books" => string.Equals(shelfType, "BooksByAuthor", StringComparison.OrdinalIgnoreCase),
-        "Comics" => string.Equals(shelfType, "ComicsByCreator", StringComparison.OrdinalIgnoreCase),
-        "Movies" => string.Equals(shelfType, "MoviesByDirector", StringComparison.OrdinalIgnoreCase),
-        "Albums" => string.Equals(shelfType, "AlbumsByArtist", StringComparison.OrdinalIgnoreCase),
-        "Audiobooks" => shelfType.StartsWith("AudiobooksBy", StringComparison.OrdinalIgnoreCase),
-        _ => true,
+        var value = mediaType ?? string.Empty;
+        if (value.Contains("audio", StringComparison.OrdinalIgnoreCase)) return "Audiobooks";
+        if (value.Contains("music", StringComparison.OrdinalIgnoreCase) || value.Contains("album", StringComparison.OrdinalIgnoreCase)) return "Albums";
+        if (value.Contains("comic", StringComparison.OrdinalIgnoreCase)) return "Comics";
+        if (value.Contains("movie", StringComparison.OrdinalIgnoreCase) || value.Contains("film", StringComparison.OrdinalIgnoreCase)) return "Movies";
+        if (value.Contains("book", StringComparison.OrdinalIgnoreCase)) return "Books";
+        return value;
+    }
+
+    private static string ShelfLane(string? mediaType) => NormalizeShelfMediaType(mediaType) switch
+    {
+        "Books" or "Comics" => "Read",
+        "Movies" => "Watch",
+        "Albums" or "Audiobooks" => "Listen",
+        _ => "CrossMedia",
     };
 
     private IReadOnlyList<MediaTileViewModel> SortCollectionTiles(IEnumerable<MediaTileViewModel> items) =>
@@ -814,15 +833,14 @@
 
     private void ReadUrlState()
     {
-        var query = System.Web.HttpUtility.ParseQueryString(Nav.ToAbsoluteUri(Nav.Uri).Query);
-        _searchText = query["q"] ?? string.Empty;
-        _lane = query["lane"] ?? "all";
-        _kind = query["kind"] ?? "all";
-        _membership = query["membership"] ?? "all";
-        _role = query["role"] ?? "all";
-        _sortBy = ResolveSort(query["sort"]);
-        _tileSize = int.TryParse(query["tile"], out var tileSize)
-            ? Math.Clamp(tileSize, 136, 248)
+        _searchText = SearchQuery ?? string.Empty;
+        _lane = LaneQuery ?? "all";
+        _kind = KindQuery ?? "all";
+        _membership = MembershipQuery ?? "all";
+        _role = RoleQuery ?? "all";
+        _sortBy = ResolveSort(SortQuery);
+        _tileSize = TileQuery.HasValue
+            ? Math.Clamp(TileQuery.Value, 136, 248)
             : 176;
         _visibleTileCount = TilePageSize;
     }

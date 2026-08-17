@@ -239,7 +239,7 @@ public sealed class LibraryPipelineStageDto
 }
 
 /// <summary>
-/// A Content Group collection — a Universe-type collection (album, TV series, book series, movie series)
+/// A structural Content Group, Series, or Universe collection (album, TV series, book series, movie series)
 /// that contains works of a single media type.
 /// </summary>
 public class ContentGroupDto

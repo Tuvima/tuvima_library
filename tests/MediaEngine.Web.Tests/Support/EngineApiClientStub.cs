@@ -620,6 +620,43 @@ internal class EngineApiClientStub : DispatchProxy
                 },
             });
 
+        _handlers[nameof(IEngineApiClient.GetContentGroupsAsync)] =
+            _ => Task.FromResult(new List<ContentGroupViewModel>
+            {
+                new()
+                {
+                    CollectionId = Guid.Parse("40000000-0000-0000-0000-000000000001"),
+                    DisplayName = "Dune",
+                    PrimaryMediaType = "Books",
+                    WorkCount = 6,
+                    DistinctTitleCount = 6,
+                    EarliestYear = 1965,
+                    LatestYear = 1985,
+                    CreatedAt = DateTimeOffset.UtcNow.AddDays(-12),
+                    PreviewItems =
+                    [
+                        new(Guid.Parse("41000000-0000-0000-0000-000000000001"), "Dune", "/img/dune-book.jpg", "portrait", "1"),
+                        new(Guid.Parse("41000000-0000-0000-0000-000000000002"), "Dune Messiah", "/img/dune-messiah.jpg", "portrait", "2"),
+                    ],
+                },
+                new()
+                {
+                    CollectionId = Guid.Parse("40000000-0000-0000-0000-000000000002"),
+                    DisplayName = "The Dark Knight",
+                    PrimaryMediaType = "Movies",
+                    WorkCount = 3,
+                    DistinctTitleCount = 3,
+                    EarliestYear = 2005,
+                    LatestYear = 2012,
+                    CreatedAt = DateTimeOffset.UtcNow.AddDays(-10),
+                    PreviewItems =
+                    [
+                        new(Guid.Parse("42000000-0000-0000-0000-000000000001"), "Batman Begins", "/img/batman-begins.jpg", "portrait", "1"),
+                        new(Guid.Parse("42000000-0000-0000-0000-000000000002"), "The Dark Knight", "/img/dark-knight.jpg", "portrait", "2"),
+                    ],
+                },
+            });
+
         var catalogPersonId = Guid.Parse("30000000-0000-0000-0000-000000000001");
         _handlers[nameof(IEngineApiClient.GetPersonsPageAsync)] =
             _ => Task.FromResult<PagedResponse<PersonListItemResponse>?>(new(
