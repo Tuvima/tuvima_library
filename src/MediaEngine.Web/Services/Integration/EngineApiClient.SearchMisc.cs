@@ -686,6 +686,7 @@ public sealed partial class EngineApiClient
         Value = source.Value,
         DisplayValue = source.DisplayValue,
         Values = source.Values,
+        DisplayValues = source.DisplayValues,
     };
 
     private static CollectionRuleDefinitionDto ToContract(CollectionRuleDefinitionViewModel source) => new()

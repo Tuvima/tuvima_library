@@ -516,7 +516,9 @@ public sealed class CollectionBrowseReadService(
                 FROM primary_person_media_credits
                 WHERE NULLIF(person_qid, '') IS NOT NULL
                 GROUP BY person_qid
-                HAVING @Query IS NULL OR MIN(person_name) LIKE @Query COLLATE NOCASE
+                HAVING @Query IS NULL
+                    OR MIN(person_name) LIKE @Query COLLATE NOCASE
+                    OR person_qid LIKE @Query COLLATE NOCASE
                 ORDER BY LocalCount DESC, Label COLLATE NOCASE
                 LIMIT @Limit
                 """,
@@ -527,7 +529,9 @@ public sealed class CollectionBrowseReadService(
                 FROM collection_relationships
                 WHERE rel_type IN ('franchise','fictional_universe')
                 GROUP BY rel_qid
-                HAVING @Query IS NULL OR MIN(COALESCE(NULLIF(rel_label, ''), rel_qid)) LIKE @Query COLLATE NOCASE
+                HAVING @Query IS NULL
+                    OR MIN(COALESCE(NULLIF(rel_label, ''), rel_qid)) LIKE @Query COLLATE NOCASE
+                    OR rel_qid LIKE @Query COLLATE NOCASE
                 ORDER BY LocalCount DESC, Label COLLATE NOCASE
                 LIMIT @Limit
                 """,
@@ -540,7 +544,9 @@ public sealed class CollectionBrowseReadService(
               AND NULLIF(value_qid, '') IS NOT NULL
               AND NULLIF(value, '') IS NOT NULL
             GROUP BY value_qid
-            HAVING @Query IS NULL OR MIN(value) LIKE @Query COLLATE NOCASE
+            HAVING @Query IS NULL
+                OR MIN(value) LIKE @Query COLLATE NOCASE
+                OR value_qid LIKE @Query COLLATE NOCASE
             ORDER BY LocalCount DESC, Label COLLATE NOCASE
             LIMIT @Limit
             """,

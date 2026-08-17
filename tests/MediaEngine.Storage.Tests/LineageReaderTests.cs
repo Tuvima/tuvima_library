@@ -259,6 +259,49 @@ public sealed class LineageReaderTests : IDisposable
     }
 
     [Fact]
+    public async Task CollectionRule_InOperatorMatchesAnySelectedCanonicalIdentifier()
+    {
+        var (bestPictureWinner, _, _) = await BuildStandaloneWorkAsync("Movies");
+        var (bestActorWinner, _, _) = await BuildStandaloneWorkAsync("Movies");
+        var (otherWinner, _, _) = await BuildStandaloneWorkAsync("Movies");
+        await InsertCanonicalEntityArrayAsync(bestPictureWinner, "award_received", "Academy Award for Best Picture", "Q102427");
+        await InsertCanonicalEntityArrayAsync(bestActorWinner, "award_received", "Academy Award for Best Actor", "Q103916");
+        await InsertCanonicalEntityArrayAsync(otherWinner, "award_received", "Palme d'Or", "Q179808");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var matches = evaluator.Evaluate([
+            new CollectionRulePredicate
+            {
+                Field = "award_received",
+                Op = "in",
+                Values = ["Q102427", "Q103916"],
+                DisplayValues = ["Academy Award for Best Picture", "Academy Award for Best Actor"],
+            },
+        ]);
+
+        Assert.Contains(bestPictureWinner, matches);
+        Assert.Contains(bestActorWinner, matches);
+        Assert.DoesNotContain(otherWinner, matches);
+    }
+
+    [Fact]
+    public async Task CollectionRule_MediaTypeInOperatorMatchesEverySelectedType()
+    {
+        var (movie, _, _) = await BuildStandaloneWorkAsync("Movies");
+        var (book, _, _) = await BuildStandaloneWorkAsync("Books");
+        var (music, _, _) = await BuildStandaloneWorkAsync("Music");
+
+        var evaluator = new CollectionRuleEvaluator(_db);
+        var matches = evaluator.Evaluate([
+            new CollectionRulePredicate { Field = "media_type", Op = "in", Values = ["Movies", "Books"] },
+        ]);
+
+        Assert.Contains(movie, matches);
+        Assert.Contains(book, matches);
+        Assert.DoesNotContain(music, matches);
+    }
+
+    [Fact]
     public async Task CollectionRule_Evaluate_AppliesPersistedSortFieldAndDirection()
     {
         var (alpha, _, alphaAsset) = await BuildStandaloneWorkAsync("Movies");

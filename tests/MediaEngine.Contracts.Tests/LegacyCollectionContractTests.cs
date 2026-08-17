@@ -39,7 +39,7 @@ public sealed class LegacyCollectionContractTests
             "sort_field", "sort_direction", "secondary_sort_field", "secondary_sort_direction", "is_enabled", "is_featured");
         AssertJsonFields<CollectionRuleDefinitionDto>("version", "groups");
         AssertJsonFields<CollectionRuleGroupDto>("id", "join_with_previous", "match_mode", "conditions");
-        AssertJsonFields<CollectionRulePredicateDto>("display_value", "field", "op", "value", "values");
+        AssertJsonFields<CollectionRulePredicateDto>("display_value", "display_values", "field", "op", "value", "values");
     }
 
     [Fact]

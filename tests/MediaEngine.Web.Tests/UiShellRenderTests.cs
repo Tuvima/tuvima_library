@@ -791,6 +791,7 @@ public sealed class UiShellRenderTests : TestContext
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionEditorShell.razor"));
         var ruleBuilder = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleBuilder.razor"));
+        var valuePicker = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Collections", "CollectionRuleValuePicker.razor"));
 
         Assert.Contains("<MediaEditorSurface", source);
         Assert.Contains("sme-shell collection-editor-workspace", source);
@@ -804,9 +805,10 @@ public sealed class UiShellRenderTests : TestContext
         Assert.Contains("collection-editor-field", source);
         Assert.Equal(1, source.Split("OnClick=\"SaveCollection\"", StringSplitOptions.None).Length - 1);
         Assert.Contains("<CollectionRuleBuilder", source);
-        Assert.Contains("SearchOptionsAsync", ruleBuilder);
-        Assert.Contains("<AppAutocomplete", ruleBuilder);
-        Assert.Contains("GetCollectionFieldValuesAsync", ruleBuilder);
+        Assert.Contains("<CollectionRuleValuePicker", ruleBuilder);
+        Assert.Contains("Select all shown", valuePicker);
+        Assert.Contains("GetCollectionFieldValuesAsync", valuePicker);
+        Assert.Contains("GetCollectionEntityFieldValuesAsync", valuePicker);
         Assert.Contains("collection-editor-item-list--members", source);
         Assert.DoesNotContain("Choose file", source);
         Assert.DoesNotContain("listen-create-modal", source);

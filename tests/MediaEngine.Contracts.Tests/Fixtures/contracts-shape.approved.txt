@@ -820,6 +820,7 @@ MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRu
   Value: System.String | nullability=nullable | accessors=get,init
   DisplayValue: System.String | nullability=nullable | accessors=get,init
   Values: System.String[] | nullability=nullable | accessors=get,init
+  DisplayValues: System.String[] | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Collections.MediaEngine.Contracts.Collections.CollectionRuleValueDto
   Value: System.String | nullability=not-null | accessors=get,init

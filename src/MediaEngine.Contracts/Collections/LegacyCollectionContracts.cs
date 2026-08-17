@@ -114,6 +114,7 @@ public sealed class CollectionRulePredicateDto
     [JsonPropertyName("value")] public string? Value { get; init; }
     [JsonPropertyName("display_value")] public string? DisplayValue { get; init; }
     [JsonPropertyName("values")] public string[]? Values { get; init; }
+    [JsonPropertyName("display_values")] public string[]? DisplayValues { get; init; }
 }
 
 public sealed class CollectionRuleGroupDto

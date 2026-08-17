@@ -973,7 +973,8 @@
   Value: System.String | json=value | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DisplayValue: System.String | json=display_value | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Values: System.String[] | json=values | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"field":"sample","op":"sample","value":"sample","display_value":"sample","values":[]}
+  DisplayValues: System.String[] | json=display_values | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"field":"sample","op":"sample","value":"sample","display_value":"sample","values":[],"display_values":[]}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionRuleValueDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -6476,7 +6477,8 @@
   Value: System.String | json=value | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DisplayValue: System.String | json=displayValue | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Values: System.String[] | json=values | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"field":"sample","op":"sample","value":"sample","displayValue":"sample","values":[]}
+  DisplayValues: System.String[] | json=displayValues | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  sample={"field":"sample","op":"sample","value":"sample","displayValue":"sample","values":[],"displayValues":[]}
 
 [web-client] MediaEngine.Web.Models.ViewDTOs.CollectionViewModel
   kind=class | converter=default | number-handling=default | unmapped=default

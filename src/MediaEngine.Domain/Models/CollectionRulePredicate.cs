@@ -22,6 +22,9 @@ public sealed class CollectionRulePredicate
     /// <summary>Multiple comparison values (for "in", "between" operators).</summary>
     public string[]? Values { get; set; }
 
+    /// <summary>Human-readable labels corresponding by index to <see cref="Values"/>.</summary>
+    public string[]? DisplayValues { get; set; }
+
     /// <summary>Returns the effective value(s) — prefers Values array, falls back to single Value.</summary>
     public string[] GetEffectiveValues() =>
         Values is { Length: > 0 } ? Values : (Value is not null ? [Value] : []);

@@ -259,7 +259,12 @@ public sealed class CollectionsHubTests
         Assert.Contains("Add condition", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("Search rule types", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("SecondarySortField", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("SearchOptionsAsync", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("<CollectionRuleValuePicker", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("is any of", ruleBuilder, StringComparison.Ordinal);
+        var valuePicker = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleValuePicker.razor"));
+        Assert.Contains("Select all shown", valuePicker, StringComparison.Ordinal);
+        Assert.Contains("CheckBox", valuePicker, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionEntityFieldValuesAsync", valuePicker, StringComparison.Ordinal);
         Assert.Contains("SortFieldChanged", ruleBuilder, StringComparison.Ordinal);
         Assert.DoesNotContain("SelectRuleCategory", wizard, StringComparison.Ordinal);
         Assert.DoesNotContain("RunPreviewAsync", wizard, StringComparison.Ordinal);
@@ -287,7 +292,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);
         Assert.Contains("UsesLibraryValues", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("GetCollectionFieldValuesAsync", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("GetCollectionFieldValuesAsync", valuePicker, StringComparison.Ordinal);
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);
         Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);

@@ -1,0 +1,243 @@
+@namespace MediaEngine.Web.Components.Collections
+@using MediaEngine.Contracts.Collections
+@implements IDisposable
+
+@inject IEngineApiClient ApiClient
+
+<div class="collection-rule-value-picker" @onkeydown="HandleKeyDown">
+    <span class="collection-rule-value-picker__label">Value</span>
+    <AppNativeButton Type="button"
+                     Class="@TriggerClass"
+                     AriaLabel="@TriggerLabel"
+                     aria-haspopup="listbox"
+                     aria-expanded="@_isOpen"
+                     OnClick="ToggleAsync">
+        <span>@TriggerLabel</span>
+        <MudIcon Icon="@Icons.Material.Outlined.KeyboardArrowDown" />
+    </AppNativeButton>
+
+    @if (_isOpen)
+    {
+        <div class="collection-rule-value-picker__panel" role="listbox" aria-multiselectable="true">
+            <label class="collection-rule-value-picker__search">
+                <MudIcon Icon="@Icons.Material.Outlined.Search" />
+                <AppNativeInput Value="@_search"
+                                OnInput="OnSearchInput"
+                                Placeholder="@SearchPlaceholder"
+                                AriaLabel="@SearchPlaceholder" />
+            </label>
+
+            @if (_loading)
+            {
+                <div class="collection-rule-value-picker__status">Searching…</div>
+            }
+            else if (_options.Count == 0)
+            {
+                <div class="collection-rule-value-picker__status">No matching values</div>
+            }
+            else
+            {
+                <AppNativeButton Type="button"
+                                 Class="collection-rule-value-picker__select-all"
+                                 role="option"
+                                 aria-selected="@AllShownSelected"
+                                 OnClick="ToggleAllShownAsync">
+                    <MudIcon Icon="@(AllShownSelected ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)" />
+                    <span>@(AllShownSelected ? "Clear shown" : $"Select all shown ({_options.Count})")</span>
+                </AppNativeButton>
+
+                <div class="collection-rule-value-picker__options">
+                    @foreach (var group in _options.GroupBy(option => option.Group).OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase))
+                    {
+                        <span class="collection-rule-value-picker__group">@group.Key</span>
+                        @foreach (var option in group.OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase))
+                        {
+                            var selected = _selected.ContainsKey(option.Value);
+                            <AppNativeButton Type="button"
+                                             Class="@(selected ? "collection-rule-value-picker__option is-selected" : "collection-rule-value-picker__option")"
+                                             role="option"
+                                             aria-selected="@selected"
+                                             @key="option.Value"
+                                             OnClick="@(() => ToggleOptionAsync(option))">
+                                <MudIcon Icon="@(selected ? Icons.Material.Filled.CheckBox : Icons.Material.Outlined.CheckBoxOutlineBlank)" />
+                                <span><strong>@option.Label</strong><small>@option.Value</small></span>
+                                @if (option.LocalCount > 0)
+                                {
+                                    <em>@option.LocalCount</em>
+                                }
+                            </AppNativeButton>
+                        }
+                    }
+                </div>
+            }
+
+            <footer>
+                <span>@SelectionSummary</span>
+                <AppButton Variant="Variant.Text" Color="Color.Primary" OnClick="CloseAsync">Done</AppButton>
+            </footer>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Field { get; set; } = string.Empty;
+    [Parameter] public bool EntityField { get; set; }
+    [Parameter] public string OptionGroup { get; set; } = "Cross-media";
+    [Parameter] public IReadOnlyList<CollectionRuleValueDto> SelectedOptions { get; set; } = [];
+    [Parameter] public EventCallback<IReadOnlyList<CollectionRuleValueDto>> SelectedOptionsChanged { get; set; }
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search library values…";
+
+    private readonly Dictionary<string, CollectionRuleValueDto> _selected = new(StringComparer.OrdinalIgnoreCase);
+    private List<CollectionRuleValueDto> _options = [];
+    private CancellationTokenSource? _searchCts;
+    private string _search = string.Empty;
+    private string? _selectionSignature;
+    private bool _isOpen;
+    private bool _loading;
+
+    private string TriggerClass => $"collection-rule-value-picker__trigger {(_selected.Count > 0 ? "is-active" : string.Empty)}";
+    private string TriggerLabel => _selected.Count switch
+    {
+        0 => "Select values",
+        1 => _selected.Values.First().Label,
+        2 => string.Join(", ", _selected.Values.Select(option => option.Label).OrderBy(label => label, StringComparer.OrdinalIgnoreCase)),
+        _ => $"{_selected.Count} values selected",
+    };
+    private string SelectionSummary => _selected.Count == 1 ? "1 value selected" : $"{_selected.Count} values selected";
+    private bool AllShownSelected => _options.Count > 0 && _options.All(option => _selected.ContainsKey(option.Value));
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var signature = $"{Field}|{string.Join('|', SelectedOptions.Select(option => $"{option.Value}:{option.Label}"))}";
+        if (string.Equals(signature, _selectionSignature, StringComparison.Ordinal))
+            return;
+
+        _selectionSignature = signature;
+        _selected.Clear();
+        foreach (var option in SelectedOptions)
+            _selected[option.Value] = option;
+
+        await HydrateUnresolvedLabelsAsync();
+    }
+
+    private async Task ToggleAsync()
+    {
+        _isOpen = !_isOpen;
+        if (_isOpen)
+            await LoadOptionsAsync(immediate: true);
+    }
+
+    private Task CloseAsync()
+    {
+        _isOpen = false;
+        _search = string.Empty;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+            await CloseAsync();
+    }
+
+    private async Task OnSearchInput(ChangeEventArgs args)
+    {
+        _search = args.Value?.ToString() ?? string.Empty;
+        await LoadOptionsAsync(immediate: false);
+    }
+
+    private async Task LoadOptionsAsync(bool immediate)
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+        _searchCts = new CancellationTokenSource();
+        var token = _searchCts.Token;
+        try
+        {
+            if (!immediate)
+                await Task.Delay(220, token);
+
+            _loading = true;
+            await InvokeAsync(StateHasChanged);
+            IEnumerable<CollectionRuleValueDto> options;
+            if (EntityField)
+            {
+                options = await ApiClient.GetCollectionEntityFieldValuesAsync(Field, _search, 500, token);
+            }
+            else
+            {
+                var values = await ApiClient.GetCollectionFieldValuesAsync(Field, _search, 500, token);
+                options = values.Select(value => new CollectionRuleValueDto(value, value, 0, OptionGroup));
+            }
+
+            _options = options
+                .GroupBy(option => option.Value, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            if (!token.IsCancellationRequested)
+            {
+                _loading = false;
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+    }
+
+    private async Task HydrateUnresolvedLabelsAsync()
+    {
+        if (!EntityField)
+            return;
+
+        foreach (var option in _selected.Values.Where(option => string.Equals(option.Value, option.Label, StringComparison.OrdinalIgnoreCase)).ToList())
+        {
+            try
+            {
+                var matches = await ApiClient.GetCollectionEntityFieldValuesAsync(Field, option.Value, 10);
+                var resolved = matches.FirstOrDefault(match => string.Equals(match.Value, option.Value, StringComparison.OrdinalIgnoreCase));
+                if (resolved is not null)
+                    _selected[option.Value] = resolved;
+            }
+            catch
+            {
+                // Keep the canonical identifier visible if label lookup is temporarily unavailable.
+            }
+        }
+    }
+
+    private async Task ToggleOptionAsync(CollectionRuleValueDto option)
+    {
+        if (!_selected.Remove(option.Value))
+            _selected[option.Value] = option;
+        await EmitSelectionAsync();
+    }
+
+    private async Task ToggleAllShownAsync()
+    {
+        if (AllShownSelected)
+        {
+            foreach (var option in _options)
+                _selected.Remove(option.Value);
+        }
+        else
+        {
+            foreach (var option in _options)
+                _selected[option.Value] = option;
+        }
+        await EmitSelectionAsync();
+    }
+
+    private Task EmitSelectionAsync() => SelectedOptionsChanged.InvokeAsync(_selected.Values
+        .OrderBy(option => option.Label, StringComparer.OrdinalIgnoreCase)
+        .ToList());
+
+    public void Dispose()
+    {
+        _searchCts?.Cancel();
+        _searchCts?.Dispose();
+    }
+}

@@ -1959,6 +1959,29 @@ public sealed class CollectionRuleEvaluatorHashTests
     }
 
     [Fact]
+    public void DisplayLabels_DoNotChangeMembershipHash()
+    {
+        var first = new CollectionRulePredicate
+        {
+            Field = "award_received",
+            Op = "in",
+            Values = ["Q102427", "Q103916"],
+            DisplayValues = ["Best Picture", "Best Actor"],
+        };
+        var second = new CollectionRulePredicate
+        {
+            Field = "award_received",
+            Op = "in",
+            Values = ["Q102427", "Q103916"],
+            DisplayValues = ["Academy Award for Best Picture", "Academy Award for Best Actor"],
+        };
+
+        Assert.Equal(
+            CollectionRuleEvaluator.ComputeRuleHash([first]),
+            CollectionRuleEvaluator.ComputeRuleHash([second]));
+    }
+
+    [Fact]
     public void SameRules_DifferentGroupBy_DifferentHash()
     {
         // "All Books" (no group_by) and "Books by Series" (group_by=series)

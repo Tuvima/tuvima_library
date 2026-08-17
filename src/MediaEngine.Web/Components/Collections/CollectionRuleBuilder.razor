@@ -98,20 +98,12 @@
                                 }
                                 else if (UsesLibraryValues(condition.Field))
                                 {
-                                    <AppAutocomplete TItem="CollectionRuleValueDto"
-                                                     Value="@SelectedOption(condition)"
-                                                     ValueChanged="@(value => OnOptionChangedAsync(condition, value))"
-                                                     SearchFunc="@((text, token) => SearchOptionsAsync(condition.Field, text, token))"
-                                                     ToStringFunc="@(option => option?.Label ?? string.Empty)"
-                                                     Label="Value" Placeholder="Type to search library values"
-                                                     CoerceText="false" CoerceValue="false" ResetValueOnEmptyText="true" MaxItems="40">
-                                        <ItemTemplate Context="option">
-                                            <div class="collection-rule-builder__option">
-                                                <span><strong>@option.Label</strong><small>@option.Group</small></span>
-                                                @if (option.LocalCount > 0){<em>@option.LocalCount</em>}
-                                            </div>
-                                        </ItemTemplate>
-                                    </AppAutocomplete>
+                                    <CollectionRuleValuePicker Field="@condition.Field"
+                                                               EntityField="@IsEntityField(condition.Field)"
+                                                               OptionGroup="@OptionGroup(condition.Field)"
+                                                               SelectedOptions="@SelectedOptions(condition)"
+                                                               SelectedOptionsChanged="@(options => OnOptionsChangedAsync(condition, options))"
+                                                               SearchPlaceholder="@ValueSearchPlaceholder(condition.Field)" />
                                 }
                                 else
                                 {
@@ -135,9 +127,6 @@
                         <div class="collection-rule-builder__picker">
                             <div class="collection-rule-builder__picker-title">
                                 <strong>Add condition</strong>
-                                <AppIconButton Icon="@Icons.Material.Outlined.Close" Size="Size.Small"
-                                               Tooltip="Close rule picker" AriaLabel="Close rule picker"
-                                               OnClick="CloseConditionPicker" />
                             </div>
                             <AppTextField T="string" Value="@_pickerSearch" ValueChanged="OnPickerSearchChanged"
                                           Placeholder="Search rule types..." Adornment="Adornment.Start"
@@ -266,7 +255,7 @@
 
     private static CollectionRuleGroupViewModel NewGroup() => new() { Conditions = [] };
     private IReadOnlyList<RuleField> PickerFields => Fields
-        .Where(ruleField => ruleField.Category == _pickerCategory)
+        .Where(ruleField => !string.IsNullOrWhiteSpace(_pickerSearch) || ruleField.Category == _pickerCategory)
         .Where(ruleField => string.IsNullOrWhiteSpace(_pickerSearch)
             || ruleField.Label.Contains(_pickerSearch, StringComparison.OrdinalIgnoreCase)
             || ruleField.Key.Replace('_', ' ').Contains(_pickerSearch, StringComparison.OrdinalIgnoreCase)
@@ -275,11 +264,15 @@
 
     private void OpenConditionPicker(CollectionRuleGroupViewModel group)
     {
+        if (string.Equals(_pickerGroupId, group.Id, StringComparison.Ordinal))
+        {
+            _pickerGroupId = null;
+            return;
+        }
         _pickerGroupId = group.Id;
         _pickerCategory = "media";
         _pickerSearch = string.Empty;
     }
-    private Task CloseConditionPicker(){_pickerGroupId = null; return Task.CompletedTask;}
     private Task OnPickerSearchChanged(string? value){_pickerSearch = value ?? string.Empty; return Task.CompletedTask;}
     private void SelectPickerCategory(string category){_pickerCategory = category; _pickerSearch = string.Empty;}
     private async Task SelectFieldAsync(CollectionRuleGroupViewModel group, RuleField field)
@@ -324,20 +317,73 @@
     }
 
     private async Task OnFieldChangedAsync(CollectionRulePredicateViewModel condition, string field)
-    { condition.Field = field; condition.Op = OperatorsFor(field).First().Key; condition.Value = null; condition.DisplayValue = null; condition.Values = null; await NotifyChangedAsync(); }
+    { condition.Field = field; condition.Op = OperatorsFor(field).First().Key; condition.Value = null; condition.DisplayValue = null; condition.Values = null; condition.DisplayValues = null; await NotifyChangedAsync(); }
     private async Task OnOperatorChangedAsync(CollectionRulePredicateViewModel condition, string op)
-    { condition.Op = op; if (IsValueFreeOperator(op)){condition.Value = null; condition.DisplayValue = null; condition.Values = null;} await NotifyChangedAsync(); }
-    private async Task OnTextValueChangedAsync(CollectionRulePredicateViewModel condition, string? value)
-    { condition.Value = value; condition.DisplayValue = null; condition.Values = null; await NotifyChangedAsync(); }
-    private async Task OnOptionChangedAsync(CollectionRulePredicateViewModel condition, CollectionRuleValueDto? option)
-    { condition.Value = option?.Value; condition.DisplayValue = option?.Label; condition.Values = null; await NotifyChangedAsync(); }
-    private CollectionRuleValueDto? SelectedOption(CollectionRulePredicateViewModel condition) => string.IsNullOrWhiteSpace(condition.Value) ? null : new(condition.Value, condition.DisplayValue ?? condition.Value, 0, OptionGroup(condition.Field));
-
-    private async Task<IEnumerable<CollectionRuleValueDto>> SearchOptionsAsync(string field, string? text, CancellationToken token)
     {
-        if (IsEntityField(field)) return await ApiClient.GetCollectionEntityFieldValuesAsync(field, text, 40, token);
-        var values = await ApiClient.GetCollectionFieldValuesAsync(field, text, 40, token);
-        return values.Select(value => new CollectionRuleValueDto(value, value, 0, OptionGroup(field)));
+        condition.Op = op;
+        if (IsValueFreeOperator(op))
+        {
+            condition.Value = null;
+            condition.DisplayValue = null;
+            condition.Values = null;
+            condition.DisplayValues = null;
+        }
+        else if (op != "in" && condition.Values is { Length: > 0 })
+        {
+            condition.Value = condition.Values[0];
+            condition.DisplayValue = condition.DisplayValues?.FirstOrDefault() ?? condition.Value;
+            condition.Values = null;
+            condition.DisplayValues = null;
+        }
+        await NotifyChangedAsync();
+    }
+    private async Task OnTextValueChangedAsync(CollectionRulePredicateViewModel condition, string? value)
+    { condition.Value = value; condition.DisplayValue = null; condition.Values = null; condition.DisplayValues = null; await NotifyChangedAsync(); }
+    private async Task OnOptionsChangedAsync(CollectionRulePredicateViewModel condition, IReadOnlyList<CollectionRuleValueDto> options)
+    {
+        if (options.Count == 0)
+        {
+            condition.Value = null;
+            condition.DisplayValue = null;
+            condition.Values = null;
+            condition.DisplayValues = null;
+        }
+        else if (options.Count == 1)
+        {
+            condition.Value = options[0].Value;
+            condition.DisplayValue = options[0].Label;
+            condition.Values = null;
+            condition.DisplayValues = null;
+            if (condition.Op == "in")
+                condition.Op = "eq";
+        }
+        else
+        {
+            condition.Value = null;
+            condition.DisplayValue = null;
+            condition.Values = options.Select(option => option.Value).ToArray();
+            condition.DisplayValues = options.Select(option => option.Label).ToArray();
+            condition.Op = "in";
+        }
+        await NotifyChangedAsync();
+    }
+
+    private static IReadOnlyList<CollectionRuleValueDto> SelectedOptions(CollectionRulePredicateViewModel condition)
+    {
+        if (condition.Values is { Length: > 0 })
+        {
+            return condition.Values.Select((value, index) => new CollectionRuleValueDto(
+                value,
+                condition.DisplayValues is { Length: > 0 } && index < condition.DisplayValues.Length
+                    ? condition.DisplayValues[index]
+                    : value,
+                0,
+                OptionGroup(condition.Field))).ToList();
+        }
+
+        return string.IsNullOrWhiteSpace(condition.Value)
+            ? []
+            : [new CollectionRuleValueDto(condition.Value, condition.DisplayValue ?? condition.Value, 0, OptionGroup(condition.Field))];
     }
 
     private async Task OnSortFieldChangedAsync(string value){SortField = value; await SortFieldChanged.InvokeAsync(value); await Changed.InvokeAsync(); await SchedulePreviewAsync();}
@@ -443,11 +489,21 @@
     private static List<RuleOperator> OperatorsFor(string field) => field switch
     {
         "is_adaptation" or "source_work_owned" or "adaptation_owned" => [new("eq", "is")],
-        "media_type" => [new("eq", "is"), new("neq", "is not")],
+        "media_type" => [new("eq", "is"), new("in", "is any of"), new("neq", "is not")],
         "year" or "provider_rating" or "added_within_days" => [new("eq", "is"), new("gt", "greater than"), new("lt", "less than"), new("between", "between"), new("gte", "at least"), new("lte", "at most")],
         "decade" => [new("eq", "is")],
-        _ when IsEntityField(field) => [new("eq", "is"), new("neq", "is not"), new("known", "is known"), new("unknown", "is unknown")],
+        _ when IsEntityField(field) => [new("eq", "is"), new("in", "is any of"), new("neq", "is not"), new("known", "is known"), new("unknown", "is unknown")],
+        _ when UsesLibraryValues(field) => [new("eq", "is"), new("in", "is any of"), new("neq", "is not"), new("contains", "contains"), new("known", "is known")],
         _ => [new("eq", "is"), new("neq", "is not"), new("contains", "contains"), new("known", "is known")],
+    };
+
+    private static string ValueSearchPlaceholder(string field) => field switch
+    {
+        "award_received" or "award_nominated" or "award_family" or "nomination_family" => "Search awards, for example Academy Award…",
+        "genre" => "Search genres…",
+        "language" or "original_language" => "Search languages…",
+        "media_type" => "Search media types…",
+        _ => $"Search {Fields.FirstOrDefault(item => item.Key == field)?.Label.ToLowerInvariant() ?? "values"}…",
     };
 
     public void Dispose(){_previewCts?.Cancel(); _previewCts?.Dispose();}

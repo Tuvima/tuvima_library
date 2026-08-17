@@ -63,6 +63,7 @@ public sealed class CollectionRulePredicateViewModel
     public string? Value { get; set; }
     public string? DisplayValue { get; set; }
     public string[]? Values { get; set; }
+    public string[]? DisplayValues { get; set; }
 }
 
 public sealed class CollectionRuleGroupViewModel

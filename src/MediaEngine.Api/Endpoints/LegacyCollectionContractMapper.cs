@@ -93,6 +93,7 @@ internal static class LegacyCollectionContractMapper
         Value = source.Value,
         DisplayValue = source.DisplayValue,
         Values = source.Values,
+        DisplayValues = source.DisplayValues,
     };
 
     public static MediaEngine.Domain.Models.CollectionRuleDefinition ToDomain(this CollectionRuleDefinitionDto source) => new()

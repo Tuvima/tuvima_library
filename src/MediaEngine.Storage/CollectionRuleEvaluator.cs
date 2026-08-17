@@ -338,12 +338,18 @@ public sealed class CollectionRuleEvaluator
         // Direct work table fields
         if (field == "media_type")
         {
-            var pName = $"@p{paramIdx++}";
-            parameters.Add((pName, effectiveValues[0]));
+            var valueParameters = new List<string>();
+            foreach (var value in effectiveValues.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var name = $"@p{paramIdx++}";
+                parameters.Add((name, value));
+                valueParameters.Add(name);
+            }
             return (op switch
             {
-                "neq" => $"w.media_type != {pName}",
-                _ => $"w.media_type = {pName}",
+                "in" => $"w.media_type IN ({string.Join(", ", valueParameters)})",
+                "neq" => $"w.media_type != {valueParameters[0]}",
+                _ => $"w.media_type = {valueParameters[0]}",
             }, parameters);
         }
 
@@ -380,9 +386,17 @@ public sealed class CollectionRuleEvaluator
         // Wikidata franchise — join collection_relationships
         if (field == "wikidata_franchise")
         {
-            var pName = $"@p{paramIdx++}";
-            parameters.Add((pName, effectiveValues[0]));
-            return ($"w.collection_id IN (SELECT hr.collection_id FROM collection_relationships hr WHERE hr.rel_type IN ('franchise','fictional_universe') AND hr.rel_qid = {pName})", parameters);
+            var valueParameters = new List<string>();
+            foreach (var value in effectiveValues.Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                var name = $"@p{paramIdx++}";
+                parameters.Add((name, value));
+                valueParameters.Add(name);
+            }
+            var comparison = op == "in"
+                ? $"hr.rel_qid IN ({string.Join(", ", valueParameters)})"
+                : $"hr.rel_qid = {valueParameters[0]}";
+            return ($"w.collection_id IN (SELECT hr.collection_id FROM collection_relationships hr WHERE hr.rel_type IN ('franchise','fictional_universe') AND {comparison})", parameters);
         }
 
         // Person QID — match only presentation-grade canonical credits. The raw

@@ -980,6 +980,33 @@ public sealed class CollectionReadServicesTests : IDisposable
     }
 
     [Fact]
+    public async Task EntityFieldValues_CanResolvePersistedQidBackToDisplayLabel()
+    {
+        var workId = Guid.NewGuid();
+        using (var connection = _database.CreateConnection())
+        {
+            await connection.ExecuteAsync(
+                """
+                INSERT INTO works (id, media_type, work_kind)
+                VALUES (@WorkId, 'Movies', 'standalone');
+                INSERT INTO canonical_value_arrays (entity_id, key, ordinal, value, value_qid)
+                VALUES (@WorkId, 'original_language', 0, 'English', 'Q1860');
+                """,
+                new { WorkId = workId });
+        }
+
+        var values = await _browse.GetEntityFieldValuesAsync(
+            "original_language",
+            "Q1860",
+            20,
+            CancellationToken.None);
+
+        var english = Assert.Single(values);
+        Assert.Equal("Q1860", english.Value);
+        Assert.Equal("English", english.Label);
+    }
+
+    [Fact]
     public async Task BrowseReads_ObserveCallerCancellation()
     {
         using var cancellation = new CancellationTokenSource();
