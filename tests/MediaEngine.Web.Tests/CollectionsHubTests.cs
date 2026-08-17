@@ -258,6 +258,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("Add group", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("Add condition", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("Search rule types", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("::deep .collection-rule-builder__picker-option", File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleBuilder.razor.css")), StringComparison.Ordinal);
         Assert.Contains("SecondarySortField", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleValuePicker", ruleBuilder, StringComparison.Ordinal);
         Assert.Contains("is any of", ruleBuilder, StringComparison.Ordinal);
