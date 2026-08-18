@@ -67,18 +67,15 @@ public sealed class DetailHeroPresentation
         var usePrimaryHeroChrome = isWatchHero || UsesPrimaryHeroChrome(model.EntityType);
         var useLogo = mode == HeroArtworkMode.BackdropWithLogo && !string.IsNullOrWhiteSpace(model.Artwork.LogoUrl);
         var hasHeroTagline = !string.IsNullOrWhiteSpace(model.Tagline);
-        var moveSecondaryDescriptionToSynopsis = model.EntityType == DetailEntityType.Audiobook
-            && IsDescriptionKind(model.SecondaryTitleTextKind);
+        var secondaryTitleIsDescription = IsDescriptionKind(model.SecondaryTitleTextKind);
         var copySource = hasHeroTagline
             ? model.Tagline
-            : moveSecondaryDescriptionToSynopsis
+            : secondaryTitleIsDescription
                 ? StringHelpers.FirstNonBlank(model.Description, model.SecondaryTitleText)
-                : IsDescriptionKind(model.SecondaryTitleTextKind)
-                    ? null
-                    : model.Description;
+                : model.Description;
         var hideSecondaryTitleText = hasHeroTagline
             && string.Equals(model.SecondaryTitleTextKind, "tagline", StringComparison.OrdinalIgnoreCase)
-            || moveSecondaryDescriptionToSynopsis;
+            || secondaryTitleIsDescription;
         var secondaryTitleText = hideSecondaryTitleText ? null : model.SecondaryTitleText;
         var usesReadOverviewCopy = UsesReadOverviewCopy(model.EntityType);
         var usesFullParagraphCopy = usesReadOverviewCopy || isWatchHero;

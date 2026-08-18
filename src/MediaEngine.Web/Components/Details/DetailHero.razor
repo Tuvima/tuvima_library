@@ -65,7 +65,7 @@
                     </div>
                 }
             </MetadataContent>
-            <SupplementalContent>
+            <ActionContent>
                 @if (Model.PersonDetails.ExternalLinks.Count > 0 || Model.OverflowActions.Count > 0)
                 {
                     <div class="tl-detail-person-links" aria-label="External links">
@@ -90,7 +90,7 @@
                                             OnActionSelected="OnActionSelected" />
                     </div>
                 }
-            </SupplementalContent>
+            </ActionContent>
         </DetailHeroContent>
     }
     else

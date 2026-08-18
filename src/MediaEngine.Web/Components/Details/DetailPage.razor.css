@@ -11460,8 +11460,13 @@
 }
 
 .tl-detail-stage ::deep .tl-detail-person-links {
+    order: 3;
     align-items: center;
     gap: 0.55rem;
+}
+
+.tl-detail-stage ::deep .tl-detail-hero__synopsis {
+    order: 6;
 }
 
 .tl-detail-stage ::deep .tl-detail-person-more-action:hover,

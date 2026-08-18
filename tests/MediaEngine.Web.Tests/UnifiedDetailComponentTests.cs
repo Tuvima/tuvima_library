@@ -1620,24 +1620,93 @@ public sealed class UnifiedDetailComponentTests
         Assert.False(presentation.HeroCopyHasMore);
     }
 
+    public static IEnumerable<object[]> DescriptionLikeSecondaryTitleCases()
+    {
+        foreach (var entityType in Enum.GetValues<DetailEntityType>())
+        {
+            yield return new object[] { entityType, "description" };
+            yield return new object[] { entityType, "short_description" };
+        }
+    }
+
     [Theory]
-    [InlineData("description")]
-    [InlineData("short_description")]
-    public void AudiobookHero_MovesDescriptionLikeSecondaryTextBelowActions(string secondaryKind)
+    [MemberData(nameof(DescriptionLikeSecondaryTitleCases))]
+    public void DetailHero_MovesDescriptionLikeSecondaryTextBelowActions(
+        DetailEntityType entityType,
+        string secondaryKind)
     {
         var model = new DetailPageViewModel
         {
-            EntityType = DetailEntityType.Audiobook,
-            Title = "Example Audiobook",
+            EntityType = entityType,
+            Title = "Example Detail",
             SecondaryTitleText = "A short description that was previously shown under the title.",
             SecondaryTitleTextKind = secondaryKind,
-            Description = "The audiobook description belongs below the action rows.",
+            Description = "The description belongs below the action rows.",
         };
 
         var presentation = DetailHeroPresentation.From(model);
 
         Assert.Null(presentation.SecondaryTitleText);
         Assert.Equal(model.Description, presentation.HeroCopy);
+    }
+
+    [Theory]
+    [InlineData(DetailEntityType.Book)]
+    [InlineData(DetailEntityType.ComicIssue)]
+    [InlineData(DetailEntityType.Audiobook)]
+    [InlineData(DetailEntityType.Movie)]
+    [InlineData(DetailEntityType.MusicAlbum)]
+    public void DetailHero_KeepsSemanticSubtitlesUnderTheTitle(DetailEntityType entityType)
+    {
+        var model = new DetailPageViewModel
+        {
+            EntityType = entityType,
+            Title = "Example Detail",
+            SecondaryTitleText = "A real subtitle",
+            SecondaryTitleTextKind = "subtitle",
+            Description = "The description still belongs below the action rows.",
+        };
+
+        var presentation = DetailHeroPresentation.From(model);
+
+        Assert.Equal(model.SecondaryTitleText, presentation.SecondaryTitleText);
+        Assert.Equal(model.Description, presentation.HeroCopy);
+    }
+
+    [Fact]
+    public void DetailHero_PlacesEverySynopsisAfterActionsAndProgress()
+    {
+        var content = ReadSource("src/MediaEngine.Web/Components/Details/DetailHeroContent.razor");
+        var hero = ReadSource("src/MediaEngine.Web/Components/Details/DetailHero.razor");
+        var styles = ReadSource("src/MediaEngine.Web/Components/Details/DetailPage.razor.css");
+        var actionIndex = content.IndexOf("@ActionContent", StringComparison.Ordinal);
+        var progressIndex = content.IndexOf("@ProgressContent", StringComparison.Ordinal);
+        var synopsisIndex = content.IndexOf("@if (!string.IsNullOrWhiteSpace(Synopsis))", StringComparison.Ordinal);
+        var personLinksIndex = hero.IndexOf("class=\"tl-detail-person-links\"", StringComparison.Ordinal);
+        var personActionIndex = hero.LastIndexOf("<ActionContent>", personLinksIndex, StringComparison.Ordinal);
+        var personLinksRuleIndex = styles.LastIndexOf(
+            ".tl-detail-stage ::deep .tl-detail-person-links {",
+            StringComparison.Ordinal);
+        var personLinksRuleEnd = styles.IndexOf('}', personLinksRuleIndex);
+        var synopsisRuleIndex = styles.LastIndexOf(
+            ".tl-detail-stage ::deep .tl-detail-hero__synopsis {",
+            StringComparison.Ordinal);
+        var synopsisRuleEnd = styles.IndexOf('}', synopsisRuleIndex);
+
+        Assert.True(actionIndex >= 0 && actionIndex < progressIndex);
+        Assert.True(progressIndex < synopsisIndex);
+        Assert.True(personActionIndex >= 0 && personActionIndex < personLinksIndex);
+        Assert.DoesNotContain("<SupplementalContent>", hero, StringComparison.Ordinal);
+        Assert.True(personLinksRuleIndex >= 0 && personLinksRuleEnd > personLinksRuleIndex);
+        Assert.Contains(
+            "order: 3",
+            styles[personLinksRuleIndex..personLinksRuleEnd],
+            StringComparison.Ordinal);
+        Assert.True(synopsisRuleIndex >= 0 && synopsisRuleEnd > synopsisRuleIndex);
+        Assert.Contains(
+            "order: 6",
+            styles[synopsisRuleIndex..synopsisRuleEnd],
+            StringComparison.Ordinal);
     }
 
     [Theory]
