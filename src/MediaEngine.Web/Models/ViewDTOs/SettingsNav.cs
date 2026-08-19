@@ -101,7 +101,7 @@ public static class SettingsNav
         new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, ["admin"], "json+sqlite", Status: SettingsStatusKind.Live),
         new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
         new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MoveToInbox, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Providers, "administration", "providers", Icons.Material.Outlined.Inventory2, "Metadata Providers", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Providers, "administration", "providers", Icons.Material.Outlined.Hub, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", ["reviewqueue", "review-queue", "needsreview", "needs-review"], "mixed"),
         new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, ["activity-log"], "sqlite"),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, ["encode", "offline-downloads"], Status: SettingsStatusKind.Partial),
@@ -191,9 +191,9 @@ public static class SettingsNav
             ],
             [SettingsSection.Providers] =
             [
-                new("overview", "Providers", Icons.Material.Outlined.Inventory2),
-                new("priority", "Source Priority", Icons.Material.Outlined.LowPriority),
+                new("overview", "Providers", Icons.Material.Outlined.Hub),
                 new("enrichment", "Enrichment", Icons.Material.Outlined.AutoAwesome),
+                new("priority", "Source Priority", Icons.Material.Outlined.SwapVert),
             ],
             [SettingsSection.ActivityLogs] =
             [

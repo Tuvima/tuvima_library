@@ -1,0 +1,12 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<MudTooltip Text="@Label">
+    <span class="metadata-media-icon-chip" aria-label="@Label">
+        <MudIcon Icon="@Icon" Size="Size.Small" />
+    </span>
+</MudTooltip>
+
+@code {
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+}

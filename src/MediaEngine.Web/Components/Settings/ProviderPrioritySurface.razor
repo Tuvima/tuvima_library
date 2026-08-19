@@ -6,20 +6,11 @@
 @inject NavigationManager Nav
 @inject IJSRuntime JS
 
-<NavigationLock ConfirmExternalNavigation="@HasChanges" />
+<NavigationLock ConfirmExternalNavigation="@HasChanges"
+                OnBeforeInternalNavigation="ConfirmInternalNavigationAsync" />
 
 <div class="source-priority-page">
-    @if (_selectedCapabilityId is null)
-    {
-        <header class="source-priority-header">
-            <div>
-                <h2>Source Priority</h2>
-                <p>Choose the order Tuvima uses providers for each media type and capability.</p>
-            </div>
-            <AppButton Label="How it works" StartIcon="@Icons.Material.Outlined.HelpOutline" Size="AppControlSize.Compact" OnClick="@(() => _howDialogOpen = true)" />
-        </header>
-    }
-    else
+    @if (_selectedCapabilityId is not null)
     {
         <header class="source-priority-editor-header">
             <div class="source-priority-breadcrumb" aria-label="Source priority location">
@@ -49,23 +40,17 @@
     else if (_selectedCapabilityId is null)
     {
         <div class="source-priority-layout">
-            <nav class="source-priority-media" aria-label="Media types">
-                <span>Media types</span>
-                @foreach (var mediaType in MediaTypes)
-                {
-                    <AppNativeButton Type="button"
-                                     Class="@MediaTypeClass(mediaType)"
-                                     AriaLabel="@($"Configure {DisplayMediaType(mediaType)} source priority")"
-                                     OnClick="@(() => SelectMediaType(mediaType))">
-                        <MudIcon Icon="@MediaTypeIcon(mediaType)" Size="Size.Small" />
-                        <span>@DisplayMediaType(mediaType)</span>
-                    </AppNativeButton>
-                }
-            </nav>
+            <MetadataSelectorRail Items="@MediaSelectorItems"
+                                  SelectedId="@_activeMediaType"
+                                  SelectionChanged="SelectMediaType"
+                                  Title="Media types"
+                                  AriaLabel="Media types"
+                                  ShowIcons="true" />
 
             <section class="source-priority-capabilities">
                 <div class="source-priority-capabilities__heading">
                     <div><h3>@DisplayMediaType(_activeMediaType)</h3><p>Configure provider priority for each supported capability.</p></div>
+                    <AppButton Label="How it works" StartIcon="@Icons.Material.Outlined.HelpOutline" Size="AppControlSize.Compact" OnClick="@(() => _howDialogOpen = true)" />
                 </div>
                 <div class="source-priority-capability-list">
                     @foreach (var capability in CurrentCapabilities)

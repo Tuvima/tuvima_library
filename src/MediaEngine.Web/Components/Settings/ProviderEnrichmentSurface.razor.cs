@@ -66,10 +66,15 @@ public partial class ProviderEnrichmentSurface
         .Where(item => string.Equals(_activeCategory, "All", StringComparison.OrdinalIgnoreCase)
                        || string.Equals(item.Category, _activeCategory, StringComparison.OrdinalIgnoreCase))
         .ToList();
+    private IReadOnlyList<MetadataSelectorItem> CategorySelectorItems => Categories
+        .Select(category => new MetadataSelectorItem(category, category))
+        .ToList();
     private int EnabledCount => _items.Count(IsEnabled);
     private int IssueCount => _items.Count(HasIssue);
     private bool DrawerHasChanges => _draft is not null
         && !string.Equals(_draftBaseline, Fingerprint(_draft), StringComparison.Ordinal);
+
+    private void SelectCategory(string category) => _activeCategory = category;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

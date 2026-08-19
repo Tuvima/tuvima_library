@@ -5,30 +5,24 @@
 @inject ISnackbar Snackbar
 @inject NavigationManager Nav
 
-@if (IsPrioritySurface)
-{
-    <ProviderPrioritySurface />
-}
-else if (IsEnrichmentSurface)
-{
-    <ProviderEnrichmentSurface />
-}
-else
-{
-    <div class="provider-page">
-        <header class="provider-page__topline">
-            <div class="provider-summary" aria-label="Provider summary">
-                <div class="provider-summary__item"><MudIcon Icon="@Icons.Material.Outlined.Dns" /><strong>@_providers.Count</strong><span>Providers</span></div>
-                <div class="provider-summary__item"><MudIcon Icon="@Icons.Material.Outlined.ToggleOn" /><strong>@EnabledCount</strong><span>Enabled</span></div>
-                <div class="provider-summary__item provider-summary__item--healthy"><MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" /><strong>@HealthyCount</strong><span>Healthy</span></div>
-                <div class="provider-summary__item provider-summary__item--issues"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><strong>@IssueCount</strong><span>@(IssueCount == 1 ? "Issue" : "Issues")</span></div>
+<MetadataAdminShell ActiveSubsection="@Subsection">
+    @if (IsPrioritySurface)
+    {
+        <ProviderPrioritySurface />
+    }
+    else if (IsEnrichmentSurface)
+    {
+        <ProviderEnrichmentSurface />
+    }
+    else
+    {
+        <div class="provider-page">
+            <div class="metadata-summary-grid metadata-summary-grid--four" aria-label="Provider summary">
+                <MetadataMetricTile Value="@_providers.Count.ToString()" Label="Providers" Icon="@Icons.Material.Outlined.Layers" />
+                <MetadataMetricTile Value="@EnabledCount.ToString()" Label="Enabled" Icon="@Icons.Material.Outlined.ToggleOn" Tone="AppUiTone.Neutral" />
+                <MetadataMetricTile Value="@HealthyCount.ToString()" Label="Healthy" Icon="@Icons.Material.Outlined.FavoriteBorder" Tone="AppUiTone.Success" />
+                <MetadataMetricTile Value="@IssueCount.ToString()" Label="@(IssueCount == 1 ? "Issue" : "Issues")" Icon="@Icons.Material.Outlined.WarningAmber" Tone="AppUiTone.Warning" />
             </div>
-            <div class="provider-page__primary-actions">
-                <AppButton Label="Enrichment" StartIcon="@Icons.Material.Outlined.AutoAwesome" Size="AppControlSize.Compact" OnClick="OpenEnrichment" />
-                <AppButton Label="Source Priority" StartIcon="@Icons.Material.Outlined.LowPriority"
-                           Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" OnClick="OpenPriority" />
-            </div>
-        </header>
 
         @if (_loading)
         {
@@ -100,11 +94,7 @@ else
                                     {
                                         @foreach (var mediaType in provider.MediaTypes)
                                         {
-                                            <MudTooltip Text="@DisplayMediaType(mediaType)">
-                                                <span class="provider-row__media-icon" aria-label="@DisplayMediaType(mediaType)">
-                                                    <MudIcon Icon="@MediaTypeIcon(mediaType)" Size="Size.Small" />
-                                                </span>
-                                            </MudTooltip>
+                                            <MetadataMediaIconChip Label="@DisplayMediaType(mediaType)" Icon="@MediaTypeIcon(mediaType)" />
                                         }
                                     }
                                 </div>
@@ -144,8 +134,12 @@ else
 
             <div class="provider-page__note"><MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />Provider health uses recorded Engine checks. Response time appears only after a live connection test.</div>
         }
-    </div>
+        </div>
+    }
+</MetadataAdminShell>
 
+@if (!IsPrioritySurface && !IsEnrichmentSurface)
+{
     <ProviderEditDrawer @ref="_editDrawer" Open="@(_selectedProvider is not null)" Provider="@_selectedProvider"
                         Closed="CloseEditor" SaveRequested="SaveProviderAsync" TestRequested="TestSelectedProviderAsync" />
 }

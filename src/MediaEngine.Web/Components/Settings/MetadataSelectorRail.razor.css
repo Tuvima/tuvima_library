@@ -1,0 +1,69 @@
+.metadata-selector-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    padding: 14px;
+    border-right: 1px solid var(--metadata-border);
+}
+
+.metadata-selector-rail__title {
+    margin: 2px 8px 8px;
+    color: var(--mud-palette-text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .075em;
+    text-transform: uppercase;
+}
+
+.metadata-selector-rail ::deep .metadata-selector-rail__item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 11px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: var(--mud-palette-text-secondary);
+    background: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    text-align: left;
+}
+
+.metadata-selector-rail ::deep .metadata-selector-rail__item:hover,
+.metadata-selector-rail ::deep .metadata-selector-rail__item:focus-visible {
+    border-color: var(--metadata-border-strong);
+    color: var(--mud-palette-text-primary);
+    outline: 0;
+    background: color-mix(in srgb, var(--mud-palette-primary) 7%, transparent);
+}
+
+.metadata-selector-rail ::deep .metadata-selector-rail__item.is-selected {
+    border-color: color-mix(in srgb, var(--mud-palette-primary) 58%, var(--metadata-border));
+    color: white;
+    background: linear-gradient(105deg, color-mix(in srgb, var(--mud-palette-primary) 46%, transparent), color-mix(in srgb, var(--mud-palette-primary-darken) 30%, transparent));
+    box-shadow: inset 2px 0 var(--mud-palette-primary-lighten);
+}
+
+@container metadata-module (max-width: 920px) {
+    .metadata-selector-rail {
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 10px;
+        border-right: 0;
+        border-bottom: 1px solid var(--metadata-border);
+        scrollbar-width: thin;
+    }
+
+    .metadata-selector-rail__title {
+        display: none;
+    }
+
+    .metadata-selector-rail ::deep .metadata-selector-rail__item {
+        width: auto;
+        min-width: max-content;
+    }
+}

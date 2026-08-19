@@ -7,14 +7,11 @@
 @inject IJSRuntime JS
 
 <div class="enrichment-page">
-    <header class="enrichment-header">
-        <div><h2>Enrichment</h2><p>Configure what extra content Tuvima enriches and how.</p></div>
-        <div class="enrichment-summary" aria-label="Enrichment summary">
-            <div><MudIcon Icon="@Icons.Material.Outlined.AutoAwesome" /><strong>@_items.Count</strong><span>Enrichment types</span></div>
-            <div><MudIcon Icon="@Icons.Material.Outlined.ToggleOn" /><strong>@EnabledCount</strong><span>Enabled</span></div>
-            <div><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><strong>@IssueCount</strong><span>Issues</span></div>
-        </div>
-    </header>
+    <div class="metadata-summary-grid metadata-summary-grid--three" aria-label="Enrichment summary">
+        <MetadataMetricTile Value="@_items.Count.ToString()" Label="Enrichment types" Icon="@Icons.Material.Outlined.AutoAwesome" />
+        <MetadataMetricTile Value="@EnabledCount.ToString()" Label="Enabled" Icon="@Icons.Material.Outlined.ToggleOn" Tone="AppUiTone.Neutral" />
+        <MetadataMetricTile Value="@IssueCount.ToString()" Label="Issues" Icon="@Icons.Material.Outlined.WarningAmber" Tone="AppUiTone.Warning" />
+    </div>
 
     @if (_loading)
     {
@@ -27,13 +24,10 @@
     else
     {
         <div class="enrichment-layout">
-            <nav class="enrichment-categories" aria-label="Enrichment categories">
-                @foreach (var category in Categories)
-                {
-                    <AppNativeButton Type="button" Class="@CategoryClass(category)"
-                                     AriaLabel="@($"Show {category} enrichment")" OnClick="@(() => _activeCategory = category)">@category</AppNativeButton>
-                }
-            </nav>
+            <MetadataSelectorRail Items="@CategorySelectorItems"
+                                  SelectedId="@_activeCategory"
+                                  SelectionChanged="SelectCategory"
+                                  AriaLabel="Enrichment categories" />
 
             <section class="enrichment-table" aria-label="Enrichment policies">
                 <div class="enrichment-table__header" aria-hidden="true"><span>Enrichment type</span><span>Description</span><span>Sources</span><span>Status</span><span>Actions</span></div>
@@ -48,7 +42,7 @@
                             <span class="enrichment-row__media-icons">
                                 @foreach (var mediaType in SourceMediaTypes(item))
                                 {
-                                    <MudTooltip Text="@DisplayMediaType(mediaType)"><span><MudIcon Icon="@MediaTypeIcon(mediaType)" Size="Size.Small" /></span></MudTooltip>
+                                    <MetadataMediaIconChip Label="@DisplayMediaType(mediaType)" Icon="@MediaTypeIcon(mediaType)" />
                                 }
                             </span>
                             <AppNativeButton Type="button" Class="enrichment-row__source-link" AriaLabel="@($"View {item.Title} sources")" OnClick="@(() => OpenPolicy(item))">

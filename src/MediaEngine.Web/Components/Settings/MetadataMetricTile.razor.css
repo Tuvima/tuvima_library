@@ -1,0 +1,47 @@
+.metadata-metric-tile {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    column-gap: 12px;
+    align-items: center;
+    min-width: 0;
+    min-height: 66px;
+    padding: 11px 15px;
+    border: 1px solid var(--metadata-border);
+    border-radius: var(--metadata-radius-compact);
+    background: var(--metadata-surface);
+    box-shadow: var(--metadata-shadow);
+}
+
+.metadata-metric-tile__icon {
+    grid-row: 1 / 3;
+    width: 25px !important;
+    height: 25px !important;
+    color: var(--mud-palette-primary) !important;
+    font-size: 25px !important;
+}
+
+.metadata-metric-tile--success .metadata-metric-tile__icon {
+    color: var(--mud-palette-success) !important;
+}
+
+.metadata-metric-tile--warning .metadata-metric-tile__icon {
+    color: var(--mud-palette-warning) !important;
+}
+
+.metadata-metric-tile--error .metadata-metric-tile__icon {
+    color: var(--mud-palette-error) !important;
+}
+
+.metadata-metric-tile__value {
+    align-self: end;
+    font-size: 18px;
+    line-height: 1.15;
+}
+
+.metadata-metric-tile__label {
+    align-self: start;
+    color: var(--mud-palette-text-secondary);
+    font-size: 12px;
+    line-height: 1.3;
+}

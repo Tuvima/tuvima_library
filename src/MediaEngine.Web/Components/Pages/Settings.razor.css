@@ -13,6 +13,10 @@
     line-height: 1.5;
 }
 
+.settings-page-canvas--metadata {
+    margin-top: 0;
+}
+
 .settings-mobile-navigation {
     display: none;
     margin-bottom: var(--tl-space-4, 16px);

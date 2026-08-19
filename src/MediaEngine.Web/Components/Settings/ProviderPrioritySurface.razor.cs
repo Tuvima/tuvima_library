@@ -4,6 +4,7 @@ using MediaEngine.Domain.Configuration;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
+using Microsoft.AspNetCore.Components.Routing;
 using MudBlazor;
 using PipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
 using PipelineProviderEntry = MediaEngine.Contracts.Settings.PipelineProviderEntry;
@@ -13,6 +14,9 @@ namespace MediaEngine.Web.Components.Settings;
 public partial class ProviderPrioritySurface
 {
     internal static readonly string[] MediaTypes = ["Movies", "TV", "Music", "Books", "Audiobooks", "Comics"];
+    private IReadOnlyList<MetadataSelectorItem> MediaSelectorItems => MediaTypes
+        .Select(mediaType => new MetadataSelectorItem(mediaType, DisplayMediaType(mediaType), MediaTypeIcon(mediaType)))
+        .ToList();
 
     private sealed class CapabilityState
     {
@@ -38,6 +42,16 @@ public partial class ProviderPrioritySurface
     private bool _howDialogOpen;
     private string? _copySourceMediaType;
     private int _dragIndex = -1;
+
+    private async Task ConfirmInternalNavigationAsync(LocationChangingContext context)
+    {
+        if (!HasChanges) return;
+
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            new object?[] { "Discard unsaved source priority changes?" });
+        if (!confirmed) context.PreventNavigation();
+    }
 
     private IReadOnlyList<CapabilityState> CurrentCapabilities => _states.TryGetValue(_activeMediaType, out var states)
         ? states.Values.OrderBy(state => CapabilityOrder(state.Definition.Id)).ToList()

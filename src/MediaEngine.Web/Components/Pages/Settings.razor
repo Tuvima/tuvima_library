@@ -23,13 +23,16 @@
                        Options="@MobileNavigationOptions" />
         </nav>
 
-        <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
-                           Title="@GetHeroTitle()"
-                           Subtitle="@GetSectionDescription(_activeSection)"
-                           Status="@GetHeaderStatusLabel()"
-                           Healthy="@(_systemStatus?.IsHealthy == true)" />
+        @if (_activeSection != SettingsSection.Providers)
+        {
+            <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
+                               Title="@GetHeroTitle()"
+                               Subtitle="@GetSectionDescription(_activeSection)"
+                               Status="@GetHeaderStatusLabel()"
+                               Healthy="@(_systemStatus?.IsHealthy == true)" />
+        }
 
-                <div class="settings-page-canvas settings-admin-panel">
+        <div class="settings-page-canvas settings-admin-panel @(_activeSection == SettingsSection.Providers ? "settings-page-canvas--metadata" : null)">
             @if (ShouldDeferForRoleResolution)
             {
                 <AppPageState Kind="AppPageStateKind.Loading"

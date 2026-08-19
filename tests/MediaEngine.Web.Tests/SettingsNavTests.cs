@@ -98,8 +98,8 @@ public sealed class SettingsNavTests
     {
         var subsections = SettingsNav.GetSubsections(SettingsSection.Providers).ToArray();
 
-        Assert.Equal(["Providers", "Source Priority", "Enrichment"], subsections.Select(item => item.Label));
-        Assert.Equal(["overview", "priority", "enrichment"], subsections.Select(item => item.Slug));
+        Assert.Equal(["Providers", "Enrichment", "Source Priority"], subsections.Select(item => item.Label));
+        Assert.Equal(["overview", "enrichment", "priority"], subsections.Select(item => item.Slug));
     }
 
     [Fact]
@@ -271,7 +271,7 @@ public sealed class SettingsNavTests
             "System Overview",
             "Libraries",
             "Ingestion",
-            "Metadata Providers",
+            "Metadata",
             "Needs Review",
             "Activity & Audit",
             "Playback & Delivery",

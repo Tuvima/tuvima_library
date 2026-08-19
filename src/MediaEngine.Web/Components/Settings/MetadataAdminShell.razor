@@ -1,0 +1,72 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Web.Models.ViewDTOs
+
+<section class="metadata-module">
+    @if (IsProviders || IsPriority)
+    {
+        <SidebarPageHeader Eyebrow="Administration"
+                           Title="Metadata"
+                           Subtitle="Manage provider connections, enrichment behavior, and source priority.">
+            <Actions>
+                @if (IsProviders)
+                {
+                    <AppButton Label="Enrichment" StartIcon="@Icons.Material.Outlined.AutoAwesome"
+                               Href="@EnrichmentRoute" Size="AppControlSize.Compact" />
+                    <AppButton Label="Source Priority" StartIcon="@Icons.Material.Outlined.SwapVert"
+                               Href="@PriorityRoute" Size="AppControlSize.Compact" />
+                }
+                else
+                {
+                    <AppButton Label="Enrichment" StartIcon="@Icons.Material.Outlined.AutoAwesome"
+                               Href="@EnrichmentRoute" Size="AppControlSize.Compact" />
+                    <AppButton Label="Providers" StartIcon="@Icons.Material.Outlined.Hub"
+                               Href="@ProvidersRoute" Size="AppControlSize.Compact" />
+                }
+            </Actions>
+        </SidebarPageHeader>
+    }
+    else
+    {
+        <SidebarPageHeader Eyebrow="Administration"
+                           Title="Metadata"
+                           Subtitle="Manage provider connections, enrichment behavior, and source priority." />
+    }
+
+    <nav class="metadata-tabs" aria-label="Metadata administration sections">
+        @foreach (var tab in Tabs)
+        {
+            <a class="@TabClass(tab.Slug)"
+               href="@SettingsNav.RouteFor(SettingsSection.Providers, tab.Slug)"
+               aria-current="@(IsActive(tab.Slug) ? "page" : null)">
+                <MudIcon Icon="@tab.Icon" Size="Size.Small" />
+                <span>@tab.Label</span>
+            </a>
+        }
+    </nav>
+
+    <div class="metadata-module__content">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter] public string ActiveSubsection { get; set; } = "overview";
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private static readonly MetadataTab[] Tabs =
+    [
+        new("overview", "Providers", Icons.Material.Outlined.Hub),
+        new("enrichment", "Enrichment", Icons.Material.Outlined.AutoAwesome),
+        new("priority", "Source Priority", Icons.Material.Outlined.SwapVert),
+    ];
+
+    private string ProvidersRoute => SettingsNav.RouteFor(SettingsSection.Providers, "overview");
+    private string EnrichmentRoute => SettingsNav.RouteFor(SettingsSection.Providers, "enrichment");
+    private string PriorityRoute => SettingsNav.RouteFor(SettingsSection.Providers, "priority");
+    private bool IsProviders => IsActive("overview");
+    private bool IsPriority => IsActive("priority");
+    private bool IsActive(string slug) => string.Equals(ActiveSubsection, slug, StringComparison.OrdinalIgnoreCase);
+    private string TabClass(string slug) => IsActive(slug) ? "metadata-tabs__item is-active" : "metadata-tabs__item";
+
+    private sealed record MetadataTab(string Slug, string Label, string Icon);
+}

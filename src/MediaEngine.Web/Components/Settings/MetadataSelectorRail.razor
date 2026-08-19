@@ -1,0 +1,39 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<nav class="@RootClass" aria-label="@AriaLabel">
+    @if (!string.IsNullOrWhiteSpace(Title))
+    {
+        <span class="metadata-selector-rail__title">@Title</span>
+    }
+    @foreach (var item in Items)
+    {
+        <AppNativeButton Type="button"
+                         Class="@ItemClass(item)"
+                         AriaLabel="@($"Select {item.Label}")"
+                         OnClick="@(() => SelectionChanged.InvokeAsync(item.Id))">
+            @if (ShowIcons && !string.IsNullOrWhiteSpace(item.Icon))
+            {
+                <MudIcon Icon="@item.Icon" Size="Size.Small" />
+            }
+            <span>@item.Label</span>
+        </AppNativeButton>
+    }
+</nav>
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<MetadataSelectorItem> Items { get; set; } = [];
+    [Parameter, EditorRequired] public string SelectedId { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public EventCallback<string> SelectionChanged { get; set; }
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Selector";
+    [Parameter] public bool ShowIcons { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private string RootClass => string.Join(" ", new[] { "metadata-selector-rail", Class }
+        .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string ItemClass(MetadataSelectorItem item) =>
+        string.Equals(item.Id, SelectedId, StringComparison.OrdinalIgnoreCase)
+            ? "metadata-selector-rail__item is-selected"
+            : "metadata-selector-rail__item";
+}
