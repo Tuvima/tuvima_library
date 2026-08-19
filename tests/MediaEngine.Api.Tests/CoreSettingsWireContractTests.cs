@@ -197,6 +197,9 @@ public sealed class CoreSettingsWireContractTests
             RankingChips = new() { ["Books"] = ["Confidence"] },
             IconPath = "/provider-icons/open-library.svg",
             HydrationStages = [1, 2],
+            Capabilities = ["identity", "metadata", "artwork"],
+            SystemRole = "canonical_source",
+            RequiredSystemProvider = true,
             LanguageStrategy = "source",
         };
 
@@ -207,6 +210,9 @@ public sealed class CoreSettingsWireContractTests
         Assert.Equal(catalogue.SearchChips, roundTrip.SearchChips);
         Assert.Equal(catalogue.RankingChips, roundTrip.RankingChips);
         Assert.Equal([1, 2], roundTrip.HydrationStages);
+        Assert.Equal(["identity", "metadata", "artwork"], roundTrip.Capabilities);
+        Assert.Equal("canonical_source", roundTrip.SystemRole);
+        Assert.True(roundTrip.RequiredSystemProvider);
         Assert.Equal("source", roundTrip.LanguageStrategy);
     }
 }

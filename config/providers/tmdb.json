@@ -6,6 +6,7 @@
   "domain": "Video",
   "icon": "images/providers/tmdb.svg",
   "capability_tags": [],
+  "provider_capabilities": ["identity", "metadata", "artwork", "ratings", "people", "relationships"],
   "available_fields": [
     "title",
     "director",

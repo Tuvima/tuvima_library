@@ -23,7 +23,10 @@ public sealed class ProviderManagementItem
     public string Icon { get; init; } = string.Empty;
     public string AccentColor { get; init; } = string.Empty;
     public IReadOnlyList<string> MediaTypes { get; init; } = [];
+    public IReadOnlyList<string> Capabilities { get; init; } = [];
     public IReadOnlyList<int> HydrationStages { get; init; } = [];
+    public string? SystemRole { get; init; }
+    public bool RequiredSystemProvider { get; init; }
     public bool Enabled { get; set; }
     public bool RequiresKey { get; init; }
     public bool HasKey { get; set; }
@@ -106,4 +109,7 @@ public sealed class ProviderPriorityItem
     public string AccentColor { get; init; } = string.Empty;
     public string? Purpose { get; set; }
     public bool GloballyEnabled { get; init; }
+    public string HealthStatus { get; init; } = "Not checked";
+    public string? SystemRole { get; init; }
+    public bool RequiredSystemProvider { get; init; }
 }

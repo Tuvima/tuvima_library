@@ -85,6 +85,9 @@ public static class ProviderCatalogueEndpoints
             RankingChips        = rankingChips,
             IconPath            = p.Icon,
             HydrationStages     = [.. p.HydrationStages],
+            Capabilities        = [.. p.ProviderCapabilities],
+            SystemRole          = ui?.SystemRole,
+            RequiredSystemProvider = ui?.RequiredSystemProvider ?? false,
             LanguageStrategy    = p.LanguageStrategyRaw,
         };
     }

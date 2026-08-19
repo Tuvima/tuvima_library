@@ -36,6 +36,11 @@
       "additionalProperties": false
     },
     "hydration_stages": { "type": "array", "items": { "enum": [1, 2, 3] } },
+    "provider_capabilities": {
+      "type": "array",
+      "items": { "enum": ["identity", "metadata", "artwork", "lyrics", "subtitles", "ratings", "people", "relationships", "other"] },
+      "uniqueItems": true
+    },
     "market_fallbacks": {
       "type": "object",
       "additionalProperties": {

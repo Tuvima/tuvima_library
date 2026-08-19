@@ -4808,6 +4808,9 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderCatalogueD
   RankingChips: System.Collections.Generic.Dictionary<System.String, System.Collections.Generic.List<System.String>> | nullability=not-null | accessors=get,set
   IconPath: System.String | nullability=nullable | accessors=get,set
   HydrationStages: System.Collections.Generic.List<System.Int32> | nullability=not-null | accessors=get,set
+  Capabilities: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
+  SystemRole: System.String | nullability=nullable | accessors=get,set
+  RequiredSystemProvider: System.Boolean | nullability=not-null | accessors=get,set
   LanguageStrategy: System.String | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ProviderConfigUpdateDto

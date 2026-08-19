@@ -87,17 +87,20 @@ public sealed class Phase6SettingsAdminHardeningTests
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
                      + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs")
                      + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs");
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderEnrichmentSurface.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderEnrichmentSurface.razor.cs");
 
         Assert.Contains("No sample providers are shown as live configuration", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Load sample chain", source, StringComparison.Ordinal);
-        Assert.Contains("Provider health comes from real Engine checks", source, StringComparison.Ordinal);
-        Assert.Contains("Last checked", source, StringComparison.Ordinal);
+        Assert.Contains("Provider health uses recorded Engine checks", source, StringComparison.Ordinal);
+        Assert.Contains("Last tested", source, StringComparison.Ordinal);
         Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
+        Assert.Contains("UpdateHydrationSettingsAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Provider Setup", source, StringComparison.Ordinal);
-        Assert.Contains("Provider Priority", source, StringComparison.Ordinal);
-        Assert.Contains("[\"Books\", \"Audiobooks\", \"Comics\", \"Movies\", \"Music\", \"TV\"]", source, StringComparison.Ordinal);
+        Assert.Contains("Source Priority", source, StringComparison.Ordinal);
+        Assert.Contains("[\"Movies\", \"TV\", \"Music\", \"Books\", \"Audiobooks\", \"Comics\"]", source, StringComparison.Ordinal);
         Assert.Contains("ResolveLogo", source, StringComparison.Ordinal);
         Assert.Contains("FilteredProviders", source, StringComparison.Ordinal);
     }
@@ -109,9 +112,12 @@ public sealed class Phase6SettingsAdminHardeningTests
                      + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs");
 
         Assert.Contains("provider.HydrationStages.Contains(1)", source, StringComparison.Ordinal);
-        Assert.Contains("Canonical Match", source, StringComparison.Ordinal);
-        Assert.Contains("System-defined", source, StringComparison.Ordinal);
-        Assert.Contains("Enrichment &amp; Artwork", source, StringComparison.Ordinal);
+        Assert.Contains("canonical_source", source, StringComparison.Ordinal);
+        Assert.Contains("System or stage-defined support", source, StringComparison.Ordinal);
+        Assert.Contains("item.RequiredSystemProvider", source, StringComparison.Ordinal);
+        Assert.Contains("DragIndicator", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("KeyboardArrowUp", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("KeyboardArrowDown", source, StringComparison.Ordinal);
         Assert.Contains("CopyProviderEntry", source, StringComparison.Ordinal);
         Assert.Contains("AcceptedTransition = source?.AcceptedTransition", source, StringComparison.Ordinal);
         Assert.Contains("GetDefaultPipelinesAsync", source, StringComparison.Ordinal);

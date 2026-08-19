@@ -180,6 +180,42 @@ public sealed class PipelineConfigurationTests
     }
 
     [Fact]
+    public void VisibleProviders_DeclareStableManagementCapabilities()
+    {
+        var providerDirectory = Path.GetDirectoryName(FindRepoFile("config", "providers", "tmdb.json"))!;
+        var visibleProviders = Directory.GetFiles(providerDirectory, "*.json")
+            .Where(path => !path.EndsWith("local_filesystem.json", StringComparison.OrdinalIgnoreCase));
+
+        foreach (var path in visibleProviders)
+        {
+            using var provider = JsonDocument.Parse(File.ReadAllText(path));
+            var capabilities = provider.RootElement.GetProperty("provider_capabilities")
+                .EnumerateArray().Select(item => item.GetString()).ToArray();
+            Assert.NotEmpty(capabilities);
+            Assert.DoesNotContain(capabilities, string.IsNullOrWhiteSpace);
+        }
+
+        using var wikidata = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "wikidata_reconciliation.json")));
+        var ui = wikidata.RootElement.GetProperty("ui_metadata");
+        Assert.Equal("canonical_source", ui.GetProperty("system_role").GetString());
+        Assert.True(ui.GetProperty("required_system_provider").GetBoolean());
+    }
+
+    [Fact]
+    public void SourcePriorityDefaults_IncludeEveryConfigurableFieldChain()
+    {
+        using var active = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "pipelines.json")));
+        using var defaults = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "pipeline-priority-defaults.json")));
+
+        foreach (var media in active.RootElement.EnumerateObject())
+        {
+            var defaultFields = defaults.RootElement.GetProperty(media.Name).GetProperty("field_priorities");
+            foreach (var field in media.Value.GetProperty("field_priorities").EnumerateObject())
+                Assert.True(defaultFields.TryGetProperty(field.Name, out _), $"Default priority is missing {media.Name}.{field.Name}.");
+        }
+    }
+
+    [Fact]
     public void MusicBridgePriority_PrefersMusicBrainzIdsBeforeAppleIds()
     {
         using var provider = JsonDocument.Parse(File.ReadAllText(FindRepoFile("config", "providers", "musicbrainz.json")));

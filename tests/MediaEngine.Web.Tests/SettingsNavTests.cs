@@ -67,6 +67,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Playback, "watching", "/settings/playback/watching")]
     [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
     [InlineData(SettingsSection.Providers, "priority", "/settings/providers/priority")]
+    [InlineData(SettingsSection.Providers, "enrichment", "/settings/providers/enrichment")]
     public void RouteFor_Subsection_UsesNestedCanonicalUrl(
         SettingsSection section,
         string subsection,
@@ -90,6 +91,15 @@ public sealed class SettingsNavTests
         ], labels);
         Assert.Equal("overview", SettingsNav.GetDefaultSubsection(SettingsSection.LocalAi).Slug);
         Assert.Null(SettingsNav.ResolveSubsection(SettingsSection.LocalAi, "unknown"));
+    }
+
+    [Fact]
+    public void ProviderManagement_UsesThreeClearUnifiedSubsections()
+    {
+        var subsections = SettingsNav.GetSubsections(SettingsSection.Providers).ToArray();
+
+        Assert.Equal(["Providers", "Source Priority", "Enrichment"], subsections.Select(item => item.Label));
+        Assert.Equal(["overview", "priority", "enrichment"], subsections.Select(item => item.Slug));
     }
 
     [Fact]

@@ -56,6 +56,15 @@ public sealed class ProviderCatalogueDto
     [JsonPropertyName("hydrationStages")]
     public List<int> HydrationStages { get; set; } = [];
 
+    [JsonPropertyName("capabilities")]
+    public List<string> Capabilities { get; set; } = [];
+
+    [JsonPropertyName("systemRole")]
+    public string? SystemRole { get; set; }
+
+    [JsonPropertyName("requiredSystemProvider")]
+    public bool RequiredSystemProvider { get; set; }
+
     [JsonPropertyName("languageStrategy")]
     public string LanguageStrategy { get; set; } = "source";
 }

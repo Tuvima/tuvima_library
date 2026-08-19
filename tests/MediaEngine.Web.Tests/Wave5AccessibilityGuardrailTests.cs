@@ -76,8 +76,12 @@ public sealed class Wave5AccessibilityGuardrailTests
         Assert.Contains("@onkeydown=\"@(args => HandleFormatKeyDown(args, format.Id))\"", formats);
         Assert.DoesNotContain("tl-detail-mini-action", formats);
         Assert.Contains("HandlePluginKeyDown", plugins);
-        Assert.Contains("Move {provider.DisplayName} up", providers);
-        Assert.Contains("Move {provider.DisplayName} down", providers);
+        Assert.Contains("Drag {provider.DisplayName} to reorder", providers);
+        Assert.Contains("Label=\"Move earlier\"", providers);
+        Assert.Contains("Label=\"Move later\"", providers);
+        Assert.Contains("Icons.Material.Outlined.DragIndicator", providers);
+        Assert.DoesNotContain("Icons.Material.Outlined.KeyboardArrowUp", providers);
+        Assert.DoesNotContain("Icons.Material.Outlined.KeyboardArrowDown", providers);
         Assert.Contains("<AppNativeButton Type=\"button\"", providers);
         Assert.Contains("HandleItemKeyDownAsync", activity);
     }

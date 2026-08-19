@@ -1,4 +1,5 @@
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Web.Components.Shared;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Integration;
@@ -11,7 +12,8 @@ public partial class ProviderPriorityTab
 {
     [Parameter] public string Subsection { get; set; } = "overview";
 
-    private static readonly string[] MediaFilters = ["All", "Books", "Audiobooks", "Comics", "Movies", "Music", "TV"];
+    internal static readonly string[] CapabilityFilters =
+        ["all", ProviderCapabilityId.Identity, ProviderCapabilityId.Metadata, ProviderCapabilityId.Artwork, ProviderCapabilityId.Lyrics, ProviderCapabilityId.Subtitles, ProviderCapabilityId.Ratings, ProviderCapabilityId.Other];
     private static readonly IReadOnlyDictionary<string, string> LogoFallbacks =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -32,15 +34,16 @@ public partial class ProviderPriorityTab
     private bool _loading = true;
     private string? _loadError;
     private string? _search;
-    private string _mediaFilter = "All";
+    private string _capabilityFilter = "all";
 
     private bool IsPrioritySurface => string.Equals(Subsection, "priority", StringComparison.OrdinalIgnoreCase);
+    private bool IsEnrichmentSurface => string.Equals(Subsection, "enrichment", StringComparison.OrdinalIgnoreCase);
     private int EnabledCount => _providers.Count(provider => provider.Enabled);
     private int HealthyCount => _providers.Count(provider => provider.Health == ProviderManagementHealth.Healthy);
     private int IssueCount => _providers.Count(provider => provider.Enabled && provider.Health is
         ProviderManagementHealth.Degraded or ProviderManagementHealth.AuthenticationRequired or ProviderManagementHealth.Unavailable);
     private IReadOnlyList<ProviderManagementItem> FilteredProviders => _providers
-        .Where(MatchesMediaFilter).Where(MatchesSearch)
+        .Where(MatchesCapabilityFilter).Where(MatchesSearch)
         .OrderBy(provider => provider.DisplayName, StringComparer.OrdinalIgnoreCase).ToList();
 
     protected override async Task OnInitializedAsync()
@@ -94,7 +97,12 @@ public partial class ProviderPriorityTab
                     Icon = CatalogueService.GetAccent(status.Name, catalog?.MaterialIcon ?? status.CustomIconName).Icon,
                     AccentColor = catalog?.AccentColor ?? CatalogueService.GetAccentColor(status.Name),
                     MediaTypes = mediaTypes,
+                    Capabilities = catalog?.Capabilities.Count > 0
+                        ? catalog.Capabilities.Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                        : DeriveCapabilities(status),
                     HydrationStages = catalog?.HydrationStages.Count > 0 ? catalog.HydrationStages : status.HydrationStages ?? [],
+                    SystemRole = catalog?.SystemRole,
+                    RequiredSystemProvider = catalog?.RequiredSystemProvider ?? false,
                     Enabled = status.Enabled,
                     RequiresKey = catalog?.RequiresKey ?? status.RequiresApiKey,
                     HasKey = status.HasApiKey,
@@ -125,6 +133,7 @@ public partial class ProviderPriorityTab
     }
 
     private void OpenPriority() => Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Providers, "priority"));
+    private void OpenEnrichment() => Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Providers, "enrichment"));
     private void OpenEditor(ProviderManagementItem provider) => _selectedProvider = provider;
     private void CloseEditor() => _selectedProvider = null;
     private bool IsSelected(ProviderManagementItem provider) =>
@@ -204,8 +213,16 @@ public partial class ProviderPriorityTab
         return true;
     }
 
-    private bool MatchesMediaFilter(ProviderManagementItem provider) =>
-        string.Equals(_mediaFilter, "All", StringComparison.OrdinalIgnoreCase) || provider.MediaTypes.Contains(_mediaFilter, StringComparer.OrdinalIgnoreCase);
+    private bool MatchesCapabilityFilter(ProviderManagementItem provider)
+    {
+        if (string.Equals(_capabilityFilter, "all", StringComparison.OrdinalIgnoreCase)) return true;
+        if (string.Equals(_capabilityFilter, ProviderCapabilityId.Other, StringComparison.OrdinalIgnoreCase))
+        {
+            var primaryFilters = CapabilityFilters.Where(filter => filter is not ("all" or ProviderCapabilityId.Other));
+            return provider.Capabilities.Any(capability => !primaryFilters.Contains(capability, StringComparer.OrdinalIgnoreCase));
+        }
+        return provider.Capabilities.Contains(_capabilityFilter, StringComparer.OrdinalIgnoreCase);
+    }
     private bool MatchesSearch(ProviderManagementItem provider)
     {
         if (string.IsNullOrWhiteSpace(_search)) return true;
@@ -213,6 +230,7 @@ public partial class ProviderPriorityTab
         return provider.DisplayName.Contains(search, StringComparison.OrdinalIgnoreCase)
                || provider.Key.Contains(search, StringComparison.OrdinalIgnoreCase)
                || provider.Description.Contains(search, StringComparison.OrdinalIgnoreCase)
+               || provider.Capabilities.Any(capability => ProviderCapabilityPresentation.Label(capability).Contains(search, StringComparison.OrdinalIgnoreCase))
                || provider.MediaTypes.Any(type => DisplayMediaType(type).Contains(search, StringComparison.OrdinalIgnoreCase));
     }
 
@@ -266,6 +284,8 @@ public partial class ProviderPriorityTab
     };
     private static string LastCheckedLabel(ProviderManagementItem item) => item.LastCheckedAt.HasValue
         ? $"Last checked {FormatRelative(item.LastCheckedAt.Value)}" : "No health check recorded";
+    private static string LastCheckedValue(ProviderManagementItem item) => item.LastCheckedAt.HasValue
+        ? FormatRelative(item.LastCheckedAt.Value) : "Not tested";
     private static string FormatRelative(DateTimeOffset value)
     {
         var elapsed = DateTimeOffset.Now - value.ToLocalTime();
@@ -276,18 +296,48 @@ public partial class ProviderPriorityTab
     }
     private static string BuildDescription(string category, IReadOnlyCollection<string> mediaTypes) =>
         $"{category} provider for {(mediaTypes.Count == 0 ? "library metadata" : string.Join(", ", mediaTypes.Select(DisplayMediaType)))}.";
+    private static List<string> DeriveCapabilities(ProviderStatusDto status)
+    {
+        var fields = status.AvailableFields ?? [];
+        var capabilities = fields.Select(ProviderCapabilityPresentation.CapabilityForField)
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (status.HydrationStages?.Contains(1) == true) capabilities.Insert(0, ProviderCapabilityId.Identity);
+        if (capabilities.Count == 0) capabilities.Add(ProviderCapabilityId.Other);
+        return capabilities.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+    }
+    private static string CapabilityFilterLabel(string capability) =>
+        string.Equals(capability, "all", StringComparison.OrdinalIgnoreCase) ? "All" : ProviderCapabilityPresentation.Label(capability);
+    private static AppUiTone CapabilityTone(string capability) => capability switch
+    {
+        ProviderCapabilityId.Identity => AppUiTone.Info,
+        ProviderCapabilityId.Artwork or ProviderCapabilityId.Lyrics or ProviderCapabilityId.Subtitles => AppUiTone.Primary,
+        ProviderCapabilityId.Ratings => AppUiTone.Warning,
+        _ => AppUiTone.Neutral,
+    };
+    private static string SystemRoleLabel(string role) => role switch
+    {
+        "canonical_source" => "Canonical source",
+        _ => DisplayWords(role),
+    };
     private static string? ResolveLogo(string key, string? configured)
     {
         if (!string.IsNullOrWhiteSpace(configured)) return configured.StartsWith('/') ? configured : "/" + configured.TrimStart('/');
         return LogoFallbacks.GetValueOrDefault(key);
     }
     private static string Initials(string name) => string.Concat(name.Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries).Take(2).Select(word => char.ToUpperInvariant(word[0])));
-    private static string DisplayMediaType(string mediaType) => mediaType == "TV" ? "TV Shows" : mediaType;
+    private static string DisplayMediaType(string mediaType) => mediaType switch
+    {
+        "TV" => "TV Shows",
+        "Comic" => "Comics",
+        _ => mediaType,
+    };
+    private static string DisplayWords(string value) => string.Join(' ', value.Split(['_', '-'], StringSplitOptions.RemoveEmptyEntries)
+        .Select(word => char.ToUpperInvariant(word[0]) + word[1..]));
     private static string MediaTypeIcon(string mediaType) => mediaType switch
     {
         "Books" => Icons.Material.Outlined.MenuBook,
         "Audiobooks" => Icons.Material.Outlined.Headphones,
-        "Comics" => Icons.Material.Outlined.AutoStories,
+        "Comics" or "Comic" => Icons.Material.Outlined.AutoStories,
         "Movies" => Icons.Material.Outlined.Movie,
         "Music" => Icons.Material.Outlined.MusicNote,
         "TV" => Icons.Material.Outlined.Tv,

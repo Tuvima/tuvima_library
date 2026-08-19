@@ -1,10 +1,12 @@
 {
   "name": "fanart_tv",
+  "display_name": "Fanart.tv",
   "provider_id": "bc00000c-0000-4000-8000-000000000013",
   "adapter_type": "config_driven",
   "enabled": true,
   "icon": "images/providers/fanart_tv.png",
   "hydration_stages": [3],
+  "provider_capabilities": ["artwork"],
   "requires_api_key": true,
 
   "can_handle": {

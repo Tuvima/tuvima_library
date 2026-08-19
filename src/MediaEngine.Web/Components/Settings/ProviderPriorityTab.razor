@@ -9,31 +9,26 @@
 {
     <ProviderPrioritySurface />
 }
+else if (IsEnrichmentSurface)
+{
+    <ProviderEnrichmentSurface />
+}
 else
 {
     <div class="provider-page">
-        <div class="provider-page__topline">
+        <header class="provider-page__topline">
             <div class="provider-summary" aria-label="Provider summary">
-                <div class="provider-summary__item">
-                    <MudIcon Icon="@Icons.Material.Outlined.Layers" />
-                    <strong>@_providers.Count</strong><span>Providers</span>
-                </div>
-                <div class="provider-summary__item">
-                    <MudIcon Icon="@Icons.Material.Outlined.ToggleOn" />
-                    <strong>@EnabledCount</strong><span>Enabled</span>
-                </div>
-                <div class="provider-summary__item provider-summary__item--healthy">
-                    <MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" />
-                    <strong>@HealthyCount</strong><span>Healthy</span>
-                </div>
-                <div class="provider-summary__item provider-summary__item--issues">
-                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
-                    <strong>@IssueCount</strong><span>Issues</span>
-                </div>
+                <div class="provider-summary__item"><MudIcon Icon="@Icons.Material.Outlined.Dns" /><strong>@_providers.Count</strong><span>Providers</span></div>
+                <div class="provider-summary__item"><MudIcon Icon="@Icons.Material.Outlined.ToggleOn" /><strong>@EnabledCount</strong><span>Enabled</span></div>
+                <div class="provider-summary__item provider-summary__item--healthy"><MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" /><strong>@HealthyCount</strong><span>Healthy</span></div>
+                <div class="provider-summary__item provider-summary__item--issues"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /><strong>@IssueCount</strong><span>@(IssueCount == 1 ? "Issue" : "Issues")</span></div>
             </div>
-            <AppButton Label="Provider Priority" StartIcon="@Icons.Material.Outlined.LowPriority"
-                       Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" OnClick="OpenPriority" />
-        </div>
+            <div class="provider-page__primary-actions">
+                <AppButton Label="Enrichment" StartIcon="@Icons.Material.Outlined.AutoAwesome" Size="AppControlSize.Compact" OnClick="OpenEnrichment" />
+                <AppButton Label="Source Priority" StartIcon="@Icons.Material.Outlined.LowPriority"
+                           Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" OnClick="OpenPriority" />
+            </div>
+        </header>
 
         @if (_loading)
         {
@@ -47,85 +42,107 @@ else
             }
 
             <section class="provider-toolbar" aria-label="Filter metadata providers">
-                <AppSearchField @bind-Value="_search" Placeholder="Search providers..." Size="AppControlSize.Compact" />
-                <div class="provider-filter-row" role="group" aria-label="Filter providers by media type">
-                    @foreach (var mediaType in MediaFilters)
+                <div class="provider-filter-row" role="group" aria-label="Filter providers by capability">
+                    @foreach (var capability in CapabilityFilters)
                     {
-                        <AppChip Text="@DisplayMediaType(mediaType)"
-                                 Tone="@(string.Equals(_mediaFilter, mediaType, StringComparison.OrdinalIgnoreCase) ? AppUiTone.Primary : AppUiTone.Neutral)"
-                                 OnClick="@(() => _mediaFilter = mediaType)" Class="provider-filter-chip" />
+                        <AppChip Text="@CapabilityFilterLabel(capability)"
+                                 Tone="@(string.Equals(_capabilityFilter, capability, StringComparison.OrdinalIgnoreCase) ? AppUiTone.Primary : AppUiTone.Neutral)"
+                                 OnClick="@(() => _capabilityFilter = capability)" Class="provider-filter-chip" />
+                    }
+                </div>
+                <AppSearchField @bind-Value="_search" Placeholder="Search providers..." Size="AppControlSize.Compact" />
+            </section>
+
+            <section class="provider-table" aria-label="Metadata providers">
+                <div class="provider-table__header" aria-hidden="true">
+                    <span>Provider</span><span>Capabilities</span><span>Supported media</span><span>Status</span><span>Last tested</span><span>Actions</span>
+                </div>
+                <div class="provider-list">
+                    @if (FilteredProviders.Count == 0)
+                    {
+                        <AppEmptyState Title="No matching providers" Message="Try another search or capability filter." />
+                    }
+                    else
+                    {
+                        @foreach (var provider in FilteredProviders)
+                        {
+                            <article class="provider-row @(IsSelected(provider) ? "is-selected" : null)" @key="provider.Key">
+                                <div class="provider-row__identity" data-label="Provider">
+                                    <AppProviderLogo ImageUrl="@provider.LogoUrl" Icon="@provider.Icon"
+                                                     AccentColor="@provider.AccentColor" FallbackText="@Initials(provider.DisplayName)" AltText="" />
+                                    <div class="provider-row__copy">
+                                        <h3>@provider.DisplayName</h3>
+                                        <div class="provider-row__description">@provider.Description</div>
+                                        @if (!string.IsNullOrWhiteSpace(provider.SystemRole))
+                                        {
+                                            <AppStatusBadge Text="@SystemRoleLabel(provider.SystemRole)" Tone="AppUiTone.Info" />
+                                        }
+                                    </div>
+                                </div>
+
+                                <div class="provider-row__capabilities" data-label="Capabilities">
+                                    @foreach (var capability in provider.Capabilities.Take(4))
+                                    {
+                                        <AppChip Text="@ProviderCapabilityPresentation.Label(capability)" Tone="@CapabilityTone(capability)" Size="AppControlSize.Compact" />
+                                    }
+                                    @if (provider.Capabilities.Count > 4)
+                                    {
+                                        <AppChip Text="@($"+{provider.Capabilities.Count - 4}")" Tone="AppUiTone.Neutral" Size="AppControlSize.Compact" />
+                                    }
+                                </div>
+
+                                <div class="provider-row__media" data-label="Supported media">
+                                    @if (provider.MediaTypes.Count == 0)
+                                    {
+                                        <span class="provider-row__all-media">All</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var mediaType in provider.MediaTypes)
+                                        {
+                                            <MudTooltip Text="@DisplayMediaType(mediaType)">
+                                                <span class="provider-row__media-icon" aria-label="@DisplayMediaType(mediaType)">
+                                                    <MudIcon Icon="@MediaTypeIcon(mediaType)" Size="Size.Small" />
+                                                </span>
+                                            </MudTooltip>
+                                        }
+                                    }
+                                </div>
+
+                                <div class="provider-row__status" data-label="Status" aria-live="polite">
+                                    <AppStatusBadge Text="@HealthLabel(provider)" Tone="@HealthTone(provider)" Icon="@HealthIcon(provider)" />
+                                    @if (provider.LastResponseTimeMs.HasValue) { <span>@provider.LastResponseTimeMs ms</span> }
+                                    @if (ShouldShowFailure(provider)) { <span class="provider-row__failure">@provider.FailureReason</span> }
+                                </div>
+
+                                <div class="provider-row__last-tested" data-label="Last tested">@LastCheckedValue(provider)</div>
+
+                                <div class="provider-row__actions" data-label="Actions">
+                                    <AppButton Label="@(provider.Testing ? "Testing..." : "Test")"
+                                               aria-label="@($"Test {provider.DisplayName} connection")"
+                                               StartIcon="@Icons.Material.Outlined.NetworkCheck" Size="AppControlSize.Compact"
+                                               Disabled="@(provider.Testing || !provider.Enabled)" OnClick="@(() => TestProviderAsync(provider))" />
+                                    <AppOverflowMenu AriaLabel="@($"More actions for {provider.DisplayName}")" Size="AppControlSize.Compact">
+                                        <AppMenuItem Label="Edit settings" Icon="@Icons.Material.Outlined.Settings" OnClick="@(() => OpenEditor(provider))" />
+                                        <AppMenuItem Label="@(provider.Enabled ? "Disable" : "Enable")"
+                                                     Icon="@(provider.Enabled ? Icons.Material.Outlined.PauseCircleOutline : Icons.Material.Outlined.PlayCircleOutline)"
+                                                     Disabled="@provider.RequiredSystemProvider"
+                                                     OnClick="@(() => ToggleProviderAsync(provider, !provider.Enabled))" />
+                                        <AppMenuItem Label="Manage source priority" Icon="@Icons.Material.Outlined.LowPriority" OnClick="OpenPriority" />
+                                    </AppOverflowMenu>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(provider.TestMessage))
+                                {
+                                    <div class="provider-row__test-result @(provider.LastTestSucceeded == true ? "is-success" : "is-error")" role="status">@provider.TestMessage</div>
+                                }
+                            </article>
+                        }
                     }
                 </div>
             </section>
 
-            <div class="provider-list">
-                @if (FilteredProviders.Count == 0)
-                {
-                    <AppEmptyState Title="No matching providers" Message="Try another search or media filter." />
-                }
-                else
-                {
-                    @foreach (var provider in FilteredProviders)
-                    {
-                        <article class="provider-row @(IsSelected(provider) ? "is-selected" : null)" @key="provider.Key">
-                            <div class="provider-row__identity">
-                                <AppProviderLogo ImageUrl="@provider.LogoUrl" Icon="@provider.Icon"
-                                                 AccentColor="@provider.AccentColor" FallbackText="@Initials(provider.DisplayName)" AltText="" />
-                                <div class="provider-row__copy">
-                                    <h3>@provider.DisplayName</h3>
-                                    <div class="provider-row__description">@provider.Description</div>
-                                    <div class="provider-row__chips">
-                                        @foreach (var mediaType in provider.MediaTypes)
-                                        {
-                                            <AppChip Text="@DisplayMediaType(mediaType)" Icon="@MediaTypeIcon(mediaType)"
-                                                     Tone="AppUiTone.Primary" Size="AppControlSize.Compact" />
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="provider-row__status" aria-live="polite">
-                                <AppStatusBadge Text="@HealthLabel(provider)" Tone="@HealthTone(provider)" Icon="@HealthIcon(provider)" />
-                                <div>@LastCheckedLabel(provider)</div>
-                                @if (provider.LastResponseTimeMs.HasValue) { <div>@provider.LastResponseTimeMs ms</div> }
-                                @if (ShouldShowFailure(provider))
-                                {
-                                    <div class="provider-row__failure">@provider.FailureReason</div>
-                                }
-                            </div>
-
-                            <div class="provider-row__actions">
-                                <AppSwitchRow Value="@provider.Enabled" ValueChanged="@(enabled => ToggleProviderAsync(provider, enabled))"
-                                              Disabled="@provider.Toggling" StopClickPropagation="true"
-                                              AriaLabel="@($"Enable {provider.DisplayName}")" />
-                                <AppButton Label="@(provider.Testing ? "Testing..." : "Test")"
-                                           StartIcon="@Icons.Material.Outlined.NetworkCheck" Size="AppControlSize.Compact"
-                                           Disabled="@(provider.Testing || !provider.Enabled)" OnClick="@(() => TestProviderAsync(provider))" />
-                                <AppOverflowMenu AriaLabel="@($"More actions for {provider.DisplayName}")" Size="AppControlSize.Compact">
-                                    <AppMenuItem Label="Edit settings" Icon="@Icons.Material.Outlined.Settings" OnClick="@(() => OpenEditor(provider))" />
-                                    <AppMenuItem Label="Test connection" Icon="@Icons.Material.Outlined.NetworkCheck"
-                                                 Disabled="@(!provider.Enabled || provider.Testing)" OnClick="@(() => TestProviderAsync(provider))" />
-                                    <AppMenuItem Label="@(provider.Enabled ? "Disable" : "Enable")"
-                                                 Icon="@(provider.Enabled ? Icons.Material.Outlined.PauseCircleOutline : Icons.Material.Outlined.PlayCircleOutline)"
-                                                 OnClick="@(() => ToggleProviderAsync(provider, !provider.Enabled))" />
-                                </AppOverflowMenu>
-                            </div>
-
-                            @if (!string.IsNullOrWhiteSpace(provider.TestMessage))
-                            {
-                                <div class="provider-row__test-result @(provider.LastTestSucceeded == true ? "is-success" : "is-error")" role="status">
-                                    @provider.TestMessage
-                                </div>
-                            }
-                        </article>
-                    }
-                }
-            </div>
-
-            <div class="provider-page__note">
-                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
-                Provider health comes from real Engine checks. Response time appears only after a live connection test.
-            </div>
+            <div class="provider-page__note"><MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />Provider health uses recorded Engine checks. Response time appears only after a live connection test.</div>
         }
     </div>
 

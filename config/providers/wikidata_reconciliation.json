@@ -6,6 +6,7 @@
   "enabled": true,
   "icon": "images/providers/wikidata_reconciliation.svg",
   "hydration_stages": [2],
+  "provider_capabilities": ["identity", "metadata", "people", "relationships"],
   "endpoints": {
     "wikibase_api": "https://www.wikidata.org/w/api.php",
     "commons_file_path": "https://commons.wikimedia.org/wiki/Special:FilePath/"
@@ -19,6 +20,8 @@
     "category": "Open",
     "requires_key": false,
     "auth_type": "none",
+    "system_role": "canonical_source",
+    "required_system_provider": true,
     "external_links": {
       "wikidata_qid": {
         "label": "Wikidata",

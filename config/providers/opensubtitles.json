@@ -6,6 +6,7 @@
   "domain": "Video",
   "icon": "images/providers/opensubtitles.png",
   "capability_tags": ["subtitles", "webvtt", "srt"],
+  "provider_capabilities": ["subtitles"],
   "available_fields": ["subtitles"],
   "field_weights": {
     "subtitles": 0.85

@@ -55,6 +55,14 @@ public sealed class ProviderConfiguration
     public List<string> CapabilityTags { get; set; } = [];
 
     /// <summary>
+    /// Stable, provider-level contribution capabilities such as identity, metadata,
+    /// artwork, lyrics, or relationships. Unlike <see cref="CapabilityTags"/>, these
+    /// are coarse-grained provider behaviors rather than claim-field labels.
+    /// </summary>
+    [JsonPropertyName("provider_capabilities")]
+    public List<string> ProviderCapabilities { get; set; } = [];
+
+    /// <summary>
     /// Complete list of canonical claim keys this provider can supply.
     /// Used by the Dashboard to show all fields available from each provider
     /// and allow users to toggle which fields are active.
@@ -313,6 +321,14 @@ public sealed class ProviderUiMetadata
     /// <summary>Authentication mechanism: <c>"none"</c>, <c>"api_key"</c>, <c>"bearer"</c>, or <c>"basic"</c>.</summary>
     [JsonPropertyName("auth_type")]
     public string AuthType { get; set; } = "none";
+
+    /// <summary>Optional stable role identifier such as <c>canonical_source</c>.</summary>
+    [JsonPropertyName("system_role")]
+    public string? SystemRole { get; set; }
+
+    /// <summary>Whether the provider is required by a system-defined pipeline stage.</summary>
+    [JsonPropertyName("required_system_provider")]
+    public bool RequiredSystemProvider { get; set; }
 
     /// <summary>
     /// Per-media-type labels shown as search capability chips in the Pipeline panel.

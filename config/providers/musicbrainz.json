@@ -6,6 +6,7 @@
   "domain": "Music",
   "icon": "images/providers/musicbrainz.svg",
   "capability_tags": ["title", "author", "artist", "album_artist", "year", "genre", "cover", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "album", "isrc"],
+  "provider_capabilities": ["identity", "metadata", "artwork", "relationships", "people"],
   "available_fields": ["title", "author", "artist", "album_artist", "year", "genre", "cover", "musicbrainz_release_id", "musicbrainz_recording_id", "musicbrainz_release_group_id", "isrc", "album"],
   "field_weights": {
     "title": 0.8,

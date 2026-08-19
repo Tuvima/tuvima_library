@@ -6,6 +6,7 @@
   "domain": "Universal",
   "icon": "images/providers/apple_books.svg",
   "capability_tags": [],
+  "provider_capabilities": ["identity", "metadata", "artwork", "ratings"],
   "available_fields": [
     "title",
     "author",

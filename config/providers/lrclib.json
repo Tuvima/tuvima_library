@@ -6,6 +6,7 @@
   "domain": "Music",
   "icon": "images/providers/lrclib.png",
   "capability_tags": ["synced_lyrics", "lrc"],
+  "provider_capabilities": ["lyrics"],
   "available_fields": ["synced_lyrics"],
   "field_weights": {
     "synced_lyrics": 0.8

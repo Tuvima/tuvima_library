@@ -6,6 +6,7 @@
   "domain": "Comic",
   "icon": "images/providers/comicvine.png",
   "capability_tags": [],
+  "provider_capabilities": ["identity", "metadata", "artwork", "relationships", "people"],
     "available_fields": [
       "title",
       "cover",
