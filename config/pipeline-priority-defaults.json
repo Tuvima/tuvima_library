@@ -1,0 +1,40 @@
+{
+  "Books": {
+    "strategy": "Cascade",
+    "providers": [
+      { "rank": 1, "name": "apple_api", "purpose": "identity" },
+      { "rank": 2, "name": "open_library", "purpose": "identity" }
+    ]
+  },
+  "Audiobooks": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "apple_api", "purpose": "identity" }
+    ]
+  },
+  "Comics": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "comicvine", "purpose": "identity" }
+    ]
+  },
+  "Movies": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "tmdb", "purpose": "identity" }
+    ]
+  },
+  "Music": {
+    "strategy": "Sequential",
+    "providers": [
+      { "rank": 1, "name": "musicbrainz", "purpose": "identity" },
+      { "rank": 2, "name": "apple_api", "purpose": "enrichment", "requires_identity": true, "use_as_identity_fallback": true }
+    ]
+  },
+  "TV": {
+    "strategy": "Waterfall",
+    "providers": [
+      { "rank": 1, "name": "tmdb", "purpose": "identity" }
+    ]
+  }
+}

@@ -1,517 +1,134 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject IEngineApiClient ApiClient
-@inject MediaEngine.Web.Services.Integration.ProviderCatalogueService CatalogueService
+@inject ProviderCatalogueService CatalogueService
 @inject ILogger<ProviderPriorityTab> Logger
 @inject ISnackbar Snackbar
-@using MediaEngine.Domain.Enums
-@using MediaEngine.Contracts.Settings
-@using MediaEngine.Web.Models.ViewDTOs
+@inject NavigationManager Nav
 
-<div class="provider-page">
-    <AppSegmentedControl Value="@_activeStage"
-                         ValueChanged="@NavigateToStage"
-                         Options="@ProviderStageOptions"
-                         AriaLabel="Metadata provider stages"
-                         Class="mb-4" />
-    @if (!string.IsNullOrWhiteSpace(_loadError))
-    {
-        <AppAlert Tone="AppUiTone.Warning" Class="mb-4">
-            @_loadError
-        </AppAlert>
-    }
-    else if (_liveCatalogue.Count == 0)
-    {
-        <AppAlert Tone="AppUiTone.Warning" Class="mb-4">
-            Provider catalogue metadata is unavailable from the Engine. Existing configured chains can still be viewed, but adding providers is disabled so sample data is not presented as live configuration.
-        </AppAlert>
-    }
-
-    <div class="provider-layout">
-        <section class="provider-panel provider-library-panel">
-            <div class="provider-panel__header">
-                <div>
-                    <h3 class="provider-panel__title">Provider Library</h3>
-                    <div class="provider-panel__copy">@ActiveStage.LibraryDescription</div>
+@if (IsPrioritySurface)
+{
+    <ProviderPrioritySurface />
+}
+else
+{
+    <div class="provider-page">
+        <div class="provider-page__topline">
+            <div class="provider-summary" aria-label="Provider summary">
+                <div class="provider-summary__item">
+                    <MudIcon Icon="@Icons.Material.Outlined.Layers" />
+                    <strong>@_providers.Count</strong><span>Providers</span>
+                </div>
+                <div class="provider-summary__item">
+                    <MudIcon Icon="@Icons.Material.Outlined.ToggleOn" />
+                    <strong>@EnabledCount</strong><span>Enabled</span>
+                </div>
+                <div class="provider-summary__item provider-summary__item--healthy">
+                    <MudIcon Icon="@Icons.Material.Outlined.FavoriteBorder" />
+                    <strong>@HealthyCount</strong><span>Healthy</span>
+                </div>
+                <div class="provider-summary__item provider-summary__item--issues">
+                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                    <strong>@IssueCount</strong><span>Issues</span>
                 </div>
             </div>
-            <div class="provider-library-tools">
-                <AppSearchField @bind-Value="_providerSearch"
-                                Placeholder="Search providers..."
-                                Size="AppControlSize.Compact" />
-                <div class="provider-filter-row" aria-label="Filter providers by media type">
-                    @foreach (var filter in GetProviderFilterOptions())
-                    {
-                        <AppChip Text="@GetMediaTypeDisplay(filter)"
-                                 Tone="@(IsActiveProviderFilter(filter) ? AppUiTone.Primary : AppUiTone.Neutral)"
-                                 OnClick="@(() => SetProviderMediaFilter(filter))"
-                                 Class="provider-filter-chip" />
-                    }
-                </div>
-            </div>
-            <div class="provider-list">
-                @{
-                    var providerCards = GetProviderCards();
-                }
-                @if (providerCards.Count == 0)
-                {
-                    <div class="provider-empty-state">
-                        No Engine-backed providers are available for this stage.
-                    </div>
-                }
-                else
-                {
-                    @foreach (var provider in providerCards)
-                    {
-                        var providerName = provider.Name;
-                        var logoUrl = GetProviderLogoUrl(providerName);
-                        <div class="provider-list-card @(IsSelectedProvider(providerName) ? "is-selected" : null) @(CanDragProviders ? "is-draggable" : null)"
-                             draggable="@CanDragProviders"
-                             @ondragstart="@(() => BeginProviderDrag(providerName))"
-                             @onclick="@(() => SelectProvider(providerName))"
-                             role="button"
-                             tabindex="0"
-                             @onkeydown="@(args => HandleActivationKey(args, () => SelectProvider(providerName)))">
-                            <AppProviderLogo ImageUrl="@logoUrl"
-                                             Icon="@GetProviderIcon(providerName)"
-                                             AccentColor="@GetProviderAccent(providerName)"
-                                             FallbackText="@GetProviderInitials(providerName)"
-                                             AltText="" />
-                            <div class="provider-list-card__body">
-                                <div class="provider-list-card__name">@providerName</div>
-                                <div class="provider-list-card__description">@GetProviderDescription(providerName)</div>
-                                <div class="provider-chip-row">
-                                    @foreach (var mt in GetProviderMediaTypes(providerName))
-                                    {
-                                        <AppChip Icon="@GetMediaTypeIcon(mt)" Tone="AppUiTone.Primary" Class="provider-chip">
-                                            @GetMediaTypeDisplay(mt)
-                                        </AppChip>
-                                    }
-                                </div>
-                            </div>
-                            @if (IsSelectedProvider(providerName))
-                            {
-                                <div class="provider-drag-handle" title="Selected">
-                                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" Size="Size.Small" />
-                                </div>
-                            }
-                            else if (CanDragProviders)
-                            {
-                                <div class="provider-drag-handle" title="Drag to assign">
-                                    <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
-                                </div>
-                            }
-                        </div>
-                    }
-                }
-            </div>
-            <div class="provider-library-footer">
-                @GetStageProviderCountLabel()
-            </div>
-        </section>
-
-        <div class="provider-min">
-            @if (IsRetailStage)
-            {
-                <section class="provider-panel provider-assignment-card">
-                    <div class="provider-panel__header">
-                        <div>
-                            <h3 class="provider-panel__title">Assign Providers to Media Types</h3>
-                            <div class="provider-panel__copy">Set lookup order and strategy for each media type.</div>
-                        </div>
-                        <AppButton Label="How it works"
-                                   StartIcon="@Icons.Material.Outlined.HelpOutline"
-                                   Size="AppControlSize.Compact" />
-                    </div>
-
-                    <div class="provider-media-grid">
-                        @foreach (var mediaType in _mediaTypes)
-                        {
-                            var chain = GetChain(mediaType);
-                            <div class="provider-media-slot @(mediaType == _activeTab ? "is-selected" : null)"
-                                 @ondragover:preventDefault="true"
-                                 @ondrop="@(() => DropProviderOnMediaType(mediaType))">
-                                <AppNativeButton Type="button"
-                                                 Class="provider-media-slot__header"
-                                                 aria-pressed="@(mediaType == _activeTab ? "true" : "false")"
-                                                 OnClick="@(() => _activeTab = mediaType)">
-                                    <div class="provider-media-slot__icon">
-                                        <MudIcon Icon="@GetMediaTypeIcon(mediaType)" Size="Size.Small" />
-                                    </div>
-                                    <div class="provider-media-slot__title">@GetMediaTypeDisplay(mediaType)</div>
-                                    <div class="provider-media-slot__strategy">@GetStrategy(mediaType)</div>
-                                </AppNativeButton>
-
-                                <div class="provider-assignment-list">
-                                    @for (var i = 0; i < chain.Count; i++)
-                                    {
-                                        var idx = i;
-                                        var assignment = chain[idx];
-                                        var assignmentLogoUrl = GetProviderLogoUrl(assignment.Name);
-                                        <div class="provider-assignment-row @(IsSelectedAssignment(mediaType, idx) ? "is-selected" : null)"
-                                             draggable="true"
-                                             @ondragstart="@(() => BeginAssignmentDrag(mediaType, idx))"
-                                             @ondragover:preventDefault="true"
-                                             @ondrop="@(() => DropOnAssignment(mediaType, idx))"
-                                             @onclick:stopPropagation="true"
-                                             @onclick="@(() => SelectAssignment(mediaType, idx))"
-                                             role="button"
-                                             tabindex="0"
-                                             @onkeydown="@(args => HandleActivationKey(args, () => SelectAssignment(mediaType, idx)))">
-                                            <div class="provider-assignment-rank">@(idx + 1)</div>
-                                            <AppProviderLogo ImageUrl="@assignmentLogoUrl"
-                                                             Icon="@GetProviderIcon(assignment.Name)"
-                                                             AccentColor="@GetProviderAccent(assignment.Name)"
-                                                             FallbackText="@GetProviderInitials(assignment.Name)"
-                                                             Size="AppControlSize.Compact"
-                                                             AltText="" />
-                                            <div class="provider-min">
-                                                <div class="provider-assignment-row__name">@assignment.Name</div>
-                                                <div class="provider-assignment-row__meta">@GetSuccessRateDisplay(assignment.Name)</div>
-                                            </div>
-                                            <div class="provider-assignment-actions" @onclick:stopPropagation="true">
-                                                <AppIconButton Icon="@Icons.Material.Filled.KeyboardArrowUp"
-                                                               Size="AppControlSize.Compact"
-                                                               Disabled="@(idx == 0)"
-                                                               AriaLabel="Move provider up"
-                                                               Tooltip="Move up"
-                                                               OnClick="@(() => MoveLeft(mediaType, idx))" />
-                                                <AppIconButton Icon="@Icons.Material.Filled.KeyboardArrowDown"
-                                                               Size="AppControlSize.Compact"
-                                                               Disabled="@(idx == chain.Count - 1)"
-                                                               AriaLabel="Move provider down"
-                                                               Tooltip="Move down"
-                                                               OnClick="@(() => MoveRight(mediaType, idx))" />
-                                                <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Size="Size.Small" />
-                                            </div>
-                                        </div>
-                                    }
-                                </div>
-
-                                <div class="provider-drop-zone">Drag providers here</div>
-                                <div class="provider-media-slot__footer" @onclick:stopPropagation="true">
-                                    <AppSelect T="string" Value="@GetStrategy(mediaType)"
-                                               ValueChanged="@(v => SetStrategy(mediaType, v ?? "Waterfall"))"
-                                               Options="@StrategyOptions"
-                                               Disabled="@(_engineConfigurationUnavailable || _liveCatalogue.Count == 0)"
-                                               Size="AppControlSize.Compact"
-                                               Class="provider-strategy-select" />
-                                    <AppButton Label="Add"
-                                               StartIcon="@Icons.Material.Filled.Add"
-                                               Size="AppControlSize.Compact"
-                                               Disabled="@_engineConfigurationUnavailable"
-                                               OnClick="@(() => OpenAddDialog(mediaType))" />
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </section>
-            }
-            else if (IsCanonicalStage)
-            {
-                <section class="provider-panel provider-stage-detail-panel">
-                    <div class="provider-panel__header">
-                        <div>
-                            <h3 class="provider-panel__title">Canonical Identity</h3>
-                            <div class="provider-panel__copy">Wikidata resolves canonical titles, people, bridge identifiers, and universe relationships after retail lookup finds reliable anchors.</div>
-                        </div>
-                    </div>
-                    <div class="provider-insight-grid">
-                        @foreach (var card in GetCanonicalSummaryCards())
-                        {
-                            <div class="provider-insight-card">
-                                <div class="provider-insight-card__icon">
-                                    <MudIcon Icon="@card.Icon" Size="Size.Small" />
-                                </div>
-                                <div class="provider-insight-card__body">
-                                    <div class="provider-insight-card__title">@card.Title</div>
-                                    <div class="provider-insight-card__copy">@card.Description</div>
-                                    <div class="provider-chip-row">
-                                        @foreach (var chip in card.Chips)
-                                        {
-                                            <AppChip Text="@chip" Tone="AppUiTone.Info" Class="provider-chip" />
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                    <div class="provider-metric-grid">
-                        @foreach (var metric in GetWikidataMetrics())
-                        {
-                            <div class="provider-metric">
-                                <div class="provider-metric__value">@metric.Value</div>
-                                <div class="provider-metric__label">@metric.Label</div>
-                            </div>
-                        }
-                    </div>
-                </section>
-            }
-            else
-            {
-                <section class="provider-panel provider-stage-detail-panel">
-                    <div class="provider-panel__header">
-                        <div>
-                            <h3 class="provider-panel__title">Enrichment & Artwork</h3>
-                            <div class="provider-panel__copy">Artwork, synced lyrics, and subtitles run as focused enrichment providers after identity is known.</div>
-                        </div>
-                    </div>
-                    <div class="provider-enrichment-grid">
-                        @foreach (var provider in GetEnrichmentProviderCards())
-                        {
-                            var providerLogoUrl = GetProviderLogoUrl(provider.Name);
-                            <div class="provider-enrichment-card @(IsSelectedProvider(provider.Name) ? "is-selected" : null)"
-                                 @onclick="@(() => SelectProvider(provider.Name))"
-                                 role="button"
-                                 tabindex="0"
-                                 @onkeydown="@(args => HandleActivationKey(args, () => SelectProvider(provider.Name)))">
-                                <AppProviderLogo ImageUrl="@providerLogoUrl"
-                                                 Icon="@GetProviderIcon(provider.Name)"
-                                                 AccentColor="@GetProviderAccent(provider.Name)"
-                                                 FallbackText="@GetProviderInitials(provider.Name)"
-                                                 AltText="" />
-                                <div class="provider-min">
-                                    <div class="provider-enrichment-card__title">@provider.Name</div>
-                                    <div class="provider-enrichment-card__copy">@GetProviderDescription(provider.Name)</div>
-                                    <div class="provider-chip-row">
-                                        @foreach (var chip in GetEnrichmentCapabilityChips(provider.Name))
-                                        {
-                                            <AppChip Text="@chip" Tone="AppUiTone.Info" Class="provider-chip" />
-                                        }
-                                    </div>
-                                </div>
-                                <div class="provider-status-pill @(IsProviderHealthy(provider.Name) ? "is-healthy" : "is-unavailable")">
-                                    @GetSuccessRateDisplay(provider.Name)
-                                </div>
-                            </div>
-                        }
-                    </div>
-                    <div class="provider-metric-grid">
-                        @foreach (var metric in GetEnrichmentMetrics())
-                        {
-                            <div class="provider-metric">
-                                <div class="provider-metric__value">@metric.Value</div>
-                                <div class="provider-metric__label">@metric.Label</div>
-                            </div>
-                        }
-                    </div>
-                </section>
-            }
-
-            <section class="provider-panel provider-settings-card">
-                @if (_drawerAssignment is null)
-                {
-                    <div class="provider-empty-state">Select a provider or assigned media slot to edit provider settings.</div>
-                }
-                else
-                {
-                    var drawerInfo = GetProviderInfo(_drawerAssignment.Name);
-                    <div class="provider-settings-card__header">
-                        <div>
-                            <h3 class="provider-panel__title">Provider Settings</h3>
-                            <div class="provider-panel__copy">Edit settings for the selected provider.</div>
-                        </div>
-                        <AppChip Icon="@Icons.Material.Filled.Circle" Tone="AppUiTone.Success" Class="provider-chip">
-                            Editing: @_drawerAssignment.Name
-                        </AppChip>
-                    </div>
-                    <div class="provider-settings-grid">
-                        <div>
-                            <div class="provider-settings-summary">
-                                @{
-                                    var selectedLogoUrl = GetProviderLogoUrl(_drawerAssignment.Name);
-                                }
-                                <AppProviderLogo ImageUrl="@selectedLogoUrl"
-                                                 Icon="@GetProviderIcon(_drawerAssignment.Name)"
-                                                 AccentColor="@GetProviderAccent(_drawerAssignment.Name)"
-                                                 FallbackText="@GetProviderInitials(_drawerAssignment.Name)"
-                                                 Size="AppControlSize.Large"
-                                                 AltText="" />
-                                <div class="provider-min">
-                                    <div class="provider-settings__name">@_drawerAssignment.Name</div>
-                                    <div class="provider-settings__description">@GetProviderDescription(_drawerAssignment.Name)</div>
-                                    <div class="provider-chip-row">
-                                        @foreach (var mt in GetProviderMediaTypes(_drawerAssignment.Name))
-                                        {
-                                            <AppChip Icon="@GetMediaTypeIcon(mt)" Tone="AppUiTone.Primary" Class="provider-chip">
-                                                @GetMediaTypeDisplay(mt)
-                                            </AppChip>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="provider-settings-details">
-                                <div class="provider-settings__detail">Health: @GetSuccessRateDisplay(_drawerAssignment.Name)</div>
-                                <div class="provider-settings__detail">Latency: @GetLatencyDisplay(_drawerAssignment.Name)</div>
-                                <div class="provider-settings__detail">Domain: @GetProviderDomain(_drawerAssignment.Name)</div>
-                                <div class="provider-settings__detail">Authentication: @(drawerInfo?.RequiresKey == true ? "API key required" : "No key required")</div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div class="provider-settings-fields">
-                                <AppTextField Value="@_drawerAssignment.Name"
-                                              Label="Provider Name"
-                                              Disabled="true" />
-                                <AppSwitchRow Label="Status"
-                                              Value="@_drawerAssignment.Enabled"
-                                              ValueChanged="@(v => _drawerAssignment.Enabled = v)"
-                                              SwitchLabel="@(_drawerAssignment.Enabled ? "Enabled" : "Disabled")" />
-                                @if (drawerInfo?.RequiresKey == true)
-                                {
-                                    @if (drawerInfo.AuthType == "basic")
-                                    {
-                                        <AppTextField @bind-Value="_drawerAssignment.Username"
-                                                      Label="Username" />
-                                        <AppTextField @bind-Value="_drawerAssignment.Password"
-                                                      Label="Password"
-                                                      InputType="InputType.Password" />
-                                    }
-                                    else
-                                    {
-                                        <AppTextField @bind-Value="_drawerAssignment.ApiKey"
-                                                      Label="API Key"
-                                                      InputType="InputType.Password"
-                                                      Adornment="Adornment.End"
-                                                      AdornmentIcon="@Icons.Material.Outlined.Visibility" />
-                                    }
-                                }
-                                else
-                                {
-                                    <AppTextField Value="@("Zero-key provider")"
-                                                  Label="API Key"
-                                                  Disabled="true" />
-                                }
-                                <AppNumericField @bind-Value="_drawerAssignment.TimeoutMs"
-                                                 Label="Request Timeout (ms)"
-                                                 Min="500"
-                                                 Max="60000" />
-                                <AppNumericField @bind-Value="_drawerAssignment.ThrottleMs"
-                                                 Label="Throttle (ms)"
-                                                 Min="0"
-                                                 Max="60000" />
-                                <AppNumericField @bind-Value="_drawerAssignment.MaxConcurrency"
-                                                 Label="Max Concurrency"
-                                                 Min="1"
-                                                 Max="8" />
-                                <AppTextField @bind-Value="_drawerAssignment.Endpoint"
-                                              Label="Primary Endpoint" />
-                                <AppSelect T="string" @bind-Value="_drawerAssignment.LanguageStrategy"
-                                           Label="Region / Language"
-                                           Options="@LanguageStrategyOptions" />
-                            </div>
-
-                            <AppActionBar Class="provider-settings-actions">
-                                @if (IsRetailStage && _drawerIndex >= 0)
-                                {
-                                    <AppButton Label="Remove"
-                                               Tone="AppUiTone.Error"
-                                               Size="AppControlSize.Compact"
-                                               StartIcon="@Icons.Material.Outlined.RemoveCircleOutline"
-                                               OnClick="RemoveFromChain" />
-                                }
-                                <AppButton Label="Test Connection"
-                                           Size="AppControlSize.Compact"
-                                           StartIcon="@Icons.Material.Outlined.NetworkCheck"
-                                           OnClick="@TestConnectionAsync" />
-                                <AppButton Tone="AppUiTone.Primary"
-                                           ButtonStyle="AppButtonStyle.Filled"
-                                           Size="AppControlSize.Compact"
-                                           StartIcon="@Icons.Material.Filled.Save"
-                                           OnClick="SaveDrawerAsync"
-                                           Disabled="@_drawerSaving"
-                                           Label="@(_drawerSaving ? "Saving..." : "Save Provider")" />
-                                @if (IsRetailStage)
-                                {
-                                    <AppButton Tone="AppUiTone.Primary"
-                                               ButtonStyle="AppButtonStyle.Filled"
-                                               Size="AppControlSize.Compact"
-                                               StartIcon="@Icons.Material.Outlined.Done"
-                                               OnClick="@SaveAsync"
-                                               Disabled="@(_saving || _engineConfigurationUnavailable || !HasProviderChanges)"
-                                               Label="@(_saving ? "Saving..." : "Save Changes")" />
-                                }
-                            </AppActionBar>
-
-                            @if (_lastProviderTests.TryGetValue(_drawerAssignment.Name, out var test))
-                            {
-                                <div class="provider-message provider-message--test @(test.Success ? "provider-message--success" : "provider-message--error")">
-                                    Last tested @test.TestedAt.LocalDateTime.ToString("MMM d, HH:mm"): @test.Message
-                                </div>
-                            }
-                            @if (!string.IsNullOrEmpty(_drawerSaveMessage))
-                            {
-                                <div class="provider-message @(_drawerSaveSuccess ? "provider-message--success" : "provider-message--error")">
-                                    @_drawerSaveMessage
-                                </div>
-                            }
-                            <div class="provider-message">
-                                @ProviderStatusDescription(_drawerAssignment)
-                            </div>
-                        </div>
-                    </div>
-                }
-            </section>
+            <AppButton Label="Provider Priority" StartIcon="@Icons.Material.Outlined.LowPriority"
+                       Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled" OnClick="OpenPriority" />
         </div>
-    </div>
-</div>
 
-<AppDialog @bind-Visible="_addDialogOpen"
-           Title="@($"Add Provider - {_addDialogMediaType}")"
-           Size="Small"
-           Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true })">
-    <ChildContent>
-        <AppSearchField @bind-Value="_addDialogSearch"
-                        Placeholder="Search providers..."
-                        Class="mb-3" />
-
-        @{
-            var available = GetAvailableProviders(_addDialogMediaType);
-            var filtered  = string.IsNullOrWhiteSpace(_addDialogSearch)
-                ? available
-                : available.Where(p => p.Name.Contains(_addDialogSearch, StringComparison.OrdinalIgnoreCase)).ToList();
-        }
-
-        @if (!filtered.Any())
+        @if (_loading)
         {
-            <div class="provider-empty-state">
-                No Engine-backed providers are available for this media type.
-            </div>
+            <AppPageState Kind="AppPageStateKind.Loading" Title="Loading metadata providers" Class="py-8" />
         }
         else
         {
-            @foreach (var p in filtered)
+            @if (!string.IsNullOrWhiteSpace(_loadError))
             {
-                var pCapture = p;
-                var pLogoUrl = GetProviderLogoUrl(pCapture.Name);
-                <div class="provider-add-row"
-                     @onclick="@(() => AddProviderToChain(pCapture.Name))"
-                     role="button"
-                     tabindex="0"
-                     @onkeydown="@(args => HandleActivationKey(args, () => AddProviderToChain(pCapture.Name)))">
-
-                    <AppProviderLogo ImageUrl="@pLogoUrl"
-                                     Icon="@GetProviderIcon(pCapture.Name)"
-                                     AccentColor="@GetProviderAccent(pCapture.Name)"
-                                     FallbackText="@GetProviderInitials(pCapture.Name)"
-                                     Size="AppControlSize.Compact"
-                                     AltText="" />
-
-                    <div class="provider-add-row__body">
-                        <div class="provider-add-row__name">@pCapture.Name</div>
-                        <div class="provider-add-row__meta">
-                            @pCapture.Type  -  @(pCapture.RequiresKey ? "Requires key" : "Zero-key")
-                        </div>
-                    </div>
-
-                    <div class="provider-add-row__rate">
-                        @((pCapture.SuccessRate * 100).ToString("F0"))%
-                    </div>
-
-                </div>
+                <AppAlert Tone="AppUiTone.Warning" Class="mb-4">@_loadError</AppAlert>
             }
+
+            <section class="provider-toolbar" aria-label="Filter metadata providers">
+                <AppSearchField @bind-Value="_search" Placeholder="Search providers..." Size="AppControlSize.Compact" />
+                <div class="provider-filter-row" role="group" aria-label="Filter providers by media type">
+                    @foreach (var mediaType in MediaFilters)
+                    {
+                        <AppChip Text="@DisplayMediaType(mediaType)"
+                                 Tone="@(string.Equals(_mediaFilter, mediaType, StringComparison.OrdinalIgnoreCase) ? AppUiTone.Primary : AppUiTone.Neutral)"
+                                 OnClick="@(() => _mediaFilter = mediaType)" Class="provider-filter-chip" />
+                    }
+                </div>
+            </section>
+
+            <div class="provider-list">
+                @if (FilteredProviders.Count == 0)
+                {
+                    <AppEmptyState Title="No matching providers" Message="Try another search or media filter." />
+                }
+                else
+                {
+                    @foreach (var provider in FilteredProviders)
+                    {
+                        <article class="provider-row @(IsSelected(provider) ? "is-selected" : null)" @key="provider.Key">
+                            <div class="provider-row__identity">
+                                <AppProviderLogo ImageUrl="@provider.LogoUrl" Icon="@provider.Icon"
+                                                 AccentColor="@provider.AccentColor" FallbackText="@Initials(provider.DisplayName)" AltText="" />
+                                <div class="provider-row__copy">
+                                    <h3>@provider.DisplayName</h3>
+                                    <div class="provider-row__description">@provider.Description</div>
+                                    <div class="provider-row__chips">
+                                        @foreach (var mediaType in provider.MediaTypes)
+                                        {
+                                            <AppChip Text="@DisplayMediaType(mediaType)" Icon="@MediaTypeIcon(mediaType)"
+                                                     Tone="AppUiTone.Primary" Size="AppControlSize.Compact" />
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="provider-row__status" aria-live="polite">
+                                <AppStatusBadge Text="@HealthLabel(provider)" Tone="@HealthTone(provider)" Icon="@HealthIcon(provider)" />
+                                <div>@LastCheckedLabel(provider)</div>
+                                @if (provider.LastResponseTimeMs.HasValue) { <div>@provider.LastResponseTimeMs ms</div> }
+                                @if (ShouldShowFailure(provider))
+                                {
+                                    <div class="provider-row__failure">@provider.FailureReason</div>
+                                }
+                            </div>
+
+                            <div class="provider-row__actions">
+                                <AppSwitchRow Value="@provider.Enabled" ValueChanged="@(enabled => ToggleProviderAsync(provider, enabled))"
+                                              Disabled="@provider.Toggling" StopClickPropagation="true"
+                                              AriaLabel="@($"Enable {provider.DisplayName}")" />
+                                <AppButton Label="@(provider.Testing ? "Testing..." : "Test")"
+                                           StartIcon="@Icons.Material.Outlined.NetworkCheck" Size="AppControlSize.Compact"
+                                           Disabled="@(provider.Testing || !provider.Enabled)" OnClick="@(() => TestProviderAsync(provider))" />
+                                <AppOverflowMenu AriaLabel="@($"More actions for {provider.DisplayName}")" Size="AppControlSize.Compact">
+                                    <AppMenuItem Label="Edit settings" Icon="@Icons.Material.Outlined.Settings" OnClick="@(() => OpenEditor(provider))" />
+                                    <AppMenuItem Label="Test connection" Icon="@Icons.Material.Outlined.NetworkCheck"
+                                                 Disabled="@(!provider.Enabled || provider.Testing)" OnClick="@(() => TestProviderAsync(provider))" />
+                                    <AppMenuItem Label="@(provider.Enabled ? "Disable" : "Enable")"
+                                                 Icon="@(provider.Enabled ? Icons.Material.Outlined.PauseCircleOutline : Icons.Material.Outlined.PlayCircleOutline)"
+                                                 OnClick="@(() => ToggleProviderAsync(provider, !provider.Enabled))" />
+                                </AppOverflowMenu>
+                            </div>
+
+                            @if (!string.IsNullOrWhiteSpace(provider.TestMessage))
+                            {
+                                <div class="provider-row__test-result @(provider.LastTestSucceeded == true ? "is-success" : "is-error")" role="status">
+                                    @provider.TestMessage
+                                </div>
+                            }
+                        </article>
+                    }
+                }
+            </div>
+
+            <div class="provider-page__note">
+                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                Provider health comes from real Engine checks. Response time appears only after a live connection test.
+            </div>
         }
-    </ChildContent>
-    <FooterContent>
-        <AppButton Label="Cancel" OnClick="@(() => _addDialogOpen = false)" />
-    </FooterContent>
-</AppDialog>
+    </div>
+
+    <ProviderEditDrawer @ref="_editDrawer" Open="@(_selectedProvider is not null)" Provider="@_selectedProvider"
+                        Closed="CloseEditor" SaveRequested="SaveProviderAsync" TestRequested="TestSelectedProviderAsync" />
+}

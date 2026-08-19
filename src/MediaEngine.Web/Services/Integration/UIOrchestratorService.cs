@@ -735,6 +735,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default)
         => _api.GetPipelinesAsync(ct);
 
+    public Task<PipelineConfiguration?> GetDefaultPipelinesAsync(CancellationToken ct = default)
+        => _api.GetDefaultPipelinesAsync(ct);
+
     public Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default)
         => _api.SavePipelinesAsync(pipelines, ct);
 

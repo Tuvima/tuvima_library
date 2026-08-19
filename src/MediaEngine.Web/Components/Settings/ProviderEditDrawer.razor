@@ -1,0 +1,276 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject IJSRuntime JS
+
+<NavigationLock ConfirmExternalNavigation="@IsDirty" />
+
+<MudDrawer Open="@Open"
+           OpenChanged="OnDrawerOpenChangedAsync"
+           Anchor="Anchor.End"
+           Width="480px"
+           Overlay="true"
+           Variant="DrawerVariant.Temporary"
+           Class="provider-edit-drawer">
+    @if (Provider is not null && _draft is not null)
+    {
+        <MudFocusTrap DefaultFocus="DefaultFocus.FirstChild">
+            <div class="provider-edit-drawer__layout" role="dialog" aria-modal="true" aria-label="@($"Edit {Provider.DisplayName} settings")">
+                <header class="provider-edit-drawer__header">
+                    <AppProviderLogo ImageUrl="@Provider.LogoUrl"
+                                     Icon="@Provider.Icon"
+                                     AccentColor="@Provider.AccentColor"
+                                     FallbackText="@Initials(Provider.DisplayName)"
+                                     Size="AppControlSize.Large"
+                                     AltText="" />
+                    <div class="provider-edit-drawer__identity">
+                        <h2>@Provider.DisplayName</h2>
+                        <div>@Provider.Category provider</div>
+                        <div class="provider-edit-drawer__chips">
+                            @foreach (var mediaType in Provider.MediaTypes)
+                            {
+                                <AppChip Text="@DisplayMediaType(mediaType)" Tone="AppUiTone.Primary" Size="AppControlSize.Compact" />
+                            }
+                        </div>
+                    </div>
+                    <AppIconButton Icon="@Icons.Material.Filled.Close"
+                                   AriaLabel="@($"Close {Provider.DisplayName} settings")"
+                                   Tooltip="Close"
+                                   OnClick="RequestCloseAsync" />
+                </header>
+
+                <div class="provider-edit-drawer__body">
+                    <section class="provider-edit-section" aria-labelledby="provider-drawer-status">
+                        <div class="provider-edit-section__heading-row">
+                            <div>
+                                <h3 id="provider-drawer-status">Status</h3>
+                                <AppStatusBadge Text="@HealthLabel(Provider)"
+                                                Tone="@HealthTone(Provider)"
+                                                Icon="@HealthIcon(Provider)" />
+                                <div class="provider-edit-section__meta">@LastCheckedLabel(Provider)</div>
+                                @if (Provider.LastResponseTimeMs.HasValue)
+                                {
+                                    <div class="provider-edit-section__meta">@Provider.LastResponseTimeMs ms response time</div>
+                                }
+                                @if (ProviderPriorityTab.ShouldShowFailure(Provider))
+                                {
+                                    <div class="provider-edit-section__error">@Provider.FailureReason</div>
+                                }
+                            </div>
+                            <AppButton Label="@(Provider.Testing ? "Testing..." : "Test connection")"
+                                       StartIcon="@Icons.Material.Outlined.NetworkCheck"
+                                       Tone="AppUiTone.Primary"
+                                       ButtonStyle="AppButtonStyle.Filled"
+                                       Disabled="@(Provider.Testing || !Provider.Enabled)"
+                                       OnClick="TestAsync" />
+                        </div>
+                        @if (IsDirty)
+                        {
+                            <div class="provider-edit-section__hint">Connection tests use the last saved settings.</div>
+                        }
+                    </section>
+
+                    <section class="provider-edit-section" aria-labelledby="provider-drawer-connection">
+                        <h3 id="provider-drawer-connection">Connection</h3>
+                        <AppSwitchRow Label="Provider enabled"
+                                      Description="Disabled providers are skipped during metadata work."
+                                      Value="@_draft.Enabled"
+                                      ValueChanged="@(value => _draft.Enabled = value)"
+                                      AriaLabel="@($"Enable {Provider.DisplayName}")" />
+
+                        @if (Provider.RequiresKey)
+                        {
+                            <AppTextField Value="@_draft.ApiKeyReplacement"
+                                          ValueChanged="@(value => _draft.ApiKeyReplacement = value ?? string.Empty)"
+                                          Label="API key"
+                                          Placeholder="@(Provider.HasKey ? "Configured - enter a replacement" : "Enter API key")"
+                                          HelpText="The stored credential is never returned to this page."
+                                          InputType="@(_showSecret ? InputType.Text : InputType.Password)"
+                                          Adornment="Adornment.End"
+                                          AdornmentIcon="@(_showSecret ? Icons.Material.Outlined.VisibilityOff : Icons.Material.Outlined.Visibility)"
+                                          OnAdornmentClick="@(_ => ToggleSecret())" />
+                        }
+
+                        <AppSelect T="string"
+                                   Value="@_draft.LanguageStrategy"
+                                   ValueChanged="@(value => _draft.LanguageStrategy = value ?? "source")"
+                                   Label="Metadata language behavior"
+                                   Options="@LanguageOptions" />
+                        <div class="provider-edit-section__hint">Localized requests inherit the library's configured language and country.</div>
+                    </section>
+
+                    <details class="provider-edit-advanced">
+                        <summary>
+                            <span>Advanced settings</span>
+                            <small>These settings are usually left at defaults.</small>
+                        </summary>
+                        <div class="provider-edit-advanced__fields">
+                            <AppNumericField Value="@_draft.TimeoutSeconds"
+                                             ValueChanged="@(value => _draft.TimeoutSeconds = value)"
+                                             Label="Request timeout (seconds)"
+                                             Min="1"
+                                             Max="120" />
+                            <AppNumericField Value="@_draft.ThrottleMs"
+                                             ValueChanged="@(value => _draft.ThrottleMs = value)"
+                                             Label="Minimum request interval (ms)"
+                                             Min="0"
+                                             Max="60000" />
+                            <AppNumericField Value="@_draft.MaxConcurrency"
+                                             ValueChanged="@(value => _draft.MaxConcurrency = value)"
+                                             Label="Max concurrency"
+                                             Min="1"
+                                             Max="32" />
+                            @if (Provider.Endpoints.Count > 0)
+                            {
+                                <AppTextField Value="@_draft.PrimaryEndpoint"
+                                              ValueChanged="@(value => _draft.PrimaryEndpoint = value ?? string.Empty)"
+                                              Label="Primary endpoint" />
+                            }
+                        </div>
+                    </details>
+                </div>
+
+                <footer class="provider-edit-drawer__footer">
+                    <AppButton Label="Cancel" OnClick="RequestCloseAsync" />
+                    <AppButton Label="@(_saving ? "Saving..." : "Save Changes")"
+                               StartIcon="@Icons.Material.Filled.Save"
+                               Tone="AppUiTone.Primary"
+                               ButtonStyle="AppButtonStyle.Filled"
+                               Disabled="@(!IsDirty || !IsValid || _saving)"
+                               OnClick="SaveAsync" />
+                </footer>
+            </div>
+        </MudFocusTrap>
+    }
+</MudDrawer>
+
+@code {
+    private ProviderEditorDraft? _draft;
+    private string _baseline = string.Empty;
+    private string? _loadedProviderKey;
+    private bool _showSecret;
+    private bool _saving;
+
+    [Parameter] public bool Open { get; set; }
+    [Parameter] public ProviderManagementItem? Provider { get; set; }
+    [Parameter] public EventCallback Closed { get; set; }
+    [Parameter, EditorRequired] public Func<ProviderEditorDraft, Task<bool>> SaveRequested { get; set; } = default!;
+    [Parameter, EditorRequired] public Func<Task> TestRequested { get; set; } = default!;
+
+    private static readonly IReadOnlyList<AppSelectOption> LanguageOptions =
+    [
+        new("source", "Source defaults"),
+        new("localized", "Localized metadata"),
+        new("both", "Source + localized"),
+    ];
+
+    private bool IsDirty => _draft is not null && _draft.Fingerprint() != _baseline;
+    private bool IsValid => _draft is
+    {
+        TimeoutSeconds: >= 1 and <= 120,
+        ThrottleMs: >= 0 and <= 60000,
+        MaxConcurrency: >= 1 and <= 32,
+    };
+
+    protected override void OnParametersSet()
+    {
+        if (!Open || Provider is null || string.Equals(_loadedProviderKey, Provider.Key, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        _draft = ProviderEditorDraft.From(Provider);
+        _baseline = _draft.Fingerprint();
+        _loadedProviderKey = Provider.Key;
+        _showSecret = false;
+    }
+
+    public async Task<bool> TryCloseAsync()
+    {
+        if (IsDirty && !await JS.InvokeAsync<bool>("confirm", "Discard unsaved provider changes?"))
+            return false;
+
+        await CloseAsync();
+        return true;
+    }
+
+    private async Task RequestCloseAsync() => await TryCloseAsync();
+
+    private async Task OnDrawerOpenChangedAsync(bool open)
+    {
+        if (!open)
+            await TryCloseAsync();
+    }
+
+    private async Task CloseAsync()
+    {
+        _draft = null;
+        _baseline = string.Empty;
+        _loadedProviderKey = null;
+        _showSecret = false;
+        await Closed.InvokeAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_draft is null || !IsValid)
+            return;
+
+        _saving = true;
+        try
+        {
+            if (await SaveRequested(_draft))
+            {
+                _draft.ApiKeyReplacement = string.Empty;
+                _baseline = _draft.Fingerprint();
+            }
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private Task TestAsync() => TestRequested();
+    private void ToggleSecret() => _showSecret = !_showSecret;
+
+    private static string Initials(string name) => string.Concat(name
+        .Split([' ', '.', '_', '-'], StringSplitOptions.RemoveEmptyEntries)
+        .Take(2)
+        .Select(word => char.ToUpperInvariant(word[0])));
+
+    private static string DisplayMediaType(string mediaType) => mediaType == "TV" ? "TV Shows" : mediaType;
+    private static string HealthLabel(ProviderManagementItem item) => item.Health switch
+    {
+        ProviderManagementHealth.Healthy => "Healthy",
+        ProviderManagementHealth.Degraded => "Degraded",
+        ProviderManagementHealth.AuthenticationRequired => "Authentication required",
+        ProviderManagementHealth.Unavailable => "Unavailable",
+        ProviderManagementHealth.Disabled => "Disabled",
+        _ => "Not checked",
+    };
+    private static AppUiTone HealthTone(ProviderManagementItem item) => item.Health switch
+    {
+        ProviderManagementHealth.Healthy => AppUiTone.Success,
+        ProviderManagementHealth.Degraded => AppUiTone.Warning,
+        ProviderManagementHealth.AuthenticationRequired => AppUiTone.Warning,
+        ProviderManagementHealth.Unavailable => AppUiTone.Error,
+        _ => AppUiTone.Neutral,
+    };
+    private static string HealthIcon(ProviderManagementItem item) => item.Health switch
+    {
+        ProviderManagementHealth.Healthy => Icons.Material.Outlined.FavoriteBorder,
+        ProviderManagementHealth.Degraded => Icons.Material.Outlined.WarningAmber,
+        ProviderManagementHealth.AuthenticationRequired => Icons.Material.Outlined.Key,
+        ProviderManagementHealth.Unavailable => Icons.Material.Outlined.CloudOff,
+        ProviderManagementHealth.Disabled => Icons.Material.Outlined.PauseCircleOutline,
+        _ => Icons.Material.Outlined.HelpOutline,
+    };
+    private static string LastCheckedLabel(ProviderManagementItem item) => item.LastCheckedAt.HasValue
+        ? $"Last checked {FormatRelative(item.LastCheckedAt.Value)}"
+        : "No health check recorded";
+    private static string FormatRelative(DateTimeOffset value)
+    {
+        var elapsed = DateTimeOffset.Now - value.ToLocalTime();
+        if (elapsed.TotalMinutes < 1) return "just now";
+        if (elapsed.TotalMinutes < 60) return $"{Math.Max(1, (int)elapsed.TotalMinutes)} min ago";
+        if (elapsed.TotalHours < 24) return $"{(int)elapsed.TotalHours} hr ago";
+        return value.LocalDateTime.ToString("MMM d, yyyy");
+    }
+}

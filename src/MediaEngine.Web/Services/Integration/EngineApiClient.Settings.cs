@@ -1108,6 +1108,12 @@ public sealed partial class EngineApiClient
         }
     }
 
+    public Task<PipelineConfiguration?> GetDefaultPipelinesAsync(CancellationToken ct = default) =>
+        GetAsync<PipelineConfiguration>(
+            "GET /settings/pipelines/defaults",
+            "/settings/pipelines/defaults",
+            ct: ct);
+
     public async Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default)
     {
         try

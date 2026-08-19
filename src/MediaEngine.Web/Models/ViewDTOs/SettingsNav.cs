@@ -191,9 +191,8 @@ public static class SettingsNav
             ],
             [SettingsSection.Providers] =
             [
-                new("retail", "Retail Lookup", Icons.Material.Outlined.ShoppingBag),
-                new("canonical", "Canonical Identity", Icons.Material.Outlined.Hub),
-                new("enrichment", "Enrichment & Artwork", Icons.Material.Outlined.AutoAwesome),
+                new("overview", "Provider Overview", Icons.Material.Outlined.Inventory2),
+                new("priority", "Provider Priority", Icons.Material.Outlined.LowPriority),
             ],
             [SettingsSection.ActivityLogs] =
             [

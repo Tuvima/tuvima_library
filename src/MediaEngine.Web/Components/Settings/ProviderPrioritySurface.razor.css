@@ -1,0 +1,64 @@
+.provider-priority-page { width: 100%; min-width: 0; }
+.provider-priority-header { display: flex; justify-content: space-between; gap: 28px; align-items: start; margin-bottom: 22px; }
+.provider-priority-header h2 { margin: 0; font-size: 1.65rem; }
+.provider-priority-header p { margin: 5px 0 14px; color: var(--mud-palette-text-secondary); }
+.provider-priority-helper-copy { display: flex; align-items: center; gap: 8px; color: var(--mud-palette-text-secondary); font-size: .82rem; }
+.provider-priority-summary { display: grid; grid-template-columns: repeat(2, minmax(160px, 1fr)); gap: 12px; }
+.provider-priority-summary > div { display: grid; grid-template-columns: auto auto; grid-template-rows: auto auto; gap: 2px 12px; align-items: center; padding: 14px 18px; border: 1px solid var(--app-border); border-radius: 13px; background: var(--app-glass-inner-bg); }
+.provider-priority-summary .mud-icon-root { grid-row: 1 / 3; color: var(--mud-palette-primary); }
+.provider-priority-summary strong { font-size: 1rem; }
+.provider-priority-summary span { color: var(--mud-palette-text-secondary); font-size: .74rem; }
+.provider-priority-tabs { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 18px; padding: 12px; border: 1px solid var(--app-border); border-radius: 13px; background: var(--app-glass-inner-bg); }
+.provider-priority-layout { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+.provider-priority-panel,
+.provider-priority-context section { border: 1px solid var(--app-border); border-radius: 14px; background: var(--app-glass-inner-bg); }
+.provider-priority-panel { padding: 20px; }
+.provider-priority-panel__header { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+.provider-priority-panel__header h3,
+.provider-priority-context h3 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 1rem; }
+.provider-priority-panel__header h3 .mud-icon-root { color: var(--mud-palette-primary); }
+.provider-priority-panel__header p { margin: 4px 0 0; color: var(--mud-palette-text-secondary); font-size: .8rem; }
+.provider-priority-strategy { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 16px; align-items: end; margin: 20px 0 14px; padding: 12px; border-radius: 10px; background: color-mix(in srgb, var(--app-glass-inner-bg) 75%, transparent); }
+.provider-priority-strategy > div:last-child { padding-bottom: 8px; color: var(--mud-palette-text-secondary); font-size: .78rem; }
+.provider-priority-list { display: grid; gap: 9px; }
+.provider-priority-row { display: grid; grid-template-columns: 24px 34px auto minmax(150px, 1fr) auto auto auto; gap: 12px; align-items: center; min-width: 0; padding: 12px; border: 1px solid var(--app-border); border-radius: 11px; background: color-mix(in srgb, var(--app-surface) 72%, transparent); }
+.provider-priority-row__handle { color: var(--mud-palette-text-secondary); cursor: grab; }
+.provider-priority-row__rank { display: grid; place-items: center; width: 30px; height: 30px; border: 1px solid color-mix(in srgb, var(--mud-palette-primary) 55%, var(--app-border)); border-radius: 8px; color: var(--mud-palette-primary); }
+.provider-priority-row__identity { min-width: 0; display: grid; gap: 2px; }
+.provider-priority-row__identity strong,
+.provider-priority-row__identity span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.provider-priority-row__identity span { color: var(--mud-palette-text-secondary); font-size: .74rem; }
+.provider-priority-row__actions { display: flex; gap: 2px; }
+.provider-priority-context { display: grid; gap: 14px; }
+.provider-priority-context section { padding: 18px; }
+.provider-priority-context h3 { margin-bottom: 15px; }
+.provider-priority-context ol { display: grid; gap: 15px; margin: 0; padding: 0; list-style: none; }
+.provider-priority-context li { display: grid; grid-template-columns: 32px 1fr; gap: 10px; align-items: center; font-size: .8rem; }
+.provider-priority-context li > span { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: white; background: color-mix(in srgb, var(--mud-palette-primary) 55%, transparent); }
+.provider-priority-applies { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--app-border); font-size: .8rem; }
+.provider-priority-applies:last-child { border-bottom: 0; }
+.provider-priority-applies span { display: grid; }
+.provider-priority-applies small { color: var(--mud-palette-text-secondary); }
+.provider-priority-applies:first-of-type .mud-icon-root { color: var(--mud-palette-success); }
+.provider-priority-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 20px; }
+.provider-priority-add-list { display: grid; gap: 8px; }
+.provider-priority-add-row { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: center; width: 100%; padding: 10px; color: inherit; border: 1px solid var(--app-border); border-radius: 10px; background: var(--app-glass-inner-bg); text-align: left; }
+.provider-priority-add-row:hover,
+.provider-priority-add-row:focus-visible { border-color: var(--mud-palette-primary); outline: none; }
+@media (max-width: 1100px) {
+    .provider-priority-header { flex-direction: column; }
+    .provider-priority-summary { width: 100%; }
+    .provider-priority-layout { grid-template-columns: 1fr; }
+    .provider-priority-context { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+    .provider-priority-summary { grid-template-columns: 1fr; }
+    .provider-priority-panel__header { flex-direction: column; }
+    .provider-priority-strategy { grid-template-columns: 1fr; }
+    .provider-priority-row { grid-template-columns: 24px 30px auto minmax(0, 1fr) auto; }
+    .provider-priority-row > .app-status-badge { display: none; }
+    .provider-priority-row__actions { grid-column: 1 / -1; justify-content: flex-end; padding-top: 8px; border-top: 1px solid var(--app-border); }
+    .provider-priority-context { grid-template-columns: 1fr; }
+    .provider-priority-actions { flex-direction: column-reverse; }
+    .provider-priority-actions .app-button { width: 100%; }
+}

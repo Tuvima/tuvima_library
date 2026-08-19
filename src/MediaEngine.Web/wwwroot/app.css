@@ -5195,3 +5195,11 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     flex-basis: 1.05rem !important;
     font-size: 1.05rem !important;
 }
+
+/* Temporary drawers are rendered outside component CSS isolation. */
+.mud-drawer.provider-edit-drawer {
+    width: min(480px, 100%) !important;
+    border-left: 1px solid var(--app-border);
+    background: var(--app-surface);
+    z-index: 1301 !important;
+}

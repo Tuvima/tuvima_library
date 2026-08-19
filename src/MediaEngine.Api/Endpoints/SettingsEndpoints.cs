@@ -527,7 +527,7 @@ public static class SettingsEndpoints
             }
 
             provider.Enabled = request.Enabled;
-            configLoader.SaveProvider(provider);
+            SaveProviderManifest(configLoader, provider);
 
             var displayName = ResolveDisplayName(provider);
 
@@ -996,13 +996,14 @@ public static class SettingsEndpoints
             {
                 existing.HttpClient ??= new MediaEngine.Domain.Configuration.HttpClientConfig();
                 existing.HttpClient.ApiKey = request.ApiKey;
+                SaveProviderSecrets(configLoader, existing);
             }
             if (request.CustomIconName is not null)
             {
                 existing.CustomIconName = string.IsNullOrWhiteSpace(request.CustomIconName) ? null : request.CustomIconName;
             }
 
-            configLoader.SaveProvider(existing);
+            SaveProviderManifest(configLoader, existing);
 
             var displayName = ResolveDisplayName(existing);
 
@@ -1044,7 +1045,7 @@ public static class SettingsEndpoints
 
             // Disable rather than physically deleting the file — preserves history.
             existing.Enabled = false;
-            configLoader.SaveProvider(existing);
+            SaveProviderManifest(configLoader, existing);
 
             return Results.NoContent();
         })
@@ -1111,6 +1112,24 @@ public static class SettingsEndpoints
         })
         .WithName("GetPipelines")
         .WithDescription("Current pipeline configuration per media type")
+        .Produces<ContractPipelineConfiguration>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        grp.MapGet("/pipelines/defaults", (IConfigurationLoader configLoader) =>
+        {
+            var defaults = configLoader.LoadConfig<Dictionary<string, MediaEngine.Domain.Configuration.MediaTypePipeline>>(
+                string.Empty,
+                "pipeline-priority-defaults") ?? new(StringComparer.OrdinalIgnoreCase);
+            var configuration = new MediaEngine.Domain.Configuration.PipelineConfiguration
+            {
+                Pipelines = new Dictionary<string, MediaEngine.Domain.Configuration.MediaTypePipeline>(
+                    defaults,
+                    StringComparer.OrdinalIgnoreCase),
+            };
+            return Results.Ok(SettingsContractMapper.ToContract(configuration));
+        })
+        .WithName("GetDefaultPipelines")
+        .WithSummary("Returns shipped provider-order defaults for each media type.")
         .Produces<ContractPipelineConfiguration>(StatusCodes.Status200OK)
         .RequireAdmin();
 
@@ -1486,6 +1505,53 @@ public static class SettingsEndpoints
         }
 
         return _displayNames.TryGetValue(config.Name, out var dn) ? dn : config.Name;
+    }
+
+    private static void SaveProviderSecrets(
+        IConfigurationLoader configLoader,
+        ProviderConfiguration provider)
+    {
+        if (provider.HttpClient is null)
+            return;
+
+        configLoader.SaveConfig(
+            "secrets",
+            provider.Name,
+            new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["api_key"] = provider.HttpClient.ApiKey,
+                ["username"] = provider.HttpClient.Username,
+                ["password"] = provider.HttpClient.Password,
+            });
+    }
+
+    private static void SaveProviderManifest(
+        IConfigurationLoader configLoader,
+        ProviderConfiguration provider)
+    {
+        var http = provider.HttpClient;
+        if (http is null)
+        {
+            configLoader.SaveProvider(provider);
+            return;
+        }
+
+        var apiKey = http.ApiKey;
+        var username = http.Username;
+        var password = http.Password;
+        try
+        {
+            http.ApiKey = null;
+            http.Username = null;
+            http.Password = null;
+            configLoader.SaveProvider(provider);
+        }
+        finally
+        {
+            http.ApiKey = apiKey;
+            http.Username = username;
+            http.Password = password;
+        }
     }
 
     /// <summary>Builds a <see cref="ProviderStatusResponse"/> from a provider config.</summary>

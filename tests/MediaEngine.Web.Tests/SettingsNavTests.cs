@@ -66,7 +66,7 @@ public sealed class SettingsNavTests
     [InlineData(SettingsSection.Overview, "profile", "/settings/profile")]
     [InlineData(SettingsSection.Playback, "watching", "/settings/playback/watching")]
     [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
-    [InlineData(SettingsSection.Providers, "canonical", "/settings/providers/canonical")]
+    [InlineData(SettingsSection.Providers, "priority", "/settings/providers/priority")]
     public void RouteFor_Subsection_UsesNestedCanonicalUrl(
         SettingsSection section,
         string subsection,

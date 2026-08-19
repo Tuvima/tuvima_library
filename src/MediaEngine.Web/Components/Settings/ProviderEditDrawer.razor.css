@@ -1,0 +1,59 @@
+.provider-edit-drawer__layout {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    min-height: 100%;
+    max-height: 100vh;
+}
+
+.provider-edit-drawer__header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: start;
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.provider-edit-drawer__identity { min-width: 0; }
+.provider-edit-drawer__identity h2 { margin: 2px 0 2px; font-size: 1.2rem; }
+.provider-edit-drawer__identity > div { color: var(--mud-palette-text-secondary); }
+.provider-edit-drawer__chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+
+.provider-edit-drawer__body {
+    min-height: 0;
+    overflow-y: auto;
+}
+
+.provider-edit-section,
+.provider-edit-advanced {
+    padding: 20px 22px;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.provider-edit-section h3 { margin: 0 0 12px; font-size: 1rem; }
+.provider-edit-section__heading-row { display: flex; justify-content: space-between; gap: 16px; align-items: start; }
+.provider-edit-section__meta,
+.provider-edit-section__hint { margin-top: 7px; color: var(--mud-palette-text-secondary); font-size: .78rem; line-height: 1.45; }
+.provider-edit-section__error { margin-top: 7px; color: var(--mud-palette-error); font-size: .8rem; }
+.provider-edit-section > .app-field,
+.provider-edit-section > .app-switch-row { margin-top: 14px; }
+
+.provider-edit-advanced summary { cursor: pointer; list-style: none; display: grid; gap: 3px; }
+.provider-edit-advanced summary::-webkit-details-marker { display: none; }
+.provider-edit-advanced summary span { font-weight: 600; }
+.provider-edit-advanced summary small { color: var(--mud-palette-text-secondary); }
+.provider-edit-advanced__fields { display: grid; gap: 14px; margin-top: 18px; }
+
+.provider-edit-drawer__footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 16px 22px;
+    border-top: 1px solid var(--app-border);
+    background: var(--app-surface);
+}
+
+@media (max-width: 600px) {
+    .provider-edit-section__heading-row { flex-direction: column; }
+    .provider-edit-section__heading-row .app-button { width: 100%; }
+}

@@ -85,40 +85,36 @@ public sealed class Phase6SettingsAdminHardeningTests
     public void ProvidersTab_DoesNotUseHardcodedFallbackAsLiveConfig()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs");
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs");
 
-        Assert.Contains("sample data is not presented as live configuration", source, StringComparison.Ordinal);
+        Assert.Contains("No sample providers are shown as live configuration", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Load sample chain", source, StringComparison.Ordinal);
-        Assert.Contains("Provider settings saved to Engine configuration.", source, StringComparison.Ordinal);
-        Assert.Contains("Last tested", source, StringComparison.Ordinal);
+        Assert.Contains("Provider health comes from real Engine checks", source, StringComparison.Ordinal);
+        Assert.Contains("Last checked", source, StringComparison.Ordinal);
         Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
         Assert.Contains("SaveProviderConfigAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Provider Setup", source, StringComparison.Ordinal);
-        Assert.Contains("Assign Providers to Media Types", source, StringComparison.Ordinal);
-        Assert.Contains("[\"Movies\", \"TV\", \"Music\", \"Books\", \"Audiobooks\", \"Comics\"]", source, StringComparison.Ordinal);
-        Assert.Contains("GetProviderLogoUrl", source, StringComparison.Ordinal);
-        Assert.Contains("GetProviderCards", source, StringComparison.Ordinal);
+        Assert.Contains("Provider Priority", source, StringComparison.Ordinal);
+        Assert.Contains("[\"Books\", \"Audiobooks\", \"Comics\", \"Movies\", \"Music\", \"TV\"]", source, StringComparison.Ordinal);
+        Assert.Contains("ResolveLogo", source, StringComparison.Ordinal);
+        Assert.Contains("FilteredProviders", source, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void ProvidersTab_DefinesStageScopedProviderSetsAndRetailOnlyPipelineSave()
+    public void ProvidersTab_PreservesRetailPipelineAndLocksCanonicalResponsibilities()
     {
-        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor")
-                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPriorityTab.razor.cs");
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor")
+                     + ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ProviderPrioritySurface.razor.cs");
 
-        Assert.Contains("new(ProviderStageRetail, 1, \"Retail Lookup\"", source, StringComparison.Ordinal);
-        Assert.Contains("new(ProviderStageCanonical, 2, \"Canonical Identity\"", source, StringComparison.Ordinal);
-        Assert.Contains("new(ProviderStageEnrichment, 3, \"Enrichment & Artwork\"", source, StringComparison.Ordinal);
-        Assert.Contains("[\"apple_api\", \"comicvine\", \"musicbrainz\", \"open_library\", \"tmdb\"]", source, StringComparison.Ordinal);
-        Assert.Contains("[\"wikidata\", \"wikidata_reconciliation\"]", source, StringComparison.Ordinal);
-        Assert.Contains("[\"fanart_tv\", \"lrclib\", \"opensubtitles\"]", source, StringComparison.Ordinal);
-        Assert.Contains("GetStageCatalogueEntries(_activeStage", source, StringComparison.Ordinal);
-        Assert.Contains("ProviderBelongsToStage", source, StringComparison.Ordinal);
-        Assert.Contains("GetCanonicalSummaryCards", source, StringComparison.Ordinal);
-        Assert.Contains("GetWikidataMetrics", source, StringComparison.Ordinal);
-        Assert.Contains("GetEnrichmentProviderCards", source, StringComparison.Ordinal);
-        Assert.Contains("GetEnrichmentMetrics", source, StringComparison.Ordinal);
-        Assert.Contains("@if (IsRetailStage)", source, StringComparison.Ordinal);
+        Assert.Contains("provider.HydrationStages.Contains(1)", source, StringComparison.Ordinal);
+        Assert.Contains("Canonical Match", source, StringComparison.Ordinal);
+        Assert.Contains("System-defined", source, StringComparison.Ordinal);
+        Assert.Contains("Enrichment &amp; Artwork", source, StringComparison.Ordinal);
+        Assert.Contains("CopyProviderEntry", source, StringComparison.Ordinal);
+        Assert.Contains("AcceptedTransition = source?.AcceptedTransition", source, StringComparison.Ordinal);
+        Assert.Contains("GetDefaultPipelinesAsync", source, StringComparison.Ordinal);
         Assert.Contains("SavePipelinesAsync", source, StringComparison.Ordinal);
     }
 

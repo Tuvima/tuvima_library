@@ -263,6 +263,9 @@ public partial interface IEngineApiClient
     /// <summary>GET /settings/pipelines — pipeline configuration per media type.</summary>
     Task<PipelineConfiguration?> GetPipelinesAsync(CancellationToken ct = default);
 
+    /// <summary>GET /settings/pipelines/defaults — shipped provider ordering defaults.</summary>
+    Task<PipelineConfiguration?> GetDefaultPipelinesAsync(CancellationToken ct = default);
+
     /// <summary>PUT /settings/pipelines — save pipeline configuration.</summary>
     Task<bool> SavePipelinesAsync(PipelineConfiguration pipelines, CancellationToken ct = default);
 

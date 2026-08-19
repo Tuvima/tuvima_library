@@ -61,8 +61,22 @@ public sealed class SettingsEndpointRouteTests
         Assert.DoesNotContain("new ConfigDrivenAdapter", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/providers/{name}/config\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapGet(\"/pipelines\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/pipelines/defaults\"", source, StringComparison.Ordinal);
+        Assert.Contains("pipeline-priority-defaults", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/pipelines\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapGet(\"/media-types\"", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ProviderSettingsWrites_KeepCredentialsOutOfProviderManifests()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\SettingsEndpoints.cs"));
+
+        Assert.Contains("SaveProviderSecrets(configLoader, existing);", source, StringComparison.Ordinal);
+        Assert.Contains("http.ApiKey = null;", source, StringComparison.Ordinal);
+        Assert.Contains("http.Username = null;", source, StringComparison.Ordinal);
+        Assert.Contains("http.Password = null;", source, StringComparison.Ordinal);
+        Assert.Contains("SaveProviderManifest(configLoader, provider);", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -54,7 +54,9 @@ public sealed class AppComponentSystemGuardrailTests
     [Fact]
     public void ProviderPriorityTab_UsesApprovedProviderComponentLayer()
     {
-        var contents = ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor");
+        var contents = ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")
+                       + ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderEditDrawer.razor")
+                       + ReadRepoFile("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
 
         Assert.Contains("<AppTextField", contents, StringComparison.Ordinal);
         Assert.Contains("<AppSelect", contents, StringComparison.Ordinal);

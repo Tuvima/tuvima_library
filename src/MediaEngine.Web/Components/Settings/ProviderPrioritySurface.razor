@@ -1,0 +1,169 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject IEngineApiClient ApiClient
+@inject ProviderCatalogueService CatalogueService
+@inject ILogger<ProviderPrioritySurface> Logger
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+@inject IJSRuntime JS
+
+<div class="provider-priority-page">
+    <header class="provider-priority-header">
+        <div>
+            <AppButton Label="Back to providers" StartIcon="@Icons.Material.Outlined.ArrowBack"
+                       Size="AppControlSize.Compact" OnClick="CancelAsync" Class="mb-3" />
+            <h2>Provider Priority</h2>
+            <p>Choose the order Tuvima uses retail metadata providers for each media type.</p>
+            <div class="provider-priority-helper-copy">
+                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                Providers are checked according to the selected strategy. Drag to reorder.
+            </div>
+        </div>
+        <div class="provider-priority-summary">
+            <div><MudIcon Icon="@Icons.Material.Outlined.Layers" /><strong>6</strong><span>Media types</span></div>
+            <div><MudIcon Icon="@Icons.Material.Outlined.AccountTree" /><strong>@CurrentStrategy</strong><span>Pipeline behavior</span></div>
+        </div>
+    </header>
+
+    @if (_loading)
+    {
+        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading provider priority" Class="py-8" />
+    }
+    else if (!string.IsNullOrWhiteSpace(_loadError))
+    {
+        <AppAlert Tone="AppUiTone.Warning">@_loadError</AppAlert>
+    }
+    else
+    {
+        <nav class="provider-priority-tabs" aria-label="Media type priority">
+            @foreach (var mediaType in MediaTypes)
+            {
+                <AppChip Text="@DisplayMediaType(mediaType)"
+                         Icon="@MediaTypeIcon(mediaType)"
+                         Tone="@(mediaType == _activeMediaType ? AppUiTone.Primary : AppUiTone.Neutral)"
+                         OnClick="@(() => _activeMediaType = mediaType)" />
+            }
+        </nav>
+
+        <div class="provider-priority-layout">
+            <section class="provider-priority-panel">
+                <div class="provider-priority-panel__header">
+                    <div>
+                        <h3><MudIcon Icon="@MediaTypeIcon(_activeMediaType)" /> @DisplayMediaType(_activeMediaType)</h3>
+                        <p>Set the retail lookup order for @DisplayMediaType(_activeMediaType).</p>
+                    </div>
+                    <AppButton Label="Add provider" StartIcon="@Icons.Material.Outlined.Add"
+                               Size="AppControlSize.Compact" OnClick="OpenAddDialog" />
+                </div>
+
+                <div class="provider-priority-strategy">
+                    <AppSelect T="string" Value="@CurrentStrategy" ValueChanged="SetStrategy"
+                               Label="Pipeline behavior" Options="@StrategyOptions" Size="AppControlSize.Compact" />
+                    <div>@StrategyDescription(CurrentStrategy)</div>
+                </div>
+
+                <div class="provider-priority-list" role="list" aria-label="@($"{DisplayMediaType(_activeMediaType)} provider order")">
+                    @if (CurrentChain.Count == 0)
+                    {
+                        <AppEmptyState Title="No retail providers assigned"
+                                       Message="Add a compatible provider to enable automatic retail matching for this media type." />
+                    }
+                    else
+                    {
+                        @for (var index = 0; index < CurrentChain.Count; index++)
+                        {
+                            var itemIndex = index;
+                            var provider = CurrentChain[index];
+                            <div class="provider-priority-row"
+                                 role="listitem"
+                                 draggable="true"
+                                 @ondragstart="@(() => BeginDrag(itemIndex))"
+                                 @ondragover:preventDefault="true"
+                                 @ondrop="@(() => DropAt(itemIndex))">
+                                <MudIcon Icon="@Icons.Material.Outlined.DragIndicator" Class="provider-priority-row__handle" />
+                                <div class="provider-priority-row__rank">@(index + 1)</div>
+                                <AppProviderLogo ImageUrl="@provider.LogoUrl" Icon="@provider.Icon"
+                                                 AccentColor="@provider.AccentColor" FallbackText="@Initials(provider.DisplayName)"
+                                                 Size="AppControlSize.Compact" AltText="" />
+                                <div class="provider-priority-row__identity">
+                                    <strong>@provider.DisplayName</strong>
+                                    <span>@ProviderRoleDescription(provider, index)</span>
+                                </div>
+                                <AppStatusBadge Text="@PriorityLabel(index)"
+                                                Tone="@(index == 0 ? AppUiTone.Primary : AppUiTone.Info)" />
+                                @if (!provider.GloballyEnabled)
+                                {
+                                    <AppStatusBadge Text="Disabled globally" Tone="AppUiTone.Warning" />
+                                }
+                                <div class="provider-priority-row__actions">
+                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowUp"
+                                                   AriaLabel="@($"Move {provider.DisplayName} up")" Tooltip="Move up"
+                                                   Disabled="@(index == 0)" OnClick="@(() => Move(itemIndex, -1))" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.KeyboardArrowDown"
+                                                   AriaLabel="@($"Move {provider.DisplayName} down")" Tooltip="Move down"
+                                                   Disabled="@(index == CurrentChain.Count - 1)" OnClick="@(() => Move(itemIndex, 1))" />
+                                    <AppOverflowMenu AriaLabel="@($"More priority actions for {provider.DisplayName}")">
+                                        <AppMenuItem Label="Remove from this media type"
+                                                     Icon="@Icons.Material.Outlined.RemoveCircleOutline"
+                                                     Tone="AppUiTone.Error" OnClick="@(() => Remove(itemIndex))" />
+                                    </AppOverflowMenu>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+            </section>
+
+            <aside class="provider-priority-context">
+                <section>
+                    <h3><MudIcon Icon="@Icons.Material.Outlined.Info" /> How it works</h3>
+                    <ol>
+                        <li><span>1</span><div>The first provider is considered first.</div></li>
+                        <li><span>2</span><div>The selected behavior determines how later providers participate.</div></li>
+                        <li><span>3</span><div>Ordering is stored separately for each media type.</div></li>
+                    </ol>
+                </section>
+                <section>
+                    <h3><MudIcon Icon="@Icons.Material.Outlined.Adjust" /> Applies to</h3>
+                    <div class="provider-priority-applies"><span>Retail Match</span><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /></div>
+                    <div class="provider-priority-applies"><span>Canonical Match<small>System-defined</small></span><MudIcon Icon="@Icons.Material.Outlined.Lock" /></div>
+                    <div class="provider-priority-applies"><span>Enrichment &amp; Artwork<small>Managed by stage configuration</small></span><MudIcon Icon="@Icons.Material.Outlined.Lock" /></div>
+                </section>
+            </aside>
+        </div>
+
+        <footer class="provider-priority-actions">
+            <AppButton Label="Cancel" OnClick="CancelAsync" />
+            <AppButton Label="Reset to Defaults" StartIcon="@Icons.Material.Outlined.RestartAlt"
+                       Disabled="@(!_defaultConfiguration.Pipelines.ContainsKey(_activeMediaType))" OnClick="ResetCurrentMediaType" />
+            <AppButton Label="@(_saving ? "Saving..." : "Save Order")" StartIcon="@Icons.Material.Outlined.Save"
+                       Tone="AppUiTone.Primary" ButtonStyle="AppButtonStyle.Filled"
+                       Disabled="@(_saving || !HasChanges)" OnClick="SaveAsync" />
+        </footer>
+    }
+</div>
+
+<AppDialog @bind-Visible="_addDialogOpen" Title="@($"Add provider to {DisplayMediaType(_activeMediaType)}")"
+           Size="Small" Options="@(new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseOnEscapeKey = true })">
+    <ChildContent>
+        @if (AvailableProviders.Count == 0)
+        {
+            <AppEmptyState Title="No compatible providers available" Message="Every compatible retail provider is already in this priority list." />
+        }
+        else
+        {
+            <div class="provider-priority-add-list">
+                @foreach (var provider in AvailableProviders)
+                {
+                    <AppNativeButton Type="button" Class="provider-priority-add-row"
+                                     AriaLabel="@($"Add {provider.DisplayName}")" OnClick="@(() => Add(provider))">
+                        <AppProviderLogo ImageUrl="@provider.LogoUrl" Icon="@provider.Icon" AccentColor="@provider.AccentColor"
+                                         FallbackText="@Initials(provider.DisplayName)" Size="AppControlSize.Compact" AltText="" />
+                        <span>@provider.DisplayName</span>
+                        <MudIcon Icon="@Icons.Material.Outlined.Add" />
+                    </AppNativeButton>
+                }
+            </div>
+        }
+    </ChildContent>
+    <FooterContent><AppButton Label="Close" OnClick="@(() => _addDialogOpen = false)" /></FooterContent>
+</AppDialog>
