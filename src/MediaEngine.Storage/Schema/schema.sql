@@ -510,6 +510,66 @@ CREATE TABLE IF NOT EXISTS media_assets (
     writeback_next_retry_at  INTEGER
 , library_id TEXT, is_orphaned INTEGER NOT NULL DEFAULT 0, orphaned_at TEXT);
 
+-- Photos are intentionally isolated from the catalogue/edition graph. They are
+-- local assets first: no provider identity, Wikidata, or metadata claims.
+CREATE TABLE IF NOT EXISTS photo_assets (
+    id              BLOB NOT NULL PRIMARY KEY,
+    content_hash    TEXT NOT NULL UNIQUE,
+    file_name       TEXT NOT NULL,
+    captured_at     TEXT NOT NULL,
+    width           INTEGER,
+    height          INTEGER,
+    mime_type       TEXT NOT NULL,
+    favorite        INTEGER NOT NULL DEFAULT 0,
+    hidden          INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL
+);
+
+-- Optional technical metadata lives beside the stable photo identity. Keeping
+-- it separate lets the local index grow without coupling photo identity to a
+-- particular EXIF reader or requiring catalogue-style schema evolution.
+CREATE TABLE IF NOT EXISTS photo_metadata (
+    photo_asset_id  BLOB NOT NULL PRIMARY KEY REFERENCES photo_assets(id) ON DELETE CASCADE,
+    latitude        REAL,
+    longitude       REAL,
+    camera_make     TEXT,
+    camera_model    TEXT,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS photo_sources (
+    id              BLOB NOT NULL PRIMARY KEY,
+    photo_asset_id  BLOB NOT NULL REFERENCES photo_assets(id) ON DELETE CASCADE,
+    library_id      TEXT NOT NULL,
+    file_path       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    file_size       INTEGER NOT NULL,
+    modified_at     TEXT NOT NULL,
+    indexed_at      TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS photo_albums (
+    id              BLOB NOT NULL PRIMARY KEY,
+    name            TEXT NOT NULL,
+    description     TEXT,
+    created_at      TEXT NOT NULL,
+    modified_at     TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS photo_album_items (
+    album_id        BLOB NOT NULL REFERENCES photo_albums(id) ON DELETE CASCADE,
+    photo_asset_id  BLOB NOT NULL REFERENCES photo_assets(id) ON DELETE CASCADE,
+    position        INTEGER NOT NULL DEFAULT 0,
+    added_at        TEXT NOT NULL,
+    PRIMARY KEY (album_id, photo_asset_id)
+);
+
+CREATE INDEX IF NOT EXISTS ix_photo_assets_timeline
+    ON photo_assets(hidden, captured_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_photo_sources_asset
+    ON photo_sources(photo_asset_id);
+CREATE INDEX IF NOT EXISTS ix_photo_album_items_album
+    ON photo_album_items(album_id, position, added_at);
+
 CREATE TABLE IF NOT EXISTS media_operation_events (
   id             BLOB PRIMARY KEY,
   operation_id   BLOB NOT NULL,

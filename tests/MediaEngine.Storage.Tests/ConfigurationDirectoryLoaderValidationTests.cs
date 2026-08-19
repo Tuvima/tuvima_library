@@ -1,6 +1,6 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
-using MediaEngine.Domain.Configuration;
 
 namespace MediaEngine.Storage.Tests;
 
@@ -45,12 +45,15 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var config = new LibrariesConfiguration
         {
-            SchemaVersion = "1.0",
+            SchemaVersion = "2.0",
             Libraries =
             [
                 new LibraryFolderConfig
                 {
+                    Id = "44444444-4444-4444-8444-444444444444",
                     Category = "Movies",
+                    Kind = LibraryKinds.Personal,
+                    MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
                     MediaTypes = ["Movies"],
                     SourcePaths = [@"C:\media\movies", @"D:\media\movies"],
                     LibraryRoot = @"E:\Tuvima",
@@ -66,6 +69,9 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         var roundTrip = loader.LoadLibraries().Libraries.Single();
 
         Assert.Equal("Movies", roundTrip.Category);
+        Assert.Equal("44444444-4444-4444-8444-444444444444", roundTrip.Id);
+        Assert.Equal(LibraryKinds.Personal, roundTrip.Kind);
+        Assert.Equal(LibraryMetadataPolicies.LocalOnly, roundTrip.MetadataPolicy);
         Assert.Equal(["Movies"], roundTrip.MediaTypes);
         Assert.Equal([@"C:\media\movies", @"D:\media\movies"], roundTrip.SourcePaths);
         Assert.Equal(@"E:\Tuvima", roundTrip.LibraryRoot);
@@ -73,6 +79,31 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         Assert.False(roundTrip.IncludeSubdirectories);
         Assert.True(roundTrip.ReadOnly);
         Assert.False(roundTrip.WritebackOverride);
+    }
+
+    [Fact]
+    public void SaveLibraries_RejectsMissingIdentityAndUnsupportedPolicy()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = new LibrariesConfiguration
+        {
+            Libraries =
+            [
+                new LibraryFolderConfig
+                {
+                    Category = "Home Videos",
+                    Kind = LibraryKinds.Personal,
+                    MetadataPolicy = "provider_guessing",
+                    SourcePaths = [@"C:\media\home-videos"],
+                },
+            ],
+        };
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
+
+        Assert.Contains("id must be a non-empty GUID", ex.Message);
+        Assert.Contains("metadata_policy", ex.Message);
     }
 
     [Fact]
@@ -345,7 +376,9 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         public void Dispose()
         {
             if (Directory.Exists(Path))
+            {
                 Directory.Delete(Path, recursive: true);
+            }
         }
     }
 }

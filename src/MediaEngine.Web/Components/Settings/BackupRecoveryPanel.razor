@@ -1,0 +1,153 @@
+@namespace MediaEngine.Web.Components.Settings
+@using MediaEngine.Contracts.System
+@using Microsoft.JSInterop
+@inject IEngineApiClient ApiClient
+@inject IJSRuntime JS
+@inject ISnackbar Snackbar
+
+<AppPanel Elevation="0" Class="tl-card backup-panel">
+    <div class="backup-panel__header">
+        <div>
+            <MudText Typo="Typo.caption" Class="backup-panel__eyebrow">Recovery</MudText>
+            <MudText Typo="Typo.h6">Backup &amp; Restore</MudText>
+            <MudText Typo="Typo.body2" Class="backup-panel__description">
+                Protect the library database and safe configuration. Provider secrets stay on this server and are never included.
+            </MudText>
+        </div>
+        <AppButton Variant="Variant.Filled"
+                   Size="Size.Small"
+                   Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.Backup"
+                   Disabled="@_busy"
+                   OnClick="CreateAsync">
+            Create backup
+        </AppButton>
+    </div>
+
+    @if (_loading)
+    {
+        <div class="backup-panel__loading">
+            <MudProgressCircular Indeterminate="true" Size="Size.Small" Color="Color.Primary" />
+            <span>Loading backups...</span>
+        </div>
+    }
+    else if (_backups.Count == 0)
+    {
+        <div class="backup-panel__empty">
+            <MudIcon Icon="@Icons.Material.Outlined.Inventory2" />
+            <div>
+                <MudText Typo="Typo.subtitle2">No recovery points yet</MudText>
+                <MudText Typo="Typo.body2">Create a backup before significant library or configuration changes.</MudText>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="backup-list" aria-label="Available backups">
+            @foreach (var backup in _backups.Take(5))
+            {
+                <div class="backup-list__row">
+                    <span class="backup-list__icon"><MudIcon Icon="@Icons.Material.Outlined.Archive" /></span>
+                    <div class="backup-list__identity">
+                        <strong>@backup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong>
+                        <small>@FormatBytes(backup.SizeBytes) · Database + safe configuration</small>
+                    </div>
+                    <div class="backup-list__actions">
+                        <AppButton Variant="Variant.Text" Size="Size.Small" Color="Color.Default"
+                                   StartIcon="@Icons.Material.Outlined.Download"
+                                   Disabled="@_busy"
+                                   OnClick="@(() => DownloadAsync(backup))">Download</AppButton>
+                        <AppButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning"
+                                   StartIcon="@Icons.Material.Outlined.Restore"
+                                   Disabled="@_busy"
+                                   OnClick="@(() => RestoreAsync(backup))">Restore</AppButton>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(_notice))
+    {
+        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">@_notice</AppAlert>
+    }
+</AppPanel>
+
+@code {
+    private IReadOnlyList<BackupArchiveDto> _backups = [];
+    private bool _loading = true;
+    private bool _busy;
+    private string? _notice;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _backups = await ApiClient.GetBackupsAsync();
+        _loading = false;
+    }
+
+    private async Task CreateAsync()
+    {
+        _busy = true;
+        _notice = null;
+        var backup = await ApiClient.CreateBackupAsync();
+        if (backup is null)
+        {
+            Snackbar.Add("The backup could not be created.", Severity.Error);
+        }
+        else
+        {
+            Snackbar.Add("Recovery point created.", Severity.Success);
+            await LoadAsync();
+        }
+        _busy = false;
+    }
+
+    private async Task DownloadAsync(BackupArchiveDto backup)
+    {
+        _busy = true;
+        var bytes = await ApiClient.DownloadBackupAsync(backup.FileName);
+        if (bytes is null)
+        {
+            Snackbar.Add("The backup could not be downloaded.", Severity.Error);
+        }
+        else
+        {
+            await using var stream = new MemoryStream(bytes, writable: false);
+            using var reference = new DotNetStreamReference(stream);
+            await JS.InvokeVoidAsync("tuvimaDownloads.fromStream", backup.FileName, reference);
+        }
+        _busy = false;
+    }
+
+    private async Task RestoreAsync(BackupArchiveDto backup)
+    {
+        var confirmed = await JS.InvokeAsync<bool>(
+            "confirm",
+            "Schedule this recovery point? The current library will be preserved as a safety copy, and the Engine must be restarted to apply it.");
+        if (!confirmed) return;
+
+        _busy = true;
+        var result = await ApiClient.ScheduleRestoreAsync(backup.FileName);
+        if (result?.Scheduled == true)
+        {
+            _notice = result.Message;
+            Snackbar.Add("Restore scheduled. Restart the Engine when ready.", Severity.Warning);
+        }
+        else
+        {
+            Snackbar.Add("The restore could not be scheduled.", Severity.Error);
+        }
+        _busy = false;
+    }
+
+    private static string FormatBytes(long bytes) => bytes switch
+    {
+        >= 1_073_741_824 => $"{bytes / 1_073_741_824d:0.0} GB",
+        >= 1_048_576 => $"{bytes / 1_048_576d:0.0} MB",
+        >= 1024 => $"{bytes / 1024d:0.0} KB",
+        _ => $"{bytes} B",
+    };
+}

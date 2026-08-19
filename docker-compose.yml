@@ -36,10 +36,8 @@ services:
       - /mnt/user/appdata/tuvima/models:/models
 
     environment:
-      # These are pre-wired to the volume mount points above.
-      # Only change them if you use non-standard internal container paths.
-      TUVIMA_WATCH_FOLDER: /watch
-      TUVIMA_LIBRARY_ROOT: /library
+      # Runtime state locations. Library/watch paths are defined in the
+      # first-run /config/libraries.json template and remain user-editable.
       TUVIMA_CONFIG_DIR: /config
       TUVIMA_DB_PATH: /db/library.db
       TUVIMA_MODELS_DIR: /models

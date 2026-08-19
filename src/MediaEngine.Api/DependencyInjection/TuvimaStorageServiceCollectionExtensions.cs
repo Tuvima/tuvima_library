@@ -1,4 +1,5 @@
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.Photos;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Application.Services;
 using MediaEngine.Domain.Capabilities;
@@ -22,6 +23,8 @@ public static class TuvimaStorageServiceCollectionExtensions
     {
         services.AddSingleton<ITransactionJournal, TransactionJournal>();
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
+        services.AddSingleton<PhotoLibraryRepository>();
+        services.AddSingleton<PhotoLibraryService>();
         services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();
         services.AddSingleton(_ => new TuvimaDataPaths(configuredPath: null));
         services.AddSingleton(sp =>

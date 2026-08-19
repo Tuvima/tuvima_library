@@ -10,7 +10,7 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class Phase8AdvancedIntelligenceTests : TestContext
+public sealed class Phase8AdvancedIntelligenceTests : AsyncBunitContext
 {
     private static readonly string RepoRoot =
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
@@ -90,7 +90,7 @@ public sealed class Phase8AdvancedIntelligenceTests : TestContext
         var device = Services.GetRequiredService<DeviceContextService>();
         await device.SwitchDeviceAsync("mobile");
 
-        var cut = RenderComponent<ChronicleExplorer>(parameters => parameters
+        var cut = Render<ChronicleExplorer>(parameters => parameters
             .Add(component => component.Qid, "Q1"));
 
         Assert.Contains("Chronicle Explorer is unavailable on mobile", cut.Markup);

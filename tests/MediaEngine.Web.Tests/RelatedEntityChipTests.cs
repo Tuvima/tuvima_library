@@ -5,7 +5,7 @@ using RelatedChipModel = MediaEngine.Contracts.Details.RelatedEntityChip;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class RelatedEntityChipTests : TestContext
+public sealed class RelatedEntityChipTests : AsyncBunitContext
 {
     [Fact]
     public void RelatedEntityChip_RendersAnchorWhenRouteExists()
@@ -18,7 +18,7 @@ public sealed class RelatedEntityChipTests : TestContext
             Route = "/universe/Q123/explore",
         };
 
-        var cut = RenderComponent<RelatedChipComponent>(parameters => parameters.Add(component => component.Chip, chip));
+        var cut = Render<RelatedChipComponent>(parameters => parameters.Add(component => component.Chip, chip));
 
         var link = cut.Find("a.tl-related-chip");
         Assert.Equal("/universe/Q123/explore", link.GetAttribute("href"));
@@ -36,7 +36,7 @@ public sealed class RelatedEntityChipTests : TestContext
             Label = "Sony Pictures",
         };
 
-        var cut = RenderComponent<RelatedChipComponent>(parameters => parameters.Add(component => component.Chip, chip));
+        var cut = Render<RelatedChipComponent>(parameters => parameters.Add(component => component.Chip, chip));
 
         var staticChip = cut.Find("span.tl-related-chip");
         Assert.Equal("true", staticChip.GetAttribute("aria-disabled"));

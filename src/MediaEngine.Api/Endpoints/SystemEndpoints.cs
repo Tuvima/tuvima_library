@@ -1,13 +1,14 @@
 using System.Reflection;
+using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Operations;
 using MediaEngine.Contracts.System;
-using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Storage.Contracts;
 using SystemStatusResponse = MediaEngine.Contracts.System.SystemStatusResponse;
 
@@ -93,6 +94,85 @@ public static class SystemEndpoints
         .WithName("SweepOrphanAssets")
         .WithSummary("Scans .data/assets for managed files not referenced by the database and removes them.")
         .Produces<AssetStoreSweepResponse>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        app.MapGet("/system/backups", (DatabaseBackupService backups) =>
+            Results.Ok(backups.List()))
+        .WithTags("System")
+        .WithName("ListBackups")
+        .WithSummary("Lists server-side database and configuration backup archives.")
+        .Produces<IReadOnlyList<BackupArchiveDto>>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        app.MapPost("/system/backups", async (
+            DatabaseBackupService backups,
+            CancellationToken ct) =>
+        {
+            var path = await backups.CreateAsync(ct).ConfigureAwait(false);
+            return Results.Ok(new BackupArchiveDto(
+                Path.GetFileName(path),
+                File.GetCreationTimeUtc(path),
+                new FileInfo(path).Length));
+        })
+        .WithTags("System")
+        .WithName("CreateBackup")
+        .WithSummary("Creates a consistent SQLite and non-secret configuration backup.")
+        .Produces<BackupArchiveDto>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        app.MapGet("/system/backups/{fileName}", (string fileName, DatabaseBackupService backups) =>
+        {
+            try
+            {
+                var path = backups.ResolveArchive(fileName);
+                return (IResult)Results.File(path, "application/zip", Path.GetFileName(path));
+            }
+            catch (ArgumentException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+            catch (FileNotFoundException)
+            {
+                return (IResult)ApiErrors.NotFound("Backup archive was not found.");
+            }
+        })
+        .WithTags("System")
+        .WithName("DownloadBackup")
+        .WithSummary("Downloads a previously created backup archive.")
+        .Produces(StatusCodes.Status200OK, contentType: "application/zip")
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        app.MapPost("/system/backups/restore", (ScheduleRestoreRequest request, DatabaseBackupService backups) =>
+        {
+            try
+            {
+                return (IResult)Results.Ok(backups.ScheduleRestore(request.FileName));
+            }
+            catch (ArgumentException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+            catch (FileNotFoundException)
+            {
+                return (IResult)ApiErrors.NotFound("Backup archive was not found.");
+            }
+            catch (InvalidDataException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return (IResult)ApiErrors.BadRequest(ex.Message);
+            }
+        })
+        .WithTags("System")
+        .WithName("ScheduleBackupRestore")
+        .WithSummary("Validates and stages a backup for application on the next Engine restart.")
+        .Produces<ScheduleRestoreResultDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAdmin();
 
         return app;

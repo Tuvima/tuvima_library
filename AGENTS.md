@@ -89,6 +89,9 @@ The Dashboard is organized by user experience, not by a separate media managemen
 - Detail hero formatting is consistent across every entity: semantic subtitles may sit under the title, but descriptions and synopsis text render only after the primary and utility action rows and the progress row.
 - **Review Queue** is only for blocked, uncertain, or low-confidence items that need human confirmation.
 - **Settings/Admin** is for configuration and system operations: library folders, provider setup, profiles and roles, device/profile UI settings, ingestion status, system health, logs, and diagnostics.
+- **Photos** is a separate local asset surface at `/photos`. Photo libraries index originals in place, deduplicate by content while preserving source paths, and support timeline browsing, search, favorites, hidden items, albums, selection, thumbnails, and EXIF details. Photo assets never enter catalogue identity, provider, Wikidata, canonical-claim, or Review Queue workflows.
+- Library behavior is policy-driven. `catalogued` libraries normally use enriched metadata; `personal` libraries may use local-preferred, local-only, or manual metadata; `photos` libraries are local-only. Local-only and manual content must not be sent to external identity or metadata providers.
+- System backup archives contain a consistent SQLite snapshot, a manifest, and non-secret configuration. Restore validation and staging occur while the Engine is running; application happens before the data store opens on the next Engine start, preserving the previous database as a recovery copy.
 
 The old all-in-one management workspace has been removed and must not be rebuilt. Do not add routes, navigation, docs, tabs, or a separate media-fixing workbench for it. Normal media corrections launch `SharedMediaEditorShell` through `MediaEditorLauncherService.OpenAsync`; Review uses the same modal editor in review mode.
 

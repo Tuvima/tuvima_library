@@ -53,11 +53,43 @@ public sealed class DockerfileGuardrailTests
         Assert.Contains("Engine exited before becoming ready", entrypoint);
     }
 
+    [Fact]
+    public void ContainerFirstRun_SeedsPlatformSpecificLibraryPaths()
+    {
+        var repoRoot = FindRepoRoot();
+        var dockerfile = File.ReadAllText(Path.Combine(repoRoot, "Dockerfile"));
+        var entrypoint = File.ReadAllText(Path.Combine(repoRoot, "docker-entrypoint.sh"));
+        var core = File.ReadAllText(Path.Combine(repoRoot, "docker", "config", "core.json"));
+        var libraries = File.ReadAllText(Path.Combine(repoRoot, "docker", "config", "libraries.json"));
+
+        Assert.Contains("COPY docker/config/ ./docker-config/", dockerfile);
+        Assert.Contains("cp /app/docker-config/core.json /config/core.json", entrypoint);
+        Assert.Contains("cp /app/docker-config/libraries.json /config/libraries.json", entrypoint);
+        Assert.DoesNotContain("TUVIMA_WATCH_FOLDER", entrypoint);
+        Assert.Contains("\"library_root\": \"/library\"", core);
+        Assert.Contains("\"source_paths\": [\"/watch/books\"]", libraries);
+        Assert.DoesNotContain(@"C:\temp", core);
+        Assert.DoesNotContain(@"C:\temp", libraries);
+    }
+
+    [Fact]
+    public void NuGetConfig_UsesPortablePublicPackageSource()
+    {
+        var repoRoot = FindRepoRoot();
+        var nugetConfig = File.ReadAllText(Path.Combine(repoRoot, "nuget.config"));
+
+        Assert.Contains("https://api.nuget.org/v3/index.json", nugetConfig);
+        Assert.DoesNotContain("tuvima-wikidata-local", nugetConfig);
+        Assert.DoesNotContain(@"C:\Users\", nugetConfig);
+    }
+
     private static string FindRepoRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
         while (dir is not null && !File.Exists(Path.Combine(dir.FullName, "MediaEngine.slnx")))
+        {
             dir = dir.Parent;
+        }
 
         return dir?.FullName ?? throw new InvalidOperationException("Could not locate repository root.");
     }

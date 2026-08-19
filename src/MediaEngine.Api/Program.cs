@@ -20,6 +20,10 @@ using Serilog;
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 builder.Services.AddMemoryCache();
 ConfigurationManager config = builder.Configuration;
+string configDirectory =
+    Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
+    ?? config["MediaEngine:ConfigDirectory"]
+    ?? "config";
 
 // -- Serilog ------------------------------------------------------------------
 builder.Host.UseSerilog((context, services, loggerConfig) => loggerConfig
@@ -92,24 +96,24 @@ string dbPath;
     }
     else
     {
-        var earlyConfigDirectory =
-            Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
-            ?? config["MediaEngine:ConfigDirectory"]
-            ?? "config";
-        var coreJsonPath = Path.Combine(earlyConfigDirectory, "core.json");
+        var coreJsonPath = Path.Combine(configDirectory, "core.json");
         string? earlyLibraryRoot = null;
         if (File.Exists(coreJsonPath))
         {
             using var stream = File.OpenRead(coreJsonPath);
             using var document = System.Text.Json.JsonDocument.Parse(stream);
             if (document.RootElement.TryGetProperty("library_root", out var libraryRoot))
+            {
                 earlyLibraryRoot = libraryRoot.GetString();
+            }
         }
 
         var environmentLibraryRoot =
             Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
         if (!string.IsNullOrWhiteSpace(environmentLibraryRoot))
+        {
             earlyLibraryRoot = environmentLibraryRoot;
+        }
 
         dbPath = !string.IsNullOrWhiteSpace(earlyLibraryRoot)
             ? Path.Combine(earlyLibraryRoot, ".data", "database", "library.db")
@@ -118,8 +122,12 @@ string dbPath;
 
     var databaseDirectory = Path.GetDirectoryName(Path.GetFullPath(dbPath));
     if (!string.IsNullOrEmpty(databaseDirectory))
+    {
         Directory.CreateDirectory(databaseDirectory);
+    }
 }
+
+DatabaseBackupService.ApplyPendingRestore(configDirectory, dbPath);
 
 builder.Services.AddSingleton<IDatabaseConnection>(_ =>
 {
@@ -130,10 +138,6 @@ builder.Services.AddSingleton<IDatabaseConnection>(_ =>
     return database;
 });
 
-string configDirectory =
-    Environment.GetEnvironmentVariable("TUVIMA_CONFIG_DIR")
-    ?? config["MediaEngine:ConfigDirectory"]
-    ?? "config";
 ConfigurationDirectoryLoader configLoader;
 try
 {
@@ -142,12 +146,16 @@ try
     configLoader.ConfigurationChanged += (_, change) =>
     {
         if (change.Applied)
+        {
             Log.Information("Configuration reloaded: {ConfigFile}", change.RelativePath);
+        }
         else
+        {
             Log.Warning(
                 change.Error,
                 "Configuration reload rejected for {ConfigFile}; keeping last-known-good values.",
                 change.RelativePath);
+        }
     };
 }
 catch (ConfigValidationException ex)
@@ -226,7 +234,9 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
                     path.Equals(prefix, StringComparison.OrdinalIgnoreCase)
                     || path.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase));
             if (isExempt)
+            {
                 return RateLimitPartition.GetNoLimiter("exempt");
+            }
 
             return RateLimitPartition.GetFixedWindowLimiter(
                 context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
@@ -247,6 +257,9 @@ builder.Services.AddTuvimaPlayback();
 builder.Services.AddMediaEngineIngestion(config, configLoader);
 builder.Services.AddSingleton<DevHarnessResetService>();
 builder.Services.AddSingleton<AssetStoreCleanupService>();
+builder.Services.AddSingleton(sp => new DatabaseBackupService(
+    sp.GetRequiredService<IDatabaseConnection>(),
+    configDirectory));
 builder.Services.AddTuvimaDisplay();
 builder.Services.AddTuvimaIntelligence();
 builder.Services.AddTuvimaProviders(configLoader);

@@ -1,7 +1,8 @@
+using MediaEngine.Domain.Capabilities;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Pipeline;
@@ -9,11 +10,10 @@ using MediaEngine.Ingestion.Services;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
 using MediaEngine.Processors.Processors;
-using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using MediaEngine.Storage.Services;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -38,10 +38,14 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         configure?.Invoke(options);
 
         if (options.ConfigureOptions)
+        {
             ConfigureIngestionOptions(services, configuration, configLoader);
+        }
 
         if (options.CreateConfiguredDirectories)
+        {
             EnsureConfiguredDirectories(configLoader);
+        }
 
         services.TryAddSingleton<IMediaTypeExtensionCatalog, MediaTypeExtensionCatalog>();
         services.TryAddSingleton<ILibraryFolderResolver, LibraryFolderResolver>();
@@ -115,9 +119,6 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         {
             opts.WatchDirectories = [];
 
-            string? envLibrary = Environment.GetEnvironmentVariable("TUVIMA_LIBRARY_ROOT");
-            if (!string.IsNullOrWhiteSpace(envLibrary)) opts.LibraryRoot = envLibrary;
-
             try
             {
                 CoreConfiguration core = configLoader.LoadCore();
@@ -126,9 +127,16 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                     opts.LibraryRoot = core.LibraryRoot;
                     opts.AutoOrganize = true;
                 }
-                if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate)) opts.OrganizationTemplate = core.OrganizationTemplate;
+                if (!string.IsNullOrWhiteSpace(core.OrganizationTemplate))
+                {
+                    opts.OrganizationTemplate = core.OrganizationTemplate;
+                }
+
                 if (core.OrganizationTemplates.Count > 0)
+                {
                     opts.OrganizationTemplates = new Dictionary<string, string>(core.OrganizationTemplates, StringComparer.OrdinalIgnoreCase);
+                }
+
                 opts.ConfiguredLanguage = core.Language.Metadata;
             }
             catch (Exception ex)
@@ -160,7 +168,14 @@ public static class MediaEngineIngestionServiceCollectionExtensions
 
                         return new LibraryFolderEntry
                         {
+                            Id = l.Id,
+                            Name = l.Category,
+                            Kind = l.Kind,
+                            MetadataPolicy = l.MetadataPolicy,
                             SourcePaths = paths,
+                            LibraryRoot = l.LibraryRoot,
+                            IntakeMode = l.IntakeMode,
+                            IncludeSubdirectories = l.IncludeSubdirectories,
                             MediaTypes = l.MediaTypes
                                 .Select(MediaTypeParser.Parse)
                                 .Where(mt => mt != MediaType.Unknown)
@@ -169,7 +184,7 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                             WritebackOverride = l.WritebackOverride,
                         };
                     })
-                    .Where(e => e.EffectiveSourcePaths.Count > 0 && e.MediaTypes.Count > 0)
+                    .Where(e => e.EffectiveSourcePaths.Count > 0)
                     .ToList();
 
                 LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
@@ -205,7 +220,9 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                     .Distinct(StringComparer.OrdinalIgnoreCase);
 
                 foreach (var path in allPaths)
+                {
                     Directory.CreateDirectory(path);
+                }
             }
         }
         catch
@@ -217,7 +234,9 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         {
             var coreForDataDir = configLoader.LoadCore();
             if (string.IsNullOrWhiteSpace(coreForDataDir.LibraryRoot))
+            {
                 return;
+            }
 
             Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "staging"));
             Directory.CreateDirectory(Path.Combine(coreForDataDir.LibraryRoot, ".data", "assets", "artwork"));

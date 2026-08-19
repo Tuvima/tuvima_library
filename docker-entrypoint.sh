@@ -14,13 +14,13 @@ set -euo pipefail
 if [ -z "$(ls -A /config 2>/dev/null)" ]; then
     echo "[Tuvima] /config is empty — seeding default configs ..."
     cp -r /app/engine/config/. /config/
+    cp /app/docker-config/core.json /config/core.json
+    cp /app/docker-config/libraries.json /config/libraries.json
 fi
 
 # ── Resolve paths (env vars > defaults) ─────────────────────────────────────
 export TUVIMA_CONFIG_DIR="${TUVIMA_CONFIG_DIR:-/config}"
 export TUVIMA_DB_PATH="${TUVIMA_DB_PATH:-/db/library.db}"
-export TUVIMA_WATCH_FOLDER="${TUVIMA_WATCH_FOLDER:-/watch}"
-export TUVIMA_LIBRARY_ROOT="${TUVIMA_LIBRARY_ROOT:-/library}"
 export TUVIMA_MODELS_DIR="${TUVIMA_MODELS_DIR:-/models}"
 
 # Dashboard → Engine address.  Inside one container both are on localhost.
@@ -39,8 +39,6 @@ echo " Engine  → http://0.0.0.0:61495"
 echo " Dashboard → http://0.0.0.0:5016"
 echo " Config  : $TUVIMA_CONFIG_DIR"
 echo " Database: $TUVIMA_DB_PATH"
-echo " Watch   : $TUVIMA_WATCH_FOLDER"
-echo " Library : $TUVIMA_LIBRARY_ROOT"
 echo " Models  : $TUVIMA_MODELS_DIR"
 echo "============================================================"
 

@@ -6,7 +6,7 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class TimelineResultsRenderTests : TestContext
+public sealed class TimelineResultsRenderTests : AsyncBunitContext
 {
     public TimelineResultsRenderTests()
     {
@@ -25,7 +25,7 @@ public sealed class TimelineResultsRenderTests : TestContext
             CreateItem("Unplaced Story", 0, MediaTileShape.Landscape),
         };
 
-        var cut = RenderComponent<AppTimelineResults>(parameters => parameters
+        var cut = Render<AppTimelineResults>(parameters => parameters
             .Add(component => component.Items, items)
             .Add(component => component.YearSemantic, "Original release year"));
 

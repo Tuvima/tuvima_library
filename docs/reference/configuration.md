@@ -208,17 +208,24 @@ Common fields configured here: `cover`, `description`, `rating`, `narrator`, `du
 
 ## config/libraries.json
 
-Defines typed media library folders. Contains a `libraries` array; each entry is one folder configuration. These are managed under Settings > Libraries on the File Organization screen, alongside the Global, Import Folders, and media-type tabs.
+Defines typed library folders. Contains a `libraries` array; each entry is one logical library managed under Settings > Libraries.
 
 | Field | Type | Description |
 |---|---|---|
+| `id` | GUID string | Stable identity used by ingestion, photo sources, and Dashboard editing. Required. |
 | `category` | string | Human-readable label for this library (e.g., "Ebooks", "Movies"). |
+| `kind` | string | `catalogued` for known works, `personal` for custom media, or `photos` for the isolated photo index. |
+| `metadata_policy` | string | `enriched`, `local_preferred`, `local_only`, or `manual`. The last two bypass external identity/provider work. |
 | `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`. |
 | `source_paths` | string[] | Absolute paths to monitor or import for this logical library. Required. |
 | `library_root` | string | Destination root for promoted files from this library. Overrides the global `library_root` if set. |
 | `intake_mode` | string | `"watch"` - continuous file monitoring. `"import"` - one-time scan of existing collection. |
 | `import_action` | string | `"move"` - move files after ingestion. `"copy"` - copy and leave originals in place. |
 | `include_subdirectories` | bool | Whether to recurse into subdirectories. |
+| `read_only` | bool | Prevents source mutation and file organization. Recommended for photos and personal archives. |
+| `writeback_override` | bool? | Optional per-library writeback decision. `false` is the safe photo default. |
+
+Photo libraries index JPG/JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC/HEIF, and AVIF candidates when the installed decoder can read them. Photo records do not enter catalogue matching, canonical claims, or the Review Queue.
 
 ---
 

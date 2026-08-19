@@ -1,17 +1,14 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
@@ -19,9 +16,12 @@ using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Processors.Contracts;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -53,6 +53,7 @@ public sealed partial class IngestionEngine
         var context = new IngestionPipelineContext(
             candidate,
             candidate.BatchId ?? Guid.NewGuid());
+        context.Library = _libraryFolderResolver?.ResolveForPath(candidate.Path);
 
         try
         {
@@ -60,7 +61,9 @@ public sealed partial class IngestionEngine
             {
                 await stage.ExecuteAsync(context, ct).ConfigureAwait(false);
                 if (context.IsComplete)
+                {
                     return;
+                }
             }
         }
         finally
@@ -192,16 +195,16 @@ public sealed partial class IngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Constants.SystemActionType.FileHashed,
-            EntityType     = "MediaAsset",
-            Detail         = $"Fingerprinted {Path.GetFileName(candidate.Path)}: {hash.Hex[..12]}... ({hash.FileSize / 1024.0:F1} KB)",
-            ChangesJson    = JsonSerializer.Serialize(new
+            ActionType = Domain.Constants.SystemActionType.FileHashed,
+            EntityType = "MediaAsset",
+            Detail = $"Fingerprinted {Path.GetFileName(candidate.Path)}: {hash.Hex[..12]}... ({hash.FileSize / 1024.0:F1} KB)",
+            ChangesJson = JsonSerializer.Serialize(new
             {
-                hash_prefix  = hash.Hex[..12],
-                full_hash    = hash.Hex,
+                hash_prefix = hash.Hex[..12],
+                full_hash = hash.Hex,
                 file_size_kb = Math.Round(hash.FileSize / 1024.0, 1),
-                elapsed_ms   = (long)hash.Elapsed.TotalMilliseconds,
-                filename     = Path.GetFileName(candidate.Path),
+                elapsed_ms = (long)hash.Elapsed.TotalMilliseconds,
+                filename = Path.GetFileName(candidate.Path),
             }),
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
@@ -252,10 +255,10 @@ public sealed partial class IngestionEngine
 
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                     {
-                        ActionType     = Domain.Constants.SystemActionType.DuplicateSkipped,
-                        EntityId       = existing.Id,
-                        EntityType     = "MediaAsset",
-                        Detail         = $"Duplicate skipped and deleted: {Path.GetFileName(candidate.Path)} (identical to {Path.GetFileName(existing.FilePathRoot)})",
+                        ActionType = Domain.Constants.SystemActionType.DuplicateSkipped,
+                        EntityId = existing.Id,
+                        EntityType = "MediaAsset",
+                        Detail = $"Duplicate skipped and deleted: {Path.GetFileName(candidate.Path)} (identical to {Path.GetFileName(existing.FilePathRoot)})",
                         IngestionRunId = ingestionRunId,
                     }, ct).ConfigureAwait(false);
 
@@ -285,7 +288,10 @@ public sealed partial class IngestionEngine
                     try
                     {
                         if (File.Exists(candidate.Path))
+                        {
                             File.Delete(candidate.Path);
+                        }
+
                         await DeleteHashCacheEntryAsync(candidate.Path, ct).ConfigureAwait(false);
                     }
                     catch (Exception ex)
@@ -382,25 +388,27 @@ public sealed partial class IngestionEngine
                 // Don't overwrite a bridge ID the processor already extracted
                 // from embedded tags — embedded data is at least as reliable.
                 if (hintedClaims.Any(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
+                {
                     continue;
+                }
 
                 hintedClaims.Add(new Processors.Models.ExtractedClaim
                 {
-                    Key        = key,
-                    Value      = value,
+                    Key = key,
+                    Value = value,
                     Confidence = ClaimConfidence.BridgeId,
                 });
             }
 
             result = new Processors.Models.ProcessorResult
             {
-                FilePath            = result.FilePath,
-                DetectedType        = result.DetectedType,
-                Claims              = hintedClaims,
-                CoverImage          = result.CoverImage,
-                CoverImageMimeType  = result.CoverImageMimeType,
-                IsCorrupt           = result.IsCorrupt,
-                CorruptReason       = result.CorruptReason,
+                FilePath = result.FilePath,
+                DetectedType = result.DetectedType,
+                Claims = hintedClaims,
+                CoverImage = result.CoverImage,
+                CoverImageMimeType = result.CoverImageMimeType,
+                IsCorrupt = result.IsCorrupt,
+                CorruptReason = result.CorruptReason,
                 MediaTypeCandidates = result.MediaTypeCandidates,
             };
 
@@ -423,18 +431,18 @@ public sealed partial class IngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Constants.SystemActionType.FileProcessed,
-            EntityType     = "MediaAsset",
-            Detail         = $"Scanned {Path.GetFileName(candidate.Path)}: {result.DetectedType} - {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
-            ChangesJson    = JsonSerializer.Serialize(new
+            ActionType = Domain.Constants.SystemActionType.FileProcessed,
+            EntityType = "MediaAsset",
+            Detail = $"Scanned {Path.GetFileName(candidate.Path)}: {result.DetectedType} - {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
+            ChangesJson = JsonSerializer.Serialize(new
             {
-                detected_type  = result.DetectedType.ToString(),
-                claims_count   = result.Claims.Count,
-                has_cover      = result.CoverImage?.Length > 0,
-                cover_bytes    = result.CoverImage?.Length ?? 0,
-                is_corrupt     = result.IsCorrupt,
+                detected_type = result.DetectedType.ToString(),
+                claims_count = result.Claims.Count,
+                has_cover = result.CoverImage?.Length > 0,
+                cover_bytes = result.CoverImage?.Length ?? 0,
+                is_corrupt = result.IsCorrupt,
                 corrupt_reason = result.CorruptReason,
-                filename       = Path.GetFileName(candidate.Path),
+                filename = Path.GetFileName(candidate.Path),
             }),
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
@@ -529,13 +537,13 @@ public sealed partial class IngestionEngine
 
                         result = new Processors.Models.ProcessorResult
                         {
-                            FilePath           = result.FilePath,
-                            DetectedType       = result.DetectedType,
-                            Claims             = updatedClaims,
-                            CoverImage         = result.CoverImage,
+                            FilePath = result.FilePath,
+                            DetectedType = result.DetectedType,
+                            Claims = updatedClaims,
+                            CoverImage = result.CoverImage,
                             CoverImageMimeType = result.CoverImageMimeType,
-                            IsCorrupt          = result.IsCorrupt,
-                            CorruptReason      = result.CorruptReason,
+                            IsCorrupt = result.IsCorrupt,
+                            CorruptReason = result.CorruptReason,
                             MediaTypeCandidates = result.MediaTypeCandidates,
                         };
 
@@ -562,15 +570,15 @@ public sealed partial class IngestionEngine
             var failedJson = JsonSerializer.Serialize(new
             {
                 source_file = Path.GetFileName(candidate.Path),
-                reason      = result.CorruptReason,
-                error_type  = "corrupt_file",
+                reason = result.CorruptReason,
+                error_type = "corrupt_file",
             });
             await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
             {
-                ActionType     = Domain.Constants.SystemActionType.MediaFailed,
-                EntityType     = "MediaAsset",
-                ChangesJson    = failedJson,
-                Detail         = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
+                ActionType = Domain.Constants.SystemActionType.MediaFailed,
+                EntityType = "MediaAsset",
+                ChangesJson = failedJson,
+                Detail = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
 
@@ -636,16 +644,16 @@ public sealed partial class IngestionEngine
         {
             await _timelineRepo.InsertEventAsync(new EntityEvent
             {
-                EntityId       = assetId,
-                EntityType     = "Work",
-                EventType      = "file_scanned",
-                Stage          = 0,
-                Trigger        = "ingestion",
-                ProviderId     = LocalProcessorProviderId.ToString(),
-                ProviderName   = "local_processor",
-                Confidence     = result.Claims.Count > 0 ? 1.0 : 0.0,
+                EntityId = assetId,
+                EntityType = "Work",
+                EventType = "file_scanned",
+                Stage = 0,
+                Trigger = "ingestion",
+                ProviderId = LocalProcessorProviderId.ToString(),
+                ProviderName = "local_processor",
+                Confidence = result.Claims.Count > 0 ? 1.0 : 0.0,
                 IngestionRunId = ingestionRunId,
-                Detail         = $"File scanned: {Path.GetFileName(candidate.Path)} — {result.Claims.Count} fields extracted ({result.DetectedType})",
+                Detail = $"File scanned: {Path.GetFileName(candidate.Path)} — {result.Claims.Count} fields extracted ({result.DetectedType})",
             }, ct).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -663,13 +671,13 @@ public sealed partial class IngestionEngine
         // folders will set +0.10 and multi-type folders +0.05.
         var scoringContext = new ScoringContext
         {
-            EntityId                = assetId,
-            Claims                  = claims,
-            ProviderWeights         = new Dictionary<Guid, double>
-                { [LocalProcessorProviderId] = 1.0 },
-            Configuration           = _scoringConfig,
+            EntityId = assetId,
+            Claims = claims,
+            ProviderWeights = new Dictionary<Guid, double>
+            { [LocalProcessorProviderId] = 1.0 },
+            Configuration = _scoringConfig,
             CategoryConfidencePrior = candidate.CategoryConfidencePrior,
-            DetectedMediaType       = result.DetectedType,
+            DetectedMediaType = result.DetectedType,
         };
 
         var scored = context.Scored = await _scorer.ScoreEntityAsync(scoringContext, ct).ConfigureAwait(false);
@@ -688,16 +696,16 @@ public sealed partial class IngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Constants.SystemActionType.FileScored,
-            EntityId       = assetId,
-            EntityType     = "MediaAsset",
-            Detail         = $"Score: {scored.OverallConfidence:P0} across {scored.FieldScores.Count} fields",
-            ChangesJson    = JsonSerializer.Serialize(new
+            ActionType = Domain.Constants.SystemActionType.FileScored,
+            EntityId = assetId,
+            EntityType = "MediaAsset",
+            Detail = $"Score: {scored.OverallConfidence:P0} across {scored.FieldScores.Count} fields",
+            ChangesJson = JsonSerializer.Serialize(new
             {
-                confidence    = scored.OverallConfidence,
-                field_count   = scored.FieldScores.Count,
-                conflicted    = scored.FieldScores.Count(f => f.IsConflicted),
-                fields        = scored.FieldScores
+                confidence = scored.OverallConfidence,
+                field_count = scored.FieldScores.Count,
+                conflicted = scored.FieldScores.Count(f => f.IsConflicted),
+                fields = scored.FieldScores
                     .Where(f => !string.IsNullOrEmpty(f.WinningValue))
                     .Select(f => new { field = f.Key, value = f.WinningValue, confidence = f.Confidence, conflicted = f.IsConflicted })
                     .ToList(),
@@ -708,10 +716,13 @@ public sealed partial class IngestionEngine
         // Lifecycle log: scored.
         var detectedTitle = scored.FieldScores
             .FirstOrDefault(f => f.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.WinningValue;
-        try { await _ingestionLog.UpdateStatusAsync(logEntryId, "scored",
+        try
+        {
+            await _ingestionLog.UpdateStatusAsync(logEntryId, "scored",
             confidenceScore: scored.OverallConfidence,
             detectedTitle: detectedTitle,
-            ct: ct).ConfigureAwait(false); }
+            ct: ct).ConfigureAwait(false);
+        }
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
 
         await PublishItemProgressAsync(candidate, logEntryId, "scored", 55, false, ct).ConfigureAwait(false);
@@ -724,9 +735,9 @@ public sealed partial class IngestionEngine
             .Where(f => !string.IsNullOrEmpty(f.WinningValue))
             .Select(f => new CanonicalValue
             {
-                EntityId     = assetId,
-                Key          = f.Key,
-                Value        = f.WinningValue!,
+                EntityId = assetId,
+                Key = f.Key,
+                Value = f.WinningValue!,
                 LastScoredAt = scored.ScoredAt,
                 IsConflicted = f.IsConflicted,
             })
@@ -752,9 +763,9 @@ public sealed partial class IngestionEngine
         // and defaults to "Other".
         canonicals.Add(new CanonicalValue
         {
-            EntityId     = assetId,
-            Key          = MetadataFieldConstants.MediaTypeField,
-            Value        = resolvedMediaType.ToString(),
+            EntityId = assetId,
+            Key = MetadataFieldConstants.MediaTypeField,
+            Value = resolvedMediaType.ToString(),
             LastScoredAt = scored.ScoredAt,
             IsConflicted = mediaTypeIsConflicted,
         });
@@ -763,9 +774,9 @@ public sealed partial class IngestionEngine
         {
             canonicals.Add(new CanonicalValue
             {
-                EntityId     = assetId,
-                Key          = MetadataFieldConstants.CoverUrl,
-                Value        = $"/stream/{assetId}/cover",
+                EntityId = assetId,
+                Key = MetadataFieldConstants.CoverUrl,
+                Value = $"/stream/{assetId}/cover",
                 LastScoredAt = scored.ScoredAt,
             });
 
@@ -812,9 +823,9 @@ public sealed partial class IngestionEngine
             var candidatesJson = JsonSerializer.Serialize(
                 candidateList.Select(c => new
                 {
-                    type       = c.Type.ToString(),
+                    type = c.Type.ToString(),
                     confidence = c.Confidence,
-                    reason     = c.Reason,
+                    reason = c.Reason,
                 }),
                 JsonSerializerOptions.Default);
 
@@ -839,7 +850,7 @@ public sealed partial class IngestionEngine
         }
 
         // Enrich the candidate with resolved metadata.
-        candidate.Metadata          = BuildMetadataDict(scored);
+        candidate.Metadata = BuildMetadataDict(scored);
         candidate.DetectedMediaType = resolvedMediaType;
 
         // Step 9b: create Collection ? Work ? Edition chain so the FK on media_assets
@@ -852,14 +863,14 @@ public sealed partial class IngestionEngine
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Constants.SystemActionType.EntityChainCreated,
-            EntityId       = assetId,
-            EntityType     = "MediaAsset",
-            Detail         = $"Catalogue entry created for \"{candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown") ?? "Unknown"}\"",
-            ChangesJson    = JsonSerializer.Serialize(new
+            ActionType = Domain.Constants.SystemActionType.EntityChainCreated,
+            EntityId = assetId,
+            EntityType = "MediaAsset",
+            Detail = $"Catalogue entry created for \"{candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown") ?? "Unknown"}\"",
+            ChangesJson = JsonSerializer.Serialize(new
             {
-                title      = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title),
-                author     = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Author),
+                title = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title),
+                author = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Author),
                 media_type = resolvedMediaType.ToString(),
                 edition_id = editionId.ToString(),
             }),
@@ -869,11 +880,12 @@ public sealed partial class IngestionEngine
         // Step 10: insert asset.
         var asset = new MediaAsset
         {
-            Id           = assetId,
-            EditionId    = editionId,
-            ContentHash  = hash.Hex,
+            Id = assetId,
+            EditionId = editionId,
+            ContentHash = hash.Hex,
             FilePathRoot = candidate.Path,
-            Status       = AssetStatus.Normal,
+            LibraryId = context.Library?.Id,
+            Status = AssetStatus.Normal,
         };
 
         bool inserted = await _assetRepo.InsertAsync(asset, ct).ConfigureAwait(false);
@@ -886,7 +898,7 @@ public sealed partial class IngestionEngine
             return;
         }
 
-        var resolvedTitle = context.ResolvedTitle = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title,  "Unknown") ?? "Unknown";
+        var resolvedTitle = context.ResolvedTitle = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Title, "Unknown") ?? "Unknown";
         var resolvedAuthor = context.ResolvedAuthor = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Author, string.Empty) ?? string.Empty;
 
         try
@@ -912,7 +924,10 @@ public sealed partial class IngestionEngine
         catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
         await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Registered, 70, "Asset registered.", ct, new { asset_id = assetId, media_type = resolvedMediaType.ToString() }).ConfigureAwait(false);
         if (_scoreStageDependencies.CapabilityPlanner is not null)
+        {
             await _scoreStageDependencies.CapabilityPlanner.EnsureForAssetAsync(assetId, "asset", resolvedMediaType.ToString(), ct).ConfigureAwait(false);
+        }
+
         _logger.LogInformation(
             "Ingested [{Type}] '{Title}' (confidence={Confidence:P0}, hash={Hash})",
             resolvedMediaType, resolvedTitle, scored.OverallConfidence, hash.Hex[..12]);
@@ -921,18 +936,18 @@ public sealed partial class IngestionEngine
         string authorPart = string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}";
 
         // Build structured JSON for the rich match card in the Dashboard.
-        var resolvedYear        = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty) ?? string.Empty;
+        var resolvedYear = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty) ?? string.Empty;
         var resolvedDescription = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Description, string.Empty) ?? string.Empty;
         var richJson = JsonSerializer.Serialize(new
         {
-            title       = resolvedTitle,
-            author      = resolvedAuthor,
-            year        = resolvedYear,
-            media_type  = resolvedMediaType.ToString(),
-            confidence  = scored.OverallConfidence,
+            title = resolvedTitle,
+            author = resolvedAuthor,
+            year = resolvedYear,
+            media_type = resolvedMediaType.ToString(),
+            confidence = scored.OverallConfidence,
             source_file = Path.GetFileName(candidate.Path),
             description = resolvedDescription,
-            entity_id   = assetId.ToString(),
+            entity_id = assetId.ToString(),
         });
 
         // Demoted from activity ledger to debug log (Phase 5 — activity consolidation).
@@ -1013,7 +1028,7 @@ public sealed partial class IngestionEngine
         // AutoOrganizeService moves them directly to the library after Stage 1 produces
         // a resolved title. Review items are still created when the gate signals them.
         context.CurrentPath = candidate.Path;
-        if (gateResult.ReviewTrigger is not null)
+        if (gateResult.ReviewTrigger is not null && context.Library?.BypassesExternalIdentity != true)
         {
             await CreateIngestionReviewItemAsync(
                 assetId, gateResult.ReviewTrigger, scored.OverallConfidence,
@@ -1128,19 +1143,19 @@ public sealed partial class IngestionEngine
 
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                     {
-                        ActionType     = Domain.Constants.SystemActionType.CoverArtSaved,
-                        EntityId       = assetId,
-                        EntityType     = "MediaAsset",
-                        CollectionName        = resolvedTitle,
-                        ChangesJson    = JsonSerializer.Serialize(new
+                        ActionType = Domain.Constants.SystemActionType.CoverArtSaved,
+                        EntityId = assetId,
+                        EntityType = "MediaAsset",
+                        CollectionName = resolvedTitle,
+                        ChangesJson = JsonSerializer.Serialize(new
                         {
                             cover_size_bytes = result.CoverImage.Length,
-                            filename         = Path.GetFileName(coverPath),
-                            folder           = coverFolder,
-                            location         = "central_asset_store",
-                            owner_entity_id  = ownerEntityId,
+                            filename = Path.GetFileName(coverPath),
+                            folder = coverFolder,
+                            location = "central_asset_store",
+                            owner_entity_id = ownerEntityId,
                         }),
-                        Detail         = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
+                        Detail = $"Cover art saved ({result.CoverImage.Length / 1024} KB)",
                         IngestionRunId = ingestionRunId,
                     }, ct).ConfigureAwait(false);
                 }
@@ -1155,8 +1170,11 @@ public sealed partial class IngestionEngine
         // Writing back to a file in the watch folder would change its content hash,
         // causing the watcher to re-detect it as a new file.
         // AutoOrganizeService handles write-back after promotion to the Library.
-        bool fileIsInLibrary = context.FileIsInLibrary = !string.IsNullOrWhiteSpace(_options.LibraryRoot)
-            && currentPath.StartsWith(_options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
+        var effectiveLibraryRoot = !string.IsNullOrWhiteSpace(context.Library?.LibraryRoot)
+            ? context.Library.LibraryRoot
+            : _options.LibraryRoot;
+        bool fileIsInLibrary = context.FileIsInLibrary = !string.IsNullOrWhiteSpace(effectiveLibraryRoot)
+            && currentPath.StartsWith(effectiveLibraryRoot, StringComparison.OrdinalIgnoreCase);
         List<string> tagsWritten = context.TagsWritten = [];
         bool coverWritten = context.CoverWritten = false;
         try
@@ -1179,17 +1197,17 @@ public sealed partial class IngestionEngine
 
                     await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
                     {
-                        ActionType     = Domain.Constants.SystemActionType.MetadataTagsWritten,
-                        EntityId       = assetId,
-                        EntityType     = "MediaAsset",
-                        CollectionName        = resolvedTitle,
-                        ChangesJson    = JsonSerializer.Serialize(new
+                        ActionType = Domain.Constants.SystemActionType.MetadataTagsWritten,
+                        EntityId = assetId,
+                        EntityType = "MediaAsset",
+                        CollectionName = resolvedTitle,
+                        ChangesJson = JsonSerializer.Serialize(new
                         {
-                            tags_written  = tagsWritten,
+                            tags_written = tagsWritten,
                             cover_written = coverWritten,
-                            file          = Path.GetFileName(currentPath),
+                            file = Path.GetFileName(currentPath),
                         }),
-                        Detail         = $"Tags written back to file ({tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")})",
+                        Detail = $"Tags written back to file ({tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")})",
                         IngestionRunId = ingestionRunId,
                     }, ct).ConfigureAwait(false);
 
@@ -1198,13 +1216,13 @@ public sealed partial class IngestionEngine
                     {
                         var writebackEvent = new EntityEvent
                         {
-                            EntityId       = assetId,
-                            EntityType     = "Work",
-                            EventType      = "sync_writeback",
-                            Stage          = null,
-                            Trigger        = "ingestion",
+                            EntityId = assetId,
+                            EntityType = "Work",
+                            EventType = "sync_writeback",
+                            Stage = null,
+                            Trigger = "ingestion",
                             IngestionRunId = ingestionRunId,
-                            Detail         = $"Metadata written back to file: {tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")}",
+                            Detail = $"Metadata written back to file: {tagsWritten.Count} field(s){(coverWritten ? " + cover art" : "")}",
                         };
                         await _timelineRepo.InsertEventAsync(writebackEvent, ct).ConfigureAwait(false);
 
@@ -1214,10 +1232,10 @@ public sealed partial class IngestionEngine
                             var fieldChanges = candidate.Metadata
                                 .Select(kvp => new EntityFieldChange
                                 {
-                                    EventId    = writebackEvent.Id,
-                                    EntityId   = assetId,
-                                    Field      = kvp.Key,
-                                    NewValue   = kvp.Value,
+                                    EventId = writebackEvent.Id,
+                                    EntityId = assetId,
+                                    Field = kvp.Key,
+                                    NewValue = kvp.Value,
                                 })
                                 .ToList();
                             await _timelineRepo.InsertFieldChangesAsync(fieldChanges, ct).ConfigureAwait(false);
@@ -1259,67 +1277,110 @@ public sealed partial class IngestionEngine
         var fileIsInLibrary = context.FileIsInLibrary;
         var tagsWritten = context.TagsWritten;
         var coverWritten = context.CoverWritten;
+        var bypassesExternalIdentity = context.Library?.BypassesExternalIdentity == true;
         // Phase 9 pipeline: enqueue non-blocking three-stage hydration pipeline.
         // IMPORTANT: placed AFTER the organization gate so that any LowConfidence review
         // item created above already exists in the database before the hydration pipeline's
         // TryAutoResolveAndOrganizeAsync runs. This prevents a race condition where the
         // hydration pipeline resolves before the review item is even written, leaving a
         // stale review item in the queue for a file that was successfully organized.
-        var identityJobCt = context.DeferredWriteBackFailure is OperationCanceledException
-            ? CancellationToken.None
-            : ct;
-        await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
+        if (!bypassesExternalIdentity)
         {
-            EntityId       = assetId,
-            EntityType     = EntityType.MediaAsset.ToString(),
-            MediaType      = resolvedMediaType.ToString(),
-            IngestionRunId = ingestionRunId,
-            Pass           = "Quick",
-        }, identityJobCt).ConfigureAwait(false);
-        _identityStageDependencies.Signal?.Signal(IdentityPipelineSignalKind.Retail);
+            var identityJobCt = context.DeferredWriteBackFailure is OperationCanceledException
+                ? CancellationToken.None
+                : ct;
+            await _identityJobRepo.CreateAsync(new Domain.Entities.IdentityJob
+            {
+                EntityId = assetId,
+                EntityType = EntityType.MediaAsset.ToString(),
+                MediaType = resolvedMediaType.ToString(),
+                IngestionRunId = ingestionRunId,
+                Pass = "Quick",
+            }, identityJobCt).ConfigureAwait(false);
+            _identityStageDependencies.Signal?.Signal(IdentityPipelineSignalKind.Retail);
 
-        _logger.LogInformation(
-            "Identity job created for [{MediaType}] '{Title}'{AuthorPart} — queued for retail match ({AssetId12})",
-            resolvedMediaType,
-            resolvedTitle,
-            string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}",
-            assetId.ToString("N")[..12]);
-
-        try
-        {
-            await _ingestionLog.UpdateStatusAsync(
-                logEntryId,
-                "queued_identity",
-                mediaType: resolvedMediaType.ToString(),
-                mediaAssetId: assetId,
-                ct: ct).ConfigureAwait(false);
-            await PublishItemProgressAsync(
-                candidate,
-                logEntryId,
-                "queued_identity",
-                80,
-                false,
-                ct,
-                assetId,
+            _logger.LogInformation(
+                "Identity job created for [{MediaType}] '{Title}'{AuthorPart} — queued for retail match ({AssetId12})",
+                resolvedMediaType,
                 resolvedTitle,
-                resolvedMediaType.ToString()).ConfigureAwait(false);
+                string.IsNullOrWhiteSpace(resolvedAuthor) ? string.Empty : $" by {resolvedAuthor}",
+                assetId.ToString("N")[..12]);
+
+            try
+            {
+                await _ingestionLog.UpdateStatusAsync(
+                    logEntryId,
+                    "queued_identity",
+                    mediaType: resolvedMediaType.ToString(),
+                    mediaAssetId: assetId,
+                    ct: ct).ConfigureAwait(false);
+                await PublishItemProgressAsync(
+                    candidate,
+                    logEntryId,
+                    "queued_identity",
+                    80,
+                    false,
+                    ct,
+                    assetId,
+                    resolvedTitle,
+                    resolvedMediaType.ToString()).ConfigureAwait(false);
+            }
+            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+            await UpdateOperationStageAsync(durableOperation, MediaOperationStage.QueuedIdentity, 80, "Identity work queued.", ct, new { asset_id = assetId, media_type = resolvedMediaType.ToString() }).ConfigureAwait(false);
+
+            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
+            {
+                ActionType = Domain.Constants.SystemActionType.HydrationEnqueued,
+                EntityId = assetId,
+                EntityType = "MediaAsset",
+                CollectionName = resolvedTitle,
+                ChangesJson = JsonSerializer.Serialize(new { entity_id = assetId.ToString(), media_type = resolvedMediaType.ToString() }),
+                Detail = $"Queued for metadata enrichment ({resolvedMediaType})",
+                IngestionRunId = ingestionRunId,
+            }, ct).ConfigureAwait(false);
         }
-        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
-        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.QueuedIdentity, 80, "Identity work queued.", ct, new { asset_id = assetId, media_type = resolvedMediaType.ToString() }).ConfigureAwait(false);
+        else
+        {
+            await _assetRepo.MarkPresentedAsync(assetId, DateTimeOffset.UtcNow, ct).ConfigureAwait(false);
+            await SafePublishAsync(
+                SignalREvents.MediaAdded,
+                new MediaAddedEvent(assetId, null, resolvedMediaType.ToString(), resolvedTitle),
+                ct).ConfigureAwait(false);
+
+            try
+            {
+                await _ingestionLog.UpdateStatusAsync(
+                    logEntryId,
+                    "complete",
+                    mediaType: resolvedMediaType.ToString(),
+                    detectedTitle: resolvedTitle,
+                    mediaAssetId: assetId,
+                    ct: ct).ConfigureAwait(false);
+                await PublishItemProgressAsync(
+                    candidate,
+                    logEntryId,
+                    "complete",
+                    100,
+                    true,
+                    ct,
+                    assetId,
+                    resolvedTitle,
+                    resolvedMediaType.ToString()).ConfigureAwait(false);
+            }
+            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
+
+            _logger.LogInformation(
+                "Local metadata policy completed [{MediaType}] '{Title}' without external identity providers ({AssetId12})",
+                resolvedMediaType,
+                resolvedTitle,
+                assetId.ToString("N")[..12]);
+        }
+
         // Batch counter: file has been fully processed through the ingestion pipeline.
         if (candidate.BatchId.HasValue)
-            await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
-
-        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Constants.SystemActionType.HydrationEnqueued,
-            EntityId       = assetId,
-            EntityType     = "MediaAsset",
-            CollectionName        = resolvedTitle,
-            ChangesJson    = JsonSerializer.Serialize(new { entity_id = assetId.ToString(), media_type = resolvedMediaType.ToString() }),
-            Detail         = $"Queued for metadata enrichment ({resolvedMediaType})",
-            IngestionRunId = ingestionRunId,
-        }, ct).ConfigureAwait(false);
+            await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
+        }
 
         // Phase 9: person enrichment is deferred to the hydration pipeline (Stage 1),
         // which has pen name detection logic.  Running it here causes a race condition:
@@ -1348,13 +1409,13 @@ public sealed partial class IngestionEngine
             .Where(f => !string.IsNullOrEmpty(f.WinningValue))
             .Select(f => new
             {
-                field       = f.Key,
-                value       = f.WinningValue,
-                confidence  = f.Confidence,
-                source      = f.WinningProviderId == LocalProcessorProviderId ? "embedded"
+                field = f.Key,
+                value = f.WinningValue,
+                confidence = f.Confidence,
+                source = f.WinningProviderId == LocalProcessorProviderId ? "embedded"
                             : f.WinningProviderId.HasValue ? "provider" : "unknown",
                 provider_id = f.WinningProviderId?.ToString(),
-                conflicted  = f.IsConflicted,
+                conflicted = f.IsConflicted,
             })
             .ToList();
 
@@ -1362,28 +1423,34 @@ public sealed partial class IngestionEngine
         string matchMethod;
         var titleField = scored.FieldScores.FirstOrDefault(f => f.Key == MetadataFieldConstants.Title);
         if (titleField is not null && titleField.WinningProviderId == LocalProcessorProviderId)
+        {
             matchMethod = "embedded_metadata";
+        }
         else if (titleField is not null && titleField.WinningProviderId.HasValue)
+        {
             matchMethod = "provider_match";
+        }
         else
+        {
             matchMethod = "filename_fallback";
+        }
 
         var finalRichJson = JsonSerializer.Serialize(new
         {
-            title         = resolvedTitle,
-            author        = resolvedAuthor,
-            year          = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty) ?? string.Empty,
-            media_type    = resolvedMediaType.ToString(),
-            confidence    = scored.OverallConfidence,
-            source_file   = Path.GetFileName(candidate.Path),
-            source_path   = candidate.Path,
-            description   = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Description, string.Empty) ?? string.Empty,
-            entity_id     = assetId.ToString(),
-            organized_to  = organizedTo,
-            cover_url     = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
-            match_method  = matchMethod,
+            title = resolvedTitle,
+            author = resolvedAuthor,
+            year = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Year, string.Empty) ?? string.Empty,
+            media_type = resolvedMediaType.ToString(),
+            confidence = scored.OverallConfidence,
+            source_file = Path.GetFileName(candidate.Path),
+            source_path = candidate.Path,
+            description = candidate.Metadata?.GetValueOrDefault(MetadataFieldConstants.Description, string.Empty) ?? string.Empty,
+            entity_id = assetId.ToString(),
+            organized_to = organizedTo,
+            cover_url = fileIsInLibrary ? $"/stream/{assetId}/cover" : (string?)null,
+            match_method = matchMethod,
             field_sources = fieldProvenance,
-            tags_written  = tagsWritten,
+            tags_written = tagsWritten,
             cover_written = coverWritten,
         });
 
@@ -1393,21 +1460,23 @@ public sealed partial class IngestionEngine
         string matchLabel = matchMethod switch
         {
             "embedded_metadata" => "matched from embedded tags",
-            "provider_match"    => "matched via provider",
-            _                   => "matched from filename",
+            "provider_match" => "matched via provider",
+            _ => "matched from filename",
         };
-        string outcome = fileIsInLibrary
+        string outcome = bypassesExternalIdentity
+            ? $"Indexed locally — \"{resolvedTitle}\" ({matchLabel})"
+            : fileIsInLibrary
             ? $"Ingested — \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) ? Library"
             : $"Ingested — \"{resolvedTitle}\" ({matchLabel}, {scored.OverallConfidence:P0}) — awaiting enrichment";
 
         await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
         {
-            ActionType     = Domain.Constants.SystemActionType.FileIngested,
-            EntityId       = assetId,
-            EntityType     = "MediaAsset",
-            CollectionName        = resolvedTitle,
-            ChangesJson    = finalRichJson,
-            Detail         = outcome,
+            ActionType = Domain.Constants.SystemActionType.FileIngested,
+            EntityId = assetId,
+            EntityType = "MediaAsset",
+            CollectionName = resolvedTitle,
+            ChangesJson = finalRichJson,
+            Detail = outcome,
             IngestionRunId = ingestionRunId,
         }, ct).ConfigureAwait(false);
 

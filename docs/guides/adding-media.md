@@ -26,7 +26,7 @@ For large existing libraries, start with one media lane at a time. It is easier 
 
 1. Open the Dashboard at `http://localhost:5016`.
 2. Go to **Settings > Libraries**.
-3. Set the library source folder(s) and Library Root.
+3. Choose a library kind and metadata policy, then set its source folder(s) and Library Root.
 4. Confirm path checks show the Engine can read and write where required.
 5. Save the settings.
 6. Run **Scan saved watch folder**.
@@ -43,6 +43,9 @@ Open **Settings > Ingestion** to monitor progress.
 | Watch | TV | MKV, MP4, M4V, WEBM, AVI |
 | Listen | Music | FLAC, MP3, AAC, M4A, OGG, WAV |
 | Listen | Audiobooks | M4B, MP3, M4A |
+| Photos | Photos | JPG/JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC/HEIF, AVIF where locally decodable |
+
+Use a **personal** library with **Local only** or **Manual** metadata for home videos, lectures, and content that should never be sent through external matching. Use a **photos** library for image folders. These paths bypass catalogue identity and the Review Queue.
 
 MP3, M4A, MP4, MKV, AVI, and WEBM can be ambiguous. Tuvima uses folder context, embedded metadata, filename patterns, and classification logic to decide whether a file is music, audiobook, movie, or TV. If it cannot decide safely, the item goes to Review Queue.
 

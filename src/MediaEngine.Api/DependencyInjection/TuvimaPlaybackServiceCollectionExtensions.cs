@@ -25,7 +25,6 @@ public static class TuvimaPlaybackServiceCollectionExtensions
         services.AddSingleton<IUserPlaybackSettingsService, UserPlaybackSettingsService>();
         services.AddSingleton<IVideoMetadataExtractor, FFmpegVideoMetadataExtractor>();
         services.AddSingleton<IEpubContentService, EpubContentService>();
-        services.AddSingleton<IWhisperSyncService, WhisperSyncService>();
         return services;
     }
 }

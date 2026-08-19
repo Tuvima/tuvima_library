@@ -1,4 +1,5 @@
 using System.IO;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Enums;
 
 namespace MediaEngine.Ingestion.Models;
@@ -11,6 +12,20 @@ namespace MediaEngine.Ingestion.Models;
 /// </summary>
 public sealed class LibraryFolderEntry
 {
+    public string Id { get; init; } = string.Empty;
+
+    public string Name { get; init; } = string.Empty;
+
+    public string Kind { get; init; } = LibraryKinds.Catalogued;
+
+    public string MetadataPolicy { get; init; } = LibraryMetadataPolicies.Enriched;
+
+    public string LibraryRoot { get; init; } = string.Empty;
+
+    public string IntakeMode { get; init; } = "watch";
+
+    public bool IncludeSubdirectories { get; init; } = true;
+
     /// <summary>
     /// All source paths belonging to this logical library. A single library can
     /// span multiple drives (e.g. <c>D:\Movies</c> and <c>E:\Movies</c> as one
@@ -51,6 +66,9 @@ public sealed class LibraryFolderEntry
     /// forces on/off for this library only. Spec: side-by-side-with-Plex plan §I.
     /// </summary>
     public bool? WritebackOverride { get; init; }
+
+    public bool BypassesExternalIdentity =>
+        LibraryMetadataPolicies.BypassesExternalIdentity(MetadataPolicy);
 }
 
 /// <summary>
@@ -111,22 +129,22 @@ public sealed class IngestionOptions
     // ──────────────────────────────────────────────────────────────────
     public Dictionary<string, string> OrganizationTemplates { get; set; } = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["default"]    = "{Category}/{Title} ({Year})/{Title}{Ext}",
+        ["default"] = "{Category}/{Title} ({Year})/{Title}{Ext}",
         // Movies: Plex convention — `Title (Year)/Title (Year)`
-        ["Movies"]     = "Movies/{Title} ({Year})/{Title} ({Year}){Ext}",
+        ["Movies"] = "Movies/{Title} ({Year})/{Title} ({Year}){Ext}",
         // TV: Plex convention — `Show (Year)/Season XX/Show - sXXeYY - Title`
-        ["TV"]         = "TV/{Series} ({Year})/Season {Season}/{Series} - s{Season}e{Episode} - {EpisodeTitle}{Ext}",
+        ["TV"] = "TV/{Series} ({Year})/Season {Season}/{Series} - s{Season}e{Episode} - {EpisodeTitle}{Ext}",
         // Music: Picard / Plex convention — `Artist/Album (Year)/[Disc]## - Title`
         // {Disc?} optional segment expands to e.g. "Disc 02/" for multi-disc
         // releases and collapses entirely for single-disc albums.
-        ["Music"]      = "Music/{Artist}/{Album} ({Year})/{TrackNumber} - {Title}{Ext}",
+        ["Music"] = "Music/{Artist}/{Album} ({Year})/{TrackNumber} - {Title}{Ext}",
         // Audiobooks: Author/Title (Year)/Title — matches Music pattern
         ["Audiobooks"] = "Audiobooks/{Author}/{Title} ({Year})/{Title}{Ext}",
         // Books: Author/Title (Year)/Title (Year) — matches Music pattern
-        ["Books"]      = "Books/{Author}/{Title} ({Year})/{Title} ({Year}){Ext}",
+        ["Books"] = "Books/{Author}/{Title} ({Year})/{Title} ({Year}){Ext}",
 
         // Comics: Komga / Mylar / Kavita convention — `Series/Series - NNN (Year)`
-        ["Comic"]      = "Comics/{Series}/{Series} - {IssueNumber} ({Year}){Ext}",
+        ["Comic"] = "Comics/{Series}/{Series} - {IssueNumber} ({Year}){Ext}",
     };
 
     /// <summary>
@@ -271,7 +289,9 @@ public sealed class IngestionOptions
 
         // 3. Fall back to OrganizationTemplate property.
         if (!string.IsNullOrWhiteSpace(OrganizationTemplate))
+        {
             return OrganizationTemplate;
+        }
 
         // 4. Hardcoded fallback.
         return HardcodedFallback;

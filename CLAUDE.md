@@ -358,7 +358,7 @@ Six language concerns addressed across six phases (all implemented): UI language
 
 Not yet implemented: full Authentication & Multi-User (PIN/password, parental controls), a full Transcoding Pipeline (Shadow Transcoder), a deeper Music Domain Model (MusicBrainz, richer `MusicProcessor`), full Interoperability (OPDS 1.2, Audiobookshelf API, webhooks, import wizard, PWA), and advanced Browse & Discovery pages (UniverseDetail, Statistics). Local profiles exist, and the Dashboard persists an active browser profile selection for role-aware navigation.
 
-### 3.16 — Supported Library Types
+### 3.16 — Supported Library Types and Policies
 
 | Library Type | Includes |
 |---|---|
@@ -367,8 +367,10 @@ Not yet implemented: full Authentication & Multi-User (PIN/password, parental co
 | **Movies** | Feature films, short films |
 | **Music** | Albums, singles, tracks |
 | **Comics** | CBZ, CBR, PDF comics, manga |
+| **Personal / Custom** | Home videos, lectures, and unmatched content; local-only or manual metadata bypasses provider and Wikidata ingestion. |
+| **Photos** | A separate local photo asset index with timeline, search, thumbnails, favorites, hidden items, albums, duplicate-source tracking, and EXIF camera/GPS details. |
 
-Future: **Other** (YouTube, lectures — manual tagging), **Photos** (separate product scope).
+Every library has a stable ID, explicit kind, and metadata policy. Photo assets never enter the catalogue work/edition graph. Face/object/OCR search, maps, memories, sharing, and mobile sync are post-beta work; see `docs/product/beta-roadmap.md`.
 
 ---
 

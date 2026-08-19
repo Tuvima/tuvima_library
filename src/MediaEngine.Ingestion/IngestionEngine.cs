@@ -1,17 +1,15 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Capabilities;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
@@ -19,9 +17,12 @@ using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Processors.Contracts;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -63,23 +64,23 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         ".log", ".db", ".db-wal", ".db-shm", ".lnk", ".ini", ".cfg",
     };
 
-    private readonly IFileWatcher          _watcher;
-    private readonly DebounceQueue         _debounce;
-    private readonly IAssetHasher          _hasher;
-    private readonly IProcessorRouter    _processors;
-    private readonly IScoringEngine        _scorer;
-    private readonly IFileOrganizer        _organizer;
+    private readonly IFileWatcher _watcher;
+    private readonly DebounceQueue _debounce;
+    private readonly IAssetHasher _hasher;
+    private readonly IProcessorRouter _processors;
+    private readonly IScoringEngine _scorer;
+    private readonly IFileOrganizer _organizer;
     private readonly IEnumerable<IMetadataTagger> _taggers;
     private readonly IMediaAssetRepository _assetRepo;
-    private readonly IBackgroundWorker     _worker;
-    private readonly IEventPublisher       _publisher;
-    private readonly IngestionOptions      _options;
+    private readonly IBackgroundWorker _worker;
+    private readonly IEventPublisher _publisher;
+    private readonly IngestionOptions _options;
     private readonly ILogger<IngestionEngine> _logger;
 
     // Phase 9: claim/canonical persistence + external metadata harvesting.
-    private readonly IMetadataClaimRepository    _claimRepo;
-    private readonly ICanonicalValueRepository   _canonicalRepo;
-    private readonly IRecursiveIdentityService   _identity;
+    private readonly IMetadataClaimRepository _claimRepo;
+    private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IRecursiveIdentityService _identity;
 
     // Collection ? Work ? Edition scaffold creation.
     private readonly IMediaEntityChainFactory _chainFactory;
@@ -126,6 +127,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     private readonly OrganizeStageDependencies _organizeStageDependencies;
     private readonly WriteBackStageDependencies _writeBackStageDependencies;
     private readonly IdentityJobStageDependencies _identityStageDependencies;
+    private readonly ILibraryFolderResolver? _libraryFolderResolver;
     private readonly IReadOnlyList<IIngestionStage> _ingestionStages;
 
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
@@ -150,71 +152,72 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     private sealed record HashLookupResult(HashResult Hash, bool CacheHit);
 
     public IngestionEngine(
-        IFileWatcher              watcher,
-        DebounceQueue             debounce,
-        IAssetHasher              hasher,
-        IProcessorRouter        processors,
-        IScoringEngine            scorer,
-        IFileOrganizer            organizer,
+        IFileWatcher watcher,
+        DebounceQueue debounce,
+        IAssetHasher hasher,
+        IProcessorRouter processors,
+        IScoringEngine scorer,
+        IFileOrganizer organizer,
         IEnumerable<IMetadataTagger> taggers,
-        IMediaAssetRepository     assetRepo,
-        IBackgroundWorker         worker,
-        IEventPublisher           publisher,
+        IMediaAssetRepository assetRepo,
+        IBackgroundWorker worker,
+        IEventPublisher publisher,
         IOptions<IngestionOptions> options,
-        ILogger<IngestionEngine>  logger,
-        IMetadataClaimRepository   claimRepo,
-        ICanonicalValueRepository  canonicalRepo,
-        IRecursiveIdentityService  identity,
-        IMediaEntityChainFactory   chainFactory,
-        IReviewQueueRepository     reviewRepo,
-        ISystemActivityRepository  activityRepo,
-        IReconciliationService     reconciliation,
-        IOrganizationGate          gate,
-        IIngestionLogRepository    ingestionLog,
-        ISmartLabeler             smartLabeler,
-        IMediaTypeAdvisor         typeAdvisor,
-        IEntityTimelineRepository  timelineRepo,
-        ScoringConfiguration       scoringConfig,
-        IIngestionBatchRepository  batchRepo,
-        IIdentityJobRepository     identityJobRepo,
-        IMediaTypeResolver         mediaTypeResolver,
-        IDuplicateResolver         duplicateResolver,
-        IIngestionLogScribe        ingestionLogScribe,
+        ILogger<IngestionEngine> logger,
+        IMetadataClaimRepository claimRepo,
+        ICanonicalValueRepository canonicalRepo,
+        IRecursiveIdentityService identity,
+        IMediaEntityChainFactory chainFactory,
+        IReviewQueueRepository reviewRepo,
+        ISystemActivityRepository activityRepo,
+        IReconciliationService reconciliation,
+        IOrganizationGate gate,
+        IIngestionLogRepository ingestionLog,
+        ISmartLabeler smartLabeler,
+        IMediaTypeAdvisor typeAdvisor,
+        IEntityTimelineRepository timelineRepo,
+        ScoringConfiguration scoringConfig,
+        IIngestionBatchRepository batchRepo,
+        IIdentityJobRepository identityJobRepo,
+        IMediaTypeResolver mediaTypeResolver,
+        IDuplicateResolver duplicateResolver,
+        IIngestionLogScribe ingestionLogScribe,
         HashDedupeStageDependencies hashStageDependencies,
         ScoreIdentifyStageDependencies scoreStageDependencies,
         OrganizeStageDependencies organizeStageDependencies,
         WriteBackStageDependencies writeBackStageDependencies,
         IdentityJobStageDependencies identityStageDependencies,
-        IMediaOperationTracker?    operationTracker = null,
-        IMediaOperationRepository? operationRepository = null)
+        IMediaOperationTracker? operationTracker = null,
+        IMediaOperationRepository? operationRepository = null,
+        ILibraryFolderResolver? libraryFolderResolver = null)
     {
-        _watcher          = watcher;
-        _debounce         = debounce;
-        _hasher           = hasher;
-        _processors       = processors;
-        _scorer           = scorer;
-        _organizer        = organizer;
-        _taggers          = taggers;
-        _assetRepo        = assetRepo;
-        _worker           = worker;
-        _publisher        = publisher;
-        _options          = options.Value;
-        _logger           = logger;
-        _claimRepo        = claimRepo;
-        _canonicalRepo    = canonicalRepo;
-        _identity         = identity;
-        _chainFactory     = chainFactory;
-        _reviewRepo       = reviewRepo;
-        _activityRepo     = activityRepo;
-        _reconciliation   = reconciliation;
-        _gate             = gate;
-        _ingestionLog     = ingestionLog;
-        _smartLabeler      = smartLabeler;
-        _typeAdvisor       = typeAdvisor;
-        _timelineRepo      = timelineRepo;
-        _scoringConfig     = scoringConfig;
-        _batchRepo         = batchRepo;
-        _identityJobRepo  = identityJobRepo;
+        _watcher = watcher;
+        _debounce = debounce;
+        _hasher = hasher;
+        _processors = processors;
+        _scorer = scorer;
+        _organizer = organizer;
+        _taggers = taggers;
+        _assetRepo = assetRepo;
+        _worker = worker;
+        _publisher = publisher;
+        _options = options.Value;
+        _logger = logger;
+        _claimRepo = claimRepo;
+        _canonicalRepo = canonicalRepo;
+        _identity = identity;
+        _chainFactory = chainFactory;
+        _reviewRepo = reviewRepo;
+        _activityRepo = activityRepo;
+        _reconciliation = reconciliation;
+        _gate = gate;
+        _ingestionLog = ingestionLog;
+        _smartLabeler = smartLabeler;
+        _typeAdvisor = typeAdvisor;
+        _timelineRepo = timelineRepo;
+        _scoringConfig = scoringConfig;
+        _batchRepo = batchRepo;
+        _identityJobRepo = identityJobRepo;
         _operationTracker = operationTracker;
         _operationRepository = operationRepository;
         _mediaTypeResolver = mediaTypeResolver;
@@ -225,6 +228,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         _organizeStageDependencies = organizeStageDependencies;
         _writeBackStageDependencies = writeBackStageDependencies;
         _identityStageDependencies = identityStageDependencies;
+        _libraryFolderResolver = libraryFolderResolver;
         _ingestionStages =
         [
             new DelegateIngestionStage("settle/detect", RunSettleAndDetectStageAsync),
@@ -257,7 +261,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         {
             ActionType = Domain.Constants.SystemActionType.ServerStarted,
             EntityType = "Server",
-            Detail     = "Server started",
+            Detail = "Server started",
         }, stoppingToken).ConfigureAwait(false);
 
         // -- Step 2: Reconcile BEFORE scanning ----------------------------
@@ -277,22 +281,25 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         }
 
         // -- Step 3: Start watching + initial scan ------------------------
-        var watchDirectories = _options.EffectiveWatchDirectories;
-        if (watchDirectories.Count > 0)
+        var scanTargets = GetConfiguredScanTargets();
+        if (scanTargets.Count > 0)
         {
-            foreach (var watchDirectory in watchDirectories)
+            foreach (var target in scanTargets)
             {
                 try
                 {
-                    _watcher.AddDirectory(watchDirectory, _options.IncludeSubdirectories);
-                    _logger.LogInformation("Watching: {Path}", watchDirectory);
+                    _watcher.AddDirectory(target.Path, target.IncludeSubdirectories);
+                    _logger.LogInformation(
+                        "Watching: {Path} (recursive={Recursive})",
+                        target.Path,
+                        target.IncludeSubdirectories);
                 }
                 catch (DirectoryNotFoundException)
                 {
                     _logger.LogWarning(
                         "IngestionEngine: Watch directory does not exist: {Path}. " +
                         "Create the directory or update the path in Settings.",
-                        watchDirectory);
+                        target.Path);
                 }
             }
         }
@@ -314,9 +321,8 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         // them through the normal debounce ? hash ? duplicate-check ? process flow.
         // After reconciliation, orphaned records are cleaned, so files in the
         // watch folder are treated as genuinely new — no false duplicate skips.
-        var startupScanTargets = watchDirectories
-            .Where(Directory.Exists)
-            .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
+        var startupScanTargets = scanTargets
+            .Where(target => Directory.Exists(target.Path))
             .ToList();
         await ScanExistingFilesAsync(startupScanTargets, stoppingToken).ConfigureAwait(false);
 
@@ -325,7 +331,9 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         // periodically sweeps the Watch Folder and synthesises Created events for
         // files that the debounce queue hasn't seen yet.
         if (_options.PollIntervalSeconds > 0)
+        {
             TrackBackgroundTask(PollWatchDirectoryAsync(lifetimeToken), "watch-folder polling");
+        }
 
         // Consume candidates until the service is stopped.
         // If no watcher is active yet, this loop simply waits — new events will
@@ -355,7 +363,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         {
             ActionType = Domain.Constants.SystemActionType.ServerStopped,
             EntityType = "Server",
-            Detail     = "Ingestion engine stopped.",
+            Detail = "Ingestion engine stopped.",
         }, cancellationToken).ConfigureAwait(false);
 
         await base.StopAsync(cancellationToken).ConfigureAwait(false);
@@ -377,9 +385,8 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         // Re-scan the watch directory for files that were already present before
         // the watcher started.  This covers the post-wipe restart scenario where
         // files are seeded into the watch folder and then the engine is restarted.
-        var startupScanTargets = _options.EffectiveWatchDirectories
-            .Where(Directory.Exists)
-            .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
+        var startupScanTargets = GetConfiguredScanTargets()
+            .Where(target => Directory.Exists(target.Path))
             .ToList();
         TrackBackgroundTask(
             ScanExistingFilesAsync(startupScanTargets, LifetimeToken),
@@ -397,6 +404,18 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     /// <inheritdoc/>
     Task IIngestionEngine.ScanDirectories(IReadOnlyList<IngestionScanTarget> targets, CancellationToken ct)
         => ScanExistingFilesAsync(targets, ct);
+
+    private IReadOnlyList<IngestionScanTarget> GetConfiguredScanTargets() =>
+        _options.LibraryFolders
+            .Where(library => string.Equals(library.IntakeMode, "watch", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(library.Kind, LibraryKinds.Photos, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(library => library.EffectiveSourcePaths.Select(path =>
+                new IngestionScanTarget(path, library.IncludeSubdirectories)))
+            .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
+            .Select(group => new IngestionScanTarget(
+                group.Key,
+                group.Any(target => target.IncludeSubdirectories)))
+            .ToList();
 
     /// <inheritdoc/>
     async Task IIngestionEngine.PauseWatcherAsync(CancellationToken ct)

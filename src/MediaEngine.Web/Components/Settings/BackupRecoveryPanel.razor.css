@@ -1,0 +1,114 @@
+.backup-panel {
+    display: grid;
+    gap: 16px;
+    padding: 18px !important;
+}
+
+.backup-panel__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+}
+
+.backup-panel__eyebrow {
+    color: var(--settings-blue, #4f9dff) !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase;
+}
+
+.backup-panel__description {
+    max-width: 720px;
+    margin-top: 4px !important;
+    color: var(--settings-muted, rgba(220, 229, 255, 0.64)) !important;
+}
+
+.backup-panel__loading,
+.backup-panel__empty {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 76px;
+    padding: 14px;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.035);
+    color: rgba(232, 238, 255, 0.72);
+}
+
+.backup-panel__empty .mud-icon-root {
+    color: rgba(154, 109, 255, 0.78);
+    font-size: 30px;
+}
+
+.backup-list {
+    display: grid;
+    gap: 9px;
+}
+
+.backup-list__row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.backup-list__icon {
+    display: grid;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid rgba(154, 109, 255, 0.22);
+    border-radius: 12px;
+    color: #b89bff;
+    background: rgba(154, 109, 255, 0.10);
+}
+
+.backup-list__identity {
+    min-width: 0;
+}
+
+.backup-list__identity strong,
+.backup-list__identity small {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.backup-list__identity strong {
+    color: rgba(255, 255, 255, 0.94);
+    font-size: 14px;
+}
+
+.backup-list__identity small {
+    color: var(--settings-muted, rgba(220, 229, 255, 0.64));
+    font-size: 13px;
+}
+
+.backup-list__actions {
+    display: flex;
+    gap: 8px;
+}
+
+@media (max-width: 760px) {
+    .backup-panel__header {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .backup-list__row {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    .backup-list__actions {
+        grid-column: 2;
+        flex-wrap: wrap;
+    }
+}

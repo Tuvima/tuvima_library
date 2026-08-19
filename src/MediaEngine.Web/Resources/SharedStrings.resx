@@ -92,6 +92,9 @@
   <data name="Nav_Collections" xml:space="preserve">
     <value>Collections</value>
   </data>
+  <data name="Nav_Photos" xml:space="preserve">
+    <value>Photos</value>
+  </data>
   <data name="Nav_OpenNavigation" xml:space="preserve">
     <value>Open navigation</value>
   </data>

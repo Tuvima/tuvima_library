@@ -9,8 +9,6 @@ using MediaEngine.Api.Services.Display;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Api.Services.ReadServices;
 using MediaEngine.Contracts.Collections;
-using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
-using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
@@ -24,6 +22,8 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using static MediaEngine.Api.Services.Details.Internals.DetailPresentationPolicy;
+using SeriesManifestItemDto = MediaEngine.Domain.Models.SeriesManifestItemDto;
+using SeriesManifestViewDto = MediaEngine.Domain.Models.SeriesManifestViewDto;
 
 namespace MediaEngine.Api.Services.Details.Internals;
 
@@ -1201,16 +1201,9 @@ internal sealed partial class DetailCompositionOrchestrator
             };
         }
 
-        // Read/listen alignment plugs in here. Until alignment confidence exists, multi-format works default to separate progress.
-        return new ReadingListeningSyncCapabilityViewModel
-        {
-            State = SyncCapabilityState.NeedsReview,
-            Reason = "Sync needs review. We could not confidently align this ebook and audiobook yet.",
-            TextEditionId = ebook.Id,
-            AudioEditionId = audio.Id,
-            PreviewAction = new DetailAction { Key = "preview-sync", Label = "Preview Sync", Icon = "compare_arrows", Tooltip = "Preview Sync is coming soon", IsDisabled = true, IsStub = true },
-            EnableAction = new DetailAction { Key = "enable-sync", Label = "Enable Sync", Icon = "link", Tooltip = "Sync Progress is coming soon", IsDisabled = true, IsStub = true },
-        };
+        // Cross-format position alignment remains a post-beta capability. Do not
+        // expose disabled actions until an alignment can be previewed and saved.
+        return null;
     }
 
     private static DetailEntityType InferWorkEntityType(string mediaType, LibraryItemDetail detail)

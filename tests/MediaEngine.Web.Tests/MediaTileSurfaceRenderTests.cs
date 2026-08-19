@@ -11,7 +11,7 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class MediaTileSurfaceRenderTests : TestContext
+public sealed class MediaTileSurfaceRenderTests : AsyncBunitContext
 {
     private int _profileRequestCount;
     private int _managedCollectionRequestCount;
@@ -79,7 +79,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             ProgressPct = 42,
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Equal("Leviathan Wakes", cut.Find(".media-tile").GetAttribute("aria-label"));
         Assert.NotEmpty(cut.FindAll(".media-tile-image"));
@@ -121,7 +121,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             DetailsNavigationUrl = "/watch/movie/the-shining",
         };
 
-        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [movie]));
+        var cut = Render<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [movie]));
         var tile = cut.FindComponent<MediaTile>();
 
         Assert.Equal(MediaTileHoverMode.GlowOnly, tile.Instance.HoverMode);
@@ -152,7 +152,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             DetailsNavigationUrl = "/watch/movie/all-of-us-strangers",
         };
 
-        var cut = RenderComponent<MediaTileGrid>(parameters => parameters
+        var cut = Render<MediaTileGrid>(parameters => parameters
             .Add(component => component.Items, [movie])
             .Add(component => component.ShowCompactCaptions, true)
             .Add(component => component.TileSizePx, 168));
@@ -188,7 +188,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             },
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters
+        var cut = Render<MediaTile>(parameters => parameters
             .Add(component => component.Item, show)
             .Add(component => component.ShowCompactCaption, true));
 
@@ -211,7 +211,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             NavigationUrl = "/watch/tv/the-expanse",
         };
 
-        var cut = RenderComponent<MediaTileGrid>(parameters => parameters
+        var cut = Render<MediaTileGrid>(parameters => parameters
             .Add(component => component.Items, [show])
             .Add(component => component.HideGroupIndicators, true));
 
@@ -235,7 +235,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             NavigationUrl = details,
             DetailsNavigationUrl = details,
         };
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         var card = cut.Find("article.media-tile");
         var detailsLink = cut.Find("a.media-tile-media");
@@ -269,7 +269,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             HoverFacts = ["Image", "2012", "144 pages"],
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
         Assert.Empty(cut.FindAll(".media-tile-hover-identity-strip"));
         Assert.DoesNotContain("Image", cut.Markup);
         Assert.Empty(cut.FindAll(".media-tile-hover-panel"));
@@ -281,7 +281,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     {
         var first = CreateShelfItem("First");
         var second = CreateShelfItem("Second");
-        var cut = RenderComponent<MediaTileShelf>(parameters => parameters.Add(
+        var cut = Render<MediaTileShelf>(parameters => parameters.Add(
             component => component.Shelf,
             new MediaTileShelfViewModel
             {
@@ -292,7 +292,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var initialInstances = cut.FindComponents<MediaTile>()
             .ToDictionary(component => component.Instance.Item.Id, component => component.Instance);
 
-        cut.SetParametersAndRender(parameters => parameters.Add(
+        cut.Render(parameters => parameters.Add(
             component => component.Shelf,
             new MediaTileShelfViewModel
             {
@@ -313,7 +313,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
         var group = CreateGroupTile();
         var ordinary = CreateShelfItem("Ordinary title");
 
-        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(
+        var cut = Render<MediaTileGrid>(parameters => parameters.Add(
             component => component.Items,
             [group, ordinary]));
 
@@ -347,7 +347,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             NavigationUrl = "/watch/tv/show/owned",
         };
 
-        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(
+        var cut = Render<MediaTileGrid>(parameters => parameters.Add(
             component => component.Items,
             [collection, tvShow]));
 
@@ -361,7 +361,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     public void MediaTileGrid_UsesTheUnifiedRestedIdentityForGroupTiles()
     {
         var group = CreateGroupTile();
-        var cut = RenderComponent<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [group]));
+        var cut = Render<MediaTileGrid>(parameters => parameters.Add(component => component.Items, [group]));
         var renderedGroup = cut.FindComponent<MediaGroupTile>();
 
         Assert.Equal(MediaTileHoverMode.GlowOnly, renderedGroup.Instance.HoverMode);
@@ -374,7 +374,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     public void MediaGroupTile_RestedIdentityShowsYearSpanAndIconCounts()
     {
         var group = CreateGroupTile();
-        var cut = RenderComponent<MediaGroupTile>(parameters => parameters
+        var cut = Render<MediaGroupTile>(parameters => parameters
             .Add(component => component.Item, group)
             .Add(component => component.HoverMode, MediaTileHoverMode.GlowOnly));
 
@@ -400,7 +400,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     public void MediaGroupTile_IsOneArtworkLedLinkWithAStableHoverCue()
     {
         var group = CreateGroupTile();
-        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+        var cut = Render<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
         var root = cut.Find("article.media-group-tile");
 
         Assert.Contains(root.Attributes, attribute => attribute.Name.StartsWith("b-", StringComparison.Ordinal));
@@ -479,7 +479,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+        var cut = Render<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
 
         Assert.Contains("has-person", cut.Find("article.media-group-tile").ClassList);
         Assert.Equal($"/persons/{personId:D}/headshot", cut.Find(".media-group-tile__person img").GetAttribute("src"));
@@ -526,7 +526,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
+        var cut = Render<MediaGroupTile>(parameters => parameters.Add(component => component.Item, group));
 
         Assert.Contains("has-brand", cut.Find("article.media-group-tile").ClassList);
         Assert.Equal("/images/brands/hbo.svg", cut.Find(".media-group-tile__brand img").GetAttribute("src"));
@@ -569,7 +569,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<MediaGroupTile>(parameters => parameters.Add(component => component.Item, collection));
+        var cut = Render<MediaGroupTile>(parameters => parameters.Add(component => component.Item, collection));
         var sources = cut.FindAll(".media-artwork-group-preview__artwork")
             .Select(image => image.GetAttribute("src"))
             .ToList();
@@ -593,7 +593,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             })
             .ToList();
 
-        RenderComponent<MediaTileShelf>(parameters => parameters.Add(
+        Render<MediaTileShelf>(parameters => parameters.Add(
             component => component.Shelf,
             new MediaTileShelfViewModel
             {
@@ -629,7 +629,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PrimaryActionLabel = "Play",
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Empty(cut.FindAll(".media-tile-logo"));
         Assert.NotEmpty(cut.FindAll(".media-tile-hover-logo"));
@@ -744,7 +744,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.NotEmpty(cut.FindAll(".media-tile.is-portrait.is-ordered-series-card"));
         Assert.Equal(2, cut.Find(".media-tile-media").QuerySelectorAll(".media-artwork-group-preview__artwork").Length);
@@ -768,7 +768,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             new() { Id = "5", Title = "Five", ImageUrl = "/covers/5.jpg" },
         };
 
-        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+        var cut = Render<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
             .Add(component => component.Items, items)
             .Add(component => component.TotalCount, 7));
 
@@ -794,7 +794,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             })
             .ToList();
 
-        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+        var cut = Render<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
             .Add(component => component.Items, items)
             .Add(component => component.TotalCount, itemCount)
             .Add(component => component.Layout, MediaArtworkGroupPreviewLayout.Strip)
@@ -836,7 +836,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             })
             .ToList();
 
-        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+        var cut = Render<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
             .Add(component => component.Items, items)
             .Add(component => component.TotalCount, itemCount)
             .Add(component => component.Layout, MediaArtworkGroupPreviewLayout.Adaptive)
@@ -860,7 +860,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
     [Fact]
     public void MediaArtworkGroupPreview_AdaptiveKeepsMissingArtworkAsShapeAwareFallback()
     {
-        var cut = RenderComponent<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
+        var cut = Render<MediaEngine.Web.Components.Shared.MediaArtworkGroupPreview>(parameters => parameters
             .Add(component => component.Items, new List<ArtworkStackItem>
             {
                 new() { Id = "1", Title = "Missing book", ImageUrl = string.Empty, MediaType = "Book", Shape = ArtworkShape.Portrait },
@@ -894,7 +894,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PreviewTotalCount = 12,
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Contains("TV Show", cut.Find(".media-tile-group-kind").TextContent);
         Assert.Equal("12 episodes owned", cut.Find(".media-tile-group-count").GetAttribute("aria-label"));
@@ -920,7 +920,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PreviewTotalCount = 12,
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters
+        var cut = Render<MediaTile>(parameters => parameters
             .Add(component => component.Item, item)
             .Add(component => component.HideGroupKind, true));
 
@@ -948,7 +948,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PrimaryNavigationUrl = "/read/1",
             PrimaryActionLabel = "Read",
         };
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         cut.Find(".media-tile-media").Click();
         var nav = Services.GetRequiredService<NavigationManager>();
@@ -983,7 +983,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PrimaryActionLabel = mediaKind is "Book" or "Comic" ? "Read" : "Play",
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Empty(cut.FindAll("button"));
         cut.Find(".media-tile-media").Click();
@@ -1016,7 +1016,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PrimaryNavigationUrl = "/listen/music/songs",
             PrimaryActionLabel = "Play",
         };
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Empty(cut.FindAll("button"));
         cut.Find(".media-tile-media").Click();
@@ -1048,7 +1048,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             ProgressPct = 42,
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Empty(cut.FindAll("button"));
         Assert.Contains("is-cinematic-hover", cut.Find("article.media-tile").ClassList);
@@ -1079,7 +1079,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
             PrimaryActionLabel = "Play",
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Empty(cut.FindAll("button"));
         Assert.Contains("is-static-cover-hover", cut.Find("article.media-tile").ClassList);
@@ -1127,7 +1127,7 @@ public sealed class MediaTileSurfaceRenderTests : TestContext
                 .ToList(),
         };
 
-        var cut = RenderComponent<MediaTile>(parameters => parameters.Add(component => component.Item, item));
+        var cut = Render<MediaTile>(parameters => parameters.Add(component => component.Item, item));
 
         Assert.Contains("is-static-cover-hover", cut.Find("article.media-tile").ClassList);
         Assert.Empty(cut.FindAll(".media-tile-hover-panel"));

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Bunit;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Enums;
@@ -7,7 +8,6 @@ using MediaEngine.Web.Services.Integration;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
 using MudBlazor.Services;
-using System.Runtime.CompilerServices;
 
 namespace MediaEngine.Web.Tests;
 
@@ -1487,7 +1487,7 @@ public sealed class IngestionOperationsPageGuardrailTests
     }
 }
 
-public sealed class IngestionDashboardRenderTests : TestContext
+public sealed class IngestionDashboardRenderTests : AsyncBunitContext
 {
     public IngestionDashboardRenderTests()
     {
@@ -1495,7 +1495,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Services.AddMudServices();
         JSInterop.Mode = JSRuntimeMode.Loose;
         JSInterop.Setup<int>("mudpopoverHelper.countProviders").SetResult(1);
-        RenderComponent<MudPopoverProvider>();
+        Render<MudPopoverProvider>();
     }
 
     [Fact]
@@ -1547,7 +1547,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Equal(1, status.ExpectedReviewItems);
         Assert.Equal(3, status.UnexpectedReviewItems);
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 10, 0, 4))
@@ -1592,7 +1592,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Equal(0, status.ExpectedReviewItems);
         Assert.Equal(2, status.UnexpectedReviewItems);
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
@@ -1631,7 +1631,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         Assert.Equal(0, status.ExpectedReviewItems);
         Assert.Equal(0, status.UnexpectedReviewItems);
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
@@ -1695,7 +1695,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             DateTimeOffset.UtcNow,
             DateTimeOffset.UtcNow);
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Status, status)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 8, 0, 2))
@@ -1720,7 +1720,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 ActiveJobs = 1,
             },
         };
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(10, 4, 1, 0))
             .Add(component => component.OverallProgress, new IngestionOverallProgress(4, 10, 40, "Ingestion_StageRetailIdentification", "Ingestion_StageRetailIdentificationDetail", 4, 10, 40, null))
@@ -1810,7 +1810,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(97, 35, 1, 27))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
@@ -1880,7 +1880,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(97, 35, 0, 0))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 97))
@@ -1947,7 +1947,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(27, 27, 0, 15))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 27))
@@ -2042,7 +2042,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(131, 131, 0, 5))
             .Add(component => component.Stages, IngestionLiveDashboardState.BuildStages(snapshot, [], 131))
@@ -2100,7 +2100,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             ],
         };
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Subsection, "providers")
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(0, 0, 0, 0))
@@ -2123,7 +2123,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
         var batchId = Guid.Parse("83000000-0000-0000-0000-000000000001");
         var completedBatchId = Guid.Parse("84000000-0000-0000-0000-000000000001");
         var startedAt = new DateTimeOffset(2026, 6, 3, 20, 15, 0, TimeSpan.Zero);
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Subsection, "batches")
             .Add(component => component.Snapshot, new IngestionOperationsSnapshotDto
             {
@@ -2278,7 +2278,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
                 },
             ],
         };
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, snapshot)
             .Add(component => component.Metrics, new IngestionDashboardMetrics(50, 31, 1, 0))
             .Add(component => component.CurrentActivities, activities)
@@ -2320,7 +2320,7 @@ public sealed class IngestionDashboardRenderTests : TestContext
             },
         };
 
-        var cut = RenderComponent<IngestionLiveDashboard>(parameters => parameters
+        var cut = Render<IngestionLiveDashboard>(parameters => parameters
             .Add(component => component.Snapshot, new IngestionOperationsSnapshotDto
             {
                 Summary = new IngestionOperationsSummaryDto

@@ -1,8 +1,11 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "2.0",
   "libraries": [
     {
+      "id": "11111111-1111-4111-8111-111111111111",
       "category": "Books",
+      "kind": "catalogued",
+      "metadata_policy": "enriched",
       "media_types": ["Books"],
       "source_paths": ["C:\\temp\\tuvima-watch\\books"],
       "library_root": "C:\\temp\\tuvima-library",
@@ -13,7 +16,10 @@
       "notes": "Watch folder for Books. Subdirectories are watched to support series folder layouts."
     },
     {
+      "id": "22222222-2222-4222-8222-222222222222",
       "category": "Audiobooks",
+      "kind": "catalogued",
+      "metadata_policy": "enriched",
       "media_types": ["Audiobooks"],
       "source_paths": ["C:\\temp\\tuvima-watch\\audiobooks"],
       "library_root": "C:\\temp\\tuvima-library",
@@ -24,7 +30,10 @@
       "notes": "Watch folder for Audiobooks. Subdirectories are watched to support series folder layouts."
     },
     {
+      "id": "33333333-3333-4333-8333-333333333333",
       "category": "TV",
+      "kind": "catalogued",
+      "metadata_policy": "enriched",
       "media_types": ["TV"],
       "source_paths": ["C:\\temp\\tuvima-watch\\tv"],
       "library_root": "C:\\temp\\tuvima-library",
@@ -35,7 +44,10 @@
       "notes": "Watch folder for TV series. include_subdirectories true to pick up season subfolders."
     },
     {
+      "id": "44444444-4444-4444-8444-444444444444",
       "category": "Movies",
+      "kind": "catalogued",
+      "metadata_policy": "enriched",
       "media_types": ["Movies"],
       "source_paths": ["C:\\temp\\tuvima-watch\\movies"],
       "library_root": "C:\\temp\\tuvima-library",
@@ -46,7 +58,10 @@
       "notes": "Watch folder for movie files."
     },
     {
+      "id": "55555555-5555-4555-8555-555555555555",
       "category": "Music",
+      "kind": "catalogued",
+      "metadata_policy": "enriched",
       "media_types": ["Music"],
       "source_paths": ["C:\\temp\\tuvima-watch\\music"],
       "library_root": "C:\\temp\\tuvima-library",
@@ -57,7 +72,10 @@
       "notes": "Watch folder for music. include_subdirectories true to support album folder layouts."
     },
     {
+      "id": "66666666-6666-4666-8666-666666666666",
       "category": "Comics",
+      "kind": "catalogued",
+      "metadata_policy": "enriched",
       "media_types": ["Comics"],
       "source_paths": ["C:\\temp\\tuvima-watch\\comics"],
       "library_root": "C:\\temp\\tuvima-library",
@@ -68,15 +86,32 @@
       "notes": "Watch folder for comics and manga."
     },
     {
+      "id": "77777777-7777-4777-8777-777777777777",
       "category": "General",
+      "kind": "personal",
+      "metadata_policy": "local_only",
       "media_types": [],
       "source_paths": ["C:\\temp\\tuvima-watch\\general"],
       "library_root": "C:\\temp\\tuvima-library",
       "intake_mode": "watch",
       "include_subdirectories": false,
-      "read_only": false,
+      "read_only": true,
       "writeback_override": null,
-      "notes": "General library for media that cannot be categorized yet. Files here are scanned without a media type prior and go to Needs Review if confidence is low."
+      "notes": "Personal or unmatched media indexed from local file metadata without external identity matching."
+    },
+    {
+      "id": "88888888-8888-4888-8888-888888888888",
+      "category": "Photos",
+      "kind": "photos",
+      "metadata_policy": "local_only",
+      "media_types": [],
+      "source_paths": ["C:\\temp\\tuvima-watch\\photos"],
+      "library_root": "C:\\temp\\tuvima-library",
+      "intake_mode": "import",
+      "include_subdirectories": true,
+      "read_only": true,
+      "writeback_override": false,
+      "notes": "Local photo timeline indexed in place without provider or Wikidata matching."
     }
   ]
 }

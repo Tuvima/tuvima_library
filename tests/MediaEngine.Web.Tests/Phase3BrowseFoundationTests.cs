@@ -3,10 +3,10 @@ using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
 using MediaEngine.Web.Services.Integration.Clients;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Navigation;
 using MediaEngine.Web.Tests.Support;
 using Microsoft.AspNetCore.Components;
@@ -16,7 +16,7 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class Phase3BrowseFoundationTests : TestContext
+public sealed class Phase3BrowseFoundationTests : AsyncBunitContext
 {
     public Phase3BrowseFoundationTests()
     {

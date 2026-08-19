@@ -36,6 +36,12 @@ else
                        StartIcon="@Icons.Material.Outlined.PendingActions"
                        ButtonStyle="AppButtonStyle.Text"
                        Href="/settings/ingestion" />
+            <AppButton Label="New library"
+                       StartIcon="@Icons.Material.Outlined.CreateNewFolder"
+                       ButtonStyle="AppButtonStyle.Outlined"
+                       Tone="AppUiTone.Primary"
+                       Disabled="@(readOnly || _engineUnavailable)"
+                       OnClick="@AddCustomLibrary" />
             @if (readOnly)
             {
                 <AppChip Text="@L["Libraries_ViewOnly"].Value"
@@ -221,11 +227,30 @@ else
                                 <MudIcon Icon="@Icons.Material.Outlined.RuleFolder" Size="Size.Small" />
                                 <div>
                                     <h3>Destination Rules</h3>
-                                    <p>Control where accepted @MediaFileNoun(activeLibrary) files are stored and how file changes are handled.</p>
+                                    <p>Control where @MediaFileNoun(activeLibrary) files are stored and how file changes are handled.</p>
                                 </div>
                             </div>
 
                             <div class="file-org-rule-list">
+                                @if (activeLibrary.IsCustom)
+                                {
+                                    <div class="file-org-rule-row file-org-rule-row--stacked">
+                                        <div><strong>Library name</strong><span>Shown in Settings and used to identify this content source.</span></div>
+                                        <AppTextField Value="@activeLibrary.Label"
+                                                      ValueChanged="@((string? value) => RenameCustomLibrary(activeLibrary, value))"
+                                                      Placeholder="Home Videos"
+                                                      ReadOnly="@(readOnly || _engineUnavailable)" />
+                                    </div>
+                                    <div class="file-org-rule-row file-org-rule-row--stacked">
+                                        <div><strong>Metadata behavior</strong><span>@MetadataPolicyDescription(activeLibrary.MetadataPolicy)</span></div>
+                                        <AppSegmentedControl Options="@MetadataPolicyOptions"
+                                                             Value="@activeLibrary.MetadataPolicy"
+                                                             ValueChanged="@((string value) => SetMetadataPolicy(activeLibrary, value))"
+                                                             AriaLabel="Metadata behavior"
+                                                             Disabled="@(readOnly || _engineUnavailable)"
+                                                             Class="file-org-option-segments" />
+                                    </div>
+                                }
                                 <div class="file-org-rule-row">
                                     <div><strong>Storage location</strong><span>@PrimarySourcePath(activeLibrary)</span></div>
                                     <AppButton Label="Change" ButtonStyle="AppButtonStyle.Text" Size="AppControlSize.Compact"
@@ -299,6 +324,15 @@ else
                                        ButtonStyle="AppButtonStyle.Text"
                                        Disabled="@(_engineUnavailable || activeLibrary.SourcePaths.Count == 0)"
                                        OnClick="@(() => ScanLibraryAsync(activeLibrary))" />
+                            @if (activeLibrary.IsCustom)
+                            {
+                                <AppButton Label="Remove library"
+                                           StartIcon="@Icons.Material.Outlined.DeleteOutline"
+                                           ButtonStyle="AppButtonStyle.Text"
+                                           Tone="AppUiTone.Error"
+                                           Disabled="@(readOnly || _engineUnavailable)"
+                                           OnClick="@(() => RemoveCustomLibrary(activeLibrary))" />
+                            }
                         </section>
 
                         <section class="file-org-media-panel file-org-media-panel--preview" aria-label="Path preview">
@@ -395,6 +429,14 @@ else
         new("off", "Off", Icons.Material.Outlined.Block),
     ];
 
+    private static readonly IReadOnlyList<AppSelectOption> MetadataPolicyOptions =
+    [
+        new("enriched", "Online enriched", Icons.Material.Outlined.Public),
+        new("local_preferred", "Local preferred", Icons.Material.Outlined.Tune),
+        new("local_only", "Local only", Icons.Material.Outlined.CloudOff),
+        new("manual", "Manual", Icons.Material.Outlined.EditNote),
+    ];
+
     private static readonly BuiltInLibraryTab[] BuiltInTabs =
     [
         new("Books", "Books", "Books", Icons.Material.Outlined.MenuBook, ["Books"]),
@@ -403,6 +445,7 @@ else
         new("Music", "Music", "Music", Icons.Material.Outlined.LibraryMusic, ["Music"]),
         new("Audiobooks", "Audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones, ["Audiobooks"]),
         new("Comic", "Comics", "Comics", Icons.Material.Outlined.AutoStories, ["Comics", "Comic"]),
+        new("General", "General", "General", Icons.Material.Outlined.VideoLibrary, []),
     ];
 
     private string _defaultTemplate = DefaultOrganizationTemplate;
@@ -421,10 +464,7 @@ else
     private bool IsImportFoldersTab => _activeTabIndex == 0;
 
     private IReadOnlyList<LibraryEditorState> VisibleLibraryTabs =>
-        _libraryTabs
-            .Where(tab => BuiltInTabs.Any(builtIn =>
-                string.Equals(builtIn.TemplateKey, tab.Key, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
+        _libraryTabs;
 
     private LibraryEditorState? ActiveLibrary =>
         _activeTabIndex > 0 && _activeTabIndex - 1 < VisibleLibraryTabs.Count
@@ -497,6 +537,9 @@ else
         {
             tab.Key,
             tab.Label,
+            tab.Id,
+            tab.Kind,
+            tab.MetadataPolicy,
             tab.SourcePaths,
             tab.IncludeSubdirectories,
             tab.ReadOnly,
@@ -533,8 +576,10 @@ else
     }
 
     private static string FolderPanelDescription(LibraryEditorState library) =>
-        library.MediaTypes.Count == 0
-            ? "Add folders for media that cannot be categorized yet. Tuvima scans these folders and sends uncertain items to review."
+        library.MetadataPolicy is "local_only" or "manual"
+            ? "Add folders for personal or unmatched media. Tuvima reads local file details and does not contact identity or metadata providers."
+            : library.MediaTypes.Count == 0
+            ? "Add folders for media that cannot be categorized yet. Tuvima scans these folders and sends genuinely uncertain items to review."
             : $"Add folders that contain {MediaFileNoun(library)} files. Tuvima scans these folders and applies this library's naming and folder structure.";
 
     private static string MediaFileNoun(LibraryEditorState library) => library.Label switch
@@ -548,6 +593,58 @@ else
         "General" => "uncategorized media",
         _ => library.Label.ToLowerInvariant(),
     };
+
+    private static string MetadataPolicyDescription(string policy) => policy switch
+    {
+        "local_only" => "Use embedded tags and filenames only. No provider matching or online metadata requests.",
+        "manual" => "Create a local entry from the file and leave descriptive metadata for you to edit.",
+        "local_preferred" => "Prefer embedded metadata, then use online providers only to fill useful gaps.",
+        _ => "Match against enabled metadata providers and enrich the item automatically.",
+    };
+
+    private void AddCustomLibrary()
+    {
+        var number = 1;
+        string label;
+        do
+        {
+            label = number == 1 ? "Home Videos" : $"Custom Library {number}";
+            number++;
+        }
+        while (_libraryTabs.Any(tab => string.Equals(tab.Label, label, StringComparison.OrdinalIgnoreCase)));
+
+        var state = LibraryEditorState.CreateCustom(label);
+        _libraryTabs.Add(state);
+        _activeTabIndex = _libraryTabs.Count;
+    }
+
+    private void RenameCustomLibrary(LibraryEditorState library, string? value)
+    {
+        if (!library.IsCustom)
+            return;
+        library.Label = value?.Trim() ?? string.Empty;
+        library.ConfigCategory = library.Label;
+    }
+
+    private void SetMetadataPolicy(LibraryEditorState library, string value)
+    {
+        library.MetadataPolicy = value;
+        if (value is "local_only" or "manual")
+        {
+            library.Kind = "personal";
+            library.StructureMode = StructureModeNone;
+            library.ReadOnly = true;
+            library.WritebackOverride = false;
+        }
+    }
+
+    private void RemoveCustomLibrary(LibraryEditorState library)
+    {
+        if (!library.IsCustom)
+            return;
+        _libraryTabs.Remove(library);
+        _activeTabIndex = Math.Clamp(_activeTabIndex - 1, 0, _libraryTabs.Count);
+    }
 
     private async Task CheckInitialHealthAsync()
     {
@@ -974,9 +1071,15 @@ else
             .Where(library => library.IsExisting || library.SourcePaths.Any(path => !string.IsNullOrWhiteSpace(path)))
             .Select(library => new LibraryFolderDto
             {
+                Id = library.Id,
                 Name = library.ConfigCategory,
+                Kind = library.Kind,
+                MetadataPolicy = library.MetadataPolicy,
                 MediaTypes = [.. library.MediaTypes],
                 SourcePaths = [.. library.SourcePaths],
+                LibraryRoot = string.IsNullOrWhiteSpace(library.LibraryRoot)
+                    ? CleanPaths(library.SourcePaths).FirstOrDefault()
+                    : library.LibraryRoot,
                 IntakeMode = "watch",
                 IncludeSubdirectories = library.IncludeSubdirectories,
                 ReadOnly = library.ReadOnly,
@@ -1142,10 +1245,14 @@ else
 
     private sealed class LibraryEditorState
     {
+        public string Id { get; init; } = string.Empty;
         public string Key { get; init; } = string.Empty;
         public string TemplateKey { get; init; } = string.Empty;
-        public string Label { get; init; } = string.Empty;
-        public string ConfigCategory { get; init; } = string.Empty;
+        public string Label { get; set; } = string.Empty;
+        public string ConfigCategory { get; set; } = string.Empty;
+        public string Kind { get; set; } = "catalogued";
+        public string MetadataPolicy { get; set; } = "enriched";
+        public string LibraryRoot { get; set; } = string.Empty;
         public string Icon { get; init; } = Icons.Material.Outlined.Folder;
         public List<string> MediaTypes { get; init; } = [];
         public List<string> SourcePaths { get; set; } = [];
@@ -1154,16 +1261,21 @@ else
         public bool? WritebackOverride { get; set; }
         public string? Notes { get; init; }
         public bool IsExisting { get; set; }
+        public bool IsCustom { get; init; }
         public string StructureMode { get; set; } = StructureModeRecommended;
 
         public static LibraryEditorState From(BuiltInLibraryTab tab, LibraryFolderDto? source)
         {
             var state = new LibraryEditorState
             {
+                Id = source?.Id ?? Guid.NewGuid().ToString("D"),
                 Key = tab.TemplateKey,
                 TemplateKey = tab.TemplateKey,
                 Label = tab.Label,
                 ConfigCategory = tab.ConfigCategory,
+                Kind = source?.Kind ?? "catalogued",
+                MetadataPolicy = source?.MetadataPolicy ?? "enriched",
+                LibraryRoot = source?.LibraryRoot ?? string.Empty,
                 Icon = tab.Icon,
                 MediaTypes = source?.MediaTypes.Count > 0 ? [.. source.MediaTypes] : [.. tab.MediaTypes],
                 SourcePaths = [.. (source?.GetEffectiveSourcePaths() ?? [])],
@@ -1173,7 +1285,9 @@ else
                 Notes = source?.Notes,
                 IsExisting = source is not null,
             };
-            state.StructureMode = state.ReadOnly ? StructureModeNone : StructureModeRecommended;
+            state.StructureMode = state.ReadOnly || state.MetadataPolicy is "local_only" or "manual"
+                ? StructureModeNone
+                : StructureModeRecommended;
             if (state.StructureMode == StructureModeNone)
                 state.WritebackOverride = false;
             return state;
@@ -1184,10 +1298,14 @@ else
             var label = string.IsNullOrWhiteSpace(source.Name) ? "Custom" : source.Name;
             var state = new LibraryEditorState
             {
+                Id = source.Id,
                 Key = label,
                 TemplateKey = label,
                 Label = label,
                 ConfigCategory = label,
+                Kind = source.Kind,
+                MetadataPolicy = source.MetadataPolicy,
+                LibraryRoot = source.LibraryRoot ?? string.Empty,
                 Icon = Icons.Material.Outlined.Folder,
                 MediaTypes = [.. source.MediaTypes],
                 SourcePaths = [.. source.GetEffectiveSourcePaths()],
@@ -1196,11 +1314,30 @@ else
                 WritebackOverride = source.WritebackOverride,
                 Notes = source.Notes,
                 IsExisting = true,
+                IsCustom = true,
             };
             state.StructureMode = state.ReadOnly ? StructureModeNone : StructureModeRecommended;
             if (state.StructureMode == StructureModeNone)
                 state.WritebackOverride = false;
             return state;
         }
+
+        public static LibraryEditorState CreateCustom(string label) => new()
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            Key = Guid.NewGuid().ToString("N"),
+            TemplateKey = label,
+            Label = label,
+            ConfigCategory = label,
+            Kind = "personal",
+            MetadataPolicy = "local_only",
+            IncludeSubdirectories = true,
+            ReadOnly = true,
+            WritebackOverride = false,
+            IsExisting = false,
+            IsCustom = true,
+            StructureMode = StructureModeNone,
+            Notes = "Personal media indexed from local metadata without external matching.",
+        };
     }
 }

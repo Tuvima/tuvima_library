@@ -2,9 +2,9 @@ using MediaEngine.Api.Http;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Domain;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
-using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
@@ -13,43 +13,43 @@ using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
+using AuthSettingsDto = MediaEngine.Contracts.Settings.AuthSettingsDto;
+using BrowseDirectoryRequest = MediaEngine.Contracts.Settings.BrowseDirectoryRequest;
+using BrowseDirectoryResponse = MediaEngine.Contracts.Settings.BrowseDirectoryResultDto;
+using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
+using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
+using FieldMappingResponse = MediaEngine.Contracts.Settings.FieldMappingDto;
+using FolderSettingsResponse = MediaEngine.Contracts.Settings.FolderSettingsDto;
+using HydrationSettingsDto = MediaEngine.Contracts.Settings.HydrationSettingsDto;
+using LibraryFolderSettingsDto = MediaEngine.Contracts.Settings.LibraryFolderDto;
+using MediaTypeConfigurationDto = MediaEngine.Contracts.Settings.MediaTypeConfigurationDto;
+using MediaTypeDefinitionDto = MediaEngine.Contracts.Settings.MediaTypeDefinitionDto;
+using OrganizationTemplateResponse = MediaEngine.Contracts.Settings.OrganizationTemplateDto;
+using ProviderConfigUpdateRequest = MediaEngine.Contracts.Settings.ProviderConfigUpdateDto;
+using ProviderHealthRecord = MediaEngine.Domain.Entities.ProviderHealthRecord;
 // Explicit aliases (not a blanket `using MediaEngine.Contracts.Settings;`) because that
 // namespace and MediaEngine.Domain.Configuration (imported above) both declare
 // TranscodingSettings / PipelineConfiguration / LibraryPreferencesSettings — a wildcard
 // import would make every unqualified use of those pre-existing names ambiguous (CS0104).
 using ProviderHealthStatusResponse = MediaEngine.Contracts.Settings.ProviderHealthStatusResponse;
-using ProviderPriorityOrderResponse = MediaEngine.Contracts.Settings.ProviderPriorityOrderResponse;
-using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
 using ProviderIconPathResponse = MediaEngine.Contracts.Settings.ProviderIconPathResponse;
-using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCatalogEntryResponse;
-using AuthSettingsDto = MediaEngine.Contracts.Settings.AuthSettingsDto;
-using BrowseDirectoryRequest = MediaEngine.Contracts.Settings.BrowseDirectoryRequest;
-using BrowseDirectoryResponse = MediaEngine.Contracts.Settings.BrowseDirectoryResultDto;
-using FolderSettingsResponse = MediaEngine.Contracts.Settings.FolderSettingsDto;
-using LibraryFolderSettingsDto = MediaEngine.Contracts.Settings.LibraryFolderDto;
-using OrganizationTemplateResponse = MediaEngine.Contracts.Settings.OrganizationTemplateDto;
-using ServerGeneralRequest = MediaEngine.Contracts.Settings.ServerGeneralSettingsDto;
-using ServerGeneralResponse = MediaEngine.Contracts.Settings.ServerGeneralSettingsDto;
-using TestPathRequest = MediaEngine.Contracts.Settings.TestPathRequest;
-using TestPathResponse = MediaEngine.Contracts.Settings.PathTestResultDto;
-using UpdateFoldersRequest = MediaEngine.Contracts.Settings.FolderSettingsDto;
-using UpdateLibrariesRequest = MediaEngine.Contracts.Settings.UpdateLibrariesRequest;
-using UpdateOrganizationTemplateRequest = MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest;
-using FieldMappingResponse = MediaEngine.Contracts.Settings.FieldMappingDto;
-using ProviderConfigUpdateRequest = MediaEngine.Contracts.Settings.ProviderConfigUpdateDto;
+using ProviderPriorityOrderResponse = MediaEngine.Contracts.Settings.ProviderPriorityOrderResponse;
 using ProviderPriorityRequest = MediaEngine.Contracts.Settings.ProviderPriorityRequest;
 using ProviderSampleClaim = MediaEngine.Contracts.Settings.ProviderSampleClaimDto;
 using ProviderSampleRequest = MediaEngine.Contracts.Settings.ProviderSampleRequest;
 using ProviderSampleResponse = MediaEngine.Contracts.Settings.ProviderSampleResultDto;
 using ProviderStatusResponse = MediaEngine.Contracts.Settings.ProviderStatusDto;
 using ProviderTestResponse = MediaEngine.Contracts.Settings.ProviderTestResultDto;
+using ServerGeneralRequest = MediaEngine.Contracts.Settings.ServerGeneralSettingsDto;
+using ServerGeneralResponse = MediaEngine.Contracts.Settings.ServerGeneralSettingsDto;
+using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCatalogEntryResponse;
+using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
+using TestPathRequest = MediaEngine.Contracts.Settings.TestPathRequest;
+using TestPathResponse = MediaEngine.Contracts.Settings.PathTestResultDto;
+using UpdateFoldersRequest = MediaEngine.Contracts.Settings.FolderSettingsDto;
+using UpdateLibrariesRequest = MediaEngine.Contracts.Settings.UpdateLibrariesRequest;
+using UpdateOrganizationTemplateRequest = MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest;
 using UpdateProviderRequest = MediaEngine.Contracts.Settings.UpdateProviderRequest;
-using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
-using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
-using HydrationSettingsDto = MediaEngine.Contracts.Settings.HydrationSettingsDto;
-using MediaTypeConfigurationDto = MediaEngine.Contracts.Settings.MediaTypeConfigurationDto;
-using MediaTypeDefinitionDto = MediaEngine.Contracts.Settings.MediaTypeDefinitionDto;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -77,27 +77,27 @@ public static class SettingsEndpoints
     private static readonly IReadOnlyDictionary<string, string> _displayNames =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["apple_api"]                = "Apple API",
+            ["apple_api"] = "Apple API",
             // audnexus removed - config file deleted as part of SPARQL cleanup
-            ["wikidata"]                 = "Wikidata",
-            ["wikidata_reconciliation"]  = "Wikidata",
-            ["local_filesystem"]         = "Local Filesystem",
-            ["open_library"]             = "Open Library",
-            ["tmdb"]                     = "TMDB",
-            ["musicbrainz"]              = "MusicBrainz",
-            ["fanart_tv"]                = "Fanart.tv",
+            ["wikidata"] = "Wikidata",
+            ["wikidata_reconciliation"] = "Wikidata",
+            ["local_filesystem"] = "Local Filesystem",
+            ["open_library"] = "Open Library",
+            ["tmdb"] = "TMDB",
+            ["musicbrainz"] = "MusicBrainz",
+            ["fanart_tv"] = "Fanart.tv",
         };
 
     // Maps provider name → key in manifest.ProviderEndpoints for the reachability probe.
     private static readonly IReadOnlyDictionary<string, string> _endpointKeys =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            ["apple_api"]             = "apple_api",
+            ["apple_api"] = "apple_api",
             // audnexus removed - config file deleted as part of SPARQL cleanup
-            ["wikidata"]              = "wikidata_api",
-            ["open_library"]          = "open_library",
-            ["tmdb"]                  = "tmdb",
-            ["musicbrainz"]           = "musicbrainz",
+            ["wikidata"] = "wikidata_api",
+            ["open_library"] = "open_library",
+            ["tmdb"] = "tmdb",
+            ["musicbrainz"] = "musicbrainz",
         };
 
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
@@ -182,7 +182,7 @@ public static class SettingsEndpoints
         grp.MapPut("/folders", (
             UpdateFoldersRequest request,
             IConfigurationLoader configLoader,
-            ILoggerFactory       loggerFactory) =>
+            ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("MediaEngine.Api.Endpoints.SettingsEndpoints");
 
@@ -197,7 +197,9 @@ public static class SettingsEndpoints
                 {
                     var err = PathValidator.Validate(watchDirectory);
                     if (err is not null)
+                    {
                         return ApiErrors.BadRequest(err);
+                    }
                 }
             }
             var core = configLoader.LoadCore();
@@ -211,7 +213,9 @@ public static class SettingsEndpoints
                     "library folder",
                     libraries.Libraries.SelectMany(EffectiveSourcePaths));
                 if (overlapError is not null)
+                {
                     return ApiErrors.BadRequest(overlapError);
+                }
             }
 
             if (requestedWatchDirectories is not null)
@@ -251,26 +255,55 @@ public static class SettingsEndpoints
         grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>
         {
             if (request.Libraries.Count == 0)
+            {
                 return ApiErrors.BadRequest("At least one library is required.");
+            }
 
             var mappedLibraries = new List<LibraryFolderConfig>(request.Libraries.Count);
             var overlapEntries = new List<LibraryFolderEntry>(request.Libraries.Count);
+            var seenIds = new HashSet<Guid>();
 
             foreach (var library in request.Libraries)
             {
                 var category = library.Name.Trim();
                 if (string.IsNullOrWhiteSpace(category))
+                {
                     return ApiErrors.BadRequest("Library name cannot be empty.");
+                }
+
+                if (!Guid.TryParse(library.Id, out var libraryId) || libraryId == Guid.Empty)
+                {
+                    return ApiErrors.BadRequest($"Library '{category}' must have a stable non-empty GUID id.");
+                }
+
+                if (!seenIds.Add(libraryId))
+                {
+                    return ApiErrors.BadRequest($"Library id '{library.Id}' is duplicated.");
+                }
+
+                if (!LibraryKinds.IsValid(library.Kind))
+                {
+                    return ApiErrors.BadRequest($"Library '{category}' has unsupported kind '{library.Kind}'.");
+                }
+
+                if (!LibraryMetadataPolicies.IsValid(library.MetadataPolicy))
+                {
+                    return ApiErrors.BadRequest($"Library '{category}' has unsupported metadata policy '{library.MetadataPolicy}'.");
+                }
 
                 var sourcePaths = CleanPaths(library.SourcePaths);
                 if (sourcePaths.Count == 0)
+                {
                     return ApiErrors.BadRequest($"Library '{category}' must include at least one source path.");
+                }
 
                 foreach (var sourcePath in sourcePaths)
                 {
                     var err = PathValidator.Validate(sourcePath);
                     if (err is not null)
+                    {
                         return ApiErrors.BadRequest(err);
+                    }
                 }
 
                 var mediaTypes = library.MediaTypes
@@ -281,7 +314,10 @@ public static class SettingsEndpoints
 
                 var config = new LibraryFolderConfig
                 {
+                    Id = libraryId.ToString("D"),
                     Category = category,
+                    Kind = library.Kind,
+                    MetadataPolicy = library.MetadataPolicy,
                     MediaTypes = mediaTypes,
                     SourcePaths = sourcePaths,
                     LibraryRoot = library.LibraryRoot ?? string.Empty,
@@ -295,6 +331,7 @@ public static class SettingsEndpoints
                 mappedLibraries.Add(config);
                 overlapEntries.Add(new LibraryFolderEntry
                 {
+                    Id = libraryId.ToString("D"),
                     SourcePaths = sourcePaths,
                 });
             }
@@ -316,7 +353,9 @@ public static class SettingsEndpoints
                 "library folder",
                 mappedLibraries.SelectMany(EffectiveSourcePaths));
             if (importOverlapError is not null)
+            {
                 return ApiErrors.BadRequest(importOverlapError);
+            }
 
             current.Libraries = mappedLibraries;
             configLoader.SaveLibraries(current);
@@ -333,15 +372,17 @@ public static class SettingsEndpoints
 
         grp.MapPost("/test-path", (TestPathRequest request) =>
         {
-            var path   = request.Path ?? string.Empty;
+            var path = request.Path ?? string.Empty;
 
             // Path traversal validation.
             var pathError = PathValidator.Validate(path);
             if (pathError is not null)
+            {
                 return ApiErrors.BadRequest(pathError);
+            }
 
             var exists = Directory.Exists(path);
-            bool hasRead  = false;
+            bool hasRead = false;
             bool hasWrite = false;
 
             if (exists)
@@ -368,9 +409,9 @@ public static class SettingsEndpoints
 
             return Results.Ok(new TestPathResponse
             {
-                Path     = path,
-                Exists   = exists,
-                HasRead  = hasRead,
+                Path = path,
+                Exists = exists,
+                HasRead = hasRead,
                 HasWrite = hasWrite,
             });
         })
@@ -397,7 +438,7 @@ public static class SettingsEndpoints
                 return Results.Ok(new BrowseDirectoryResponse
                 {
                     CurrentPath = string.Empty,
-                    ParentPath  = null,
+                    ParentPath = null,
                     Directories = drives,
                 });
             }
@@ -405,15 +446,19 @@ public static class SettingsEndpoints
             // Path traversal validation.
             var pathError = PathValidator.Validate(path);
             if (pathError is not null)
+            {
                 return ApiErrors.BadRequest(pathError);
+            }
 
             if (!Directory.Exists(path))
+            {
                 return Results.Ok(new BrowseDirectoryResponse
                 {
                     CurrentPath = path,
-                    ParentPath  = Path.GetDirectoryName(path),
+                    ParentPath = Path.GetDirectoryName(path),
                     Directories = [],
                 });
+            }
 
             List<string> dirs;
             try
@@ -433,7 +478,7 @@ public static class SettingsEndpoints
             return Results.Ok(new BrowseDirectoryResponse
             {
                 CurrentPath = path,
-                ParentPath  = Path.GetDirectoryName(path),
+                ParentPath = Path.GetDirectoryName(path),
                 Directories = dirs,
             });
         })
@@ -470,14 +515,16 @@ public static class SettingsEndpoints
         // ── PUT /settings/providers/{name} ───────────────────────────────────────
 
         grp.MapPut("/providers/{name}", (
-            string               name,
+            string name,
             UpdateProviderRequest request,
             IConfigurationLoader configLoader) =>
         {
             var provider = configLoader.LoadProvider(name);
 
             if (provider is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' not found.");
+            }
 
             provider.Enabled = request.Enabled;
             configLoader.SaveProvider(provider);
@@ -497,7 +544,7 @@ public static class SettingsEndpoints
         grp.MapGet("/providers", async (
             IConfigurationLoader configLoader,
             IProviderHealthRepository healthRepo,
-            CancellationToken    ct) =>
+            CancellationToken ct) =>
         {
             var providers = configLoader.LoadAllProviders();
 
@@ -530,9 +577,9 @@ public static class SettingsEndpoints
         // ── GET /settings/organization-template ───────────────────────────────────
 
         grp.MapGet("/organization-template", (
-            IConfigurationLoader                          configLoader,
+            IConfigurationLoader configLoader,
             Microsoft.Extensions.Options.IOptions<MediaEngine.Ingestion.Models.IngestionOptions> ingestionOpts,
-            IFileOrganizer                                organizer) =>
+            IFileOrganizer organizer) =>
         {
             var core = configLoader.LoadCore();
             string template = !string.IsNullOrWhiteSpace(core.OrganizationTemplate)
@@ -543,8 +590,8 @@ public static class SettingsEndpoints
 
             return Results.Ok(new OrganizationTemplateResponse
             {
-                Template  = template,
-                Preview   = preview,
+                Template = template,
+                Preview = preview,
                 Templates = core.OrganizationTemplates,
             });
         })
@@ -557,30 +604,40 @@ public static class SettingsEndpoints
 
         grp.MapPost("/organization-template/preview", (
             UpdateOrganizationTemplateRequest request,
-            IFileOrganizer                    organizer) =>
+            IFileOrganizer organizer) =>
         {
             if (string.IsNullOrWhiteSpace(request.Template))
+            {
                 return ApiErrors.BadRequest("Template cannot be empty.");
+            }
 
             string? preview = organizer.ValidateTemplate(request.Template, out var error);
             if (preview is null)
+            {
                 return ApiErrors.BadRequest(error ?? "Invalid template.");
+            }
 
             if (request.Templates is not null)
             {
                 foreach (var (key, tmpl) in request.Templates)
                 {
-                    if (string.IsNullOrWhiteSpace(tmpl)) continue;
+                    if (string.IsNullOrWhiteSpace(tmpl))
+                    {
+                        continue;
+                    }
+
                     string? typePreview = organizer.ValidateTemplate(tmpl, out var typeError);
                     if (typePreview is null)
+                    {
                         return ApiErrors.BadRequest($"Invalid template for '{key}': {typeError}");
+                    }
                 }
             }
 
             return Results.Ok(new OrganizationTemplateResponse
             {
-                Template  = request.Template,
-                Preview   = preview,
+                Template = request.Template,
+                Preview = preview,
                 Templates = request.Templates is null
                     ? new Dictionary<string, string>()
                     : new Dictionary<string, string>(request.Templates, StringComparer.OrdinalIgnoreCase),
@@ -594,38 +651,51 @@ public static class SettingsEndpoints
 
         grp.MapPut("/organization-template", (
             UpdateOrganizationTemplateRequest request,
-            IConfigurationLoader              configLoader,
-            IFileOrganizer                    organizer) =>
+            IConfigurationLoader configLoader,
+            IFileOrganizer organizer) =>
         {
             if (string.IsNullOrWhiteSpace(request.Template))
+            {
                 return ApiErrors.BadRequest("Template cannot be empty.");
+            }
 
             string? preview = organizer.ValidateTemplate(request.Template, out var error);
             if (preview is null)
+            {
                 return ApiErrors.BadRequest(error ?? "Invalid template.");
+            }
 
             // Validate per-media-type templates if provided.
             if (request.Templates is not null)
             {
                 foreach (var (key, tmpl) in request.Templates)
                 {
-                    if (string.IsNullOrWhiteSpace(tmpl)) continue;
+                    if (string.IsNullOrWhiteSpace(tmpl))
+                    {
+                        continue;
+                    }
+
                     string? typePreview = organizer.ValidateTemplate(tmpl, out var typeError);
                     if (typePreview is null)
+                    {
                         return ApiErrors.BadRequest($"Invalid template for '{key}': {typeError}");
+                    }
                 }
             }
 
             var core = configLoader.LoadCore();
             core.OrganizationTemplate = request.Template;
             if (request.Templates is not null)
+            {
                 core.OrganizationTemplates = new Dictionary<string, string>(request.Templates, StringComparer.OrdinalIgnoreCase);
+            }
+
             configLoader.SaveCore(core);
 
             return Results.Ok(new OrganizationTemplateResponse
             {
-                Template  = request.Template,
-                Preview   = preview,
+                Template = request.Template,
+                Preview = preview,
                 Templates = core.OrganizationTemplates,
             });
         })
@@ -640,23 +710,25 @@ public static class SettingsEndpoints
         // returning success/failure, response time, and sample fields.
 
         grp.MapPost("/providers/{name}/test", async (
-            string                                          name,
-            IConfigurationLoader                            configLoader,
-            IEnumerable<IExternalMetadataProvider>           providers,
-            CancellationToken                                ct) =>
+            string name,
+            IConfigurationLoader configLoader,
+            IEnumerable<IExternalMetadataProvider> providers,
+            CancellationToken ct) =>
         {
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' not found.");
+            }
 
             if (!ProviderExecutionFilter.IsEnabled(name, [providerConfig]))
             {
                 return Results.Ok(new ProviderTestResponse
                 {
-                    Success        = false,
+                    Success = false,
                     ResponseTimeMs = 0,
-                    SampleFields   = [],
-                    Message        = "Provider disabled. Enable it before running live tests.",
+                    SampleFields = [],
+                    Message = "Provider disabled. Enable it before running live tests.",
                 });
             }
 
@@ -665,7 +737,9 @@ public static class SettingsEndpoints
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
             if (adapter is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration.");
+            }
 
             // Build a test request with domain-appropriate test data.
             var baseUrl = GetBaseUrlForProvider(providerConfig);
@@ -675,10 +749,10 @@ public static class SettingsEndpoints
             var (testMediaType, testTitle, testAuthor, testIsbn, testAsin) = providerConfig.Domain switch
             {
                 ProviderDomain.Audiobook => (MediaType.Audiobooks, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B0099ELYMS"),
-                ProviderDomain.Video     => (MediaType.Movies, "The Lord of the Rings: The Fellowship of the Ring", "Peter Jackson", (string?)null, (string?)null),
-                ProviderDomain.Comic     => (MediaType.Comics, "Batman", "DC Comics", (string?)null, (string?)null),
-                ProviderDomain.Music     => (MediaType.Music, "Abbey Road", "The Beatles", (string?)null, (string?)null),
-                _                        => (MediaType.Books, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B007978NPG"),
+                ProviderDomain.Video => (MediaType.Movies, "The Lord of the Rings: The Fellowship of the Ring", "Peter Jackson", (string?)null, (string?)null),
+                ProviderDomain.Comic => (MediaType.Comics, "Batman", "DC Comics", (string?)null, (string?)null),
+                ProviderDomain.Music => (MediaType.Music, "Abbey Road", "The Beatles", (string?)null, (string?)null),
+                _ => (MediaType.Books, "The Fellowship of the Ring", "J.R.R. Tolkien", "9780547928210", "B007978NPG"),
             };
             var core = configLoader.LoadCore();
             var language = ResolveMetadataLanguage(core);
@@ -686,17 +760,17 @@ public static class SettingsEndpoints
 
             var testRequest = new ProviderLookupRequest
             {
-                EntityId    = Guid.NewGuid(),
-                EntityType  = EntityType.Work,
-                MediaType   = testMediaType,
-                Title       = testTitle,
-                Author      = testAuthor,
-                Isbn        = testIsbn,
-                Asin        = testAsin,
-                BaseUrl     = baseUrl ?? string.Empty,
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.Work,
+                MediaType = testMediaType,
+                Title = testTitle,
+                Author = testAuthor,
+                Isbn = testIsbn,
+                Asin = testAsin,
+                BaseUrl = baseUrl ?? string.Empty,
                 SparqlBaseUrl = sparqlUrl,
-                Language    = language,
-                Country     = country,
+                Language = language,
+                Country = country,
             };
 
             var sw = System.Diagnostics.Stopwatch.StartNew();
@@ -709,10 +783,10 @@ public static class SettingsEndpoints
             {
                 return Results.Ok(new ProviderTestResponse
                 {
-                    Success        = false,
+                    Success = false,
                     ResponseTimeMs = (int)sw.ElapsedMilliseconds,
-                    SampleFields   = [],
-                    Message        = $"Test failed: {ex.Message}",
+                    SampleFields = [],
+                    Message = $"Test failed: {ex.Message}",
                 });
             }
             sw.Stop();
@@ -724,18 +798,24 @@ public static class SettingsEndpoints
 
             string message;
             if (claims.Count > 0)
+            {
                 message = $"Success — {claims.Count} claims returned in {sw.ElapsedMilliseconds}ms.";
+            }
             else if (isWikidata)
+            {
                 message = $"Connection verified ({sw.ElapsedMilliseconds}ms). No claims matched the test title — this is normal. Wikidata lookups depend on bridge identifiers from other providers.";
+            }
             else
+            {
                 message = "Test returned zero claims. The provider may be unreachable or the test title was not found.";
+            }
 
             return Results.Ok(new ProviderTestResponse
             {
-                Success        = success,
+                Success = success,
                 ResponseTimeMs = (int)sw.ElapsedMilliseconds,
-                SampleFields   = claims.Select(c => c.Key).Distinct().ToList(),
-                Message        = message,
+                SampleFields = claims.Select(c => c.Key).Distinct().ToList(),
+                Message = message,
             });
         })
         .WithName("TestProvider")
@@ -749,23 +829,25 @@ public static class SettingsEndpoints
         // Returns the full claim list for property picker UI.
 
         grp.MapPost("/providers/{name}/sample", async (
-            string                                          name,
-            ProviderSampleRequest                           request,
-            IConfigurationLoader                            configLoader,
-            IEnumerable<IExternalMetadataProvider>           providers,
-            CancellationToken                                ct) =>
+            string name,
+            ProviderSampleRequest request,
+            IConfigurationLoader configLoader,
+            IEnumerable<IExternalMetadataProvider> providers,
+            CancellationToken ct) =>
         {
             var providerConfig = configLoader.LoadProvider(name);
             if (providerConfig is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' not found.");
+            }
 
             if (!ProviderExecutionFilter.IsEnabled(name, [providerConfig]))
             {
                 return Results.Ok(new ProviderSampleResponse
                 {
                     ProviderName = name,
-                    Message      = "Provider disabled. Enable it before fetching sample claims.",
-                    Claims       = [],
+                    Message = "Provider disabled. Enable it before fetching sample claims.",
+                    Claims = [],
                 });
             }
 
@@ -774,7 +856,9 @@ public static class SettingsEndpoints
                 string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
 
             if (adapter is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' is configured but not registered. Restart the Engine after changing provider configuration.");
+            }
 
             var baseUrl = GetBaseUrlForProvider(providerConfig);
             var sparqlUrl = providerConfig.Endpoints.TryGetValue("wikidata_sparql", out var sp) ? sp : null;
@@ -791,17 +875,17 @@ public static class SettingsEndpoints
 
             var lookup = new ProviderLookupRequest
             {
-                EntityId      = Guid.NewGuid(),
-                EntityType    = EntityType.Work,
-                MediaType     = mediaType,
-                Title         = request.Title ?? "The Fellowship of the Ring",
-                Author        = request.Author,
-                Isbn          = request.Isbn,
-                Asin          = request.Asin,
-                BaseUrl       = baseUrl ?? string.Empty,
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.Work,
+                MediaType = mediaType,
+                Title = request.Title ?? "The Fellowship of the Ring",
+                Author = request.Author,
+                Isbn = request.Isbn,
+                Asin = request.Asin,
+                BaseUrl = baseUrl ?? string.Empty,
                 SparqlBaseUrl = sparqlUrl,
-                Language      = language,
-                Country       = country,
+                Language = language,
+                Country = country,
             };
 
             var claims = await adapter.FetchAsync(lookup, ct);
@@ -809,10 +893,10 @@ public static class SettingsEndpoints
             return Results.Ok(new ProviderSampleResponse
             {
                 ProviderName = name,
-                Claims       = claims.Select(c => new ProviderSampleClaim
+                Claims = claims.Select(c => new ProviderSampleClaim
                 {
-                    Key        = c.Key,
-                    Value      = c.Value.Length > 500 ? c.Value[..500] + "…" : c.Value,
+                    Key = c.Key,
+                    Value = c.Value.Length > 500 ? c.Value[..500] + "…" : c.Value,
                     Confidence = c.Confidence,
                 }).ToList(),
             });
@@ -827,13 +911,15 @@ public static class SettingsEndpoints
         // Saves the full provider configuration (endpoints, weights, throttle, etc.)
 
         grp.MapPut("/providers/{name}/config", (
-            string                     name,
+            string name,
             ProviderConfigUpdateRequest request,
-            IConfigurationLoader       configLoader) =>
+            IConfigurationLoader configLoader) =>
         {
             var existing = configLoader.LoadProvider(name);
             if (existing is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' not found.");
+            }
 
             string? normalizedLanguageStrategy = null;
             if (request.LanguageStrategy is not null
@@ -844,24 +930,46 @@ public static class SettingsEndpoints
 
             // Update mutable fields.
             if (request.Enabled.HasValue)
+            {
                 existing.Enabled = request.Enabled.Value;
+            }
+
             if (request.Weight.HasValue)
+            {
                 existing.Weight = Math.Clamp(request.Weight.Value, 0.0, 1.0);
+            }
+
             if (request.FieldWeights is not null)
+            {
                 existing.FieldWeights = request.FieldWeights;
+            }
+
             if (request.ThrottleMs.HasValue)
+            {
                 existing.ThrottleMs = Math.Max(0, request.ThrottleMs.Value);
+            }
+
             if (request.MaxConcurrency.HasValue)
+            {
                 existing.MaxConcurrency = Math.Max(1, request.MaxConcurrency.Value);
+            }
+
             if (request.Endpoints is not null)
             {
                 foreach (var (key, url) in request.Endpoints)
+                {
                     existing.Endpoints[key] = url;
+                }
             }
             if (request.CapabilityTags is not null)
+            {
                 existing.CapabilityTags = request.CapabilityTags;
+            }
+
             if (request.LanguageStrategy is not null)
+            {
                 existing.LanguageStrategyRaw = normalizedLanguageStrategy!;
+            }
 
             // Config-driven field mappings: replace the entire list if provided.
             if (request.FieldMappings is not null)
@@ -869,10 +977,10 @@ public static class SettingsEndpoints
                 existing.FieldMappings = request.FieldMappings
                     .Select(fm => new MediaEngine.Domain.Configuration.FieldMappingConfig
                     {
-                        ClaimKey      = fm.ClaimKey,
-                        JsonPath      = fm.JsonPath,
-                        Confidence    = fm.Confidence,
-                        Transform     = fm.Transform,
+                        ClaimKey = fm.ClaimKey,
+                        JsonPath = fm.JsonPath,
+                        Confidence = fm.Confidence,
+                        Transform = fm.Transform,
                         TransformArgs = fm.TransformArgs,
                     })
                     .ToList();
@@ -890,7 +998,9 @@ public static class SettingsEndpoints
                 existing.HttpClient.ApiKey = request.ApiKey;
             }
             if (request.CustomIconName is not null)
+            {
                 existing.CustomIconName = string.IsNullOrWhiteSpace(request.CustomIconName) ? null : request.CustomIconName;
+            }
 
             configLoader.SaveProvider(existing);
 
@@ -908,23 +1018,29 @@ public static class SettingsEndpoints
         // Deletes a provider config file. Wikidata and local_filesystem cannot be deleted.
 
         grp.MapDelete("/providers/{name}", (
-            string               name,
+            string name,
             IConfigurationLoader configLoader) =>
         {
             // Protect universe and filesystem providers.
             if (string.Equals(name, "wikidata", StringComparison.OrdinalIgnoreCase))
+            {
                 return Results.Problem(
                     detail: "The Universe provider (Wikidata) cannot be removed. In a future version, this may be configurable.",
                     statusCode: StatusCodes.Status403Forbidden);
+            }
 
             if (string.Equals(name, "local_filesystem", StringComparison.OrdinalIgnoreCase))
+            {
                 return Results.Problem(
                     detail: "The Local Filesystem provider cannot be removed.",
                     statusCode: StatusCodes.Status403Forbidden);
+            }
 
             var existing = configLoader.LoadProvider(name);
             if (existing is null)
+            {
                 return ApiErrors.NotFound($"Provider '{name}' not found.");
+            }
 
             // Disable rather than physically deleting the file — preserves history.
             existing.Enabled = false;
@@ -944,10 +1060,12 @@ public static class SettingsEndpoints
 
         grp.MapPut("/providers/priority", (
             ProviderPriorityRequest request,
-            IConfigurationLoader    configLoader) =>
+            IConfigurationLoader configLoader) =>
         {
             if (request.Order is null || request.Order.Count == 0)
+            {
                 return ApiErrors.BadRequest("Order list cannot be empty.");
+            }
 
             var core = configLoader.LoadCore();
             core.ProviderPriority = request.Order;
@@ -1026,19 +1144,25 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (config?.Types is null || config.Types.Count == 0)
+            {
                 return ApiErrors.BadRequest("At least one media type is required.");
+            }
 
             var dupKeys = config.Types
                 .GroupBy(t => t.Key, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault(g => g.Count() > 1)?.Key;
             if (dupKeys is not null)
+            {
                 return ApiErrors.BadRequest($"Duplicate media type key: '{dupKeys}'.");
+            }
 
             var dupNames = config.Types
                 .GroupBy(t => t.DisplayName, StringComparer.OrdinalIgnoreCase)
                 .FirstOrDefault(g => g.Count() > 1)?.Key;
             if (dupNames is not null)
+            {
                 return ApiErrors.BadRequest($"Duplicate media type display name: '{dupNames}'.");
+            }
 
             configLoader.SaveMediaTypes(SettingsContractMapper.ToStorage(config));
             return Results.Ok(new SettingsSavedResponse(true));
@@ -1055,15 +1179,21 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (string.IsNullOrWhiteSpace(newType.Key) || string.IsNullOrWhiteSpace(newType.DisplayName))
+            {
                 return ApiErrors.BadRequest("Key and display name are required.");
+            }
 
             var config = configLoader.LoadMediaTypes();
 
             if (config.Types.Any(t => string.Equals(t.Key, newType.Key, StringComparison.OrdinalIgnoreCase)))
+            {
                 return ApiErrors.BadRequest($"Media type key '{newType.Key}' already exists.");
+            }
 
             if (config.Types.Any(t => string.Equals(t.DisplayName, newType.DisplayName, StringComparison.OrdinalIgnoreCase)))
+            {
                 return ApiErrors.BadRequest($"Media type '{newType.DisplayName}' already exists.");
+            }
 
             newType.BuiltIn = false;
             config.Types.Add(SettingsContractMapper.ToStorage(newType));
@@ -1087,10 +1217,14 @@ public static class SettingsEndpoints
                 t => string.Equals(t.Key, key, StringComparison.OrdinalIgnoreCase));
 
             if (existing is null)
+            {
                 return ApiErrors.NotFound($"Media type '{key}' not found.");
+            }
 
             if (existing.BuiltIn)
+            {
                 return ApiErrors.BadRequest("Built-in media types cannot be deleted.");
+            }
 
             config.Types.Remove(existing);
             configLoader.SaveMediaTypes(config);
@@ -1112,27 +1246,37 @@ public static class SettingsEndpoints
             IConfiguration config) =>
         {
             if (!request.HasFormContentType)
+            {
                 return ApiErrors.BadRequest("Expected multipart form data.");
+            }
 
             var form = await request.ReadFormAsync();
             var file = form.Files.FirstOrDefault();
             if (file is null || file.Length == 0)
+            {
                 return ApiErrors.BadRequest("No file uploaded.");
+            }
 
             if (file.Length > 256 * 1024)
+            {
                 return ApiErrors.BadRequest("Icon must be 256 KB or smaller.");
+            }
 
             var ext = Path.GetExtension(file.FileName)?.ToLowerInvariant();
             if (ext is not ".svg" and not ".png" and not ".jpg" and not ".jpeg")
+            {
                 return ApiErrors.BadRequest("Allowed formats: SVG, PNG, JPG.");
+            }
 
             var configDir = config["MediaEngine:ConfigDirectory"] ?? "config";
-            var iconsDir  = Path.Combine(configDir, "icons");
+            var iconsDir = Path.Combine(configDir, "icons");
             Directory.CreateDirectory(iconsDir);
 
             // Remove any existing icon for this provider.
             foreach (var existing in Directory.EnumerateFiles(iconsDir, $"{name}.*"))
+            {
                 File.Delete(existing);
+            }
 
             var filePath = Path.Combine(iconsDir, $"{name}{ext}");
             await using var stream = File.Create(filePath);
@@ -1153,23 +1297,27 @@ public static class SettingsEndpoints
             IConfiguration config) =>
         {
             var configDir = config["MediaEngine:ConfigDirectory"] ?? "config";
-            var iconsDir  = Path.Combine(configDir, "icons");
+            var iconsDir = Path.Combine(configDir, "icons");
 
             if (!Directory.Exists(iconsDir))
+            {
                 return ApiErrors.NotFound($"No icon has been uploaded for provider '{name}'.");
+            }
 
             var match = Directory.EnumerateFiles(iconsDir, $"{name}.*").FirstOrDefault();
             if (match is null)
+            {
                 return ApiErrors.NotFound($"No icon has been uploaded for provider '{name}'.");
+            }
 
             var ext = Path.GetExtension(match).ToLowerInvariant();
             var contentType = ext switch
             {
-                ".svg"  => "image/svg+xml",
-                ".png"  => "image/png",
-                ".jpg"  => "image/jpeg",
+                ".svg" => "image/svg+xml",
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
                 ".jpeg" => "image/jpeg",
-                _       => "application/octet-stream",
+                _ => "application/octet-stream",
             };
 
             return Results.File(match, contentType);
@@ -1187,15 +1335,15 @@ public static class SettingsEndpoints
             var core = configLoader.LoadCore();
             return Results.Ok(new ServerGeneralResponse
             {
-                ServerName          = core.ServerName,
-                Language            = core.Language.Metadata,
-                DisplayLanguage     = core.Language.Display,
-                MetadataLanguage    = core.Language.Metadata,
+                ServerName = core.ServerName,
+                Language = core.Language.Metadata,
+                DisplayLanguage = core.Language.Display,
+                MetadataLanguage = core.Language.Metadata,
                 AdditionalLanguages = core.Language.Additional,
-                AcceptAnyLanguage   = core.Language.AcceptAny,
-                Country             = core.Country,
-                DateFormat          = core.DateFormat,
-                TimeFormat          = core.TimeFormat,
+                AcceptAnyLanguage = core.Language.AcceptAny,
+                Country = core.Country,
+                DateFormat = core.DateFormat,
+                TimeFormat = core.TimeFormat,
             });
         })
         .WithName("GetServerGeneral")
@@ -1210,18 +1358,20 @@ public static class SettingsEndpoints
             IConfigurationLoader configLoader) =>
         {
             if (string.IsNullOrWhiteSpace(request.ServerName))
+            {
                 return ApiErrors.BadRequest("server_name cannot be empty");
+            }
 
             var core = configLoader.LoadCore();
             core.ServerName = request.ServerName.Trim();
             core.Language = new LanguagePreferences
             {
-                Display    = !string.IsNullOrWhiteSpace(request.DisplayLanguage)  ? request.DisplayLanguage  : request.Language,
-                Metadata   = !string.IsNullOrWhiteSpace(request.MetadataLanguage) ? request.MetadataLanguage : request.Language,
+                Display = !string.IsNullOrWhiteSpace(request.DisplayLanguage) ? request.DisplayLanguage : request.Language,
+                Metadata = !string.IsNullOrWhiteSpace(request.MetadataLanguage) ? request.MetadataLanguage : request.Language,
                 Additional = request.AdditionalLanguages ?? [],
-                AcceptAny  = request.AcceptAnyLanguage,
+                AcceptAny = request.AcceptAnyLanguage,
             };
-            core.Country    = request.Country;
+            core.Country = request.Country;
             core.DateFormat = request.DateFormat;
             core.TimeFormat = request.TimeFormat;
             configLoader.SaveCore(core);
@@ -1305,17 +1455,23 @@ public static class SettingsEndpoints
     {
         // Convention: config-driven adapters use "api" as the primary endpoint key.
         if (config.Endpoints.TryGetValue("api", out var apiUrl) && !string.IsNullOrWhiteSpace(apiUrl))
+        {
             return apiUrl;
+        }
 
         // Try the endpoint key matching the provider name (legacy convention).
         if (config.Endpoints.TryGetValue(config.Name, out var url) && !string.IsNullOrWhiteSpace(url))
+        {
             return url;
+        }
 
         // Try well-known endpoint keys from the legacy mapping.
         if (_endpointKeys.TryGetValue(config.Name, out var epKey)
             && config.Endpoints.TryGetValue(epKey, out var ep)
             && !string.IsNullOrWhiteSpace(ep))
+        {
             return ep;
+        }
 
         // Fallback: return the first endpoint URL.
         return config.Endpoints.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
@@ -1325,7 +1481,10 @@ public static class SettingsEndpoints
     private static string ResolveDisplayName(ProviderConfiguration config)
     {
         if (!string.IsNullOrWhiteSpace(config.DisplayName))
+        {
             return config.DisplayName;
+        }
+
         return _displayNames.TryGetValue(config.Name, out var dn) ? dn : config.Name;
     }
 
@@ -1339,49 +1498,51 @@ public static class SettingsEndpoints
         // Prefer explicit can_handle.media_types; fall back to domain-derived media types.
         var mediaTypes = provider.CanHandle?.MediaTypes;
         if (mediaTypes is null || mediaTypes.Count == 0)
+        {
             mediaTypes = DeriveMediaTypesFromDomain(provider.Domain);
+        }
 
         return new ProviderStatusResponse
         {
-            Name             = provider.Name,
-            DisplayName      = displayName,
-            Enabled          = provider.Enabled,
-            IsZeroKey        = !provider.RequiresApiKey,
-            IsReachable      = isReachable,
-            Domain           = provider.Domain.ToString(),
-            CapabilityTags   = provider.CapabilityTags,
-            DefaultWeight    = provider.Weight,
-            FieldWeights     = provider.FieldWeights,
-            HydrationStages  = provider.HydrationStages,
-            Endpoints        = provider.Endpoints,
-            ThrottleMs       = provider.ThrottleMs,
-            MaxConcurrency   = provider.MaxConcurrency,
+            Name = provider.Name,
+            DisplayName = displayName,
+            Enabled = provider.Enabled,
+            IsZeroKey = !provider.RequiresApiKey,
+            IsReachable = isReachable,
+            Domain = provider.Domain.ToString(),
+            CapabilityTags = provider.CapabilityTags,
+            DefaultWeight = provider.Weight,
+            FieldWeights = provider.FieldWeights,
+            HydrationStages = provider.HydrationStages,
+            Endpoints = provider.Endpoints,
+            ThrottleMs = provider.ThrottleMs,
+            MaxConcurrency = provider.MaxConcurrency,
             LanguageStrategy = provider.LanguageStrategyRaw,
-            AvailableFields  = provider.AvailableFields,
-            MediaTypes       = mediaTypes,
-            RequiresApiKey   = provider.RequiresApiKey,
-            HasApiKey        = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
+            AvailableFields = provider.AvailableFields,
+            MediaTypes = mediaTypes,
+            RequiresApiKey = provider.RequiresApiKey,
+            HasApiKey = !string.IsNullOrWhiteSpace(provider.HttpClient?.ApiKey)
                                || (string.Equals(provider.HttpClient?.ApiKeyDelivery, "basic", StringComparison.OrdinalIgnoreCase)
                                    && !string.IsNullOrWhiteSpace(provider.HttpClient?.Username)
                                    && !string.IsNullOrWhiteSpace(provider.HttpClient?.Password)),
-            ApiKeyDelivery   = provider.HttpClient?.ApiKeyDelivery,
-            ApiKeyParamName  = provider.HttpClient?.ApiKeyParamName,
-            TimeoutSeconds   = provider.HttpClient?.TimeoutSeconds ?? 10,
-            CustomIconName   = provider.CustomIconName,
-            FieldMappings    = provider.FieldMappings?.Select(fm => new FieldMappingResponse
+            ApiKeyDelivery = provider.HttpClient?.ApiKeyDelivery,
+            ApiKeyParamName = provider.HttpClient?.ApiKeyParamName,
+            TimeoutSeconds = provider.HttpClient?.TimeoutSeconds ?? 10,
+            CustomIconName = provider.CustomIconName,
+            FieldMappings = provider.FieldMappings?.Select(fm => new FieldMappingResponse
             {
-                ClaimKey   = fm.ClaimKey,
-                JsonPath   = fm.JsonPath,
+                ClaimKey = fm.ClaimKey,
+                JsonPath = fm.JsonPath,
                 Confidence = fm.Confidence,
-                Transform  = fm.Transform,
+                Transform = fm.Transform,
                 TransformArgs = fm.TransformArgs,
             }).ToList(),
-            HealthStatus         = healthRecord?.Status.ToString(),
-            ConsecutiveFailures  = healthRecord?.ConsecutiveFailures ?? 0,
-            LastSuccessAt        = healthRecord?.LastSuccessAt?.ToString("o"),
-            LastFailureAt        = healthRecord?.LastFailureAt?.ToString("o"),
-            LastFailureReason    = healthRecord?.LastFailureReason,
-            DownSince            = healthRecord?.DownSince?.ToString("o"),
+            HealthStatus = healthRecord?.Status.ToString(),
+            ConsecutiveFailures = healthRecord?.ConsecutiveFailures ?? 0,
+            LastSuccessAt = healthRecord?.LastSuccessAt?.ToString("o"),
+            LastFailureAt = healthRecord?.LastFailureAt?.ToString("o"),
+            LastFailureReason = healthRecord?.LastFailureReason,
+            DownSince = healthRecord?.DownSince?.ToString("o"),
         };
     }
 
@@ -1431,14 +1592,25 @@ public static class SettingsEndpoints
 
     private static bool IsUnderPath(string child, string prefix)
     {
-        if (child.Length < prefix.Length) return false;
-        if (!child.StartsWith(prefix, StringComparison.Ordinal)) return false;
+        if (child.Length < prefix.Length)
+        {
+            return false;
+        }
+
+        if (!child.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
         return child.Length == prefix.Length || child[prefix.Length] == '/';
     }
 
     private static LibraryFolderSettingsDto ToLibraryFolderSettingsDto(LibraryFolderConfig library) => new()
     {
+        Id = library.Id,
         Name = library.Category,
+        Kind = library.Kind,
+        MetadataPolicy = library.MetadataPolicy,
         MediaTypes = library.MediaTypes,
         SourcePaths = library.SourcePaths,
         LibraryRoot = library.LibraryRoot,
@@ -1460,7 +1632,9 @@ public static class SettingsEndpoints
         normalized = null;
 
         if (value is null)
+        {
             return false;
+        }
 
         var candidate = value.Trim().ToLowerInvariant();
         switch (candidate)
@@ -1481,11 +1655,11 @@ public static class SettingsEndpoints
     /// </summary>
     private static List<string> DeriveMediaTypesFromDomain(ProviderDomain domain) => domain switch
     {
-        ProviderDomain.Ebook     => ["Books"],
+        ProviderDomain.Ebook => ["Books"],
         ProviderDomain.Audiobook => ["Audiobooks"],
-        ProviderDomain.Comic     => ["Comic"],
-        ProviderDomain.Video     => ["Movies", "TV"],
+        ProviderDomain.Comic => ["Comic"],
+        ProviderDomain.Video => ["Movies", "TV"],
         ProviderDomain.Universal => ["Books", "Audiobooks", "Comic", "Movies", "TV"],
-        _                        => [],
+        _ => [],
     };
 }

@@ -15,7 +15,6 @@ public sealed partial class SuccessResponseGuardrailTests
         "AddCollectionItem",
         "CancelEncodeJob",
         "CancelMediaOperation",
-        "CancelWhisperSyncJob",
         "DeleteAudiobookBookmark",
         "DeleteAudiobookChapterTitleOverride",
         "DeleteBookmark",
@@ -27,6 +26,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "DeleteProvider",
         "DeleteProviderConfig",
         "DownloadOfflineVariant",
+        "DownloadBackup",
         "GetArtworkVariant",
         "GetCharacterPortrait",
         "GetAssetBackground",
@@ -41,6 +41,8 @@ public sealed partial class SuccessResponseGuardrailTests
         "GetEpubResource",
         "GetProfileAvatar",
         "GetPersonHeadshot",
+        "GetPhotoContent",
+        "GetPhotoThumbnail",
         "GetProviderIcon",
         "HidePlaybackSegment",
         "RemoveCollectionItem",
@@ -50,6 +52,8 @@ public sealed partial class SuccessResponseGuardrailTests
         "StartAiModelDownload",
         "StreamAsset",
         "SetDetailDefaultSequence",
+        "SetPhotoFavorite",
+        "SetPhotoHidden",
         "PutSearchResultsCache",
         "UnlinkProfileExternalLogin",
         "UpdateHighlight",
@@ -62,12 +66,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "UpdateServerGeneral",
     ];
 
-    // This validation-only route is deliberately terminal at 501 until a safe metadata restore
-    // operation exists; it has no success response to describe.
-    private static readonly HashSet<string> NoSuccessResponseAllowlist =
-    [
-        "RevertSyncWriteback",
-    ];
+    private static readonly HashSet<string> NoSuccessResponseAllowlist = [];
 
     [Fact]
     public void EndpointSuccessBodies_DoNotUseAnonymousTypes()
@@ -141,9 +140,14 @@ public sealed partial class SuccessResponseGuardrailTests
                 if (!hasTypedSuccess && !hasUntypedSuccess)
                 {
                     if (NoSuccessResponseAllowlist.Contains(routeName))
+                    {
                         matchedNoSuccessAllowlist.Add(routeName);
+                    }
                     else
+                    {
                         missingSuccessMetadata.Add(routeLabel);
+                    }
+
                     continue;
                 }
 
@@ -156,14 +160,18 @@ public sealed partial class SuccessResponseGuardrailTests
                 if (!hasTypedSuccess)
                 {
                     if (UntypedSuccessMetadataAllowlist.Contains(routeName))
+                    {
                         matchedUntypedAllowlist.Add(routeName);
+                    }
                     else
+                    {
                         untypedJsonMetadata.Add(routeLabel);
+                    }
                 }
             }
         }
 
-        Assert.Equal(376, routeCount);
+        Assert.Equal(385, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));
@@ -208,9 +216,13 @@ public sealed partial class SuccessResponseGuardrailTests
         for (var index = openingIndex; index < source.Length; index++)
         {
             if (source[index] == '(')
+            {
                 depth++;
+            }
             else if (source[index] == ')' && --depth == 0)
+            {
                 return index;
+            }
         }
 
         return -1;
@@ -281,9 +293,14 @@ public sealed partial class SuccessResponseGuardrailTests
             {
                 var quoteCount = CountRun(source, index, '"');
                 if (quoteCount >= 3)
+                {
                     BlankRawString(source, output, ref index, quoteCount);
+                }
                 else
+                {
                     BlankString(source, output, ref index, index > 0 && source[index - 1] == '@');
+                }
+
                 continue;
             }
 
@@ -302,7 +319,9 @@ public sealed partial class SuccessResponseGuardrailTests
     private static void BlankUntilLineEnd(string source, StringBuilder output, ref int index)
     {
         while (index < source.Length && source[index] is not '\r' and not '\n')
+        {
             output[index++] = ' ';
+        }
     }
 
     private static void BlankBlockComment(string source, StringBuilder output, ref int index)
@@ -319,7 +338,10 @@ public sealed partial class SuccessResponseGuardrailTests
             }
 
             if (source[index] is not '\r' and not '\n')
+            {
                 output[index] = ' ';
+            }
+
             index++;
         }
     }
@@ -353,7 +375,10 @@ public sealed partial class SuccessResponseGuardrailTests
             }
 
             if (source[index] is not '\r' and not '\n')
+            {
                 output[index] = ' ';
+            }
+
             index++;
         }
     }
@@ -365,19 +390,27 @@ public sealed partial class SuccessResponseGuardrailTests
         int delimiterLength)
     {
         for (var count = 0; count < delimiterLength; count++)
+        {
             output[index++] = ' ';
+        }
 
         while (index < source.Length)
         {
             if (source[index] == '"' && CountRun(source, index, '"') >= delimiterLength)
             {
                 for (var count = 0; count < delimiterLength; count++)
+                {
                     output[index++] = ' ';
+                }
+
                 return;
             }
 
             if (source[index] is not '\r' and not '\n')
+            {
                 output[index] = ' ';
+            }
+
             index++;
         }
     }
@@ -397,7 +430,9 @@ public sealed partial class SuccessResponseGuardrailTests
             var current = source[index];
             output[index++] = current is '\r' or '\n' ? current : ' ';
             if (current == '\'')
+            {
                 return;
+            }
         }
     }
 
@@ -405,7 +440,10 @@ public sealed partial class SuccessResponseGuardrailTests
     {
         var count = 0;
         while (index + count < source.Length && source[index + count] == character)
+        {
             count++;
+        }
+
         return count;
     }
 
@@ -416,7 +454,9 @@ public sealed partial class SuccessResponseGuardrailTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName
             ?? throw new InvalidOperationException("Could not locate repository root.");

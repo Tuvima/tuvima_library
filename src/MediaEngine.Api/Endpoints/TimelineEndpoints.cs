@@ -16,7 +16,6 @@ namespace MediaEngine.Api.Endpoints;
 ///   <item><c>GET  /timeline/{entityId}</c>                            — full event history, newest first</item>
 ///   <item><c>GET  /timeline/{entityId}/pipeline</c>                   — current pipeline state (latest per stage)</item>
 ///   <item><c>GET  /timeline/{entityId}/event/{eventId}/changes</c>    — field-level changes for one event</item>
-///   <item><c>POST /timeline/{entityId}/revert/{eventId}</c>           — revert a sync writeback</item>
 /// </list>
 /// </summary>
 public static class TimelineEndpoints
@@ -65,35 +64,6 @@ public static class TimelineEndpoints
         .WithSummary("Returns field-level changes for a specific event.")
         .Produces<IReadOnlyList<EntityTimelineFieldChangeDto>>(StatusCodes.Status200OK);
 
-        // ── POST /timeline/{entityId}/revert/{eventId} ────────────────────────
-        grp.MapPost("/{entityId:guid}/revert/{eventId:guid}", async (
-            Guid entityId,
-            Guid eventId,
-            IEntityTimelineRepository repo,
-            CancellationToken ct) =>
-        {
-            // Verify the event exists and is a sync_writeback
-            var evt = await repo.GetEventByIdAsync(eventId, ct);
-            if (evt is null) return ApiErrors.NotFound("Event not found");
-            if (evt.EntityId != entityId) return ApiErrors.NotFound("Event not found for this entity");
-            if (evt.EventType != "sync_writeback") return ApiErrors.BadRequest("Can only revert sync_writeback events");
-
-            // Require that file originals were recorded for this event
-            var originals = await repo.GetFileOriginalsForEventAsync(eventId, ct);
-            if (originals.Count == 0) return ApiErrors.BadRequest("No file originals recorded for this event");
-
-            return Results.Problem(
-                statusCode: StatusCodes.Status501NotImplemented,
-                title: "Writeback revert is not implemented",
-                detail: "The original values are available, but no supported metadata restore operation exists yet. No files or timeline events were changed.");
-        })
-        .WithName("RevertSyncWriteback")
-        .WithSummary("Validates whether a sync writeback can be reverted. Metadata restore is not yet supported.")
-        .ProducesProblem(StatusCodes.Status501NotImplemented)
-        .ProducesProblem(StatusCodes.Status400BadRequest)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAdminOrCurator();
-
         // ── POST /timeline/{entityId}/rematch ─────────────────────────────────
         grp.MapPost("/{entityId:guid}/rematch", async (
             Guid entityId,
@@ -105,7 +75,10 @@ public static class TimelineEndpoints
         {
             // Verify the entity exists
             var asset = await assetRepo.FindByIdAsync(entityId, ct);
-            if (asset is null) return ApiErrors.NotFound("Entity not found");
+            if (asset is null)
+            {
+                return ApiErrors.NotFound("Entity not found");
+            }
 
             // Snapshot current canonicals for pre/post diff
             var beforeValues = await canonicalRepo.GetByEntityAsync(entityId, ct);
@@ -115,17 +88,19 @@ public static class TimelineEndpoints
                 .FirstOrDefault(cv => string.Equals(cv.Key, "media_type", StringComparison.OrdinalIgnoreCase))
                 ?.Value;
             if (!Enum.TryParse<MediaType>(mediaTypeStr, ignoreCase: true, out var mediaType))
+            {
                 mediaType = MediaType.Unknown;
+            }
 
             // Record the re-match initiation event
             await timelineRepo.InsertEventAsync(new EntityEvent
             {
-                EntityId   = entityId,
+                EntityId = entityId,
                 EntityType = "Work",
-                EventType  = "retail_rematched",
-                Stage      = 1,
-                Trigger    = "user_rematch",
-                Detail     = $"Re-match initiated by user — {beforeValues.Count} existing canonicals",
+                EventType = "retail_rematched",
+                Stage = 1,
+                Trigger = "user_rematch",
+                Detail = $"Re-match initiated by user — {beforeValues.Count} existing canonicals",
             }, ct);
 
             // Re-enqueue through the pipeline
@@ -133,15 +108,17 @@ public static class TimelineEndpoints
             foreach (var cv in beforeValues)
             {
                 if (!string.IsNullOrWhiteSpace(cv.Value))
+                {
                     hints[cv.Key] = cv.Value;
+                }
             }
 
             await pipeline.EnqueueAsync(new HarvestRequest
             {
-                EntityId   = entityId,
+                EntityId = entityId,
                 EntityType = EntityType.MediaAsset,
-                MediaType  = mediaType,
-                Hints      = hints,
+                MediaType = mediaType,
+                Hints = hints,
             }, ct);
 
             return Results.Ok(new RematchEntityResponse(queued: true, entityId));

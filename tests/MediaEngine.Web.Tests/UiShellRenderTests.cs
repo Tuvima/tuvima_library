@@ -1,29 +1,29 @@
-﻿using Bunit;
+using System.Text.RegularExpressions;
+using Bunit;
 using MediaEngine.Web.Components.Collections;
 using MediaEngine.Web.Components.Library;
 using MediaEngine.Web.Components.Listen;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Components.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
-using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Editing;
 using MediaEngine.Web.Services.Integration;
+using MediaEngine.Web.Services.MediaTiles;
 using MediaEngine.Web.Services.Playback;
 using MediaEngine.Web.Services.Theming;
 using MediaEngine.Web.Shared;
 using MediaEngine.Web.Tests.Support;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.FileProviders;
 using MudBlazor;
 using MudBlazor.Services;
-using System.Text.RegularExpressions;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class UiShellRenderTests : TestContext
+public sealed class UiShellRenderTests : AsyncBunitContext
 {
     public UiShellRenderTests()
     {
@@ -66,13 +66,15 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void MainLayout_RendersMudShellAndBody()
     {
-        var cut = RenderComponent<MainLayout>(parameters => parameters
+        var cut = Render<MainLayout>(parameters => parameters
             .Add(layout => layout.Body, builder => builder.AddMarkupContent(0, "<section id=\"test-body\">Body content</section>")));
 
         cut.WaitForAssertion(() =>
         {
             Assert.Single(cut.FindAll(".mud-appbar"));
-            Assert.Equal(4, cut.FindAll(".layout-shell__nav-link").Count);
+            Assert.Equal(5, cut.FindAll(".layout-shell__nav-link").Count);
+            Assert.Contains(cut.FindAll(".layout-shell__nav-link"),
+                link => string.Equals(link.GetAttribute("href"), "/photos", StringComparison.Ordinal));
             Assert.Equal("/images/library.svg", cut.Find(".layout-shell__brand-lockup").GetAttribute("src"));
             Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);
@@ -233,7 +235,7 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void PrivacyHistoryTab_DisablesUnavailableControlsAndExplainsThatNoDataChanges()
     {
-        var cut = RenderComponent<PrivacyHistoryTab>();
+        var cut = Render<PrivacyHistoryTab>();
 
         Assert.Contains("not available yet", cut.Markup);
         Assert.Empty(cut.FindAll("button"));
@@ -533,7 +535,7 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void LibraryConfigurableTable_RendersMudTableShellAndMudActions()
     {
-        var cut = RenderComponent<LibraryConfigurableTable>(parameters => parameters
+        var cut = Render<LibraryConfigurableTable>(parameters => parameters
             .Add(component => component.Columns, LibraryColumnDefinitions.GetColumnsByTab("books"))
             .Add(component => component.Items, [CreateSampleLibraryItem()])
             .Add(component => component.Loading, false)
@@ -553,7 +555,7 @@ public sealed class UiShellRenderTests : TestContext
     [Fact]
     public void ListenNavigationSection_RendersCurrentRouteAsSemanticLink()
     {
-        var cut = RenderComponent<ListenNavigationSection>(parameters => parameters
+        var cut = Render<ListenNavigationSection>(parameters => parameters
             .Add(component => component.Label, "Library")
             .Add(component => component.Items,
             [
@@ -978,7 +980,7 @@ public sealed class UiShellRenderTests : TestContext
     private static string GetRepoFile(params string[] segments) =>
         Path.GetFullPath(Path.Combine(new[] { AppContext.BaseDirectory, "..", "..", "..", "..", ".." }.Concat(segments).ToArray()));
 
-    private IRenderedFragment RenderListenBrowsePageWithProviders(string? tab = null) => Render(builder =>
+    private IRenderedComponent<IComponent> RenderListenBrowsePageWithProviders(string? tab = null) => Render(builder =>
     {
         builder.OpenComponent<MudPopoverProvider>(0);
         builder.CloseComponent();

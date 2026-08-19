@@ -8,12 +8,12 @@ public sealed class IngestionEngineReliabilityGuardrailTests
         var source = ReadIngestionEngineSource();
 
         Assert.DoesNotContain("new ScoringConfiguration()", source, StringComparison.Ordinal);
-        Assert.Equal(3, CountOccurrences(source, "Configuration   = _scoringConfig") +
-                        CountOccurrences(source, "Configuration           = _scoringConfig"));
+        Assert.Equal(3, System.Text.RegularExpressions.Regex.Matches(
+            source, @"Configuration\s*=\s*_scoringConfig").Count);
     }
 
     [Fact]
-    public void IngestionEngine_PollingUsesEveryEffectiveWatchDirectory()
+    public void IngestionEngine_PollingUsesEveryConfiguredLibraryScanTarget()
     {
         var source = ReadIngestionEngineSource();
         var pollStart = source.IndexOf("private async Task PollWatchDirectoryAsync", StringComparison.Ordinal);
@@ -21,8 +21,9 @@ public sealed class IngestionEngineReliabilityGuardrailTests
         Assert.True(pollStart >= 0 && pollEnd > pollStart);
 
         var pollSource = source[pollStart..pollEnd];
-        Assert.Contains("_options.EffectiveWatchDirectories", pollSource, StringComparison.Ordinal);
-        Assert.Contains("foreach (var watchDirectory in watchDirectories)", pollSource, StringComparison.Ordinal);
+        Assert.Contains("GetConfiguredScanTargets()", pollSource, StringComparison.Ordinal);
+        Assert.Contains("foreach (var target in scanTargets)", pollSource, StringComparison.Ordinal);
+        Assert.Contains("target.IncludeSubdirectories", pollSource, StringComparison.Ordinal);
         Assert.DoesNotContain("Directory.EnumerateFiles(\r\n                             _options.WatchDirectory", pollSource, StringComparison.Ordinal);
     }
 

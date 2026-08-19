@@ -30,6 +30,9 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Capability readiness | Partial | Media assets can expose explicit readiness rows for identity, enrichment, text tracks, commercial skip, writeback, AI, and plugin work. More workers will be wired over time. |
 | Ingestion dashboard | Partial | Active operations, recent batches, folder health, provider health, progress, and review reasons are visible from durable Engine data where available. |
 | Settings > Libraries | Live | Folder paths, organization templates, path checks, save, and scan actions are backed by Engine/config APIs. |
+| Custom/personal libraries | Live | Administrators can create libraries whose local-only or manual policy bypasses retail providers, Wikidata matching, and identity review. |
+| Photos | Live (MVP) | A separate local photo index provides a timeline, search, thumbnails, favorites, hidden items, albums, content-hash duplicate tracking, and camera/GPS details when available. |
+| Backup and recovery | Live | Administrators can create, list, download, validate, stage, and apply backups containing the data store and non-secret configuration. |
 | Settings > Providers | Live | Provider catalogue/status/config, credential state, health, tests, and pipeline priority are backed where the Engine exposes them. |
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
 | Playback and reader preferences | Live | Personal playback, reading, subtitle, resume, audiobook chapter cleanup, audiobook history/bookmarks, chapter display-title overrides, and progress preferences persist through the playback settings and player APIs. |
@@ -40,7 +43,7 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 
 These items are not presented as complete user workflows yet:
 
-- A full first-run wizard. Current first-run work stays embedded in Libraries, Providers, Local AI, Ingestion, and Review Queue.
+- A guided multi-step first-run wizard. Current onboarding starts on Home and continues through Libraries and Ingestion.
 - Advanced direct-play, delivery, subtitle/audio policy, and automated offline-download controls.
 - Plugin marketplace install/update flows.
 - Some Local AI job controls, deletion actions, and per-feature runtime integrations.
@@ -48,6 +51,7 @@ These items are not presented as complete user workflows yet:
 - Richer playlist editing, recommendation automation, smart collections, and broader discovery intelligence.
 - Full remote-access hardening and account/session policy beyond the local-first role/API-key model.
 - Interoperability targets such as OPDS, Audiobookshelf-compatible APIs, import wizards, webhooks, and PWA behavior.
+- Post-beta photo intelligence: face/object/OCR search, maps, memories, remote sharing, and mobile upload/sync.
 
 ## Product Guardrails
 
@@ -63,3 +67,4 @@ These items are not presented as complete user workflows yet:
 - [How File Ingestion Works](../explanation/how-ingestion-works.md)
 - [Privacy and Local-First Behavior](../explanation/privacy-local-first.md)
 - [Target State](../architecture/target-state.md)
+- [Beta Roadmap](beta-roadmap.md)

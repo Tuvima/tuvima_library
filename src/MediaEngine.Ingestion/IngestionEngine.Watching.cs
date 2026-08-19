@@ -1,26 +1,26 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Processors.Contracts;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -39,7 +39,9 @@ public sealed partial class IngestionEngine
             .ToList();
 
         if (scanTargets.Count == 0)
+        {
             return;
+        }
 
         // Fetch all known file paths from the database in a single query.
         // Files whose path is already tracked are skipped without being
@@ -95,7 +97,9 @@ public sealed partial class IngestionEngine
                     // Skip files inside the .data directory - staging, images, and database
                     // live here and must not be re-ingested automatically.
                     if (IsIgnoredScanFile(filePath))
+                    {
                         continue;
+                    }
 
                     // Seed the polling fingerprint cache during the initial scan so the
                     // fallback sweep does not immediately reconsider settled files.
@@ -149,8 +153,8 @@ public sealed partial class IngestionEngine
 
                     newEvents.Add(new FileEvent
                     {
-                        Path       = normalizedPath,
-                        EventType  = FileEventType.Created,
+                        Path = normalizedPath,
+                        EventType = FileEventType.Created,
                         OccurredAt = DateTimeOffset.UtcNow,
                     });
                 }
@@ -164,9 +168,11 @@ public sealed partial class IngestionEngine
         }
 
         if (skipped > 0)
+        {
             _logger.LogInformation(
                 "Initial scan: skipped {Skipped} already-known or duplicate file(s) across {TargetCount} scan target(s)",
                 skipped, scanTargets.Count);
+        }
 
         if (newEvents.Count == 0 && resumedEvents.Count == 0)
         {
@@ -186,11 +192,11 @@ public sealed partial class IngestionEngine
             {
                 await _batchRepo.CreateAsync(new IngestionBatch
                 {
-                    Id          = batchId,
-                    Status      = "running",
-                    SourcePath  = ResolveScanBatchSourcePath(scanTargets),
-                    FilesTotal  = newEvents.Count,
-                    StartedAt   = DateTimeOffset.UtcNow,
+                    Id = batchId,
+                    Status = "running",
+                    SourcePath = ResolveScanBatchSourcePath(scanTargets),
+                    FilesTotal = newEvents.Count,
+                    StartedAt = DateTimeOffset.UtcNow,
                 }, ct).ConfigureAwait(false);
                 await PublishInitialBatchProgressAsync(batchId, newEvents.Count).ConfigureAwait(false);
             }
@@ -257,12 +263,14 @@ public sealed partial class IngestionEngine
     private async Task PollWatchDirectoryAsync(CancellationToken ct)
     {
         if (_options.PollIntervalSeconds <= 0)
+        {
             return;
+        }
 
         var interval = TimeSpan.FromSeconds(_options.PollIntervalSeconds);
         _logger.LogInformation(
             "Polling fallback active: sweeping {Count} watch folder(s) every {Seconds}s",
-            _options.EffectiveWatchDirectories.Count,
+            GetConfiguredScanTargets().Count,
             _options.PollIntervalSeconds);
 
         while (!ct.IsCancellationRequested)
@@ -273,16 +281,15 @@ public sealed partial class IngestionEngine
             }
             catch (OperationCanceledException) { break; }
 
-            var watchDirectories = _options.EffectiveWatchDirectories
-                .Where(Directory.Exists)
+            var scanTargets = GetConfiguredScanTargets()
+                .Where(target => Directory.Exists(target.Path))
                 .ToList();
 
-            if (watchDirectories.Count == 0)
+            if (scanTargets.Count == 0)
+            {
                 continue;
+            }
 
-            var searchOption = _options.IncludeSubdirectories
-                ? SearchOption.AllDirectories
-                : SearchOption.TopDirectoryOnly;
             var seenPollPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             var rawKnownPaths = await _assetRepo.GetAllFilePathsAsync(ct).ConfigureAwait(false);
@@ -299,10 +306,14 @@ public sealed partial class IngestionEngine
                 }
             }
 
-            foreach (var watchDirectory in watchDirectories)
+            foreach (var target in scanTargets)
             {
                 try
                 {
+                    var watchDirectory = target.Path;
+                    var searchOption = target.IncludeSubdirectories
+                        ? SearchOption.AllDirectories
+                        : SearchOption.TopDirectoryOnly;
                     int inspected = 0;
                     int changed = 0;
                     int queued = 0;
@@ -312,7 +323,10 @@ public sealed partial class IngestionEngine
 
                     foreach (var filePath in Directory.EnumerateFiles(watchDirectory, "*.*", searchOption))
                     {
-                        if (ct.IsCancellationRequested) break;
+                        if (ct.IsCancellationRequested)
+                        {
+                            break;
+                        }
 
                         if (IsIgnoredScanFile(filePath))
                         {
@@ -330,10 +344,14 @@ public sealed partial class IngestionEngine
                         var fingerprintChanged = hasPreviousFingerprint && previousFingerprint != fingerprint;
 
                         if (fingerprintChanged)
+                        {
                             changed++;
+                        }
 
                         if (!trackedInDb)
+                        {
                             missing++;
+                        }
 
                         if (hasPreviousFingerprint && !fingerprintChanged && trackedInDb)
                         {
@@ -343,8 +361,8 @@ public sealed partial class IngestionEngine
 
                         var pollEvt = new FileEvent
                         {
-                            Path       = normalizedPath,
-                            EventType  = FileEventType.Created,
+                            Path = normalizedPath,
+                            EventType = FileEventType.Created,
                             OccurredAt = DateTimeOffset.UtcNow,
                         };
 
@@ -371,7 +389,7 @@ public sealed partial class IngestionEngine
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
-                    _logger.LogWarning(ex, "Poll sweep failed for {Dir}", watchDirectory);
+                    _logger.LogWarning(ex, "Poll sweep failed for {Dir}", target.Path);
                 }
             }
 
@@ -393,7 +411,9 @@ public sealed partial class IngestionEngine
     private void OnFileDetected(object? sender, FileEvent evt)
     {
         if (!LifetimeToken.IsCancellationRequested)
+        {
             BufferFswEvent(evt);
+        }
     }
 
     private void OnWatcherError(object? sender, FileWatcherErrorEvent evt)
@@ -409,7 +429,9 @@ public sealed partial class IngestionEngine
     private async Task RecoverWatcherAfterErrorAsync(FileWatcherErrorEvent evt, CancellationToken ct)
     {
         if (!await _watcherRecoveryLock.WaitAsync(0, ct).ConfigureAwait(false))
+        {
             return;
+        }
 
         try
         {
@@ -421,7 +443,9 @@ public sealed partial class IngestionEngine
             var scanTargets = _watcher.WatchedPaths
                 .Where(Directory.Exists)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(path => new IngestionScanTarget(path, _options.IncludeSubdirectories))
+                .Select(path => GetConfiguredScanTargets().FirstOrDefault(target =>
+                    string.Equals(target.Path, path, StringComparison.OrdinalIgnoreCase))
+                    ?? new IngestionScanTarget(path, IncludeSubdirectories: false))
                 .ToList();
 
             try
@@ -435,7 +459,9 @@ public sealed partial class IngestionEngine
             }
 
             if (scanTargets.Count > 0)
+            {
                 await ScanExistingFilesAsync(scanTargets, ct).ConfigureAwait(false);
+            }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -457,11 +483,15 @@ public sealed partial class IngestionEngine
     {
         var extension = Path.GetExtension(evt.Path);
         if (string.IsNullOrWhiteSpace(extension) || NonMediaExtensions.Contains(extension))
+        {
             return false;
+        }
 
         var normalizedPath = Path.GetFullPath(evt.Path);
         if (Directory.Exists(normalizedPath))
+        {
             return false;
+        }
 
         if (evt.EventType != FileEventType.Deleted
             && !File.Exists(normalizedPath))
@@ -471,15 +501,17 @@ public sealed partial class IngestionEngine
 
         var normalizedEvent = new FileEvent
         {
-            Path       = normalizedPath,
-            OldPath    = evt.OldPath,
-            EventType  = evt.EventType,
+            Path = normalizedPath,
+            OldPath = evt.OldPath,
+            EventType = evt.EventType,
             OccurredAt = evt.OccurredAt,
-            BatchId    = evt.BatchId,
+            BatchId = evt.BatchId,
         };
 
         if (!TryTrackQueuedPath(normalizedPath))
+        {
             return false;
+        }
 
         // Events from ScanExistingFiles already have a batch - pass through.
         if (normalizedEvent.BatchId is not null)
@@ -515,7 +547,9 @@ public sealed partial class IngestionEngine
         lock (_fswBufferLock)
         {
             if (_activePaths.Contains(normalizedPath))
+            {
                 return false;
+            }
 
             if (_queuedFingerprints.TryGetValue(normalizedPath, out var priorFingerprint)
                 && priorFingerprint == fingerprint)
@@ -576,7 +610,9 @@ public sealed partial class IngestionEngine
             foreach (var path in _pollFingerprints.Keys.ToList())
             {
                 if (!existingPaths.Contains(path) && !File.Exists(path))
+                {
                     _pollFingerprints.Remove(path);
+                }
             }
         }
     }
@@ -613,7 +649,11 @@ public sealed partial class IngestionEngine
         List<FileEvent> snapshot;
         lock (_fswBufferLock)
         {
-            if (_fswBuffer.Count == 0) return;
+            if (_fswBuffer.Count == 0)
+            {
+                return;
+            }
+
             snapshot = [.. _fswBuffer];
             _fswBuffer.Clear();
             _fswFlushTimer?.Dispose();
@@ -664,7 +704,9 @@ public sealed partial class IngestionEngine
         }
 
         if (newEvents.Count == 0 && resumedEvents.Count == 0)
+        {
             return;
+        }
 
         if (newEvents.Count > 0)
         {
@@ -674,11 +716,11 @@ public sealed partial class IngestionEngine
             {
                 await _batchRepo.CreateAsync(new IngestionBatch
                 {
-                    Id          = batchId,
-                    Status      = "running",
-                    SourcePath  = ResolveBufferedBatchSourcePath(newEvents),
-                    FilesTotal  = newEvents.Count,
-                    StartedAt   = DateTimeOffset.UtcNow,
+                    Id = batchId,
+                    Status = "running",
+                    SourcePath = ResolveBufferedBatchSourcePath(newEvents),
+                    FilesTotal = newEvents.Count,
+                    StartedAt = DateTimeOffset.UtcNow,
                 }, ct).ConfigureAwait(false);
 
                 await PublishInitialBatchProgressAsync(batchId, newEvents.Count).ConfigureAwait(false);

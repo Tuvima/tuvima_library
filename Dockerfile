@@ -69,6 +69,7 @@ COPY --from=build /app/dashboard ./dashboard
 
 # Copy committed configs — the entrypoint seeds /config from these on first run.
 COPY --from=build /src/config/ ./engine/config/
+COPY docker/config/ ./docker-config/
 
 # Create named mount points so docker-compose volume declarations work.
 RUN mkdir -p /watch /library /config /db /models

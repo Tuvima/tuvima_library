@@ -1,8 +1,8 @@
 using System.Text.RegularExpressions;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Models;
-using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Configuration;
+using MediaEngine.Domain.Enums;
+using MediaEngine.Domain.Models;
 
 namespace MediaEngine.Storage.Configuration;
 
@@ -55,6 +55,9 @@ public static class JsonConfigValidator
             case LibraryPreferencesSettings preferences:
                 ValidateLibraryPreferences(preferences, errors);
                 break;
+            case LibrariesConfiguration libraries:
+                ValidateLibraries(libraries, errors);
+                break;
         }
 
         return errors;
@@ -66,15 +69,68 @@ public static class JsonConfigValidator
         AddRequired(errors, core.DatabasePath, "database_path");
         AddRequired(errors, core.ServerName, "server_name");
         if (!string.IsNullOrWhiteSpace(core.Country) && core.Country.Length != 2)
+        {
             errors.Add("country must be a two-letter country code.");
+        }
+
         if (!Allowed(core.DateFormat, "system", "short", "medium", "long", "iso8601"))
+        {
             errors.Add("date_format must be one of system, short, medium, long, iso8601.");
+        }
+
         if (!Allowed(core.TimeFormat, "system", "12h", "24h"))
+        {
             errors.Add("time_format must be one of system, 12h, 24h.");
+        }
+
         AddPositive(errors, core.Pipeline.LeaseSizes.Retail, "pipeline.lease_sizes.retail");
         AddPositive(errors, core.Pipeline.LeaseSizes.Wikidata, "pipeline.lease_sizes.wikidata");
         AddPositive(errors, core.Pipeline.LeaseSizes.Hydration, "pipeline.lease_sizes.hydration");
         AddPositive(errors, core.Pipeline.BatchGate.TimeoutSeconds, "pipeline.batch_gate.timeout_seconds");
+    }
+
+    private static void ValidateLibraries(LibrariesConfiguration config, List<string> errors)
+    {
+        if (!string.Equals(config.SchemaVersion, "2.0", StringComparison.Ordinal))
+        {
+            errors.Add("schema_version must be 2.0.");
+        }
+
+        var ids = new HashSet<Guid>();
+        for (var index = 0; index < config.Libraries.Count; index++)
+        {
+            var library = config.Libraries[index];
+            var prefix = $"libraries[{index}]";
+            if (!Guid.TryParse(library.Id, out var id) || id == Guid.Empty)
+            {
+                errors.Add($"{prefix}.id must be a non-empty GUID.");
+            }
+            else if (!ids.Add(id))
+            {
+                errors.Add($"{prefix}.id must be unique.");
+            }
+
+            AddRequired(errors, library.Category, $"{prefix}.category");
+            if (!LibraryKinds.IsValid(library.Kind))
+            {
+                errors.Add($"{prefix}.kind must be one of catalogued, personal, photos.");
+            }
+
+            if (!LibraryMetadataPolicies.IsValid(library.MetadataPolicy))
+            {
+                errors.Add($"{prefix}.metadata_policy must be one of enriched, local_preferred, local_only, manual.");
+            }
+
+            if (!Allowed(library.IntakeMode, "watch", "import"))
+            {
+                errors.Add($"{prefix}.intake_mode must be watch or import.");
+            }
+
+            if (library.SourcePaths.Count == 0 || library.SourcePaths.All(string.IsNullOrWhiteSpace))
+            {
+                errors.Add($"{prefix}.source_paths must contain at least one path.");
+            }
+        }
     }
 
     private static void ValidateProvider(ProviderConfiguration provider, string relativePath, List<string> errors)
@@ -84,7 +140,9 @@ public static class JsonConfigValidator
         {
             var fileName = Path.GetFileNameWithoutExtension(relativePath);
             if (!string.Equals(fileName, provider.Name, StringComparison.OrdinalIgnoreCase))
+            {
                 errors.Add("name must match the provider config filename.");
+            }
         }
 
         AddRange(errors, provider.Weight, "weight", 0, 1);
@@ -93,11 +151,15 @@ public static class JsonConfigValidator
         foreach (var stage in provider.HydrationStages)
         {
             if (stage is < 1 or > 3)
+            {
                 errors.Add("hydration_stages values must be 1, 2, or 3.");
+            }
         }
 
         if (provider.HttpClient is not null)
+        {
             AddPositive(errors, provider.HttpClient.TimeoutSeconds, "http_client.timeout_seconds");
+        }
 
         if (provider.SequenceManifest?.Enabled == true)
         {
@@ -107,9 +169,14 @@ public static class JsonConfigValidator
             AddPositive(errors, provider.SequenceManifest.PageSize, "sequence_manifest.page_size");
             AddPositive(errors, provider.SequenceManifest.MaxPages, "sequence_manifest.max_pages");
             if (provider.SequenceManifest.Fields.Count == 0)
+            {
                 errors.Add("sequence_manifest.fields must contain at least one field.");
+            }
+
             if (provider.SequenceManifest.Fields.Any(field => field.Contains("image", StringComparison.OrdinalIgnoreCase)))
+            {
                 errors.Add("sequence_manifest.fields must not request image fields.");
+            }
         }
 
         var strategyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -119,22 +186,39 @@ public static class JsonConfigValidator
             AddPositiveOrZero(errors, strategy.Priority, "search_strategies[].priority");
             AddRequired(errors, strategy.UrlTemplate, "search_strategies[].url_template");
             if (!strategyNames.Add(strategy.Name))
+            {
                 errors.Add("search_strategies[].name values must be unique.");
+            }
+
             if (strategy.Query is not null && !string.IsNullOrWhiteSpace(strategy.QueryTemplate))
+            {
                 errors.Add($"search_strategies['{strategy.Name}'] cannot define both query and query_template.");
+            }
+
             if (strategy.Query is not null)
             {
                 if (!Allowed(strategy.Query.Syntax, "plain", "lucene"))
+                {
                     errors.Add($"search_strategies['{strategy.Name}'].query.syntax must be plain or lucene.");
+                }
+
                 if (!Allowed(strategy.Query.Operator, "AND", "OR"))
+                {
                     errors.Add($"search_strategies['{strategy.Name}'].query.operator must be AND or OR.");
+                }
+
                 if (strategy.Query.Clauses.Count == 0)
+                {
                     errors.Add($"search_strategies['{strategy.Name}'].query.clauses must not be empty.");
+                }
+
                 foreach (var clause in strategy.Query.Clauses)
                 {
                     AddRequired(errors, clause.Value, $"search_strategies['{strategy.Name}'].query.clauses[].value");
                     if (!Allowed(clause.Match, "term", "phrase"))
+                    {
                         errors.Add($"search_strategies['{strategy.Name}'].query.clauses[].match must be term or phrase.");
+                    }
                 }
             }
 
@@ -149,10 +233,15 @@ public static class JsonConfigValidator
         List<string> errors)
     {
         if (selection is null)
+        {
             return;
+        }
 
         if (selection.TitlePaths.Count == 0)
+        {
             errors.Add($"search_strategies['{strategyName}'].candidate_selection.title_paths must not be empty.");
+        }
+
         AddRange(errors, selection.MinimumTitleScore,
             $"search_strategies['{strategyName}'].candidate_selection.minimum_title_score", 0, 1);
         AddRange(errors, selection.MinimumCreatorScore,
@@ -170,9 +259,15 @@ public static class JsonConfigValidator
             AddRequired(errors, filter.RequestField,
                 $"search_strategies['{strategyName}'].request_filters[].request_field");
             if (filter.CandidatePaths.Count == 0)
+            {
                 errors.Add($"search_strategies['{strategyName}'].request_filters[].candidate_paths must not be empty.");
+            }
+
             if (!Allowed(filter.Operator, "exact", "normalized_similarity", "album_identity"))
+            {
                 errors.Add($"search_strategies['{strategyName}'].request_filters[].operator is unsupported.");
+            }
+
             AddRange(errors, filter.MinimumScore,
                 $"search_strategies['{strategyName}'].request_filters[].minimum_score", 0, 1);
         }
@@ -182,7 +277,9 @@ public static class JsonConfigValidator
     {
         AddRequired(errors, mediaTypes.Version, "version");
         if (mediaTypes.Types.Count == 0)
+        {
             errors.Add("types must contain at least one media type.");
+        }
 
         foreach (var type in mediaTypes.Types)
         {
@@ -190,7 +287,9 @@ public static class JsonConfigValidator
             AddRequired(errors, type.DisplayName, "types[].display_name");
             AddRequired(errors, type.CategoryFolder, "types[].category_folder");
             if (type.Extensions.Any(extension => !extension.StartsWith('.')))
+            {
                 errors.Add("types[].extensions values must start with '.'.");
+            }
         }
     }
 
@@ -201,15 +300,26 @@ public static class JsonConfigValidator
             AddRequired(errors, mediaType, "pipeline media type key");
             AddPositive(errors, pipeline.MaxProviderAttempts, $"{mediaType}.max_provider_attempts");
             if (!Allowed(pipeline.Scoring.CreatorListMode, "proportional", "local-primary-containment"))
+            {
                 errors.Add($"{mediaType}.scoring.creator_list_mode is unsupported.");
+            }
+
             if (pipeline.Scoring.AutoAcceptThreshold is { } autoAccept)
+            {
                 AddRange(errors, autoAccept, $"{mediaType}.scoring.auto_accept_threshold", 0, 1);
+            }
+
             if (pipeline.Scoring.AmbiguousThreshold is { } ambiguous)
+            {
                 AddRange(errors, ambiguous, $"{mediaType}.scoring.ambiguous_threshold", 0, 1);
+            }
+
             if (pipeline.Scoring.AutoAcceptThreshold is { } accept
                 && pipeline.Scoring.AmbiguousThreshold is { } review
                 && review >= accept)
+            {
                 errors.Add($"{mediaType}.scoring.ambiguous_threshold must be lower than auto_accept_threshold.");
+            }
 
             var ranks = new HashSet<int>();
             foreach (var provider in pipeline.Providers)
@@ -229,23 +339,35 @@ public static class JsonConfigValidator
                 }
                 if (provider.UseAsIdentityFallback
                     && !string.Equals(provider.Purpose, "enrichment", StringComparison.OrdinalIgnoreCase))
+                {
                     errors.Add($"{mediaType}.providers[].use_as_identity_fallback is only valid for enrichment providers.");
+                }
+
                 if (provider.AcceptedTransition is { } transition)
                 {
                     AddRequired(errors, transition.Provider, $"{mediaType}.providers[].accepted_transition.provider");
                     AddPositive(errors, transition.MaxAttempts, $"{mediaType}.providers[].accepted_transition.max_attempts");
                     if (!Allowed(transition.When, "accepted", "identity-fallback-accepted"))
+                    {
                         errors.Add($"{mediaType}.providers[].accepted_transition.when is unsupported.");
+                    }
+
                     if (transition.HintFields.Count == 0)
+                    {
                         errors.Add($"{mediaType}.providers[].accepted_transition.hint_fields must not be empty.");
+                    }
                 }
                 foreach (var action in provider.AcceptedActions)
                 {
                     if (!Allowed(action, "apple-album-manifest"))
+                    {
                         errors.Add($"{mediaType}.providers[].accepted_actions contains unsupported value '{action}'.");
+                    }
                 }
                 if (!ranks.Add(provider.Rank))
+                {
                     errors.Add($"{mediaType}.providers rank values must be unique.");
+                }
             }
 
             var ordered = pipeline.Providers.OrderBy(provider => provider.Rank).ToList();
@@ -264,9 +386,14 @@ public static class JsonConfigValidator
                 var transition = provider.AcceptedTransition!;
                 if (!pipeline.Providers.Any(candidate =>
                     string.Equals(candidate.Name, transition.Provider, StringComparison.OrdinalIgnoreCase)))
+                {
                     errors.Add($"{mediaType}.providers transition target '{transition.Provider}' is not configured in the pipeline.");
+                }
+
                 if (transition.MaxAttempts >= pipeline.MaxProviderAttempts)
+                {
                     errors.Add($"{mediaType}.providers transition max_attempts must be lower than max_provider_attempts.");
+                }
             }
         }
     }
@@ -292,7 +419,9 @@ public static class JsonConfigValidator
             .OrderBy(key => key, StringComparer.OrdinalIgnoreCase)
             .ToArray();
         foreach (var key in unknown)
+        {
             errors.Add($"missing_item_display contains unknown media type '{key}'.");
+        }
 
         foreach (var mediaType in requiredMediaTypes)
         {
@@ -303,13 +432,24 @@ public static class JsonConfigValidator
             }
 
             if (!Allowed(policy.DefaultVisibility, "shown", "hidden"))
+            {
                 errors.Add($"missing_item_display.{mediaType}.default_visibility must be shown or hidden.");
+            }
+
             if (!Allowed(policy.Presentation, "all", "paged"))
+            {
                 errors.Add($"missing_item_display.{mediaType}.presentation must be all or paged.");
+            }
+
             if (!Allowed(policy.DetailHydration, "owned_only", "on_demand", "all"))
+            {
                 errors.Add($"missing_item_display.{mediaType}.detail_hydration must be owned_only, on_demand, or all.");
+            }
+
             if (policy.PageSize is < 1 or > 500)
+            {
                 errors.Add($"missing_item_display.{mediaType}.page_size must be between 1 and 500.");
+            }
         }
     }
 
@@ -318,13 +458,19 @@ public static class JsonConfigValidator
         foreach (var property in colors.GetType().GetProperties())
         {
             if (property.GetValue(colors) is not string value)
+            {
                 continue;
+            }
 
             var name = property.Name;
             if (string.IsNullOrWhiteSpace(value))
+            {
                 errors.Add($"{section}.{name} must not be empty.");
+            }
             else if (!value.StartsWith("rgba(", StringComparison.OrdinalIgnoreCase) && !HexColorRegex.IsMatch(value))
+            {
                 errors.Add($"{section}.{name} must be a hex color or rgba() value.");
+            }
         }
     }
 
@@ -334,24 +480,32 @@ public static class JsonConfigValidator
     private static void AddRequired(List<string> errors, string? value, string field)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             errors.Add($"{field} is required.");
+        }
     }
 
     private static void AddPositive(List<string> errors, int value, string field)
     {
         if (value <= 0)
+        {
             errors.Add($"{field} must be greater than 0.");
+        }
     }
 
     private static void AddPositiveOrZero(List<string> errors, int value, string field)
     {
         if (value < 0)
+        {
             errors.Add($"{field} must be 0 or greater.");
+        }
     }
 
     private static void AddRange(List<string> errors, double value, string field, double min, double max)
     {
         if (value < min || value > max)
+        {
             errors.Add($"{field} must be between {min} and {max}.");
+        }
     }
 }

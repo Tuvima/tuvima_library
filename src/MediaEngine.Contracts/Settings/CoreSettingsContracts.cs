@@ -57,8 +57,17 @@ public sealed class FolderSettingsDto
 
 public sealed class LibraryFolderDto
 {
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
+
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = "catalogued";
+
+    [JsonPropertyName("metadata_policy")]
+    public string MetadataPolicy { get; set; } = "enriched";
 
     [JsonPropertyName("media_types")]
     public List<string> MediaTypes { get; set; } = [];

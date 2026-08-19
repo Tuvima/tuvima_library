@@ -1,0 +1,70 @@
+{
+  "schema_version": "2.0",
+  "database_path": "/db/library.db",
+  "data_root": "/db",
+  "watch_directories": [
+    "/watch"
+  ],
+  "library_root": "/library",
+  "organization_template": "{Category}/{Title} ({Year})/{Title}{Ext}",
+  "organization_templates": {
+    "default": "{Category}/{Title} ({Year})/{Title}{Ext}",
+    "Books": "Books/{Author}/{Title} ({Year})/{Title} ({Year}){Ext}",
+    "Audiobooks": "Audiobooks/{Author}/{Title} ({Year})/{Title}{Ext}",
+    "Movies": "Movies/{Title} ({Year})/{Title} ({Year}){Ext}",
+    "TV": "TV/{Series} ({Year})/Season {Season}/{Series} - s{Season}e{Episode} - {EpisodeTitle}{Ext}",
+    "Comic": "Comics/{Series}/{Series} - {IssueNumber} ({Year}){Ext}",
+    "Music": "Music/{Artist}/{Album} ({Year})/{TrackNumber} - {Title}{Ext}"
+  },
+  "server_name": "Tuvima Library",
+  "language": {
+    "display": "en",
+    "metadata": "en",
+    "additional": [],
+    "accept_any": true
+  },
+  "country": "US",
+  "date_format": "system",
+  "time_format": "system",
+  "auth": {
+    "mode": "DisabledLocalOnly",
+    "localhost_bypass": true,
+    "require_https_remote": false,
+    "oidc": {
+      "enabled": false,
+      "authority": "",
+      "client_id": "",
+      "display_name": "OpenID Connect",
+      "scopes": [ "openid", "profile", "email" ]
+    }
+  },
+  "pipeline": {
+    "lease_sizes": {
+      "retail": 50,
+      "wikidata": 50,
+      "hydration": 20
+    },
+    "batch_gate": {
+      "enabled": true,
+      "small_batch_threshold": 5,
+      "timeout_seconds": 300
+    }
+  },
+  "storage_policy": {
+    "mode": "Hybrid",
+    "artwork_export": false,
+    "subtitle_export": true,
+    "metadata_sidecar_export": false,
+    "cleanup_managed_local_artwork": true,
+    "export_profile": {
+      "name": "plex-jellyfin-common",
+      "artwork": false,
+      "preferred_subtitles": true,
+      "metadata_sidecars": false
+    }
+  },
+  "plugin_catalog": {
+    "enabled": true,
+    "approved_plugins_url": "https://raw.githubusercontent.com/Tuvima/tuvima_library/main/docs/reference/approved-plugins.json"
+  }
+}

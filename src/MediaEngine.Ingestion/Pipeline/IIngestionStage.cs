@@ -33,6 +33,7 @@ internal sealed class IngestionPipelineContext(
     Guid ingestionRunId)
 {
     public IngestionCandidate Candidate { get; } = candidate;
+    public LibraryFolderEntry? Library { get; set; }
     public Guid IngestionRunId { get; } = ingestionRunId;
     public MediaOperation? DurableOperation { get; set; }
     public Guid LogEntryId { get; set; }

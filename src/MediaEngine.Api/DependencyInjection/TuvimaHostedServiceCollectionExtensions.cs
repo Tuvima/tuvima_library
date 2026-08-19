@@ -19,11 +19,11 @@ public static class TuvimaHostedServiceCollectionExtensions
 
         services.AddHostedService<EncodeQueueService>();
         services.AddHostedService<FolderHealthService>();
+        services.AddHostedService<MediaEngine.Api.Services.Photos.PhotoLibraryIndexHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<MetadataHarvestingService>());
         services.AddHostedService(sp => sp.GetRequiredService<DeferredEnrichmentService>());
         services.AddHostedService<ProviderActivityBroadcastService>();
         services.AddHostedService(sp => sp.GetRequiredService<ProviderHealthMonitorService>());
-        services.AddHostedService<WhisperSyncBackgroundService>();
         services.AddHostedService<ActivityPruningService>();
         services.AddHostedService<MediaOperationRecoveryHostedService>();
         services.AddHostedService<ArtworkRenditionRepairStartupService>();

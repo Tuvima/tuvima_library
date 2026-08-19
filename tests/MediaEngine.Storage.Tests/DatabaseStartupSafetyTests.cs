@@ -180,6 +180,13 @@ public sealed class DatabaseStartupSafetyTests
             ("media_assets", "edition_id"),
             ("offline_variants", "id"),
             ("offline_variants", "asset_id"),
+            ("photo_album_items", "album_id"),
+            ("photo_album_items", "photo_asset_id"),
+            ("photo_albums", "id"),
+            ("photo_assets", "id"),
+            ("photo_metadata", "photo_asset_id"),
+            ("photo_sources", "id"),
+            ("photo_sources", "photo_asset_id"),
             ("playback_inspection_cache", "asset_id"),
             ("player_sessions", "profile_id"),
             ("player_sessions", "session_id"),
@@ -537,7 +544,9 @@ public sealed class DatabaseStartupSafetyTests
         while (reader.Read())
         {
             if (string.Equals(reader.GetString(1), column, StringComparison.OrdinalIgnoreCase))
+            {
                 return reader.GetString(2);
+            }
         }
 
         throw new InvalidOperationException($"Column {table}.{column} was not found.");
@@ -558,7 +567,9 @@ public sealed class DatabaseStartupSafetyTests
                 """;
             using var tableReader = tableCmd.ExecuteReader();
             while (tableReader.Read())
+            {
                 tables.Add(tableReader.GetString(0));
+            }
         }
 
         var result = new List<string>();
@@ -570,7 +581,9 @@ public sealed class DatabaseStartupSafetyTests
             while (columnReader.Read())
             {
                 if (string.Equals(columnReader.GetString(2), "BLOB", StringComparison.OrdinalIgnoreCase))
+                {
                     result.Add($"{table}.{columnReader.GetString(1)}");
+                }
             }
         }
 

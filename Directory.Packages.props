@@ -74,7 +74,8 @@
     <PackageVersion Include="Tuvima.Wikidata.AspNetCore" Version="3.6.0" />
   </ItemGroup>
   <ItemGroup Label="Test">
-    <PackageVersion Include="bunit" Version="1.38.5" />
+    <!-- bUnit 2.9 carries a patched, API-compatible AngleSharp dependency. -->
+    <PackageVersion Include="bunit" Version="2.9.0" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageVersion Include="xunit" Version="2.9.3" />

@@ -23,6 +23,7 @@
          MIT license — approved for AGPLv3 compatibility (see CLAUDE.md §5.1). -->
     <PackageReference Include="Tuvima.Wikidata.AspNetCore" />
     <PackageReference Include="MediaInfo.Wrapper.Core" />
+    <PackageReference Include="TagLibSharp" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,7 @@
 using Dapper;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -24,10 +25,8 @@ using MediaEngine.Providers.Workers;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Services;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
-
 // Disambiguate ProviderConfiguration from the Storage.Models namespace
 using ProviderConfiguration = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
@@ -82,8 +81,8 @@ public sealed class DurablePipelineTests : IDisposable
 
     public DurablePipelineTests()
     {
-        _tempRoot   = Path.Combine(Path.GetTempPath(), $"tuvima_durable_{Guid.NewGuid():N}");
-        _watchDir   = Path.Combine(_tempRoot, "watch");
+        _tempRoot = Path.Combine(Path.GetTempPath(), $"tuvima_durable_{Guid.NewGuid():N}");
+        _watchDir = Path.Combine(_tempRoot, "watch");
         _libraryDir = Path.Combine(_tempRoot, "library");
         Directory.CreateDirectory(_watchDir);
         Directory.CreateDirectory(_libraryDir);
@@ -91,17 +90,17 @@ public sealed class DurablePipelineTests : IDisposable
         _dbFactory = new TestDatabaseFactory();
         var db = _dbFactory.Connection;
 
-        _assetRepo       = new MediaAssetRepository(db);
-        _claimRepo       = new MetadataClaimRepository(db);
-        _canonicalRepo   = new CanonicalValueRepository(db);
-        _reviewRepo      = new ReviewQueueRepository(db);
-        _activityRepo    = new SystemActivityRepository(db);
-        _ingestionLog    = new IngestionLogRepository(db);
-        _workRepo        = new WorkRepository(db);
+        _assetRepo = new MediaAssetRepository(db);
+        _claimRepo = new MetadataClaimRepository(db);
+        _canonicalRepo = new CanonicalValueRepository(db);
+        _reviewRepo = new ReviewQueueRepository(db);
+        _activityRepo = new SystemActivityRepository(db);
+        _ingestionLog = new IngestionLogRepository(db);
+        _workRepo = new WorkRepository(db);
         _entityAssetRepo = new EntityAssetRepository(db);
-        _assetPaths      = new AssetPathService(_libraryDir);
-        _chainFactory    = new MediaEntityChainFactory(db, new HierarchyResolver(_workRepo));
-        _batchRepo       = new IngestionBatchRepository(db);
+        _assetPaths = new AssetPathService(_libraryDir);
+        _chainFactory = new MediaEntityChainFactory(db, new HierarchyResolver(_workRepo));
+        _batchRepo = new IngestionBatchRepository(db);
         _identityJobRepo = new IdentityJobRepository(db);
 
         _scorer = new PriorityCascadeEngine(new StubConfigurationLoader(), NullLogger<PriorityCascadeEngine>.Instance);
@@ -126,7 +125,7 @@ public sealed class DurablePipelineTests : IDisposable
 
         _processors.SetNextResult(new ProcessorResult
         {
-            FilePath    = filePath,
+            FilePath = filePath,
             DetectedType = MediaType.Books,
             Claims =
             [
@@ -138,7 +137,7 @@ public sealed class DurablePipelineTests : IDisposable
         await RunPipelineAsync();
 
         // Verify a media asset was registered.
-        var hash  = await _hasher.ComputeAsync(FindFileAnywhere("Foundation.epub")!);
+        var hash = await _hasher.ComputeAsync(FindFileAnywhere("Foundation.epub")!);
         var asset = await _assetRepo.FindByHashAsync(hash.Hex);
         Assert.NotNull(asset);
 
@@ -148,6 +147,29 @@ public sealed class DurablePipelineTests : IDisposable
         Assert.Equal("Queued", job!.State);
         Assert.Equal("Books", job.MediaType);
         Assert.Equal(asset.Id, job.EntityId);
+        Assert.Equal("11111111-1111-4111-8111-111111111111", asset.LibraryId);
+    }
+
+    [Fact]
+    public async Task IngestionEngine_LocalOnlyLibrary_PresentsAssetWithoutIdentityJobOrReview()
+    {
+        var filePath = CreateWatchFile("Family Reunion.mp4");
+        _processors.SetNextResult(new ProcessorResult
+        {
+            FilePath = filePath,
+            DetectedType = MediaType.Movies,
+            Claims =
+            [
+                new ExtractedClaim { Key = "title", Value = "Family Reunion", Confidence = 0.70 },
+            ],
+        });
+
+        await RunPipelineAsync(localOnly: true);
+
+        using var conn = _dbFactory.Connection.CreateConnection();
+        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets WHERE library_id = '99999999-9999-4999-8999-999999999999' AND presented_at IS NOT NULL;"));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM identity_jobs;"));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM review_queue WHERE status = 'Pending';"));
     }
 
     // ── Test 2: Duplicate file ingestion creates only one asset ───────────
@@ -159,15 +181,15 @@ public sealed class DurablePipelineTests : IDisposable
 
         _processors.QueueResult(new ProcessorResult
         {
-            FilePath    = filePath,
+            FilePath = filePath,
             DetectedType = MediaType.Books,
-            Claims      = [new ExtractedClaim { Key = "title", Value = "Dune", Confidence = 0.95 }],
+            Claims = [new ExtractedClaim { Key = "title", Value = "Dune", Confidence = 0.95 }],
         });
         _processors.QueueResult(new ProcessorResult
         {
-            FilePath    = filePath,
+            FilePath = filePath,
             DetectedType = MediaType.Books,
-            Claims      = [new ExtractedClaim { Key = "title", Value = "Dune", Confidence = 0.95 }],
+            Claims = [new ExtractedClaim { Key = "title", Value = "Dune", Confidence = 0.95 }],
         });
 
         // Run the pipeline twice with the same file.
@@ -175,7 +197,9 @@ public sealed class DurablePipelineTests : IDisposable
 
         // The file moved on first pass; recreate it for the second pass.
         if (!File.Exists(filePath))
+        {
             File.WriteAllText(filePath, "dummy content for testing");
+        }
 
         await RunPipelineAsync();
 
@@ -218,12 +242,12 @@ public sealed class DurablePipelineTests : IDisposable
         var batchId = Guid.NewGuid();
         var batch = new IngestionBatch
         {
-            Id         = batchId,
-            Status     = "running",
+            Id = batchId,
+            Status = "running",
             SourcePath = _watchDir,
-            StartedAt  = DateTimeOffset.UtcNow,
-            CreatedAt  = DateTimeOffset.UtcNow,
-            UpdatedAt  = DateTimeOffset.UtcNow,
+            StartedAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
         };
         await _batchRepo.CreateAsync(batch);
 
@@ -377,7 +401,7 @@ public sealed class DurablePipelineTests : IDisposable
             Claims = [new ExtractedClaim { Key = "title", Value = "mystery", Confidence = 0.95 }],
         });
 
-        await RunPipelineAsync();
+        await RunPipelineAsync(applyMediaTypePrior: false);
 
         using var conn = _dbFactory.Connection.CreateConnection();
         Assert.True(conn.ExecuteScalar<int>("SELECT COUNT(*) FROM review_queue WHERE status = 'Pending';") >= 1);
@@ -427,27 +451,27 @@ public sealed class DurablePipelineTests : IDisposable
     [Fact]
     public async Task RetailMatchWorker_HighScoreCandidate_TransitionsToRetailMatched()
     {
-        var entityId   = Guid.NewGuid();
-        var jobId      = Guid.NewGuid();
+        var entityId = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
         var providerId = Guid.NewGuid();
 
-        var jobRepo       = new InMemoryIdentityJobRepository();
+        var jobRepo = new InMemoryIdentityJobRepository();
         var candidateRepo = new InMemoryRetailCandidateRepository();
 
         await jobRepo.CreateAsync(new IdentityJob
         {
-            Id         = jobId,
-            EntityId   = entityId,
+            Id = jobId,
+            EntityId = entityId,
             EntityType = "MediaAsset",
-            MediaType  = "Books",
-            State      = "Queued",
+            MediaType = "Books",
+            State = "Queued",
         });
 
         var provider = new StubProvider
         {
-            Name       = "apple_api",
+            Name = "apple_api",
             ProviderId = providerId,
-            Claims     =
+            Claims =
             [
                 new ProviderClaim(MetadataFieldConstants.Title,  "Foundation",   0.95),
                 new ProviderClaim(MetadataFieldConstants.Author, "Isaac Asimov", 0.90),
@@ -455,7 +479,7 @@ public sealed class DurablePipelineTests : IDisposable
         };
 
         var retailScoring = new FixedScoreRetailScoringService(compositeScore: 0.92);
-        var configLoader  = new MinimalConfigurationLoader();
+        var configLoader = new MinimalConfigurationLoader();
 
         var worker = new RetailMatchWorker(
             jobRepo,
@@ -492,22 +516,22 @@ public sealed class DurablePipelineTests : IDisposable
     public async Task WikidataBridgeWorker_JobInRetailNoMatchState_IsNotLeased()
     {
         var entityId = Guid.NewGuid();
-        var jobId    = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
 
-        var jobRepo           = new InMemoryIdentityJobRepository();
+        var jobRepo = new InMemoryIdentityJobRepository();
         var wikidataCandidates = new InMemoryWikidataCandidateRepository();
 
         // Seed a job that is in RetailNoMatch — the bridge worker must ignore it.
         await jobRepo.CreateAsync(new IdentityJob
         {
-            Id         = jobId,
-            EntityId   = entityId,
+            Id = jobId,
+            EntityId = entityId,
             EntityType = "MediaAsset",
-            MediaType  = "Books",
-            State      = IdentityJobState.RetailNoMatch.ToString(),
+            MediaType = "Books",
+            State = IdentityJobState.RetailNoMatch.ToString(),
         });
 
-        var configLoader  = new MinimalConfigurationLoader();
+        var configLoader = new MinimalConfigurationLoader();
         var bridgeIdHelper = new BridgeIdHelper(configLoader);
 
         var workRepoLocal = new WorkRepository(_dbFactory.Connection);
@@ -555,19 +579,19 @@ public sealed class DurablePipelineTests : IDisposable
         const string qid = "Q185166"; // Isaac Asimov — Foundation
 
         var entityId = Guid.NewGuid();
-        var jobId    = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
 
-        var jobRepo    = new InMemoryIdentityJobRepository();
+        var jobRepo = new InMemoryIdentityJobRepository();
         var enrichment = new RecordingEnrichmentService();
         var universeScheduler = new RecordingUniverseEnrichmentScheduler();
 
         await jobRepo.CreateAsync(new IdentityJob
         {
-            Id          = jobId,
-            EntityId    = entityId,
-            EntityType  = "MediaAsset",
-            MediaType   = "Books",
-            State       = IdentityJobState.QidResolved.ToString(),
+            Id = jobId,
+            EntityId = entityId,
+            EntityType = "MediaAsset",
+            MediaType = "Books",
+            State = IdentityJobState.QidResolved.ToString(),
             ResolvedQid = qid,
         });
 
@@ -616,7 +640,7 @@ public sealed class DurablePipelineTests : IDisposable
         // Confirm enrichment was called with the correct entity and QID.
         Assert.Single(enrichment.Calls);
         Assert.Equal(entityId, enrichment.Calls[0].EntityId);
-        Assert.Equal(qid,       enrichment.Calls[0].Qid);
+        Assert.Equal(qid, enrichment.Calls[0].Qid);
         Assert.Single(universeScheduler.Requests);
         Assert.Equal(entityId, universeScheduler.Requests[0].EntityId);
         Assert.Equal(qid, universeScheduler.Requests[0].WorkQid);
@@ -696,41 +720,41 @@ public sealed class DurablePipelineTests : IDisposable
     public async Task PostPipelineService_HighConfidenceEntity_AutoResolvesStaleReviews()
     {
         var entityId = Guid.NewGuid();
-        var jobId    = Guid.NewGuid();
+        var jobId = Guid.NewGuid();
 
         // Seed review items that should be auto-resolved once the pipeline has
         // high-confidence identity evidence.
         var lowConfidenceReview = new ReviewQueueEntry
         {
-            Id         = Guid.NewGuid(),
-            EntityId   = entityId,
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
             EntityType = "Work",
-            Trigger    = ReviewTrigger.LowConfidence,
-            Status     = ReviewStatus.Pending,
+            Trigger = ReviewTrigger.LowConfidence,
+            Status = ReviewStatus.Pending,
         };
         var ambiguousReview = new ReviewQueueEntry
         {
-            Id         = Guid.NewGuid(),
-            EntityId   = entityId,
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
             EntityType = "Work",
-            Trigger    = ReviewTrigger.RetailMatchAmbiguous,
-            Status     = ReviewStatus.Pending,
+            Trigger = ReviewTrigger.RetailMatchAmbiguous,
+            Status = ReviewStatus.Pending,
         };
         var ambiguousMediaTypeReview = new ReviewQueueEntry
         {
-            Id         = Guid.NewGuid(),
-            EntityId   = entityId,
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
             EntityType = "Work",
-            Trigger    = ReviewTrigger.AmbiguousMediaType,
-            Status     = ReviewStatus.Pending,
+            Trigger = ReviewTrigger.AmbiguousMediaType,
+            Status = ReviewStatus.Pending,
         };
         var rootWatchFolderReview = new ReviewQueueEntry
         {
-            Id         = Guid.NewGuid(),
-            EntityId   = entityId,
+            Id = Guid.NewGuid(),
+            EntityId = entityId,
             EntityType = "Work",
-            Trigger    = ReviewTrigger.RootWatchFolder,
-            Status     = ReviewStatus.Pending,
+            Trigger = ReviewTrigger.RootWatchFolder,
+            Status = ReviewStatus.Pending,
         };
 
         var reviewRepo = new TrackingReviewQueueRepository();
@@ -914,23 +938,42 @@ public sealed class DurablePipelineTests : IDisposable
             ? Directory.EnumerateFiles(_tempRoot, filename, SearchOption.AllDirectories).FirstOrDefault()
             : null;
 
-    private async Task RunPipelineAsync()
+    private async Task RunPipelineAsync(bool localOnly = false, bool applyMediaTypePrior = true)
     {
+        var libraryId = localOnly
+            ? "99999999-9999-4999-8999-999999999999"
+            : "11111111-1111-4111-8111-111111111111";
         var options = new IngestionOptions
         {
-            WatchDirectories      = [_watchDir],
-            LibraryRoot           = _libraryDir,
-            AutoOrganize          = true,
+            WatchDirectories = [_watchDir],
+            LibraryRoot = _libraryDir,
+            AutoOrganize = true,
             IncludeSubdirectories = false,
-            PollIntervalSeconds   = 0,
+            PollIntervalSeconds = 0,
+            LibraryFolders =
+            [
+                new LibraryFolderEntry
+                {
+                    Id = libraryId,
+                    Name = localOnly ? "Home Videos" : "Books",
+                    Kind = localOnly ? LibraryKinds.Personal : LibraryKinds.Catalogued,
+                    MetadataPolicy = localOnly ? LibraryMetadataPolicies.LocalOnly : LibraryMetadataPolicies.Enriched,
+                    SourcePaths = [_watchDir],
+                    LibraryRoot = _libraryDir,
+                    IncludeSubdirectories = false,
+                    MediaTypes = !applyMediaTypePrior
+                        ? []
+                        : localOnly ? [MediaType.Movies] : [MediaType.Books],
+                },
+            ],
         };
 
         var debounceOptions = new DebounceOptions
         {
-            SettleDelay       = TimeSpan.FromMilliseconds(1),
-            ProbeInterval     = TimeSpan.FromMilliseconds(1),
-            MaxProbeAttempts  = 1,
-            MaxProbeDelay     = TimeSpan.FromMilliseconds(10),
+            SettleDelay = TimeSpan.FromMilliseconds(1),
+            ProbeInterval = TimeSpan.FromMilliseconds(1),
+            MaxProbeAttempts = 1,
+            MaxProbeDelay = TimeSpan.FromMilliseconds(10),
         };
 
         using var debounce = new DebounceQueue(debounceOptions);
@@ -995,7 +1038,8 @@ public sealed class DurablePipelineTests : IDisposable
             new ScoreIdentifyStageDependencies(null),
             new OrganizeStageDependencies(null),
             new WriteBackStageDependencies(_entityAssetRepo, _assetPaths, _workRepo, null),
-            new IdentityJobStageDependencies(new IdentityPipelineSignal()));
+            new IdentityJobStageDependencies(new IdentityPipelineSignal()),
+            libraryFolderResolver: new LibraryFolderResolver(new OptionsMonitorStub<IngestionOptions>(options)));
 
     private static StageOutcomeFactory CreateOutcomeFactory() =>
         new StageOutcomeFactory(
@@ -1063,7 +1107,7 @@ public sealed class DurablePipelineTests : IDisposable
 
             foreach (var j in matches)
             {
-                j.LeaseOwner    = workerName;
+                j.LeaseOwner = workerName;
                 j.LeaseExpiresAt = DateTimeOffset.UtcNow.Add(leaseDuration);
             }
 
@@ -1075,7 +1119,7 @@ public sealed class DurablePipelineTests : IDisposable
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
             if (job is not null)
             {
-                job.State     = newState.ToString();
+                job.State = newState.ToString();
                 job.LastError = error;
                 job.UpdatedAt = DateTimeOffset.UtcNow;
             }
@@ -1085,14 +1129,22 @@ public sealed class DurablePipelineTests : IDisposable
         public Task SetSelectedCandidateAsync(Guid jobId, Guid candidateId, CancellationToken ct = default)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
-            if (job is not null) job.SelectedCandidateId = candidateId;
+            if (job is not null)
+            {
+                job.SelectedCandidateId = candidateId;
+            }
+
             return Task.CompletedTask;
         }
 
         public Task SetResolvedQidAsync(Guid jobId, string qid, CancellationToken ct = default)
         {
             var job = _jobs.FirstOrDefault(j => j.Id == jobId);
-            if (job is not null) job.ResolvedQid = qid;
+            if (job is not null)
+            {
+                job.ResolvedQid = qid;
+            }
+
             return Task.CompletedTask;
         }
 
@@ -1204,7 +1256,7 @@ public sealed class DurablePipelineTests : IDisposable
             var entry = _entries.FirstOrDefault(e => e.Id == id);
             if (entry is not null)
             {
-                entry.Status     = status;
+                entry.Status = status;
                 entry.ResolvedBy = resolvedBy;
                 entry.ResolvedAt = DateTimeOffset.UtcNow;
             }
@@ -1301,7 +1353,10 @@ public sealed class DurablePipelineTests : IDisposable
         {
             Calls.Add((entityId, qid));
             if (QuickPassException is not null)
+            {
                 throw QuickPassException;
+            }
+
             return Task.CompletedTask;
         }
 
@@ -1372,13 +1427,13 @@ public sealed class DurablePipelineTests : IDisposable
             double structuralBonus = 0.0)
             => new()
             {
-                TitleScore       = _score,
-                AuthorScore      = _score,
-                YearScore        = 0.0,
-                FormatScore      = 1.0,
-                CrossFieldBoost  = 0.0,
-                CoverArtScore    = 0.0,
-                CompositeScore   = _score,
+                TitleScore = _score,
+                AuthorScore = _score,
+                YearScore = 0.0,
+                FormatScore = 1.0,
+                CrossFieldBoost = 0.0,
+                CoverArtScore = 0.0,
+                CompositeScore = _score,
             };
     }
 
@@ -1390,12 +1445,12 @@ public sealed class DurablePipelineTests : IDisposable
         {
             Pipelines = new Dictionary<string, MediaTypePipeline>(StringComparer.OrdinalIgnoreCase)
             {
-                ["Books"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api", Purpose = "identity" }] },
-                ["Movies"]     = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
-                ["TV"]         = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
-                ["Music"]      = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
+                ["Books"] = new() { Strategy = ProviderStrategy.Waterfall, Providers = [new PipelineProviderEntry { Rank = 1, Name = "apple_api", Purpose = "identity" }] },
+                ["Movies"] = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
+                ["TV"] = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
+                ["Music"] = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
                 ["Audiobooks"] = new() { Strategy = ProviderStrategy.Sequential, Providers = [] },
-                ["Comics"]     = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
+                ["Comics"] = new() { Strategy = ProviderStrategy.Waterfall, Providers = [] },
             },
         };
 
@@ -1484,10 +1539,10 @@ public sealed class DurablePipelineTests : IDisposable
         public Task<ScoringResult> ScoreEntityAsync(ScoringContext context, CancellationToken ct = default)
             => Task.FromResult(new ScoringResult
             {
-                EntityId          = context.EntityId,
+                EntityId = context.EntityId,
                 OverallConfidence = _confidence,
-                ScoredAt          = DateTimeOffset.UtcNow,
-                FieldScores       = [],
+                ScoredAt = DateTimeOffset.UtcNow,
+                FieldScores = [],
             });
 
         public Task<IReadOnlyList<ScoringResult>> ScoreBatchAsync(IEnumerable<ScoringContext> contexts, CancellationToken ct = default)

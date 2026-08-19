@@ -16,7 +16,7 @@ tags:
 
 # Tuvima Library Documentation
 
-Tuvima Library is a private, local-first story library. It watches your folders, identifies your media, enriches it with metadata, and presents books, audiobooks, movies, TV, music, and comics as one coherent library.
+Tuvima Library is a private, local-first story library. It watches your folders, identifies catalogue media, keeps personal content local when requested, and presents books, audiobooks, movies, TV, music, comics, and photos in one Dashboard.
 
 <div class="tl-actions" markdown="1">
 
@@ -68,7 +68,8 @@ Add folders, scan media, watch ingestion progress, and resolve anything that nee
 
 Tuvima is Early Access. Check what is live, partial, planned, or intentionally not connected.
 
-[Open Product Status](product/status.md)  
+[Open Product Status](product/status.md)
+[Open Beta Roadmap](product/beta-roadmap.md)
 [Open Feature Truth Inventory](product/feature-truth-inventory.md)
 
 <div class="tl-meta">

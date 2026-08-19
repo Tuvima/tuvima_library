@@ -9,7 +9,7 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class LibrariesConfiguration
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "1.0";
+    public string SchemaVersion { get; set; } = "2.0";
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderConfig> Libraries { get; set; } = [];
@@ -21,9 +21,21 @@ public sealed class LibrariesConfiguration
 /// </summary>
 public sealed class LibraryFolderConfig
 {
+    /// <summary>Stable library identity persisted onto every owned media asset.</summary>
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
     /// <summary>Content category (e.g. "Books", "Movies", "TV").</summary>
     [JsonPropertyName("category")]
     public string Category { get; set; } = string.Empty;
+
+    /// <summary>Product area: catalogued media, personal media, or photos.</summary>
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = LibraryKinds.Catalogued;
+
+    /// <summary>External enrichment policy for files owned by this library.</summary>
+    [JsonPropertyName("metadata_policy")]
+    public string MetadataPolicy { get; set; } = LibraryMetadataPolicies.Enriched;
 
     /// <summary>
     /// Configured media types for this folder (e.g. ["Epub", "Audiobook"]).

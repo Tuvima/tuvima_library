@@ -86,6 +86,7 @@ nav:
   - Home: index.md
   - Product:
       - Product Status: product/status.md
+      - Beta Roadmap: product/beta-roadmap.md
       - Feature Truth Inventory: product/feature-truth-inventory.md
       - Privacy and Local-First Behavior: explanation/privacy-local-first.md
       - Attributions: reference/attributions.md

@@ -8,7 +8,7 @@
 
 **One library. Every story.**
 
-Your books, films, shows, music, audiobooks, and comics—together in one private library.
+Your books, films, shows, music, audiobooks, comics, and photos—together in one private library.
 
 Tuvima Library turns the media you already own into a collection that is easier to explore, understand, and enjoy.
 
@@ -33,6 +33,10 @@ Personal media collections rarely live in one neat place. A single story might b
 Tuvima Library starts with the story.
 
 Choose the folders Tuvima Library should watch and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
+
+Not every file needs an online identity. Personal libraries can keep home videos, lectures, and unmatched custom content local-only, bypassing retail providers and Wikidata. Photos use a separate local asset index with a date timeline, favorites, hidden items, albums, duplicate detection, and EXIF details; originals remain in place.
+
+See the [Beta Roadmap](https://tuvima.github.io/tuvima_library/product/beta-roadmap/) for the architectural priority order and the post-beta photo-intelligence boundary.
 
 ## See Tuvima Library
 

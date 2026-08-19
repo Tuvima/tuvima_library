@@ -8,7 +8,7 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class SharedUiPrimitiveTests : TestContext
+public sealed class SharedUiPrimitiveTests : AsyncBunitContext
 {
     public SharedUiPrimitiveTests()
     {
@@ -21,7 +21,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     {
         var clicked = false;
 
-        var cut = RenderComponent<AppMediaCard>(parameters => parameters
+        var cut = Render<AppMediaCard>(parameters => parameters
             .Add(component => component.Title, "Static on the Line")
             .Add(component => component.Subtitle, "Among The Outcasts")
             .Add(component => component.ImageUrl, "https://example.test/cover.jpg")
@@ -52,7 +52,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     [InlineData(AppPageStateKind.Unavailable, "Unavailable")]
     public void AppPageState_RendersExpectedStateClass(AppPageStateKind kind, string title)
     {
-        var cut = RenderComponent<AppPageState>(parameters => parameters
+        var cut = Render<AppPageState>(parameters => parameters
             .Add(component => component.Kind, kind)
             .Add(component => component.Title, title)
             .Add(component => component.Message, "State message"));
@@ -69,7 +69,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     [InlineData(AppUiTone.Error, "app-status-badge--error")]
     public void AppStatusBadge_MapsToneToClass(AppUiTone tone, string expectedClass)
     {
-        var cut = RenderComponent<AppStatusBadge>(parameters => parameters
+        var cut = Render<AppStatusBadge>(parameters => parameters
             .Add(component => component.Text, "Status")
             .Add(component => component.Tone, tone));
 
@@ -83,7 +83,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     public void AppCheckbox_UsesSharedToneAndSupportsTwoWayValueChanges()
     {
         var value = false;
-        var cut = RenderComponent<AppCheckbox>(parameters => parameters
+        var cut = Render<AppCheckbox>(parameters => parameters
             .Add(component => component.Label, "Select row")
             .Add(component => component.Value, value)
             .Add(component => component.ValueChanged, EventCallback.Factory.Create<bool>(this, next => value = next))
@@ -102,7 +102,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     {
         var clicked = false;
 
-        var cut = RenderComponent<AppButton>(parameters => parameters
+        var cut = Render<AppButton>(parameters => parameters
             .Add(component => component.Label, "Save")
             .Add(component => component.Tone, AppUiTone.Primary)
             .Add(component => component.Size, AppControlSize.Compact)
@@ -123,7 +123,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     [Fact]
     public void AppTextField_RendersLabelHelpTextAndSizeClass()
     {
-        var cut = RenderComponent<AppTextField>(parameters => parameters
+        var cut = Render<AppTextField>(parameters => parameters
             .Add(component => component.Label, "Provider Name")
             .Add(component => component.Value, "TMDB")
             .Add(component => component.HelpText, "Shown below the field.")
@@ -163,7 +163,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     [Fact]
     public void AppSwitchRow_RendersLabelDescriptionAndDisabledState()
     {
-        var cut = RenderComponent<AppSwitchRow>(parameters => parameters
+        var cut = Render<AppSwitchRow>(parameters => parameters
             .Add(component => component.Label, "Status")
             .Add(component => component.Description, "Provider is enabled.")
             .Add(component => component.Value, true)
@@ -178,7 +178,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     [Fact]
     public void AppProviderLogo_UsesSharedSizingAndFallback()
     {
-        var cut = RenderComponent<AppProviderLogo>(parameters => parameters
+        var cut = Render<AppProviderLogo>(parameters => parameters
             .Add(component => component.FallbackText, "TM")
             .Add(component => component.AccentColor, "#22C55E")
             .Add(component => component.Size, AppControlSize.Large));
@@ -192,7 +192,7 @@ public sealed class SharedUiPrimitiveTests : TestContext
     [Fact]
     public void AppProviderLogo_UsesTransparentImageTreatmentForProviderAssets()
     {
-        var cut = RenderComponent<AppProviderLogo>(parameters => parameters
+        var cut = Render<AppProviderLogo>(parameters => parameters
             .Add(component => component.ImageUrl, "images/providers/tmdb.svg")
             .Add(component => component.AltText, "TMDB")
             .Add(component => component.Size, AppControlSize.Normal));

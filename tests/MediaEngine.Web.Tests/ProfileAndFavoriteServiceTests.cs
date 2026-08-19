@@ -9,7 +9,7 @@ using Microsoft.JSInterop;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class ProfileAndFavoriteServiceTests : TestContext
+public sealed class ProfileAndFavoriteServiceTests : AsyncBunitContext
 {
     private static readonly Guid ProfileId = Guid.Parse("00000000-0000-0000-0000-000000000001");
 

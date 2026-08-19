@@ -100,7 +100,9 @@ public sealed class StreamingServiceLogoResolverTests
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }
@@ -117,7 +119,7 @@ public sealed class StreamingServiceLogoResolverTests
     }
 }
 
-public sealed class StreamingServiceHeroRenderTests : TestContext
+public sealed class StreamingServiceHeroRenderTests : AsyncBunitContext
 {
     private static readonly DetailEntityType[] EditableMediaTypes =
     [
@@ -259,7 +261,7 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
             Icon = "edit",
         };
 
-        using var cut = RenderComponent<OverflowActionMenu>(parameters => parameters
+        using var cut = Render<OverflowActionMenu>(parameters => parameters
             .Add(component => component.Actions, [edit])
             .Add(component => component.Label, "More")
             .Add(component => component.OnActionSelected, action => selected = action));
@@ -297,7 +299,9 @@ public sealed class StreamingServiceHeroRenderTests : TestContext
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "MediaEngine.slnx")))
+        {
             directory = directory.Parent;
+        }
 
         return directory?.FullName ?? throw new DirectoryNotFoundException("Could not find repository root.");
     }

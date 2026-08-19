@@ -97,12 +97,7 @@ If your Engine runs on a different URL, set `TUVIMA_ENGINE_URL` before starting 
 
 Open **Settings > Libraries**.
 
-Confirm:
-
-- Watch Folder
-- Library Root
-- organization template
-- path read/write checks
+Confirm or create the logical libraries you need. Each library has source folders, a kind, and a metadata policy. Use `catalogued / enriched` for known books, movies, TV, music, audiobooks, and comics; use `personal / local-only` for home videos or unmatched content; use `photos / local-only` for the Photos timeline. Confirm path read/write checks, then save.
 
 Save changes, then run **Scan saved watch folder** from Libraries. Open **Settings > Providers** if provider credentials need attention, and open **Settings > Ingestion** to watch progress.
 
@@ -114,7 +109,7 @@ Docker support exists for local/containerized runs:
 docker compose up
 ```
 
-Edit `docker-compose.yml` before starting if you need different config, data, or media paths. The Dashboard is exposed at `http://localhost:5016` and the Engine at `http://localhost:61495` by default.
+Edit the host volume paths in `docker-compose.yml` before starting. The `/watch` mount contains per-library folders such as `/watch/movies`, `/watch/general`, and `/watch/photos`; `/library`, `/config`, `/db`, and `/models` persist independently. The Dashboard is exposed at `http://localhost:5016` and the Engine at `http://localhost:61495` by default.
 
 ## Stopping Tuvima
 

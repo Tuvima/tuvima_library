@@ -3273,6 +3273,60 @@ MediaEngine.Contracts.Persons.MediaEngine.Contracts.Persons.PersonSummaryRespons
   Biography: System.String | nullability=nullable | accessors=get,init
   Occupation: System.String | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.AddPhotoAlbumItemsRequest
+  PhotoIds: System.Collections.Generic.IReadOnlyList<System.Guid> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.AddPhotoAlbumItemsResult
+  Added: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.CreatePhotoAlbumRequest
+  Name: System.String | nullability=not-null | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.PhotoAlbumDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  Description: System.String | nullability=nullable | accessors=get,init
+  ItemCount: System.Int32 | nullability=not-null | accessors=get,init
+  CoverThumbnailUrl: System.String | nullability=nullable | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.PhotoAssetDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  FileName: System.String | nullability=not-null | accessors=get,init
+  CapturedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  Width: System.Int32? | nullability=nullable | accessors=get,init
+  Height: System.Int32? | nullability=nullable | accessors=get,init
+  MimeType: System.String | nullability=not-null | accessors=get,init
+  Latitude: System.Double? | nullability=nullable | accessors=get,init
+  Longitude: System.Double? | nullability=nullable | accessors=get,init
+  CameraMake: System.String | nullability=nullable | accessors=get,init
+  CameraModel: System.String | nullability=nullable | accessors=get,init
+  Favorite: System.Boolean | nullability=not-null | accessors=get,init
+  Hidden: System.Boolean | nullability=not-null | accessors=get,init
+  DuplicateCount: System.Int32 | nullability=not-null | accessors=get,init
+  ThumbnailUrl: System.String | nullability=not-null | accessors=get,init
+  ContentUrl: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.PhotoPageDto
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Photos.PhotoAssetDto> | nullability=not-null | accessors=get,init
+  Offset: System.Int32 | nullability=not-null | accessors=get,init
+  Limit: System.Int32 | nullability=not-null | accessors=get,init
+  Total: System.Int32 | nullability=not-null | accessors=get,init
+  HasMore: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.PhotoScanResultDto
+  FilesSeen: System.Int32 | nullability=not-null | accessors=get,init
+  PhotosAdded: System.Int32 | nullability=not-null | accessors=get,init
+  SourcesAdded: System.Int32 | nullability=not-null | accessors=get,init
+  DuplicatesFound: System.Int32 | nullability=not-null | accessors=get,init
+  Errors: System.Int32 | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.ScanPhotoLibrariesRequest
+
+MediaEngine.Contracts.Photos.MediaEngine.Contracts.Photos.SetPhotoFlagRequest
+  Value: System.Boolean | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookBookmarkDto
   Id: System.Guid | nullability=not-null | accessors=get,init
   ProfileId: System.Guid | nullability=not-null | accessors=get,init
@@ -4655,7 +4709,10 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.HydrationSettingsD
   TimelineRetentionDays: System.Int32 | nullability=not-null | accessors=get,set
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibraryFolderDto
+  Id: System.String | nullability=not-null | accessors=get,set
   Name: System.String | nullability=not-null | accessors=get,set
+  Kind: System.String | nullability=not-null | accessors=get,set
+  MetadataPolicy: System.String | nullability=not-null | accessors=get,set
   MediaTypes: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   SourcePaths: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   LibraryRoot: System.String | nullability=nullable | accessors=get,set
@@ -5012,6 +5069,22 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UpdateOrganization
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UpdateProviderRequest
   Enabled: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.BackupArchiveDto
+  FileName: System.String | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  SizeBytes: System.Int64 | nullability=not-null | accessors=get,init
+  IncludesSecrets: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.CreateBackupRequest
+
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.ScheduleRestoreRequest
+  FileName: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.System.MediaEngine.Contracts.System.ScheduleRestoreResultDto
+  Scheduled: System.Boolean | nullability=not-null | accessors=get,init
+  RestartRequired: System.Boolean | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.SystemActivityOperationDto
   Id: System.Guid | nullability=not-null | accessors=get,init

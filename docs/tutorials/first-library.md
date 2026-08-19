@@ -20,12 +20,14 @@ This tutorial walks through the first practical loop: configure a folder, scan i
 
 In the Dashboard, open **Settings > Libraries**.
 
-Confirm the current folder settings:
+Create or select a library, then confirm:
 
 - **Watch Folder** - where new files appear for Tuvima to scan.
 - **Library Root** - where organized files can live after promotion.
 - **Organization template** - the folder/file naming pattern used during organization.
 - **Path checks** - whether the Engine can read and write the configured paths.
+- **Library kind** - catalogued, personal/custom, or photos.
+- **Metadata policy** - enriched for known works, or local-only/manual when online identity matching must be bypassed.
 
 Save the settings when they look correct.
 
@@ -37,6 +39,9 @@ Copy a small set of supported files into the Watch Folder. Start with a few know
 - one movie or TV file
 - one album track or audiobook
 - one comic archive if you use comics
+- a few photos if you configured a Photos library
+
+For home videos, lectures, or private unmatched content, use a personal library with **Local only**. Tuvima will not send those items through retail providers, Wikidata, or identity review. Photos use their own index and remain in place.
 
 Supported formats are listed in [Media Types](../reference/media-types.md).
 
@@ -73,6 +78,7 @@ Items do not appear everywhere immediately.
 - **Listen** shows music and audiobooks.
 - **Search** finds library items across media lanes.
 - **Collections** organizes automatic broader rollups, published curated collections, lane-level shelves, and people when they are backed by real library data.
+- **Photos** shows a local date timeline, favorites, hidden items, albums, and capture details.
 - **Review Queue** holds items that need human confirmation.
 
 An item is eligible for browse surfaces only after it has a real title, resolved media type, and settled artwork outcome. Items that are uncertain stay in Review Queue instead of being shown as if they were correct.

@@ -14,12 +14,14 @@ public sealed class CollectionsHubTests
         var readIndex = source.IndexOf("new(\"/read\", \"Nav_Read\")", StringComparison.Ordinal);
         var watchIndex = source.IndexOf("new(\"/watch\", \"Nav_Watch\")", StringComparison.Ordinal);
         var listenIndex = source.IndexOf("new(\"/listen\", \"Nav_Listen\")", StringComparison.Ordinal);
+        var photosIndex = source.IndexOf("new(\"/photos\", \"Nav_Photos\")", StringComparison.Ordinal);
         var collectionsIndex = source.IndexOf("new(\"/collections\", \"Nav_Collections\")", StringComparison.Ordinal);
 
         Assert.True(readIndex >= 0);
         Assert.True(watchIndex > readIndex);
         Assert.True(listenIndex > watchIndex);
-        Assert.True(collectionsIndex > listenIndex);
+        Assert.True(photosIndex > listenIndex);
+        Assert.True(collectionsIndex > photosIndex);
     }
 
     [Fact]

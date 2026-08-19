@@ -1,18 +1,27 @@
 using System.Text.Json;
 using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Settings;
+using MediaEngine.Contracts.System;
 using MediaEngine.Web.Models.ViewDTOs;
 
 namespace MediaEngine.Web.Services.Integration;
 
 public partial interface IEngineApiClient
 {
+    Task<IReadOnlyList<BackupArchiveDto>> GetBackupsAsync(CancellationToken ct = default);
+
+    Task<BackupArchiveDto?> CreateBackupAsync(CancellationToken ct = default);
+
+    Task<byte[]?> DownloadBackupAsync(string fileName, CancellationToken ct = default);
+
+    Task<ScheduleRestoreResultDto?> ScheduleRestoreAsync(string fileName, CancellationToken ct = default);
+
     Task<IReadOnlyList<PluginSummaryResponse>> GetPluginsAsync(CancellationToken ct = default);
 
     Task<ApprovedPluginCatalogDto?> GetApprovedPluginCatalogAsync(CancellationToken ct = default);

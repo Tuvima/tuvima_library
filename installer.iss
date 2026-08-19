@@ -42,13 +42,13 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 [Files]
 Source: "dist\win\engine\*";                DestDir: "{app}\engine";                      Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "dist\win\dashboard\*";             DestDir: "{app}\dashboard";                   Flags: ignoreversion recursesubdirs createallsubdirs
-Source: "config\*";                          DestDir: "{tmp}\tuvima-config-default";        Flags: ignoreversion recursesubdirs createallsubdirs deleteafterinstall
+Source: "config\*";                          DestDir: "{commonappdata}\Tuvima\config";       Flags: ignoreversion recursesubdirs createallsubdirs onlyifdoesntexist
 
 [Dirs]
-Name: "{commonappdata}\Tuvima\config";  Permissions: everyone-modify
-Name: "{commonappdata}\Tuvima\db";      Permissions: everyone-modify
-Name: "{commonappdata}\Tuvima\watch";   Permissions: everyone-modify
-Name: "{commonappdata}\Tuvima\library"; Permissions: everyone-modify
+Name: "{commonappdata}\Tuvima\config";  Permissions: authusers-modify
+Name: "{commonappdata}\Tuvima\db";      Permissions: authusers-modify
+Name: "{commonappdata}\Tuvima\watch";   Permissions: authusers-modify
+Name: "{commonappdata}\Tuvima\library"; Permissions: authusers-modify
 
 [Icons]
 Name: "{group}\Open Tuvima Library";      Filename: "{app}\open-tuvima.bat"
@@ -61,7 +61,7 @@ Filename: "{sys}\sc.exe"; Parameters: "create {#EngineSvc} binpath= ""{app}\engi
 Filename: "{sys}\sc.exe"; Parameters: "description {#EngineSvc} ""Tuvima Library intelligence engine"""; Flags: runhidden
 Filename: "{sys}\sc.exe"; Parameters: "create {#DashboardSvc} binpath= ""{app}\dashboard\MediaEngine.Web.exe"" start= auto DisplayName= ""Tuvima Library Dashboard"""; Flags: runhidden; StatusMsg: "Installing Dashboard service..."
 Filename: "{sys}\sc.exe"; Parameters: "description {#DashboardSvc} ""Tuvima Library browser dashboard"""; Flags: runhidden
-Filename: "{sys}\reg.exe"; Parameters: "add ""HKLM\SYSTEM\CurrentControlSet\Services\{#EngineSvc}"" /v Environment /t REG_MULTI_SZ /d ""TUVIMA_CONFIG_DIR={commonappdata}\Tuvima\config\0TUVIMA_DB_PATH={commonappdata}\Tuvima\db\library.db\0TUVIMA_WATCH_FOLDER={commonappdata}\Tuvima\watch\0TUVIMA_LIBRARY_ROOT={commonappdata}\Tuvima\library\0TUVIMA_CORS_ORIGINS=http://localhost:{#DashboardPort}\0ASPNETCORE_URLS=http://+:{#EnginePort}\0ASPNETCORE_ENVIRONMENT=Production"" /f"; Flags: runhidden; StatusMsg: "Configuring Engine service..."
+Filename: "{sys}\reg.exe"; Parameters: "add ""HKLM\SYSTEM\CurrentControlSet\Services\{#EngineSvc}"" /v Environment /t REG_MULTI_SZ /d ""TUVIMA_CONFIG_DIR={commonappdata}\Tuvima\config\0TUVIMA_DB_PATH={commonappdata}\Tuvima\db\library.db\0TUVIMA_CORS_ORIGINS=http://localhost:{#DashboardPort}\0ASPNETCORE_URLS=http://+:{#EnginePort}\0ASPNETCORE_ENVIRONMENT=Production"" /f"; Flags: runhidden; StatusMsg: "Configuring Engine service..."
 Filename: "{sys}\reg.exe"; Parameters: "add ""HKLM\SYSTEM\CurrentControlSet\Services\{#DashboardSvc}"" /v Environment /t REG_MULTI_SZ /d ""Engine__BaseUrl=http://localhost:{#EnginePort}\0ASPNETCORE_URLS=http://+:{#DashboardPort}\0ASPNETCORE_ENVIRONMENT=Production"" /f"; Flags: runhidden; StatusMsg: "Configuring Dashboard service..."
 Filename: "{sys}\sc.exe"; Parameters: "start {#EngineSvc}";    Flags: runhidden; StatusMsg: "Starting Engine..."
 Filename: "{sys}\sc.exe"; Parameters: "start {#DashboardSvc}"; Flags: runhidden; StatusMsg: "Starting Dashboard..."
@@ -84,18 +84,44 @@ begin
   Sleep(1000);
 end;
 
-{ ── Copy config → ProgramData\Tuvima\config on first install ─────── }
-procedure SeedConfig;
-var
-  ResultCode: Integer;
-  SrcDir, DstDir: string;
+function JsonPath(Value: string): string;
 begin
-  DstDir := ExpandConstant('{commonappdata}\Tuvima\config');
-  SrcDir := ExpandConstant('{tmp}\tuvima-config-default');
-  if (not FileExists(DstDir + '\library.json')) and DirExists(SrcDir) then
-    Exec(ExpandConstant('{sys}\xcopy.exe'),
-         '/E /I /Y "' + SrcDir + '" "' + DstDir + '"',
-         '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := StringChangeEx(Value, '\', '\\', True);
+end;
+
+procedure ReplacePackagedPath(FileName, SourcePath, TargetPath: string);
+var
+  Contents: AnsiString;
+begin
+  if LoadStringFromFile(FileName, Contents) then
+  begin
+    Contents := StringChangeEx(
+      Contents,
+      JsonPath(SourcePath),
+      JsonPath(TargetPath),
+      True);
+    SaveStringToFile(FileName, Contents, False);
+  end;
+end;
+
+{ Rewrite only the repository's packaged development defaults. Existing user
+  paths are never replaced, and config files are never overwritten on upgrade. }
+procedure ConfigurePackagedPaths;
+var
+  ConfigDir, LibraryDir, WatchDir: string;
+begin
+  ConfigDir := ExpandConstant('{commonappdata}\Tuvima\config');
+  LibraryDir := ExpandConstant('{commonappdata}\Tuvima\library');
+  WatchDir := ExpandConstant('{commonappdata}\Tuvima\watch');
+
+  ReplacePackagedPath(ConfigDir + '\core.json',
+    'C:\temp\tuvima-library', LibraryDir);
+  ReplacePackagedPath(ConfigDir + '\core.json',
+    'C:\temp\tuvima-import', WatchDir);
+  ReplacePackagedPath(ConfigDir + '\libraries.json',
+    'C:\temp\tuvima-library', LibraryDir);
+  ReplacePackagedPath(ConfigDir + '\libraries.json',
+    'C:\temp\tuvima-watch', WatchDir);
 end;
 
 { ── Write a one-click launch batch file ─────────────────────────────────── }
@@ -124,10 +150,10 @@ begin
   // Before file copy: remove any previous service registrations
   if CurStep = ssInstall then
     RemoveServices;
-  // After file copy: seed config and write the launch batch
+  // After file copy: platform-normalize packaged defaults and write the launcher
   if CurStep = ssPostInstall then
   begin
-    SeedConfig;
+    ConfigurePackagedPaths;
     WriteOpenBatch;
   end;
 end;

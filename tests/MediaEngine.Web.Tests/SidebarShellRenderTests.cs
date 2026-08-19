@@ -8,7 +8,7 @@ using MudBlazor.Services;
 
 namespace MediaEngine.Web.Tests;
 
-public sealed class SidebarShellRenderTests : TestContext
+public sealed class SidebarShellRenderTests : AsyncBunitContext
 {
     public SidebarShellRenderTests()
     {
@@ -28,7 +28,7 @@ public sealed class SidebarShellRenderTests : TestContext
             ]),
         };
 
-        var cut = RenderComponent<MediaSectionShell>(parameters => parameters
+        var cut = Render<MediaSectionShell>(parameters => parameters
             .Add(component => component.Title, "Read")
             .Add(component => component.NavigationGroups, navigation)
             .AddChildContent("<section id=\"content-slot\">Content</section>"));
@@ -46,7 +46,7 @@ public sealed class SidebarShellRenderTests : TestContext
     public void MediaSectionShell_ExpandsActiveBranchAndMarksDeepLink()
     {
         Services.GetRequiredService<NavigationManager>().NavigateTo("/settings/ai/models");
-        var cut = RenderComponent<MediaSectionShell>(parameters => parameters
+        var cut = Render<MediaSectionShell>(parameters => parameters
             .Add(component => component.Title, "Settings")
             .Add(component => component.AccordionNavigation, true)
             .Add(component => component.NavigationGroups, BuildNestedNavigation())
@@ -69,7 +69,7 @@ public sealed class SidebarShellRenderTests : TestContext
     {
         var navigationManager = Services.GetRequiredService<NavigationManager>();
         navigationManager.NavigateTo("/settings/ai/models");
-        var cut = RenderComponent<MediaSectionShell>(parameters => parameters
+        var cut = Render<MediaSectionShell>(parameters => parameters
             .Add(component => component.Title, "Settings")
             .Add(component => component.AccordionNavigation, true)
             .Add(component => component.NavigationGroups, BuildNestedNavigation())

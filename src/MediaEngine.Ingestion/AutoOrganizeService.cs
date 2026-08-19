@@ -1,14 +1,14 @@
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -22,60 +22,53 @@ namespace MediaEngine.Ingestion;
 /// </summary>
 public sealed class AutoOrganizeService : IAutoOrganizeService
 {
-    private readonly IMediaAssetRepository    _assetRepo;
+    private readonly IMediaAssetRepository _assetRepo;
     private readonly ICanonicalValueRepository _canonicalRepo;
-    private readonly IFileOrganizer           _organizer;
+    private readonly IFileOrganizer _organizer;
     private readonly ISystemActivityRepository _activityRepo;
-    private readonly IReviewQueueRepository   _reviewRepo;
-    private readonly IEventPublisher          _publisher;
-    private readonly IOrganizationGate        _gate;
-    private readonly IngestionOptions         _options;
-    private readonly IEntityAssetRepository?  _entityAssetRepo;
-    private readonly IWorkRepository?         _workRepo;
-    private readonly AssetPathService?        _assetPathService;
-    private readonly ILibraryFolderResolver?  _libraryResolver;
+    private readonly IReviewQueueRepository _reviewRepo;
+    private readonly IEventPublisher _publisher;
+    private readonly IOrganizationGate _gate;
+    private readonly IngestionOptions _options;
+    private readonly IEntityAssetRepository? _entityAssetRepo;
+    private readonly IWorkRepository? _workRepo;
+    private readonly AssetPathService? _assetPathService;
+    private readonly ILibraryFolderResolver? _libraryResolver;
     private readonly ILogger<AutoOrganizeService> _logger;
 
     public AutoOrganizeService(
-        IMediaAssetRepository      assetRepo,
-        ICanonicalValueRepository  canonicalRepo,
-        IFileOrganizer             organizer,
-        ISystemActivityRepository  activityRepo,
-        IReviewQueueRepository     reviewRepo,
-        IEventPublisher            publisher,
-        IOrganizationGate          gate,
+        IMediaAssetRepository assetRepo,
+        ICanonicalValueRepository canonicalRepo,
+        IFileOrganizer organizer,
+        ISystemActivityRepository activityRepo,
+        IReviewQueueRepository reviewRepo,
+        IEventPublisher publisher,
+        IOrganizationGate gate,
         IOptions<IngestionOptions> options,
         ILogger<AutoOrganizeService> logger,
-        IEntityAssetRepository?    entityAssetRepo = null,
-        IWorkRepository?           workRepo = null,
-        AssetPathService?          assetPathService = null,
-        ILibraryFolderResolver?    libraryResolver  = null)
+        IEntityAssetRepository? entityAssetRepo = null,
+        IWorkRepository? workRepo = null,
+        AssetPathService? assetPathService = null,
+        ILibraryFolderResolver? libraryResolver = null)
     {
-        _assetRepo        = assetRepo;
-        _canonicalRepo    = canonicalRepo;
-        _organizer        = organizer;
-        _activityRepo     = activityRepo;
-        _reviewRepo       = reviewRepo;
-        _publisher        = publisher;
-        _gate             = gate;
-        _options          = options.Value;
-        _entityAssetRepo  = entityAssetRepo;
-        _workRepo         = workRepo;
+        _assetRepo = assetRepo;
+        _canonicalRepo = canonicalRepo;
+        _organizer = organizer;
+        _activityRepo = activityRepo;
+        _reviewRepo = reviewRepo;
+        _publisher = publisher;
+        _gate = gate;
+        _options = options.Value;
+        _entityAssetRepo = entityAssetRepo;
+        _workRepo = workRepo;
         _assetPathService = assetPathService;
-        _libraryResolver  = libraryResolver;
-        _logger           = logger;
+        _libraryResolver = libraryResolver;
+        _logger = logger;
     }
 
     /// <inheritdoc/>
     public async Task TryAutoOrganizeAsync(Guid assetId, CancellationToken ct = default, Guid? ingestionRunId = null)
     {
-        if (string.IsNullOrWhiteSpace(_options.LibraryRoot))
-        {
-            _logger.LogDebug(
-                "Auto-organize skipped for {Id}: LibraryRoot not configured", assetId);
-            return;
-        }
-
         var asset = await _assetRepo.FindByIdAsync(assetId, ct).ConfigureAwait(false);
         if (asset is null)
         {
@@ -96,6 +89,16 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         // library marked ReadOnly (the user's "Plex owns this tree" opt-out),
         // we never move, rename, or tag it — we index in place and return.
         var owningLibrary = _libraryResolver?.ResolveForPath(asset.FilePathRoot);
+        var libraryRoot = !string.IsNullOrWhiteSpace(owningLibrary?.LibraryRoot)
+            ? owningLibrary.LibraryRoot
+            : _options.LibraryRoot;
+        if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
+            _logger.LogDebug(
+                "Auto-organize skipped for {Id}: no destination root is configured", assetId);
+            return;
+        }
+
         if (owningLibrary is { ReadOnly: true })
         {
             _logger.LogDebug(
@@ -122,17 +125,18 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 : (MediaType?)null;
 
         // Determine where the file currently is.
-        bool isInStaging = !string.IsNullOrWhiteSpace(_options.StagingPath)
+        var stagingPath = Path.Combine(libraryRoot, ".data", "staging");
+        bool isInStaging = !string.IsNullOrWhiteSpace(stagingPath)
             && asset.FilePathRoot.StartsWith(
-                _options.StagingPath, StringComparison.OrdinalIgnoreCase);
+                stagingPath, StringComparison.OrdinalIgnoreCase);
 
         bool alreadyOrganized = !isInStaging
             && asset.FilePathRoot.StartsWith(
-                _options.LibraryRoot, StringComparison.OrdinalIgnoreCase);
+                libraryRoot, StringComparison.OrdinalIgnoreCase);
 
         if (alreadyOrganized)
         {
-            await HandleAlreadyOrganizedAsync(asset, assetId, metadata, mediaType, ct)
+            await HandleAlreadyOrganizedAsync(asset, assetId, metadata, mediaType, libraryRoot, ct)
                 .ConfigureAwait(false);
             return;
         }
@@ -173,11 +177,11 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         var synth = new IngestionCandidate
         {
-            Path              = asset.FilePathRoot,
-            EventType         = FileEventType.Created,
-            DetectedAt        = DateTimeOffset.UtcNow,
-            ReadyAt           = DateTimeOffset.UtcNow,
-            Metadata          = metadata,
+            Path = asset.FilePathRoot,
+            EventType = FileEventType.Created,
+            DetectedAt = DateTimeOffset.UtcNow,
+            ReadyAt = DateTimeOffset.UtcNow,
+            Metadata = metadata,
             DetectedMediaType = mediaType,
         };
 
@@ -201,7 +205,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
-        var destPath = Path.Combine(_options.LibraryRoot, relative);
+        var destPath = Path.Combine(libraryRoot, relative);
         var stagingFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
 
         bool moved = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, destPath, ct)
@@ -233,8 +237,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         CleanStagingBakFiles(stagingFolder);
 
         // Clean empty staging subdirectories left behind.
-        if (!string.IsNullOrWhiteSpace(_options.StagingPath))
-            CleanEmptyParents(stagingFolder, _options.StagingPath);
+        if (!string.IsNullOrWhiteSpace(stagingPath))
+        {
+            CleanEmptyParents(stagingFolder, stagingPath);
+        }
 
         _logger.LogInformation(
             "Promoted asset {Id} from staging to library: {Source} → {Dest}",
@@ -257,10 +263,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             await _activityRepo.LogAsync(new SystemActivityEntry
             {
                 ActionType = SystemActionType.PathUpdated,
-                EntityId   = assetId,
+                EntityId = assetId,
                 EntityType = "MediaAsset",
-                CollectionName    = metadata.GetValueOrDefault("title", "Unknown"),
-                Detail     = $"Promoted from staging: {Path.GetFileName(asset.FilePathRoot)} → {Path.GetRelativePath(_options.LibraryRoot, destPath)}",
+                CollectionName = metadata.GetValueOrDefault("title", "Unknown"),
+                Detail = $"Promoted from staging: {Path.GetFileName(asset.FilePathRoot)} → {Path.GetRelativePath(libraryRoot, destPath)}",
                 IngestionRunId = ingestionRunId,
             }, ct).ConfigureAwait(false);
         }
@@ -277,8 +283,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             var resolved = await _reviewRepo.ResolveAllByEntityAsync(assetId, "system:auto-organize", ct)
                 .ConfigureAwait(false);
             if (resolved > 0)
+            {
                 _logger.LogInformation(
                     "Auto-resolved {Count} review items for {Id} after successful promotion", resolved, assetId);
+            }
         }
         catch (Exception ex)
         {
@@ -308,20 +316,21 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private async Task HandleAlreadyOrganizedAsync(
         Domain.Aggregates.MediaAsset asset, Guid assetId,
         Dictionary<string, string> metadata, MediaType? mediaType,
+        string libraryRoot,
         CancellationToken ct)
     {
         var checkSynth = new IngestionCandidate
         {
-            Path              = asset.FilePathRoot,
-            EventType         = FileEventType.Created,
-            DetectedAt        = DateTimeOffset.UtcNow,
-            ReadyAt           = DateTimeOffset.UtcNow,
-            Metadata          = metadata,
+            Path = asset.FilePathRoot,
+            EventType = FileEventType.Created,
+            DetectedAt = DateTimeOffset.UtcNow,
+            ReadyAt = DateTimeOffset.UtcNow,
+            Metadata = metadata,
             DetectedMediaType = mediaType,
         };
         var checkTemplate = _options.ResolveTemplate(mediaType?.ToString());
         var checkRelative = _organizer.CalculatePath(checkSynth, checkTemplate);
-        var newDest = Path.Combine(_options.LibraryRoot, checkRelative);
+        var newDest = Path.Combine(libraryRoot, checkRelative);
 
         if (string.Equals(asset.FilePathRoot, newDest, StringComparison.OrdinalIgnoreCase))
         {
@@ -347,7 +356,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
             MoveCompanionFiles(oldPath, newDest);
 
-            CleanEmptyParents(oldFolder, _options.LibraryRoot);
+            CleanEmptyParents(oldFolder, libraryRoot);
 
             _logger.LogInformation(
                 "Re-organized asset {Id} after hydration (QID in path): {Old} → {New}",
@@ -358,9 +367,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                 await _activityRepo.LogAsync(new SystemActivityEntry
                 {
                     ActionType = SystemActionType.PathUpdated,
-                    EntityId   = assetId,
+                    EntityId = assetId,
                     EntityType = mediaType?.ToString() ?? "Unknown",
-                    Detail     = $"Re-organized after hydration: {Path.GetFileName(newDest)}",
+                    Detail = $"Re-organized after hydration: {Path.GetFileName(newDest)}",
                 }, ct).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -385,12 +394,16 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             .ConfigureAwait(false);
 
         if (!newlyPresented)
+        {
             return;
+        }
 
         var title = metadata.GetValueOrDefault("title", "Unknown");
         WorkLineage? lineage = null;
         if (_workRepo is not null)
+        {
             lineage = await _workRepo.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
+        }
 
         var workId = lineage?.TargetForSelfScope ?? assetId;
         var collectionId = lineage is not null && lineage.TargetForParentScope != workId
@@ -417,12 +430,16 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private static void MoveCompanionFiles(string oldMediaPath, string newMediaPath)
     {
         if (string.IsNullOrWhiteSpace(oldMediaPath) || string.IsNullOrWhiteSpace(newMediaPath))
+        {
             return;
+        }
 
         var oldFolder = Path.GetDirectoryName(oldMediaPath) ?? string.Empty;
         var newFolder = Path.GetDirectoryName(newMediaPath) ?? string.Empty;
         if (string.IsNullOrWhiteSpace(oldFolder) || string.IsNullOrWhiteSpace(newFolder))
+        {
             return;
+        }
 
         Directory.CreateDirectory(newFolder);
 
@@ -445,21 +462,29 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             .ToList();
 
         if (existingSources.Count == 0 || string.IsNullOrWhiteSpace(destinationPath))
+        {
             return;
+        }
 
         AssetPathService.EnsureDirectory(destinationPath);
 
         foreach (var sourcePath in existingSources)
         {
             if (string.Equals(sourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
+            {
                 continue;
+            }
 
             try
             {
                 if (!File.Exists(destinationPath))
+                {
                     File.Move(sourcePath, destinationPath);
+                }
                 else
+                {
                     File.Delete(sourcePath);
+                }
             }
             catch { /* best-effort */ }
         }
@@ -498,11 +523,15 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         params string[] extensions)
     {
         if (string.IsNullOrWhiteSpace(oldMediaPath) || string.IsNullOrWhiteSpace(newMediaPath))
+        {
             return;
+        }
 
         var oldFolder = Path.GetDirectoryName(oldMediaPath) ?? string.Empty;
         if (string.IsNullOrWhiteSpace(oldFolder) || !Directory.Exists(oldFolder))
+        {
             return;
+        }
 
         var oldBaseName = Path.GetFileNameWithoutExtension(oldMediaPath);
         foreach (var extension in extensions
@@ -521,7 +550,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             sources.AddRange(Directory.EnumerateFiles(oldFolder, $"{artKind}-*{normalizedExtension}"));
 
             if (!string.IsNullOrWhiteSpace(oldBaseName))
+            {
                 sources.AddRange(Directory.EnumerateFiles(oldFolder, $"{oldBaseName}-{artKind}-*{normalizedExtension}"));
+            }
 
             foreach (var sourcePath in sources
                          .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -562,7 +593,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             : sourceFileName;
 
         if (AssetPathService.GetMediaFileArtScope(newMediaPath) == MediaFileArtScope.Dedicated)
+        {
             return Path.Combine(newFolder, scopedFileName);
+        }
 
         return Path.Combine(newFolder, $"{newBaseName}-{scopedFileName}");
     }
@@ -570,7 +603,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private static void CleanStagingBakFiles(string folder)
     {
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
+        {
             return;
+        }
 
         try
         {
@@ -595,7 +630,9 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                        StringComparison.OrdinalIgnoreCase))
             {
                 if (dir.EnumerateFileSystemInfos().Any())
+                {
                     break;
+                }
 
                 var parent = dir.Parent;
                 dir.Delete();
