@@ -212,6 +212,10 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                 LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
 
                 var sourcePaths = opts.LibraryFolders
+                    .Where(folder => string.Equals(
+                        folder.Kind,
+                        LibraryKinds.Catalogued,
+                        StringComparison.OrdinalIgnoreCase))
                     .SelectMany(folder => folder.EffectiveSourcePaths)
                     .Concat(opts.IncomingSources.Select(source => source.Path))
                     .Where(path => !string.IsNullOrWhiteSpace(path))

@@ -1,6 +1,7 @@
 using MediaEngine.Domain.Configuration;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.DependencyInjection;
+using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Processors;
@@ -8,6 +9,7 @@ using MediaEngine.Processors.Contracts;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion.Tests;
 
@@ -134,6 +136,68 @@ public sealed class IngestionLibraryRegistrationTests
                 Directory.Delete(tempRoot, recursive: true);
             }
         }
+    }
+
+    [Fact]
+    public void AddMediaEngineIngestion_WatchesCatalogueAndIncomingSourcesButNotPersonalViewSources()
+    {
+        string cataloguePath = Path.Combine(Path.GetTempPath(), "tuvima-catalogue");
+        string personalPath = Path.Combine(Path.GetTempPath(), "tuvima-personal");
+        string incomingPath = Path.Combine(Path.GetTempPath(), "tuvima-incoming");
+        var loader = new StubConfigurationLoader
+        {
+            Libraries = new LibrariesConfiguration
+            {
+                Libraries =
+                [
+                    new LibraryFolderConfig
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = "Books",
+                        Kind = LibraryKinds.Catalogued,
+                        Area = LibraryAreas.Read,
+                        Presentation = LibraryPresentations.Catalogue,
+                        MetadataPolicy = LibraryMetadataPolicies.Enriched,
+                        Sources = [ManagedSource(cataloguePath)],
+                    },
+                    new LibraryFolderConfig
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Name = "Personal archive",
+                        Kind = LibraryKinds.Personal,
+                        Area = LibraryAreas.View,
+                        Presentation = LibraryPresentations.MixedGallery,
+                        MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
+                        Sources = [ManagedSource(personalPath)],
+                    },
+                ],
+                IncomingSources =
+                [
+                    new IncomingSourceConfig
+                    {
+                        Id = Guid.NewGuid().ToString(),
+                        Path = incomingPath,
+                    },
+                ],
+            },
+        };
+        var services = new ServiceCollection();
+
+        services.AddMediaEngineIngestion(
+            new ConfigurationBuilder().Build(),
+            loader,
+            options =>
+            {
+                options.CreateConfiguredDirectories = false;
+                options.RegisterHostedService = false;
+            });
+
+        using ServiceProvider provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<IngestionOptions>>().Value;
+
+        Assert.Contains(cataloguePath, options.EffectiveWatchDirectories, StringComparer.OrdinalIgnoreCase);
+        Assert.Contains(incomingPath, options.EffectiveWatchDirectories, StringComparer.OrdinalIgnoreCase);
+        Assert.DoesNotContain(personalPath, options.EffectiveWatchDirectories, StringComparer.OrdinalIgnoreCase);
     }
 
     private static string GetRepoFilePath(string relativePath) =>

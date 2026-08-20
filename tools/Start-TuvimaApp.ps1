@@ -95,7 +95,7 @@ function Wait-ForEngine {
     $deadline = [DateTimeOffset]::Now.AddSeconds(90)
     while ([DateTimeOffset]::Now -lt $deadline) {
         if ($Process.HasExited) {
-            Write-Host "Engine exited before becoming healthy. Exit code: $($Process.ExitCode)"
+            Write-Host "Engine exited before becoming ready. Exit code: $($Process.ExitCode)"
             if (Test-Path $OutputLog) {
                 Write-Host ""
                 Write-Host "Engine output:"
@@ -110,8 +110,12 @@ function Wait-ForEngine {
         }
 
         try {
-            $health = Invoke-RestMethod -Uri "http://localhost:61495/health" -TimeoutSec 2
-            if ($health -eq "Healthy") {
+            # /health is the aggregate operational health surface. It may be
+            # intentionally degraded by an unavailable optional library source
+            # even though the Engine is ready to serve the Dashboard. Startup
+            # readiness therefore uses the lightweight connectivity endpoint.
+            $status = Invoke-RestMethod -Uri "http://localhost:61495/system/status" -TimeoutSec 2
+            if ($status.status -eq "ok") {
                 return
             }
         }
@@ -120,7 +124,7 @@ function Wait-ForEngine {
         }
     }
 
-    Write-Host "Timed out waiting for Engine health at http://localhost:61495/health."
+    Write-Host "Timed out waiting for Engine readiness at http://localhost:61495/system/status."
     Write-Host "Engine output log: $OutputLog"
     Write-Host "Engine error log:  $ErrorLog"
     Stop-Process -Id $Process.Id -Force -ErrorAction SilentlyContinue
@@ -162,7 +166,7 @@ if ($Role -eq "Both") {
         Wait-ForEngine -Process $engineProcess -OutputLog $engineOut -ErrorLog $engineErr
 
         Write-Host ""
-        Write-Host "Engine is healthy. Engine logs:"
+        Write-Host "Engine is ready. Engine logs:"
         Write-Host "  $engineOut"
         Write-Host "  $engineErr"
         Write-Host ""
