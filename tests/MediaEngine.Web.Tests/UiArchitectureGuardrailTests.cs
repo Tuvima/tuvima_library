@@ -217,6 +217,9 @@ public sealed class UiArchitectureGuardrailTests
 
         Assert.Contains("Title=\"Metadata\"", shell, StringComparison.Ordinal);
         Assert.Contains("Manage provider connections, enrichment behavior, and source priority.", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("<Actions>", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Enrichment\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Label=\"Source Priority\"", shell, StringComparison.Ordinal);
         Assert.True(shell.IndexOf("new(\"overview\", \"Providers\"", StringComparison.Ordinal) < shell.IndexOf("new(\"enrichment\", \"Enrichment\"", StringComparison.Ordinal));
         Assert.True(shell.IndexOf("new(\"enrichment\", \"Enrichment\"", StringComparison.Ordinal) < shell.IndexOf("new(\"priority\", \"Source Priority\"", StringComparison.Ordinal));
         Assert.Contains("_activeSection != SettingsSection.Providers", settings, StringComparison.Ordinal);

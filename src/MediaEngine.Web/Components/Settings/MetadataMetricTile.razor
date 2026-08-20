@@ -1,9 +1,13 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="@RootClass">
-    <MudIcon Icon="@Icon" Class="metadata-metric-tile__icon" />
-    <strong class="metadata-metric-tile__value">@Value</strong>
-    <span class="metadata-metric-tile__label">@Label</span>
+    <span class="metadata-metric-tile__icon" aria-hidden="true">
+        <MudIcon Icon="@Icon" />
+    </span>
+    <div class="metadata-metric-tile__copy">
+        <strong class="metadata-metric-tile__value">@Value</strong>
+        <span class="metadata-metric-tile__label">@Label</span>
+    </div>
 </div>
 
 @code {
