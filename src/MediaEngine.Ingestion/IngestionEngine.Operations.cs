@@ -1,26 +1,26 @@
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using MediaEngine.Contracts.Realtime;
 using MediaEngine.Domain;
-using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Aggregates;
+using MediaEngine.Domain.Capabilities;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
-using MediaEngine.Contracts.Realtime;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Detection;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Ingestion.Services;
 using MediaEngine.Intelligence.Contracts;
 using MediaEngine.Intelligence.Models;
+using MediaEngine.Processors.Contracts;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Helpers;
-using MediaEngine.Processors.Contracts;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion;
 
@@ -29,7 +29,9 @@ public sealed partial class IngestionEngine
     private async Task<MediaOperation?> GetTrackedIngestionOperationAsync(string path, CancellationToken ct)
     {
         if (_operationRepository is null)
+        {
             return null;
+        }
 
         try
         {
@@ -38,14 +40,18 @@ public sealed partial class IngestionEngine
                 .ConfigureAwait(false);
 
             if (keyMatch is not null && !IsTerminalMediaOperation(keyMatch))
+            {
                 return keyMatch;
+            }
 
             var activePathMatch = await _operationRepository
                 .GetActiveBySourcePathAsync(Path.GetFullPath(path), ct)
                 .ConfigureAwait(false);
 
             if (activePathMatch is not null)
+            {
                 return activePathMatch;
+            }
 
             var latestPathMatch = await _operationRepository
                 .GetLatestBySourcePathAsync(Path.GetFullPath(path), ct)
@@ -63,7 +69,9 @@ public sealed partial class IngestionEngine
     private async Task RequeueTrackedIngestionOperationAsync(MediaOperation operation, CancellationToken ct)
     {
         if (_operationRepository is null || IsTerminalMediaOperation(operation))
+        {
             return;
+        }
 
         try
         {
@@ -92,7 +100,9 @@ public sealed partial class IngestionEngine
         CancellationToken ct)
     {
         if (_operationTracker is null)
+        {
             return null;
+        }
 
         try
         {
@@ -122,7 +132,9 @@ public sealed partial class IngestionEngine
         CancellationToken ct)
     {
         if (_operationTracker is null)
+        {
             return null;
+        }
 
         try
         {
@@ -154,7 +166,9 @@ public sealed partial class IngestionEngine
         object? detail = null)
     {
         if (_operationTracker is null || operation is null)
+        {
             return;
+        }
 
         try
         {
@@ -169,7 +183,9 @@ public sealed partial class IngestionEngine
     private async Task CompleteOperationAsync(MediaOperation? operation, string? summary, CancellationToken ct)
     {
         if (_operationTracker is null || operation is null)
+        {
             return;
+        }
 
         try
         {
@@ -184,7 +200,9 @@ public sealed partial class IngestionEngine
     private async Task NoResultOperationAsync(MediaOperation? operation, string reason, CancellationToken ct)
     {
         if (_operationTracker is null || operation is null)
+        {
             return;
+        }
 
         try
         {
@@ -196,6 +214,26 @@ public sealed partial class IngestionEngine
         }
     }
 
+    private async Task MarkBlockedOperationAsync(
+        MediaOperation? operation,
+        string reason,
+        CancellationToken ct)
+    {
+        if (_operationTracker is null || operation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _operationTracker.MarkBlockedAsync(operation.Id, reason, null, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Durable operation blocked update failed for {OperationId}", operation.Id);
+        }
+    }
+
     private async Task MarkRetryableOperationAsync(
         MediaOperation? operation,
         string reason,
@@ -203,7 +241,9 @@ public sealed partial class IngestionEngine
         CancellationToken ct)
     {
         if (_operationRepository is null || operation is null)
+        {
             return;
+        }
 
         try
         {
@@ -222,7 +262,9 @@ public sealed partial class IngestionEngine
         CancellationToken ct)
     {
         if (_operationRepository is null || operation is null)
+        {
             return;
+        }
 
         try
         {
@@ -246,7 +288,9 @@ public sealed partial class IngestionEngine
     {
         var delay = nextRetryAt - DateTimeOffset.UtcNow;
         if (delay < TimeSpan.Zero)
+        {
             delay = TimeSpan.Zero;
+        }
 
         TrackBackgroundTask(RunLockProbeRetryAsync(candidate, delay, LifetimeToken), "delayed lock-probe retry");
     }
@@ -260,7 +304,9 @@ public sealed partial class IngestionEngine
         {
             await Task.Delay(delay, ct).ConfigureAwait(false);
             if (!File.Exists(candidate.Path))
+            {
                 return;
+            }
 
             _debounce.Enqueue(new FileEvent
             {
@@ -271,6 +317,7 @@ public sealed partial class IngestionEngine
                     : candidate.EventType,
                 OccurredAt = DateTimeOffset.UtcNow,
                 BatchId = candidate.BatchId,
+                Intake = candidate.Intake,
             });
         }
         catch (ObjectDisposedException)
@@ -294,7 +341,9 @@ public sealed partial class IngestionEngine
     private void TrackBackgroundTask(Task task, string operation)
     {
         lock (_ownedTasksLock)
+        {
             _ownedTasks[task] = operation;
+        }
 
         task.GetAwaiter().OnCompleted(() => CompleteBackgroundTask(task));
     }
@@ -322,10 +371,14 @@ public sealed partial class IngestionEngine
     {
         Task[] tasks;
         lock (_ownedTasksLock)
+        {
             tasks = _ownedTasks.Keys.ToArray();
+        }
 
         if (tasks.Length == 0)
+        {
             return;
+        }
 
         try
         {
@@ -344,7 +397,9 @@ public sealed partial class IngestionEngine
             lock (_ownedTasksLock)
             {
                 foreach (var completed in tasks.Where(task => task.IsCompleted))
+                {
                     _ownedTasks.Remove(completed);
+                }
             }
         }
     }
@@ -352,7 +407,9 @@ public sealed partial class IngestionEngine
     public override void Dispose()
     {
         if (Interlocked.Exchange(ref _disposeState, 1) != 0)
+        {
             return;
+        }
 
         _shutdownCts.Cancel();
         _watcher.FileDetected -= OnFileDetected;
@@ -475,7 +532,9 @@ public sealed partial class IngestionEngine
         string? mediaType = null)
     {
         if (!candidate.BatchId.HasValue)
+        {
             return Task.CompletedTask;
+        }
 
         return SafePublishAsync(
             SignalREvents.IngestionItemProgress,
@@ -582,7 +641,10 @@ public sealed partial class IngestionEngine
         try
         {
             var batch = await _batchRepo.GetByIdAsync(batchId, ct).ConfigureAwait(false);
-            if (batch is null) return;
+            if (batch is null)
+            {
+                return;
+            }
 
             var terminal = Math.Max(
                 batch.FilesProcessed,
@@ -620,7 +682,9 @@ public sealed partial class IngestionEngine
     private async Task<Guid> ResolveArtworkOwnerEntityIdAsync(Guid assetId, CancellationToken ct)
     {
         if (_writeBackStageDependencies.WorkRepository is null)
+        {
             return assetId;
+        }
 
         var lineage = await _writeBackStageDependencies.WorkRepository.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
         return lineage?.TargetForParentScope ?? assetId;
@@ -629,11 +693,15 @@ public sealed partial class IngestionEngine
     private async Task<Guid> ResolveEmbeddedCoverOwnerEntityIdAsync(Guid assetId, CancellationToken ct)
     {
         if (_writeBackStageDependencies.WorkRepository is null)
+        {
             return assetId;
+        }
 
         var lineage = await _writeBackStageDependencies.WorkRepository.GetLineageByAssetAsync(assetId, ct).ConfigureAwait(false);
         if (lineage is null)
+        {
             return assetId;
+        }
 
         return lineage.MediaType switch
         {

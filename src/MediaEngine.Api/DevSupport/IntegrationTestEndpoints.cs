@@ -857,17 +857,16 @@ public static class IntegrationTestEndpoints
                     continue;
                 }
 
-                var sourcePaths = lib.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path)).ToList();
-
-                foreach (var sourcePath in sourcePaths.Distinct(StringComparer.OrdinalIgnoreCase))
+                foreach (var source in lib.ScannableSources)
                 {
+                    var sourcePath = source.Path;
                     if (!Directory.Exists(sourcePath))
                     {
                         continue;
                     }
 
                     int fileCount = Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories).Length;
-                    scanTargets.Add(new IngestionScanTarget(sourcePath, lib.IncludeSubdirectories));
+                    scanTargets.Add(new IngestionScanTarget(sourcePath, source.IncludeSubdirectories));
                     logger.LogInformation("  Scan target collected: {Path} ({Category}, {Files} files)", sourcePath, lib.Category, fileCount);
                 }
             }
@@ -2589,7 +2588,9 @@ public static class IntegrationTestEndpoints
     {
         report.MusicAlbumChecks.Clear();
         if (!report.ActiveTypes.Contains("music"))
+        {
             return Task.CompletedTask;
+        }
 
         var expectations = new[]
         {
@@ -2661,7 +2662,9 @@ public static class IntegrationTestEndpoints
                 check.Pass);
 
             if (!check.Pass)
+            {
                 report.IssuesFound.Add($"Music album: {check.Artist} / {check.Album} did not meet harness expectations. {check.Detail}");
+            }
         }
 
         return Task.CompletedTask;
@@ -2670,7 +2673,9 @@ public static class IntegrationTestEndpoints
     private static bool MusicAlbumHarnessNamesMatch(string? left, string? right)
     {
         if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+        {
             return false;
+        }
 
         static string Normalize(string value)
             => string.Join(
@@ -2691,7 +2696,9 @@ public static class IntegrationTestEndpoints
     private static int? CountMusicManifestTracks(string? manifestJson)
     {
         if (string.IsNullOrWhiteSpace(manifestJson))
+        {
             return null;
+        }
 
         try
         {
@@ -3649,7 +3656,9 @@ public static class IntegrationTestEndpoints
             {
                 summary.ExpectedResolved++;
                 if (!string.IsNullOrWhiteSpace(exp.ExpectedQid))
+                {
                     summary.ExpectedExactQid++;
+                }
             }
             else if (!exp.KnownNoWikidataEntity)
             {
@@ -3717,9 +3726,15 @@ public static class IntegrationTestEndpoints
                               : "Unresolved";
 
             if (hasIdentifiedOutcome)
+            {
                 summary.ActualResolved++;
+            }
+
             if (hasReview)
+            {
                 summary.ActualReview++;
+            }
+
             if (!string.IsNullOrWhiteSpace(exp.ExpectedQid)
                 && !string.IsNullOrWhiteSpace(actual.WikidataQid)
                 && string.Equals(exp.ExpectedQid, actual.WikidataQid, StringComparison.OrdinalIgnoreCase))
@@ -6170,7 +6185,7 @@ public static class IntegrationTestEndpoints
     private static IReadOnlyList<string> ResolveLeafSourcePaths(IConfigurationLoader configLoader)
     {
         var allPaths = configLoader.LoadLibraries().Libraries
-            .SelectMany(lib => lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)))
+            .SelectMany(lib => lib.ScannableSources.Select(source => source.Path))
             .Select(Path.GetFullPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Where(Directory.Exists)

@@ -1,16 +1,19 @@
 using MediaEngine.Api.Http;
-using MediaEngine.Application.Services;
-using MediaEngine.Contracts.Ingestion;
-using MediaEngine.Contracts.Paging;
-using Microsoft.Extensions.Options;
 using MediaEngine.Api.Models;
 using MediaEngine.Api.Security;
 using MediaEngine.Api.Services;
+using MediaEngine.Api.Services.LocalAssets;
+using MediaEngine.Application.Services;
+using MediaEngine.Contracts.Ingestion;
+using MediaEngine.Contracts.Paging;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Api.Endpoints;
 
@@ -43,11 +46,15 @@ public static class IngestionEndpoints
                 ?? opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(rootPath))
+            {
                 return ApiErrors.BadRequest(
                     "No root_path provided and no library source path is configured.");
+            }
 
             if (!Directory.Exists(rootPath))
+            {
                 return ApiErrors.BadRequest($"Directory does not exist: {rootPath}");
+            }
 
             var operations = await engine.DryRunAsync(rootPath, ct);
             var response = new ScanResponse
@@ -74,18 +81,22 @@ public static class IngestionEndpoints
         // ── POST /ingestion/library-scan ──────────────────────────────────────────
 
         group.MapPost("/library-scan", async (
-            ILibraryScanner            scanner,
+            ILibraryScanner scanner,
             IOptions<IngestionOptions> opts,
-            CancellationToken          ct) =>
+            CancellationToken ct) =>
         {
             var root = opts.Value.LibraryRoot;
 
             if (string.IsNullOrWhiteSpace(root))
+            {
                 return ApiErrors.BadRequest(
                     "LibraryRoot is not configured. Set Ingestion:LibraryRoot in appsettings.json.");
+            }
 
             if (!Directory.Exists(root))
+            {
                 return ApiErrors.BadRequest($"Library root does not exist: {root}");
+            }
 
             var result = await scanner.ScanAsync(root, ct);
 
@@ -94,14 +105,14 @@ public static class IngestionEndpoints
 
             return Results.Ok(new LibraryScanResponse
             {
-                CollectionsUpserted          = result.CollectionsUpserted,
-                EditionsUpserted      = result.EditionsUpserted,
-                PeopleRecovered       = 0,
-                UniversesUpserted     = universeResult.UniversesUpserted,
-                EntitiesUpserted      = universeResult.EntitiesUpserted,
+                CollectionsUpserted = result.CollectionsUpserted,
+                EditionsUpserted = result.EditionsUpserted,
+                PeopleRecovered = 0,
+                UniversesUpserted = universeResult.UniversesUpserted,
+                EntitiesUpserted = universeResult.EntitiesUpserted,
                 RelationshipsUpserted = universeResult.RelationshipsUpserted,
-                Errors                = result.Errors + universeResult.Errors,
-                ElapsedMs             = (long)result.Elapsed.TotalMilliseconds,
+                Errors = result.Errors + universeResult.Errors,
+                ElapsedMs = (long)result.Elapsed.TotalMilliseconds,
             });
         })
         .WithName("TriggerLibraryScan")
@@ -124,19 +135,23 @@ public static class IngestionEndpoints
             var watchDir = opts.Value.EffectiveWatchDirectories.FirstOrDefault();
 
             if (string.IsNullOrWhiteSpace(watchDir))
+            {
                 return Results.Ok(new WatchFolderPageResponse
                 {
                     Offset = page.Offset,
                     Limit = page.Limit,
                 });
+            }
 
             if (!Directory.Exists(watchDir))
+            {
                 return Results.Ok(new WatchFolderPageResponse
                 {
                     WatchDirectory = watchDir,
                     Offset = page.Offset,
                     Limit = page.Limit,
                 });
+            }
 
             var searchOption = opts.Value.IncludeSubdirectories
                 ? SearchOption.AllDirectories
@@ -166,7 +181,7 @@ public static class IngestionEndpoints
 
         group.MapPost("/rescan", async (
             RescanRequest? request,
-            IIngestionEngine           engine,
+            IIngestionEngine engine,
             IOptions<IngestionOptions> opts,
             CancellationToken ct) =>
         {
@@ -176,7 +191,9 @@ public static class IngestionEndpoints
             if (!string.IsNullOrWhiteSpace(requestedRoot))
             {
                 if (!Directory.Exists(requestedRoot))
+                {
                     return ApiErrors.BadRequest($"Watch directory does not exist: {requestedRoot}");
+                }
 
                 await engine.ScanDirectory(requestedRoot, includeSubdirectories, ct);
 
@@ -187,8 +204,10 @@ public static class IngestionEndpoints
 
             var watchDirs = opts.Value.EffectiveWatchDirectories;
             if (watchDirs.Count == 0)
+            {
                 return ApiErrors.BadRequest(
                     "No library source paths are configured.");
+            }
 
             var scanTargets = watchDirs
                 .Where(Directory.Exists)
@@ -196,7 +215,9 @@ public static class IngestionEndpoints
                 .ToList();
 
             if (scanTargets.Count == 0)
+            {
                 return ApiErrors.BadRequest("No configured watch directories exist on disk.");
+            }
 
             await engine.ScanDirectories(scanTargets, ct);
 
@@ -322,39 +343,96 @@ public static class IngestionEndpoints
         group.MapPost("/upload", async (
             HttpRequest request,
             IConfigurationLoader configLoader,
+            IIngestionEngine engine,
+            ViewLibraryService viewLibraries,
+            ILibraryAccessEvaluator libraryAccess,
             IOptions<IngestionOptions> opts,
             CancellationToken ct) =>
         {
             var form = await request.ReadFormAsync(ct);
             var file = form.Files.GetFile("file");
             var mediaType = form["mediaType"].ToString();
+            var destinationLibraryId = form["destinationLibraryId"].ToString();
 
-            if (file is null || string.IsNullOrWhiteSpace(mediaType))
-                return ApiErrors.BadRequest("File and mediaType are required.");
+            if (file is null || string.IsNullOrWhiteSpace(destinationLibraryId))
+            {
+                return ApiErrors.BadRequest("File and destinationLibraryId are required.");
+            }
 
             if (file.Length <= 0)
+            {
                 return ApiErrors.BadRequest("Upload file must not be empty.");
+            }
 
             var libraries = configLoader.LoadLibraries();
             var mediaTypes = configLoader.LoadMediaTypes();
-            var watchFolder = libraries.Libraries
-                .SelectMany(l => l.SourcePaths)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .FirstOrDefault(Directory.Exists);
+            var library = libraries.Libraries.FirstOrDefault(candidate =>
+                string.Equals(candidate.Id, destinationLibraryId.Trim(), StringComparison.OrdinalIgnoreCase));
 
-            if (watchFolder is null)
-                return ApiErrors.BadRequest("No watch folder configured.");
+            if (library is null)
+            {
+                return ApiErrors.BadRequest($"Destination library '{destinationLibraryId}' is not configured.");
+            }
 
-            var plan = UploadSafety.CreatePlan(
-                watchFolder,
+            Guid? personalViewLibraryId = null;
+            if (library.Kind == LibraryKinds.Personal)
+            {
+                if (!Guid.TryParse(library.Id, out var parsedLibraryId)
+                    || !viewLibraries.IsPersonalViewLibrary(parsedLibraryId))
+                {
+                    return ApiErrors.BadRequest($"Personal library '{library.Name}' is not a valid View library.");
+                }
+
+                personalViewLibraryId = parsedLibraryId;
+            }
+
+            if (!library.AcceptedIntakeModes.Contains(LibraryIntakeModes.BrowserUpload, StringComparer.OrdinalIgnoreCase))
+            {
+                return ApiErrors.BadRequest($"Library '{library.Name}' does not accept browser uploads.");
+            }
+
+            if (library.Kind == LibraryKinds.Personal
+                && !libraries.PersonalLibraryPolicy.AllowBrowserUpload)
+            {
+                return ApiErrors.BadRequest("Browser upload is disabled for personal libraries by administrator policy.");
+            }
+
+            if (library.Kind == LibraryKinds.Personal
+                && !CanContributeToPersonalLibrary(request.HttpContext, library, libraryAccess))
+            {
+                return Results.Problem(
+                    title: "Library access denied",
+                    detail: "The authenticated caller cannot upload to this personal library.",
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            var destination = library.PrimaryDestination;
+            if (destination is null || !destination.AllowsFileMutation)
+            {
+                return ApiErrors.BadRequest($"Library '{library.Name}' has no managed, writable primary destination.");
+            }
+
+            if (library.Kind == LibraryKinds.Catalogued
+                && (string.IsNullOrWhiteSpace(mediaType)
+                    || !LibraryAcceptsMediaType(library, mediaType, mediaTypes.Types)))
+            {
+                return ApiErrors.BadRequest(
+                    $"A configured mediaType is required for catalogued library '{library.Name}'.");
+            }
+
+            var plan = UploadSafety.CreateDestinationPlan(
+                destination.Path,
                 mediaType,
                 file.FileName,
                 file.Length,
                 mediaTypes.Types,
-                opts.Value);
+                opts.Value,
+                allowPersonalFiles: library.Kind == LibraryKinds.Personal);
 
             if (plan.Error is not null)
+            {
                 return plan.Error;
+            }
 
             Directory.CreateDirectory(plan.TargetDirectory);
 
@@ -383,23 +461,104 @@ public static class IngestionEndpoints
                     await file.CopyToAsync(stream, ct);
                 }
 
-                File.Move(tempPath, plan.TargetPath);
+                await UploadSafety.FinalizeUploadAsync(
+                    tempPath,
+                    plan.TargetPath,
+                    async (uploadedPath, indexCt) =>
+                    {
+                        if (personalViewLibraryId.HasValue)
+                        {
+                            var indexed = await viewLibraries.IndexPathAsync(
+                                personalViewLibraryId.Value,
+                                uploadedPath,
+                                indexCt);
+                            if (indexed is null)
+                            {
+                                throw new InvalidOperationException("The uploaded file's View library is no longer configured.");
+                            }
+
+                            return;
+                        }
+
+                        await engine.EnqueueIntakeAsync(new IntakeFileRequest
+                        {
+                            Path = uploadedPath,
+                            SourceKind = IntakeSourceKinds.BrowserUpload,
+                            SourceId = destination.Id,
+                            DestinationLibraryId = library.Id,
+                        }, indexCt);
+                    },
+                    ct);
             }
             catch
             {
                 TryDeleteTempUpload(tempPath);
+                TryDeleteTempUpload(plan.TargetPath);
                 throw;
             }
 
-            return Results.Ok(new UploadMediaResponse(plan.TargetPath, plan.CanonicalMediaType));
+            return Results.Ok(new UploadMediaResponse(
+                plan.TargetPath,
+                plan.CanonicalMediaType,
+                library.Id));
         })
         .WithName("UploadMedia")
-        .WithSummary("Upload a media file and route it to the correct watch subfolder.")
+        .WithSummary("Uploads to an explicit destination library and queues direct intake without rediscovery.")
         .DisableAntiforgery()
         .Produces<UploadMediaResponse>(StatusCodes.Status200OK)
         .RequireAdminOrCurator();
 
         return app;
+    }
+
+    private static bool LibraryAcceptsMediaType(
+        LibraryFolderConfig library,
+        string mediaType,
+        IReadOnlyList<MediaTypeDefinition> definitions)
+    {
+        var definition = definitions.FirstOrDefault(candidate =>
+            string.Equals(candidate.Key, mediaType, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(candidate.DisplayName, mediaType, StringComparison.OrdinalIgnoreCase));
+        return definition is not null && library.MediaTypes.Any(configured =>
+            string.Equals(configured, definition.Key, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(configured, definition.DisplayName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static bool CanContributeToPersonalLibrary(
+        HttpContext context,
+        LibraryFolderConfig library,
+        ILibraryAccessEvaluator evaluator)
+    {
+        if (!Guid.TryParse(library.OwnerProfileId, out var ownerProfileId) || ownerProfileId == Guid.Empty)
+        {
+            return false;
+        }
+
+        var role = context.Items.TryGetValue("ApiKeyRole", out var roleValue)
+            ? roleValue as string
+            : null;
+        if (string.IsNullOrWhiteSpace(role))
+        {
+            return false;
+        }
+
+        // API keys currently carry a role but no trusted profile identity. An
+        // administrator is therefore the only API-key caller who can contribute
+        // to personal libraries; a future authenticated profile context can
+        // replace Guid.Empty without changing the policy decision.
+        var policy = new LibraryAccessPolicy
+        {
+            OwnerProfileId = ownerProfileId,
+            Visibility = library.Visibility,
+            AuthorizedProfileIds = library.AuthorizedProfileIds
+                .Select(value => Guid.TryParse(value, out var id) ? id : Guid.Empty)
+                .Where(id => id != Guid.Empty)
+                .ToHashSet(),
+        };
+        return evaluator.IsAllowed(
+            new LibraryAccessSubject(Guid.Empty, role),
+            policy,
+            LibraryAccessAction.Contribute);
     }
 
     private static List<WatchFolderFileDto> GetNewestWatchFiles(
@@ -416,14 +575,16 @@ public static class IngestionEndpoints
             var info = new FileInfo(fullPath);
             bounded.Add(new WatchFolderFileDto
             {
-                FileName      = info.Name,
-                RelativePath  = Path.GetRelativePath(watchDir, fullPath),
+                FileName = info.Name,
+                RelativePath = Path.GetRelativePath(watchDir, fullPath),
                 FileSizeBytes = info.Length,
-                LastModified  = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+                LastModified = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
             });
 
             if (bounded.Count <= limit)
+            {
                 continue;
+            }
 
             bounded.Sort(static (left, right) => right.LastModified.CompareTo(left.LastModified));
             bounded.RemoveRange(limit, bounded.Count - limit);
@@ -438,7 +599,9 @@ public static class IngestionEndpoints
         try
         {
             if (File.Exists(tempPath))
+            {
                 File.Delete(tempPath);
+            }
         }
         catch
         {
@@ -450,6 +613,58 @@ public static class IngestionEndpoints
 public static class UploadSafety
 {
     private static readonly char[] InvalidFileNameChars = Path.GetInvalidFileNameChars();
+    private static readonly HashSet<string> PersonalExtensions = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".heic", ".heif", ".avif", ".tif", ".tiff",
+        ".dng", ".arw", ".cr2", ".nef", ".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi", ".wmv",
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx", ".txt", ".md", ".rtf", ".odt",
+        ".ods", ".odp", ".csv", ".mp3", ".m4a", ".wav", ".flac", ".ogg", ".opus", ".aac", ".aiff",
+    };
+
+    public static async Task FinalizeUploadAsync(
+        string tempPath,
+        string targetPath,
+        Func<string, CancellationToken, Task> index,
+        CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(tempPath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetPath);
+        ArgumentNullException.ThrowIfNull(index);
+
+        var moved = false;
+        try
+        {
+            ct.ThrowIfCancellationRequested();
+            File.Move(tempPath, targetPath);
+            moved = true;
+            await index(targetPath, ct);
+        }
+        catch
+        {
+            TryDeleteUpload(tempPath);
+            if (moved)
+            {
+                TryDeleteUpload(targetPath);
+            }
+
+            throw;
+        }
+    }
+
+    private static void TryDeleteUpload(string path)
+    {
+        try
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+        }
+        catch
+        {
+            // Best-effort cleanup; callers receive the original indexing failure.
+        }
+    }
 
     public static UploadPlan CreatePlan(
         string watchRoot,
@@ -460,10 +675,14 @@ public static class UploadSafety
         IngestionOptions options)
     {
         if (string.IsNullOrWhiteSpace(watchRoot))
+        {
             return UploadPlan.Fail(ApiErrors.BadRequest("No watch folder configured."));
+        }
 
         if (fileLength <= 0)
+        {
             return UploadPlan.Fail(ApiErrors.BadRequest("Upload file must not be empty."));
+        }
 
         if (fileLength > options.MaxUploadSizeBytes)
         {
@@ -475,10 +694,14 @@ public static class UploadSafety
 
         var definition = ResolveMediaType(mediaType, mediaTypes);
         if (definition is null)
+        {
             return UploadPlan.Fail(ApiErrors.BadRequest($"Unsupported media type: {mediaType}"));
+        }
 
         if (!IsSafeFileName(fileName, out var safeFileName))
+        {
             return UploadPlan.Fail(ApiErrors.BadRequest("Invalid filename."));
+        }
 
         var extension = Path.GetExtension(safeFileName);
         if (string.IsNullOrWhiteSpace(extension)
@@ -494,7 +717,9 @@ public static class UploadSafety
             ? watchRootFull
             : watchRootFull + Path.DirectorySeparatorChar;
         if (!targetDir.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+        {
             return UploadPlan.Fail(ApiErrors.BadRequest("Invalid media type destination."));
+        }
 
         var targetPath = ResolveCollisionPath(targetDir, safeFileName);
         return new UploadPlan(
@@ -506,11 +731,79 @@ public static class UploadSafety
             definition.DisplayName);
     }
 
+    public static UploadPlan CreateDestinationPlan(
+        string destinationRoot,
+        string? mediaType,
+        string fileName,
+        long fileLength,
+        IReadOnlyList<MediaEngine.Domain.Configuration.MediaTypeDefinition> mediaTypes,
+        IngestionOptions options,
+        bool allowPersonalFiles)
+    {
+        if (string.IsNullOrWhiteSpace(destinationRoot))
+        {
+            return UploadPlan.Fail(ApiErrors.BadRequest("No destination folder configured."));
+        }
+
+        if (fileLength <= 0)
+        {
+            return UploadPlan.Fail(ApiErrors.BadRequest("Upload file must not be empty."));
+        }
+
+        if (fileLength > options.MaxUploadSizeBytes)
+        {
+            return UploadPlan.Fail(Results.Problem(
+                title: "Upload too large",
+                detail: $"The upload is {fileLength} bytes, which exceeds the configured limit of {options.MaxUploadSizeBytes} bytes.",
+                statusCode: StatusCodes.Status413PayloadTooLarge));
+        }
+
+        if (!IsSafeFileName(fileName, out var safeFileName))
+        {
+            return UploadPlan.Fail(ApiErrors.BadRequest("Invalid filename."));
+        }
+
+        var extension = Path.GetExtension(safeFileName);
+        var definition = ResolveMediaType(mediaType ?? string.Empty, mediaTypes);
+        if (allowPersonalFiles)
+        {
+            var configuredExtension = mediaTypes.Any(type =>
+                type.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(extension)
+                || (!configuredExtension && !PersonalExtensions.Contains(extension)))
+            {
+                return UploadPlan.Fail(ApiErrors.BadRequest(
+                    $"Files with extension '{extension}' are not supported for personal libraries."));
+            }
+        }
+        else if (definition is null
+                 || string.IsNullOrWhiteSpace(extension)
+                 || !definition.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
+        {
+            return UploadPlan.Fail(ApiErrors.BadRequest(
+                definition is null
+                    ? $"Unsupported media type: {mediaType}"
+                    : $"Files with extension '{extension}' are not allowed for {definition.DisplayName}."));
+        }
+
+        var targetDirectory = Path.GetFullPath(destinationRoot);
+        var targetPath = ResolveCollisionPath(targetDirectory, safeFileName);
+        return new UploadPlan(
+            true,
+            null,
+            targetDirectory,
+            targetPath,
+            safeFileName,
+            definition?.DisplayName ?? "Personal");
+    }
+
     public static bool HasRequiredFreeSpace(string targetDirectory, long fileLength, long freeSpaceBufferBytes)
     {
         var root = Path.GetPathRoot(Path.GetFullPath(targetDirectory));
         if (string.IsNullOrWhiteSpace(root))
+        {
             return false;
+        }
 
         var drive = new DriveInfo(root);
         return drive.AvailableFreeSpace >= fileLength + Math.Max(0, freeSpaceBufferBytes);
@@ -521,7 +814,9 @@ public static class UploadSafety
         IReadOnlyList<MediaEngine.Domain.Configuration.MediaTypeDefinition> mediaTypes)
     {
         if (string.IsNullOrWhiteSpace(mediaType))
+        {
             return null;
+        }
 
         return mediaTypes.FirstOrDefault(t =>
             string.Equals(t.DisplayName, mediaType, StringComparison.OrdinalIgnoreCase)

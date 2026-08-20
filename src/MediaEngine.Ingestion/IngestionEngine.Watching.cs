@@ -136,6 +136,7 @@ public sealed partial class IngestionEngine
                             EventType = FileEventType.Created,
                             OccurredAt = DateTimeOffset.UtcNow,
                             BatchId = trackedOperation.BatchId,
+                            Intake = ResolveWatcherIntakeContext(normalizedPath),
                         };
 
                         if (trackedOperation.BatchId.HasValue)
@@ -156,6 +157,7 @@ public sealed partial class IngestionEngine
                         Path = normalizedPath,
                         EventType = FileEventType.Created,
                         OccurredAt = DateTimeOffset.UtcNow,
+                        Intake = ResolveWatcherIntakeContext(normalizedPath),
                     });
                 }
             }
@@ -506,6 +508,7 @@ public sealed partial class IngestionEngine
             EventType = evt.EventType,
             OccurredAt = evt.OccurredAt,
             BatchId = evt.BatchId,
+            Intake = evt.Intake ?? ResolveWatcherIntakeContext(normalizedPath),
         };
 
         if (!TryTrackQueuedPath(normalizedPath))

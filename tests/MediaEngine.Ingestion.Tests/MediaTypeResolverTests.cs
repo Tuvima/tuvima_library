@@ -23,7 +23,7 @@ public sealed class MediaTypeResolverTests
             [
                 new LibraryFolderEntry
                 {
-                    SourcePaths = [rootA, rootB],
+                    Sources = [Source(rootA), Source(rootB)],
                     MediaTypes = [MediaType.Audiobooks],
                 },
             ]);
@@ -88,7 +88,7 @@ public sealed class MediaTypeResolverTests
             [
                 new LibraryFolderEntry
                 {
-                    SourcePaths = [booksRoot],
+                    Sources = [Source(booksRoot)],
                     MediaTypes = [MediaType.Books],
                 },
             ]);
@@ -117,7 +117,7 @@ public sealed class MediaTypeResolverTests
             [
                 new LibraryFolderEntry
                 {
-                    SourcePaths = [comicsRoot],
+                    Sources = [Source(comicsRoot)],
                     MediaTypes = [MediaType.Comics],
                 },
             ]);
@@ -145,7 +145,7 @@ public sealed class MediaTypeResolverTests
             [
                 new LibraryFolderEntry
                 {
-                    SourcePaths = [booksRoot],
+                    Sources = [Source(booksRoot)],
                     MediaTypes = [MediaType.Books],
                 },
             ]);
@@ -177,7 +177,7 @@ public sealed class MediaTypeResolverTests
             [
                 new LibraryFolderEntry
                 {
-                    SourcePaths = [videoRoot],
+                    Sources = [Source(videoRoot)],
                     MediaTypes = [configuredType],
                 },
             ]);
@@ -211,7 +211,7 @@ public sealed class MediaTypeResolverTests
             [
                 new LibraryFolderEntry
                 {
-                    SourcePaths = [root],
+                    Sources = [Source(root)],
                     MediaTypes = [configuredType],
                 },
             ]);
@@ -293,21 +293,21 @@ public sealed class MediaTypeResolverTests
     private static IngestionOptions Options(
         IReadOnlyList<string> watchDirectories,
         IReadOnlyList<LibraryFolderEntry>? libraryFolders = null) => new()
-    {
-        WatchDirectories = watchDirectories,
-        LibraryFolders = libraryFolders ?? [],
-        MediaTypeAutoAssignThreshold = 0.85,
-        MediaTypeReviewThreshold = 0.50,
-    };
+        {
+            WatchDirectories = watchDirectories,
+            LibraryFolders = libraryFolders ?? [],
+            MediaTypeAutoAssignThreshold = 0.85,
+            MediaTypeReviewThreshold = 0.50,
+        };
 
     private static ProcessorResult Result(
         MediaType detectedType,
         IReadOnlyList<MediaTypeCandidate> candidates) => new()
-    {
-        FilePath = "test",
-        DetectedType = detectedType,
-        MediaTypeCandidates = candidates,
-    };
+        {
+            FilePath = "test",
+            DetectedType = detectedType,
+            MediaTypeCandidates = candidates,
+        };
 
     private static MediaTypeCandidate Candidate(MediaType type, double confidence) => new()
     {
@@ -318,6 +318,12 @@ public sealed class MediaTypeResolverTests
 
     private static string TestRoot(string name) =>
         Path.Combine(Path.GetTempPath(), "tuvima-media-type-resolver-tests", name);
+
+    private static LibrarySourceEntry Source(string path) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Path = path,
+    };
 
     private sealed class CountingAdvisor : IMediaTypeAdvisor
     {

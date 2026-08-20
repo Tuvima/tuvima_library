@@ -7,6 +7,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using MediaEngine.Ingestion.Services;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -34,6 +35,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
     private readonly IWorkRepository? _workRepo;
     private readonly AssetPathService? _assetPathService;
     private readonly ILibraryFolderResolver? _libraryResolver;
+    private readonly ISourceMutationPolicyGate _sourceMutationGate;
     private readonly ILogger<AutoOrganizeService> _logger;
 
     public AutoOrganizeService(
@@ -49,7 +51,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         IEntityAssetRepository? entityAssetRepo = null,
         IWorkRepository? workRepo = null,
         AssetPathService? assetPathService = null,
-        ILibraryFolderResolver? libraryResolver = null)
+        ILibraryFolderResolver? libraryResolver = null,
+        ISourceMutationPolicyGate? sourceMutationGate = null)
     {
         _assetRepo = assetRepo;
         _canonicalRepo = canonicalRepo;
@@ -63,6 +66,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         _workRepo = workRepo;
         _assetPathService = assetPathService;
         _libraryResolver = libraryResolver;
+        _sourceMutationGate = sourceMutationGate ?? new SourceMutationPolicyGate();
         _logger = logger;
     }
 
@@ -88,7 +92,10 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         // Side-by-side-with-Plex plan §C/§I. When the file belongs to a
         // library marked ReadOnly (the user's "Plex owns this tree" opt-out),
         // we never move, rename, or tag it — we index in place and return.
-        var owningLibrary = _libraryResolver?.ResolveForPath(asset.FilePathRoot);
+        var owningLibrary = _libraryResolver?.ResolveForPath(asset.FilePathRoot)
+            ?? (asset.LibraryId is { Length: > 0 }
+                ? _libraryResolver?.ResolveById(asset.LibraryId)
+                : null);
         var libraryRoot = !string.IsNullOrWhiteSpace(owningLibrary?.LibraryRoot)
             ? owningLibrary.LibraryRoot
             : _options.LibraryRoot;
@@ -207,6 +214,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
         var destPath = Path.Combine(libraryRoot, relative);
         var stagingFolder = Path.GetDirectoryName(asset.FilePathRoot) ?? string.Empty;
+
+        if (!CanMoveBetween(asset.FilePathRoot, destPath))
+        {
+            _logger.LogInformation(
+                "Auto-organize blocked by source policy for {Id}: {Source} → {Dest}",
+                assetId, asset.FilePathRoot, destPath);
+            return;
+        }
 
         bool moved = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, destPath, ct)
             .ConfigureAwait(false);
@@ -346,6 +361,14 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         // Path changed (QID now available) — move file to new location.
         var oldPath = asset.FilePathRoot;
         var oldFolder = Path.GetDirectoryName(oldPath) ?? string.Empty;
+        if (!CanMoveBetween(asset.FilePathRoot, newDest))
+        {
+            _logger.LogInformation(
+                "Re-organization blocked by source policy for {Id}: {Source} → {Dest}",
+                assetId, asset.FilePathRoot, newDest);
+            return;
+        }
+
         bool relocated = await _organizer.ExecuteMoveAsync(asset.FilePathRoot, newDest, ct)
             .ConfigureAwait(false);
 
@@ -356,7 +379,8 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
             MoveCompanionFiles(oldPath, newDest);
 
-            CleanEmptyParents(oldFolder, libraryRoot);
+            var sourceRoot = _libraryResolver?.ResolveSourceForPath(oldPath)?.Source.Path;
+            CleanEmptyParents(oldFolder, sourceRoot ?? oldFolder);
 
             _logger.LogInformation(
                 "Re-organized asset {Id} after hydration (QID in path): {Old} → {New}",
@@ -427,7 +451,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         }
     }
 
-    private static void MoveCompanionFiles(string oldMediaPath, string newMediaPath)
+    private void MoveCompanionFiles(string oldMediaPath, string newMediaPath)
     {
         if (string.IsNullOrWhiteSpace(oldMediaPath) || string.IsNullOrWhiteSpace(newMediaPath))
         {
@@ -441,8 +465,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
-        Directory.CreateDirectory(newFolder);
-
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "poster", ".jpg", ".png");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "fanart", ".jpg", ".png");
         MoveScopedCompanionFiles(oldMediaPath, newMediaPath, "banner", ".jpg", ".png");
@@ -453,7 +475,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             Path.Combine(newFolder, "cover.jpg"));
     }
 
-    private static void MoveCompanionCandidates(IEnumerable<string> sourceCandidates, string destinationPath)
+    private void MoveCompanionCandidates(IEnumerable<string> sourceCandidates, string destinationPath)
     {
         var existingSources = sourceCandidates
             .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -466,8 +488,6 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
             return;
         }
 
-        AssetPathService.EnsureDirectory(destinationPath);
-
         foreach (var sourcePath in existingSources)
         {
             if (string.Equals(sourcePath, destinationPath, StringComparison.OrdinalIgnoreCase))
@@ -477,11 +497,17 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
 
             try
             {
+                if (!CanMoveBetween(sourcePath, destinationPath))
+                {
+                    continue;
+                }
+
+                AssetPathService.EnsureDirectory(destinationPath);
                 if (!File.Exists(destinationPath))
                 {
                     File.Move(sourcePath, destinationPath);
                 }
-                else
+                else if (CanMutate(sourcePath, SourceMutationKind.Delete, allowDelete: true))
                 {
                     File.Delete(sourcePath);
                 }
@@ -516,7 +542,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         };
     }
 
-    private static void MoveScopedCompanionFiles(
+    private void MoveScopedCompanionFiles(
         string oldMediaPath,
         string newMediaPath,
         string artKind,
@@ -600,7 +626,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         return Path.Combine(newFolder, $"{newBaseName}-{scopedFileName}");
     }
 
-    private static void CleanStagingBakFiles(string folder)
+    private void CleanStagingBakFiles(string folder)
     {
         if (string.IsNullOrWhiteSpace(folder) || !Directory.Exists(folder))
         {
@@ -611,6 +637,11 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         {
             foreach (var bakFile in Directory.EnumerateFiles(folder, "*.tuvima.bak"))
             {
+                if (!CanMutate(bakFile, SourceMutationKind.Delete, allowDelete: true))
+                {
+                    continue;
+                }
+
                 try { File.Delete(bakFile); }
                 catch { /* best-effort cleanup */ }
             }
@@ -618,7 +649,7 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
         catch { /* best-effort cleanup */ }
     }
 
-    private static void CleanEmptyParents(string folder, string stopAt)
+    private void CleanEmptyParents(string folder, string stopAt)
     {
         try
         {
@@ -634,11 +665,76 @@ public sealed class AutoOrganizeService : IAutoOrganizeService
                     break;
                 }
 
+                if (!CanMutate(dir.FullName, SourceMutationKind.Delete, allowDelete: true))
+                {
+                    break;
+                }
+
                 var parent = dir.Parent;
                 dir.Delete();
                 dir = parent;
             }
         }
         catch { /* best-effort cleanup */ }
+    }
+
+    private bool CanMoveBetween(string sourcePath, string destinationPath)
+    {
+        var mutation = string.Equals(
+            Path.GetDirectoryName(sourcePath),
+            Path.GetDirectoryName(destinationPath),
+            StringComparison.OrdinalIgnoreCase)
+                ? SourceMutationKind.Rename
+                : SourceMutationKind.Move;
+
+        return CanMutate(sourcePath, mutation)
+            && CanMutate(destinationPath, SourceMutationKind.UseAsDestination);
+    }
+
+    private bool CanMutate(
+        string path,
+        SourceMutationKind mutation,
+        bool allowDelete = false)
+    {
+        var resolved = _libraryResolver?.ResolveSourceForPath(path);
+        FileSourceMutationPolicy? policy = resolved is not null
+            ? FileSourceMutationPolicyFactory.Create(
+                resolved.Library,
+                resolved.Source,
+                allowDelete: allowDelete)
+            : null;
+
+        if (policy is null)
+        {
+            var incoming = _options.ResolveIncomingSource(path);
+            if (incoming is not null)
+            {
+                policy = FileSourceMutationPolicyFactory.Create(incoming, allowDelete);
+            }
+        }
+
+        if (policy is null)
+        {
+            _logger.LogDebug(
+                "Filesystem mutation denied because {Path} has no configured source policy",
+                path);
+            return false;
+        }
+
+        var decision = _sourceMutationGate.Evaluate(new SourceMutationRequest
+        {
+            Source = policy,
+            Mutation = mutation,
+            Path = path,
+        });
+
+        if (!decision.Allowed)
+        {
+            _logger.LogDebug(
+                "Filesystem mutation {Mutation} denied for source {SourceId}: {Reason}",
+                mutation, policy.SourceId, decision.Reason);
+        }
+
+        return decision.Allowed;
     }
 }

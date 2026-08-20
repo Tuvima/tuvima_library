@@ -29,7 +29,7 @@ public sealed record BatchAttentionCountResponse(int count);
 /// <summary>
 /// Wire shape for <c>POST /ingestion/upload</c>.
 /// </summary>
-public sealed record UploadMediaResponse(string path, string mediaType);
+public sealed record UploadMediaResponse(string path, string mediaType, string destinationLibraryId);
 
 /// <summary>Wire shape for <c>POST /ingestion/rescan</c>.</summary>
 public sealed record RescanAcceptedResponse(string message, int paths_scanned);

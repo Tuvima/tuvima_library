@@ -31,6 +31,10 @@ public sealed class DatabaseStartupSafetyTests
             "ingestion_batches",
             "ingestion_batch_artifacts",
             "search_index",
+            "local_items",
+            "local_files",
+            "local_file_sources",
+            "local_collections",
         ];
 
         foreach (var table in requiredTables)
@@ -59,6 +63,19 @@ public sealed class DatabaseStartupSafetyTests
         Assert.Equal("5000", Scalar(conn, "PRAGMA busy_timeout;"));
         Assert.Equal("-16384", Scalar(conn, "PRAGMA cache_size;"));
         Assert.Equal("ok", Scalar(conn, "PRAGMA integrity_check;"));
+
+        foreach (var retiredTable in new[]
+                 {
+                     "photo_assets",
+                     "photo_metadata",
+                     "photo_sources",
+                     "photo_albums",
+                     "photo_album_items",
+                 })
+        {
+            Assert.False(TableExists(conn, retiredTable),
+                $"Retired Photos table '{retiredTable}' must not be recreated in the View storage epoch.");
+        }
     }
 
     [Fact]
@@ -178,15 +195,25 @@ public sealed class DatabaseStartupSafetyTests
             ("plugin_lore_relationships", "id"),
             ("plugin_lore_relationships", "source_id"),
             ("media_assets", "edition_id"),
+            ("local_items", "id"),
+            ("local_items", "library_id"),
+            ("local_item_metadata", "item_id"),
+            ("local_files", "id"),
+            ("local_file_sources", "id"),
+            ("local_file_sources", "file_id"),
+            ("local_file_sources", "library_id"),
+            ("local_item_files", "item_id"),
+            ("local_item_files", "file_id"),
+            ("local_item_tags", "item_id"),
+            ("local_collections", "id"),
+            ("local_collections", "library_id"),
+            ("local_collection_items", "collection_id"),
+            ("local_collection_items", "item_id"),
+            ("local_item_annotations", "id"),
+            ("local_item_annotations", "item_id"),
+            ("local_item_search_keys", "item_id"),
             ("offline_variants", "id"),
             ("offline_variants", "asset_id"),
-            ("photo_album_items", "album_id"),
-            ("photo_album_items", "photo_asset_id"),
-            ("photo_albums", "id"),
-            ("photo_assets", "id"),
-            ("photo_metadata", "photo_asset_id"),
-            ("photo_sources", "id"),
-            ("photo_sources", "photo_asset_id"),
             ("playback_inspection_cache", "asset_id"),
             ("player_sessions", "profile_id"),
             ("player_sessions", "session_id"),
@@ -563,6 +590,7 @@ public sealed class DatabaseStartupSafetyTests
                 WHERE type = 'table'
                   AND name NOT LIKE 'sqlite_%'
                   AND name NOT LIKE 'search_index_%'
+                  AND (name NOT LIKE 'local_item_search_%' OR name = 'local_item_search_keys')
                 ORDER BY name;
                 """;
             using var tableReader = tableCmd.ExecuteReader();

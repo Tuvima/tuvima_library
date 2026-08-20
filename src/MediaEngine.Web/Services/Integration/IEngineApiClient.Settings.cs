@@ -133,17 +133,11 @@ public partial interface IEngineApiClient
     /// <summary>PUT /settings/server-general — save server name and regional settings.</summary>
     Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default);
 
-    /// <summary>GET /settings/folders — current import folder paths.</summary>
-    Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default);
+    /// <summary>GET /settings/libraries — complete schema 3 library and incoming-source configuration.</summary>
+    Task<LibrariesConfigurationDto?> GetLibrariesAsync(CancellationToken ct = default);
 
-    /// <summary>GET /settings/libraries — per-library config (source paths, ReadOnly, writeback override).</summary>
-    Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default);
-
-    /// <summary>PUT /settings/libraries — save per-library folder config.</summary>
-    Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(List<LibraryFolderDto> libraries, CancellationToken ct = default);
-
-    /// <summary>PUT /settings/folders — save import folders and hot-swap the FileSystemWatcher.</summary>
-    Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default);
+    /// <summary>PUT /settings/libraries — replace schema 3 library and incoming-source configuration.</summary>
+    Task<LibrariesConfigurationDto?> UpdateLibrariesAsync(UpdateLibrariesRequest request, CancellationToken ct = default);
 
     /// <summary>POST /settings/test-path — probe a directory for existence, read, and write access.</summary>
     Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default);

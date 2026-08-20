@@ -69,9 +69,9 @@ public sealed class DebounceQueue : IDisposable
         _channel = Channel.CreateBounded<IngestionCandidate>(new BoundedChannelOptions(_options.QueueCapacity)
         {
             // Multiple FileWatcher threads may write; multiple ingestion consumers may read.
-            SingleWriter                = false,
-            SingleReader                = false,
-            FullMode                    = BoundedChannelFullMode.Wait,
+            SingleWriter = false,
+            SingleReader = false,
+            FullMode = BoundedChannelFullMode.Wait,
             AllowSynchronousContinuations = false,
         });
     }
@@ -99,6 +99,16 @@ public sealed class DebounceQueue : IDisposable
         ArgumentNullException.ThrowIfNull(fileEvent);
 
         var key = NormalizePath(fileEvent.Path);
+
+        // A watcher notification can race a direct upload notification for the
+        // same path. Never let the context-free watcher event erase the known
+        // destination supplied by the direct intake surface.
+        if (fileEvent.Intake is null
+            && _latestEvents.TryGetValue(key, out var previous)
+            && previous.Intake is not null)
+        {
+            fileEvent.Intake = previous.Intake;
+        }
 
         // Store the latest known event for this path (overwriting any earlier version).
         _latestEvents[key] = fileEvent;
@@ -131,7 +141,9 @@ public sealed class DebounceQueue : IDisposable
     public void Dispose()
     {
         if (Interlocked.Exchange(ref _disposed, 1) != 0)
+        {
             return;
+        }
 
         _shutdownCts.Cancel();
 
@@ -176,7 +188,9 @@ public sealed class DebounceQueue : IDisposable
         // (It may have been updated while we were waiting, which is fine — we
         //  process whichever event was the most recent when the timer fired.)
         if (!_latestEvents.TryGetValue(key, out var fileEvent))
+        {
             return;
+        }
 
         // Deleted files have no content to probe; promote them immediately.
         if (fileEvent.EventType == FileEventType.Deleted)
@@ -221,7 +235,10 @@ public sealed class DebounceQueue : IDisposable
 
         for (int attempt = 0; attempt <= _options.MaxProbeAttempts; attempt++)
         {
-            if (ct.IsCancellationRequested) return;
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
 
             // Apply exponential backoff before retries (not before the first attempt).
             if (attempt > 0)
@@ -231,9 +248,9 @@ public sealed class DebounceQueue : IDisposable
                 //   attempt 1:  500 ms
                 //   attempt 2:  1 s
                 //   attempt 3:  2 s  …  attempt 7: 32 s → capped to 30 s
-                var rawMs    = _options.ProbeInterval.TotalMilliseconds * Math.Pow(2, attempt - 1);
-                var backoff  = TimeSpan.FromMilliseconds(rawMs);
-                var capped   = backoff < _options.MaxProbeDelay ? backoff : _options.MaxProbeDelay;
+                var rawMs = _options.ProbeInterval.TotalMilliseconds * Math.Pow(2, attempt - 1);
+                var backoff = TimeSpan.FromMilliseconds(rawMs);
+                var capped = backoff < _options.MaxProbeDelay ? backoff : _options.MaxProbeDelay;
 
                 try
                 {
@@ -295,8 +312,15 @@ public sealed class DebounceQueue : IDisposable
         // Fast-fail on directories: a stray directory event should not enter the
         // probe loop at all, but if one slips through, treat it as inaccessible
         // immediately rather than burning 8 retries before quarantining.
-        if (Directory.Exists(path)) return false;
-        if (!File.Exists(path)) return false;
+        if (Directory.Exists(path))
+        {
+            return false;
+        }
+
+        if (!File.Exists(path))
+        {
+            return false;
+        }
 
         try
         {
@@ -310,7 +334,7 @@ public sealed class DebounceQueue : IDisposable
 
             return true;
         }
-        catch (IOException)               { return false; }
+        catch (IOException) { return false; }
         catch (UnauthorizedAccessException) { return false; }
     }
 
@@ -338,7 +362,7 @@ public sealed class DebounceQueue : IDisposable
             await _channel.Writer.WriteAsync(candidate, _shutdownCts.Token);
         }
         catch (OperationCanceledException) { /* shutting down — drop silently */ }
-        catch (ChannelClosedException)     { /* shutting down — drop silently */ }
+        catch (ChannelClosedException) { /* shutting down — drop silently */ }
 
         // Clean up AFTER the write has completed so the per-path CTS is not
         // cancelled while the write is in progress.

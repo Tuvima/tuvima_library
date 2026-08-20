@@ -74,7 +74,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Single(cut.FindAll(".mud-appbar"));
             Assert.Equal(5, cut.FindAll(".layout-shell__nav-link").Count);
             Assert.Contains(cut.FindAll(".layout-shell__nav-link"),
-                link => string.Equals(link.GetAttribute("href"), "/photos", StringComparison.Ordinal));
+                link => string.Equals(link.GetAttribute("href"), "/view", StringComparison.Ordinal));
             Assert.Equal("/images/library.svg", cut.Find(".layout-shell__brand-lockup").GetAttribute("src"));
             Assert.Empty(cut.FindAll(".layout-shell__mobile-menu"));
             Assert.Contains("Body content", cut.Markup);

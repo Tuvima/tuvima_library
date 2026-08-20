@@ -34,7 +34,7 @@ Tuvima Library starts with the story.
 
 Choose the folders Tuvima Library should watch and it builds a rich, browsable library around them. It identifies each item, adds useful metadata and artwork, connects related works where it has trustworthy evidence, and remembers your progress. Instead of searching through folders and filenames, you can explore the ideas, people, series, and creative worlds represented by the media you own.
 
-Not every file needs an online identity. Personal libraries can keep home videos, lectures, and unmatched custom content local-only, bypassing retail providers and Wikidata. Photos use a separate local asset index with a date timeline, favorites, hidden items, albums, duplicate detection, and EXIF details; originals remain in place.
+Not every file needs an online identity. Personal View libraries keep photos, short videos, documents, audio notes, home videos, lectures, and unmatched files local-only, bypassing retail providers and Wikidata. Their mixed local asset index supports date browsing, search, favorites, hidden items, compound files, duplicate sources, and file metadata while source policy determines whether originals may be organized.
 
 See the [Beta Roadmap](https://tuvima.github.io/tuvima_library/product/beta-roadmap/) for the architectural priority order and the post-beta photo-intelligence boundary.
 
@@ -292,7 +292,7 @@ dotnet run --project src/MediaEngine.Api
 dotnet run --project src/MediaEngine.Web
 ```
 
-Then open `http://localhost:5016`, add your folders in **Settings > Libraries**, and start your first scan.
+Then open `http://localhost:5016`, add your libraries and governed sources in **Settings > Media Management**, and start your first scan.
 
 The [Getting Started guide](https://tuvima.github.io/tuvima_library/tutorials/getting-started/) covers configuration, provider credentials, Docker, and troubleshooting. Continue with [Your First Library](https://tuvima.github.io/tuvima_library/tutorials/first-library/) for the full first-scan walkthrough.
 

@@ -1,91 +1,222 @@
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MediaEngine.Domain.Configuration;
 
-/// <summary>
-/// Root model for <c>config/libraries.json</c>.
-/// Contains one entry per configured library folder.
-/// </summary>
+/// <summary>Root model for the clean, pre-beta <c>libraries.json</c> contract.</summary>
 public sealed class LibrariesConfiguration
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "2.0";
+    public string SchemaVersion { get; set; } = "3.0";
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderConfig> Libraries { get; set; } = [];
+
+    [JsonPropertyName("incoming_sources")]
+    public List<IncomingSourceConfig> IncomingSources { get; set; } = [];
+
+    [JsonPropertyName("personal_library_policy")]
+    public PersonalLibraryPolicyConfig PersonalLibraryPolicy { get; set; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
 }
 
-/// <summary>
-/// A single library folder entry from <c>config/libraries.json</c>.
-/// Defines the source path, category, configured media types, and intake behaviour.
-/// </summary>
-public sealed class LibraryFolderConfig
+/// <summary>Administrator-controlled capabilities for personal libraries in View.</summary>
+public sealed class PersonalLibraryPolicyConfig
 {
-    /// <summary>Stable library identity persisted onto every owned media asset.</summary>
+    [JsonPropertyName("allow_user_creation")]
+    public bool AllowUserCreation { get; set; } = true;
+
+    [JsonPropertyName("allow_mobile_backup")]
+    public bool AllowMobileBackup { get; set; } = true;
+
+    [JsonPropertyName("allow_browser_upload")]
+    public bool AllowBrowserUpload { get; set; } = true;
+
+    [JsonPropertyName("allow_drag_and_drop")]
+    public bool AllowDragAndDrop { get; set; } = true;
+
+    [JsonPropertyName("allow_connected_device_import")]
+    public bool AllowConnectedDeviceImport { get; set; } = true;
+
+    [JsonPropertyName("allow_managed_storage")]
+    public bool AllowManagedStorage { get; set; } = true;
+
+    [JsonPropertyName("allow_existing_folder_attachment")]
+    public bool AllowExistingFolderAttachment { get; set; } = true;
+
+    [JsonPropertyName("default_visibility")]
+    public string DefaultVisibility { get; set; } = LibraryVisibility.Private;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
+}
+
+/// <summary>An unassigned intake source whose files are routed to a destination library.</summary>
+public sealed class IncomingSourceConfig
+{
     [JsonPropertyName("id")]
     public string Id { get; set; } = string.Empty;
 
-    /// <summary>Content category (e.g. "Books", "Movies", "TV").</summary>
-    [JsonPropertyName("category")]
-    public string Category { get; set; } = string.Empty;
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
 
-    /// <summary>Product area: catalogued media, personal media, or photos.</summary>
-    [JsonPropertyName("kind")]
-    public string Kind { get; set; } = LibraryKinds.Catalogued;
+    [JsonPropertyName("purpose")]
+    public string Purpose { get; set; } = IncomingSourcePurposes.SharedIntake;
 
-    /// <summary>External enrichment policy for files owned by this library.</summary>
-    [JsonPropertyName("metadata_policy")]
-    public string MetadataPolicy { get; set; } = LibraryMetadataPolicies.Enriched;
+    [JsonPropertyName("default_handling")]
+    public string DefaultHandling { get; set; } = IncomingDefaultHandling.RouteAutomatically;
 
-    /// <summary>
-    /// Configured media types for this folder (e.g. ["Epub", "Audiobook"]).
-    /// These string values map to <see cref="MediaEngine.Domain.Enums.MediaType"/> enum members.
-    /// </summary>
-    [JsonPropertyName("media_types")]
-    public List<string> MediaTypes { get; set; } = [];
-
-    /// <summary>
-    /// Absolute paths of all folders that belong to this logical library.
-    /// Multi-path libraries let a single library span several drives
-    /// (e.g. <c>D:\Movies</c> and <c>E:\Movies</c> as one Movies library),
-    /// Spec: side-by-side-with-Plex plan §F.
-    /// </summary>
-    [JsonPropertyName("source_paths")]
-    public List<string> SourcePaths { get; set; } = [];
-
-    /// <summary>Absolute path of the organised library destination.</summary>
-    [JsonPropertyName("library_root")]
-    public string LibraryRoot { get; set; } = string.Empty;
-
-    /// <summary>Intake mode: "watch" (move files in) or "import" (copy or move existing collection).</summary>
-    [JsonPropertyName("intake_mode")]
-    public string IntakeMode { get; set; } = "watch";
-
-    /// <summary>Whether to monitor subdirectories of the source path. Default: true.</summary>
     [JsonPropertyName("include_subdirectories")]
     public bool IncludeSubdirectories { get; set; } = true;
 
-    /// <summary>Optional free-text notes for the user. Not used by the Engine.</summary>
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = LibrarySourceTypes.LocalFolder;
+
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 
-    /// <summary>
-    /// Hard read-only gate. When true, Tuvima will not move, rename, or write
-    /// file tags for any file in this library — it indexes everything in place.
-    /// This is the escape hatch for users who want a strictly hands-off mirror
-    /// of an external library (e.g. a Plex library Tuvima should not touch).
-    /// Default: false. Spec: side-by-side-with-Plex plan §I.
-    /// </summary>
-    [JsonPropertyName("read_only")]
-    public bool ReadOnly { get; set; }
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
+}
 
-    /// <summary>
-    /// Per-library override for metadata writeback. <c>null</c> means use the
-    /// global <c>metadata_writeback.enabled</c> flag; <c>true</c> or <c>false</c>
-    /// forces on/off for this library only. The user's way of saying
-    /// "Plex is my primary, don't touch tags on this one" without turning off
-    /// writeback globally. Spec: side-by-side-with-Plex plan §I.
-    /// </summary>
+/// <summary>A logical catalogued or personal library and its independently governed sources.</summary>
+public sealed class LibraryFolderConfig
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>Structured subtype such as Books, Movies, or Music. Empty for personal libraries.</summary>
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
+    [JsonPropertyName("kind")]
+    public string Kind { get; set; } = LibraryKinds.Catalogued;
+
+    [JsonPropertyName("area")]
+    public string Area { get; set; } = LibraryAreas.Read;
+
+    [JsonPropertyName("presentation")]
+    public string Presentation { get; set; } = LibraryPresentations.Catalogue;
+
+    [JsonPropertyName("metadata_policy")]
+    public string MetadataPolicy { get; set; } = LibraryMetadataPolicies.Enriched;
+
+    [JsonPropertyName("media_types")]
+    public List<string> MediaTypes { get; set; } = [];
+
+    [JsonPropertyName("sources")]
+    public List<LibrarySourceConfig> Sources { get; set; } = [];
+
+    /// <summary>Stable source ID, never an array position.</summary>
+    [JsonPropertyName("primary_destination_source_id")]
+    public string? PrimaryDestinationSourceId { get; set; }
+
+    [JsonPropertyName("owner_profile_id")]
+    public string? OwnerProfileId { get; set; }
+
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; set; } = LibraryVisibility.Household;
+
+    [JsonPropertyName("authorized_profile_ids")]
+    public List<string> AuthorizedProfileIds { get; set; } = [];
+
+    [JsonPropertyName("accepted_intake_modes")]
+    public List<string> AcceptedIntakeModes { get; set; } = [];
+
+    [JsonPropertyName("duplicate_policy")]
+    public string DuplicatePolicy { get; set; } = LibraryDuplicatePolicies.SkipExact;
+
+    [JsonPropertyName("organization_policy")]
+    public LibraryOrganizationPolicyConfig OrganizationPolicy { get; set; } = new();
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
+
+    [JsonIgnore]
+    public IEnumerable<LibrarySourceConfig> ScannableSources =>
+        Sources.Where(source => !string.IsNullOrWhiteSpace(source.Path));
+
+    [JsonIgnore]
+    public LibrarySourceConfig? PrimaryDestination =>
+        string.IsNullOrWhiteSpace(PrimaryDestinationSourceId)
+            ? null
+            : Sources.FirstOrDefault(source =>
+                string.Equals(source.Id, PrimaryDestinationSourceId, StringComparison.OrdinalIgnoreCase));
+}
+
+public sealed class LibrarySourceConfig
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = LibrarySourceRoles.Secondary;
+
+    [JsonPropertyName("management_mode")]
+    public string ManagementMode { get; set; } = LibrarySourceManagementModes.ExistingLibrary;
+
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = LibrarySourceTypes.LocalFolder;
+
+    [JsonPropertyName("include_subdirectories")]
+    public bool IncludeSubdirectories { get; set; } = true;
+
+    [JsonPropertyName("access_mode")]
+    public string AccessMode { get; set; } = LibrarySourceAccessModes.ReadOnly;
+
     [JsonPropertyName("writeback_override")]
     public bool? WritebackOverride { get; set; }
+
+    [JsonPropertyName("participates_in_organization")]
+    public bool ParticipatesInOrganization { get; set; }
+
+    [JsonPropertyName("intake_role")]
+    public string IntakeRole { get; set; } = LibrarySourceIntakeRoles.None;
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonPropertyName("device_id")]
+    public string? DeviceId { get; set; }
+
+    [JsonPropertyName("profile_id")]
+    public string? ProfileId { get; set; }
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
+
+    [JsonIgnore]
+    public bool IsWritable => AccessMode == LibrarySourceAccessModes.Writable;
+
+    [JsonIgnore]
+    public bool IsManaged => ManagementMode == LibrarySourceManagementModes.ManagedByTuvima;
+
+    [JsonIgnore]
+    public bool AllowsFileMutation => IsManaged && IsWritable;
+}
+
+public sealed class LibraryOrganizationPolicyConfig
+{
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = LibraryOrganizationModes.TuvimaStandard;
+
+    [JsonPropertyName("custom_template")]
+    public string? CustomTemplate { get; set; }
+
+    [JsonPropertyName("preserve_originals")]
+    public bool PreserveOriginals { get; set; } = true;
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
 }

@@ -17,6 +17,9 @@ namespace MediaEngine.Ingestion.Contracts;
 /// </summary>
 public interface ILibraryFolderResolver
 {
+    /// <summary>Resolve a stable configured library identity.</summary>
+    LibraryFolderEntry? ResolveById(string libraryId);
+
     /// <summary>
     /// Returns the library entry whose source paths cover the given absolute
     /// file path, or <see langword="null"/> if no library claims the path.
@@ -26,6 +29,13 @@ public interface ILibraryFolderResolver
     /// </summary>
     /// <param name="absolutePath">An absolute file or directory path.</param>
     LibraryFolderEntry? ResolveForPath(string absolutePath);
+
+    /// <summary>
+    /// Resolves both the logical library and exact stable source governing a
+    /// path. Filesystem mutation code must use this source-level result rather
+    /// than applying a library-wide writable assumption.
+    /// </summary>
+    ResolvedLibrarySource? ResolveSourceForPath(string absolutePath);
 
     /// <summary>
     /// Returns the source path under which <paramref name="absolutePath"/>

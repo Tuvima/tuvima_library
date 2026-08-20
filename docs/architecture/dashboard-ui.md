@@ -240,7 +240,15 @@ Settings/Admin contains configuration and operational state:
 
 Settings/Admin should not host normal media browse/edit pages.
 
-The Settings shell uses a flat, role-aware rail grouped as **Personal**, **Administration**, and **Advanced**. Canonical page routes use `/settings/profile`, `/settings/system`, `/settings/libraries`, and the corresponding page slug. Page-local tabs and segmented controls provide subsection navigation; the rail does not expand into a second settings tree. On narrow screens, a page selector replaces the rail. Privacy & Data remains hidden until its operations are Engine-backed, and Developer Tools requires both the Administrator role and the internal-tools feature flag.
+The Settings shell uses a flat, role-aware rail grouped as **Personal**,
+**Administration**, and **Advanced**. Canonical page routes use
+`/settings/profile`, `/settings/system`, `/settings/media-management`, and the
+corresponding page slug. Media Management owns Overview, Incoming, Read, Watch,
+Listen, and View subsection routes. Page-local tabs and segmented controls
+provide subsection navigation; the rail does not expand into a second settings
+tree. On narrow screens, a page selector replaces the rail. Privacy & Data
+remains hidden until its operations are Engine-backed, and Developer Tools
+requires both the Administrator role and the internal-tools feature flag.
 
 ## Guardrails
 

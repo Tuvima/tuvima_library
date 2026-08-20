@@ -12,14 +12,20 @@ tags:
 
 # Library Admin Pages
 
-Libraries, Ingestion, Metadata Providers, Activity & Audit, and Developer Tools are first-class Settings pages for the part of Tuvima Library that turns messy folders into registered media. They are available directly in the flat Settings rail under **Administration** or **Advanced**. The Ingestion page remains available at `/settings/ingestion`; the feature-gated development harness is available at `/settings/developer`.
+**Media Management**, Ingestion, Metadata Providers, Activity & Audit, and
+Developer Tools are first-class Settings pages for the part of Tuvima Library
+that turns folders into registered media. Media Management is available at
+`/settings/media-management` and contains Overview, Incoming, Read, Watch,
+Listen, and View. The operational Ingestion page remains a sibling at
+`/settings/ingestion`; the feature-gated development harness is available at
+`/settings/developer`.
 
 Together, these pages answer six operational questions:
 
 - what is happening right now
 - what has been processed recently
 - what needs review
-- which Watch, Listen, and Read folders are configured
+- which Read, Watch, Listen, View, and universal incoming folders are configured
 - which provider or pipeline stage is failing, waiting, or unknown
 - how close the library is to being registered and healthy
 
@@ -95,10 +101,38 @@ Configured folders are grouped by user intent:
 - **Watch**: Movies and TV Shows
 - **Listen**: Music and audiobooks
 - **Read**: Books and Comics
+- **View**: Personal mixed media such as photos, short videos, documents, and audio notes
 
-Each logical library can contain multiple source paths through `source_paths` in `config/libraries.json`. The UI renders every path as its own row with item count, unresolved count, last scan, scan mode, purpose, reachability, and permission status.
+Each logical library contains stable `sources` in `config/libraries.json`. The UI renders every source with its role, management mode, access mode, intake role, reachability, and permission status. Existing library sources are read-only and indexed in place; only managed writable sources can participate in organization or writeback.
 
 Music is intentionally conservative. The page calls out that music should preserve album folders and prefer tags or fingerprints before organization. It does not present aggressive rename or move actions for music.
+
+## Universal Incoming
+
+Media Management's **Incoming** section lists unassigned intake folders by
+stable ID, path, purpose, default handling, and health. Files arriving there
+retain that source identity while Tuvima classifies them. Routing selects a
+destination only when exactly one library accepts incoming-folder intake and
+the detected media type; ambiguous or unsupported files stop for attention
+rather than being guessed into a library.
+
+Direct browser, drag-and-drop, mobile, device, and API intake retains the
+selected destination library ID through the pipeline. Users do not configure
+or browse internal staging paths.
+
+## Managed and Existing Sources
+
+An **Existing library** source may be scanned and indexed, but Tuvima does not
+move, rename, tag, overwrite, or delete its files. A **Managed by Tuvima** source
+may participate in organization only when it is writable and its source and
+library policies allow the requested operation. Primary destinations are
+explicit stable source IDs; source array order has no meaning.
+
+Changing a source from Existing to Managed changes future policy only. It does
+not immediately mutate files. Administrators can request a reorganization
+preview, review unchanged/moved/renamed/conflicting/unresolved/blocked counts,
+and confirm the exact short-lived plan fingerprint. Execution revalidates every
+item before moving it and reports partial failures for safe retry.
 
 ## Review Counts
 

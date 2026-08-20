@@ -3,7 +3,7 @@
   "write_on_auto_match": true,
   "write_on_manual_override": true,
   "write_on_universe_enrichment": true,
-  "backup_before_write": true,
+  "backup_before_write": false,
   "fields_to_write": "all",
   "exclude_fields": []
 }

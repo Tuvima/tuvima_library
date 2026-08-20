@@ -48,7 +48,7 @@ This repository uses normal .NET restore. It does not use npm or yarn for applic
 Configuration lives under `config/`. The most important first-run files are:
 
 - `config/core.json` - data root, database path, server name, language, and library root defaults
-- `config/libraries.json` - watched/imported library folders
+- `config/libraries.json` - catalogued and personal libraries, their governed sources, and shared incoming locations
 - `config/providers/*.json` - provider configuration
 - `config/secrets/` - provider credentials; this folder is ignored by git
 - `config/ai.json` - Local AI models, feature flags, vocabulary, and schedules
@@ -95,11 +95,11 @@ If your Engine runs on a different URL, set `TUVIMA_ENGINE_URL` before starting 
 
 ## Step 5 - Configure Folders And Scan
 
-Open **Settings > Libraries**.
+Open **Settings > Media Management**.
 
-Confirm or create the logical libraries you need. Each library has source folders, a kind, and a metadata policy. Use `catalogued / enriched` for known books, movies, TV, music, audiobooks, and comics; use `personal / local-only` for home videos or unmatched content; use `photos / local-only` for the Photos timeline. Confirm path read/write checks, then save.
+Confirm or create the logical libraries you need. Use `catalogued / enriched` for known books, movies, TV, music, audiobooks, and comics. Use `personal / local-only` in the View area for photos, short videos, documents, audio notes, home movies, and other private files. For each source, explicitly choose **Managed by Tuvima** or **Existing library**; existing sources are always indexed in place and never modified. Confirm path checks, then save.
 
-Save changes, then run **Scan saved watch folder** from Libraries. Open **Settings > Providers** if provider credentials need attention, and open **Settings > Ingestion** to watch progress.
+Save changes, then scan the relevant source from Media Management. Open **Settings > Providers** if provider credentials need attention, and open **Settings > Ingestion** to watch progress.
 
 ## Docker Alternative
 
@@ -109,7 +109,7 @@ Docker support exists for local/containerized runs:
 docker compose up
 ```
 
-Edit the host volume paths in `docker-compose.yml` before starting. The `/watch` mount contains per-library folders such as `/watch/movies`, `/watch/general`, and `/watch/photos`; `/library`, `/config`, `/db`, and `/models` persist independently. The Dashboard is exposed at `http://localhost:5016` and the Engine at `http://localhost:61495` by default.
+Edit the host volume paths in `docker-compose.yml` before starting. Mount each configured source and incoming location at the path recorded in `libraries.json`; `/config`, `/db`, and `/models` persist independently. The Dashboard is exposed at `http://localhost:5016` and the Engine at `http://localhost:61495` by default.
 
 ## Stopping Tuvima
 

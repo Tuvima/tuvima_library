@@ -510,65 +510,165 @@ CREATE TABLE IF NOT EXISTS media_assets (
     writeback_next_retry_at  INTEGER
 , library_id TEXT, is_orphaned INTEGER NOT NULL DEFAULT 0, orphaned_at TEXT);
 
--- Photos are intentionally isolated from the catalogue/edition graph. They are
--- local assets first: no provider identity, Wikidata, or metadata claims.
-CREATE TABLE IF NOT EXISTS photo_assets (
-    id              BLOB NOT NULL PRIMARY KEY,
-    content_hash    TEXT NOT NULL UNIQUE,
-    file_name       TEXT NOT NULL,
-    captured_at     TEXT NOT NULL,
-    width           INTEGER,
-    height          INTEGER,
-    mime_type       TEXT NOT NULL,
-    favorite        INTEGER NOT NULL DEFAULT 0,
-    hidden          INTEGER NOT NULL DEFAULT 0,
-    created_at      TEXT NOT NULL
+-- Generalized local assets are the mixed-media model for personal View
+-- libraries. A logical item is library-scoped and may be composed of
+-- several exact, hash-addressed files (for example HEIC + MOV Live Photos,
+-- RAW + JPEG + XMP sets, or generated previews). Each physical file retains
+-- every path at which it was observed, so exact duplicates never erase source
+-- provenance. This model is intentionally independent from catalogue identity.
+CREATE TABLE IF NOT EXISTS local_items (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    library_id          BLOB NOT NULL,
+    media_kind          TEXT NOT NULL
+                            CHECK (media_kind IN ('image', 'video', 'document', 'audio', 'other')),
+    title               TEXT,
+    primary_file_name   TEXT NOT NULL,
+    primary_mime_type   TEXT NOT NULL,
+    captured_at         TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    favorite            INTEGER NOT NULL DEFAULT 0 CHECK (favorite IN (0, 1)),
+    hidden              INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1))
 );
 
--- Optional technical metadata lives beside the stable photo identity. Keeping
--- it separate lets the local index grow without coupling photo identity to a
--- particular EXIF reader or requiring catalogue-style schema evolution.
-CREATE TABLE IF NOT EXISTS photo_metadata (
-    photo_asset_id  BLOB NOT NULL PRIMARY KEY REFERENCES photo_assets(id) ON DELETE CASCADE,
-    latitude        REAL,
-    longitude       REAL,
-    camera_make     TEXT,
-    camera_model    TEXT,
-    updated_at      TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS local_item_metadata (
+    item_id             BLOB NOT NULL PRIMARY KEY REFERENCES local_items(id) ON DELETE CASCADE,
+    width               INTEGER CHECK (width IS NULL OR width >= 0),
+    height              INTEGER CHECK (height IS NULL OR height >= 0),
+    duration_seconds    REAL CHECK (duration_seconds IS NULL OR duration_seconds >= 0),
+    page_count          INTEGER CHECK (page_count IS NULL OR page_count >= 0),
+    device_make         TEXT,
+    device_model        TEXT,
+    latitude            REAL CHECK (latitude IS NULL OR (latitude >= -90 AND latitude <= 90)),
+    longitude           REAL CHECK (longitude IS NULL OR (longitude >= -180 AND longitude <= 180)),
+    location_name       TEXT,
+    document_text       TEXT,
+    metadata_json       TEXT,
+    updated_at          TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS photo_sources (
-    id              BLOB NOT NULL PRIMARY KEY,
-    photo_asset_id  BLOB NOT NULL REFERENCES photo_assets(id) ON DELETE CASCADE,
-    library_id      TEXT NOT NULL,
-    file_path       TEXT NOT NULL UNIQUE COLLATE NOCASE,
-    file_size       INTEGER NOT NULL,
-    modified_at     TEXT NOT NULL,
-    indexed_at      TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS local_files (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    content_hash        TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    byte_size           INTEGER NOT NULL CHECK (byte_size >= 0),
+    mime_type           TEXT NOT NULL,
+    extension           TEXT,
+    created_at          TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS photo_albums (
-    id              BLOB NOT NULL PRIMARY KEY,
-    name            TEXT NOT NULL,
-    description     TEXT,
-    created_at      TEXT NOT NULL,
-    modified_at     TEXT NOT NULL
+CREATE TABLE IF NOT EXISTS local_file_sources (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    file_id             BLOB NOT NULL REFERENCES local_files(id) ON DELETE CASCADE,
+    library_id          BLOB NOT NULL,
+    file_path           TEXT NOT NULL,
+    modified_at         TEXT NOT NULL,
+    indexed_at          TEXT NOT NULL,
+    UNIQUE (library_id, file_path COLLATE NOCASE)
 );
 
-CREATE TABLE IF NOT EXISTS photo_album_items (
-    album_id        BLOB NOT NULL REFERENCES photo_albums(id) ON DELETE CASCADE,
-    photo_asset_id  BLOB NOT NULL REFERENCES photo_assets(id) ON DELETE CASCADE,
-    position        INTEGER NOT NULL DEFAULT 0,
-    added_at        TEXT NOT NULL,
-    PRIMARY KEY (album_id, photo_asset_id)
+CREATE TABLE IF NOT EXISTS local_item_files (
+    item_id             BLOB NOT NULL REFERENCES local_items(id) ON DELETE CASCADE,
+    file_id             BLOB NOT NULL REFERENCES local_files(id) ON DELETE RESTRICT,
+    role                TEXT NOT NULL
+                            CHECK (role IN ('primary', 'original', 'live_photo_video', 'raw',
+                                            'jpeg', 'sidecar', 'audio_companion', 'derivative')),
+    derivative_kind     TEXT,
+    position            INTEGER NOT NULL DEFAULT 0,
+    added_at            TEXT NOT NULL,
+    PRIMARY KEY (item_id, file_id, role)
 );
 
-CREATE INDEX IF NOT EXISTS ix_photo_assets_timeline
-    ON photo_assets(hidden, captured_at DESC, id);
-CREATE INDEX IF NOT EXISTS ix_photo_sources_asset
-    ON photo_sources(photo_asset_id);
-CREATE INDEX IF NOT EXISTS ix_photo_album_items_album
-    ON photo_album_items(album_id, position, added_at);
+CREATE TABLE IF NOT EXISTS local_item_tags (
+    item_id             BLOB NOT NULL REFERENCES local_items(id) ON DELETE CASCADE,
+    tag                 TEXT NOT NULL COLLATE NOCASE,
+    added_at            TEXT NOT NULL,
+    PRIMARY KEY (item_id, tag)
+);
+
+CREATE TABLE IF NOT EXISTS local_collections (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    library_id          BLOB NOT NULL,
+    name                TEXT NOT NULL,
+    description         TEXT,
+    collection_kind     TEXT NOT NULL DEFAULT 'collection'
+                            CHECK (collection_kind IN ('album', 'collection')),
+    created_at          TEXT NOT NULL,
+    modified_at         TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS local_collection_items (
+    collection_id       BLOB NOT NULL REFERENCES local_collections(id) ON DELETE CASCADE,
+    item_id             BLOB NOT NULL REFERENCES local_items(id) ON DELETE CASCADE,
+    position            INTEGER NOT NULL DEFAULT 0,
+    added_at            TEXT NOT NULL,
+    PRIMARY KEY (collection_id, item_id)
+);
+
+-- Reserved for optional, provenance-aware inferred metadata. The table does
+-- not run inference; it only prevents future annotations from being confused
+-- with user-authored or extracted facts.
+CREATE TABLE IF NOT EXISTS local_item_annotations (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    item_id             BLOB NOT NULL REFERENCES local_items(id) ON DELETE CASCADE,
+    annotation_kind     TEXT NOT NULL,
+    annotation_value    TEXT NOT NULL,
+    confidence          REAL CHECK (confidence IS NULL OR (confidence >= 0 AND confidence <= 1)),
+    source              TEXT NOT NULL,
+    model_name          TEXT,
+    model_version       TEXT,
+    provenance_json     TEXT,
+    created_at          TEXT NOT NULL,
+    reviewed_at         TEXT
+);
+
+-- FTS rowids are mapped to BLOB GUIDs in a normal table. This avoids storing
+-- an internal identifier as text merely because FTS5 is text-oriented.
+CREATE TABLE IF NOT EXISTS local_item_search_keys (
+    rowid               INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id             BLOB NOT NULL UNIQUE REFERENCES local_items(id) ON DELETE CASCADE
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS local_item_search USING fts5(
+    title,
+    file_name,
+    mime_type,
+    media_kind,
+    captured_at,
+    device,
+    location,
+    document_text,
+    tags,
+    tokenize = 'unicode61 remove_diacritics 2'
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_local_items_delete_search
+BEFORE DELETE ON local_items
+BEGIN
+    DELETE FROM local_item_search
+     WHERE rowid = (SELECT rowid FROM local_item_search_keys WHERE item_id = OLD.id);
+END;
+
+CREATE INDEX IF NOT EXISTS ix_local_items_library_timeline
+    ON local_items(library_id, hidden, captured_at DESC, created_at DESC, id);
+CREATE INDEX IF NOT EXISTS ix_local_items_library_kind
+    ON local_items(library_id, media_kind, hidden);
+CREATE INDEX IF NOT EXISTS ix_local_files_hash
+    ON local_files(content_hash COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_local_file_sources_file
+    ON local_file_sources(file_id, indexed_at DESC);
+CREATE INDEX IF NOT EXISTS ix_local_file_sources_library
+    ON local_file_sources(library_id, file_path COLLATE NOCASE);
+CREATE INDEX IF NOT EXISTS ix_local_item_files_item
+    ON local_item_files(item_id, role, position);
+CREATE INDEX IF NOT EXISTS ix_local_item_files_file
+    ON local_item_files(file_id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_local_item_single_primary
+    ON local_item_files(item_id)
+    WHERE role = 'primary';
+CREATE INDEX IF NOT EXISTS ix_local_collection_items_collection
+    ON local_collection_items(collection_id, position, added_at);
+CREATE INDEX IF NOT EXISTS ix_local_item_annotations_item
+    ON local_item_annotations(item_id, annotation_kind, created_at);
 
 CREATE TABLE IF NOT EXISTS media_operation_events (
   id             BLOB PRIMARY KEY,

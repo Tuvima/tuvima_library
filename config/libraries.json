@@ -1,117 +1,268 @@
 {
-  "schema_version": "2.0",
+  "schema_version": "3.0",
+  "personal_library_policy": {
+    "allow_user_creation": true,
+    "allow_mobile_backup": true,
+    "allow_browser_upload": true,
+    "allow_drag_and_drop": true,
+    "allow_connected_device_import": true,
+    "allow_managed_storage": true,
+    "allow_existing_folder_attachment": true,
+    "default_visibility": "private"
+  },
+  "incoming_sources": [
+    {
+      "id": "99999999-aaaa-4999-8999-999999999999",
+      "path": "C:\\temp\\tuvima-import",
+      "purpose": "shared_intake",
+      "default_handling": "route_automatically",
+      "include_subdirectories": true,
+      "source_type": "local_folder",
+      "notes": "Shared intake folder. Destination routing is determined after receipt."
+    }
+  ],
   "libraries": [
     {
       "id": "11111111-1111-4111-8111-111111111111",
+      "name": "Books",
       "category": "Books",
       "kind": "catalogued",
+      "area": "read",
+      "presentation": "catalogue",
       "metadata_policy": "enriched",
       "media_types": ["Books"],
-      "source_paths": ["C:\\temp\\tuvima-watch\\books"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": true,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for Books. Subdirectories are watched to support series folder layouts."
+      "sources": [
+        {
+          "id": "11111111-aaaa-4111-8111-111111111111",
+          "path": "C:\\temp\\tuvima-library\\Books",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": null,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "11111111-aaaa-4111-8111-111111111111",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     },
     {
       "id": "22222222-2222-4222-8222-222222222222",
+      "name": "Audiobooks",
       "category": "Audiobooks",
       "kind": "catalogued",
+      "area": "listen",
+      "presentation": "catalogue",
       "metadata_policy": "enriched",
       "media_types": ["Audiobooks"],
-      "source_paths": ["C:\\temp\\tuvima-watch\\audiobooks"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": true,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for Audiobooks. Subdirectories are watched to support series folder layouts."
+      "sources": [
+        {
+          "id": "22222222-aaaa-4222-8222-222222222222",
+          "path": "C:\\temp\\tuvima-library\\Audiobooks",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": null,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "22222222-aaaa-4222-8222-222222222222",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     },
     {
       "id": "33333333-3333-4333-8333-333333333333",
+      "name": "TV Shows",
       "category": "TV",
       "kind": "catalogued",
+      "area": "watch",
+      "presentation": "catalogue",
       "metadata_policy": "enriched",
       "media_types": ["TV"],
-      "source_paths": ["C:\\temp\\tuvima-watch\\tv"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": true,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for TV series. include_subdirectories true to pick up season subfolders."
+      "sources": [
+        {
+          "id": "33333333-aaaa-4333-8333-333333333333",
+          "path": "C:\\temp\\tuvima-library\\TV",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": null,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "33333333-aaaa-4333-8333-333333333333",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     },
     {
       "id": "44444444-4444-4444-8444-444444444444",
+      "name": "Movies",
       "category": "Movies",
       "kind": "catalogued",
+      "area": "watch",
+      "presentation": "catalogue",
       "metadata_policy": "enriched",
       "media_types": ["Movies"],
-      "source_paths": ["C:\\temp\\tuvima-watch\\movies"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": false,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for movie files."
+      "sources": [
+        {
+          "id": "44444444-aaaa-4444-8444-444444444444",
+          "path": "C:\\temp\\tuvima-library\\Movies",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": null,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "44444444-aaaa-4444-8444-444444444444",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     },
     {
       "id": "55555555-5555-4555-8555-555555555555",
+      "name": "Music",
       "category": "Music",
       "kind": "catalogued",
+      "area": "listen",
+      "presentation": "catalogue",
       "metadata_policy": "enriched",
       "media_types": ["Music"],
-      "source_paths": ["C:\\temp\\tuvima-watch\\music"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": true,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for music. include_subdirectories true to support album folder layouts."
+      "sources": [
+        {
+          "id": "55555555-aaaa-4555-8555-555555555555",
+          "path": "C:\\temp\\tuvima-library\\Music",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": null,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "55555555-aaaa-4555-8555-555555555555",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     },
     {
       "id": "66666666-6666-4666-8666-666666666666",
+      "name": "Comics",
       "category": "Comics",
       "kind": "catalogued",
+      "area": "read",
+      "presentation": "catalogue",
       "metadata_policy": "enriched",
       "media_types": ["Comics"],
-      "source_paths": ["C:\\temp\\tuvima-watch\\comics"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": true,
-      "read_only": false,
-      "writeback_override": null,
-      "notes": "Watch folder for comics and manga."
+      "sources": [
+        {
+          "id": "66666666-aaaa-4666-8666-666666666666",
+          "path": "C:\\temp\\tuvima-library\\Comics",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": null,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "66666666-aaaa-4666-8666-666666666666",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["incoming_folder", "drag_and_drop", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     },
     {
       "id": "77777777-7777-4777-8777-777777777777",
-      "category": "General",
+      "name": "Shy's Phone Photos",
       "kind": "personal",
+      "area": "view",
+      "presentation": "mixed_gallery",
       "metadata_policy": "local_only",
       "media_types": [],
-      "source_paths": ["C:\\temp\\tuvima-watch\\general"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "watch",
-      "include_subdirectories": false,
-      "read_only": true,
-      "writeback_override": null,
-      "notes": "Personal or unmatched media indexed from local file metadata without external identity matching."
+      "sources": [
+        {
+          "id": "77777777-aaaa-4777-8777-777777777777",
+          "path": "C:\\temp\\tuvima-library\\View\\ShysPhonePhotos",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": false,
+          "participates_in_organization": true,
+          "intake_role": "mobile_backup",
+          "profile_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        }
+      ],
+      "primary_destination_source_id": "77777777-aaaa-4777-8777-777777777777",
+      "owner_profile_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "visibility": "private",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["drag_and_drop", "browser_upload", "mobile_backup", "connected_device_import"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "capture_year_month", "preserve_originals": true },
+      "notes": "Personal mixed-media library for phone photos, short videos, and related files."
     },
     {
       "id": "88888888-8888-4888-8888-888888888888",
-      "category": "Photos",
-      "kind": "photos",
+      "name": "Family Archive",
+      "kind": "personal",
+      "area": "view",
+      "presentation": "timeline",
       "metadata_policy": "local_only",
       "media_types": [],
-      "source_paths": ["C:\\temp\\tuvima-watch\\photos"],
-      "library_root": "C:\\temp\\tuvima-library",
-      "intake_mode": "import",
-      "include_subdirectories": true,
-      "read_only": true,
-      "writeback_override": false,
-      "notes": "Local photo timeline indexed in place without provider or Wikidata matching."
+      "sources": [
+        {
+          "id": "88888888-aaaa-4888-8888-888888888888",
+          "path": "C:\\temp\\tuvima-library\\View\\FamilyArchive",
+          "role": "primary_destination",
+          "management_mode": "managed_by_tuvima",
+          "source_type": "local_folder",
+          "include_subdirectories": true,
+          "access_mode": "writable",
+          "writeback_override": false,
+          "participates_in_organization": true,
+          "intake_role": "direct"
+        }
+      ],
+      "primary_destination_source_id": "88888888-aaaa-4888-8888-888888888888",
+      "owner_profile_id": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      "visibility": "household",
+      "authorized_profile_ids": [],
+      "accepted_intake_modes": ["drag_and_drop", "browser_upload", "connected_device_import"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "capture_year_month", "preserve_originals": true }
     }
   ]
 }

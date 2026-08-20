@@ -27,40 +27,49 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void LibrariesTab_RendersPathValidationAndSaveTruth()
+    public void LibrariesTab_RendersSchemaThreeMediaManagement()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
 
-        Assert.Contains("file-organization-page__actions", source, StringComparison.Ordinal);
-        Assert.Contains("Folder health", source, StringComparison.Ordinal);
-        Assert.Contains("<AppTabs ActivePanelIndex", source, StringComparison.Ordinal);
-        Assert.Contains("settings-tab-strip settings-file-org-tabs", source, StringComparison.Ordinal);
-        Assert.Contains("Import Folders", source, StringComparison.Ordinal);
-        Assert.Contains("IsImportFoldersTab", source, StringComparison.Ordinal);
-        Assert.Contains("Folders for @activeLibrary.Label", source, StringComparison.Ordinal);
-        Assert.Contains("StructureModeRecommended", source, StringComparison.Ordinal);
-        Assert.Contains("StructureModeCustom", source, StringComparison.Ordinal);
-        Assert.Contains("StructureModeNone", source, StringComparison.Ordinal);
-        Assert.Contains("Recommended", source, StringComparison.Ordinal);
-        Assert.Contains("Custom", source, StringComparison.Ordinal);
-        Assert.Contains("None", source, StringComparison.Ordinal);
-        Assert.Contains("Naming and Folder Structure", source, StringComparison.Ordinal);
-        Assert.Contains("Tuvima will index these files in place", source, StringComparison.Ordinal);
-        Assert.Contains("Engine unavailable - path could not be checked.", source, StringComparison.Ordinal);
-        Assert.Contains("Folder monitoring was updated", source, StringComparison.Ordinal);
-        Assert.Contains("A rescan is recommended", source, StringComparison.Ordinal);
-        Assert.Contains("PreviewOrganizationTemplateAsync", source, StringComparison.Ordinal);
+        Assert.Contains("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/media-management/overview", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/media-management/incoming", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/media-management/read", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/media-management/watch", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/media-management/listen", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/media-management/view", source, StringComparison.Ordinal);
+
+        Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
+        Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);
+        Assert.Contains("Incoming folders", source, StringComparison.Ordinal);
+        Assert.Contains("Folders &amp; sources", source, StringComparison.Ordinal);
+        Assert.Contains("Existing folders stay unchanged", source, StringComparison.Ordinal);
+        Assert.Contains("Primary destination", source, StringComparison.Ordinal);
+        Assert.Contains("Participates in organization", source, StringComparison.Ordinal);
+        Assert.Contains("Duplicate handling", source, StringComparison.Ordinal);
+        Assert.Contains("Owner profile ID", source, StringComparison.Ordinal);
+        Assert.Contains("Visibility", source, StringComparison.Ordinal);
+        Assert.Contains("Personal library permissions", source, StringComparison.Ordinal);
+        Assert.Contains("AllowUserCreation", source, StringComparison.Ordinal);
+        Assert.Contains("AllowManagedStorage", source, StringComparison.Ordinal);
+        Assert.Contains("AllowExistingFolderAttachment", source, StringComparison.Ordinal);
+        Assert.Contains("AllowConnectedDeviceImport", source, StringComparison.Ordinal);
+        Assert.Contains("DefaultVisibility", source, StringComparison.Ordinal);
+        Assert.Contains("GetLibrariesAsync", source, StringComparison.Ordinal);
+        Assert.Contains("TestPathAsync", source, StringComparison.Ordinal);
         Assert.Contains("UpdateLibrariesAsync", source, StringComparison.Ordinal);
-        Assert.Contains("ValidateImportFoldersAreSeparate", source, StringComparison.Ordinal);
-        Assert.Contains("Disabled=\"@(_savingFolders || _engineUnavailable || !HasUnsavedChanges)\"", source, StringComparison.Ordinal);
+        Assert.Contains("HasUnsavedChanges", source, StringComparison.Ordinal);
+        Assert.Contains("Save Changes", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("GetFolderSettingsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("UpdateFolderSettingsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SourcePaths", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LibraryRoot", source, StringComparison.Ordinal);
         Assert.DoesNotContain("The Library Root applies to all libraries", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Global Library Root", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Move to Library", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Import in Place", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Global Paths &amp; Watch Folders", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Class=\"file-org-tabs\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Year + Title", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Title (Year)", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("file-organization-page", source, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -1,17 +1,17 @@
-using System.Text.Json;
 using System.Net.Sockets;
-using MediaEngine.Domain;
-using MediaEngine.Contracts.Ai;
+using System.Text.Json;
 using MediaEngine.Contracts.Admin;
+using MediaEngine.Contracts.Ai;
+using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Progress;
 using MediaEngine.Contracts.Realtime;
-using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Reports;
 using MediaEngine.Contracts.Settings;
-using Microsoft.AspNetCore.SignalR.Client;
+using MediaEngine.Domain;
 using MediaEngine.Web.Models.ViewDTOs;
+using Microsoft.AspNetCore.SignalR.Client;
 
 namespace MediaEngine.Web.Services.Integration;
 
@@ -52,27 +52,27 @@ public enum EngineConnectionState
 /// </summary>
 public sealed class UIOrchestratorService : IAsyncDisposable
 {
-    private readonly IEngineApiClient              _api;
-    private readonly UniverseStateContainer         _state;
-    private readonly ActiveProfileSessionService    _activeProfileSession;
-    private readonly IConfiguration                 _config;
+    private readonly IEngineApiClient _api;
+    private readonly UniverseStateContainer _state;
+    private readonly ActiveProfileSessionService _activeProfileSession;
+    private readonly IConfiguration _config;
     private readonly ILogger<UIOrchestratorService> _logger;
 
     private HubConnection? _hubConnection;
     private EngineConnectionState _engineConnectionState = EngineConnectionState.Unknown;
 
     public UIOrchestratorService(
-        IEngineApiClient              api,
-        UniverseStateContainer         state,
-        ActiveProfileSessionService    activeProfileSession,
-        IConfiguration                 config,
+        IEngineApiClient api,
+        UniverseStateContainer state,
+        ActiveProfileSessionService activeProfileSession,
+        IConfiguration config,
         ILogger<UIOrchestratorService> logger)
     {
-        _api                  = api;
-        _state                = state;
+        _api = api;
+        _state = state;
         _activeProfileSession = activeProfileSession;
-        _config               = config;
-        _logger               = logger;
+        _config = config;
+        _logger = logger;
     }
 
     // -- Collections ------------------------------------------------------------------
@@ -86,7 +86,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         CancellationToken ct = default)
     {
         if (_state.IsLoaded && !forceRefresh)
+        {
             return [.. _state.Collections];
+        }
 
         var collections = await _api.GetCollectionsAsync(ct);
         _state.SetCollections(collections);   // also rebuilds UniverseViewModel via UniverseMapper
@@ -153,7 +155,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var result = await _api.TriggerScanAsync(rootPath, ct);
         if (result is not null)
+        {
             _state.Invalidate();
+        }
+
         return result;
     }
 
@@ -210,7 +215,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         OnProfileChanged?.Invoke();
         return profile;
     }
-/// <summary>Creates a new user profile. Returns true on success.</summary>
+    /// <summary>Creates a new user profile. Returns true on success.</summary>
     public async Task<bool> CreateProfileAsync(
         string displayName, string avatarColor, string role,
         string? navigationConfig = null,
@@ -361,7 +366,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var ok = await _api.LockClaimAsync(entityId, key, value, ct);
         if (ok)
+        {
             _state.Invalidate();
+        }
+
         return ok;
     }
 
@@ -375,21 +383,13 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateServerGeneralAsync(settings, ct);
 
-    /// <summary>Returns the current Watch Folder and Library Folder configuration.</summary>
-    public Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default)
-        => _api.GetFolderSettingsAsync(ct);
-
-    /// <summary>Returns per-library config (source paths, ReadOnly, writeback).</summary>
-    public Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default)
+    /// <summary>Returns complete schema 3 library and shared incoming-source configuration.</summary>
+    public Task<LibrariesConfigurationDto?> GetLibrariesAsync(CancellationToken ct = default)
         => _api.GetLibrariesAsync(ct);
 
-    /// <summary>Saves per-library config (source paths, ReadOnly, writeback).</summary>
-    public Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(List<LibraryFolderDto> libraries, CancellationToken ct = default)
-        => _api.UpdateLibrariesAsync(libraries, ct);
-
-    /// <summary>Saves updated folder paths to the Engine manifest and hot-swaps the file watcher.</summary>
-    public Task<bool> UpdateFolderSettingsAsync(FolderSettingsDto settings, CancellationToken ct = default)
-        => _api.UpdateFolderSettingsAsync(settings, ct);
+    /// <summary>Replaces complete schema 3 library and shared incoming-source configuration.</summary>
+    public Task<LibrariesConfigurationDto?> UpdateLibrariesAsync(UpdateLibrariesRequest request, CancellationToken ct = default)
+        => _api.UpdateLibrariesAsync(request, ct);
 
     /// <summary>Probes a directory path for existence, read, and write access.</summary>
     public Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default)
@@ -509,7 +509,7 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     /// <summary>Fires when the activity log changes. Components should use InvokeAsync(StateHasChanged).</summary>
     public event Action? OnActivityChanged
     {
-        add    => _state.OnStateChanged += value;
+        add => _state.OnStateChanged += value;
         remove => _state.OnStateChanged -= value;
     }
 
@@ -549,7 +549,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var result = await _api.TriggerHydrationAsync(entityId, ct);
         if (result is { Success: true })
+        {
             _state.Invalidate();
+        }
+
         return result;
     }
 
@@ -601,7 +604,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var ok = await _api.DismissReviewItemAsync(id, ct);
         if (ok)
+        {
             await RefreshReviewCountSnapshotAsync(ct);
+        }
+
         return ok;
     }
 
@@ -679,7 +685,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var ok = await _api.SaveItemPreferencesAsync(entityId, fields, ct);
         if (ok)
+        {
             _state.Invalidate();
+        }
+
         return ok;
     }
 
@@ -1022,7 +1031,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var response = await _api.GetAliasesAsync(qid, ct);
         if (response is null)
+        {
             return [];
+        }
 
         var aliases = response.Aliases?.ToList() ?? [];
 
@@ -1042,7 +1053,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var result = await _api.ApplyLibraryItemMatchAsync(entityId, request, ct);
         if (result is not null)
+        {
             _state.Invalidate(); // refresh collection list since metadata changed
+        }
+
         return result;
     }
 
@@ -1055,7 +1069,10 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     {
         var result = await _api.ApplyItemCanonicalAsync(entityId, request, ct);
         if (result is not null)
+        {
             _state.Invalidate();
+        }
+
         return result;
     }
 
@@ -1104,8 +1121,8 @@ public sealed class UIOrchestratorService : IAsyncDisposable
         var baseUrl = Environment.GetEnvironmentVariable("TUVIMA_ENGINE_URL")
             ?? _config["Engine:BaseUrl"]
             ?? "http://localhost:61495";
-        var apiKey  = _config["Engine:ApiKey"]  ?? string.Empty;
-        var collectionUrl  = $"{baseUrl.TrimEnd('/')}{SignalREvents.IntercomPath}";
+        var apiKey = _config["Engine:ApiKey"] ?? string.Empty;
+        var collectionUrl = $"{baseUrl.TrimEnd('/')}{SignalREvents.IntercomPath}";
 
         _hubConnection = new HubConnectionBuilder()
             .WithUrl(collectionUrl, options =>
@@ -1113,7 +1130,9 @@ public sealed class UIOrchestratorService : IAsyncDisposable
                 // Pass the API key as a request header so ApiKeyMiddleware
                 // accepts the WebSocket upgrade request.
                 if (!string.IsNullOrEmpty(apiKey))
+                {
                     options.Headers.Add("X-Api-Key", apiKey);
+                }
             })
             .WithAutomaticReconnect(new[]
             {

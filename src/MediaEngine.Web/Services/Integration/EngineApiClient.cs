@@ -3,9 +3,8 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Profiles;
@@ -13,6 +12,7 @@ using MediaEngine.Contracts.Settings;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -24,12 +24,12 @@ namespace MediaEngine.Web.Services.Integration;
 /// </summary>
 public sealed partial class EngineApiClient : IEngineApiClient
 {
-    private readonly HttpClient                      _http;
-    private readonly ILogger<EngineApiClient>        _logger;
-    private readonly StreamingServiceLogoResolver    _streamingServiceLogos;
-    private readonly EngineApiFailureState           _failureState;
-    private readonly SystemClient                    _systemClient;
-    private readonly ProviderClient                  _providerClient;
+    private readonly HttpClient _http;
+    private readonly ILogger<EngineApiClient> _logger;
+    private readonly StreamingServiceLogoResolver _streamingServiceLogos;
+    private readonly EngineApiFailureState _failureState;
+    private readonly SystemClient _systemClient;
+    private readonly ProviderClient _providerClient;
 
     public EngineApiClient(
         HttpClient http,
@@ -38,13 +38,13 @@ public sealed partial class EngineApiClient : IEngineApiClient
         ILoggerFactory? loggerFactory = null,
         EngineApiFailureState? failureState = null)
     {
-        _http                  = http;
-        _logger                = logger;
+        _http = http;
+        _logger = logger;
         _streamingServiceLogos = streamingServiceLogos ?? new StreamingServiceLogoResolver();
-        _failureState          = failureState ?? new EngineApiFailureState();
-        var factory            = loggerFactory ?? NullLoggerFactory.Instance;
-        _systemClient          = new SystemClient(_http, factory.CreateLogger<SystemClient>(), _failureState);
-        _providerClient        = new ProviderClient(_http, factory.CreateLogger<ProviderClient>(), _failureState);
+        _failureState = failureState ?? new EngineApiFailureState();
+        var factory = loggerFactory ?? NullLoggerFactory.Instance;
+        _systemClient = new SystemClient(_http, factory.CreateLogger<SystemClient>(), _failureState);
+        _providerClient = new ProviderClient(_http, factory.CreateLogger<ProviderClient>(), _failureState);
     }
 
     public string ToAbsoluteEngineUrl(string value) => AbsoluteUrl(value);
@@ -163,7 +163,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var encoded = Uri.EscapeDataString(pluginId);
             using var response = await _http.PostAsJsonAsync($"/plugins/{encoded}/health", new { }, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await response.Content.ReadFromJsonAsync<PluginHealthResponse>(cancellationToken: ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -194,7 +198,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
         try
         {
             using var response = await _http.PostAsJsonAsync("/plugins/jobs/segment-detection/run", new { }, ct);
-            if (!response.IsSuccessStatusCode) return [];
+            if (!response.IsSuccessStatusCode)
+            {
+                return [];
+            }
+
             return await response.Content.ReadFromJsonAsync<List<PluginJobSnapshot>>(cancellationToken: ct) ?? [];
         }
         catch (OperationCanceledException) { return []; }
@@ -443,12 +451,35 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var url = $"universe/{Uri.EscapeDataString(qid)}/graph";
             var queryParams = new List<string>();
-            if (timelineYear.HasValue) queryParams.Add($"timeline_year={timelineYear.Value}");
-            if (!string.IsNullOrWhiteSpace(types)) queryParams.Add($"types={Uri.EscapeDataString(types)}");
-            if (!string.IsNullOrWhiteSpace(center)) queryParams.Add($"center={Uri.EscapeDataString(center)}");
-            if (depth.HasValue) queryParams.Add($"depth={depth.Value}");
-            if (includeSupplementalLore) queryParams.Add("include_supplemental_lore=true");
-            if (queryParams.Count > 0) url += "?" + string.Join("&", queryParams);
+            if (timelineYear.HasValue)
+            {
+                queryParams.Add($"timeline_year={timelineYear.Value}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(types))
+            {
+                queryParams.Add($"types={Uri.EscapeDataString(types)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(center))
+            {
+                queryParams.Add($"center={Uri.EscapeDataString(center)}");
+            }
+
+            if (depth.HasValue)
+            {
+                queryParams.Add($"depth={depth.Value}");
+            }
+
+            if (includeSupplementalLore)
+            {
+                queryParams.Add("include_supplemental_lore=true");
+            }
+
+            if (queryParams.Count > 0)
+            {
+                url += "?" + string.Join("&", queryParams);
+            }
 
             return await _http.GetFromJsonAsync<UniverseGraphResponse>(url, ct);
         }
@@ -504,7 +535,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
             using var response = await _http.PostAsJsonAsync(
                 $"universe/{Uri.EscapeDataString(qid)}/lore-sources/discover", new { }, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return [];
+            }
 
             return await response.Content.ReadFromJsonAsync<List<UniverseLoreSourceViewModel>>(cancellationToken: ct) ?? [];
         }
@@ -525,7 +558,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
             using var response = await _http.PostAsJsonAsync(
                 $"universe/{Uri.EscapeDataString(qid)}/lore-sources/manual", request, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
 
             return await response.Content.ReadFromJsonAsync<UniverseLoreSourceViewModel>(cancellationToken: ct);
         }
@@ -554,7 +589,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
             using var response = await _http.PostAsJsonAsync(
                 $"universe/{Uri.EscapeDataString(qid)}/lore/enrich", new { }, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return null;
+            }
 
             return await response.Content.ReadFromJsonAsync<UniverseLoreEnrichmentSummaryViewModel>(cancellationToken: ct);
         }
@@ -578,7 +615,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
             using var response = await _http.PostAsJsonAsync(
                 $"universe/{Uri.EscapeDataString(qid)}/lore-sources/{sourceId:D}/{statusAction}", new { }, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return [];
+            }
 
             return await response.Content.ReadFromJsonAsync<List<UniverseLoreSourceViewModel>>(cancellationToken: ct) ?? [];
         }
@@ -614,7 +653,11 @@ public sealed partial class EngineApiClient : IEngineApiClient
             var response = await _http.PostAsync(
                 $"universe/entity/{Uri.EscapeDataString(entityQid)}/deep-enrich?depth={depth}",
                 null, ct);
-            if (!response.IsSuccessStatusCode) return null;
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await response.Content.ReadFromJsonAsync<DeepEnrichResponse>(cancellationToken: ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -709,10 +752,10 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var payload = new SearchUniverseRequestDto
             {
-                Query         = query,
-                MediaType     = mediaType,
+                Query = query,
+                MediaType = mediaType,
                 MaxCandidates = maxCandidates,
-                LocalAuthor   = localAuthor,
+                LocalAuthor = localAuthor,
             };
             var resp = await _http.PostAsJsonAsync("/search/universe", payload, ct);
             if (!resp.IsSuccessStatusCode)
@@ -742,14 +785,14 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var payload = new SearchRetailRequestDto
             {
-                Query         = query,
-                MediaType     = mediaType,
+                Query = query,
+                MediaType = mediaType,
                 MaxCandidates = maxCandidates,
-                LocalTitle    = localTitle,
-                LocalAuthor   = localAuthor,
-                LocalYear     = localYear,
-                FileHints     = fileHints,
-                SearchFields  = searchFields,
+                LocalTitle = localTitle,
+                LocalAuthor = localAuthor,
+                LocalYear = localYear,
+                FileHints = fileHints,
+                SearchFields = searchFields,
             };
             var resp = await _http.PostAsJsonAsync("/search/retail", payload, ct);
             if (!resp.IsSuccessStatusCode)
@@ -776,10 +819,10 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var payload = new SearchResolveRequestDto
             {
-                Query         = query,
-                MediaType     = mediaType,
+                Query = query,
+                MediaType = mediaType,
                 MaxCandidates = maxCandidates,
-                FileHints     = fileHints,
+                FileHints = fileHints,
             };
             var resp = await _http.PostAsJsonAsync("/search/resolve", payload, ct);
             if (!resp.IsSuccessStatusCode)
@@ -1128,7 +1171,7 @@ public sealed partial class EngineApiClient : IEngineApiClient
     //
     // Envelope variants this file ALSO contains that these helpers deliberately do NOT cover — leave these
     // methods hand-written, do not force them onto the helpers above:
-    //   - "Legacy LastError-only" shape (the majority of PUT methods, e.g. UpdateFolderSettingsAsync,
+    //   - "Legacy LastError-only" shape (the majority of PUT methods, e.g.
     //     SaveTranscodingSettingsAsync, UpdatePlaybackSettingsAsync, TestPathAsync): sets `LastError` directly
     //     via the property setter, never touches `_failureState.RecordHttpFailureAsync`/`ClearFailure`/
     //     `RecordExceptionFailure`, so `LastFailedEndpoint`/`LastFailureKind`/`LastStatusCode` are never
@@ -1428,27 +1471,48 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private void NormalizeCollectionGroupDetail(CollectionGroupDetailViewModel? detail)
     {
         if (detail is null)
+        {
             return;
+        }
 
         if (detail.CoverUrl is not null)
+        {
             detail.CoverUrl = AbsoluteUrl(detail.CoverUrl);
+        }
+
         if (detail.BackgroundUrl is not null)
+        {
             detail.BackgroundUrl = AbsoluteUrl(detail.BackgroundUrl);
+        }
+
         if (detail.BannerUrl is not null)
+        {
             detail.BannerUrl = AbsoluteUrl(detail.BannerUrl);
+        }
+
         if (detail.HeroUrl is not null)
+        {
             detail.HeroUrl = AbsoluteUrl(detail.HeroUrl);
+        }
+
         if (detail.LogoUrl is not null)
+        {
             detail.LogoUrl = AbsoluteUrl(detail.LogoUrl);
+        }
+
         if (detail.ArtistPhotoUrl is not null)
+        {
             detail.ArtistPhotoUrl = AbsoluteUrl(detail.ArtistPhotoUrl);
+        }
 
         detail.TopCast = NormalizeCastCredits(detail.TopCast);
 
         foreach (var season in detail.Seasons)
         {
             if (season.CoverUrl is not null)
+            {
                 season.CoverUrl = AbsoluteUrl(season.CoverUrl);
+            }
 
             foreach (var episode in season.Episodes)
             {
@@ -1465,19 +1529,32 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private void NormalizeCollectionGroupWork(CollectionGroupWorkDto work)
     {
         if (work.CoverUrl is not null)
+        {
             work.CoverUrl = AbsoluteUrl(work.CoverUrl);
+        }
+
         if (work.BackgroundUrl is not null)
+        {
             work.BackgroundUrl = AbsoluteUrl(work.BackgroundUrl);
+        }
+
         if (work.BannerUrl is not null)
+        {
             work.BannerUrl = AbsoluteUrl(work.BannerUrl);
+        }
+
         if (work.HeroUrl is not null)
+        {
             work.HeroUrl = AbsoluteUrl(work.HeroUrl);
+        }
     }
 
     private List<CastCreditDto> NormalizeCastCredits(IEnumerable<CastCreditDto>? castCredits)
     {
         if (castCredits is null)
+        {
             return [];
+        }
 
         return castCredits.Select(cast => new CastCreditDto
         {
@@ -1502,7 +1579,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private DisplayPageDto? NormalizeDisplayPage(DisplayPageDto? page)
     {
         if (page is null)
+        {
             return null;
+        }
 
         return page with
         {
@@ -1689,7 +1768,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private HeroArtworkViewModel NormalizeHeroArtwork(HeroArtworkViewModel? heroArtwork)
     {
         if (heroArtwork is null)
+        {
             return new HeroArtworkViewModel();
+        }
 
         return new HeroArtworkViewModel
         {
@@ -1705,7 +1786,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private HeroBrandViewModel? NormalizeHeroBrand(HeroBrandViewModel? heroBrand)
     {
         if (heroBrand is null)
+        {
             return null;
+        }
 
         var imageUrl = NormalizeOptionalUrl(heroBrand.ImageUrl)
             ?? _streamingServiceLogos.ResolveLogoPath(heroBrand.Label);
@@ -1875,13 +1958,19 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private string AbsoluteUrl(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return value;
+        }
 
         if (Uri.TryCreate(value, UriKind.Absolute, out var absolute))
+        {
             return absolute.ToString();
+        }
 
         if (_http.BaseAddress is { } baseAddr)
+        {
             return new Uri(baseAddr, value.StartsWith('/') ? value : $"/{value}").ToString();
+        }
 
         return value;
     }
@@ -1902,7 +1991,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
     private static void AddQuery(ICollection<string> query, string name, string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return;
+        }
 
         query.Add($"{Uri.EscapeDataString(name)}={Uri.EscapeDataString(value)}");
     }
@@ -1916,7 +2007,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
     {
         var normalized = key?.Trim().ToLowerInvariant();
         if (string.IsNullOrWhiteSpace(normalized))
+        {
             return false;
+        }
 
         return normalized switch
         {
@@ -2002,7 +2095,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var match = values.FirstOrDefault(value => value.Key.Equals(key, StringComparison.OrdinalIgnoreCase))?.Value;
             if (!string.IsNullOrWhiteSpace(match))
+            {
                 return AbsoluteUrl(match);
+            }
         }
 
         return null;
@@ -2013,8 +2108,8 @@ public sealed partial class EngineApiClient : IEngineApiClient
         h.UniverseId,
         h.CreatedAt,
         h.Works.Select(MapWork),
-        displayName:   h.DisplayName,
-        parentCollectionId:   h.ParentCollectionId,
+        displayName: h.DisplayName,
+        parentCollectionId: h.ParentCollectionId,
         parentCollectionName: null,
         childCollectionCount: 0);
 
@@ -2022,18 +2117,18 @@ public sealed partial class EngineApiClient : IEngineApiClient
         h.Id,
         h.UniverseId,
         h.CreatedAt,
-        displayName:   h.DisplayName,
-        description:   h.Description,
-        wikidataQid:   h.WikidataQid,
+        displayName: h.DisplayName,
+        description: h.Description,
+        wikidataQid: h.WikidataQid,
         childCollectionCount: h.ChildCollectionCount,
-        mediaTypes:    h.MediaTypes,
-        totalWorks:    h.TotalWorks);
+        mediaTypes: h.MediaTypes,
+        totalWorks: h.TotalWorks);
 
     // -- Raw response shapes (mirror API Dtos.cs) ------------------------------
 
     private sealed record StatusRaw(
-        [property: JsonPropertyName("status")]   string  Status,
-        [property: JsonPropertyName("version")]  string  Version,
+        [property: JsonPropertyName("status")] string Status,
+        [property: JsonPropertyName("version")] string Version,
         [property: JsonPropertyName("language")] string? Language);
 
 
@@ -2044,16 +2139,20 @@ public sealed partial class EngineApiClient : IEngineApiClient
         try
         {
             var raw = await _http.GetFromJsonAsync<UniverseHealthRaw>($"/universe/{Uri.EscapeDataString(qid)}/health", ct);
-            if (raw is null) return null;
+            if (raw is null)
+            {
+                return null;
+            }
+
             return new UniverseHealthDto
             {
-                Qid                = raw.Qid ?? qid,
-                Label              = raw.Label ?? string.Empty,
-                EntitiesTotal      = raw.EntitiesTotal,
-                EntitiesEnriched   = raw.EntitiesEnriched,
+                Qid = raw.Qid ?? qid,
+                Label = raw.Label ?? string.Empty,
+                EntitiesTotal = raw.EntitiesTotal,
+                EntitiesEnriched = raw.EntitiesEnriched,
                 EntitiesWithImages = raw.EntitiesWithImages,
                 RelationshipsTotal = raw.RelationshipsTotal,
-                HealthPercent      = raw.HealthPercent,
+                HealthPercent = raw.HealthPercent,
             };
         }
         catch (OperationCanceledException) { return null; }
@@ -2070,15 +2169,19 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<List<UniverseCharacterRaw>>(
                 $"/library/universes/{Uri.EscapeDataString(universeQid)}/characters", ct);
-            if (raw is null) return [];
+            if (raw is null)
+            {
+                return [];
+            }
+
             return raw.Select(r => new UniverseCharacterDto
             {
                 FictionalEntityId = r.FictionalEntityId,
-                CharacterName     = r.CharacterName ?? string.Empty,
-                DefaultActorName  = r.DefaultActorName,
-                DefaultActorId    = r.DefaultActorId,
-                PortraitUrl       = r.PortraitUrl,
-                ActorCount        = r.ActorCount,
+                CharacterName = r.CharacterName ?? string.Empty,
+                DefaultActorName = r.DefaultActorName,
+                DefaultActorId = r.DefaultActorId,
+                PortraitUrl = r.PortraitUrl,
+                ActorCount = r.ActorCount,
             }).ToList();
         }
         catch (OperationCanceledException) { return []; }
@@ -2095,20 +2198,24 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<List<PersonCharacterRoleDto>>(
                 $"/library/persons/{personId}/character-roles", ct);
-            if (raw is null) return [];
+            if (raw is null)
+            {
+                return [];
+            }
+
             return raw.Select(r => new CharacterRoleDto
             {
                 FictionalEntityId = r.FictionalEntityId,
-                CharacterName     = r.CharacterName,
-                PortraitUrl       = r.PortraitUrl is not null ? AbsoluteUrl(r.PortraitUrl) : null,
-                WorkId            = r.WorkId,
-                WorkQid           = r.WorkQid,
-                WorkTitle         = r.WorkTitle,
-                CollectionId      = r.CollectionId,
-                MediaType         = r.MediaType,
-                IsDefault         = r.IsDefault,
-                UniverseQid       = r.UniverseQid,
-                UniverseLabel     = r.UniverseLabel,
+                CharacterName = r.CharacterName,
+                PortraitUrl = r.PortraitUrl is not null ? AbsoluteUrl(r.PortraitUrl) : null,
+                WorkId = r.WorkId,
+                WorkQid = r.WorkQid,
+                WorkTitle = r.WorkTitle,
+                CollectionId = r.CollectionId,
+                MediaType = r.MediaType,
+                IsDefault = r.IsDefault,
+                UniverseQid = r.UniverseQid,
+                UniverseLabel = r.UniverseLabel,
             }).ToList();
         }
         catch (OperationCanceledException) { return []; }
@@ -2142,7 +2249,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
         {
             var raw = await _http.GetFromJsonAsync<ArtworkEditorDto>($"/metadata/{entityId}/artwork", ct);
             if (raw is null)
+            {
                 return null;
+            }
 
             return NormalizeArtworkEditor(raw);
         }
@@ -2161,7 +2270,9 @@ public sealed partial class EngineApiClient : IEngineApiClient
             var encodedScope = Uri.EscapeDataString(scopeId);
             var raw = await _http.GetFromJsonAsync<ArtworkEditorDto>($"/metadata/{entityId}/artwork/{encodedScope}", ct);
             if (raw is null)
+            {
                 return null;
+            }
 
             return NormalizeArtworkEditor(raw);
         }
@@ -2225,23 +2336,23 @@ public sealed partial class EngineApiClient : IEngineApiClient
 
     private sealed class UniverseHealthRaw
     {
-        [JsonPropertyName("qid")]                  public string?  Qid                { get; set; }
-        [JsonPropertyName("label")]                public string?  Label              { get; set; }
-        [JsonPropertyName("entities_total")]       public int      EntitiesTotal      { get; set; }
-        [JsonPropertyName("entities_enriched")]    public int      EntitiesEnriched   { get; set; }
-        [JsonPropertyName("entities_with_images")] public int      EntitiesWithImages { get; set; }
-        [JsonPropertyName("relationships_total")]  public int      RelationshipsTotal { get; set; }
-        [JsonPropertyName("health_percent")]       public double   HealthPercent      { get; set; }
+        [JsonPropertyName("qid")] public string? Qid { get; set; }
+        [JsonPropertyName("label")] public string? Label { get; set; }
+        [JsonPropertyName("entities_total")] public int EntitiesTotal { get; set; }
+        [JsonPropertyName("entities_enriched")] public int EntitiesEnriched { get; set; }
+        [JsonPropertyName("entities_with_images")] public int EntitiesWithImages { get; set; }
+        [JsonPropertyName("relationships_total")] public int RelationshipsTotal { get; set; }
+        [JsonPropertyName("health_percent")] public double HealthPercent { get; set; }
     }
 
     private sealed class UniverseCharacterRaw
     {
-        [JsonPropertyName("fictional_entity_id")] public Guid    FictionalEntityId { get; set; }
-        [JsonPropertyName("character_name")]      public string? CharacterName     { get; set; }
-        [JsonPropertyName("default_actor_name")]  public string? DefaultActorName  { get; set; }
-        [JsonPropertyName("default_actor_id")]    public Guid?   DefaultActorId    { get; set; }
-        [JsonPropertyName("portrait_url")]        public string? PortraitUrl       { get; set; }
-        [JsonPropertyName("actor_count")]         public int     ActorCount        { get; set; }
+        [JsonPropertyName("fictional_entity_id")] public Guid FictionalEntityId { get; set; }
+        [JsonPropertyName("character_name")] public string? CharacterName { get; set; }
+        [JsonPropertyName("default_actor_name")] public string? DefaultActorName { get; set; }
+        [JsonPropertyName("default_actor_id")] public Guid? DefaultActorId { get; set; }
+        [JsonPropertyName("portrait_url")] public string? PortraitUrl { get; set; }
+        [JsonPropertyName("actor_count")] public int ActorCount { get; set; }
     }
 
 }

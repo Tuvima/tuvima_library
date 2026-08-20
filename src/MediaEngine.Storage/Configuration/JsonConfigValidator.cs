@@ -91,12 +91,29 @@ public static class JsonConfigValidator
 
     private static void ValidateLibraries(LibrariesConfiguration config, List<string> errors)
     {
-        if (!string.Equals(config.SchemaVersion, "2.0", StringComparison.Ordinal))
+        if (!string.Equals(config.SchemaVersion, "3.0", StringComparison.Ordinal))
         {
-            errors.Add("schema_version must be 2.0.");
+            errors.Add("schema_version must be 3.0; pre-beta library configuration is not migrated in place.");
+        }
+
+        AddNoUnmappedProperties(config.UnmappedProperties, "$", errors);
+
+        if (config.PersonalLibraryPolicy is null)
+        {
+            errors.Add("personal_library_policy is required.");
+        }
+        else
+        {
+            AddNoUnmappedProperties(config.PersonalLibraryPolicy.UnmappedProperties, "personal_library_policy", errors);
+            if (!LibraryVisibility.IsValid(config.PersonalLibraryPolicy.DefaultVisibility))
+            {
+                errors.Add("personal_library_policy.default_visibility must be private, shared, or household.");
+            }
         }
 
         var ids = new HashSet<Guid>();
+        var sourceIds = new HashSet<Guid>();
+        var normalizedPaths = new List<(string Path, string Field)>();
         for (var index = 0; index < config.Libraries.Count; index++)
         {
             var library = config.Libraries[index];
@@ -110,10 +127,20 @@ public static class JsonConfigValidator
                 errors.Add($"{prefix}.id must be unique.");
             }
 
-            AddRequired(errors, library.Category, $"{prefix}.category");
+            AddRequired(errors, library.Name, $"{prefix}.name");
             if (!LibraryKinds.IsValid(library.Kind))
             {
-                errors.Add($"{prefix}.kind must be one of catalogued, personal, photos.");
+                errors.Add($"{prefix}.kind must be catalogued or personal.");
+            }
+
+            if (!LibraryAreas.IsValid(library.Area))
+            {
+                errors.Add($"{prefix}.area must be one of read, watch, listen, view.");
+            }
+
+            if (!LibraryPresentations.IsValid(library.Presentation))
+            {
+                errors.Add($"{prefix}.presentation is unsupported.");
             }
 
             if (!LibraryMetadataPolicies.IsValid(library.MetadataPolicy))
@@ -121,15 +148,394 @@ public static class JsonConfigValidator
                 errors.Add($"{prefix}.metadata_policy must be one of enriched, local_preferred, local_only, manual.");
             }
 
-            if (!Allowed(library.IntakeMode, "watch", "import"))
+            if (!LibraryVisibility.IsValid(library.Visibility))
             {
-                errors.Add($"{prefix}.intake_mode must be watch or import.");
+                errors.Add($"{prefix}.visibility must be private, shared, or household.");
             }
 
-            if (library.SourcePaths.Count == 0 || library.SourcePaths.All(string.IsNullOrWhiteSpace))
+            if (!LibraryDuplicatePolicies.IsValid(library.DuplicatePolicy))
             {
-                errors.Add($"{prefix}.source_paths must contain at least one path.");
+                errors.Add($"{prefix}.duplicate_policy must be skip_exact, keep_both, or replace_existing.");
             }
+
+            if (library.OrganizationPolicy is null)
+            {
+                errors.Add($"{prefix}.organization_policy is required.");
+            }
+            else
+            {
+                ValidateOrganizationPolicy(library.OrganizationPolicy, $"{prefix}.organization_policy", errors);
+            }
+
+            ValidateLibrarySemantics(library, prefix, errors);
+            ValidateProfileIds(library, prefix, errors);
+
+            var intakeModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var intakeMode in library.AcceptedIntakeModes)
+            {
+                if (!LibraryIntakeModes.IsValid(intakeMode))
+                {
+                    errors.Add($"{prefix}.accepted_intake_modes contains unsupported value '{intakeMode}'.");
+                }
+                else if (!intakeModes.Add(intakeMode))
+                {
+                    errors.Add($"{prefix}.accepted_intake_modes must not contain duplicates.");
+                }
+            }
+
+            AddNoUnmappedProperties(library.UnmappedProperties, prefix, errors);
+            if (library.Sources.Count == 0)
+            {
+                errors.Add($"{prefix}.sources must contain at least one source.");
+            }
+
+            for (var sourceIndex = 0; sourceIndex < library.Sources.Count; sourceIndex++)
+            {
+                var source = library.Sources[sourceIndex];
+                var sourcePrefix = $"{prefix}.sources[{sourceIndex}]";
+                ValidateLibrarySource(source, sourcePrefix, sourceIds, normalizedPaths, errors);
+            }
+
+            ValidatePrimaryDestination(library, prefix, errors);
+        }
+
+        for (var index = 0; index < config.IncomingSources.Count; index++)
+        {
+            ValidateIncomingSource(
+                config.IncomingSources[index],
+                $"incoming_sources[{index}]",
+                sourceIds,
+                normalizedPaths,
+                errors);
+        }
+
+        for (var left = 0; left < normalizedPaths.Count; left++)
+        {
+            for (var right = left + 1; right < normalizedPaths.Count; right++)
+            {
+                var first = normalizedPaths[left];
+                var second = normalizedPaths[right];
+                if (PathsOverlap(first.Path, second.Path))
+                {
+                    errors.Add($"{first.Field} and {second.Field} must not overlap.");
+                }
+            }
+        }
+    }
+
+    private static void ValidateIncomingSource(
+        IncomingSourceConfig source,
+        string prefix,
+        HashSet<Guid> ids,
+        List<(string Path, string Field)> normalizedPaths,
+        List<string> errors)
+    {
+        if (!Guid.TryParse(source.Id, out var id) || id == Guid.Empty)
+        {
+            errors.Add($"{prefix}.id must be a non-empty GUID.");
+        }
+        else if (!ids.Add(id))
+        {
+            errors.Add($"{prefix}.id must be globally unique.");
+        }
+
+        AddRequired(errors, source.Path, $"{prefix}.path");
+        if (TryNormalizePath(source.Path, out var normalizedPath))
+        {
+            normalizedPaths.Add((normalizedPath, $"{prefix}.path"));
+        }
+        else if (!string.IsNullOrWhiteSpace(source.Path))
+        {
+            errors.Add($"{prefix}.path must be an absolute path.");
+        }
+
+        if (!IncomingSourcePurposes.IsValid(source.Purpose))
+        {
+            errors.Add($"{prefix}.purpose is unsupported.");
+        }
+
+        if (!IncomingDefaultHandling.IsValid(source.DefaultHandling))
+        {
+            errors.Add($"{prefix}.default_handling is unsupported.");
+        }
+
+        if (!LibrarySourceTypes.IsValid(source.SourceType))
+        {
+            errors.Add($"{prefix}.source_type is unsupported.");
+        }
+
+        AddNoUnmappedProperties(source.UnmappedProperties, prefix, errors);
+    }
+
+    private static void ValidateLibrarySemantics(LibraryFolderConfig library, string prefix, List<string> errors)
+    {
+        if (library.Kind == LibraryKinds.Catalogued)
+        {
+            AddRequired(errors, library.Category, $"{prefix}.category");
+            if (library.Area == LibraryAreas.View)
+            {
+                errors.Add($"{prefix}.catalogued libraries cannot use the view area.");
+            }
+
+            if (library.Presentation != LibraryPresentations.Catalogue)
+            {
+                errors.Add($"{prefix}.catalogued libraries must use the catalogue presentation.");
+            }
+
+            if (library.MetadataPolicy != LibraryMetadataPolicies.Enriched)
+            {
+                errors.Add($"{prefix}.catalogued libraries must use enriched metadata.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(library.OwnerProfileId))
+            {
+                errors.Add($"{prefix}.catalogued libraries cannot have an owner_profile_id.");
+            }
+        }
+        else if (library.Kind == LibraryKinds.Personal)
+        {
+            if (library.Area != LibraryAreas.View)
+            {
+                errors.Add($"{prefix}.personal libraries must use the view area.");
+            }
+
+            if (library.Presentation == LibraryPresentations.Catalogue)
+            {
+                errors.Add($"{prefix}.personal libraries cannot use the catalogue presentation.");
+            }
+
+            if (!LibraryMetadataPolicies.BypassesExternalIdentity(library.MetadataPolicy))
+            {
+                errors.Add($"{prefix}.personal libraries must use local_only or manual metadata.");
+            }
+
+            if (string.IsNullOrWhiteSpace(library.OwnerProfileId))
+            {
+                errors.Add($"{prefix}.owner_profile_id is required for personal libraries.");
+            }
+        }
+
+        if (library.Visibility == LibraryVisibility.Shared && library.AuthorizedProfileIds.Count == 0)
+        {
+            errors.Add($"{prefix}.authorized_profile_ids must contain at least one profile when visibility is shared.");
+        }
+
+        if (library.Visibility != LibraryVisibility.Shared && library.AuthorizedProfileIds.Count > 0)
+        {
+            errors.Add($"{prefix}.authorized_profile_ids is only valid when visibility is shared.");
+        }
+    }
+
+    private static void ValidateProfileIds(LibraryFolderConfig library, string prefix, List<string> errors)
+    {
+        if (!string.IsNullOrWhiteSpace(library.OwnerProfileId)
+            && (!Guid.TryParse(library.OwnerProfileId, out var ownerId) || ownerId == Guid.Empty))
+        {
+            errors.Add($"{prefix}.owner_profile_id must be a non-empty GUID.");
+        }
+
+        var authorizedIds = new HashSet<Guid>();
+        foreach (var value in library.AuthorizedProfileIds)
+        {
+            if (!Guid.TryParse(value, out var id) || id == Guid.Empty)
+            {
+                errors.Add($"{prefix}.authorized_profile_ids values must be non-empty GUIDs.");
+            }
+            else if (!authorizedIds.Add(id))
+            {
+                errors.Add($"{prefix}.authorized_profile_ids must not contain duplicates.");
+            }
+        }
+    }
+
+    private static void ValidateLibrarySource(
+        LibrarySourceConfig source,
+        string prefix,
+        HashSet<Guid> ids,
+        List<(string Path, string Field)> normalizedPaths,
+        List<string> errors)
+    {
+        if (!Guid.TryParse(source.Id, out var id) || id == Guid.Empty)
+        {
+            errors.Add($"{prefix}.id must be a non-empty GUID.");
+        }
+        else if (!ids.Add(id))
+        {
+            errors.Add($"{prefix}.id must be globally unique.");
+        }
+
+        AddRequired(errors, source.Path, $"{prefix}.path");
+        if (TryNormalizePath(source.Path, out var normalizedPath))
+        {
+            normalizedPaths.Add((normalizedPath, $"{prefix}.path"));
+        }
+        else if (!string.IsNullOrWhiteSpace(source.Path))
+        {
+            errors.Add($"{prefix}.path must be an absolute path.");
+        }
+
+        if (!LibrarySourceRoles.IsValid(source.Role))
+        {
+            errors.Add($"{prefix}.role is unsupported.");
+        }
+
+        if (!LibrarySourceManagementModes.IsValid(source.ManagementMode))
+        {
+            errors.Add($"{prefix}.management_mode must be managed_by_tuvima or existing_library.");
+        }
+
+        if (!LibrarySourceTypes.IsValid(source.SourceType))
+        {
+            errors.Add($"{prefix}.source_type is unsupported.");
+        }
+
+        if (!LibrarySourceAccessModes.IsValid(source.AccessMode))
+        {
+            errors.Add($"{prefix}.access_mode must be writable or read_only.");
+        }
+
+        if (!LibrarySourceIntakeRoles.IsValid(source.IntakeRole))
+        {
+            errors.Add($"{prefix}.intake_role is unsupported.");
+        }
+
+        if (source.ManagementMode == LibrarySourceManagementModes.ExistingLibrary)
+        {
+            if (source.AccessMode != LibrarySourceAccessModes.ReadOnly)
+            {
+                errors.Add($"{prefix}.existing libraries must use read_only access.");
+            }
+
+            if (source.ParticipatesInOrganization)
+            {
+                errors.Add($"{prefix}.existing libraries cannot participate in organization.");
+            }
+
+            if (source.WritebackOverride == true)
+            {
+                errors.Add($"{prefix}.existing libraries cannot enable writeback.");
+            }
+
+            if (source.Role == LibrarySourceRoles.PrimaryDestination)
+            {
+                errors.Add($"{prefix}.existing libraries cannot be a primary destination.");
+            }
+        }
+
+        if (source.Role == LibrarySourceRoles.PrimaryDestination
+            && (source.ManagementMode != LibrarySourceManagementModes.ManagedByTuvima
+                || source.AccessMode != LibrarySourceAccessModes.Writable))
+        {
+            errors.Add($"{prefix}.primary destinations must be managed and writable.");
+        }
+
+        if (!string.IsNullOrWhiteSpace(source.ProfileId)
+            && (!Guid.TryParse(source.ProfileId, out var profileId) || profileId == Guid.Empty))
+        {
+            errors.Add($"{prefix}.profile_id must be a non-empty GUID.");
+        }
+
+        AddNoUnmappedProperties(source.UnmappedProperties, prefix, errors);
+    }
+
+    private static void ValidatePrimaryDestination(LibraryFolderConfig library, string prefix, List<string> errors)
+    {
+        var primaryRoles = library.Sources.Where(source => source.Role == LibrarySourceRoles.PrimaryDestination).ToList();
+        var hasManagedSource = library.Sources.Any(source => source.ManagementMode == LibrarySourceManagementModes.ManagedByTuvima);
+        if (!hasManagedSource)
+        {
+            if (!string.IsNullOrWhiteSpace(library.PrimaryDestinationSourceId) || primaryRoles.Count > 0)
+            {
+                errors.Add($"{prefix} cannot define a primary destination without a managed source.");
+            }
+
+            return;
+        }
+
+        if (!Guid.TryParse(library.PrimaryDestinationSourceId, out var primaryId) || primaryId == Guid.Empty)
+        {
+            errors.Add($"{prefix}.primary_destination_source_id must identify the managed primary source.");
+            return;
+        }
+
+        var selected = library.Sources.FirstOrDefault(source =>
+            Guid.TryParse(source.Id, out var sourceId) && sourceId == primaryId);
+        if (selected is null)
+        {
+            errors.Add($"{prefix}.primary_destination_source_id must reference a source in this library.");
+        }
+        else if (selected.Role != LibrarySourceRoles.PrimaryDestination)
+        {
+            errors.Add($"{prefix}.primary_destination_source_id must reference the source with role primary_destination.");
+        }
+
+        if (primaryRoles.Count != 1)
+        {
+            errors.Add($"{prefix}.sources must contain exactly one primary_destination role when managed sources exist.");
+        }
+    }
+
+    private static void ValidateOrganizationPolicy(
+        LibraryOrganizationPolicyConfig policy,
+        string prefix,
+        List<string> errors)
+    {
+        if (!LibraryOrganizationModes.IsValid(policy.Mode))
+        {
+            errors.Add($"{prefix}.mode is unsupported.");
+        }
+
+        if (policy.Mode == LibraryOrganizationModes.Custom)
+        {
+            AddRequired(errors, policy.CustomTemplate, $"{prefix}.custom_template");
+        }
+        else if (!string.IsNullOrWhiteSpace(policy.CustomTemplate))
+        {
+            errors.Add($"{prefix}.custom_template is only valid when mode is custom.");
+        }
+
+        AddNoUnmappedProperties(policy.UnmappedProperties, prefix, errors);
+    }
+
+    private static bool TryNormalizePath(string path, out string normalized)
+    {
+        normalized = string.Empty;
+        if (string.IsNullOrWhiteSpace(path) || !Path.IsPathFullyQualified(path))
+        {
+            return false;
+        }
+
+        try
+        {
+            normalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
+    }
+
+    private static bool PathsOverlap(string first, string second)
+    {
+        if (string.Equals(first, second, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var separator = Path.DirectorySeparatorChar.ToString();
+        return first.StartsWith(second + separator, StringComparison.OrdinalIgnoreCase)
+            || second.StartsWith(first + separator, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static void AddNoUnmappedProperties(
+        Dictionary<string, System.Text.Json.JsonElement>? properties,
+        string prefix,
+        List<string> errors)
+    {
+        foreach (var property in properties?.Keys ?? Enumerable.Empty<string>())
+        {
+            errors.Add($"{prefix}.{property} is not supported by libraries schema 3.0.");
         }
     }
 

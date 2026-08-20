@@ -151,7 +151,7 @@ public sealed class DurablePipelineTests : IDisposable
     }
 
     [Fact]
-    public async Task IngestionEngine_LocalOnlyLibrary_PresentsAssetWithoutIdentityJobOrReview()
+    public async Task IngestionEngine_PersonalLocalOnlyLibrary_IsNotConsumedByCataloguePipeline()
     {
         var filePath = CreateWatchFile("Family Reunion.mp4");
         _processors.SetNextResult(new ProcessorResult
@@ -167,9 +167,36 @@ public sealed class DurablePipelineTests : IDisposable
         await RunPipelineAsync(localOnly: true);
 
         using var conn = _dbFactory.Connection.CreateConnection();
-        Assert.Equal(1, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets WHERE library_id = '99999999-9999-4999-8999-999999999999' AND presented_at IS NOT NULL;"));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets;"));
         Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM identity_jobs;"));
         Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM review_queue WHERE status = 'Pending';"));
+        Assert.True(File.Exists(filePath));
+    }
+
+    [Fact]
+    public async Task IngestionEngine_UnresolvedSharedIncoming_BlocksInPlaceWithoutIdentityOrDestination()
+    {
+        var filePath = CreateWatchFile("Unrouted Movie.mp4");
+        _processors.SetNextResult(new ProcessorResult
+        {
+            FilePath = filePath,
+            DetectedType = MediaType.Movies,
+            Claims = [new ExtractedClaim { Key = "title", Value = "Unrouted Movie", Confidence = 0.95 }],
+        });
+
+        await RunPipelineAsync(unresolvedSharedIncoming: true);
+
+        using var conn = _dbFactory.Connection.CreateConnection();
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM media_assets;"));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM editions;"));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM works;"));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM collections;"));
+        Assert.Equal(1, conn.ExecuteScalar<int>(
+            "SELECT COUNT(*) FROM review_queue WHERE trigger = @trigger AND status = 'Pending';",
+            new { trigger = ReviewTrigger.UnresolvedIntakeDestination }));
+        Assert.Equal(0, conn.ExecuteScalar<int>("SELECT COUNT(*) FROM identity_jobs;"));
+        Assert.True(File.Exists(filePath));
+        Assert.Empty(Directory.EnumerateFiles(_libraryDir, "*", SearchOption.AllDirectories));
     }
 
     // ── Test 2: Duplicate file ingestion creates only one asset ───────────
@@ -938,7 +965,10 @@ public sealed class DurablePipelineTests : IDisposable
             ? Directory.EnumerateFiles(_tempRoot, filename, SearchOption.AllDirectories).FirstOrDefault()
             : null;
 
-    private async Task RunPipelineAsync(bool localOnly = false, bool applyMediaTypePrior = true)
+    private async Task RunPipelineAsync(
+        bool localOnly = false,
+        bool applyMediaTypePrior = true,
+        bool unresolvedSharedIncoming = false)
     {
         var libraryId = localOnly
             ? "99999999-9999-4999-8999-999999999999"
@@ -958,14 +988,43 @@ public sealed class DurablePipelineTests : IDisposable
                     Name = localOnly ? "Home Videos" : "Books",
                     Kind = localOnly ? LibraryKinds.Personal : LibraryKinds.Catalogued,
                     MetadataPolicy = localOnly ? LibraryMetadataPolicies.LocalOnly : LibraryMetadataPolicies.Enriched,
-                    SourcePaths = [_watchDir],
-                    LibraryRoot = _libraryDir,
-                    IncludeSubdirectories = false,
+                    Sources =
+                    [
+                        .. unresolvedSharedIncoming
+                            ? []
+                            : new[]
+                            {
+                                new LibrarySourceEntry
+                                {
+                                    Id = $"{libraryId}-source",
+                                    Path = _watchDir,
+                                    IncludeSubdirectories = false,
+                                },
+                            },
+                        new LibrarySourceEntry
+                        {
+                            Id = $"{libraryId}-destination",
+                            Path = _libraryDir,
+                            Role = LibrarySourceRoles.PrimaryDestination,
+                            ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+                            AccessMode = LibrarySourceAccessModes.Writable,
+                        },
+                    ],
+                    PrimaryDestinationSourceId = $"{libraryId}-destination",
                     MediaTypes = !applyMediaTypePrior
                         ? []
                         : localOnly ? [MediaType.Movies] : [MediaType.Books],
+                    AcceptedIntakeModes = [LibraryIntakeModes.IncomingFolder],
                 },
             ],
+            IncomingSources = unresolvedSharedIncoming
+                ? [new IncomingSourceEntry
+                {
+                    Id = "shared-incoming",
+                    Path = _watchDir,
+                    IncludeSubdirectories = false,
+                }]
+                : [],
         };
 
         var debounceOptions = new DebounceOptions

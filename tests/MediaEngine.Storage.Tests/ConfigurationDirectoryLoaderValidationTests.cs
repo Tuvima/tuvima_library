@@ -39,28 +39,72 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
     }
 
     [Fact]
-    public void SaveLibraries_RoundTripsMediaTypeFolderSettings()
+    public void SaveLibraries_RoundTripsSchemaThreeLibrarySourcesAndIncomingSources()
     {
         using var temp = TempConfig.Create();
         var loader = new ConfigurationDirectoryLoader(temp.Path);
         var config = new LibrariesConfiguration
         {
-            SchemaVersion = "2.0",
+            SchemaVersion = "3.0",
+            PersonalLibraryPolicy = new PersonalLibraryPolicyConfig
+            {
+                AllowMobileBackup = false,
+                AllowConnectedDeviceImport = false,
+                DefaultVisibility = LibraryVisibility.Shared,
+            },
+            IncomingSources =
+            [
+                new IncomingSourceConfig
+                {
+                    Id = "99999999-9999-4999-8999-999999999999",
+                    Path = @"C:\incoming",
+                    Purpose = IncomingSourcePurposes.SharedIntake,
+                    DefaultHandling = IncomingDefaultHandling.RouteAutomatically,
+                },
+            ],
             Libraries =
             [
                 new LibraryFolderConfig
                 {
                     Id = "44444444-4444-4444-8444-444444444444",
-                    Category = "Movies",
+                    Name = "Home Movies",
                     Kind = LibraryKinds.Personal,
+                    Area = LibraryAreas.View,
+                    Presentation = LibraryPresentations.Video,
                     MetadataPolicy = LibraryMetadataPolicies.LocalOnly,
                     MediaTypes = ["Movies"],
-                    SourcePaths = [@"C:\media\movies", @"D:\media\movies"],
-                    LibraryRoot = @"E:\Tuvima",
-                    IntakeMode = "import",
-                    IncludeSubdirectories = false,
-                    ReadOnly = true,
-                    WritebackOverride = false,
+                    Sources =
+                    [
+                        new LibrarySourceConfig
+                        {
+                            Id = "44444444-aaaa-4444-8444-444444444444",
+                            Path = @"C:\media\home-movies",
+                            Role = LibrarySourceRoles.PrimaryDestination,
+                            ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+                            AccessMode = LibrarySourceAccessModes.Writable,
+                            ParticipatesInOrganization = true,
+                            IntakeRole = LibrarySourceIntakeRoles.Direct,
+                            WritebackOverride = false,
+                        },
+                        new LibrarySourceConfig
+                        {
+                            Id = "44444444-bbbb-4444-8444-444444444444",
+                            Path = @"D:\archive\home-movies",
+                            Role = LibrarySourceRoles.Secondary,
+                            ManagementMode = LibrarySourceManagementModes.ExistingLibrary,
+                            AccessMode = LibrarySourceAccessModes.ReadOnly,
+                        },
+                    ],
+                    PrimaryDestinationSourceId = "44444444-aaaa-4444-8444-444444444444",
+                    OwnerProfileId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                    Visibility = LibraryVisibility.Private,
+                    AcceptedIntakeModes = [LibraryIntakeModes.DragAndDrop, LibraryIntakeModes.BrowserUpload],
+                    DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
+                    OrganizationPolicy = new()
+                    {
+                        Mode = LibraryOrganizationModes.KeepOriginalNames,
+                        PreserveOriginals = true,
+                    },
                 },
             ],
         };
@@ -68,21 +112,38 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         loader.SaveLibraries(config);
         var roundTrip = loader.LoadLibraries().Libraries.Single();
 
-        Assert.Equal("Movies", roundTrip.Category);
+        Assert.Equal("Home Movies", roundTrip.Name);
         Assert.Equal("44444444-4444-4444-8444-444444444444", roundTrip.Id);
         Assert.Equal(LibraryKinds.Personal, roundTrip.Kind);
+        Assert.Equal(LibraryAreas.View, roundTrip.Area);
+        Assert.Equal(LibraryPresentations.Video, roundTrip.Presentation);
         Assert.Equal(LibraryMetadataPolicies.LocalOnly, roundTrip.MetadataPolicy);
         Assert.Equal(["Movies"], roundTrip.MediaTypes);
-        Assert.Equal([@"C:\media\movies", @"D:\media\movies"], roundTrip.SourcePaths);
-        Assert.Equal(@"E:\Tuvima", roundTrip.LibraryRoot);
-        Assert.Equal("import", roundTrip.IntakeMode);
-        Assert.False(roundTrip.IncludeSubdirectories);
-        Assert.True(roundTrip.ReadOnly);
-        Assert.False(roundTrip.WritebackOverride);
+        Assert.Equal(2, roundTrip.Sources.Count);
+        Assert.Equal(@"C:\media\home-movies", roundTrip.PrimaryDestination?.Path);
+        Assert.True(roundTrip.PrimaryDestination?.AllowsFileMutation);
+        Assert.False(roundTrip.Sources[1].AllowsFileMutation);
+        Assert.Equal(@"C:\incoming", loader.LoadLibraries().IncomingSources.Single().Path);
+        Assert.False(loader.LoadLibraries().PersonalLibraryPolicy.AllowMobileBackup);
+        Assert.False(loader.LoadLibraries().PersonalLibraryPolicy.AllowConnectedDeviceImport);
+        Assert.Equal(LibraryVisibility.Shared, loader.LoadLibraries().PersonalLibraryPolicy.DefaultVisibility);
     }
 
     [Fact]
-    public void SaveLibraries_RejectsMissingIdentityAndUnsupportedPolicy()
+    public void SaveLibraries_RejectsUnsupportedPersonalLibraryDefaultVisibility()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = CreateValidCataloguedLibrary();
+        config.PersonalLibraryPolicy.DefaultVisibility = "organization_wide";
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
+
+        Assert.Contains("personal_library_policy.default_visibility", ex.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void SaveLibraries_RejectsMissingIdentityUnsupportedPolicyAndImplicitPrimaryDestination()
     {
         using var temp = TempConfig.Create();
         var loader = new ConfigurationDirectoryLoader(temp.Path);
@@ -92,10 +153,23 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
             [
                 new LibraryFolderConfig
                 {
+                    Name = "Home Videos",
                     Category = "Home Videos",
                     Kind = LibraryKinds.Personal,
+                    Area = LibraryAreas.View,
+                    Presentation = LibraryPresentations.Video,
                     MetadataPolicy = "provider_guessing",
-                    SourcePaths = [@"C:\media\home-videos"],
+                    OwnerProfileId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                    Sources =
+                    [
+                        new LibrarySourceConfig
+                        {
+                            Id = "aaaaaaaa-bbbb-4aaa-8aaa-aaaaaaaaaaaa",
+                            Path = @"C:\media\home-videos",
+                            ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+                            AccessMode = LibrarySourceAccessModes.Writable,
+                        },
+                    ],
                 },
             ],
         };
@@ -104,6 +178,82 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
 
         Assert.Contains("id must be a non-empty GUID", ex.Message);
         Assert.Contains("metadata_policy", ex.Message);
+        Assert.Contains("primary_destination_source_id", ex.Message);
+    }
+
+    [Fact]
+    public void LoadLibraries_RejectsSchemaTwoAndLegacyFlatFolderFields()
+    {
+        using var temp = TempConfig.Create();
+        File.WriteAllText(System.IO.Path.Combine(temp.Path, "libraries.json"), """
+            {
+              "schema_version": "2.0",
+              "libraries": [
+                {
+                  "id": "44444444-4444-4444-8444-444444444444",
+                  "name": "Photos",
+                  "kind": "photos",
+                  "source_paths": ["C:\\media\\photos"],
+                  "library_root": "C:\\media",
+                  "read_only": true
+                }
+              ]
+            }
+            """);
+
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.LoadLibraries());
+
+        Assert.Contains("schema_version must be 3.0", ex.Message);
+        Assert.Contains("kind must be catalogued or personal", ex.Message);
+        Assert.Contains("source_paths is not supported", ex.Message);
+        Assert.Contains("library_root is not supported", ex.Message);
+        Assert.Contains("read_only is not supported", ex.Message);
+    }
+
+    [Fact]
+    public void SaveLibraries_RejectsOverlappingAndUnsafeExistingSources()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = CreateValidCataloguedLibrary();
+        config.Libraries[0].Sources.Add(new LibrarySourceConfig
+        {
+            Id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+            Path = @"C:\media\movies\archive",
+            ManagementMode = LibrarySourceManagementModes.ExistingLibrary,
+            AccessMode = LibrarySourceAccessModes.Writable,
+            WritebackOverride = true,
+            ParticipatesInOrganization = true,
+        });
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
+
+        Assert.Contains("must not overlap", ex.Message);
+        Assert.Contains("existing libraries must use read_only access", ex.Message);
+        Assert.Contains("existing libraries cannot participate in organization", ex.Message);
+        Assert.Contains("existing libraries cannot enable writeback", ex.Message);
+    }
+
+    [Fact]
+    public void SaveLibraries_RejectsInvalidIncomingSourceAndGlobalSourceIdentityCollision()
+    {
+        using var temp = TempConfig.Create();
+        var loader = new ConfigurationDirectoryLoader(temp.Path);
+        var config = CreateValidCataloguedLibrary();
+        config.IncomingSources.Add(new IncomingSourceConfig
+        {
+            Id = config.Libraries[0].Sources[0].Id,
+            Path = @"C:\incoming",
+            Purpose = "mystery",
+            DefaultHandling = "copy_everywhere",
+        });
+
+        var ex = Assert.Throws<ConfigValidationException>(() => loader.SaveLibraries(config));
+
+        Assert.Contains("id must be globally unique", ex.Message);
+        Assert.Contains("purpose is unsupported", ex.Message);
+        Assert.Contains("default_handling is unsupported", ex.Message);
     }
 
     [Fact]
@@ -354,6 +504,44 @@ public sealed class ConfigurationDirectoryLoaderValidationTests
         Assert.Contains(true, seen);
         Assert.Contains(false, seen);
     }
+
+    private static LibrariesConfiguration CreateValidCataloguedLibrary() => new()
+    {
+        Libraries =
+        [
+            new LibraryFolderConfig
+            {
+                Id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                Name = "Movies",
+                Category = "Movies",
+                Kind = LibraryKinds.Catalogued,
+                Area = LibraryAreas.Watch,
+                Presentation = LibraryPresentations.Catalogue,
+                MetadataPolicy = LibraryMetadataPolicies.Enriched,
+                MediaTypes = ["Movies"],
+                Sources =
+                [
+                    new LibrarySourceConfig
+                    {
+                        Id = "aaaaaaaa-bbbb-4aaa-8aaa-aaaaaaaaaaaa",
+                        Path = @"C:\media\movies",
+                        Role = LibrarySourceRoles.PrimaryDestination,
+                        ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+                        AccessMode = LibrarySourceAccessModes.Writable,
+                        ParticipatesInOrganization = true,
+                    },
+                ],
+                PrimaryDestinationSourceId = "aaaaaaaa-bbbb-4aaa-8aaa-aaaaaaaaaaaa",
+                Visibility = LibraryVisibility.Household,
+                AcceptedIntakeModes = [LibraryIntakeModes.IncomingFolder],
+                DuplicatePolicy = LibraryDuplicatePolicies.SkipExact,
+                OrganizationPolicy = new()
+                {
+                    Mode = LibraryOrganizationModes.TuvimaStandard,
+                },
+            },
+        ],
+    };
 
     private sealed class TempConfig : IDisposable
     {

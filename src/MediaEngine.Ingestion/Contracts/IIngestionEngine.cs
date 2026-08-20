@@ -11,6 +11,12 @@ namespace MediaEngine.Ingestion.Contracts;
 /// </summary>
 public interface IIngestionEngine
 {
+    /// <summary>
+    /// Queue a single direct-intake file while preserving its stable source,
+    /// destination-library, and actor context through the debounce pipeline.
+    /// </summary>
+    Task EnqueueIntakeAsync(IntakeFileRequest request, CancellationToken ct = default);
+
     /// <summary>Starts the watcher and begins consuming the debounce queue.</summary>
     void Start();
 
@@ -67,8 +73,8 @@ public sealed record IngestionScanTarget(string Path, bool IncludeSubdirectories
 /// </summary>
 public sealed class PendingOperation
 {
-    public required string SourcePath      { get; init; }
+    public required string SourcePath { get; init; }
     public required string DestinationPath { get; init; }
-    public required string OperationKind   { get; init; } // "Move", "Rename", "WriteTag", etc.
-    public string?         Reason          { get; init; }
+    public required string OperationKind { get; init; } // "Move", "Rename", "WriteTag", etc.
+    public string? Reason { get; init; }
 }

@@ -29,9 +29,9 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Durable operations | Live | Ingestion, Wikidata bridge work, and plugin jobs have restart-safe operation rows with status, stage, progress, retry, and failure detail. |
 | Capability readiness | Partial | Media assets can expose explicit readiness rows for identity, enrichment, text tracks, commercial skip, writeback, AI, and plugin work. More workers will be wired over time. |
 | Ingestion dashboard | Partial | Active operations, recent batches, folder health, provider health, progress, and review reasons are visible from durable Engine data where available. |
-| Settings > Libraries | Live | Folder paths, organization templates, path checks, save, and scan actions are backed by Engine/config APIs. |
-| Custom/personal libraries | Live | Administrators can create libraries whose local-only or manual policy bypasses retail providers, Wikidata matching, and identity review. |
-| Photos | Live (MVP) | A separate local photo index provides a timeline, search, thumbnails, favorites, hidden items, albums, content-hash duplicate tracking, and camera/GPS details when available. |
+| Settings > Media Management | Live | Catalogued and personal libraries, stable sources, incoming locations, source safety, organization, metadata, ownership, visibility, intake, and duplicate policies are backed by Engine/config APIs. |
+| Personal View libraries | Live | Administrators can create mixed local libraries whose local-only or manual policy bypasses retail providers, Wikidata matching, and identity review. |
+| View | Live (MVP) | A mixed local index provides library-scoped timeline/gallery browsing, search, thumbnails, favorites, hidden items, compound-file grouping, content-hash duplicate tracking, and local camera/GPS/document details where available. |
 | Backup and recovery | Live | Administrators can create, list, download, validate, stage, and apply backups containing the data store and non-secret configuration. |
 | Settings > Providers | Live | Provider catalogue/status/config, credential state, health, tests, and pipeline priority are backed where the Engine exposes them. |
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
@@ -52,6 +52,14 @@ These items are not presented as complete user workflows yet:
 - Full remote-access hardening and account/session policy beyond the local-first role/API-key model.
 - Interoperability targets such as OPDS, Audiobookshelf-compatible APIs, import wizards, webhooks, and PWA behavior.
 - Post-beta photo intelligence: face/object/OCR search, maps, memories, remote sharing, and mobile upload/sync.
+- Trusted-profile end-user personal-library creation. Administrators can create
+  and govern View libraries now, but API-key requests do not yet carry the
+  profile identity needed for a safe self-service creation endpoint.
+- Mobile-backup and connected-device producers. Their policy and intake modes
+  are modeled, but device-specific clients are not part of this implementation.
+- Automatic shared-incoming routing into personal View libraries. Mixed local
+  candidates are classified and left in place for review today; direct personal
+  browser uploads already index through View without catalogue processing.
 
 ## Product Guardrails
 

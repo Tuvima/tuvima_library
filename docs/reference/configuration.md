@@ -18,7 +18,7 @@ All configuration lives in the `config/` directory as individual JSON files grou
 
 ## config/core.json
 
-Core Engine settings. Most changes are read at startup. Normal ingestion source folders come from `config/libraries.json`; Settings > Libraries can save folder changes and ask the running Engine to hot-swap watchers.
+Core Engine settings. Most changes are read at startup. Normal ingestion sources and destinations come from `config/libraries.json`; Settings > Media Management saves the schema 3 model and asks the running Engine to hot-swap watchers.
 
 | Field | Type | Default | Description |
 |---|---|---|---|
@@ -208,24 +208,34 @@ Common fields configured here: `cover`, `description`, `rating`, `narrator`, `du
 
 ## config/libraries.json
 
-Defines typed library folders. Contains a `libraries` array; each entry is one logical library managed under Settings > Libraries.
+Defines the clean schema 3 library model used by **Settings > Media Management**. The root contains `personal_library_policy`, `libraries`, and shared, unassigned `incoming_sources`.
 
 | Field | Type | Description |
 |---|---|---|
-| `id` | GUID string | Stable identity used by ingestion, photo sources, and Dashboard editing. Required. |
-| `category` | string | Human-readable label for this library (e.g., "Ebooks", "Movies"). |
-| `kind` | string | `catalogued` for known works, `personal` for custom media, or `photos` for the isolated photo index. |
+| `schema_version` | string | Must be `3.0`. Older schemas are rejected and development state is reset/reingested rather than migrated. |
+| `personal_library_policy` | object | Administrator defaults and capability switches for personal-library creation, managed/existing storage, browser and drag/drop upload, mobile/device intake, and default visibility. |
+| `id` | GUID string | Stable library identity used by intake, indexing, access, and Dashboard editing. Required. |
+| `name` | string | User-facing library name. |
+| `category` | string? | Structured subtype such as Books, Movies, TV, Music, Audiobooks, or Comics. Personal libraries may omit it. |
+| `kind` | string | Exactly `catalogued` or `personal`. |
+| `area` | string | `read`, `watch`, `listen`, or `view`. |
+| `presentation` | string | Catalogue, gallery, mixed gallery, timeline, video, documents, audio, or mixed presentation. |
 | `metadata_policy` | string | `enriched`, `local_preferred`, `local_only`, or `manual`. The last two bypass external identity/provider work. |
-| `media_types` | string[] | Media types expected in this folder. Accepted values: `Books`, `Audiobooks`, `Movies`, `TV`, `Music`, `Comics`. |
-| `source_paths` | string[] | Absolute paths to monitor or import for this logical library. Required. |
-| `library_root` | string | Destination root for promoted files from this library. Overrides the global `library_root` if set. |
-| `intake_mode` | string | `"watch"` - continuous file monitoring. `"import"` - one-time scan of existing collection. |
-| `import_action` | string | `"move"` - move files after ingestion. `"copy"` - copy and leave originals in place. |
-| `include_subdirectories` | bool | Whether to recurse into subdirectories. |
-| `read_only` | bool | Prevents source mutation and file organization. Recommended for photos and personal archives. |
-| `writeback_override` | bool? | Optional per-library writeback decision. `false` is the safe photo default. |
+| `media_types` | string[] | Structured media types expected by catalogued libraries. Personal View libraries may be mixed. |
+| `sources` | object[] | Stable source objects; see below. Array order has no meaning. |
+| `primary_destination_source_id` | GUID string? | Explicit managed destination source ID. It is never inferred from array position. |
+| `owner_profile_id` | GUID string? | Owning profile for personal access decisions. |
+| `visibility` | string | `private`, `shared`, or `household`. |
+| `authorized_profile_ids` | GUID string[] | Explicit members of a shared library. |
+| `accepted_intake_modes` | string[] | Incoming folder, drag-and-drop, browser upload, mobile backup, connected-device import, or API. |
+| `duplicate_policy` | string | `skip_exact`, `keep_both`, or `replace_existing`. |
+| `organization_policy` | object | Organization mode, optional custom template, and original-preservation policy. |
 
-Photo libraries index JPG/JPEG, PNG, WebP, GIF, BMP, TIFF, HEIC/HEIF, and AVIF candidates when the installed decoder can read them. Photo records do not enter catalogue matching, canonical claims, or the Review Queue.
+Each source owns `id`, `path`, `role`, `management_mode`, `source_type`, `include_subdirectories`, `access_mode`, `writeback_override`, `participates_in_organization`, and `intake_role`. **Existing library** sources must be read-only and are never moved, renamed, tagged, deleted, or used as destinations. Only **Managed by Tuvima** plus writable sources can authorize mutation.
+
+Each top-level incoming source owns `id`, `path`, `purpose`, `default_handling`, `include_subdirectories`, and `source_type`. Incoming files carry this source identity through the ingestion queue. Direct intake also carries an explicit destination library ID; shared incoming receives one only after unambiguous policy routing.
+
+Personal View libraries index mixed local assets and local metadata without entering catalogue matching, canonical claims, providers, Wikidata, or the Review Queue.
 
 ---
 
@@ -273,7 +283,7 @@ Controls how resolved metadata is written back into file tags.
 | `write_on_auto_match` | bool | `true` | Write tags when the Engine automatically matches and promotes a file. |
 | `write_on_manual_override` | bool | `true` | Write tags when a user manually resolves a conflict or selects a QID. |
 | `write_on_universe_enrichment` | bool | `true` | Write tags after Wikidata/universe enrichment completes. |
-| `backup_before_write` | bool | `true` | Create a `.bak` sidecar before modifying any file tags. |
+| `backup_before_write` | bool | `false` | Create a `.bak` sidecar before modifying any file tags. Disabled by the standing pre-beta no-backup rule. |
 | `fields_to_write` | string | `"all"` | Which fields to include in writeback. `"all"` writes every resolved canonical value. Can be set to a comma-separated list of field keys to restrict scope. |
 | `exclude_fields` | string[] | `[]` | Fields excluded from writeback even when `fields_to_write` is `"all"`. |
 

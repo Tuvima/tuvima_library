@@ -77,41 +77,58 @@ This document describes how Tuvima Library discovers, processes, organises, and 
 
 ---
 
-## Library Folders
+## Libraries and sources
 
-The Engine is configured with one or more **Library Folders**, each declaring:
+The Engine is configured with logical **Libraries**, each declaring:
 
 | Field | Description |
 |---|---|
-| `category` | The content category: Books, TV, Movies, Music, Comics |
-| `media_types` | The expected media types within this folder (e.g. `["Epub", "Audiobook"]`) |
-| `source_paths` | Required paths the Engine monitors or imports for one logical library |
-| `library_root` | The destination root where organised files are placed |
-| `intake_mode` | `watch` (ongoing monitoring) or `import` (one-time scan) |
-| `import_action` | For import mode only: `move` or `copy` |
-| `include_subdirectories` | Whether to scan nested folders within the source path |
+| `kind` | `catalogued` or `personal` |
+| `area` | Read, Watch, Listen, or View |
+| `metadata_policy` | Enriched, local-preferred, local-only, or manual |
+| `sources` | Stable per-folder source identities and safety policy |
+| `primary_destination_source_id` | The explicit managed destination; never inferred from ordering |
+| `accepted_intake_modes` | The direct and shared intake mechanisms accepted by this library |
 
-Configuration lives in `config/libraries.json`. Normal runtime ingestion requires `source_paths`; the old single `WatchDirectory` and `source_path` config shapes are no longer accepted.
+Configuration lives in `config/libraries.json`. Schema 3 is required; flat source paths, library roots, intake modes, and read-only flags are rejected.
 
 File watching is source-folder aware. A flush that contains files from one source records that source path on the ingestion batch; a flush that spans more than one source records `Multiple source folders`. Watcher noise is buffered for `Ingestion:FswQuietPeriodSeconds` seconds, defaulting to 30 seconds, before the batch is released to the debounce queue.
 
 ```json
 {
+  "schema_version": "3.0",
+  "incoming_sources": [{
+    "id": "99999999-aaaa-4999-8999-999999999999",
+    "path": "/media/incoming",
+    "purpose": "shared_intake",
+    "default_handling": "route_automatically"
+  }],
   "libraries": [
     {
+      "id": "44444444-4444-4444-8444-444444444444",
+      "name": "Movies",
       "category": "Movies",
+      "kind": "catalogued",
+      "area": "watch",
+      "presentation": "catalogue",
+      "metadata_policy": "enriched",
       "media_types": ["Movies"],
-      "source_paths": ["/media/downloads/movies"],
-      "library_root": "/media/library",
-      "intake_mode": "watch"
-    },
-    {
-      "category": "Books",
-      "media_types": ["Epub", "Audiobook"],
-      "source_paths": ["/media/existing-books"],
-      "library_root": "/media/library",
-      "intake_mode": "import",
-      "import_action": "copy"
+      "sources": [{
+        "id": "44444444-aaaa-4444-8444-444444444444",
+        "path": "/media/library/movies",
+        "role": "primary_destination",
+        "management_mode": "managed_by_tuvima",
+        "source_type": "local_folder",
+        "include_subdirectories": true,
+        "access_mode": "writable",
+        "participates_in_organization": true,
+        "intake_role": "direct"
+      }],
+      "primary_destination_source_id": "44444444-aaaa-4444-8444-444444444444",
+      "visibility": "household",
+      "accepted_intake_modes": ["incoming_folder", "browser_upload"],
+      "duplicate_policy": "skip_exact",
+      "organization_policy": { "mode": "tuvima_standard", "preserve_originals": true }
     }
   ]
 }
@@ -131,7 +148,7 @@ The Dashboard's Ingestion page uses `GET /ingestion/operations`, backed by `IIng
 - `stage_progress` rows in the snapshot for the numbered user-facing stage bars
 - `ingestion_batch_artifacts` for batch-scoped media, metadata, artwork, people, relationship, QID, and review artifacts used by later Activity rollups
 - `review_queue` for actionable review reason groups
-- `config/libraries.json` for Watch, Listen, and Read source folders, including multi-path libraries
+- `config/libraries.json` for Read, Watch, Listen, and View libraries, stable sources, destinations, and incoming locations
 - `provider_health` and provider config files for provider status
 - runtime `IngestionOptions` and `core.json` for organization rule summaries
 
@@ -505,7 +522,7 @@ Review Queue surfaces `WritebackFailed` review items alongside other review trig
 **Future library types planned but not yet implemented:**
 
 - **Other** - YouTube videos, lectures, personal recordings, and any media that does not fit the primary types. Files would be stored and user-provided metadata accepted, but automated enrichment would be limited.
-- **Photos** - Photo collections with EXIF/XMP extraction, GPS geolocation, face detection, event-based organisation, and timeline views. The scope is large enough that it may become a separate product built on the same base Engine infrastructure.
+- **View intelligence** - Optional local features such as deeper EXIF/XMP extraction, maps, face/object detection, memories, and event grouping. This future privacy-sensitive scope builds on the isolated local-asset index rather than catalogue ingestion.
 
 ## Related
 

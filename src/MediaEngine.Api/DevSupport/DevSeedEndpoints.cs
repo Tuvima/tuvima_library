@@ -1,8 +1,4 @@
-﻿using System.Text;
-using DevHarnessResetResponse = MediaEngine.Contracts.Development.DevHarnessResetResponse;
-using DevHarnessReingestResponse = MediaEngine.Contracts.Development.DevHarnessReingestResponse;
-using DevHarnessWipeResponse = MediaEngine.Contracts.Development.DevHarnessWipeResponse;
-using ContractWipeScope = MediaEngine.Contracts.Development.DevHarnessWipeScope;
+using System.Text;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
@@ -11,6 +7,10 @@ using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
 using Microsoft.Extensions.Options;
+using ContractWipeScope = MediaEngine.Contracts.Development.DevHarnessWipeScope;
+using DevHarnessReingestResponse = MediaEngine.Contracts.Development.DevHarnessReingestResponse;
+using DevHarnessResetResponse = MediaEngine.Contracts.Development.DevHarnessResetResponse;
+using DevHarnessWipeResponse = MediaEngine.Contracts.Development.DevHarnessWipeResponse;
 
 namespace MediaEngine.Api.DevSupport;
 
@@ -817,28 +817,28 @@ public static class DevSeedEndpoints
 
     private static readonly Dictionary<string, string[]> ProviderToTypes = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"]   = ["books", "audiobooks", "music"],
+        ["apple_api"] = ["books", "audiobooks", "music"],
         ["musicbrainz"] = ["music"],
-        ["tmdb"]        = ["movies", "tv"],
-        ["comicvine"]   = ["comics"],
+        ["tmdb"] = ["movies", "tv"],
+        ["comicvine"] = ["comics"],
     };
 
     private static readonly Dictionary<string, string[]> TypeProviderRequirements = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["books"]      = ["apple_api"],
+        ["books"] = ["apple_api"],
         ["audiobooks"] = ["apple_api"],
-        ["music"]      = ["musicbrainz", "apple_api"],
-        ["movies"]     = ["tmdb"],
-        ["tv"]         = ["tmdb"],
-        ["comics"]     = ["comicvine"],
+        ["music"] = ["musicbrainz", "apple_api"],
+        ["movies"] = ["tmdb"],
+        ["tv"] = ["tmdb"],
+        ["comics"] = ["comicvine"],
     };
 
     private static readonly Dictionary<string, string> ProviderHealthUrls = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["apple_api"]   = "https://itunes.apple.com/search?term=test&limit=1",
+        ["apple_api"] = "https://itunes.apple.com/search?term=test&limit=1",
         ["musicbrainz"] = "https://musicbrainz.org/ws/2/recording?query=bohemian%20rhapsody&fmt=json&limit=1",
-        ["tmdb"]        = "https://api.themoviedb.org/3/configuration",
-        ["comicvine"]   = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
+        ["tmdb"] = "https://api.themoviedb.org/3/configuration",
+        ["comicvine"] = "https://comicvine.gamespot.com/api/search/?query=batman&resources=issue&limit=1&format=json&api_key=placeholder",
     };
 
     /// <summary>
@@ -861,7 +861,9 @@ public static class DevSeedEndpoints
     private static string NormalizeHarnessMediaTypeKey(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return string.Empty;
+        }
 
         return value.Trim().ToLowerInvariant() switch
         {
@@ -1041,9 +1043,9 @@ public static class DevSeedEndpoints
             kvp => kvp.Key,
             kvp => new
             {
-                status   = kvp.Value.Healthy ? "OK" : "FAIL",
-                reason   = kvp.Value.Reason,
-                affects  = ProviderToTypes.TryGetValue(kvp.Key, out var types) ? types : Array.Empty<string>(),
+                status = kvp.Value.Healthy ? "OK" : "FAIL",
+                reason = kvp.Value.Reason,
+                affects = ProviderToTypes.TryGetValue(kvp.Key, out var types) ? types : Array.Empty<string>(),
             });
 
         bool allHealthy = health.Values.All(v => v.Healthy);
@@ -1134,10 +1136,18 @@ public static class DevSeedEndpoints
         foreach (SeedVideo video in SeedVideos)
         {
             var typeKey = video.MediaType == "TV" ? "tv" : "movies";
-            if (!activeTypes.Contains(typeKey)) continue;
+            if (!activeTypes.Contains(typeKey))
+            {
+                continue;
+            }
+
             var category = video.MediaType == "TV" ? "TV" : "Movies";
             var videoDir = ResolveWatchDirectory(configLoader, options, category);
-            if (string.IsNullOrWhiteSpace(videoDir)) continue;
+            if (string.IsNullOrWhiteSpace(videoDir))
+            {
+                continue;
+            }
+
             EnsureDirectory(videoDir, logger);
 
             string fileName;
@@ -1152,14 +1162,21 @@ public static class DevSeedEndpoints
                 fileName = Path.GetFileName(filePath);
                 var parentDir = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrWhiteSpace(parentDir))
+                {
                     EnsureDirectory(parentDir, logger);
+                }
             }
             else
             {
                 if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
+                {
                     fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
+                }
                 else
+                {
                     fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
+                }
+
                 filePath = Path.Combine(videoDir, fileName);
             }
 
@@ -1172,7 +1189,15 @@ public static class DevSeedEndpoints
                 episodeNumber: video.EpisodeNumber);
             await File.WriteAllBytesAsync(filePath, mp4);
             created.Add(fileName);
-            if (video.MediaType == "TV") tvCreated++; else moviesCreated++;
+            if (video.MediaType == "TV")
+            {
+                tvCreated++;
+            }
+            else
+            {
+                moviesCreated++;
+            }
+
             logger.LogInformation("Seed MP4 created: {Path} [{Category}]", filePath, video.TestCategory ?? "Uncategorised");
         }
         var moviesDir = ResolveWatchDirectory(configLoader, options, "Movies");
@@ -1309,11 +1334,9 @@ public static class DevSeedEndpoints
         var scanTargets = libConfig.Libraries
             .SelectMany(lib =>
             {
-                var paths = lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
-
-                return paths.Select(path => new IngestionScanTarget(
-                    NormalizeDirectoryPath(path),
-                    lib.IncludeSubdirectories));
+                return lib.ScannableSources.Select(source => new IngestionScanTarget(
+                    NormalizeDirectoryPath(source.Path),
+                    source.IncludeSubdirectories));
             })
             .Where(target => Directory.Exists(target.Path))
             .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
@@ -1323,7 +1346,9 @@ public static class DevSeedEndpoints
             .ToList();
 
         if (scanTargets.Count > 0)
+        {
             await ingestionEngine.ScanDirectories(scanTargets, context.RequestAborted);
+        }
 
         logger.LogInformation(
             "[ReingestLibrary] Reingest scan queued for {Count} configured source folder(s); FSW remains paused",
@@ -1395,11 +1420,9 @@ public static class DevSeedEndpoints
                 || lib.MediaTypes.Any(mt => activeTypesForScan.Contains(NormalizeHarnessMediaTypeKey(mt))))
             .SelectMany(lib =>
             {
-                var paths = lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
-
-                return paths.Select(path => new IngestionScanTarget(
-                    NormalizeDirectoryPath(path),
-                    lib.IncludeSubdirectories));
+                return lib.ScannableSources.Select(source => new IngestionScanTarget(
+                    NormalizeDirectoryPath(source.Path),
+                    source.IncludeSubdirectories));
             })
             .Where(target => Directory.Exists(target.Path))
             .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
@@ -1486,14 +1509,16 @@ public static class DevSeedEndpoints
 
         // Find the library entry that matches this media type category.
         var lib = libConfig.Libraries.FirstOrDefault(l =>
-            l.Category.Equals(mediaTypeCategory, StringComparison.OrdinalIgnoreCase));
+            string.Equals(l.Category, mediaTypeCategory, StringComparison.OrdinalIgnoreCase));
 
-        var paths = lib?.SourcePaths;
-        if (paths is { Count: > 0 })
-            return paths.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
+        var destination = lib?.PrimaryDestination?.Path;
+        if (!string.IsNullOrWhiteSpace(destination))
+        {
+            return destination;
+        }
 
         return libConfig.Libraries
-            .SelectMany(library => library.SourcePaths)
+            .Select(library => library.PrimaryDestination?.Path)
             .FirstOrDefault(path => !string.IsNullOrWhiteSpace(path));
     }
 
@@ -1576,7 +1601,11 @@ public static class DevSeedEndpoints
             {
                 string fileName = $"{SanitizeFileName(book.Title)}.epub";
                 string filePath = Path.Combine(booksDir, fileName);
-                if (File.Exists(filePath)) continue;
+                if (File.Exists(filePath))
+                {
+                    continue;
+                }
+
                 byte[] bytes = EpubBuilder.Create(
                     book.Title, book.Author, book.Isbn, book.Year, book.Description,
                     book.Publisher, book.Language, book.AdditionalAuthors,
@@ -1593,7 +1622,11 @@ public static class DevSeedEndpoints
             {
                 string fileName = $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3";
                 string filePath = Path.Combine(booksDir, fileName);
-                if (File.Exists(filePath)) continue;
+                if (File.Exists(filePath))
+                {
+                    continue;
+                }
+
                 byte[] bytes = Mp3Builder.Create(
                     ab.Title, ab.Artist, narrator: ab.Narrator,
                     year: ab.Year, language: ab.Language,
@@ -1608,10 +1641,18 @@ public static class DevSeedEndpoints
         foreach (SeedVideo video in SeedVideos)
         {
             string typeKey = video.MediaType == "TV" ? "tv" : "movies";
-            if (!activeTypes.Contains(typeKey)) continue;
+            if (!activeTypes.Contains(typeKey))
+            {
+                continue;
+            }
+
             string category = video.MediaType == "TV" ? "TV" : "Movies";
             string? videoDir = ResolveWatchDirectory(configLoader, options, category);
-            if (string.IsNullOrWhiteSpace(videoDir)) continue;
+            if (string.IsNullOrWhiteSpace(videoDir))
+            {
+                continue;
+            }
+
             EnsureDirectory(videoDir, logger);
 
             string fileName;
@@ -1623,18 +1664,29 @@ public static class DevSeedEndpoints
                 fileName = Path.GetFileName(filePath);
                 var parentDir = Path.GetDirectoryName(filePath);
                 if (!string.IsNullOrWhiteSpace(parentDir))
+                {
                     EnsureDirectory(parentDir, logger);
+                }
             }
             else
             {
                 if (video.MediaType == "TV" && video.SeasonNumber is not null && video.EpisodeNumber is not null)
+                {
                     fileName = $"{SanitizeFileName(video.Series ?? video.Title)} S{video.SeasonNumber:D2}E{video.EpisodeNumber:D2}.mp4";
+                }
                 else
+                {
                     fileName = $"{SanitizeFileName(video.Title)} ({video.Year}).mp4";
+                }
+
                 filePath = Path.Combine(videoDir, fileName);
             }
 
-            if (File.Exists(filePath)) continue;
+            if (File.Exists(filePath))
+            {
+                continue;
+            }
+
             byte[] bytes = Mp4Builder.Create(
                 video.Title, video.Director, video.Year,
                 showName: video.MediaType == "TV" ? video.Series : null,
@@ -1653,7 +1705,11 @@ public static class DevSeedEndpoints
             {
                 string fileName = $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac";
                 string filePath = Path.Combine(musicDir, fileName);
-                if (File.Exists(filePath)) continue;
+                if (File.Exists(filePath))
+                {
+                    continue;
+                }
+
                 byte[] bytes = FlacBuilder.Create(
                     track.Title, track.Artist, track.Album,
                     track.Year, track.Genre, track.TrackNumber);
@@ -1671,7 +1727,11 @@ public static class DevSeedEndpoints
             {
                 string fileName = $"{SanitizeFileName(comic.Title)}.cbz";
                 string filePath = Path.Combine(comicsDir, fileName);
-                if (File.Exists(filePath)) continue;
+                if (File.Exists(filePath))
+                {
+                    continue;
+                }
+
                 byte[] bytes = CbzBuilder.Create(
                     comic.Title, comic.Writer, comic.Series, comic.Number,
                     comic.Year, comic.Genre, comic.Summary, comic.Publisher, comic.Penciller);
@@ -1706,25 +1766,33 @@ public static class DevSeedEndpoints
         if (activeTypes.Contains("books") && !string.IsNullOrWhiteSpace(booksDir))
         {
             foreach (SeedBook book in SeedBooks)
+            {
                 paths.Add(Path.Combine(booksDir, $"{SanitizeFileName(book.Title)}.epub"));
+            }
         }
 
         if (activeTypes.Contains("audiobooks") && !string.IsNullOrWhiteSpace(booksDir))
         {
             foreach (SeedAudiobook ab in SeedAudiobooks)
+            {
                 paths.Add(Path.Combine(booksDir, $"{SanitizeFileName(ab.Title)} - {SanitizeFileName(ab.Narrator)}.mp3"));
+            }
         }
 
         foreach (SeedVideo video in SeedVideos)
         {
             string typeKey = video.MediaType == "TV" ? "tv" : "movies";
             if (!activeTypes.Contains(typeKey))
+            {
                 continue;
+            }
 
             string category = video.MediaType == "TV" ? "TV" : "Movies";
             string? videoDir = ResolveWatchDirectory(configLoader, options, category);
             if (string.IsNullOrWhiteSpace(videoDir))
+            {
                 continue;
+            }
 
             if (!string.IsNullOrWhiteSpace(video.FileNameOverride))
             {
@@ -1744,14 +1812,18 @@ public static class DevSeedEndpoints
         if (activeTypes.Contains("music") && !string.IsNullOrWhiteSpace(musicDir))
         {
             foreach (SeedMusic track in SeedMusicTracks)
+            {
                 paths.Add(Path.Combine(musicDir, $"{SanitizeFileName(track.Artist)} - {SanitizeFileName(track.Title)}.flac"));
+            }
         }
 
         string? comicsDir = ResolveWatchDirectory(configLoader, options, "Comics");
         if (activeTypes.Contains("comics") && !string.IsNullOrWhiteSpace(comicsDir))
         {
             foreach (SeedComic comic in SeedComics)
+            {
                 paths.Add(Path.Combine(comicsDir, $"{SanitizeFileName(comic.Title)}.cbz"));
+            }
         }
 
         return paths;
@@ -1768,6 +1840,7 @@ public static class DevSeedEndpoints
 
         // Books
         foreach (var b in SeedBooks)
+        {
             result.Add(new SeedExpectation(
                 Title: b.Title,
                 MediaType: "Books",
@@ -1779,9 +1852,11 @@ public static class DevSeedEndpoints
                 ExpectedQid: b.ExpectedQid,
                 ExpectedCoverArt: b.ExpectedCoverArt,
                 ReconciliationTitle: b.ReconciliationTitle));
+        }
 
         // Audiobooks
         foreach (var a in SeedAudiobooks)
+        {
             result.Add(new SeedExpectation(
                 Title: a.Title,
                 MediaType: "Audiobooks",
@@ -1792,6 +1867,7 @@ public static class DevSeedEndpoints
                 ExpectedProvider: a.ExpectedProvider,
                 ExpectedQid: a.ExpectedQid,
                 ExpectedCoverArt: a.ExpectedCoverArt));
+        }
 
         // Videos — split by MediaType field
         foreach (var v in SeedVideos)
@@ -1812,6 +1888,7 @@ public static class DevSeedEndpoints
 
         // Music
         foreach (var m in SeedMusicTracks)
+        {
             result.Add(new SeedExpectation(
                 Title: m.Title,
                 MediaType: "Music",
@@ -1822,9 +1899,11 @@ public static class DevSeedEndpoints
                 ExpectedProvider: m.ExpectedProvider,
                 ExpectedQid: m.ExpectedQid,
                 ExpectedCoverArt: m.ExpectedCoverArt));
+        }
 
         // Comics
         foreach (var c in SeedComics)
+        {
             result.Add(new SeedExpectation(
                 Title: c.Title,
                 MediaType: "Comics",
@@ -1835,6 +1914,7 @@ public static class DevSeedEndpoints
                 ExpectedProvider: c.ExpectedProvider,
                 ExpectedQid: c.ExpectedQid,
                 ExpectedCoverArt: c.ExpectedCoverArt));
+        }
 
         return result;
     }

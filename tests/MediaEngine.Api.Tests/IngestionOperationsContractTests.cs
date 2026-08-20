@@ -902,7 +902,7 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("ToResponseAsync(batch, ct)", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ReadTerminalSnapshotAsync", serviceSource, StringComparison.Ordinal);
         Assert.Contains("review_ready_at IS NOT NULL", serviceSource, StringComparison.Ordinal);
-        Assert.Contains("FilesProcessed  = terminal", serviceSource, StringComparison.Ordinal);
+        Assert.Matches(@"FilesProcessed\s*=\s*terminal", serviceSource);
         Assert.Contains("GuidSql.ToBlob(batchId)", serviceSource, StringComparison.Ordinal);
         Assert.Contains("ProjectRecentBatchesForDisplayAsync", operationsSource, StringComparison.Ordinal);
         Assert.Contains("ProjectBatchForDisplay(batch, snapshot)", operationsSource, StringComparison.Ordinal);
@@ -912,7 +912,7 @@ public sealed class IngestionOperationsContractTests
         Assert.Contains("FileOperationsTerminal - TotalJobs", serviceSource, StringComparison.Ordinal);
         Assert.Contains("OperationTerminal", operationsSource, StringComparison.Ordinal);
         Assert.Contains("batchId = GuidSql.ToBlob(batchId)", operationsSource, StringComparison.Ordinal);
-        Assert.Contains("FilesProcessed  = terminal", operationsSource, StringComparison.Ordinal);
+        Assert.Matches(@"FilesProcessed\s*=\s*terminal", operationsSource);
         Assert.DoesNotContain(".Select(IngestionBatchEndpointMapper.ToResponse)", endpointSource, StringComparison.Ordinal);
     }
 

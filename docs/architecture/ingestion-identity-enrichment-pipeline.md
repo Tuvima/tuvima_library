@@ -94,7 +94,7 @@ supplied, including decimals; missing ordinals stay missing.
 
 ## Stages 1-2: Local Ingestion
 
-Inputs come from `config/libraries.json`. Each library entry declares `source_paths`, media type hints, read-only/writeback policy, and the source folders watched by the Engine. The ingestion options no longer use the old single `WatchDirectory` or `source_path` config shapes as runtime fallbacks.
+Inputs come from schema 3 `config/libraries.json`. Each library declares stable `sources`, media type hints, an explicit destination source, metadata/intake/organization policy, and per-source management, access, recursion, and writeback rules. Flat source paths and library-wide read-only flags are rejected.
 
 The file watcher and polling safety net both feed the debounce queue. Polling is intentional, not legacy: it catches missed filesystem events and sweeps every configured source folder. The watcher buffers filesystem noise for the configured quiet period before creating a batch; unchanged same-path events are suppressed by file fingerprint, while changed or replaced files at the same path can be queued again. The pipeline skips engine-owned hidden state such as `.data`.
 

@@ -20,11 +20,11 @@ public sealed class LibraryFolderEntry
 
     public string MetadataPolicy { get; init; } = LibraryMetadataPolicies.Enriched;
 
-    public string LibraryRoot { get; init; } = string.Empty;
+    public string Area { get; init; } = LibraryAreas.Read;
 
-    public string IntakeMode { get; init; } = "watch";
+    public string Presentation { get; init; } = LibraryPresentations.Catalogue;
 
-    public bool IncludeSubdirectories { get; init; } = true;
+    public string? PrimaryDestinationSourceId { get; init; }
 
     /// <summary>
     /// All source paths belonging to this logical library. A single library can
@@ -34,22 +34,34 @@ public sealed class LibraryFolderEntry
     /// Tuvima never moves files across source paths during organise.
     /// Spec: side-by-side-with-Plex plan §F.
     /// </summary>
-    public IReadOnlyList<string> SourcePaths { get; init; } = [];
+    public IReadOnlyList<LibrarySourceEntry> Sources { get; init; } = [];
 
     /// <summary>
     /// The effective list of source paths.
     /// </summary>
     public IReadOnlyList<string> EffectiveSourcePaths =>
-        SourcePaths
+        Sources
+            .Select(source => source.Path)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+    public LibrarySourceEntry? PrimaryDestination =>
+        string.IsNullOrWhiteSpace(PrimaryDestinationSourceId)
+            ? null
+            : Sources.FirstOrDefault(source =>
+                string.Equals(source.Id, PrimaryDestinationSourceId, StringComparison.OrdinalIgnoreCase));
+
+    public string LibraryRoot => PrimaryDestination?.Path ?? string.Empty;
 
     /// <summary>
     /// Media types configured for this library folder (e.g. Epub, Audiobook).
     /// Parsed from the JSON <c>media_types</c> string array at startup.
     /// </summary>
     public IReadOnlyList<MediaType> MediaTypes { get; init; } = [];
+
+    /// <summary>Configured intake surfaces this library accepts.</summary>
+    public IReadOnlyList<string> AcceptedIntakeModes { get; init; } = [];
 
     /// <summary>
     /// Hard read-only gate. When <see langword="true"/>, the ingestion pipeline
@@ -58,18 +70,72 @@ public sealed class LibraryFolderEntry
     /// mirror an external library (e.g. a Plex tree) without ever touching it.
     /// Spec: side-by-side-with-Plex plan §I.
     /// </summary>
-    public bool ReadOnly { get; init; }
+    public bool ReadOnly => Sources.Count == 0 || Sources.All(source => !source.AllowsFileMutation);
 
     /// <summary>
     /// Per-library override for metadata writeback. <see langword="null"/> means
     /// use the global writeback flag; <see langword="true"/> or <see langword="false"/>
     /// forces on/off for this library only. Spec: side-by-side-with-Plex plan §I.
     /// </summary>
-    public bool? WritebackOverride { get; init; }
+    public bool? WritebackOverride => PrimaryDestination?.WritebackOverride;
 
     public bool BypassesExternalIdentity =>
         LibraryMetadataPolicies.BypassesExternalIdentity(MetadataPolicy);
 }
+
+/// <summary>Runtime projection of one top-level shared incoming source.</summary>
+public sealed class IncomingSourceEntry
+{
+    public string Id { get; init; } = string.Empty;
+
+    public string Path { get; init; } = string.Empty;
+
+    public string Purpose { get; init; } = IncomingSourcePurposes.SharedIntake;
+
+    public string DefaultHandling { get; init; } = IncomingDefaultHandling.RouteAutomatically;
+
+    public bool IncludeSubdirectories { get; init; } = true;
+
+    public string SourceType { get; init; } = LibrarySourceTypes.LocalFolder;
+
+    public bool AllowsRoutingMutation => !string.Equals(
+        DefaultHandling,
+        IncomingDefaultHandling.IndexInPlace,
+        StringComparison.OrdinalIgnoreCase);
+}
+
+/// <summary>Runtime projection of one stable configured library source.</summary>
+public sealed class LibrarySourceEntry
+{
+    public string Id { get; init; } = string.Empty;
+
+    public string Path { get; init; } = string.Empty;
+
+    public string Role { get; init; } = LibrarySourceRoles.Secondary;
+
+    public string ManagementMode { get; init; } = LibrarySourceManagementModes.ExistingLibrary;
+
+    public string AccessMode { get; init; } = LibrarySourceAccessModes.ReadOnly;
+
+    public bool IncludeSubdirectories { get; init; } = true;
+
+    public bool ParticipatesInOrganization { get; init; }
+
+    public string IntakeRole { get; init; } = LibrarySourceIntakeRoles.None;
+
+    public bool? WritebackOverride { get; init; }
+
+    public bool IsManaged => ManagementMode == LibrarySourceManagementModes.ManagedByTuvima;
+
+    public bool IsWritable => AccessMode == LibrarySourceAccessModes.Writable;
+
+    public bool AllowsFileMutation => IsManaged && IsWritable;
+}
+
+/// <summary>Longest-prefix match of a file path to its logical library and stable source.</summary>
+public sealed record ResolvedLibrarySource(
+    LibraryFolderEntry Library,
+    LibrarySourceEntry Source);
 
 /// <summary>
 /// Runtime options that control the ingestion pipeline behaviour.
@@ -261,6 +327,46 @@ public sealed class IngestionOptions
     /// </summary>
     public IReadOnlyList<LibraryFolderEntry> LibraryFolders { get; set; } = [];
 
+    /// <summary>
+    /// Unassigned intake roots loaded from the top-level
+    /// <c>incoming_sources</c> collection in <c>config/libraries.json</c>.
+    /// </summary>
+    public IReadOnlyList<IncomingSourceEntry> IncomingSources { get; set; } = [];
+
+    /// <summary>Returns the longest configured incoming-source prefix for a path.</summary>
+    public IncomingSourceEntry? ResolveIncomingSource(string absolutePath)
+    {
+        if (string.IsNullOrWhiteSpace(absolutePath))
+        {
+            return null;
+        }
+
+        var normalizedPath = NormalizeComparablePath(absolutePath);
+        return IncomingSources
+            .Where(source => !string.IsNullOrWhiteSpace(source.Path))
+            .Select(source => (Source: source, Root: NormalizeComparablePath(source.Path)))
+            .Where(candidate => IsUnderRoot(normalizedPath, candidate.Root))
+            .OrderByDescending(candidate => candidate.Root.Length)
+            .Select(candidate => candidate.Source)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Creates the durable intake identity for a watcher/scan event under a
+    /// shared incoming root. Ordinary library-source events return null.
+    /// </summary>
+    public IntakeContext? ResolveIncomingIntakeContext(string absolutePath)
+    {
+        var source = ResolveIncomingSource(absolutePath);
+        return source is null
+            ? null
+            : new IntakeContext
+            {
+                SourceKind = IntakeSourceKinds.SharedIncoming,
+                SourceId = source.Id,
+            };
+    }
+
     // ── Template Resolution ────────────────────────────────────────────
 
     private const string HardcodedFallback = "{Category}/{Title}/{Title}{Ext}";
@@ -296,4 +402,13 @@ public sealed class IngestionOptions
         // 4. Hardcoded fallback.
         return HardcodedFallback;
     }
+
+    private static string NormalizeComparablePath(string path) =>
+        Path.GetFullPath(path)
+            .Replace('\\', '/')
+            .TrimEnd('/');
+
+    private static bool IsUnderRoot(string path, string root) =>
+        path.Equals(root, StringComparison.OrdinalIgnoreCase)
+        || path.StartsWith(root + "/", StringComparison.OrdinalIgnoreCase);
 }

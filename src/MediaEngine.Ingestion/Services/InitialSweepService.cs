@@ -1,17 +1,17 @@
 using System.Diagnostics;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using MediaEngine.Domain;
 using MediaEngine.Contracts.Realtime;
+using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion.Services;
 
 /// <summary>
-/// Walks every configured library source path, hashes each media file, and
+/// Walks every configured library and shared incoming source path, hashes each media file, and
 /// stores the result in <see cref="IFileHashCacheRepository"/>. Publishes
 /// progress over SignalR so the Dashboard can show a live progress bar.
 ///
@@ -38,11 +38,11 @@ public interface IInitialSweepService
 /// Summary counts returned by <see cref="IInitialSweepService.RunAsync"/>.
 /// </summary>
 public sealed record InitialSweepResult(
-    int    FilesDiscovered,
-    int    FilesHashed,
-    int    FilesFromCache,
-    int    FilesFailed,
-    long   BytesHashed,
+    int FilesDiscovered,
+    int FilesHashed,
+    int FilesFromCache,
+    int FilesFailed,
+    long BytesHashed,
     TimeSpan Elapsed);
 
 /// <inheritdoc />
@@ -54,27 +54,27 @@ public sealed class InitialSweepService : IInitialSweepService
 
     // Recognised media extensions — same shortlist used elsewhere in the
     // ingestion layer. Kept lower-cased and includes the dot.
-    private readonly IAssetHasher             _hasher;
+    private readonly IAssetHasher _hasher;
     private readonly IFileHashCacheRepository _cache;
-    private readonly IEventPublisher          _publisher;
-    private readonly IngestionOptions         _options;
+    private readonly IEventPublisher _publisher;
+    private readonly IngestionOptions _options;
     private readonly IMediaTypeExtensionCatalog _extensionCatalog;
     private readonly ILogger<InitialSweepService> _logger;
 
     public InitialSweepService(
-        IAssetHasher             hasher,
+        IAssetHasher hasher,
         IFileHashCacheRepository cache,
-        IEventPublisher          publisher,
+        IEventPublisher publisher,
         IOptions<IngestionOptions> options,
         IMediaTypeExtensionCatalog extensionCatalog,
         ILogger<InitialSweepService> logger)
     {
-        _hasher    = hasher;
-        _cache     = cache;
+        _hasher = hasher;
+        _cache = cache;
         _publisher = publisher;
-        _options   = options.Value;
+        _options = options.Value;
         _extensionCatalog = extensionCatalog;
-        _logger    = logger;
+        _logger = logger;
     }
 
     /// <inheritdoc />
@@ -84,9 +84,10 @@ public sealed class InitialSweepService : IInitialSweepService
         int discovered = 0, hashed = 0, cached = 0, failed = 0;
         long bytes = 0;
 
-        // Resolve every source path from every configured library.
+        // Resolve every library source and top-level shared incoming source.
         var roots = _options.LibraryFolders
             .SelectMany(lf => lf.EffectiveSourcePaths)
+            .Concat(_options.IncomingSources.Select(source => source.Path))
             .Where(p => !string.IsNullOrWhiteSpace(p) && Directory.Exists(p))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -94,7 +95,7 @@ public sealed class InitialSweepService : IInitialSweepService
         if (roots.Count == 0)
         {
             _logger.LogInformation(
-                "InitialSweep: no library source paths configured — nothing to sweep");
+                "InitialSweep: no library or incoming source paths configured — nothing to sweep");
             return new InitialSweepResult(0, 0, 0, 0, 0, sw.Elapsed);
         }
 
@@ -119,7 +120,9 @@ public sealed class InitialSweepService : IInitialSweepService
                 {
                     var ext = Path.GetExtension(path);
                     if (mediaExtensions.Contains(ext))
+                    {
                         files.Add(path);
+                    }
                 }
             }
             catch (Exception ex)
@@ -138,14 +141,17 @@ public sealed class InitialSweepService : IInitialSweepService
         int sinceLastReport = 0;
         foreach (var path in files)
         {
-            if (ct.IsCancellationRequested) break;
+            if (ct.IsCancellationRequested)
+            {
+                break;
+            }
 
             try
             {
                 var info = new FileInfo(path);
                 if (!info.Exists) { failed++; continue; }
 
-                var size  = info.Length;
+                var size = info.Length;
                 var mtime = new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero);
 
                 var existing = await _cache.TryGetAsync(path, size, mtime, ct)
@@ -193,11 +199,11 @@ public sealed class InitialSweepService : IInitialSweepService
 
         var summary = new InitialSweepResult(
             FilesDiscovered: discovered,
-            FilesHashed:     hashed,
-            FilesFromCache:  cached,
-            FilesFailed:     failed,
-            BytesHashed:     bytes,
-            Elapsed:         sw.Elapsed);
+            FilesHashed: hashed,
+            FilesFromCache: cached,
+            FilesFailed: failed,
+            BytesHashed: bytes,
+            Elapsed: sw.Elapsed);
 
         _logger.LogInformation(
             "InitialSweep: completed in {Elapsed} — {Discovered} discovered, {Hashed} hashed, {Cached} cached, {Failed} failed ({Bytes:N0} bytes hashed)",

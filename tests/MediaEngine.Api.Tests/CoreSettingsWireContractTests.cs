@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MediaEngine.Api.Endpoints;
 using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Settings;
 using MediaEngine.Contracts.System;
@@ -65,13 +66,34 @@ public sealed class CoreSettingsWireContractTests
                 new LibraryFolderDto
                 {
                     Name = "Read",
+                    Category = "Books",
+                    Kind = "catalogued",
+                    Area = "read",
+                    Presentation = "catalogue",
+                    MetadataPolicy = "enriched",
                     MediaTypes = ["Books", "Comics"],
-                    SourcePaths = [@"D:\Library\Read"],
-                    LibraryRoot = @"D:\Library",
-                    IntakeMode = "watch",
-                    IncludeSubdirectories = false,
-                    ReadOnly = true,
-                    WritebackOverride = false,
+                    Sources =
+                    [
+                        new LibrarySourceDto
+                        {
+                            Id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                            Path = @"D:\Library\Read",
+                            Role = "primary_destination",
+                            ManagementMode = "managed_by_tuvima",
+                            IncludeSubdirectories = false,
+                            AccessMode = "writable",
+                            WritebackOverride = false,
+                            ParticipatesInOrganization = true,
+                        },
+                    ],
+                    PrimaryDestinationSourceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                    AcceptedIntakeModes = ["drag_and_drop"],
+                    DuplicatePolicy = "skip_exact",
+                    OrganizationPolicy = new LibraryOrganizationPolicyDto
+                    {
+                        Mode = "tuvima_standard",
+                        PreserveOriginals = true,
+                    },
                     Notes = "NAS mirror",
                 },
             ],
@@ -86,7 +108,76 @@ public sealed class CoreSettingsWireContractTests
 
         Assert.Contains("\"writeback_override\":false", libraryJson, StringComparison.Ordinal);
         Assert.Contains("\"include_subdirectories\":false", libraryJson, StringComparison.Ordinal);
+        Assert.Contains("\"primary_destination_source_id\":\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\"", libraryJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("source_paths", libraryJson, StringComparison.Ordinal);
         Assert.Contains("\"templates\":{\"books\":\"{Author}/{Series}/{Title}\"}", organizationJson, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LibrarySettingsMapper_PreservesSchemaThreeLibrariesAndIncomingSources()
+    {
+        var request = new UpdateLibrariesRequest
+        {
+            SchemaVersion = "3.0",
+            PersonalLibraryPolicy = new PersonalLibraryPolicyDto
+            {
+                AllowUserCreation = true,
+                AllowMobileBackup = false,
+                AllowConnectedDeviceImport = false,
+                DefaultVisibility = "private",
+            },
+            Libraries =
+            [
+                new LibraryFolderDto
+                {
+                    Id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                    Name = "Movies",
+                    Category = "Movies",
+                    Kind = "catalogued",
+                    Area = "watch",
+                    Presentation = "catalogue",
+                    MetadataPolicy = "enriched",
+                    MediaTypes = ["Movies"],
+                    Sources =
+                    [
+                        new LibrarySourceDto
+                        {
+                            Id = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                            Path = @"D:\Media\Movies",
+                            Role = "primary_destination",
+                            ManagementMode = "managed_by_tuvima",
+                            AccessMode = "writable",
+                            ParticipatesInOrganization = true,
+                        },
+                    ],
+                    PrimaryDestinationSourceId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+                    AcceptedIntakeModes = ["browser_upload"],
+                },
+            ],
+            IncomingSources =
+            [
+                new IncomingSourceDto
+                {
+                    Id = "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+                    Path = @"D:\Incoming",
+                    Purpose = "shared_intake",
+                    DefaultHandling = "route_automatically",
+                },
+            ],
+        };
+
+        var storage = SettingsContractMapper.ToStorage(request);
+        var contract = SettingsContractMapper.ToContract(storage);
+
+        Assert.Equal("3.0", storage.SchemaVersion);
+        Assert.Equal(@"D:\Media\Movies", storage.Libraries.Single().PrimaryDestination?.Path);
+        Assert.True(storage.Libraries.Single().PrimaryDestination?.AllowsFileMutation);
+        Assert.Equal(@"D:\Incoming", contract.IncomingSources.Single().Path);
+        Assert.False(storage.PersonalLibraryPolicy.AllowMobileBackup);
+        Assert.False(contract.PersonalLibraryPolicy.AllowConnectedDeviceImport);
+        Assert.Equal("private", contract.PersonalLibraryPolicy.DefaultVisibility);
+        Assert.Contains("personal_library_policy", JsonSerializer.Serialize(contract, JsonOptions), StringComparison.Ordinal);
+        Assert.DoesNotContain("source_paths", JsonSerializer.Serialize(contract, JsonOptions), StringComparison.Ordinal);
     }
 
     [Fact]

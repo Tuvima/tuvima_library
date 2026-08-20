@@ -3,19 +3,19 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.Extensions.Logging;
 using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
-using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Details;
+using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
-using MediaEngine.Domain.Models;
-using MediaEngine.Contracts.Settings;
 using MediaEngine.Contracts.Profiles;
+using MediaEngine.Contracts.Settings;
+using MediaEngine.Domain.Models;
 using MediaEngine.Web.Models.ViewDTOs;
 using MediaEngine.Web.Services.Branding;
 using MediaEngine.Web.Services.Integration.Clients;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace MediaEngine.Web.Services.Integration;
@@ -46,7 +46,11 @@ public sealed partial class EngineApiClient
         {
             var body = new CreateApiKeyRequest { Label = label };
             var resp = await _http.PostAsJsonAsync("/admin/api-keys", body, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await resp.Content.ReadFromJsonAsync<CreateApiKeyResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -79,7 +83,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.DeleteAsync("/admin/api-keys", ct);
-            if (!resp.IsSuccessStatusCode) return 0;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return 0;
+            }
+
             var raw = await resp.Content.ReadFromJsonAsync<RevokeAllKeysResponse>(ct);
             return raw?.RevokedCount ?? 0;
         }
@@ -133,7 +141,11 @@ public sealed partial class EngineApiClient
                 NavigationConfig = navigationConfig,
             };
             var resp = await _http.PostAsJsonAsync("/profiles", body, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
             return profile is null ? null : MapProfile(profile);
         }
@@ -201,7 +213,11 @@ public sealed partial class EngineApiClient
             content.Add(new StringContent(Math.Clamp(zoom, 1d, 3d).ToString(System.Globalization.CultureInfo.InvariantCulture)), "zoom");
 
             var resp = await _http.PostAsync($"/profiles/{id}/avatar", content, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
             return profile is null ? null : MapProfile(profile);
         }
@@ -218,7 +234,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.DeleteAsync($"/profiles/{id}/avatar", ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var profile = await resp.Content.ReadFromJsonAsync<ProfileResponseDto>(ct);
             return profile is null ? null : MapProfile(profile);
         }
@@ -266,7 +286,11 @@ public sealed partial class EngineApiClient
                 DisplayName = displayName,
             };
             var resp = await _http.PostAsJsonAsync($"/profiles/{profileId}/external-logins", body, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             var login = await resp.Content.ReadFromJsonAsync<ProfileExternalLoginDto>(ct);
             return login is null ? null : MapProfileExternalLogin(login);
         }
@@ -453,25 +477,11 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<FolderSettingsDto?> GetFolderSettingsAsync(CancellationToken ct = default)
+    public async Task<LibrariesConfigurationDto?> GetLibrariesAsync(CancellationToken ct = default)
     {
         try
         {
-            return await _http.GetFromJsonAsync<FolderSettingsDto>("/settings/folders", ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "GET /settings/folders failed");
-            LastError = ex.Message;
-            return null;
-        }
-    }
-
-    public async Task<List<LibraryFolderDto>?> GetLibrariesAsync(CancellationToken ct = default)
-    {
-        try
-        {
-            return await _http.GetFromJsonAsync<List<LibraryFolderDto>>("/settings/libraries", ct);
+            return await _http.GetFromJsonAsync<LibrariesConfigurationDto>("/settings/libraries", ct);
         }
         catch (Exception ex)
         {
@@ -481,14 +491,13 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<List<LibraryFolderDto>?> UpdateLibrariesAsync(
-        List<LibraryFolderDto> libraries,
+    public async Task<LibrariesConfigurationDto?> UpdateLibrariesAsync(
+        UpdateLibrariesRequest request,
         CancellationToken ct = default)
     {
         try
         {
-            var body = new { libraries };
-            var resp = await _http.PutAsJsonAsync("/settings/libraries", body, ct);
+            var resp = await _http.PutAsJsonAsync("/settings/libraries", request, ct);
 
             if (!resp.IsSuccessStatusCode)
             {
@@ -500,7 +509,7 @@ public sealed partial class EngineApiClient
                 return null;
             }
 
-            return await resp.Content.ReadFromJsonAsync<List<LibraryFolderDto>>(ct);
+            return await resp.Content.ReadFromJsonAsync<LibrariesConfigurationDto>(ct);
         }
         catch (Exception ex)
         {
@@ -510,39 +519,8 @@ public sealed partial class EngineApiClient
         }
     }
 
-    public async Task<bool> UpdateFolderSettingsAsync(
-        FolderSettingsDto settings,
-        CancellationToken ct = default)
-    {
-        try
-        {
-            var body = new
-            {
-                watch_directories = settings.GetEffectiveWatchDirectories(),
-            };
-            var resp = await _http.PutAsJsonAsync("/settings/folders", body, ct);
-
-            if (!resp.IsSuccessStatusCode)
-            {
-                var detail = await resp.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning(
-                    "PUT /settings/folders returned {Status}: {Detail}",
-                    (int)resp.StatusCode, detail);
-                LastError = $"HTTP {(int)resp.StatusCode}: {detail}";
-            }
-
-            return resp.IsSuccessStatusCode;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "PUT /settings/folders failed");
-            LastError = ex.Message;
-            return false;
-        }
-    }
-
     public async Task<PathTestResultDto?> TestPathAsync(
-        string            path,
+        string path,
         CancellationToken ct = default)
     {
         try
@@ -571,7 +549,7 @@ public sealed partial class EngineApiClient
     }
 
     public async Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(
-        string?           path,
+        string? path,
         CancellationToken ct = default)
     {
         try
@@ -610,8 +588,8 @@ public sealed partial class EngineApiClient
         => await _providerClient.GetProviderStatusAsync(ct);
 
     public async Task<bool> UpdateProviderAsync(
-        string            name,
-        bool              enabled,
+        string name,
+        bool enabled,
         CancellationToken ct = default)
         => await _providerClient.UpdateProviderAsync(name, enabled, ct);
 
@@ -795,7 +773,11 @@ public sealed partial class EngineApiClient
         try
         {
             var resp = await _http.PostAsJsonAsync("/activity/prune", new { }, ct);
-            if (!resp.IsSuccessStatusCode) return null;
+            if (!resp.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
             return await resp.Content.ReadFromJsonAsync<PruneResponse>(ct);
         }
         catch (OperationCanceledException) { return null; }
@@ -917,7 +899,9 @@ public sealed partial class EngineApiClient
                 foreach (var item in page.Items)
                 {
                     if (item.CoverUrl is not null)
+                    {
                         item.CoverUrl = AbsoluteUrl(item.CoverUrl);
+                    }
                 }
             }
 
@@ -962,7 +946,9 @@ public sealed partial class EngineApiClient
             if (page is not null)
             {
                 foreach (var person in page.Items)
+                {
                     NormalizeActivityPerson(person);
+                }
             }
 
             return page;
@@ -995,23 +981,31 @@ public sealed partial class EngineApiClient
         static void Add(List<string> values, string key, string? value)
         {
             if (!string.IsNullOrWhiteSpace(value))
+            {
                 values.Add($"{key}={Uri.EscapeDataString(value)}");
+            }
         }
     }
 
     private void NormalizeActivityDetail(ActivityBatchItemDetailDto? detail)
     {
         if (detail is null)
+        {
             return;
+        }
 
         foreach (var person in detail.People)
+        {
             NormalizeActivityPerson(person);
+        }
     }
 
     private void NormalizeActivityPerson(ActivityPersonAuditDto person)
     {
         if (!string.IsNullOrWhiteSpace(person.HeadshotUrl))
+        {
             person.HeadshotUrl = AbsoluteUrl(person.HeadshotUrl);
+        }
     }
 
     // -- Organization template ------------------------------------------------
@@ -1180,7 +1174,9 @@ public sealed partial class EngineApiClient
         {
             var resp = await _http.PostAsJsonAsync("/settings/media-types/add", newType, ct);
             if (resp.IsSuccessStatusCode)
+            {
                 return await resp.Content.ReadFromJsonAsync<MediaTypeConfigurationDto>(ct);
+            }
 
             var detail = await resp.Content.ReadAsStringAsync(ct);
             _logger.LogWarning("POST /settings/media-types/add returned {Status}: {Detail}",
@@ -1301,7 +1297,9 @@ public sealed partial class EngineApiClient
         {
             var url = $"/settings/ui/resolved?device={WebUtility.UrlEncode(deviceClass)}";
             if (!string.IsNullOrWhiteSpace(profileId))
+            {
                 url += $"&profile={WebUtility.UrlEncode(profileId)}";
+            }
 
             var settings = await _http.GetFromJsonAsync<ResolvedUISettingsDto>(url, ct);
             return settings is null ? null : ResolvedUISettingsViewModel.FromContract(settings);
@@ -1324,7 +1322,9 @@ public sealed partial class EngineApiClient
     {
         var path = $"/settings/ui/profile/{WebUtility.UrlEncode(profileId)}";
         if (!await PutAsync("PUT /settings/ui/profile/{profileId}", path, settings, ct: ct))
+        {
             return null;
+        }
 
         return await GetAsync<UIProfileSettingsDto>("GET /settings/ui/profile/{profileId}", path, ct: ct);
     }
@@ -1380,7 +1380,9 @@ public sealed partial class EngineApiClient
             using var request = new HttpRequestMessage(method, endpoint);
             using var response = await _http.SendAsync(request, ct);
             if (response.IsSuccessStatusCode)
+            {
                 return AiOperationResultDto.Success();
+            }
 
             var problem = await ReadAiProblemAsync(response, "AI model operation failed", ct);
             LastError = problem.ToUserMessage();
@@ -1419,8 +1421,10 @@ public sealed partial class EngineApiClient
                 },
                 ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return AiOperationResultDto<AiBenchmarkReportDto>.Failure(
                     await ReadAiProblemAsync(response, "AI validation failed", ct));
+            }
 
             var report = await response.Content.ReadFromJsonAsync<AiBenchmarkReportDto>(cancellationToken: ct);
             return report is null
@@ -1525,7 +1529,9 @@ public sealed partial class EngineApiClient
         {
             var response = await _http.PutAsJsonAsync("/ai/config", config, ct);
             if (response.IsSuccessStatusCode)
+            {
                 return true;
+            }
 
             LastError = await response.Content.ReadAsStringAsync(ct);
             return false;
@@ -1562,8 +1568,11 @@ public sealed partial class EngineApiClient
         {
             using var response = await _http.PostAsync("/ai/benchmark", null, ct);
             if (!response.IsSuccessStatusCode)
+            {
                 return AiOperationResultDto<HardwareProfileDto>.Failure(
                     await ReadAiProblemAsync(response, "Hardware benchmark failed", ct));
+            }
+
             var profile = await response.Content.ReadFromJsonAsync<HardwareProfileDto>(cancellationToken: ct);
             return profile is null
                 ? AiOperationResultDto<HardwareProfileDto>.Failure(ClientProblem("Invalid Engine response", "The hardware benchmark result was empty."))

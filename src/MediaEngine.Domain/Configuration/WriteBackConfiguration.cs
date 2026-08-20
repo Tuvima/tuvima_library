@@ -24,9 +24,12 @@ public sealed class WriteBackConfiguration
     [JsonPropertyName("write_on_universe_enrichment")]
     public bool WriteOnUniverseEnrichment { get; set; } = true;
 
-    /// <summary>Create a .bak backup of the file before modifying it.</summary>
+    /// <summary>
+    /// Create a .bak backup of the file before modifying it. Disabled by
+    /// default during the pre-beta destructive-cutover phase.
+    /// </summary>
     [JsonPropertyName("backup_before_write")]
-    public bool BackupBeforeWrite { get; set; } = true;
+    public bool BackupBeforeWrite { get; set; }
 
     /// <summary>
     /// Which fields to write: <c>"all"</c> for all canonical values,

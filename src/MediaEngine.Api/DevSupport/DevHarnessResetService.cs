@@ -1,6 +1,6 @@
+using MediaEngine.Api.Services;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Services;
-using MediaEngine.Api.Services;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
@@ -53,7 +53,9 @@ public sealed class DevHarnessResetService
     public static DevHarnessWipeScope ParseScope(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return DevHarnessWipeScope.GeneratedState;
+        }
 
         return value.Trim().ToLowerInvariant() switch
         {
@@ -81,9 +83,13 @@ public sealed class DevHarnessResetService
             WipeGeneratedLibraryState(details);
 
             if (scope == DevHarnessWipeScope.Full)
+            {
                 WipeAllSourcePaths(details);
+            }
             else
+            {
                 WipeKnownSeedFiles(details);
+            }
 
             EnsureConfiguredSourcePathsExist(details);
             await ResetDatabaseAsync(details, ct).ConfigureAwait(false);
@@ -94,9 +100,13 @@ public sealed class DevHarnessResetService
             ResumeEnrichmentPipeline(details);
 
             if (resumeWatcher)
+            {
                 await ResumeWatcherAsync(details, ct).ConfigureAwait(false);
+            }
             else
+            {
                 details.Add("Ingestion engine: FSW resume deferred");
+            }
         }
 
         return new DevHarnessResetResult(scope, details);
@@ -220,24 +230,32 @@ public sealed class DevHarnessResetService
         };
 
         foreach (var dir in generatedDirs)
+        {
             WipePathWithReport(details, "Generated cache", dir);
+        }
     }
 
     private void EnsureDestructivePathSafety(List<string> details)
     {
         string? libraryRoot = _options.Value.LibraryRoot;
         if (string.IsNullOrWhiteSpace(libraryRoot))
+        {
             return;
+        }
 
         var normalizedLibraryRoot = NormalizePathOrNull(libraryRoot);
         if (normalizedLibraryRoot is null)
+        {
             return;
+        }
 
         foreach (var sourcePath in EnumerateConfiguredSourcePaths())
         {
             var normalizedSource = NormalizePathOrNull(sourcePath);
             if (normalizedSource is null)
+            {
                 continue;
+            }
 
             if (PathsOverlap(normalizedLibraryRoot, normalizedSource))
             {
@@ -284,7 +302,9 @@ public sealed class DevHarnessResetService
         foreach (string srcPath in EnumerateConfiguredSourcePaths().Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (!Directory.Exists(srcPath))
+            {
                 continue;
+            }
 
             try
             {
@@ -336,7 +356,9 @@ public sealed class DevHarnessResetService
                 listCmd.CommandText = "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';";
                 using var reader = listCmd.ExecuteReader();
                 while (reader.Read())
+                {
                     tables.Add(reader.GetString(0));
+                }
             }
 
             foreach (string table in tables)
@@ -381,7 +403,9 @@ public sealed class DevHarnessResetService
     {
         string logsPath = Path.Combine(Directory.GetCurrentDirectory(), "logs");
         if (!Directory.Exists(logsPath))
+        {
             return;
+        }
 
         try
         {
@@ -418,7 +442,9 @@ public sealed class DevHarnessResetService
     private static int WipeDirectoryContents(string dirPath)
     {
         if (!Directory.Exists(dirPath))
+        {
             return 0;
+        }
 
         int count = 0;
         var dir = new DirectoryInfo(dirPath);
@@ -455,7 +481,9 @@ public sealed class DevHarnessResetService
     private static int WipeDirectoryContentsExcept(string dirPath, params string[] excludedChildNames)
     {
         if (!Directory.Exists(dirPath))
+        {
             return 0;
+        }
 
         var excluded = new HashSet<string>(excludedChildNames, StringComparer.OrdinalIgnoreCase);
         int count = 0;
@@ -478,7 +506,9 @@ public sealed class DevHarnessResetService
         foreach (DirectoryInfo sub in dir.GetDirectories())
         {
             if (excluded.Contains(sub.Name))
+            {
                 continue;
+            }
 
             try
             {
@@ -499,10 +529,11 @@ public sealed class DevHarnessResetService
         var libConfig = _configLoader.LoadLibraries();
         foreach (var lib in libConfig.Libraries)
         {
-            var paths = lib.SourcePaths.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
-
-            foreach (string path in paths)
-                yield return path;
+            foreach (var source in lib.Sources.Where(source =>
+                         source.IsManaged && !string.IsNullOrWhiteSpace(source.Path)))
+            {
+                yield return source.Path;
+            }
         }
     }
 

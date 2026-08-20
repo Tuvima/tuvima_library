@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services;
-using MediaEngine.Api.Services.Photos;
+using MediaEngine.Api.Services.Libraries;
+using MediaEngine.Api.Services.LocalAssets;
 using MediaEngine.Api.Services.Playback;
 using MediaEngine.Application.Services;
 using MediaEngine.Domain.Capabilities;
@@ -14,6 +15,7 @@ using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
 using MediaEngine.Storage.Playback;
 using MediaEngine.Storage.Services;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MediaEngine.Api.DependencyInjection;
 
@@ -21,10 +23,12 @@ public static class TuvimaStorageServiceCollectionExtensions
 {
     public static IServiceCollection AddTuvimaStorage(this IServiceCollection services)
     {
+        services.TryAddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>();
         services.AddSingleton<ITransactionJournal, TransactionJournal>();
         services.AddSingleton<IMediaAssetRepository, MediaAssetRepository>();
-        services.AddSingleton<PhotoLibraryRepository>();
-        services.AddSingleton<PhotoLibraryService>();
+        services.AddSingleton<ILocalAssetRepository, LocalAssetRepository>();
+        services.AddSingleton<ViewLibraryService>();
+        services.AddSingleton<LibraryReorganizationService>();
         services.AddSingleton<IFileHashCacheRepository, FileHashCacheRepository>();
         services.AddSingleton(_ => new TuvimaDataPaths(configuredPath: null));
         services.AddSingleton(sp =>

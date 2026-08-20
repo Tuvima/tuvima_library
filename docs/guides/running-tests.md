@@ -71,7 +71,7 @@ This runs all test projects under `tests/`. Each project maps to one source proj
 | Test project | Tests for |
 |---|---|
 | `MediaEngine.Domain.Tests` | Domain entities, enums, business rules |
-| `MediaEngine.Storage.Tests` | Repository queries, migration correctness |
+| `MediaEngine.Storage.Tests` | Repository queries, schema bootstrap, clean-cutover validation |
 | `MediaEngine.Intelligence.Tests` | Priority Cascade scoring logic |
 | `MediaEngine.Processors.Tests` | `IMediaProcessor` implementations, `MediaProcessorRouter` |
 | `MediaEngine.Providers.Tests` | Provider config parsing, field mapping logic |
@@ -107,7 +107,7 @@ These tests are intentionally about preventing regressions, not only checking on
 - `UiCompositionGuardrailTests` prevents removed all-in-one management workflows, outdated navigation labels, current Dashboard docs for removed workflows, and non-shared media editing paths from returning.
 - `ArchitectureBoundaryTests` keeps Domain independent, blocks Web-to-Storage implementation coupling in active UI, flags direct SQL in Razor, and tracks endpoint files that still use direct database access.
 - `DatabaseConnectionGuardrailTests` reserves `IDatabaseConnection.Open()` for startup/schema work and keeps silent catches limited to documented legacy locations.
-- `DatabaseStartupSafetyTests` initializes temporary SQLite databases from scratch, verifies idempotent startup, checks WAL/foreign-key/integrity settings, and exercises the first previous-schema compatibility fixture.
+- `DatabaseStartupSafetyTests` initializes temporary SQLite databases from scratch, verifies idempotent startup, checks WAL/foreign-key/integrity settings, and rejects retired schema state. Pre-beta databases are reset and reingested rather than migrated in place.
 - `DockerfileGuardrailTests` verifies Docker restore inputs and readiness-based container startup.
 
 Run a targeted guardrail pass with:
@@ -200,7 +200,7 @@ curl -X POST http://localhost:61495/dev/full-test
 
 Development-only harness for rebuilding a clean `guid-blob-v1` database from the configured media folders without deleting source media.
 
-The harness pauses file watching, validates destructive path safety, removes generated database/cache/artwork state, scans every configured `source_paths` value through ingestion, and leaves file watching paused until the Engine restarts or an explicit resume is requested.
+The harness pauses file watching, validates destructive path safety, removes generated database/cache/artwork state, scans configured managed sources through ingestion, and leaves file watching paused until the Engine restarts or an explicit resume is requested. Existing-library sources are excluded from destructive fixture cleanup.
 
 ```bash
 curl -X POST http://localhost:61495/dev/reingest-library

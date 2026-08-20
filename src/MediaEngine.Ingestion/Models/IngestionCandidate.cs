@@ -72,6 +72,9 @@ public sealed class IngestionCandidate
     /// </summary>
     public Guid? BatchId { get; init; }
 
+    /// <summary>Stable direct-intake routing and actor context.</summary>
+    public IntakeContext? Intake { get; set; }
+
     // -------------------------------------------------------------------------
     // Factory helpers
     // -------------------------------------------------------------------------
@@ -79,24 +82,26 @@ public sealed class IngestionCandidate
     /// <summary>Creates a successfully probed candidate from a <see cref="FileEvent"/>.</summary>
     internal static IngestionCandidate FromEvent(FileEvent evt) => new()
     {
-        Path        = evt.Path,
-        OldPath     = evt.OldPath,
-        EventType   = evt.EventType,
-        DetectedAt  = evt.OccurredAt,
-        ReadyAt     = DateTimeOffset.UtcNow,
-        BatchId     = evt.BatchId,
+        Path = evt.Path,
+        OldPath = evt.OldPath,
+        EventType = evt.EventType,
+        DetectedAt = evt.OccurredAt,
+        ReadyAt = DateTimeOffset.UtcNow,
+        BatchId = evt.BatchId,
+        Intake = evt.Intake,
     };
 
     /// <summary>Creates a failed candidate when the probe is exhausted.</summary>
     internal static IngestionCandidate Failed(FileEvent evt, string reason) => new()
     {
-        Path          = evt.Path,
-        OldPath       = evt.OldPath,
-        EventType     = evt.EventType,
-        DetectedAt    = evt.OccurredAt,
-        ReadyAt       = DateTimeOffset.UtcNow,
-        IsFailed      = true,
+        Path = evt.Path,
+        OldPath = evt.OldPath,
+        EventType = evt.EventType,
+        DetectedAt = evt.OccurredAt,
+        ReadyAt = DateTimeOffset.UtcNow,
+        IsFailed = true,
         FailureReason = reason,
-        BatchId       = evt.BatchId,
+        BatchId = evt.BatchId,
+        Intake = evt.Intake,
     };
 }

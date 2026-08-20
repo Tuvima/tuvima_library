@@ -1,6 +1,6 @@
-using Microsoft.Extensions.Options;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
+using Microsoft.Extensions.Options;
 
 namespace MediaEngine.Ingestion.Services;
 
@@ -27,64 +27,68 @@ public sealed class LibraryFolderResolver : ILibraryFolderResolver
     }
 
     /// <inheritdoc/>
-    public LibraryFolderEntry? ResolveForPath(string absolutePath)
+    public LibraryFolderEntry? ResolveById(string libraryId)
     {
-        if (string.IsNullOrWhiteSpace(absolutePath)) return null;
+        if (string.IsNullOrWhiteSpace(libraryId))
+        {
+            return null;
+        }
+
+        return _options.CurrentValue.LibraryFolders.FirstOrDefault(entry =>
+            string.Equals(entry.Id, libraryId.Trim(), StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <inheritdoc/>
+    public LibraryFolderEntry? ResolveForPath(string absolutePath)
+        => ResolveSourceForPath(absolutePath)?.Library;
+
+    /// <inheritdoc/>
+    public ResolvedLibrarySource? ResolveSourceForPath(string absolutePath)
+    {
+        if (string.IsNullOrWhiteSpace(absolutePath))
+        {
+            return null;
+        }
 
         string normalized = NormalizePath(absolutePath);
 
         LibraryFolderEntry? bestEntry = null;
+        LibrarySourceEntry? bestSource = null;
         int bestLength = -1;
 
         foreach (var entry in _options.CurrentValue.LibraryFolders)
         {
-            foreach (var sourcePath in entry.EffectiveSourcePaths)
+            foreach (var source in entry.Sources)
             {
-                if (string.IsNullOrWhiteSpace(sourcePath)) continue;
+                var sourcePath = source.Path;
+                if (string.IsNullOrWhiteSpace(sourcePath))
+                {
+                    continue;
+                }
 
                 string candidate = NormalizePath(sourcePath);
-                if (!IsUnderPrefix(normalized, candidate)) continue;
+                if (!IsUnderPrefix(normalized, candidate))
+                {
+                    continue;
+                }
 
                 if (candidate.Length > bestLength)
                 {
-                    bestEntry  = entry;
+                    bestEntry = entry;
+                    bestSource = source;
                     bestLength = candidate.Length;
                 }
             }
         }
 
-        return bestEntry;
+        return bestEntry is null || bestSource is null
+            ? null
+            : new ResolvedLibrarySource(bestEntry, bestSource);
     }
 
     /// <inheritdoc/>
     public string? ResolveSourcePath(string absolutePath)
-    {
-        if (string.IsNullOrWhiteSpace(absolutePath)) return null;
-
-        string normalized = NormalizePath(absolutePath);
-
-        string? bestSource = null;
-        int bestLength = -1;
-
-        foreach (var entry in _options.CurrentValue.LibraryFolders)
-        {
-            foreach (var sourcePath in entry.EffectiveSourcePaths)
-            {
-                if (string.IsNullOrWhiteSpace(sourcePath)) continue;
-
-                string candidate = NormalizePath(sourcePath);
-                if (!IsUnderPrefix(normalized, candidate)) continue;
-
-                if (candidate.Length > bestLength)
-                {
-                    bestSource = sourcePath;
-                    bestLength = candidate.Length;
-                }
-            }
-        }
-
-        return bestSource;
-    }
+        => ResolveSourceForPath(absolutePath)?.Source.Path;
 
     /// <summary>
     /// Validates that no two configured source paths overlap. Two paths overlap
@@ -102,7 +106,11 @@ public sealed class LibraryFolderResolver : ILibraryFolderResolver
         {
             foreach (var sourcePath in libraries[i].EffectiveSourcePaths)
             {
-                if (string.IsNullOrWhiteSpace(sourcePath)) continue;
+                if (string.IsNullOrWhiteSpace(sourcePath))
+                {
+                    continue;
+                }
+
                 flat.Add((i, NormalizePath(sourcePath), sourcePath));
             }
         }
@@ -111,7 +119,10 @@ public sealed class LibraryFolderResolver : ILibraryFolderResolver
         {
             for (int j = i + 1; j < flat.Count; j++)
             {
-                if (flat[i].LibraryIndex == flat[j].LibraryIndex) continue;
+                if (flat[i].LibraryIndex == flat[j].LibraryIndex)
+                {
+                    continue;
+                }
 
                 if (IsUnderPrefix(flat[i].Normalized, flat[j].Normalized) ||
                     IsUnderPrefix(flat[j].Normalized, flat[i].Normalized))
@@ -140,11 +151,21 @@ public sealed class LibraryFolderResolver : ILibraryFolderResolver
 
     private static bool IsUnderPrefix(string normalizedChild, string normalizedPrefix)
     {
-        if (normalizedChild.Length < normalizedPrefix.Length) return false;
-        if (!normalizedChild.StartsWith(normalizedPrefix, StringComparison.Ordinal)) return false;
+        if (normalizedChild.Length < normalizedPrefix.Length)
+        {
+            return false;
+        }
+
+        if (!normalizedChild.StartsWith(normalizedPrefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
 
         // Exact match counts as "under".
-        if (normalizedChild.Length == normalizedPrefix.Length) return true;
+        if (normalizedChild.Length == normalizedPrefix.Length)
+        {
+            return true;
+        }
 
         // Otherwise the next character must be a separator so we don't
         // false-match "/Movies" against "/Movies2".

@@ -128,6 +128,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
     private readonly WriteBackStageDependencies _writeBackStageDependencies;
     private readonly IdentityJobStageDependencies _identityStageDependencies;
     private readonly ILibraryFolderResolver? _libraryFolderResolver;
+    private readonly ISourceMutationPolicyGate? _sourceMutationPolicyGate;
     private readonly IReadOnlyList<IIngestionStage> _ingestionStages;
 
     // Centralized concurrency guard (Principle 5: formalized lock hierarchy).
@@ -189,7 +190,8 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         IdentityJobStageDependencies identityStageDependencies,
         IMediaOperationTracker? operationTracker = null,
         IMediaOperationRepository? operationRepository = null,
-        ILibraryFolderResolver? libraryFolderResolver = null)
+        ILibraryFolderResolver? libraryFolderResolver = null,
+        ISourceMutationPolicyGate? sourceMutationPolicyGate = null)
     {
         _watcher = watcher;
         _debounce = debounce;
@@ -229,6 +231,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         _writeBackStageDependencies = writeBackStageDependencies;
         _identityStageDependencies = identityStageDependencies;
         _libraryFolderResolver = libraryFolderResolver;
+        _sourceMutationPolicyGate = sourceMutationPolicyGate;
         _ingestionStages =
         [
             new DelegateIngestionStage("settle/detect", RunSettleAndDetectStageAsync),
@@ -250,7 +253,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         _executeCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken, _shutdownCts.Token);
         var lifetimeToken = _executeCts.Token;
 
-        // Always wire the event handler so hot-swap from PUT /settings/folders
+        // Always wire the event handler so a schema-3 library configuration refresh
         // works even if no directory was configured at startup.
         _watcher.FileDetected += OnFileDetected;
         _watcher.WatcherError += OnWatcherError;
@@ -311,7 +314,7 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
         }
 
         // Mark the watcher as "running" so that a later UpdateDirectory() call
-        // (from PUT /settings/folders) immediately activates the new watcher.
+        // immediately activates the new watcher.
         // Safe to call with zero directories — Start() is a no-op on an empty list.
         _watcher.Start();
 
@@ -407,10 +410,12 @@ public sealed partial class IngestionEngine : BackgroundService, IIngestionEngin
 
     private IReadOnlyList<IngestionScanTarget> GetConfiguredScanTargets() =>
         _options.LibraryFolders
-            .Where(library => string.Equals(library.IntakeMode, "watch", StringComparison.OrdinalIgnoreCase)
-                && !string.Equals(library.Kind, LibraryKinds.Photos, StringComparison.OrdinalIgnoreCase))
-            .SelectMany(library => library.EffectiveSourcePaths.Select(path =>
-                new IngestionScanTarget(path, library.IncludeSubdirectories)))
+            .Where(library => string.Equals(library.Kind, LibraryKinds.Catalogued, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(library => library.Sources.Select(source =>
+                new IngestionScanTarget(source.Path, source.IncludeSubdirectories)))
+            .Concat(_options.IncomingSources.Select(source =>
+                new IngestionScanTarget(source.Path, source.IncludeSubdirectories)))
+            .Where(target => !string.IsNullOrWhiteSpace(target.Path))
             .GroupBy(target => target.Path, StringComparer.OrdinalIgnoreCase)
             .Select(group => new IngestionScanTarget(
                 group.Key,

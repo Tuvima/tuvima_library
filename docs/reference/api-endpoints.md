@@ -63,6 +63,40 @@ compatibility versions.
 |---|---|---|---|
 | GET | `/library/works` | All works with their canonical values | Required |
 
+## Media Management
+
+Library configuration uses schema `3.0`. Older flat-folder and Photos/General
+schemas are rejected during the pre-beta cutover rather than migrated or served
+through compatibility routes.
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/settings/libraries` | Return the complete library configuration, including stable sources and universal incoming sources | Administrator |
+| PUT | `/settings/libraries` | Validate and replace the complete schema-3 library configuration | Administrator |
+| GET | `/settings/incoming-sources` | Return universal unassigned intake folders | Administrator |
+| PUT | `/settings/incoming-sources` | Validate and replace universal incoming folders | Administrator |
+| POST | `/settings/libraries/{libraryId}/reorganization/plan` | Produce a read-only, expiring move/rename plan with stable source IDs, conflicts, blocked work, and an exact confirmation fingerprint | Administrator |
+| POST | `/settings/libraries/{libraryId}/reorganization/execute` | Execute one confirmed plan once, revalidating source policy, files, collisions, and free space immediately before each operation | Administrator |
+
+Reorganization execution requires both the returned `plan_id` and its exact
+`fingerprint`. A plan expires after 15 minutes and cannot be reused. Partial
+outcomes are reported per item; an existing-library source is always blocked
+from mutation.
+
+## View
+
+Personal View routes require an active `profileId` and apply the configured owner, visibility, authorized-profile, and administrator policy before returning local content.
+
+| Method | Path | Description | Auth |
+|---|---|---|---|
+| GET | `/view/libraries` | List personal View libraries readable by the active profile | Required |
+| GET | `/view/{libraryId}` | Search and page mixed local assets by kind, favorite, hidden, or collection | Required + library read |
+| POST | `/view/{libraryId}/scan` | Index configured sources in place using local metadata only | Administrator + library manage |
+| PUT | `/view/{libraryId}/items/{id}/favorite` | Set a profile-visible item flag | Required + library contribute |
+| PUT | `/view/{libraryId}/items/{id}/hidden` | Hide or restore a local item | Required + library contribute |
+| GET | `/view/{libraryId}/items/{id}/content` | Stream the owned/referenced original with range support | Required + library read |
+| GET | `/view/{libraryId}/items/{id}/thumbnail` | Return a bounded local image derivative when supported | Required + library read |
+
 ## Works
 
 | Method | Path | Description | Auth |
@@ -143,6 +177,7 @@ compatibility versions.
 |---|---|---|---|
 | POST | `/ingestion/scan` | Dry-run scan of configured library folders. Reports what would be ingested without making changes. | Administrator |
 | POST | `/ingestion/library-scan` | Scan library folders and update known file paths. Triggers ingestion for new files. | Administrator |
+| POST | `/ingestion/upload` | Upload a file to the explicit managed, writable primary destination identified by multipart `destinationLibraryId`; catalogued files retain stable intake IDs, while personal files are indexed directly into View without catalogue/provider work | Administrator |
 | GET | `/ingestion/operations` | Dashboard snapshot backed by durable ingestion operation counts, numbered `stage_progress` rows, current activity, review state, provider health, and recent batch summaries. | Curator |
 | GET | `/ingestion/batches` | Recent ingestion batches. | Curator |
 | GET | `/ingestion/batches/{batchId}` | Single ingestion batch summary. | Curator |
@@ -309,8 +344,6 @@ presentation types must not narrow that payload.
 
 | Method | Path | Description | Auth |
 |---|---|---|---|
-| GET | `/settings/folders` | List configured library folder paths | Required |
-| PUT | `/settings/folders` | Update library folder configuration | Administrator |
 | POST | `/settings/test-path` | Test whether a filesystem path is accessible by the Engine | Administrator |
 | GET | `/settings/providers` | Provider configuration status - enabled state, last health check, rate limit info | Required |
 | GET | `/settings/server-general` | Core server settings (name, language preferences, country) | Required |

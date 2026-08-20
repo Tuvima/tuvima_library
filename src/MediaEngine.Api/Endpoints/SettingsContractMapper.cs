@@ -68,6 +68,32 @@ internal static class SettingsContractMapper
     internal static ResolvedUISettingsDto ToContract(ResolvedUISettings value) =>
         Convert<ResolvedUISettingsDto>(value);
 
+    internal static LibrariesConfigurationDto ToContract(LibrariesConfiguration value) =>
+        Convert<LibrariesConfigurationDto>(value);
+
+    internal static LibrariesConfiguration ToStorage(UpdateLibrariesRequest value)
+    {
+        var result = Convert<LibrariesConfiguration>(value);
+        result.Libraries ??= [];
+        result.IncomingSources ??= [];
+        result.PersonalLibraryPolicy ??= new PersonalLibraryPolicyConfig();
+        foreach (var library in result.Libraries)
+        {
+            library.MediaTypes ??= [];
+            library.Sources ??= [];
+            library.AuthorizedProfileIds ??= [];
+            library.AcceptedIntakeModes ??= [];
+        }
+
+        return result;
+    }
+
+    internal static IncomingSourceDto ToContract(IncomingSourceConfig value) =>
+        Convert<IncomingSourceDto>(value);
+
+    internal static IncomingSourceConfig ToStorage(IncomingSourceDto value) =>
+        Convert<IncomingSourceConfig>(value);
+
     private static TTarget Convert<TTarget>(object source) =>
         JsonSerializer.Deserialize<TTarget>(
             JsonSerializer.Serialize(source, JsonOptions),

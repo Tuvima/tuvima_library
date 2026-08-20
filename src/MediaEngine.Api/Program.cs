@@ -9,6 +9,7 @@ using MediaEngine.Api.Services;
 using MediaEngine.Api.Services.HealthChecks;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Contracts;
+using MediaEngine.Domain.Services;
 using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Configuration;
@@ -252,6 +253,7 @@ builder.Services.AddSingleton<IConfigurationLoader>(configLoader);
 // -- Composition roots ---------------------------------------------------------
 builder.Services.AddSingleton<ApiKeyService>();
 builder.Services.AddSingleton<IApiKeyLookupCache, ApiKeyLookupCache>();
+builder.Services.AddSingleton<ILibraryAccessEvaluator, LibraryAccessEvaluator>();
 builder.Services.AddTuvimaStorage();
 builder.Services.AddTuvimaPlayback();
 builder.Services.AddMediaEngineIngestion(config, configLoader);

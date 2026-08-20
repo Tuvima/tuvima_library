@@ -16,7 +16,7 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapCollectionEndpoints();
         app.MapLibraryEndpoints();
         app.MapStreamEndpoints();
-        app.MapPhotoEndpoints();
+        app.MapViewEndpoints();
         app.MapPlaybackEndpoints();
         app.MapPlayerEndpoints();
         app.MapPlaybackSegmentEndpoints();
@@ -29,6 +29,7 @@ public static class ApiEndpointRouteBuilderExtensions
         app.MapMetadataEndpoints();
         app.MapReviewEndpoints();
         app.MapSettingsEndpoints();
+        app.MapLibraryReorganizationEndpoints();
         app.MapProviderCatalogueEndpoints();
         app.MapUISettingsEndpoints();
         app.MapProfileEndpoints();

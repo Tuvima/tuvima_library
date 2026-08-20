@@ -40,21 +40,6 @@ public sealed record ServerGeneralSettingsDto(
     [property: JsonPropertyName("date_format")] string DateFormat = "system",
     [property: JsonPropertyName("time_format")] string TimeFormat = "system");
 
-public sealed class FolderSettingsDto
-{
-    public FolderSettingsDto()
-    {
-    }
-
-    public FolderSettingsDto(List<string>? WatchDirectories)
-    {
-        this.WatchDirectories = WatchDirectories ?? [];
-    }
-
-    [JsonPropertyName("watch_directories")]
-    public List<string> WatchDirectories { get; set; } = [];
-}
-
 public sealed class LibraryFolderDto
 {
     [JsonPropertyName("id")]
@@ -63,8 +48,17 @@ public sealed class LibraryFolderDto
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
 
+    [JsonPropertyName("category")]
+    public string? Category { get; set; }
+
     [JsonPropertyName("kind")]
     public string Kind { get; set; } = "catalogued";
+
+    [JsonPropertyName("area")]
+    public string Area { get; set; } = "read";
+
+    [JsonPropertyName("presentation")]
+    public string Presentation { get; set; } = "catalogue";
 
     [JsonPropertyName("metadata_policy")]
     public string MetadataPolicy { get; set; } = "enriched";
@@ -72,32 +66,173 @@ public sealed class LibraryFolderDto
     [JsonPropertyName("media_types")]
     public List<string> MediaTypes { get; set; } = [];
 
-    [JsonPropertyName("source_paths")]
-    public List<string> SourcePaths { get; set; } = [];
+    [JsonPropertyName("sources")]
+    public List<LibrarySourceDto> Sources { get; set; } = [];
 
-    [JsonPropertyName("library_root")]
-    public string? LibraryRoot { get; set; }
+    [JsonPropertyName("primary_destination_source_id")]
+    public string? PrimaryDestinationSourceId { get; set; }
 
-    [JsonPropertyName("intake_mode")]
-    public string IntakeMode { get; set; } = "watch";
+    [JsonPropertyName("owner_profile_id")]
+    public string? OwnerProfileId { get; set; }
 
-    [JsonPropertyName("include_subdirectories")]
-    public bool IncludeSubdirectories { get; set; } = true;
+    [JsonPropertyName("visibility")]
+    public string Visibility { get; set; } = "household";
 
-    [JsonPropertyName("read_only")]
-    public bool ReadOnly { get; set; }
+    [JsonPropertyName("authorized_profile_ids")]
+    public List<string> AuthorizedProfileIds { get; set; } = [];
 
-    [JsonPropertyName("writeback_override")]
-    public bool? WritebackOverride { get; set; }
+    [JsonPropertyName("accepted_intake_modes")]
+    public List<string> AcceptedIntakeModes { get; set; } = [];
+
+    [JsonPropertyName("duplicate_policy")]
+    public string DuplicatePolicy { get; set; } = "skip_exact";
+
+    [JsonPropertyName("organization_policy")]
+    public LibraryOrganizationPolicyDto OrganizationPolicy { get; set; } = new();
 
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 }
 
+public sealed class LibrarySourceDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("role")]
+    public string Role { get; set; } = "secondary";
+
+    [JsonPropertyName("management_mode")]
+    public string ManagementMode { get; set; } = "existing_library";
+
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = "local_folder";
+
+    [JsonPropertyName("include_subdirectories")]
+    public bool IncludeSubdirectories { get; set; } = true;
+
+    [JsonPropertyName("access_mode")]
+    public string AccessMode { get; set; } = "read_only";
+
+    [JsonPropertyName("writeback_override")]
+    public bool? WritebackOverride { get; set; }
+
+    [JsonPropertyName("participates_in_organization")]
+    public bool ParticipatesInOrganization { get; set; }
+
+    [JsonPropertyName("intake_role")]
+    public string IntakeRole { get; set; } = "none";
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+
+    [JsonPropertyName("device_id")]
+    public string? DeviceId { get; set; }
+
+    [JsonPropertyName("profile_id")]
+    public string? ProfileId { get; set; }
+}
+
+public sealed class LibraryOrganizationPolicyDto
+{
+    [JsonPropertyName("mode")]
+    public string Mode { get; set; } = "tuvima_standard";
+
+    [JsonPropertyName("custom_template")]
+    public string? CustomTemplate { get; set; }
+
+    [JsonPropertyName("preserve_originals")]
+    public bool PreserveOriginals { get; set; } = true;
+}
+
 public sealed class UpdateLibrariesRequest
 {
+    [JsonPropertyName("schema_version")]
+    public string SchemaVersion { get; init; } = "3.0";
+
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
+
+    [JsonPropertyName("incoming_sources")]
+    public List<IncomingSourceDto> IncomingSources { get; init; } = [];
+
+    [JsonPropertyName("personal_library_policy")]
+    public PersonalLibraryPolicyDto PersonalLibraryPolicy { get; init; } = new();
+}
+
+public sealed class LibrariesConfigurationDto
+{
+    [JsonPropertyName("schema_version")]
+    public string SchemaVersion { get; init; } = "3.0";
+
+    [JsonPropertyName("libraries")]
+    public List<LibraryFolderDto> Libraries { get; init; } = [];
+
+    [JsonPropertyName("incoming_sources")]
+    public List<IncomingSourceDto> IncomingSources { get; init; } = [];
+
+    [JsonPropertyName("personal_library_policy")]
+    public PersonalLibraryPolicyDto PersonalLibraryPolicy { get; init; } = new();
+}
+
+public sealed class PersonalLibraryPolicyDto
+{
+    [JsonPropertyName("allow_user_creation")]
+    public bool AllowUserCreation { get; set; } = true;
+
+    [JsonPropertyName("allow_mobile_backup")]
+    public bool AllowMobileBackup { get; set; } = true;
+
+    [JsonPropertyName("allow_browser_upload")]
+    public bool AllowBrowserUpload { get; set; } = true;
+
+    [JsonPropertyName("allow_drag_and_drop")]
+    public bool AllowDragAndDrop { get; set; } = true;
+
+    [JsonPropertyName("allow_connected_device_import")]
+    public bool AllowConnectedDeviceImport { get; set; } = true;
+
+    [JsonPropertyName("allow_managed_storage")]
+    public bool AllowManagedStorage { get; set; } = true;
+
+    [JsonPropertyName("allow_existing_folder_attachment")]
+    public bool AllowExistingFolderAttachment { get; set; } = true;
+
+    [JsonPropertyName("default_visibility")]
+    public string DefaultVisibility { get; set; } = "private";
+}
+
+public sealed class IncomingSourceDto
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("purpose")]
+    public string Purpose { get; set; } = "shared_intake";
+
+    [JsonPropertyName("default_handling")]
+    public string DefaultHandling { get; set; } = "route_automatically";
+
+    [JsonPropertyName("include_subdirectories")]
+    public bool IncludeSubdirectories { get; set; } = true;
+
+    [JsonPropertyName("source_type")]
+    public string SourceType { get; set; } = "local_folder";
+
+    [JsonPropertyName("notes")]
+    public string? Notes { get; set; }
+}
+
+public sealed class UpdateIncomingSourcesRequest
+{
+    [JsonPropertyName("incoming_sources")]
+    public List<IncomingSourceDto> IncomingSources { get; init; } = [];
 }
 
 public sealed class TestPathRequest

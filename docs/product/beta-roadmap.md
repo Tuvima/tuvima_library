@@ -20,7 +20,7 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 
 - Restore from public package sources without a developer-specific local feed.
 - Seed container configuration only when the mounted configuration folder is empty.
-- Use portable container paths for catalogue, personal, and photo libraries.
+- Use portable container paths for catalogued and personal View libraries.
 - Preserve user configuration during Windows upgrades.
 
 **Rationale:** every later feature is irrelevant if a clean machine cannot install, start, and retain its settings predictably.
@@ -28,7 +28,7 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 ### 2. First-class library policy — implemented
 
 - Give every library a stable ID, kind, source paths, intake mode, and metadata policy.
-- Keep `catalogued`, `personal`, and `photos` as explicit library kinds.
+- Keep exactly `catalogued` and `personal` as library kinds; represent photos and other private local files as personal libraries in View.
 - Support enriched, local-preferred, local-only, and manual metadata policies.
 - Bypass retail, provider, Wikidata, and review-queue work for local-only and manual libraries.
 - Keep photo assets outside the work/edition/canonical-claim graph.
@@ -62,7 +62,7 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 - Default personal/home-video libraries to local-only behavior.
 - Make source path, recursion, read-only behavior, and matching policy visible.
 
-### 2. Photo Library MVP — implemented
+### 2. Personal View Library MVP — implemented
 
 - Index configured photo folders in place without provider matching or file moves.
 - Deduplicate content by hash while retaining every source path.
@@ -80,7 +80,9 @@ This roadmap orders work by dependency and risk, not by visual novelty. A beta m
 - Docker configuration/build and documentation build.
 - Representative 1920×1080 screenshots for every changed Dashboard surface, including typography, focus, overflow, empty, and overlay states.
 
-**Rationale:** this is the minimum useful and supportable photo experience. It deliberately favors deterministic local indexing over computationally expensive intelligence.
+**Rationale:** this is the minimum useful and supportable personal-local-media
+experience. It deliberately favors deterministic local indexing over
+computationally expensive intelligence.
 
 ## P2 — Beta Polish After Real-Library Feedback
 
@@ -128,7 +130,7 @@ Implement these during beta only when telemetry, issue reports, or real collecti
 - Mobile upload/sync, conflict handling, and resumable transfers.
 - Optional video transcodes and motion-photo pairing for photo-library video assets.
 
-**Rationale:** Google Photos/Immich-style intelligence is a separate privacy, model-quality, compute, and security program. It should build on the isolated photo asset model, not be embedded into catalogue ingestion or block beta safety.
+**Rationale:** Google Photos/Immich-style intelligence is a separate privacy, model-quality, compute, and security program. It should build on View's isolated local-asset model, not be embedded into catalogue ingestion or block beta safety.
 
 ## Release Decision
 

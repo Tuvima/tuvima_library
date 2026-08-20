@@ -7,11 +7,11 @@ using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.Models;
-using MediaEngine.Ingestion.Services;
 using MediaEngine.Providers;
 using MediaEngine.Providers.Contracts;
 using MediaEngine.Providers.Models;
 using MediaEngine.Providers.Services;
+using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
 using AuthSettingsDto = MediaEngine.Contracts.Settings.AuthSettingsDto;
 using BrowseDirectoryRequest = MediaEngine.Contracts.Settings.BrowseDirectoryRequest;
@@ -19,9 +19,9 @@ using BrowseDirectoryResponse = MediaEngine.Contracts.Settings.BrowseDirectoryRe
 using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
 using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
 using FieldMappingResponse = MediaEngine.Contracts.Settings.FieldMappingDto;
-using FolderSettingsResponse = MediaEngine.Contracts.Settings.FolderSettingsDto;
 using HydrationSettingsDto = MediaEngine.Contracts.Settings.HydrationSettingsDto;
-using LibraryFolderSettingsDto = MediaEngine.Contracts.Settings.LibraryFolderDto;
+using IncomingSourceSettingsDto = MediaEngine.Contracts.Settings.IncomingSourceDto;
+using LibrariesConfigurationSettingsDto = MediaEngine.Contracts.Settings.LibrariesConfigurationDto;
 using MediaTypeConfigurationDto = MediaEngine.Contracts.Settings.MediaTypeConfigurationDto;
 using MediaTypeDefinitionDto = MediaEngine.Contracts.Settings.MediaTypeDefinitionDto;
 using OrganizationTemplateResponse = MediaEngine.Contracts.Settings.OrganizationTemplateDto;
@@ -46,7 +46,7 @@ using SettingsCatalogEntryResponse = MediaEngine.Contracts.Settings.SettingsCata
 using SettingsSavedResponse = MediaEngine.Contracts.Settings.SettingsSavedResponse;
 using TestPathRequest = MediaEngine.Contracts.Settings.TestPathRequest;
 using TestPathResponse = MediaEngine.Contracts.Settings.PathTestResultDto;
-using UpdateFoldersRequest = MediaEngine.Contracts.Settings.FolderSettingsDto;
+using UpdateIncomingSourcesRequest = MediaEngine.Contracts.Settings.UpdateIncomingSourcesRequest;
 using UpdateLibrariesRequest = MediaEngine.Contracts.Settings.UpdateLibrariesRequest;
 using UpdateOrganizationTemplateRequest = MediaEngine.Contracts.Settings.UpdateOrganizationTemplateRequest;
 using UpdateProviderRequest = MediaEngine.Contracts.Settings.UpdateProviderRequest;
@@ -54,17 +54,17 @@ using UpdateProviderRequest = MediaEngine.Contracts.Settings.UpdateProviderReque
 namespace MediaEngine.Api.Endpoints;
 
 /// <summary>
-/// Settings endpoints for folder configuration, path testing, and provider status.
+/// Settings endpoints for library/source configuration, path testing, and provider status.
 /// All routes are grouped under <c>/settings</c>.
 ///
 /// Access:
-///   Folders, test-path, organization-template — Administrator only.
+///   Libraries, incoming sources, test-path, organization-template — Administrator only.
 ///   Providers (read) — Administrator or Curator.
 ///   Providers (write) — Administrator only.
 ///
 /// <list type="bullet">
-///   <item><c>GET    /settings/folders</c>   — current import folders</item>
-///   <item><c>PUT    /settings/folders</c>   — save import folders + hot-swap FileSystemWatcher</item>
+///   <item><c>GET/PUT /settings/libraries</c> — complete schema 3 library configuration</item>
+///   <item><c>GET/PUT /settings/incoming-sources</c> — shared universal-intake folders</item>
 ///   <item><c>POST   /settings/test-path</c> — probe a path for existence / read / write access</item>
 ///   <item><c>GET    /settings/providers</c> — enabled state + async reachability for each provider</item>
 /// </list>
@@ -162,209 +162,75 @@ public static class SettingsEndpoints
         .Produces<ContractTranscodingSettings>(StatusCodes.Status200OK)
         .RequireAdmin();
 
-        // ── GET /settings/folders ──────────────────────────────────────────────
-
-        grp.MapGet("/folders", (IConfigurationLoader configLoader) =>
-        {
-            var core = configLoader.LoadCore();
-            return Results.Ok(new FolderSettingsResponse
-            {
-                WatchDirectories = [.. core.EffectiveWatchDirectories],
-            });
-        })
-        .WithName("GetFolderSettings")
-        .WithSummary("Returns the currently configured import folder paths.")
-        .Produces<FolderSettingsResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        // ── PUT /settings/folders ──────────────────────────────────────────────
-
-        grp.MapPut("/folders", (
-            UpdateFoldersRequest request,
-            IConfigurationLoader configLoader,
-            ILoggerFactory loggerFactory) =>
-        {
-            var logger = loggerFactory.CreateLogger("MediaEngine.Api.Endpoints.SettingsEndpoints");
-
-            var requestedWatchDirectories = request.WatchDirectories is not null
-                ? CleanPaths(request.WatchDirectories)
-                : null;
-
-            // Path traversal validation.
-            if (requestedWatchDirectories is not null)
-            {
-                foreach (var watchDirectory in requestedWatchDirectories)
-                {
-                    var err = PathValidator.Validate(watchDirectory);
-                    if (err is not null)
-                    {
-                        return ApiErrors.BadRequest(err);
-                    }
-                }
-            }
-            var core = configLoader.LoadCore();
-            var libraries = configLoader.LoadLibraries();
-
-            if (requestedWatchDirectories is not null)
-            {
-                var overlapError = FindPathOverlapError(
-                    "Import folder",
-                    requestedWatchDirectories,
-                    "library folder",
-                    libraries.Libraries.SelectMany(EffectiveSourcePaths));
-                if (overlapError is not null)
-                {
-                    return ApiErrors.BadRequest(overlapError);
-                }
-            }
-
-            if (requestedWatchDirectories is not null)
-            {
-                core.WatchDirectories = requestedWatchDirectories;
-            }
-
-            configLoader.SaveCore(core);
-
-            // API process — the config save is the durable side-effect that matters.
-            // Compatibility only: watcher state now comes from config/libraries.json.
-            logger.LogInformation(
-                "Saved compatibility import folder paths. Runtime ingestion watchers are loaded from config/libraries.json.");
-
-            return Results.Ok();
-        })
-        .WithName("UpdateFolderSettings")
-        .WithSummary("Saves compatibility import folder paths. Runtime ingestion watchers come from config/libraries.json.")
-        .Produces(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        // ── GET /settings/libraries ─────────────────────────────────────────────
-        // Returns the current per-library config from config/libraries.json so
-        // the Dashboard can display source paths, ReadOnly, and WritebackOverride.
-        // Spec: side-by-side-with-Plex plan §I / Slice 7.
-
+        // ── GET/PUT /settings/libraries ───────────────────────────────────────
         grp.MapGet("/libraries", (IConfigurationLoader configLoader) =>
         {
-            var libs = configLoader.LoadLibraries();
-            return Results.Ok(libs.Libraries.Select(ToLibraryFolderSettingsDto));
+            return Results.Ok(SettingsContractMapper.ToContract(configLoader.LoadLibraries()));
         })
         .WithName("GetLibraries")
-        .WithSummary("Returns configured library folders (source paths, ReadOnly, writeback) from config/libraries.json.")
-        .Produces<IEnumerable<LibraryFolderSettingsDto>>(StatusCodes.Status200OK)
+        .WithSummary("Returns the complete schema 3 library and shared incoming-source configuration.")
+        .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         grp.MapPut("/libraries", (UpdateLibrariesRequest request, IConfigurationLoader configLoader) =>
         {
-            if (request.Libraries.Count == 0)
+            var config = SettingsContractMapper.ToStorage(request);
+            var pathError = ValidateConfiguredPaths(config);
+            if (pathError is not null)
             {
-                return ApiErrors.BadRequest("At least one library is required.");
+                return ApiErrors.BadRequest(pathError);
             }
 
-            var mappedLibraries = new List<LibraryFolderConfig>(request.Libraries.Count);
-            var overlapEntries = new List<LibraryFolderEntry>(request.Libraries.Count);
-            var seenIds = new HashSet<Guid>();
-
-            foreach (var library in request.Libraries)
+            var validationErrors = JsonConfigValidator.Validate(config, "libraries.json");
+            if (validationErrors.Count > 0)
             {
-                var category = library.Name.Trim();
-                if (string.IsNullOrWhiteSpace(category))
-                {
-                    return ApiErrors.BadRequest("Library name cannot be empty.");
-                }
-
-                if (!Guid.TryParse(library.Id, out var libraryId) || libraryId == Guid.Empty)
-                {
-                    return ApiErrors.BadRequest($"Library '{category}' must have a stable non-empty GUID id.");
-                }
-
-                if (!seenIds.Add(libraryId))
-                {
-                    return ApiErrors.BadRequest($"Library id '{library.Id}' is duplicated.");
-                }
-
-                if (!LibraryKinds.IsValid(library.Kind))
-                {
-                    return ApiErrors.BadRequest($"Library '{category}' has unsupported kind '{library.Kind}'.");
-                }
-
-                if (!LibraryMetadataPolicies.IsValid(library.MetadataPolicy))
-                {
-                    return ApiErrors.BadRequest($"Library '{category}' has unsupported metadata policy '{library.MetadataPolicy}'.");
-                }
-
-                var sourcePaths = CleanPaths(library.SourcePaths);
-                if (sourcePaths.Count == 0)
-                {
-                    return ApiErrors.BadRequest($"Library '{category}' must include at least one source path.");
-                }
-
-                foreach (var sourcePath in sourcePaths)
-                {
-                    var err = PathValidator.Validate(sourcePath);
-                    if (err is not null)
-                    {
-                        return ApiErrors.BadRequest(err);
-                    }
-                }
-
-                var mediaTypes = library.MediaTypes
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Select(value => value.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-
-                var config = new LibraryFolderConfig
-                {
-                    Id = libraryId.ToString("D"),
-                    Category = category,
-                    Kind = library.Kind,
-                    MetadataPolicy = library.MetadataPolicy,
-                    MediaTypes = mediaTypes,
-                    SourcePaths = sourcePaths,
-                    LibraryRoot = library.LibraryRoot ?? string.Empty,
-                    IntakeMode = string.IsNullOrWhiteSpace(library.IntakeMode) ? "watch" : library.IntakeMode.Trim(),
-                    IncludeSubdirectories = library.IncludeSubdirectories,
-                    ReadOnly = library.ReadOnly,
-                    WritebackOverride = library.WritebackOverride,
-                    Notes = library.Notes,
-                };
-
-                mappedLibraries.Add(config);
-                overlapEntries.Add(new LibraryFolderEntry
-                {
-                    Id = libraryId.ToString("D"),
-                    SourcePaths = sourcePaths,
-                });
+                return ApiErrors.BadRequest(string.Join(" ", validationErrors));
             }
 
-            try
-            {
-                LibraryFolderResolver.ValidateNoOverlap(overlapEntries);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return ApiErrors.BadRequest(ex.Message);
-            }
-
-            var current = configLoader.LoadLibraries();
-            var core = configLoader.LoadCore();
-            var importOverlapError = FindPathOverlapError(
-                "Import folder",
-                core.EffectiveWatchDirectories,
-                "library folder",
-                mappedLibraries.SelectMany(EffectiveSourcePaths));
-            if (importOverlapError is not null)
-            {
-                return ApiErrors.BadRequest(importOverlapError);
-            }
-
-            current.Libraries = mappedLibraries;
-            configLoader.SaveLibraries(current);
-
-            return Results.Ok(current.Libraries.Select(ToLibraryFolderSettingsDto));
+            configLoader.SaveLibraries(config);
+            return Results.Ok(SettingsContractMapper.ToContract(config));
         })
         .WithName("UpdateLibraries")
-        .WithSummary("Saves configured library folders to config/libraries.json.")
-        .Produces<IEnumerable<LibraryFolderSettingsDto>>(StatusCodes.Status200OK)
+        .WithSummary("Replaces the complete schema 3 library and shared incoming-source configuration.")
+        .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status400BadRequest)
+        .RequireAdmin();
+
+        // The Incoming tab uses this focused route while persisting into the same
+        // authoritative libraries.json document as the complete endpoint above.
+        grp.MapGet("/incoming-sources", (IConfigurationLoader configLoader) =>
+            Results.Ok(configLoader.LoadLibraries().IncomingSources.Select(SettingsContractMapper.ToContract)))
+        .WithName("GetIncomingSources")
+        .WithSummary("Returns shared, unassigned intake sources.")
+        .Produces<IEnumerable<IncomingSourceSettingsDto>>(StatusCodes.Status200OK)
+        .RequireAdmin();
+
+        grp.MapPut("/incoming-sources", (
+            UpdateIncomingSourcesRequest request,
+            IConfigurationLoader configLoader) =>
+        {
+            var current = configLoader.LoadLibraries();
+            current.IncomingSources = (request.IncomingSources ?? [])
+                .Select(SettingsContractMapper.ToStorage)
+                .ToList();
+            var pathError = ValidateConfiguredPaths(current);
+            if (pathError is not null)
+            {
+                return ApiErrors.BadRequest(pathError);
+            }
+
+            var validationErrors = JsonConfigValidator.Validate(current, "libraries.json");
+            if (validationErrors.Count > 0)
+            {
+                return ApiErrors.BadRequest(string.Join(" ", validationErrors));
+            }
+
+            configLoader.SaveLibraries(current);
+            return Results.Ok(current.IncomingSources.Select(SettingsContractMapper.ToContract));
+        })
+        .WithName("UpdateIncomingSources")
+        .WithSummary("Replaces shared, unassigned intake sources.")
+        .Produces<IEnumerable<IncomingSourceSettingsDto>>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
 
@@ -1512,7 +1378,9 @@ public static class SettingsEndpoints
         ProviderConfiguration provider)
     {
         if (provider.HttpClient is null)
+        {
             return;
+        }
 
         configLoader.SaveConfig(
             "secrets",
@@ -1612,80 +1480,20 @@ public static class SettingsEndpoints
         };
     }
 
-    private static List<string> CleanPaths(IEnumerable<string> paths) =>
-        paths
-            .Where(path => !string.IsNullOrWhiteSpace(path))
-            .Select(path => path.Trim())
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-    private static IEnumerable<string> EffectiveSourcePaths(LibraryFolderConfig library) =>
-        library.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path));
-
-    private static string? FindPathOverlapError(
-        string leftLabel,
-        IEnumerable<string> leftPaths,
-        string rightLabel,
-        IEnumerable<string> rightPaths)
+    private static string? ValidateConfiguredPaths(LibrariesConfiguration config)
     {
-        var left = CleanPaths(leftPaths)
-            .Select(path => (Original: path, Normalized: NormalizeConfigPath(path)))
-            .ToList();
-        var right = CleanPaths(rightPaths)
-            .Select(path => (Original: path, Normalized: NormalizeConfigPath(path)))
-            .ToList();
-
-        foreach (var leftPath in left)
+        foreach (var path in config.Libraries.SelectMany(library => library.Sources).Select(source => source.Path)
+                     .Concat(config.IncomingSources.Select(source => source.Path)))
         {
-            foreach (var rightPath in right)
+            var error = PathValidator.Validate(path);
+            if (error is not null)
             {
-                if (PathsOverlap(leftPath.Normalized, rightPath.Normalized))
-                {
-                    return $"{leftLabel} '{leftPath.Original}' overlaps {rightLabel} '{rightPath.Original}'. " +
-                           "Import folders must be separate intake locations and cannot be the same as, inside, or contain a media library folder.";
-                }
+                return error;
             }
         }
 
         return null;
     }
-
-    private static string NormalizeConfigPath(string path) =>
-        path.Replace('\\', '/').TrimEnd('/').ToLowerInvariant();
-
-    private static bool PathsOverlap(string left, string right) =>
-        IsUnderPath(left, right) || IsUnderPath(right, left);
-
-    private static bool IsUnderPath(string child, string prefix)
-    {
-        if (child.Length < prefix.Length)
-        {
-            return false;
-        }
-
-        if (!child.StartsWith(prefix, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return child.Length == prefix.Length || child[prefix.Length] == '/';
-    }
-
-    private static LibraryFolderSettingsDto ToLibraryFolderSettingsDto(LibraryFolderConfig library) => new()
-    {
-        Id = library.Id,
-        Name = library.Category,
-        Kind = library.Kind,
-        MetadataPolicy = library.MetadataPolicy,
-        MediaTypes = library.MediaTypes,
-        SourcePaths = library.SourcePaths,
-        LibraryRoot = library.LibraryRoot,
-        IntakeMode = library.IntakeMode,
-        IncludeSubdirectories = library.IncludeSubdirectories,
-        ReadOnly = library.ReadOnly,
-        WritebackOverride = library.WritebackOverride,
-        Notes = library.Notes,
-    };
 
     private static string ResolveMetadataLanguage(CoreConfiguration core) =>
         string.IsNullOrWhiteSpace(core.Language.Metadata) ? "en" : core.Language.Metadata.Trim();

@@ -19,7 +19,6 @@ public static class TuvimaHostedServiceCollectionExtensions
 
         services.AddHostedService<EncodeQueueService>();
         services.AddHostedService<FolderHealthService>();
-        services.AddHostedService<MediaEngine.Api.Services.Photos.PhotoLibraryIndexHostedService>();
         services.AddHostedService(sp => sp.GetRequiredService<MetadataHarvestingService>());
         services.AddHostedService(sp => sp.GetRequiredService<DeferredEnrichmentService>());
         services.AddHostedService<ProviderActivityBroadcastService>();

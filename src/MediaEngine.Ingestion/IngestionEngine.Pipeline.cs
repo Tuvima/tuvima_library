@@ -53,7 +53,15 @@ public sealed partial class IngestionEngine
         var context = new IngestionPipelineContext(
             candidate,
             candidate.BatchId ?? Guid.NewGuid());
-        context.Library = _libraryFolderResolver?.ResolveForPath(candidate.Path);
+        context.Library = candidate.Intake?.HasDestinationHint == true
+            ? _libraryFolderResolver?.ResolveById(candidate.Intake.DestinationLibraryId!)
+            : _libraryFolderResolver?.ResolveForPath(candidate.Path);
+
+        if (candidate.Intake?.HasDestinationHint == true && context.Library is null)
+        {
+            throw new InvalidOperationException(
+                $"Direct intake destination library '{candidate.Intake.DestinationLibraryId}' is not configured.");
+        }
 
         try
         {
@@ -287,9 +295,28 @@ public sealed partial class IngestionEngine
 
                     try
                     {
-                        if (File.Exists(candidate.Path))
+                        var resolvedSource = _libraryFolderResolver?.ResolveSourceForPath(candidate.Path);
+                        var deleteAllowed = resolvedSource is not null
+                            && _sourceMutationPolicyGate?.Evaluate(new SourceMutationRequest
+                            {
+                                Source = FileSourceMutationPolicyFactory.Create(
+                                    resolvedSource.Library,
+                                    resolvedSource.Source,
+                                    allowDelete: true),
+                                Mutation = SourceMutationKind.Delete,
+                                Path = candidate.Path,
+                            }).Allowed == true;
+
+                        if (deleteAllowed && File.Exists(candidate.Path))
                         {
                             File.Delete(candidate.Path);
+                        }
+
+                        if (!deleteAllowed)
+                        {
+                            _logger.LogInformation(
+                                "Exact duplicate was indexed without deleting {Path}; its source policy does not authorize deletion",
+                                candidate.Path);
                         }
 
                         await DeleteHashCacheEntryAsync(candidate.Path, ct).ConfigureAwait(false);
@@ -359,254 +386,6 @@ public sealed partial class IngestionEngine
                 return;
             }
         }
-
-    }
-    private async Task RunProcessStageAsync(IngestionPipelineContext context, CancellationToken ct)
-    {
-        var candidate = context.Candidate;
-        var ingestionRunId = context.IngestionRunId;
-        var durableOperation = context.DurableOperation;
-        var logEntryId = context.LogEntryId;
-        var hash = context.Hash!;
-        // Step 6: process.
-        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Parsing, 25, "Parsing media file.", ct).ConfigureAwait(false);
-        var result = await _processors.ProcessAsync(candidate.Path, ct).ConfigureAwait(false);
-
-        // Step 6a: organisation-hint prescan.
-        // Side-by-side-with-Plex plan §G. Pulls Plex / Jellyfin bridge ID
-        // brackets (`{imdb-tt...}`, `[tvdbid-...]`, etc.) and the Tuvima
-        // legacy `(Q12345)` marker straight out of the path and injects
-        // them as high-confidence claims. When the library is curated,
-        // retail Stage 1 and Wikidata Stage 2 can short-circuit external
-        // lookups using the seeded IDs.
-        var pathHints = OrganizationHintParser.Parse(candidate.Path);
-        if (pathHints.HasHints && pathHints.BridgeIds.Count > 0)
-        {
-            var hintedClaims = new List<Processors.Models.ExtractedClaim>(result.Claims);
-            foreach (var (key, value) in pathHints.BridgeIds)
-            {
-                // Don't overwrite a bridge ID the processor already extracted
-                // from embedded tags — embedded data is at least as reliable.
-                if (hintedClaims.Any(c => c.Key.Equals(key, StringComparison.OrdinalIgnoreCase)))
-                {
-                    continue;
-                }
-
-                hintedClaims.Add(new Processors.Models.ExtractedClaim
-                {
-                    Key = key,
-                    Value = value,
-                    Confidence = ClaimConfidence.BridgeId,
-                });
-            }
-
-            result = new Processors.Models.ProcessorResult
-            {
-                FilePath = result.FilePath,
-                DetectedType = result.DetectedType,
-                Claims = hintedClaims,
-                CoverImage = result.CoverImage,
-                CoverImageMimeType = result.CoverImageMimeType,
-                IsCorrupt = result.IsCorrupt,
-                CorruptReason = result.CorruptReason,
-                MediaTypeCandidates = result.MediaTypeCandidates,
-            };
-
-            _logger.LogInformation(
-                "OrganizationHintParser: seeded {Count} bridge ID claim(s) from path for {File} — {Keys}",
-                pathHints.BridgeIds.Count, Path.GetFileName(candidate.Path),
-                string.Join(", ", pathHints.BridgeIds.Keys));
-        }
-
-        {
-            var extractedTitle = result.Claims
-                .FirstOrDefault(c => c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))?.Value;
-            _logger.LogInformation(
-                "Processed \"{FileName}\" via {ProcessorType} — {ClaimCount} claims extracted (title='{Title}')",
-                Path.GetFileName(candidate.Path),
-                result.DetectedType,
-                result.Claims.Count,
-                extractedTitle ?? "(none)");
-        }
-
-        await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-        {
-            ActionType = Domain.Constants.SystemActionType.FileProcessed,
-            EntityType = "MediaAsset",
-            Detail = $"Scanned {Path.GetFileName(candidate.Path)}: {result.DetectedType} - {result.Claims.Count} fields, cover {(result.CoverImage?.Length > 0 ? "found" : "absent")}",
-            ChangesJson = JsonSerializer.Serialize(new
-            {
-                detected_type = result.DetectedType.ToString(),
-                claims_count = result.Claims.Count,
-                has_cover = result.CoverImage?.Length > 0,
-                cover_bytes = result.CoverImage?.Length ?? 0,
-                is_corrupt = result.IsCorrupt,
-                corrupt_reason = result.CorruptReason,
-                filename = Path.GetFileName(candidate.Path),
-            }),
-            IngestionRunId = ingestionRunId,
-        }, ct).ConfigureAwait(false);
-
-        try
-        {
-            await _ingestionLog.UpdateStatusAsync(
-                logEntryId,
-                "processed",
-                mediaType: result.DetectedType.ToString(),
-                ct: ct).ConfigureAwait(false);
-            await PublishItemProgressAsync(candidate, logEntryId, "processed", 35, false, ct).ConfigureAwait(false);
-        }
-        catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
-        await UpdateOperationStageAsync(durableOperation, MediaOperationStage.Parsing, 35, "Processor extracted metadata.", ct, new { media_type = result.DetectedType.ToString(), claims = result.Claims.Count }).ConfigureAwait(false);
-        // Step 6b: AI Smart Labeling — enhance title claim using LLM.
-        // The SmartLabeler understands context that regex cannot:
-        // "2001 A Space Odyssey" keeps the year, "Frank Herbert - Dune" extracts the author.
-        {
-            var rawTitle = result.Claims.FirstOrDefault(c =>
-                c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase));
-
-            if (rawTitle is not null)
-            {
-                try
-                {
-                    var cleaned = await _smartLabeler.CleanAsync(
-                        Path.GetFileNameWithoutExtension(candidate.Path), ct).ConfigureAwait(false);
-
-                    if (!string.IsNullOrWhiteSpace(cleaned.Title) && cleaned.Confidence > 0.5)
-                    {
-                        // Replace the title claim with the AI-cleaned version at higher confidence.
-                        var updatedClaims = result.Claims
-                            .Where(c => !c.Key.Equals(MetadataFieldConstants.Title, StringComparison.OrdinalIgnoreCase))
-                            .ToList();
-
-                        updatedClaims.Add(new Processors.Models.ExtractedClaim
-                        {
-                            Key = MetadataFieldConstants.Title,
-                            Value = cleaned.Title,
-                            Confidence = Math.Max(rawTitle.Confidence, cleaned.Confidence),
-                        });
-
-                        // Add author if extracted and not already present.
-                        if (!string.IsNullOrWhiteSpace(cleaned.Author)
-                            && !result.Claims.Any(c => c.Key.Equals(MetadataFieldConstants.Author, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            updatedClaims.Add(new Processors.Models.ExtractedClaim
-                            {
-                                Key = MetadataFieldConstants.Author,
-                                Value = cleaned.Author,
-                                Confidence = cleaned.Confidence * 0.9,
-                            });
-                        }
-
-                        // Add year if extracted and not already present.
-                        if (cleaned.Year.HasValue
-                            && !result.Claims.Any(c => c.Key.Equals(MetadataFieldConstants.Year, StringComparison.OrdinalIgnoreCase)
-                                                    || c.Key.Equals("release_year", StringComparison.OrdinalIgnoreCase)))
-                        {
-                            updatedClaims.Add(new Processors.Models.ExtractedClaim
-                            {
-                                Key = "release_year",
-                                Value = cleaned.Year.Value.ToString(),
-                                Confidence = cleaned.Confidence * 0.85,
-                            });
-                        }
-
-                        // Add season number if extracted and not already present.
-                        if (cleaned.Season.HasValue
-                            && !updatedClaims.Any(c => c.Key.Equals(MetadataFieldConstants.SeasonNumber, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            updatedClaims.Add(new Processors.Models.ExtractedClaim
-                            {
-                                Key = MetadataFieldConstants.SeasonNumber,
-                                Value = cleaned.Season.Value.ToString(),
-                                Confidence = cleaned.Confidence,
-                            });
-                        }
-
-                        // Add episode number if extracted and not already present.
-                        if (cleaned.Episode.HasValue
-                            && !updatedClaims.Any(c => c.Key.Equals(MetadataFieldConstants.EpisodeNumber, StringComparison.OrdinalIgnoreCase)))
-                        {
-                            updatedClaims.Add(new Processors.Models.ExtractedClaim
-                            {
-                                Key = MetadataFieldConstants.EpisodeNumber,
-                                Value = cleaned.Episode.Value.ToString(),
-                                Confidence = cleaned.Confidence,
-                            });
-                        }
-
-                        result = new Processors.Models.ProcessorResult
-                        {
-                            FilePath = result.FilePath,
-                            DetectedType = result.DetectedType,
-                            Claims = updatedClaims,
-                            CoverImage = result.CoverImage,
-                            CoverImageMimeType = result.CoverImageMimeType,
-                            IsCorrupt = result.IsCorrupt,
-                            CorruptReason = result.CorruptReason,
-                            MediaTypeCandidates = result.MediaTypeCandidates,
-                        };
-
-                        _logger.LogInformation(
-                            "SmartLabeler enhanced title: \"{OldTitle}\" ? \"{NewTitle}\" (confidence: {Conf:F2})",
-                            rawTitle.Value, cleaned.Title, cleaned.Confidence);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // SmartLabeler failure is non-fatal — processor claims stand.
-                    _logger.LogWarning(ex, "SmartLabeler failed for {Path} — using processor title", candidate.Path);
-                }
-            }
-        }
-
-        // Step 7: quarantine corrupt files.
-        if (result.IsCorrupt)
-        {
-            _logger.LogWarning("Corrupt file quarantined: {Path} — {Reason}",
-                candidate.Path, result.CorruptReason);
-
-            // Activity: media failed (replaces granular FileQuarantined).
-            var failedJson = JsonSerializer.Serialize(new
-            {
-                source_file = Path.GetFileName(candidate.Path),
-                reason = result.CorruptReason,
-                error_type = "corrupt_file",
-            });
-            await SafeActivityLogAsync(new Domain.Entities.SystemActivityEntry
-            {
-                ActionType = Domain.Constants.SystemActionType.MediaFailed,
-                EntityType = "MediaAsset",
-                ChangesJson = failedJson,
-                Detail = $"Failed — {Path.GetFileName(candidate.Path)}: {result.CorruptReason}",
-                IngestionRunId = ingestionRunId,
-            }, ct).ConfigureAwait(false);
-
-            await SafePublishAsync(SignalREvents.IngestionFailed, new IngestionFailedEvent(
-                candidate.Path,
-                $"Corrupt: {result.CorruptReason}",
-                DateTimeOffset.UtcNow), ct).ConfigureAwait(false);
-            try
-            {
-                await _ingestionLog.UpdateStatusAsync(
-                    logEntryId,
-                    "failed",
-                    errorDetail: $"Corrupt: {result.CorruptReason}",
-                    ct: ct).ConfigureAwait(false);
-                await PublishItemProgressAsync(candidate, logEntryId, "failed", 100, true, ct).ConfigureAwait(false);
-            }
-            catch (Exception ex) { _logger.LogDebug(ex, "Ingestion log update failed — continuing"); }
-            if (candidate.BatchId.HasValue)
-            {
-                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesFailed, ct).ConfigureAwait(false);
-                await SafeIncrementBatchCounterAsync(candidate.BatchId.Value, BatchCounterColumn.FilesProcessed, ct).ConfigureAwait(false);
-                await PublishQueuedBatchSnapshotAsync(candidate.BatchId.Value, ct).ConfigureAwait(false);
-            }
-            context.Complete();
-            return;
-        }
-
-        context.ProcessorResult = result;
 
     }
     private async Task RunScoreAndIdentifyStageAsync(IngestionPipelineContext context, CancellationToken ct)
@@ -757,6 +536,8 @@ public sealed partial class IngestionEngine
         var candidateList = mediaTypeResolution.Candidates.ToList();
         context.MediaTypeCandidates = candidateList;
 
+        ApplySharedIncomingRouting(context, resolvedMediaType);
+
         // Always persist the resolved media_type as a canonical value so that
         // TryReorganizeExistingAsync (and any future re-score) knows the file type.
         // Without this, re-organization from canonical values loses the media type
@@ -837,6 +618,11 @@ public sealed partial class IngestionEngine
                 ct, ingestionRunId).ConfigureAwait(false);
         }
 
+        if (context.IntakeRoutingFailure is not null)
+        {
+            await CreateUnresolvedIntakeReviewAsync(context, ct).ConfigureAwait(false);
+        }
+
         // Create RootWatchFolder review item when a file was dropped directly into any
         // configured source root with an ambiguous extension.
         if (mediaTypeResolution.RootWatchFolderReview)
@@ -852,6 +638,13 @@ public sealed partial class IngestionEngine
         // Enrich the candidate with resolved metadata.
         candidate.Metadata = BuildMetadataDict(scored);
         candidate.DetectedMediaType = resolvedMediaType;
+
+        if (context.IntakeRoutingFailure is not null)
+        {
+            await BlockUnresolvedIncomingAsync(context, ct).ConfigureAwait(false);
+            context.Complete();
+            return;
+        }
 
         // Step 9b: create Collection ? Work ? Edition chain so the FK on media_assets
         // can be satisfied.  The factory reuses an existing Collection when a matching
@@ -1179,7 +972,19 @@ public sealed partial class IngestionEngine
         bool coverWritten = context.CoverWritten = false;
         try
         {
-            if (_options.WriteBack && fileIsInLibrary && candidate.Metadata is not null)
+            var resolvedSource = _libraryFolderResolver?.ResolveSourceForPath(currentPath);
+            var writebackAllowed = resolvedSource is not null
+                && _sourceMutationPolicyGate?.Evaluate(new SourceMutationRequest
+                {
+                    Source = FileSourceMutationPolicyFactory.Create(
+                        resolvedSource.Library,
+                        resolvedSource.Source,
+                        globalMetadataWritebackEnabled: _options.WriteBack),
+                    Mutation = SourceMutationKind.MetadataWriteback,
+                    Path = currentPath,
+                }).Allowed == true;
+
+            if (_options.WriteBack && fileIsInLibrary && writebackAllowed && candidate.Metadata is not null)
             {
                 var tagger = _taggers.FirstOrDefault(t => t.CanHandle(currentPath));
                 if (tagger is not null)

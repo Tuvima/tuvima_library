@@ -112,7 +112,7 @@ public sealed class SettingsNavTests
     [Theory]
     [InlineData(SettingsSection.AdminOverview, "/settings/system")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
-    [InlineData(SettingsSection.Libraries, "/settings/libraries")]
+    [InlineData(SettingsSection.Libraries, "/settings/media-management")]
     [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData(SettingsSection.DevHarness, "/settings/developer")]
     [InlineData(SettingsSection.Providers, "/settings/providers")]
@@ -189,7 +189,6 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
-    [InlineData("folders", SettingsSection.Libraries, "/settings/libraries")]
     [InlineData("tasks", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("maintenance", SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData("harness", SettingsSection.DevHarness, "/settings/developer")]
@@ -269,7 +268,7 @@ public sealed class SettingsNavTests
 
         Assert.Equal([
             "System Overview",
-            "Libraries",
+            "Media Management",
             "Ingestion",
             "Metadata",
             "Needs Review",
@@ -325,6 +324,30 @@ public sealed class SettingsNavTests
 
         Assert.Equal(expectedSection, section);
         Assert.Equal(expectedRoute, SettingsNav.RouteFor(section));
+    }
+
+    [Theory]
+    [InlineData("overview")]
+    [InlineData("incoming")]
+    [InlineData("read")]
+    [InlineData("watch")]
+    [InlineData("listen")]
+    [InlineData("view")]
+    public void MediaManagement_SubsectionsUseCanonicalRoutes(string subsection)
+    {
+        Assert.Equal($"/settings/media-management/{subsection}", SettingsNav.RouteFor(SettingsSection.Libraries, subsection));
+    }
+
+    [Fact]
+    public void RemovedLibraryRoutes_AreNotCompatibilityAliases()
+    {
+        foreach (var segment in new[] { "libraries", "folders" })
+        {
+            var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
+
+            Assert.False(resolution.IsKnownRoute);
+            Assert.Equal("/not-found", resolution.CanonicalRoute);
+        }
     }
 
     private static string GetRepoFilePath(string relativePath) =>

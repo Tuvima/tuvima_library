@@ -38,19 +38,19 @@ public sealed class SettingsEndpointRouteTests
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\SettingsEndpoints.cs"));
 
-        Assert.Contains("grp.MapGet(\"/folders\"", source, StringComparison.Ordinal);
-        Assert.Contains("grp.MapPut(\"/folders\"", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("fileWatcher.UpdateDirectories", source, StringComparison.Ordinal);
-        Assert.Contains("Runtime ingestion watchers come from config/libraries.json", source, StringComparison.Ordinal);
-        Assert.Contains("WatchDirectories", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("request.WatchDirectory", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("core.WatchDirectory", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("grp.MapGet(\"/folders\"", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("grp.MapPut(\"/folders\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapGet(\"/libraries\"", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPut(\"/libraries\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapGet(\"/incoming-sources\"", source, StringComparison.Ordinal);
+        Assert.Contains("grp.MapPut(\"/incoming-sources\"", source, StringComparison.Ordinal);
         Assert.Contains("configLoader.SaveLibraries", source, StringComparison.Ordinal);
-        Assert.Contains("LibraryFolderResolver.ValidateNoOverlap", source, StringComparison.Ordinal);
-        Assert.Contains("FindPathOverlapError", source, StringComparison.Ordinal);
-        Assert.Contains("Import folder", source, StringComparison.Ordinal);
+        Assert.Contains("JsonConfigValidator.Validate", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LibraryFolderResolver.ValidateNoOverlap", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("SourcePaths", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("LibraryRoot = library", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("IntakeMode = library", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("ReadOnly = library", source, StringComparison.Ordinal);
         Assert.Contains("grp.MapPost(\"/test-path\"", source, StringComparison.Ordinal);
         Assert.Contains("HasRead", source, StringComparison.Ordinal);
         Assert.Contains("HasWrite", source, StringComparison.Ordinal);

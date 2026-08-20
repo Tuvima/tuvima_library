@@ -4,12 +4,18 @@ namespace MediaEngine.Web.Models.ViewDTOs;
 
 public static class SettingsContractExtensions
 {
-    public static IReadOnlyList<string> GetEffectiveWatchDirectories(this FolderSettingsDto settings) =>
-        settings.WatchDirectories
+    public static IReadOnlyList<string> GetEffectiveSourcePaths(this LibraryFolderDto library) =>
+        library.Sources
+            .Select(source => source.Path)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-    public static IReadOnlyList<string> GetEffectiveSourcePaths(this LibraryFolderDto library) =>
-        library.SourcePaths;
+    public static LibrarySourceDto? GetPrimaryDestination(this LibraryFolderDto library) =>
+        string.IsNullOrWhiteSpace(library.PrimaryDestinationSourceId)
+            ? null
+            : library.Sources.FirstOrDefault(source => string.Equals(
+                source.Id,
+                library.PrimaryDestinationSourceId,
+                StringComparison.OrdinalIgnoreCase));
 }

@@ -1,10 +1,10 @@
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Ingestion.Contracts;
 using MediaEngine.Ingestion.DependencyInjection;
 using MediaEngine.Ingestion.Pipeline;
 using MediaEngine.Ingestion.Tests.Helpers;
 using MediaEngine.Processors;
 using MediaEngine.Processors.Contracts;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -83,15 +83,27 @@ public sealed class IngestionLibraryRegistrationTests
                     [
                         new LibraryFolderConfig
                         {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = "Books",
                             Category = "Books",
+                            Kind = LibraryKinds.Catalogued,
+                            Area = LibraryAreas.Read,
+                            Presentation = LibraryPresentations.Catalogue,
+                            MetadataPolicy = LibraryMetadataPolicies.Enriched,
                             MediaTypes = ["Books", "Audiobooks"],
-                            SourcePaths = [booksPath],
+                            Sources = [ManagedSource(booksPath)],
                         },
                         new LibraryFolderConfig
                         {
+                            Id = Guid.NewGuid().ToString(),
+                            Name = "Movies",
                             Category = "Movies",
+                            Kind = LibraryKinds.Catalogued,
+                            Area = LibraryAreas.Watch,
+                            Presentation = LibraryPresentations.Catalogue,
+                            MetadataPolicy = LibraryMetadataPolicies.Enriched,
                             MediaTypes = ["Movies"],
-                            SourcePaths = [moviesPath],
+                            Sources = [ManagedSource(moviesPath)],
                         },
                     ],
                 },
@@ -118,10 +130,21 @@ public sealed class IngestionLibraryRegistrationTests
         finally
         {
             if (Directory.Exists(tempRoot))
+            {
                 Directory.Delete(tempRoot, recursive: true);
+            }
         }
     }
 
     private static string GetRepoFilePath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
+
+    private static LibrarySourceConfig ManagedSource(string path) => new()
+    {
+        Id = Guid.NewGuid().ToString(),
+        Path = path,
+        Role = LibrarySourceRoles.Secondary,
+        ManagementMode = LibrarySourceManagementModes.ManagedByTuvima,
+        AccessMode = LibrarySourceAccessModes.Writable,
+    };
 }

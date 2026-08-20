@@ -1,9 +1,10 @@
-using Microsoft.Extensions.Logging;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Ingestion.Contracts;
+using MediaEngine.Ingestion.Models;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
+using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Ingestion.Services;
 
@@ -19,36 +20,42 @@ namespace MediaEngine.Ingestion.Services;
 /// </summary>
 public sealed class WriteBackService : IWriteBackService
 {
-    private readonly IMediaAssetRepository         _assetRepo;
-    private readonly ICanonicalValueRepository     _canonicalRepo;
-    private readonly IWorkRepository               _workRepo;
-    private readonly IConfigurationLoader          _configLoader;
-    private readonly IEnumerable<IMetadataTagger>  _taggers;
-    private readonly ISystemActivityRepository     _activityRepo;
-    private readonly WritebackConfigState?         _hashState;
+    private readonly IMediaAssetRepository _assetRepo;
+    private readonly ICanonicalValueRepository _canonicalRepo;
+    private readonly IWorkRepository _workRepo;
+    private readonly IConfigurationLoader _configLoader;
+    private readonly IEnumerable<IMetadataTagger> _taggers;
+    private readonly ISystemActivityRepository _activityRepo;
+    private readonly WritebackConfigState? _hashState;
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
-    private readonly ILogger<WriteBackService>     _logger;
+    private readonly ILibraryFolderResolver? _libraryResolver;
+    private readonly ISourceMutationPolicyGate _sourceMutationGate;
+    private readonly ILogger<WriteBackService> _logger;
 
     public WriteBackService(
-        IMediaAssetRepository         assetRepo,
-        ICanonicalValueRepository     canonicalRepo,
-        IWorkRepository               workRepo,
-        IConfigurationLoader          configLoader,
-        IEnumerable<IMetadataTagger>  taggers,
-        ISystemActivityRepository     activityRepo,
-        ILogger<WriteBackService>     logger,
-        WritebackConfigState?         hashState = null,
-        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null)
+        IMediaAssetRepository assetRepo,
+        ICanonicalValueRepository canonicalRepo,
+        IWorkRepository workRepo,
+        IConfigurationLoader configLoader,
+        IEnumerable<IMetadataTagger> taggers,
+        ISystemActivityRepository activityRepo,
+        ILogger<WriteBackService> logger,
+        WritebackConfigState? hashState = null,
+        IEnrichmentConcurrencyLimiter? concurrencyLimiter = null,
+        ILibraryFolderResolver? libraryResolver = null,
+        ISourceMutationPolicyGate? sourceMutationGate = null)
     {
-        _assetRepo     = assetRepo;
+        _assetRepo = assetRepo;
         _canonicalRepo = canonicalRepo;
-        _workRepo      = workRepo;
-        _configLoader  = configLoader;
-        _taggers       = taggers;
-        _activityRepo  = activityRepo;
-        _hashState     = hashState;
-        _concurrency   = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
-        _logger        = logger;
+        _workRepo = workRepo;
+        _configLoader = configLoader;
+        _taggers = taggers;
+        _activityRepo = activityRepo;
+        _hashState = hashState;
+        _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
+        _libraryResolver = libraryResolver;
+        _sourceMutationGate = sourceMutationGate ?? new SourceMutationPolicyGate();
+        _logger = logger;
     }
 
     /// <inheritdoc/>
@@ -75,11 +82,11 @@ public sealed class WriteBackService : IWriteBackService
         // because the user has just edited writeback-fields.json and clicked Apply.
         var allowed = trigger switch
         {
-            "auto_match"           => config.WriteOnAutoMatch,
-            "manual_override"      => config.WriteOnManualOverride,
-            "universe_enrichment"  => config.WriteOnUniverseEnrichment,
-            "config_change"        => config.WriteOnAutoMatch,
-            _                      => config.Enabled,
+            "auto_match" => config.WriteOnAutoMatch,
+            "manual_override" => config.WriteOnManualOverride,
+            "universe_enrichment" => config.WriteOnUniverseEnrichment,
+            "config_change" => config.WriteOnAutoMatch,
+            _ => config.Enabled,
         };
 
         if (!allowed)
@@ -106,15 +113,30 @@ public sealed class WriteBackService : IWriteBackService
             return;
         }
 
-        // Guard: only write back to files that are already in the Library Root.
-        // Writing metadata back to a file still in the Watch Folder modifies its
-        // content hash, which causes the watcher to re-detect it as a new file,
-        // triggering an infinite ingestion loop.
-        var core = _configLoader.LoadCore();
-        if (!string.IsNullOrWhiteSpace(core.LibraryRoot)
-            && !asset.FilePathRoot.StartsWith(core.LibraryRoot, StringComparison.OrdinalIgnoreCase))
+        var resolvedSource = _libraryResolver?.ResolveSourceForPath(asset.FilePathRoot);
+        if (resolvedSource is null)
         {
-            _logger.LogDebug("WriteBack: skipping — file is not yet in Library Root (still in watcher/staging)");
+            _logger.LogDebug(
+                "WriteBack: skipping — file {Path} has no configured source policy",
+                asset.FilePathRoot);
+            return;
+        }
+
+        var sourcePolicy = FileSourceMutationPolicyFactory.Create(
+            resolvedSource.Library,
+            resolvedSource.Source,
+            globalMetadataWritebackEnabled: config.Enabled);
+        var mutationDecision = _sourceMutationGate.Evaluate(new SourceMutationRequest
+        {
+            Source = sourcePolicy,
+            Mutation = SourceMutationKind.MetadataWriteback,
+            Path = asset.FilePathRoot,
+        });
+        if (!mutationDecision.Allowed)
+        {
+            _logger.LogDebug(
+                "WriteBack: source policy denied metadata write for {Path}: {Reason}",
+                asset.FilePathRoot, mutationDecision.Reason);
             return;
         }
 
@@ -164,8 +186,16 @@ public sealed class WriteBackService : IWriteBackService
 
         foreach (var cv in canonicals)
         {
-            if (excludeFields.Contains(cv.Key)) continue;
-            if (!allowedFields.Contains(cv.Key)) continue;
+            if (excludeFields.Contains(cv.Key))
+            {
+                continue;
+            }
+
+            if (!allowedFields.Contains(cv.Key))
+            {
+                continue;
+            }
+
             tags[cv.Key] = cv.Value;
         }
 
@@ -200,8 +230,8 @@ public sealed class WriteBackService : IWriteBackService
             await _activityRepo.LogAsync(new Domain.Entities.SystemActivityEntry
             {
                 ActionType = Domain.Constants.SystemActionType.MetadataWrittenToFile,
-                EntityId   = assetId,
-                Detail     = $"Write-back ({trigger}): {tags.Count} field(s) written to {Path.GetFileName(asset.FilePathRoot)}.",
+                EntityId = assetId,
+                Detail = $"Write-back ({trigger}): {tags.Count} field(s) written to {Path.GetFileName(asset.FilePathRoot)}.",
                 IngestionRunId = ingestionRunId,
             }, ct);
         }

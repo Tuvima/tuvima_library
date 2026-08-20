@@ -54,6 +54,10 @@ public static class MediaEngineIngestionServiceCollectionExtensions
         services.TryAddSingleton<IFileWatcher, FileWatcher>();
         services.TryAddSingleton<DebounceQueue>();
         services.TryAddSingleton<IFileOrganizer, FileOrganizer>();
+        services.TryAddSingleton<ISourceMutationPolicyGate, SourceMutationPolicyGate>();
+        services.TryAddSingleton<IReorganizationPlanner, ReorganizationPlanner>();
+        services.TryAddSingleton<IReorganizationFileSystem, SystemReorganizationFileSystem>();
+        services.TryAddSingleton<IReorganizationExecutor, ReorganizationExecutor>();
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IMetadataTagger, EpubMetadataTagger>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IMetadataTagger, AudioMetadataTagger>());
         services.TryAddEnumerable(ServiceDescriptor.Singleton<IMetadataTagger, VideoMetadataTagger>());
@@ -161,36 +165,55 @@ public static class MediaEngineIngestionServiceCollectionExtensions
                 opts.LibraryFolders = libraries.Libraries
                     .Select(l =>
                     {
-                        var paths = l.SourcePaths
-                            .Where(p => !string.IsNullOrWhiteSpace(p))
-                            .Distinct(StringComparer.OrdinalIgnoreCase)
-                            .ToList();
-
                         return new LibraryFolderEntry
                         {
                             Id = l.Id,
-                            Name = l.Category,
+                            Name = l.Name,
                             Kind = l.Kind,
+                            Area = l.Area,
+                            Presentation = l.Presentation,
                             MetadataPolicy = l.MetadataPolicy,
-                            SourcePaths = paths,
-                            LibraryRoot = l.LibraryRoot,
-                            IntakeMode = l.IntakeMode,
-                            IncludeSubdirectories = l.IncludeSubdirectories,
+                            Sources = l.Sources.Select(source => new LibrarySourceEntry
+                            {
+                                Id = source.Id,
+                                Path = source.Path,
+                                Role = source.Role,
+                                ManagementMode = source.ManagementMode,
+                                AccessMode = source.AccessMode,
+                                IncludeSubdirectories = source.IncludeSubdirectories,
+                                ParticipatesInOrganization = source.ParticipatesInOrganization,
+                                IntakeRole = source.IntakeRole,
+                                WritebackOverride = source.WritebackOverride,
+                            }).ToList(),
+                            PrimaryDestinationSourceId = l.PrimaryDestinationSourceId,
                             MediaTypes = l.MediaTypes
                                 .Select(MediaTypeParser.Parse)
                                 .Where(mt => mt != MediaType.Unknown)
                                 .ToList(),
-                            ReadOnly = l.ReadOnly,
-                            WritebackOverride = l.WritebackOverride,
+                            AcceptedIntakeModes = l.AcceptedIntakeModes.ToList(),
                         };
                     })
                     .Where(e => e.EffectiveSourcePaths.Count > 0)
+                    .ToList();
+
+                opts.IncomingSources = libraries.IncomingSources
+                    .Select(source => new IncomingSourceEntry
+                    {
+                        Id = source.Id,
+                        Path = source.Path,
+                        Purpose = source.Purpose,
+                        DefaultHandling = source.DefaultHandling,
+                        IncludeSubdirectories = source.IncludeSubdirectories,
+                        SourceType = source.SourceType,
+                    })
+                    .Where(source => !string.IsNullOrWhiteSpace(source.Path))
                     .ToList();
 
                 LibraryFolderResolver.ValidateNoOverlap(opts.LibraryFolders);
 
                 var sourcePaths = opts.LibraryFolders
                     .SelectMany(folder => folder.EffectiveSourcePaths)
+                    .Concat(opts.IncomingSources.Select(source => source.Path))
                     .Where(path => !string.IsNullOrWhiteSpace(path))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
@@ -215,7 +238,9 @@ public static class MediaEngineIngestionServiceCollectionExtensions
             var libraries = configLoader.LoadLibraries();
             foreach (var lib in libraries.Libraries)
             {
-                var allPaths = lib.SourcePaths
+                var allPaths = lib.Sources
+                    .Where(source => source.ManagementMode == LibrarySourceManagementModes.ManagedByTuvima)
+                    .Select(source => source.Path)
                     .Where(p => !string.IsNullOrWhiteSpace(p))
                     .Distinct(StringComparer.OrdinalIgnoreCase);
 

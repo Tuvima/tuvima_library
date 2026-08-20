@@ -118,7 +118,11 @@ or already carry their own, differently-tuned policy that would otherwise be dou
 
 ## Path Traversal Protection
 
-Folder-related endpoints (`/settings/folders`, `/settings/test-path`) reject any path that contains `..` traversal segments or targets known system directories (e.g. `C:\Windows`, `/etc`). This prevents an authorized client from accidentally or maliciously navigating outside the intended library roots.
+Folder-related endpoints (`PUT /settings/libraries`,
+`PUT /settings/incoming-sources`, and `/settings/test-path`) reject paths that
+contain `..` traversal segments or target known system directories (for
+example, `C:\Windows` or `/etc`). This prevents an authorized client from
+accidentally or maliciously navigating outside the intended library roots.
 
 ## SignalR Collection Authentication
 
@@ -135,4 +139,3 @@ Unauthenticated connection attempts from non-localhost origins are rejected befo
 - [Engine API Reference](../reference/api-endpoints.md)
 - [How to Build, Test, and Verify Changes](../guides/running-tests.md)
 - [Settings Architecture and Review Queue](dashboard-ui.md)
-

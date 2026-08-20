@@ -99,7 +99,7 @@ public static class SettingsNav
         new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
         new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, ["admin"], "json+sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.FolderOpen, "Libraries", true, null, ["folders"], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Libraries, "administration", "media-management", Icons.Material.Outlined.PermMedia, "Media Management", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MoveToInbox, "Ingestion", true, null, ["tasks", "maintenance"], Status: SettingsStatusKind.Live),
         new(SettingsSection.Providers, "administration", "providers", Icons.Material.Outlined.Hub, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", ["reviewqueue", "review-queue", "needsreview", "needs-review"], "mixed"),
@@ -168,13 +168,12 @@ public static class SettingsNav
             ],
             [SettingsSection.Libraries] =
             [
-                new("import-folders", "Import Folders", Icons.Material.Outlined.MoveToInbox),
-                new("books", "Books", Icons.Material.Outlined.MenuBook),
-                new("movies", "Movies", Icons.Material.Outlined.Movie),
-                new("tv", "TV Shows", Icons.Material.Outlined.Tv),
-                new("music", "Music", Icons.Material.Outlined.LibraryMusic),
-                new("audiobooks", "Audiobooks", Icons.Material.Outlined.Headphones),
-                new("comics", "Comics", Icons.Material.Outlined.AutoStories),
+                new("overview", "Overview", Icons.Material.Outlined.Dashboard),
+                new("incoming", "Incoming", Icons.Material.Outlined.MoveToInbox),
+                new("read", "Read", Icons.Material.Outlined.MenuBook),
+                new("watch", "Watch", Icons.Material.Outlined.Tv),
+                new("listen", "Listen", Icons.Material.Outlined.Headphones),
+                new("view", "View", Icons.Material.Outlined.FolderOpen),
             ],
             [SettingsSection.Ingestion] =
             [
@@ -305,16 +304,22 @@ public static class SettingsNav
     public static bool IsVisible(SettingsSection section, string role)
     {
         if (section == SettingsSection.Privacy)
+        {
             return false;
+        }
 
         if (IsAdministratorRole(role))
+        {
             return true;
+        }
 
         if (IsCuratorRole(role))
+        {
             return section is SettingsSection.Overview
                 or SettingsSection.Playback
                 or SettingsSection.Review
                 or SettingsSection.ActivityLogs;
+        }
 
         return section is SettingsSection.Overview or SettingsSection.Playback;
     }
@@ -338,7 +343,9 @@ public static class SettingsNav
     {
         var subsections = GetSubsections(section);
         if (string.IsNullOrWhiteSpace(slug))
+        {
             return subsections.FirstOrDefault();
+        }
 
         var normalized = NormalizeKey(slug);
         normalized = (section, normalized) switch
@@ -363,7 +370,9 @@ public static class SettingsNav
             ?? throw new ArgumentOutOfRangeException(nameof(subsectionSlug), subsectionSlug, "Unknown settings subsection.");
 
         if (section is SettingsSection.Overview or SettingsSection.AdminOverview or SettingsSection.DevHarness)
+        {
             return RouteFor(section);
+        }
 
         return $"{RouteFor(section)}/{subsection.Slug}";
     }
@@ -435,7 +444,9 @@ public static class SettingsNav
     public static SettingsSection? ParseFromRoute(string? segment)
     {
         if (string.IsNullOrWhiteSpace(segment))
+        {
             return SettingsSection.Overview;
+        }
 
         var resolution = ResolveRoute(segment, "Administrator");
         return resolution.IsKnownRoute ? resolution.Section : null;

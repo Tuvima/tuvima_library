@@ -3,8 +3,8 @@ using MediaEngine.Contracts.Ai;
 using MediaEngine.Contracts.Display;
 using MediaEngine.Contracts.Library;
 using MediaEngine.Contracts.Paging;
-using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Persons;
+using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Profiles;
 using MediaEngine.Contracts.Search;
 using MediaEngine.Contracts.Settings;
@@ -264,9 +264,18 @@ internal class EngineApiClientStub : DispatchProxy
         _handlers[nameof(IEngineApiClient.GetSystemActivityOperationsAsync)] =
             _ => Task.FromResult<IReadOnlyList<SystemActivityOperationViewModel>>([]);
 
-        _handlers[nameof(IEngineApiClient.GetFolderSettingsAsync)] =
-            _ => Task.FromResult<FolderSettingsDto?>(new FolderSettingsDto(
-                WatchDirectories: [@"C:\Tuvima\Incoming"]));
+        _handlers[nameof(IEngineApiClient.GetLibrariesAsync)] =
+            _ => Task.FromResult<LibrariesConfigurationDto?>(new LibrariesConfigurationDto
+            {
+                IncomingSources =
+                [
+                    new IncomingSourceDto
+                    {
+                        Id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+                        Path = @"C:\Tuvima\Incoming",
+                    },
+                ],
+            });
 
         _handlers[nameof(IEngineApiClient.TestPathAsync)] =
             args =>

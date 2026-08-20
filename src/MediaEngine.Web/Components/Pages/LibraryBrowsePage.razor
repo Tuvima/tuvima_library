@@ -302,8 +302,12 @@ else
                 return false;
             }
 
-            var folders = await Orchestrator.GetFolderSettingsAsync();
-            var importFolders = folders?.GetEffectiveWatchDirectories() ?? [];
+            var libraries = await Orchestrator.GetLibrariesAsync();
+            var importFolders = libraries?.IncomingSources
+                .Select(source => source.Path)
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? [];
             if (importFolders.Count == 0)
                 return false;
 

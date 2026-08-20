@@ -1,6 +1,9 @@
+using System.Globalization;
+using System.Text.Json;
 using Dapper;
-using MediaEngine.Contracts.Ingestion;
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Contracts.Ingestion;
+using MediaEngine.Domain.Configuration;
 using MediaEngine.Domain.Constants;
 using MediaEngine.Domain.Contracts;
 using MediaEngine.Domain.Entities;
@@ -10,11 +13,8 @@ using MediaEngine.Ingestion.Models;
 using MediaEngine.Providers.Services;
 using MediaEngine.Storage;
 using MediaEngine.Storage.Contracts;
-using MediaEngine.Domain.Configuration;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Options;
-using System.Globalization;
-using System.Text.Json;
 using ProviderConfig = MediaEngine.Domain.Configuration.ProviderConfiguration;
 
 namespace MediaEngine.Api.Services;
@@ -468,8 +468,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         var manifestPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var sourcePath in _configLoader.LoadLibraries().Libraries
-            .SelectMany(library => library.SourcePaths)
-            .Where(path => !string.IsNullOrWhiteSpace(path)))
+            .SelectMany(library => library.ScannableSources.Select(source => source.Path)))
         {
             AddManifestCandidate(manifestPaths, sourcePath);
             var parent = Directory.GetParent(sourcePath);
@@ -632,7 +631,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         ct.ThrowIfCancellationRequested();
         if (batchIds.Count == 0)
+        {
             return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
 
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<StageCountRow>("""
@@ -665,7 +666,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     {
         ct.ThrowIfCancellationRequested();
         if (batchIds.Count == 0)
+        {
             return new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        }
 
         using var conn = _db.CreateConnection();
         var rows = await conn.QueryAsync<StageCountRow>("""
@@ -687,11 +690,15 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static IReadOnlyList<IngestionBatch> SelectDisplayBatches(IReadOnlyList<IngestionBatch> recentBatches)
     {
         if (recentBatches.Count == 0)
+        {
             return [];
+        }
 
         var groups = BuildRecentBatchGroups(recentBatches);
         if (groups.Count == 0)
+        {
             return [];
+        }
 
         var selected = SelectDisplayBatchGroup(groups);
         var selectedIds = selected.SourceBatchIds.ToHashSet();
@@ -711,7 +718,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ThenByDescending(group => group.Batch.StartedAt)
             .FirstOrDefault();
         if (activeWithOutcomes is not null)
+        {
             return activeWithOutcomes;
+        }
 
         var completedWithOutcomes = groups
             .Where(group => HasOutcomeCounters(group.Batch))
@@ -719,7 +728,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ThenByDescending(group => group.Batch.StartedAt)
             .FirstOrDefault();
         if (completedWithOutcomes is not null)
+        {
             return completedWithOutcomes;
+        }
 
         var activeWithoutOutcomes = groups
             .Where(group => ActiveBatchStatuses.Contains(group.Batch.Status, StringComparer.OrdinalIgnoreCase))
@@ -729,7 +740,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ThenByDescending(group => group.Batch.StartedAt)
             .FirstOrDefault();
         if (activeWithoutOutcomes is not null)
+        {
             return activeWithoutOutcomes;
+        }
 
         return groups
             .Where(group => group.Batch.FilesProcessed > 0)
@@ -743,10 +756,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static IngestionBatch? AggregateDisplayBatch(IReadOnlyList<IngestionBatch> displayBatches)
     {
         if (displayBatches.Count == 0)
+        {
             return null;
+        }
 
         if (displayBatches.Count == 1)
+        {
             return displayBatches[0];
+        }
 
         var active = displayBatches.Any(batch =>
             ActiveBatchStatuses.Contains(batch.Status, StringComparer.OrdinalIgnoreCase)
@@ -784,7 +801,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static IReadOnlyList<DisplayBatchGroup> BuildRecentBatchGroups(IReadOnlyList<IngestionBatch> recentBatches)
     {
         if (recentBatches.Count == 0)
+        {
             return [];
+        }
 
         var remaining = recentBatches
             .OrderByDescending(batch => batch.StartedAt)
@@ -859,7 +878,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static bool ShouldIncludeInDisplayBatchGroup(IngestionBatch batch, bool anchorHasOutcomes)
     {
         if (!anchorHasOutcomes)
+        {
             return true;
+        }
 
         return HasOutcomeCounters(batch);
     }
@@ -878,7 +899,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         CancellationToken ct)
     {
         if (recentBatches.Count == 0)
+        {
             return recentBatches;
+        }
 
         var projected = new List<IngestionBatch>(recentBatches.Count);
         foreach (var batch in recentBatches)
@@ -893,7 +916,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static IngestionBatch ProjectBatchForDisplay(IngestionBatch batch, BatchTerminalSnapshot snapshot)
     {
         if (!snapshot.HasRows)
+        {
             return batch;
+        }
 
         var identified = Math.Max(0, snapshot.Identified);
         var review = Math.Max(0, snapshot.Review);
@@ -911,20 +936,20 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
         return new IngestionBatch
         {
-            Id              = batch.Id,
-            Status          = batch.Status,
-            SourcePath      = batch.SourcePath,
-            Category        = batch.Category,
-            FilesTotal      = total,
-            FilesProcessed  = terminal,
+            Id = batch.Id,
+            Status = batch.Status,
+            SourcePath = batch.SourcePath,
+            Category = batch.Category,
+            FilesTotal = total,
+            FilesProcessed = terminal,
             FilesIdentified = identified,
-            FilesReview     = review,
-            FilesNoMatch    = noMatch,
-            FilesFailed     = failed,
-            StartedAt       = batch.StartedAt,
-            CompletedAt     = batch.CompletedAt,
-            CreatedAt       = batch.CreatedAt,
-            UpdatedAt       = batch.UpdatedAt,
+            FilesReview = review,
+            FilesNoMatch = noMatch,
+            FilesFailed = failed,
+            StartedAt = batch.StartedAt,
+            CompletedAt = batch.CompletedAt,
+            CreatedAt = batch.CreatedAt,
+            UpdatedAt = batch.UpdatedAt,
         };
     }
 
@@ -935,12 +960,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ["Watch"] = new(StringComparer.OrdinalIgnoreCase),
             ["Listen"] = new(StringComparer.OrdinalIgnoreCase),
             ["Read"] = new(StringComparer.OrdinalIgnoreCase),
+            ["View"] = new(StringComparer.OrdinalIgnoreCase),
         };
 
         foreach (var library in _configLoader.LoadLibraries().Libraries)
         {
-            var category = NormalizeCategory(library.Category);
-            var intent = ResolveIntent(category);
+            var category = NormalizeCategory(library.Category ?? library.Name);
+            var intent = ResolveIntent(library.Area, category);
             if (!groups.TryGetValue(intent, out var libraries))
             {
                 libraries = new(StringComparer.OrdinalIgnoreCase);
@@ -962,9 +988,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     Path = path,
                     MediaType = string.Join(", ", library.MediaTypes.DefaultIfEmpty(category)),
                     Purpose = ResolvePurpose(library),
-                    ScanMode = library.IntakeMode.Equals("watch", StringComparison.OrdinalIgnoreCase)
+                    ScanMode = library.AcceptedIntakeModes.Contains(
+                            LibraryIntakeModes.IncomingFolder,
+                            StringComparer.OrdinalIgnoreCase)
                         ? "automatic"
-                        : "manual",
+                        : "direct",
                     LastScan = ParseDate(stats?.LastScan),
                     ItemCount = stats is null ? 0 : ToInt(stats.ItemCount),
                     UnresolvedCount = stats is null ? 0 : ToInt(stats.UnresolvedCount),
@@ -1090,7 +1118,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var byKey = pipelineStages.ToDictionary(stage => stage.Key, StringComparer.OrdinalIgnoreCase);
         var totalFiles = pipelineStages.Select(stage => stage.TotalCount).DefaultIfEmpty(0).Max();
         if (totalFiles <= 0)
+        {
             totalFiles = Math.Max(0, summaryTotal);
+        }
 
         var detected = CountStage(byKey, "detected");
         var parsed = CountStage(byKey, "parsed");
@@ -1678,7 +1708,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         completedFiles = Math.Max(0, completedFiles);
         totalFiles = Math.Max(0, totalFiles);
         if (totalFiles > 0)
+        {
             completedFiles = Math.Clamp(completedFiles, 0, totalFiles);
+        }
 
         var percent = totalFiles > 0
             ? Math.Clamp(completedFiles * 100d / totalFiles, 0, 100)
@@ -1740,9 +1772,15 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static int DetailTerminalSort(string label)
     {
         if (label.Contains("failed", StringComparison.OrdinalIgnoreCase))
+        {
             return 2;
+        }
+
         if (label.Contains("unresolved", StringComparison.OrdinalIgnoreCase))
+        {
             return 1;
+        }
+
         return 0;
     }
 
@@ -1767,12 +1805,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         NumberedStageArtifactCounts counts)
     {
         if (displayBatches.Count == 0 || counts.HasMediaBreakdown)
+        {
             return;
+        }
 
         foreach (var batch in displayBatches)
         {
             if (string.IsNullOrWhiteSpace(batch.Category) || batch.FilesTotal <= 0)
+            {
                 continue;
+            }
 
             var category = NormalizeCategory(batch.Category);
             switch (category)
@@ -1808,7 +1850,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             var match = activities.FirstOrDefault(activity =>
                 activity.StageKey.Equals(key, StringComparison.OrdinalIgnoreCase));
             if (match is not null)
+            {
                 return match;
+            }
         }
 
         return null;
@@ -1817,7 +1861,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static string? ResolveActiveItemLabel(IngestionCurrentActivityDto? activity, int activeCount)
     {
         if (activity is null || activeCount != 1)
+        {
             return null;
+        }
 
         return StringHelpers.FirstNonBlankOr(string.Empty,
             activity.CurrentItem,
@@ -1832,14 +1878,20 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         int queuedCount)
     {
         if (activity is null)
+        {
             return null;
+        }
 
         if (activeCount + queuedCount <= 0)
+        {
             return null;
+        }
 
         var groupCount = Math.Max(activeCount + queuedCount, activity.CurrentBatch?.BatchSize ?? 0);
         if (groupCount <= 1)
+        {
             return null;
+        }
 
         return stageKey switch
         {
@@ -1861,24 +1913,44 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         bool terminalBatch = false)
     {
         if (stageKey.Equals("review", StringComparison.OrdinalIgnoreCase) && artifactCount > 0)
+        {
             return "Needs review";
+        }
+
         if (active > 0)
+        {
             return "Active";
+        }
+
         if (queued > 0)
+        {
             return "Queued";
+        }
+
         if (terminalBatch)
+        {
             return "Complete";
+        }
+
         if (percent >= 100)
+        {
             return "Complete";
+        }
+
         if (percent > 0)
+        {
             return "In progress";
+        }
+
         return "Pending";
     }
 
     private static int ParseMetricValue(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return 0;
+        }
 
         var digits = new string(value.Where(char.IsDigit).ToArray());
         return int.TryParse(digits, out var parsed) ? parsed : 0;
@@ -2325,13 +2397,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 END,
                 mo.updated_at DESC;
             """, new
-            {
-                batchIds,
-                hasBatchScope,
-                operationTypes = VisibleOperationTypes,
-                activeStatuses = ActiveOperationStatuses,
-                queuedStatuses = QueuedOperationStatuses,
-            })).AsList();
+        {
+            batchIds,
+            hasBatchScope,
+            operationTypes = VisibleOperationTypes,
+            activeStatuses = ActiveOperationStatuses,
+            queuedStatuses = QueuedOperationStatuses,
+        })).AsList();
 
         return rows
             .GroupBy(row => ResolveOperationTaskKey(row.OperationType), StringComparer.OrdinalIgnoreCase)
@@ -2409,7 +2481,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var active = Math.Max(operation?.Active ?? 0, recent.Active);
         var queued = operation?.Queued ?? 0;
         if (processed <= 0 && active <= 0 && queued <= 0)
+        {
             return null;
+        }
 
         return new TaskProgressOverride(
             processed,
@@ -2440,7 +2514,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var active = operationProgress?.Active ?? 0;
         var queued = operationProgress?.Queued ?? 0;
         if (processed <= 0 && active <= 0 && queued <= 0)
+        {
             return null;
+        }
 
         return new TaskProgressOverride(
             Math.Max(0, processed),
@@ -2457,10 +2533,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IReadOnlyList<CurrentActivityRow>? secondary)
     {
         if (secondary is not { Count: > 0 })
+        {
             return primary;
+        }
 
         if (primary.Count == 0)
+        {
             return secondary;
+        }
 
         return secondary.Concat(primary)
             .OrderBy(row => TaskSort(
@@ -2536,7 +2616,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         var hasPeopleCounts = counts.Total > 0 || counts.Processed > 0;
         var processed = hasPeopleCounts ? counts.Total : operation?.Processed ?? 0;
         if (processed <= 0 && active <= 0 && queued <= 0)
+        {
             return null;
+        }
 
         return new TaskProgressOverride(
             processed,
@@ -2604,11 +2686,11 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             FROM job_states js
             LEFT JOIN stage3_flags sf ON sf.entity_id = js.entity_id;
             """, new
-            {
-                batchIds = identityBatchIds,
-                hasBatchScope,
-                now = DateTimeOffset.UtcNow.ToString("O"),
-                relationshipStates = new[]
+        {
+            batchIds = identityBatchIds,
+            hasBatchScope,
+            now = DateTimeOffset.UtcNow.ToString("O"),
+            relationshipStates = new[]
                 {
                     nameof(IdentityJobState.QidResolved),
                     nameof(IdentityJobState.Hydrating),
@@ -2616,15 +2698,15 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                     nameof(IdentityJobState.Ready),
                     nameof(IdentityJobState.ReadyWithoutUniverse),
                 },
-                completeStates = EnrichmentCompleteStates,
-                queuedStates = new[]
+            completeStates = EnrichmentCompleteStates,
+            queuedStates = new[]
                 {
                     nameof(IdentityJobState.QidResolved),
                     nameof(IdentityJobState.Hydrating),
                     nameof(IdentityJobState.UniverseEnriching),
                 },
-                universeState = nameof(IdentityJobState.UniverseEnriching),
-            }) ?? new TaskProgressCountRow();
+            universeState = nameof(IdentityJobState.UniverseEnriching),
+        }) ?? new TaskProgressCountRow();
 
         var artifactCounts = await conn.QueryFirstOrDefaultAsync<TaskProgressCountRow>("""
             WITH batch_assets AS (
@@ -2727,7 +2809,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ? artifactCounts.Processed
             : operation?.Processed ?? 0;
         if (processed <= 0 && active <= 0 && queued <= 0)
+        {
             return null;
+        }
 
         return new TaskProgressOverride(
             processed,
@@ -2937,12 +3021,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ORDER BY MAX(UpdatedAt) DESC
             LIMIT 10;
             """, new
-            {
-                batchIds = identityBatchIds,
-                activityBatchIds = identityBatchIds,
-                hasBatchScope,
-                actionTypes = RelationshipActivityTypes
-            })).AsList();
+        {
+            batchIds = identityBatchIds,
+            activityBatchIds = identityBatchIds,
+            hasBatchScope,
+            actionTypes = RelationshipActivityTypes
+        })).AsList();
 
         if (batchRows.Count > 0)
         {
@@ -3010,12 +3094,12 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             ORDER BY MAX(UpdatedAt) DESC
             LIMIT 10;
             """, new
-            {
-                batchIds = identityBatchIds,
-                activityBatchIds = identityBatchIds,
-                hasBatchScope,
-                actionTypes = PeopleActivityTypes
-            })).AsList();
+        {
+            batchIds = identityBatchIds,
+            activityBatchIds = identityBatchIds,
+            hasBatchScope,
+            actionTypes = PeopleActivityTypes
+        })).AsList();
 
         if (batchRows.Count > 0)
         {
@@ -3254,7 +3338,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static int ParseMetricCount(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
+        {
             return 0;
+        }
 
         var digits = new string(value.Where(char.IsDigit).ToArray());
         return int.TryParse(digits, out var parsed) ? parsed : 0;
@@ -3819,7 +3905,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         CancellationToken ct)
     {
         if (batches.Count == 0)
+        {
             return [];
+        }
 
         var result = batches.ToDictionary(batch => batch.Id, _ => new BatchActivityStats());
         using var conn = _db.CreateConnection();
@@ -3896,7 +3984,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         CancellationToken ct)
     {
         if (recentBatchGroups.Count == 0)
+        {
             return [];
+        }
 
         var recentById = recentBatches.ToDictionary(batch => batch.Id);
         var result = new List<IngestionOperationsBatchDto>(recentBatchGroups.Count);
@@ -3911,7 +4001,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 .Cast<IngestionBatch>()
                 .ToList();
             if (sourceBatches.Count == 0)
+            {
                 sourceBatches = [group.Batch];
+            }
 
             var stats = AggregateBatchStats(group.SourceBatchIds, batchStats);
             var groupPipelineRows = await ReadIdentityStateCountsAsync(group.SourceBatchIds, ct).ConfigureAwait(false);
@@ -3945,7 +4037,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IReadOnlyList<DisplayBatchGroup> recentBatchGroups)
     {
         if (recentBatchGroups.Count <= 1)
+        {
             return recentBatchGroups;
+        }
 
         var selected = SelectDisplayBatchGroup(recentBatchGroups);
         return recentBatchGroups
@@ -4016,7 +4110,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
         IReadOnlyDictionary<Guid, BatchActivityStats> statsByBatch)
     {
         if (batchIds.Count == 0)
+        {
             return new();
+        }
 
         var stats = batchIds
             .Select(id => statsByBatch.GetValueOrDefault(id))
@@ -4025,7 +4121,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
             .ToList();
 
         if (stats.Count == 0)
+        {
             return new();
+        }
 
         return new BatchActivityStats(
             MoviesCount: stats.Sum(item => item.MoviesCount),
@@ -4148,15 +4246,16 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static IReadOnlyList<string> EffectiveSourcePaths(LibraryFolderConfig library)
     {
-        return library.SourcePaths.Where(path => !string.IsNullOrWhiteSpace(path)).ToList();
+        return library.ScannableSources.Select(source => source.Path).ToList();
     }
 
-    private static string ResolveIntent(string category) => category.ToLowerInvariant() switch
+    private static string ResolveIntent(string area, string category) => area.ToLowerInvariant() switch
     {
-        "movies" or "movie" or "tv" or "tv shows" or "shows" => "Watch",
-        "music" or "audiobooks" or "audiobook" or "podcasts" => "Listen",
-        "books" or "book" or "comics" or "comic" => "Read",
-        _ => "Read",
+        LibraryAreas.Watch => "Watch",
+        LibraryAreas.Listen => "Listen",
+        LibraryAreas.View => "View",
+        LibraryAreas.Read => "Read",
+        _ => category,
     };
 
     private static string NormalizeCategory(string category) => category.Trim() switch
@@ -4172,12 +4271,14 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
 
     private static string ResolvePurpose(LibraryFolderConfig library)
     {
-        if (library.ReadOnly)
+        if (library.Sources.All(source => !source.AllowsFileMutation))
         {
             return "archive";
         }
 
-        return library.IntakeMode.Equals("import", StringComparison.OrdinalIgnoreCase)
+        return library.AcceptedIntakeModes.Contains(
+                LibraryIntakeModes.IncomingFolder,
+                StringComparer.OrdinalIgnoreCase)
             ? "incoming"
             : "primary";
     }
@@ -4260,7 +4361,9 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static bool IsFreshQueuedActivity(DateTimeOffset? updatedAt)
     {
         if (!updatedAt.HasValue)
+        {
             return true;
+        }
 
         return DateTimeOffset.UtcNow - updatedAt.Value.ToUniversalTime() <= ActiveActivityFreshness;
     }
@@ -4283,12 +4386,36 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static int ProviderSortKey(string name)
     {
         var lower = name.ToLowerInvariant();
-        if (lower.Contains("apple")) return 0;
-        if (lower.Contains("tmdb")) return 1;
-        if (lower.Contains("musicbrainz")) return 2;
-        if (lower.Contains("wikidata")) return 3;
-        if (lower.Contains("wikipedia")) return 4;
-        if (lower.Contains("comic")) return 5;
+        if (lower.Contains("apple"))
+        {
+            return 0;
+        }
+
+        if (lower.Contains("tmdb"))
+        {
+            return 1;
+        }
+
+        if (lower.Contains("musicbrainz"))
+        {
+            return 2;
+        }
+
+        if (lower.Contains("wikidata"))
+        {
+            return 3;
+        }
+
+        if (lower.Contains("wikipedia"))
+        {
+            return 4;
+        }
+
+        if (lower.Contains("comic"))
+        {
+            return 5;
+        }
+
         return 20;
     }
 
@@ -4327,11 +4454,15 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
     private static void ApplyBatchCategoryFallback(IngestionBatch batch, Dictionary<string, int> mediaCounts)
     {
         if (mediaCounts.Values.Sum() > 0 || string.IsNullOrWhiteSpace(batch.Category) || batch.FilesTotal <= 0)
+        {
             return;
+        }
 
         var category = NormalizeCategory(batch.Category);
         if (category is "Movies" or "TV Shows" or "Books" or "Audiobooks" or "Music" or "Comics")
+        {
             mediaCounts[category] = batch.FilesTotal;
+        }
     }
 
     private static int SumStates(IReadOnlyDictionary<string, int> counts, IEnumerable<string> states) =>

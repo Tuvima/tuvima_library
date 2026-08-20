@@ -119,6 +119,13 @@ public static class ReviewTrigger
     public const string RootWatchFolder = "RootWatchFolder";
 
     /// <summary>
+    /// A file arrived through a shared incoming source, but its detected media
+    /// type matched either no eligible destination library or more than one.
+    /// An explicit destination is required before organization can continue.
+    /// </summary>
+    public const string UnresolvedIntakeDestination = "UnresolvedIntakeDestination";
+
+    /// <summary>
     /// The auto re-tag sweep tried to write metadata to a file and either
     /// the file was corrupt, the tagger threw an unrecoverable error, or
     /// retry attempts were exhausted. The user must decide whether to retry
