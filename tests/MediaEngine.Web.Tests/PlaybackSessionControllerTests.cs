@@ -130,7 +130,7 @@ public sealed class PlaybackSessionControllerTests
         Assert.Equal(1256.245, service.CurrentTimeSeconds, 3);
         Assert.Equal(2, service.CurrentItem?.ChapterIndex);
         Assert.True(service.CurrentItem?.StartAtExactPosition);
-        Assert.Equal("Chapter 3", service.CurrentItem?.Subtitle);
+        Assert.Equal("003", service.CurrentItem?.Subtitle);
     }
 
     [Fact]
@@ -243,11 +243,11 @@ public sealed class PlaybackSessionControllerTests
     }
 
     [Fact]
-    public void CleanChapterTitle_UsesReadableFallbackForNumericEmbeddedTitles()
+    public void NormalizeChapter_PreservesEmbeddedNumericTrackTitles()
     {
-        Assert.Equal("Chapter 1", PlaybackSessionController.CleanChapterTitle("001", 0));
-        Assert.Equal("Dedication", PlaybackSessionController.CleanChapterTitle("Dedication", 1));
-        Assert.Equal("Chapter 3", PlaybackSessionController.CleanChapterTitle("", 2));
+        Assert.Equal("001", PlaybackSessionController.NormalizeChapter(new PlaybackChapterDto { Title = "001" }, 0).Title);
+        Assert.Equal("Dedication", PlaybackSessionController.NormalizeChapter(new PlaybackChapterDto { Title = "Dedication" }, 1).Title);
+        Assert.Equal("Track 3", PlaybackSessionController.NormalizeChapter(new PlaybackChapterDto(), 2).Title);
     }
 
     [Fact]

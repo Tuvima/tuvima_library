@@ -492,8 +492,6 @@ public sealed class AiRoleRequirement
 /// <summary>Per-feature enable/disable flags.</summary>
 public sealed class AiFeatureFlags
 {
-    [JsonPropertyName("audiobook_chapter_naming")]
-    public bool AudiobookChapterNaming { get; set; }
 
     [JsonPropertyName("smart_labeling")]
     public bool SmartLabeling { get; set; } = true;

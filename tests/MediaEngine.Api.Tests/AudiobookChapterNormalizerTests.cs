@@ -6,132 +6,51 @@ namespace MediaEngine.Api.Tests;
 public sealed class AudiobookChapterNormalizerTests
 {
     [Fact]
-    public void Normalize_ClassifiesShortNumericFirstChapterAsIntroAndRenumbersContent()
+    public void Normalize_PreservesEmbeddedNumericTrackTitlesAndNeverInfersAnIntro()
     {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [
-                Chapter(0, "001", 0, 15),
-                Chapter(1, "002", 15, 120),
-                Chapter(2, "003", 120, 240),
-            ],
-            new ListeningSettingsDto());
+        var tracks = AudiobookChapterNormalizer.Normalize(
+        [
+            Track(0, "001", 0, 15),
+            Track(1, "002", 15, 120),
+        ]);
 
-        Assert.Equal("Intro", chapters[0].Title);
-        Assert.Equal(PlaybackChapterKinds.Intro, chapters[0].Kind);
-        Assert.Equal(PlaybackChapterTitleSources.Generated, chapters[0].TitleSource);
-        Assert.Equal("001", chapters[0].OriginalTitle);
-        Assert.Equal("Chapter 1", chapters[1].Title);
-        Assert.Equal("Chapter 2", chapters[2].Title);
+        Assert.Equal("001", tracks[0].Title);
+        Assert.Equal("002", tracks[1].Title);
+        Assert.All(tracks, track => Assert.Equal(PlaybackChapterKinds.Chapter, track.Kind));
+        Assert.All(tracks, track => Assert.Equal(PlaybackChapterTitleSources.Embedded, track.TitleSource));
     }
 
     [Fact]
-    public void Normalize_PreservesMeaningfulShortFirstTitleButMarksItAsIntro()
+    public void Normalize_UsesNeutralTrackFallbackOnlyWhenTheEmbeddedTitleIsBlank()
     {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [
-                Chapter(0, "Opening Credits", 0, 12),
-                Chapter(1, "1", 12, 180),
-            ],
-            new ListeningSettingsDto());
+        var tracks = AudiobookChapterNormalizer.Normalize([Track(0, "", 0, 3600)]);
 
-        Assert.Equal("Opening Credits", chapters[0].Title);
-        Assert.Equal("Opening Credits", chapters[0].OriginalTitle);
-        Assert.Equal(PlaybackChapterKinds.Intro, chapters[0].Kind);
-        Assert.Equal(PlaybackChapterTitleSources.Embedded, chapters[0].TitleSource);
-        Assert.Equal("Chapter 1", chapters[1].Title);
+        Assert.Equal("Track 1", tracks[0].Title);
+        Assert.Equal(PlaybackChapterTitleSources.Generated, tracks[0].TitleSource);
     }
 
     [Fact]
-    public void Normalize_DetectionDisabledLeavesFirstGenericChapterNumbered()
+    public void Normalize_AppliesAnExplicitOverrideWithoutChangingTrackTiming()
     {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [
-                Chapter(0, "001", 0, 15),
-                Chapter(1, "002", 15, 120),
-            ],
-            new ListeningSettingsDto { DetectShortIntroChapters = false });
-
-        Assert.Equal("Chapter 1", chapters[0].Title);
-        Assert.Equal(PlaybackChapterKinds.Chapter, chapters[0].Kind);
-        Assert.Equal("Chapter 2", chapters[1].Title);
-    }
-
-    [Fact]
-    public void Normalize_ThresholdControlsIntroClassification()
-    {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [
-                Chapter(0, "001", 0, 45),
-                Chapter(1, "002", 45, 180),
-            ],
-            new ListeningSettingsDto { ShortIntroMaxSeconds = 60 });
-
-        Assert.Equal("Intro", chapters[0].Title);
-        Assert.Equal(PlaybackChapterKinds.Intro, chapters[0].Kind);
-
-        chapters = AudiobookChapterNormalizer.Normalize(
-            [
-                Chapter(0, "001", 0, 45),
-                Chapter(1, "002", 45, 180),
-            ],
-            new ListeningSettingsDto { ShortIntroMaxSeconds = 30 });
-
-        Assert.Equal("Chapter 1", chapters[0].Title);
-        Assert.Equal(PlaybackChapterKinds.Chapter, chapters[0].Kind);
-    }
-
-    [Fact]
-    public void Normalize_AppliesDisplayTitleOverrideWithoutChangingTimings()
-    {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [
-                Chapter(0, "001", 0, 15),
-                Chapter(1, "002", 15, 120),
-            ],
-            new ListeningSettingsDto(),
+        var tracks = AudiobookChapterNormalizer.Normalize(
+            [Track(0, "001", 15, 120)],
             new Dictionary<int, AudiobookChapterTitleOverrideDto>
             {
-                [1] = new()
+                [0] = new()
                 {
-                    ChapterIndex = 1,
+                    ChapterIndex = 0,
                     Title = "The Crawl Begins",
-                    TitleSource = PlaybackChapterTitleSources.AiSuggested,
+                    TitleSource = PlaybackChapterTitleSources.Override,
                 },
             });
 
-        Assert.Equal("Intro", chapters[0].Title);
-        Assert.Equal("The Crawl Begins", chapters[1].Title);
-        Assert.Equal(PlaybackChapterTitleSources.AiSuggested, chapters[1].TitleSource);
-        Assert.Equal(15, chapters[1].StartSeconds);
-        Assert.Equal(120, chapters[1].EndSeconds);
+        Assert.Equal("The Crawl Begins", tracks[0].Title);
+        Assert.Equal(PlaybackChapterTitleSources.Override, tracks[0].TitleSource);
+        Assert.Equal(15, tracks[0].StartSeconds);
+        Assert.Equal(120, tracks[0].EndSeconds);
     }
 
-    [Fact]
-    public void ShouldExposeChapterDetails_HidesSingleLargeChapterByDefault()
-    {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [Chapter(0, "001", 0, 3600)],
-            new ListeningSettingsDto());
-
-        Assert.False(AudiobookChapterNormalizer.ShouldExposeChapterDetails(chapters, new ListeningSettingsDto()));
-    }
-
-    [Fact]
-    public void ShouldExposeChapterDetails_RespectsConfiguration()
-    {
-        var chapters = AudiobookChapterNormalizer.Normalize(
-            [Chapter(0, "001", 0, 3600)],
-            new ListeningSettingsDto());
-
-        Assert.True(AudiobookChapterNormalizer.ShouldExposeChapterDetails(
-            chapters,
-            new ListeningSettingsDto { HideSingleLargeChapterDetails = false }));
-        Assert.True(AudiobookChapterNormalizer.ShouldExposeChapterDetails(
-            chapters,
-            new ListeningSettingsDto { SingleLargeChapterMinSeconds = 7200 }));
-    }
-
-    private static PlaybackChapterDto Chapter(int index, string title, double start, double end) => new()
+    private static PlaybackChapterDto Track(int index, string title, double start, double end) => new()
     {
         Index = index,
         Title = title,

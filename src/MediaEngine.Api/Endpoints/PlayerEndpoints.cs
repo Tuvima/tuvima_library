@@ -287,27 +287,6 @@ public static class PlayerEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
-        group.MapPost("/audiobooks/{workId:guid}/chapters/suggest-names", async (
-            Guid workId,
-            SuggestAudiobookChapterNamesRequestDto request,
-            AudiobookChapterNamingService naming,
-            CancellationToken ct) =>
-        {
-            try
-            {
-                return Results.Ok(await naming.SuggestNamesAsync(workId, request, ct));
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return ApiErrors.NotFound(ex.Message);
-            }
-        })
-        .WithName("SuggestAudiobookChapterNames")
-        .WithSummary("Suggest display-only audiobook chapter names using local AI.")
-        .Produces<AudiobookChapterNameSuggestionsDto>(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
-
         group.MapGet("/audiobooks/{workId:guid}/chapter-overrides", async (
             Guid workId,
             Guid? assetId,
@@ -326,24 +305,11 @@ public static class PlayerEndpoints
             Guid workId,
             UpsertAudiobookChapterTitleOverrideRequestDto request,
             AudiobookChapterNamingService naming,
-            ISystemActivityRepository activityRepo,
             CancellationToken ct) =>
         {
             try
             {
                 var saved = await naming.UpsertOverrideAsync(workId, request, ct);
-                if (string.Equals(saved.TitleSource, PlaybackChapterTitleSources.AiSuggested, StringComparison.OrdinalIgnoreCase))
-                {
-                    await activityRepo.LogAsync(new SystemActivityEntry
-                    {
-                        OccurredAt = DateTimeOffset.UtcNow,
-                        ActionType = SystemActionType.MetadataManualOverride,
-                        EntityId = workId,
-                        EntityType = "Work",
-                        Detail = $"AI-assisted chapter title applied to chapter {saved.ChapterIndex + 1}.",
-                    }, ct);
-                }
-
                 return Results.Ok(saved);
             }
             catch (ArgumentException ex)

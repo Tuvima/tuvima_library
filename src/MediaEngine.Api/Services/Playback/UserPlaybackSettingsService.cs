@@ -209,11 +209,6 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         {
             settings.Listening.SleepTimerOptionsMinutes = [.. DefaultSleepTimerOptionsMinutes];
         }
-        settings.Listening.ShortIntroLabel = string.IsNullOrWhiteSpace(settings.Listening.ShortIntroLabel)
-            ? "Intro"
-            : settings.Listening.ShortIntroLabel.Trim();
-        settings.Listening.MinimumChaptersForChapterDetails = Math.Clamp(settings.Listening.MinimumChaptersForChapterDetails, 1, 10);
-        settings.Listening.SingleLargeChapterMinSeconds = Math.Clamp(settings.Listening.SingleLargeChapterMinSeconds, 300, 14400);
         settings.Listening.AudiobookHistoryLimit = Math.Clamp(settings.Listening.AudiobookHistoryLimit, 1, 50);
         settings.Listening.AudiobookResumeRegressionGuardSeconds = Math.Clamp(settings.Listening.AudiobookResumeRegressionGuardSeconds, 0, 3600);
         settings.Listening.AudiobookNearStartGuardSeconds = Math.Clamp(settings.Listening.AudiobookNearStartGuardSeconds, 0, 300);
@@ -249,9 +244,6 @@ public sealed class UserPlaybackSettingsService : IUserPlaybackSettingsService
         RequireRange(settings.Listening.AudiobookNearStartGuardSeconds, 0, 300, nameof(settings.Listening.AudiobookNearStartGuardSeconds));
         RequireRange(settings.Listening.AudiobookHistoryActiveSegmentGapSeconds, 5, 300, nameof(settings.Listening.AudiobookHistoryActiveSegmentGapSeconds));
         RequireRange(settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds, 1, 120, nameof(settings.Listening.AudiobookHistoryPositionJumpToleranceSeconds));
-        RequireRange(settings.Listening.ShortIntroMaxSeconds, 5, 120, nameof(settings.Listening.ShortIntroMaxSeconds));
-        RequireRange(settings.Listening.MinimumChaptersForChapterDetails, 1, 10, nameof(settings.Listening.MinimumChaptersForChapterDetails));
-        RequireRange(settings.Listening.SingleLargeChapterMinSeconds, 300, 14400, nameof(settings.Listening.SingleLargeChapterMinSeconds));
         foreach (var minutes in settings.Listening.SleepTimerOptionsMinutes)
         {
             RequireRange(minutes, 1, 240, $"{nameof(settings.Listening.SleepTimerOptionsMinutes)}[]");

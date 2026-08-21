@@ -240,8 +240,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.TvSeason => [\"overview\", \"cast\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"credits\", \"related\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Audiobook when hasChapters", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
@@ -1362,7 +1361,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void BuildTabs_AudiobookKeepsEmbeddedChaptersOutOfNavigation()
+    public void BuildTabs_AudiobookMatchesMusicAlbumTrackLayout()
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1373,10 +1372,9 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal(
-            ["overview", "credits", "related", "details"],
-            tabs.Select(tab => tab.Key));
+        Assert.Equal(["overview", "details"], tabs.Select(tab => tab.Key));
         Assert.DoesNotContain(tabs, tab => tab.Key == "chapters");
+        Assert.DoesNotContain(tabs, tab => tab.Key == "credits");
     }
 
     [Theory]
@@ -1428,6 +1426,35 @@ public sealed class DetailComposerServiceTests
             groups);
 
         Assert.Equal(DetailPrimaryModuleKind.None, module.Kind);
+    }
+
+    [Fact]
+    public void BuildPrimaryModule_AudiobookExcludesRelatedBooksFromItsTrackTable()
+    {
+        IReadOnlyList<MediaGroupingViewModel> groups =
+        [
+            new MediaGroupingViewModel
+            {
+                Key = "tracks",
+                Title = "Tracks",
+                Items = [new MediaGroupingItemViewModel { Id = "owned-track", Title = "001", IsOwned = true }],
+            },
+            new MediaGroupingViewModel
+            {
+                Key = "more-like-this",
+                Title = "More Like This",
+                Items = [new MediaGroupingItemViewModel { Id = "other-book", Title = "A related audiobook" }],
+            },
+        ];
+
+        var module = InvokePrivate<DetailPrimaryModuleViewModel>(
+            "BuildPrimaryModule",
+            DetailEntityType.Audiobook,
+            null,
+            groups);
+
+        Assert.Equal(DetailPrimaryModuleKind.Tracks, module.Kind);
+        Assert.Equal(["tracks"], module.GroupKeys);
     }
 
     [Theory]

@@ -59,7 +59,6 @@ public partial class SharedMediaEditorShell
     [Inject] protected UIOrchestratorService Orchestrator { get; set; } = null!;
     [Inject] protected ISnackbar Snackbar { get; set; } = null!;
     [Inject] protected IJSRuntime JS { get; set; } = null!;
-    [Inject] protected EditorAiCapabilityService EditorAiCapabilities { get; set; } = null!;
     [Inject] protected ProviderCatalogueService ProviderCatalogue { get; set; } = null!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -130,7 +129,6 @@ public partial class SharedMediaEditorShell
     private bool _providerArtworkRefreshing;
     private bool _retryingWriteback;
     private string _historyFilter = "all";
-    private bool _suggestingChapterNames;
     private bool _confirmDiscard;
     private bool _showQuarantineConfirm;
     private string? _dragTargetArtworkType;
@@ -160,7 +158,6 @@ public partial class SharedMediaEditorShell
     private IReadOnlyList<string> _genreSuggestions = [];
     private IReadOnlyList<string> _tagSuggestions = [];
     private ContainerReturnState? _containerReturnState;
-    private EditorAiCapability _chapterNamingCapability = new(false, "Checking local AI availability.");
 
     protected IReadOnlyList<(string Id, string Label, string Icon)> Tabs => ResolveVisibleTabs();
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
@@ -568,9 +565,6 @@ public partial class SharedMediaEditorShell
             await LoadProfilePreferencesAsync(CurrentEntityId);
             await LoadEditorSuggestionsAsync();
             await LoadAudiobookChapterOverrideStateAsync(CurrentEntityId);
-            if (string.Equals(_selectedMediaType, "Audiobooks", StringComparison.OrdinalIgnoreCase))
-                _chapterNamingCapability = await EditorAiCapabilities.GetAudiobookChapterNamingAsync();
-
             _dragTargetArtworkType = null;
             _showQuarantineConfirm = false;
             _pendingMembershipPreview = null;
@@ -704,67 +698,6 @@ public partial class SharedMediaEditorShell
         _audiobookChapterEdits.Remove(key);
         _audiobookChapterResetKeys.Add(key);
         _focusedAudiobookChapterKey = null;
-    }
-
-    protected async Task SuggestAudiobookChapterNamesAsync()
-    {
-        if (!_chapterNamingCapability.IsAvailable || _suggestingChapterNames)
-            return;
-
-        var assetId = AudiobookChapters
-            .Select(chapter => Guid.TryParse(chapter.AssetId, out var parsed) ? parsed : Guid.Empty)
-            .FirstOrDefault(id => id != Guid.Empty);
-        if (assetId == Guid.Empty)
-        {
-            Snackbar.Add("No audiobook asset is available for chapter suggestions.", Severity.Warning);
-            return;
-        }
-
-        _suggestingChapterNames = true;
-        try
-        {
-            var suggestions = await ApiClient.SuggestAudiobookChapterNamesAsync(
-                CurrentEntityId,
-                new SuggestAudiobookChapterNamesRequestDto { ProfileId = Request.ActiveProfileId, AssetId = assetId });
-            if (suggestions is null || suggestions.Suggestions.Count == 0)
-            {
-                Snackbar.Add(suggestions?.Warnings.FirstOrDefault() ?? "No chapter suggestions were returned.", Severity.Warning);
-                return;
-            }
-
-            var parameters = new DialogParameters
-            {
-                [nameof(AudiobookChapterSuggestionDialog.Suggestions)] = suggestions,
-            };
-            var dialog = await DialogService.ShowAsync<AudiobookChapterSuggestionDialog>(
-                "Review chapter suggestions",
-                parameters,
-                new DialogOptions { MaxWidth = MaxWidth.Large, FullWidth = true, CloseOnEscapeKey = true });
-            var result = await dialog.Result;
-            if (result?.Canceled != false || result.Data is not IReadOnlyList<AudiobookChapterNameSuggestionDto> accepted)
-                return;
-
-            foreach (var suggestion in accepted)
-            {
-                var chapter = AudiobookChapters.FirstOrDefault(item => item.ChapterIndex == suggestion.ChapterIndex);
-                if (chapter is null || !Guid.TryParse(chapter.AssetId, out var chapterAssetId))
-                    continue;
-
-                var key = BuildAudiobookChapterKey(chapter);
-                _audiobookChapterResetKeys.Remove(key);
-                _audiobookChapterEdits[key] = new AudiobookChapterEdit(
-                    chapterAssetId,
-                    suggestion.ChapterIndex,
-                    suggestion.SuggestedTitle.Trim(),
-                    PlaybackChapterTitleSources.AiSuggested);
-            }
-
-            Snackbar.Add($"Staged {accepted.Count} AI-assisted chapter title change{(accepted.Count == 1 ? string.Empty : "s")}. Save Changes to apply them.", Severity.Success);
-        }
-        finally
-        {
-            _suggestingChapterNames = false;
-        }
     }
 
     protected static string FormatAudiobookChapterRange(MediaGroupingItemViewModel chapter)

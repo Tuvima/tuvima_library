@@ -233,7 +233,7 @@ public sealed class Phase5InlineEditingTests
         var metadata = ReadSource("src/MediaEngine.Api/Endpoints/MetadataEndpoints.cs");
 
         Assert.Contains("else if (_activeTab == \"contents\")", shell, StringComparison.Ordinal);
-        Assert.Contains("This chapter boundary is embedded in the audiobook file. Timing remains read-only.", shell, StringComparison.Ordinal);
+        Assert.Contains("This track boundary is embedded in the audiobook file. Timing remains read-only.", shell, StringComparison.Ordinal);
         Assert.Contains("QueueAudiobookChapterReset", shell, StringComparison.Ordinal);
         Assert.Contains("UpsertAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);
         Assert.Contains("DeleteAudiobookChapterTitleOverrideAsync", code, StringComparison.Ordinal);

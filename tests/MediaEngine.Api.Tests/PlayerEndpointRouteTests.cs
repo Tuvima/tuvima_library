@@ -33,7 +33,7 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("group.MapGet(\"/audiobooks/{workId:guid}/bookmarks\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/audiobooks/{workId:guid}/bookmarks\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapDelete(\"/audiobooks/bookmarks/{bookmarkId:guid}\"", endpointSource, StringComparison.Ordinal);
-        Assert.Contains("group.MapPost(\"/audiobooks/{workId:guid}/chapters/suggest-names\"", endpointSource, StringComparison.Ordinal);
+        Assert.DoesNotContain("suggest-names", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapGet(\"/audiobooks/{workId:guid}/chapter-overrides\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapPost(\"/audiobooks/{workId:guid}/chapter-overrides\"", endpointSource, StringComparison.Ordinal);
         Assert.Contains("group.MapDelete(\"/audiobooks/{workId:guid}/chapter-overrides/{assetId:guid}/{chapterIndex:int}\"", endpointSource, StringComparison.Ordinal);
@@ -116,7 +116,7 @@ public sealed class PlayerEndpointRouteTests
         Assert.Contains("StartSeconds = chapter.StartSeconds", source, StringComparison.Ordinal);
         Assert.Contains("CompleteChapterRanges", source, StringComparison.Ordinal);
         Assert.Contains("AudiobookChapterNormalizer.Normalize", source, StringComparison.Ordinal);
-        Assert.Contains("_settings.GetOrCreateDefaultsAsync", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("DetectShortIntroChapters", source, StringComparison.Ordinal);
         Assert.Contains("_chapterTitleOverrides.GetByAssetAsync", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Enumerable.Range(0, probe.ChapterCount)", source, StringComparison.Ordinal);
     }

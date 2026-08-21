@@ -440,62 +440,26 @@ public sealed class ContractJsonRoundTripTests
     }
 
     [Fact]
-    public void AudiobookChapterNamingDtos_RoundTripRepresentativeShape()
+    public void AudiobookTrackTitleOverrideDto_RoundTripsRepresentativeShape()
     {
-        var workId = Guid.Parse("11111111-1111-1111-1111-111111111111");
         var assetId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-        var profileId = Guid.Parse("33333333-3333-3333-3333-333333333333");
-        var suggestions = new AudiobookChapterNameSuggestionsDto
-        {
-            WorkId = workId,
-            AssetId = assetId,
-            Suggestions =
-            [
-                new AudiobookChapterNameSuggestionDto
-                {
-                    ChapterIndex = 1,
-                    CurrentTitle = "Chapter 1",
-                    OriginalTitle = "002",
-                    SuggestedTitle = "Chapter One",
-                    Confidence = 0.82,
-                    Reason = "Matched the local ebook table of contents.",
-                },
-            ],
-            Warnings = ["display names only"],
-        };
         var overrideRequest = new UpsertAudiobookChapterTitleOverrideRequestDto
         {
             AssetId = assetId,
             ChapterIndex = 1,
-            Title = "Chapter One",
-            TitleSource = PlaybackChapterTitleSources.AiSuggested,
-        };
-        var suggestRequest = new SuggestAudiobookChapterNamesRequestDto
-        {
-            AssetId = assetId,
-            ProfileId = profileId,
+            Title = "Track Two",
+            TitleSource = PlaybackChapterTitleSources.Override,
         };
 
-        var suggestionsJson = JsonSerializer.Serialize(suggestions, JsonOptions);
         var overrideJson = JsonSerializer.Serialize(overrideRequest, JsonOptions);
-        var suggestJson = JsonSerializer.Serialize(suggestRequest, JsonOptions);
 
-        var suggestionsRoundTrip = JsonSerializer.Deserialize<AudiobookChapterNameSuggestionsDto>(suggestionsJson, JsonOptions);
         var overrideRoundTrip = JsonSerializer.Deserialize<UpsertAudiobookChapterTitleOverrideRequestDto>(overrideJson, JsonOptions);
-        var suggestRoundTrip = JsonSerializer.Deserialize<SuggestAudiobookChapterNamesRequestDto>(suggestJson, JsonOptions);
 
-        Assert.NotNull(suggestionsRoundTrip);
-        Assert.Equal(workId, suggestionsRoundTrip.WorkId);
-        Assert.Equal(assetId, suggestionsRoundTrip.AssetId);
-        Assert.Equal("Chapter One", suggestionsRoundTrip.Suggestions[0].SuggestedTitle);
-        Assert.Equal("display names only", suggestionsRoundTrip.Warnings[0]);
         Assert.NotNull(overrideRoundTrip);
-        Assert.Equal(PlaybackChapterTitleSources.AiSuggested, overrideRoundTrip.TitleSource);
-        Assert.NotNull(suggestRoundTrip);
-        Assert.Equal(profileId, suggestRoundTrip.ProfileId);
-        Assert.Contains("\"suggestedTitle\":\"Chapter One\"", suggestionsJson, StringComparison.Ordinal);
-        Assert.Contains("\"titleSource\":\"AiSuggested\"", overrideJson, StringComparison.Ordinal);
-        Assert.Contains("\"profileId\":\"33333333-3333-3333-3333-333333333333\"", suggestJson, StringComparison.Ordinal);
+        Assert.Equal(assetId, overrideRoundTrip.AssetId);
+        Assert.Equal("Track Two", overrideRoundTrip.Title);
+        Assert.Equal(PlaybackChapterTitleSources.Override, overrideRoundTrip.TitleSource);
+        Assert.Contains("\"titleSource\":\"Override\"", overrideJson, StringComparison.Ordinal);
     }
 
     [Fact]

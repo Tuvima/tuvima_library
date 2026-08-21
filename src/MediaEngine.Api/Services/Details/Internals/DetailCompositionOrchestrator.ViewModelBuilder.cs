@@ -454,19 +454,19 @@ internal sealed partial class DetailCompositionOrchestrator
             return null;
         }
 
-        var chapterGroup = mediaGroups
-            .FirstOrDefault(group => string.Equals(group.Key, "chapters", StringComparison.OrdinalIgnoreCase));
-        var chapters = chapterGroup?.Items ?? [];
-        if (chapters.Count == 0)
+        var trackGroup = mediaGroups
+            .FirstOrDefault(group => string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase));
+        var tracks = trackGroup?.Items ?? [];
+        if (tracks.Count == 0)
         {
             return null;
         }
 
-        var current = chapters
+        var current = tracks
             .Where(item => item.ResumePositionSeconds is > 0)
             .OrderByDescending(item => item.ResumePositionSeconds)
             .FirstOrDefault()
-            ?? chapters
+            ?? tracks
                 .Where(item => item.ProgressPercent is > 0 and < 99.5)
                 .OrderByDescending(item => item.ProgressPercent)
                 .FirstOrDefault();
@@ -475,7 +475,7 @@ internal sealed partial class DetailCompositionOrchestrator
             return null;
         }
 
-        var totalSeconds = chapters
+        var totalSeconds = tracks
             .Select(item => item.EndSeconds ?? item.DurationSeconds ?? 0)
             .Where(seconds => seconds > 0)
             .DefaultIfEmpty()
@@ -493,40 +493,34 @@ internal sealed partial class DetailCompositionOrchestrator
         var roundedPercent = Math.Clamp((int)Math.Round(clampedPercent, MidpointRounding.AwayFromZero), 1, 99);
         var timeLeft = FormatTimeLeft(runtimeSource, clampedPercent);
         var currentPosition = 0;
-        for (var i = 0; i < chapters.Count; i++)
+        for (var i = 0; i < tracks.Count; i++)
         {
-            if (ReferenceEquals(chapters[i], current))
+            if (ReferenceEquals(tracks[i], current))
             {
                 currentPosition = i + 1;
                 break;
             }
         }
 
-        var hasVisibleChapters = chapters.Count > 1
-            && string.Equals(chapterGroup?.Title, "Chapters", StringComparison.OrdinalIgnoreCase)
+        var hasVisibleTracks = tracks.Count > 1
+            && string.Equals(trackGroup?.Title, "Tracks", StringComparison.OrdinalIgnoreCase)
             && currentPosition > 0;
-        var chaptersRemaining = hasVisibleChapters
-            ? Math.Max(0, chapters.Count - currentPosition)
+        var tracksRemaining = hasVisibleTracks
+            ? Math.Max(0, tracks.Count - currentPosition)
             : 0;
 
         return new ProgressViewModel
         {
             Percent = clampedPercent,
             Label = BuildListenHeroProgressLabel(clampedPercent, runtimeSource),
-            ContextLabel = hasVisibleChapters ? $"{current.Title} of {chapters.Count}" : null,
+            ContextLabel = hasVisibleTracks ? $"{current.Title} of {tracks.Count}" : null,
             PercentLabel = $"{roundedPercent}%",
             RemainingLabel = string.IsNullOrWhiteSpace(timeLeft) ? null : $"{timeLeft} left",
-            SecondaryLabel = hasVisibleChapters
-                ? chaptersRemaining == 1 ? "1 chapter remaining" : $"{chaptersRemaining} chapters remaining"
+            SecondaryLabel = hasVisibleTracks
+                ? tracksRemaining == 1 ? "1 track remaining" : $"{tracksRemaining} tracks remaining"
                 : null,
         };
     }
-
-    private static bool HasChapterGroup(IReadOnlyList<MediaGroupingViewModel> mediaGroups) =>
-        mediaGroups.Any(group =>
-            string.Equals(group.Key, "chapters", StringComparison.OrdinalIgnoreCase)
-            && group.Items.Count > 0
-            && string.Equals(group.Title, "Chapters", StringComparison.OrdinalIgnoreCase));
 
     private static ProgressViewModel? BuildCollectionHeroProgress(
         DetailEntityType entityType,
@@ -798,6 +792,7 @@ internal sealed partial class DetailCompositionOrchestrator
         bool hasUniverse = false,
         bool hasChapters = true)
     {
+        _ = hasChapters;
         string[] keys = entityType switch
         {
             DetailEntityType.TvShow => hasUniverse ? ["overview", "cast", "universe", "related", "details"] : ["overview", "cast", "related", "details"],
@@ -811,8 +806,7 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "related", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.Book => ["overview", "credits", "related", "details"],
-            DetailEntityType.Audiobook when hasUniverse => ["overview", "credits", "universe", "related", "details"],
-            DetailEntityType.Audiobook => ["overview", "credits", "related", "details"],
+            DetailEntityType.Audiobook => ["overview", "details"],
             DetailEntityType.BookSeries when hasUniverse => ["overview", "universe", "related", "details"],
             DetailEntityType.BookSeries => ["overview", "related", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "related", "details"],
@@ -850,7 +844,9 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.MusicAlbum when mediaGroups.Any(group =>
                 string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
                 => DetailPrimaryModuleKind.Tracks,
-            DetailEntityType.Audiobook when HasChapterGroup(mediaGroups) => DetailPrimaryModuleKind.Chapters,
+            DetailEntityType.Audiobook when mediaGroups.Any(group =>
+                string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
+                => DetailPrimaryModuleKind.Tracks,
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode when sequencePlacement is not null
                 => DetailPrimaryModuleKind.Episodes,
             DetailEntityType.Person when mediaGroups.Count > 0
@@ -874,11 +870,17 @@ internal sealed partial class DetailCompositionOrchestrator
             _ => string.Empty,
         };
 
+        var groupKeys = kind switch
+        {
+            DetailPrimaryModuleKind.Tracks => ["tracks"],
+            _ => mediaGroups.Select(group => group.Key).ToList(),
+        };
+
         return new DetailPrimaryModuleViewModel
         {
             Kind = kind,
             Title = title,
-            GroupKeys = mediaGroups.Select(group => group.Key).ToList(),
+            GroupKeys = groupKeys,
             SupportsLaneFilter = kind is DetailPrimaryModuleKind.Works or DetailPrimaryModuleKind.CollectionItems,
             SupportsRoleFilter = kind == DetailPrimaryModuleKind.Works,
         };

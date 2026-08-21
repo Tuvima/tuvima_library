@@ -151,8 +151,8 @@ internal sealed partial class DetailCompositionOrchestrator
 
         return new MediaGroupingViewModel
         {
-            Key = "chapters",
-            Title = chapters.Count > 0 ? "Chapters" : "Playback",
+            Key = "tracks",
+            Title = "Tracks",
             Items = items,
             OwnedCount = items.Count,
             TotalCount = items.Count,
@@ -172,8 +172,9 @@ internal sealed partial class DetailCompositionOrchestrator
         {
             Id = row.WorkId.ToString("D"),
             EntityType = DetailEntityType.Audiobook,
-            Title = string.IsNullOrWhiteSpace(chapter.Title) ? $"Chapter {chapter.Index + 1}" : chapter.Title,
+            Title = string.IsNullOrWhiteSpace(chapter.Title) ? $"Track {chapter.Index + 1}" : chapter.Title,
             Subtitle = FirstText(row.Author, row.Narrator),
+            Artist = FirstText(row.Narrator, row.Author),
             ArtworkUrl = $"/stream/{row.AssetId}/cover",
             TrackNumber = (chapter.Index + 1).ToString(CultureInfo.InvariantCulture),
             Duration = FormatSecondsDuration(durationSeconds),
@@ -215,6 +216,7 @@ internal sealed partial class DetailCompositionOrchestrator
             EntityType = DetailEntityType.Audiobook,
             Title = "Full audiobook",
             Subtitle = FirstText(row.Author, row.Narrator),
+            Artist = FirstText(row.Narrator, row.Author),
             ArtworkUrl = $"/stream/{row.AssetId}/cover",
             TrackNumber = "1",
             Duration = FormatSecondsDuration(durationSeconds),

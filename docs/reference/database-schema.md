@@ -616,15 +616,15 @@ Saved audiobook playback positions. These are separate from EPUB reader bookmark
 
 ### audiobook_chapter_title_overrides
 
-Display-only audiobook chapter title overrides. These can come from manual entry or AI suggestions, are keyed by asset plus chapter index, and never alter embedded media timings or write back to the source file.
+Display-only audiobook track title overrides. These come only from manual entry, are keyed by asset plus track index, and never alter embedded media timings or write back to the source file.
 
 | Column | Type | Notes |
 |---|---|---|
 | `work_id` | BLOB | FK -> `works.id` |
 | `asset_id` | BLOB | FK -> `media_assets.id`; part of primary key |
-| `chapter_index` | INTEGER | Embedded chapter index; part of primary key |
+| `chapter_index` | INTEGER | Embedded track index; part of primary key |
 | `title` | TEXT | User-facing display title |
-| `title_source` | TEXT | `Override` or `AiSuggested` |
+| `title_source` | TEXT | Always `Override` |
 | `updated_at` | TEXT | Timestamp |
 
 ### music_play_active_segments

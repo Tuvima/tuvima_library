@@ -30,7 +30,6 @@ public sealed class PlaybackCapabilitiesService
     private readonly IDatabaseConnection _db;
     private readonly PlaybackStateRepository _playbackState;
     private readonly IPlaybackSegmentRepository _segments;
-    private readonly IUserPlaybackSettingsService _settings;
     private readonly ITextTrackRepository _textTracks;
     private readonly AudiobookChapterTitleOverrideRepository _chapterTitleOverrides;
     private readonly IMediaTypeExtensionCatalog _extensionCatalog;
@@ -42,7 +41,6 @@ public sealed class PlaybackCapabilitiesService
         IDatabaseConnection db,
         PlaybackStateRepository playbackState,
         IPlaybackSegmentRepository segments,
-        IUserPlaybackSettingsService settings,
         ITextTrackRepository textTracks,
         AudiobookChapterTitleOverrideRepository chapterTitleOverrides,
         IMediaTypeExtensionCatalog extensionCatalog,
@@ -53,7 +51,6 @@ public sealed class PlaybackCapabilitiesService
         _db = db;
         _playbackState = playbackState;
         _segments = segments;
-        _settings = settings;
         _textTracks = textTracks;
         _chapterTitleOverrides = chapterTitleOverrides;
         _extensionCatalog = extensionCatalog;
@@ -564,32 +561,10 @@ public sealed class PlaybackCapabilitiesService
             return [];
         }
 
-        var settings = await LoadListeningSettingsAsync(profileId, ct);
         var overrides = (await _chapterTitleOverrides.GetByAssetAsync(assetId, ct))
             .GroupBy(item => item.ChapterIndex)
             .ToDictionary(group => group.Key, group => group.OrderByDescending(item => item.UpdatedAt).First());
-        var normalized = AudiobookChapterNormalizer.Normalize(chapters, settings, overrides);
-        return AudiobookChapterNormalizer.ShouldExposeChapterDetails(normalized, settings)
-            ? normalized
-            : [];
-    }
-
-    private async Task<ListeningSettingsDto> LoadListeningSettingsAsync(Guid? profileId, CancellationToken ct)
-    {
-        if (!profileId.HasValue || profileId.Value == Guid.Empty)
-        {
-            return new ListeningSettingsDto();
-        }
-
-        try
-        {
-            return (await _settings.GetOrCreateDefaultsAsync(profileId.Value, ct)).Listening ?? new ListeningSettingsDto();
-        }
-        catch (Exception ex) when (ex is KeyNotFoundException or ArgumentException)
-        {
-            _logger.LogDebug(ex, "Falling back to default listening settings for playback manifest profile {ProfileId}", profileId);
-            return new ListeningSettingsDto();
-        }
+        return AudiobookChapterNormalizer.Normalize(chapters, overrides);
     }
 
     private static IReadOnlyList<PlaybackChapterDto> BuildRawChapters(MediaInfoWrapper? mediaInfo, MediaProbeResult? probe)
@@ -600,7 +575,7 @@ public sealed class PlaybackCapabilitiesService
                 probe.Chapters.Select(chapter => new PlaybackChapterDto
                 {
                     Index = chapter.Index,
-                    Title = StringHelpers.FirstNonBlankOr(string.Empty, chapter.Title, $"Chapter {chapter.Index + 1}"),
+                    Title = chapter.Title?.Trim() ?? string.Empty,
                     OriginalTitle = chapter.Title,
                     StartSeconds = chapter.StartSeconds,
                     EndSeconds = chapter.EndSeconds,
@@ -623,7 +598,7 @@ public sealed class PlaybackCapabilitiesService
                     return new PlaybackChapterDto
                     {
                         Index = index,
-                        Title = StringHelpers.FirstNonBlankOr(string.Empty, chapter.Name, $"Chapter {index + 1}"),
+                        Title = chapter.Name?.Trim() ?? string.Empty,
                         OriginalTitle = chapter.Name,
                         StartSeconds = Math.Max(0, startSeconds.Value),
                         EndSeconds = endSeconds,

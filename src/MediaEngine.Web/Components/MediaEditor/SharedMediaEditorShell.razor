@@ -437,7 +437,7 @@
                                 <small>@NormalizeDisplaySpacing(HeaderSubtitle)</small>
                                 }
                                 <span class="sme-content-media-summary__facts">
-                                    <span><small>Chapters</small><strong>@AudiobookChapters.Count</strong></span>
+                                    <span><small>Tracks</small><strong>@AudiobookChapters.Count</strong></span>
                                     <span><small>Length</small><strong>@GetContentTotalDurationLabel()</strong></span>
                                     <span><small>Release</small><strong>@(_detail?.Year ?? "Unknown")</strong></span>
                                     <span><small>Language</small><strong>@(_detail?.Language ?? "Unknown")</strong></span>
@@ -449,7 +449,7 @@
                             {
                                 <div class="sme-empty-panel">
                                     <MudIcon Icon="@Icons.Material.Outlined.FormatListNumbered" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
-                                    <span>No embedded or file-derived chapters are available for this audiobook.</span>
+                                    <span>No embedded tracks are available for this audiobook.</span>
                                 </div>
                             }
                             else
@@ -457,16 +457,9 @@
                                 <div class="sme-chapter-workspace">
                                     <section class="sme-chapter-table-panel">
                                         <div class="sme-chapter-section-heading">
-                                            <strong>@AudiobookChapters.Count chapters</strong>
-                                            <AppButton Label="@(_suggestingChapterNames ? "Generating suggestions..." : "Suggest chapter names")"
-                                                       StartIcon="@Icons.Material.Outlined.AutoAwesome"
-                                                       ButtonStyle="AppButtonStyle.Outlined"
-                                                       Tone="AppUiTone.Primary"
-                                                       Disabled="@(!_chapterNamingCapability.IsAvailable || _suggestingChapterNames)"
-                                                       Tooltip="@_chapterNamingCapability.Explanation"
-                                                       OnClick="SuggestAudiobookChapterNamesAsync" />
+                                            <strong>@AudiobookChapters.Count tracks</strong>
                                         </div>
-                                        <div class="sme-chapter-table-header"><span>#</span><span>Chapter title</span><span>Time range</span><span>Source</span></div>
+                                        <div class="sme-chapter-table-header"><span>#</span><span>Track title</span><span>Time range</span><span>Source</span></div>
                                         <div class="sme-audiobook-chapter-list">
                                             @foreach (var chapter in AudiobookChapters)
                                             {
@@ -489,7 +482,7 @@
                                     {
                                         <aside class="sme-chapter-editor-panel">
                                             <div class="sme-chapter-editor-heading">
-                                                <div><strong>Edit chapter</strong><small>Chapter @((focusedChapter.ChapterIndex ?? 0) + 1)</small></div>
+                                                <div><strong>Edit track</strong><small>Track @((focusedChapter.ChapterIndex ?? 0) + 1)</small></div>
                                                 @if (HasAudiobookChapterOverride(focusedChapter) || _audiobookChapterEdits.ContainsKey(BuildAudiobookChapterKey(focusedChapter)))
                                                 {
                                                     <AppButton Label="Restore original"
@@ -497,7 +490,7 @@
                                                                OnClick="@(() => QueueAudiobookChapterReset(focusedChapter))" />
                                                 }
                                             </div>
-                                            <label>Chapter title</label>
+                                            <label>Track title</label>
                                             <AppTextField T="string"
                                                           Value="@GetAudiobookChapterTitle(focusedChapter)"
                                                           ValueChanged="@((string? value) => OnAudiobookChapterTitleInput(focusedChapter, value))"
@@ -513,7 +506,7 @@
                                             <div class="sme-chapter-readonly-value">@(HasAudiobookChapterOverride(focusedChapter) ? "Override" : "Embedded")</div>
                                             <div class="sme-chapter-source-note">
                                                 <MudIcon Icon="@Icons.Material.Outlined.Description" />
-                                                <span>This chapter boundary is embedded in the audiobook file. Timing remains read-only.</span>
+                                                <span>This track boundary is embedded in the audiobook file. Timing remains read-only.</span>
                                             </div>
                                         </aside>
                                     }

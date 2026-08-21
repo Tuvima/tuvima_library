@@ -199,8 +199,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 context,
                 isAdminView,
                 sequencePlacement is not null,
-                HasUniverseRelationship(relationships),
-                HasChapterGroup(mediaGroups)),
+                HasUniverseRelationship(relationships)),
             MediaGroups = mediaGroups,
             PrimaryModule = BuildPrimaryModule(entityType, sequencePlacement, mediaGroups),
             IdentityStatus = ResolveIdentityStatus(detail.WikidataQid, detail.Status, detail.Confidence),
@@ -346,8 +345,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 context,
                 isAdminView,
                 placement is not null,
-                hasUniverse: false,
-                hasChapters: false),
+                hasUniverse: false),
             PrimaryModule = BuildPrimaryModule(DetailEntityType.BookSeries, placement, []),
             MediaGroups =
             [

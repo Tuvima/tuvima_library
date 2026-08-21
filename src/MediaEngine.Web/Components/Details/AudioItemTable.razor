@@ -26,13 +26,10 @@
                     </div>
                 }
                 <div class="tl-embedded-audio__tools">
-                    @if (!IsAudiobook)
-                    {
-                        <label class="tl-embedded-audio__missing">
-                            <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
-                            <span>Show missing tracks</span>
-                        </label>
-                    }
+                    <label class="tl-embedded-audio__missing">
+                        <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
+                        <span>Show missing tracks</span>
+                    </label>
                 </div>
             </header>
 
@@ -104,16 +101,13 @@
     else
     {
     <section class="tl-detail-track-section" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
-        @if (!IsAudiobook)
-        {
-            <div class="tl-detail-track-toolbar">
-                <span>@OwnedCount of @Items.Count tracks owned</span>
-                <label class="tl-detail-track-toggle">
-                    <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
-                    <span>Show missing tracks</span>
-                </label>
-            </div>
-        }
+        <div class="tl-detail-track-toolbar">
+            <span>@OwnedCount of @Items.Count tracks owned</span>
+            <label class="tl-detail-track-toggle">
+                <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
+                <span>Show missing tracks</span>
+            </label>
+        </div>
 
         <div class="tl-audio-item-table"
              @onmousemove="@(args => ResizeColumn(args.ClientX))"
@@ -281,7 +275,7 @@
     private double _resizeStartX;
     private int _resizeStartWidth;
 
-    private string ItemNounPlural => IsAudiobook ? "chapters" : "tracks";
+    private const string ItemNounPlural = "tracks";
 
     private IReadOnlyList<MediaGroupingItemViewModel> Items =>
         Groups.SelectMany(group => group.Items)
@@ -291,15 +285,14 @@
             .ToList();
 
     private IReadOnlyList<MediaGroupingItemViewModel> VisibleItems =>
-        SortItems(_showMissingItems || IsAudiobook ? Items : Items.Where(item => item.IsOwned));
+        SortItems(_showMissingItems ? Items : Items.Where(item => item.IsOwned));
 
     private IReadOnlyList<MediaGroupingItemViewModel> CompactVisibleItems => VisibleItems;
 
     private int OwnedCount => Items.Count(item => item.IsOwned);
 
     private bool ShowArtistColumn =>
-        !IsAudiobook
-        && Items.Select(item => item.Artist)
+        Items.Select(item => item.Artist)
             .Where(artist => !string.IsNullOrWhiteSpace(artist))
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .Take(2)
@@ -320,7 +313,7 @@
             _sortColumn = "track";
             _sortDescending = false;
             _columns.Clear();
-            _columns.AddRange(IsAudiobook ? AudiobookColumns() : MusicColumns());
+            _columns.AddRange(MusicColumns());
         }
 
         _favoriteIds.Clear();
@@ -341,15 +334,6 @@
         new("duration", "Duration", 132, 104, true, "right"),
         new("status", "Status", 158, 128, true),
         new("favorite", "Favorite", 92, 76, true, "center"),
-        new("queue", "Queue", 86, 72, false, "center"),
-    ];
-
-    private static IReadOnlyList<AudioTableColumn> AudiobookColumns() =>
-    [
-        new("track", "#", 96, 78, true),
-        new("title", "Chapter", 560, 260, true),
-        new("progress", "Progress", 180, 132, true),
-        new("duration", "Time", 156, 126, true, "right"),
         new("queue", "Queue", 86, 72, false, "center"),
     ];
 
@@ -438,7 +422,7 @@
         {
             Index = Math.Max(0, item.ChapterIndex ?? 0),
             Title = string.IsNullOrWhiteSpace(item.Title)
-                ? PlaybackSessionController.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
+                ? $"Track {Math.Max(1, (item.ChapterIndex ?? 0) + 1)}"
                 : item.Title.Trim(),
             StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
             EndSeconds = item.EndSeconds,
@@ -621,30 +605,17 @@
 
     private string DisplayDuration(MediaGroupingItemViewModel item)
     {
-        if (IsAudiobook && Items.Count > 1 && item.StartSeconds.HasValue)
-        {
-            return FormatChapterTimeRange(item.StartSeconds.Value, item.EndSeconds);
-        }
-
         if (item.DurationSeconds is > 0)
         {
-            return FormatSeconds(item.DurationSeconds.Value, forceHours: IsAudiobook);
+            return FormatSeconds(item.DurationSeconds.Value, forceHours: false);
         }
 
         if (TryParseDurationSeconds(item.Duration, out var seconds))
         {
-            return FormatSeconds(seconds, forceHours: IsAudiobook);
+            return FormatSeconds(seconds, forceHours: false);
         }
 
         return DisplayOrDash(item.Duration);
-    }
-
-    private static string FormatChapterTimeRange(double startSeconds, double? endSeconds)
-    {
-        var start = FormatSeconds(startSeconds, forceHours: true);
-        return endSeconds is > 0 && endSeconds.Value > startSeconds
-            ? $"{start} - {FormatSeconds(endSeconds.Value, forceHours: true)}"
-            : start;
     }
 
     private string RowClass(MediaGroupingItemViewModel item, bool isPlaying)

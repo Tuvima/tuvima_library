@@ -4,7 +4,7 @@
 <AudioItemTable Groups="Groups"
                 SourceTitle="@AlbumTitle"
                 ArtworkUrl="@AlbumArtworkUrl"
-                IsAudiobook="false"
+                IsAudiobook="IsAudiobook"
                 Compact="Compact"
                 CompactToolbarLeadingContent="ToolbarLeadingContent" />
 
@@ -12,6 +12,7 @@
     [Parameter] public IReadOnlyList<MediaGroupingViewModel> Groups { get; set; } = [];
     [Parameter] public string AlbumTitle { get; set; } = "Album";
     [Parameter] public string? AlbumArtworkUrl { get; set; }
+    [Parameter] public bool IsAudiobook { get; set; }
     [Parameter] public bool Compact { get; set; }
     [Parameter] public RenderFragment? ToolbarLeadingContent { get; set; }
 }

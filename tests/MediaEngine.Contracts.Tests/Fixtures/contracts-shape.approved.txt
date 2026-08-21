@@ -3432,20 +3432,6 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookBookmarkD
   Label: System.String | nullability=nullable | accessors=get,init
   CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionDto
-  ChapterIndex: System.Int32 | nullability=not-null | accessors=get,init
-  CurrentTitle: System.String | nullability=not-null | accessors=get,init
-  OriginalTitle: System.String | nullability=nullable | accessors=get,init
-  SuggestedTitle: System.String | nullability=not-null | accessors=get,init
-  Confidence: System.Double | nullability=not-null | accessors=get,init
-  Reason: System.String | nullability=nullable | accessors=get,init
-
-MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionsDto
-  WorkId: System.Guid | nullability=not-null | accessors=get,init
-  AssetId: System.Guid | nullability=not-null | accessors=get,init
-  Suggestions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionDto> | nullability=not-null | accessors=get,init
-  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
-
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.AudiobookChapterTitleOverrideDto
   WorkId: System.Guid | nullability=not-null | accessors=get,init
   AssetId: System.Guid | nullability=not-null | accessors=get,init
@@ -3512,12 +3498,6 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.ListeningSettingsD
   AudiobookScanRates: System.Collections.Generic.List<System.Double> | nullability=not-null | accessors=get,set
   SleepTimerOptionsMinutes: System.Collections.Generic.List<System.Int32> | nullability=not-null | accessors=get,set
   AllowEndOfChapterSleepTimer: System.Boolean | nullability=not-null | accessors=get,set
-  DetectShortIntroChapters: System.Boolean | nullability=not-null | accessors=get,set
-  ShortIntroMaxSeconds: System.Int32 | nullability=not-null | accessors=get,set
-  ShortIntroLabel: System.String | nullability=not-null | accessors=get,set
-  HideSingleLargeChapterDetails: System.Boolean | nullability=not-null | accessors=get,set
-  MinimumChaptersForChapterDetails: System.Int32 | nullability=not-null | accessors=get,set
-  SingleLargeChapterMinSeconds: System.Int32 | nullability=not-null | accessors=get,set
   MusicCrossfade: System.Boolean | nullability=not-null | accessors=get,set
   CrossfadeSeconds: System.Int32 | nullability=not-null | accessors=get,set
   DefaultSleepTimer: System.String | nullability=not-null | accessors=get,set
@@ -3879,10 +3859,6 @@ MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.SubtitleLanguageSe
   SubtitleBackground: System.Boolean | nullability=not-null | accessors=get,set
   SubtitlePosition: System.String | nullability=not-null | accessors=get,set
   SubtitleStyle: System.String | nullability=not-null | accessors=get,set
-
-MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.SuggestAudiobookChapterNamesRequestDto
-  ProfileId: System.Guid? | nullability=nullable | accessors=get,init
-  AssetId: System.Guid? | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Playback.MediaEngine.Contracts.Playback.TextTrackDto
   Id: System.Guid | nullability=not-null | accessors=get,set

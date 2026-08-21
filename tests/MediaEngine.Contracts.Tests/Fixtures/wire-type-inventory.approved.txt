@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=592; api=0; web-client=87
+# scopes: contracts=589; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4150,24 +4150,6 @@
   CreatedAt: System.DateTimeOffset | json=createdAt | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"id":"11111111-2222-3333-4444-555555555555","profileId":"11111111-2222-3333-4444-555555555555","workId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","chapterIndex":7,"chapterTitle":"sample","positionSeconds":7,"durationSeconds":7,"label":"sample","createdAt":"2025-01-02T03:04:05+00:00"}
 
-[contracts] MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  ChapterIndex: System.Int32 | json=chapterIndex | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  CurrentTitle: System.String | json=currentTitle | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  OriginalTitle: System.String | json=originalTitle | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SuggestedTitle: System.String | json=suggestedTitle | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Confidence: System.Double | json=confidence | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Reason: System.String | json=reason | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"chapterIndex":7,"currentTitle":"sample","originalTitle":"sample","suggestedTitle":"sample","confidence":7,"reason":"sample"}
-
-[contracts] MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionsDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  WorkId: System.Guid | json=workId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AssetId: System.Guid | json=assetId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Suggestions: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.Playback.AudiobookChapterNameSuggestionDto> | json=suggestions | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Warnings: System.Collections.Generic.IReadOnlyList<System.String> | json=warnings | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"workId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555","suggestions":[],"warnings":[]}
-
 [contracts] MediaEngine.Contracts.Playback.AudiobookChapterTitleOverrideDto
   kind=class | converter=default | number-handling=default | unmapped=default
   WorkId: System.Guid | json=workId | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -4239,19 +4221,13 @@
   AudiobookScanRates: System.Collections.Generic.List<System.Double> | json=audiobookScanRates | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SleepTimerOptionsMinutes: System.Collections.Generic.List<System.Int32> | json=sleepTimerOptionsMinutes | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   AllowEndOfChapterSleepTimer: System.Boolean | json=allowEndOfChapterSleepTimer | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  DetectShortIntroChapters: System.Boolean | json=detectShortIntroChapters | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ShortIntroMaxSeconds: System.Int32 | json=shortIntroMaxSeconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ShortIntroLabel: System.String | json=shortIntroLabel | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  HideSingleLargeChapterDetails: System.Boolean | json=hideSingleLargeChapterDetails | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  MinimumChaptersForChapterDetails: System.Int32 | json=minimumChaptersForChapterDetails | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  SingleLargeChapterMinSeconds: System.Int32 | json=singleLargeChapterMinSeconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MusicCrossfade: System.Boolean | json=musicCrossfade | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   CrossfadeSeconds: System.Int32 | json=crossfadeSeconds | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DefaultSleepTimer: System.String | json=defaultSleepTimer | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SkipSilence: System.Boolean | json=skipSilence | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RememberPerTitlePlaybackSpeed: System.Boolean | json=rememberPerTitlePlaybackSpeed | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   OutputPreference: System.String | json=outputPreference | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"audiobookDefaultSpeed":7,"skipBackSeconds":7,"skipForwardSeconds":7,"resumeRewindSeconds":7,"audiobookListenQualificationSeconds":7,"audiobookHistoryLimit":7,"audiobookResumeRegressionGuardSeconds":7,"audiobookNearStartGuardSeconds":7,"audiobookHistoryActiveSegmentGapSeconds":7,"audiobookHistoryPositionJumpToleranceSeconds":7,"audiobookScanRates":[],"sleepTimerOptionsMinutes":[],"allowEndOfChapterSleepTimer":true,"detectShortIntroChapters":true,"shortIntroMaxSeconds":7,"shortIntroLabel":"sample","hideSingleLargeChapterDetails":true,"minimumChaptersForChapterDetails":7,"singleLargeChapterMinSeconds":7,"musicCrossfade":true,"crossfadeSeconds":7,"defaultSleepTimer":"sample","skipSilence":true,"rememberPerTitlePlaybackSpeed":true,"outputPreference":"sample"}
+  sample={"audiobookDefaultSpeed":7,"skipBackSeconds":7,"skipForwardSeconds":7,"resumeRewindSeconds":7,"audiobookListenQualificationSeconds":7,"audiobookHistoryLimit":7,"audiobookResumeRegressionGuardSeconds":7,"audiobookNearStartGuardSeconds":7,"audiobookHistoryActiveSegmentGapSeconds":7,"audiobookHistoryPositionJumpToleranceSeconds":7,"audiobookScanRates":[],"sleepTimerOptionsMinutes":[],"allowEndOfChapterSleepTimer":true,"musicCrossfade":true,"crossfadeSeconds":7,"defaultSleepTimer":"sample","skipSilence":true,"rememberPerTitlePlaybackSpeed":true,"outputPreference":"sample"}
 
 [contracts] MediaEngine.Contracts.Playback.OfflineVariantDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4634,12 +4610,6 @@
   SubtitlePosition: System.String | json=subtitlePosition | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SubtitleStyle: System.String | json=subtitleStyle | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"defaultSubtitleLanguage":"sample","forcedSubtitlesMode":"sample","audioLanguage":"sample","subtitleSize":"sample","subtitleBackground":true,"subtitlePosition":"sample","subtitleStyle":"sample"}
-
-[contracts] MediaEngine.Contracts.Playback.SuggestAudiobookChapterNamesRequestDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  ProfileId: System.Guid? | json=profileId | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  AssetId: System.Guid? | json=assetId | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"profileId":"11111111-2222-3333-4444-555555555555","assetId":"11111111-2222-3333-4444-555555555555"}
 
 [contracts] MediaEngine.Contracts.Playback.TextTrackDto
   kind=class | converter=default | number-handling=default | unmapped=default

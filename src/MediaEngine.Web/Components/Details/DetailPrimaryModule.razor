@@ -73,12 +73,6 @@
                                         OnContainerSelected="OnContainerSelected"
                                         OnEditItem="OnEditItem" />
             }
-            else if (Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters)
-            {
-                <AudiobookChapterList Groups="PrimaryGroups"
-                                      AudiobookTitle="@Model.Title"
-                                      AudiobookArtworkUrl="@ArtworkUrl" />
-            }
             else if (FilteredItems.Count == 0)
             {
                 <p class="tl-detail-primary-module__empty">No owned library items are available for this section.</p>

@@ -1819,35 +1819,12 @@ public sealed class PlaybackSessionController
             .ToList();
 
     public static PlaybackChapterDto NormalizeChapter(PlaybackChapterDto chapter, int ordinal) =>
-        !string.IsNullOrWhiteSpace(chapter.OriginalTitle)
-            || !string.Equals(chapter.TitleSource, PlaybackChapterTitleSources.Generated, StringComparison.Ordinal)
-            || string.Equals(chapter.Kind, PlaybackChapterKinds.Intro, StringComparison.Ordinal)
-                ? chapter
-                : chapter with { Title = CleanChapterTitle(chapter.Title, ordinal) };
-
-    public static string CleanChapterTitle(string? title, int ordinal)
-    {
-        var fallback = $"Chapter {Math.Max(1, ordinal + 1)}";
-        if (string.IsNullOrWhiteSpace(title))
+        chapter with
         {
-            return fallback;
-        }
-
-        var text = title.Trim();
-        if (text.Equals("chapter", StringComparison.OrdinalIgnoreCase))
-        {
-            return fallback;
-        }
-
-        if (text.All(char.IsDigit))
-        {
-            return int.TryParse(text.TrimStart('0'), out var number) && number > 0
-                ? $"Chapter {number}"
-                : fallback;
-        }
-
-        return text;
-    }
+            Title = string.IsNullOrWhiteSpace(chapter.Title)
+                ? $"Track {Math.Max(1, ordinal + 1)}"
+                : chapter.Title.Trim(),
+        };
 
     private static PlaybackChapterDto? ResolveCurrentChapter(ListenQueueItem item, double positionSeconds) =>
         item.Chapters.LastOrDefault(chapter =>

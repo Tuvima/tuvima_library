@@ -58,7 +58,7 @@
         <section id="@CurrentActiveTab" class="tl-detail-body">
             @if (CurrentActiveTab is "overview")
             {
-                @if (IsMusicAlbumDetail)
+                @if (IsAudioDetail)
                 {
                     <MusicAlbumOverviewContent Model="Model" />
                 }
@@ -165,12 +165,9 @@
     private bool IncludeCharactersInPeopleTab => CurrentActiveTab is not "cast";
 
     private bool IsAudioDetail => Model?.EntityType is DetailEntityType.MusicAlbum or DetailEntityType.Audiobook;
-    private bool IsMusicAlbumDetail => Model?.EntityType == DetailEntityType.MusicAlbum;
-    private bool IsAudiobookDetail => Model?.EntityType == DetailEntityType.Audiobook;
     private bool ShowDetailNavigation => Model?.EntityType != DetailEntityType.Person;
 
-    private bool HasPrimaryModuleBeforeNavigation =>
-        Model?.PrimaryModule.Kind == DetailPrimaryModuleKind.Chapters;
+    private bool HasPrimaryModuleBeforeNavigation => false;
 
     private bool HasPrimaryModuleAfterNavigation => Model?.PrimaryModule.Kind is not
         (DetailPrimaryModuleKind.None or DetailPrimaryModuleKind.Tracks or DetailPrimaryModuleKind.Chapters);
@@ -183,9 +180,7 @@
         $"tl-detail-stage{(HasPrimaryModuleBeforeNavigation || HasPrimaryModuleAfterNavigation ? " tl-detail-stage--with-primary" : " tl-detail-stage--identity-only")}" +
         $"{(HasPrimaryModuleBeforeNavigation ? " tl-detail-stage--primary-before-navigation" : string.Empty)}" +
         $"{(HasPrimaryModuleAfterNavigation ? " tl-detail-stage--primary-after-navigation" : string.Empty)}" +
-        $"{(IsMusicAlbumDetail ? " tl-detail-stage--music-album" : string.Empty)}" +
-        $"{(IsAudiobookDetail ? " tl-detail-stage--audiobook" : string.Empty)}" +
-        $"{(IsAudiobookDetail && HasPrimaryModuleBeforeNavigation ? " tl-detail-stage--audiobook-with-chapters" : string.Empty)}" +
+        $"{(IsAudioDetail ? " tl-detail-stage--music-album" : string.Empty)}" +
         $"{(Model?.EntityType == DetailEntityType.Person ? " tl-detail-stage--person" : string.Empty)}";
 
     private Task SetActiveTabAsync(string key) => ActiveTabChanged.InvokeAsync(key);
@@ -678,12 +673,7 @@
         if (Model is null)
             return;
 
-        var chapters = Model.MediaGroups
-            .SelectMany(group => group.Items)
-            .Where(item => item.EntityType == DetailEntityType.Audiobook)
-            .OrderBy(TrackSortKey)
-            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var chapters = AudiobookTracks();
 
         if (chapters.Count == 0)
             return;
@@ -720,12 +710,7 @@
             return null;
         }
 
-        var chapters = Model.MediaGroups
-            .SelectMany(group => group.Items)
-            .Where(item => item.EntityType == DetailEntityType.Audiobook)
-            .OrderBy(TrackSortKey)
-            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        var chapters = AudiobookTracks();
         if (chapters.Count == 0)
         {
             return null;
@@ -783,14 +768,12 @@
             return ChapterAtPosition(chapters, resumePositionSeconds.Value)
                 ?? chapters.FirstOrDefault(item => item.ResumePositionSeconds is > 0)
                 ?? chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 99.5)
-                ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item) && !IsIntroChapter(item))
                 ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item))
                 ?? chapters.FirstOrDefault();
         }
 
         return chapters.FirstOrDefault(item => item.ResumePositionSeconds is > 0)
             ?? chapters.FirstOrDefault(item => item.ProgressPercent is > 0 and < 99.5)
-            ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item) && !IsIntroChapter(item))
             ?? chapters.FirstOrDefault(item => !IsCompletedChapter(item))
             ?? chapters.FirstOrDefault();
     }
@@ -970,11 +953,15 @@
     private static bool IsCompletedChapter(MediaGroupingItemViewModel item) =>
         item.ProgressPercent is >= 99.5;
 
-    private static bool IsIntroChapter(MediaGroupingItemViewModel item) =>
-        item.ChapterIndex == 0
-        && string.Equals(item.Title, "Intro", StringComparison.OrdinalIgnoreCase)
-        && item.StartSeconds is null or <= 5
-        && item.DurationSeconds is null or <= 120;
+    private IReadOnlyList<MediaGroupingItemViewModel> AudiobookTracks() =>
+        Model?.MediaGroups
+            .Where(group => string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(group => group.Items)
+            .Where(item => item.EntityType == DetailEntityType.Audiobook)
+            .OrderBy(TrackSortKey)
+            .ThenBy(item => item.Title, StringComparer.OrdinalIgnoreCase)
+            .ToList()
+        ?? [];
 
     private ListenQueueItem ToAudiobookQueueItem(MediaGroupingItemViewModel item, IReadOnlyList<MediaGroupingItemViewModel> chapters, double? initialPositionSeconds = null)
         => new()
@@ -997,7 +984,7 @@
         {
             Index = Math.Max(0, item.ChapterIndex ?? 0),
             Title = string.IsNullOrWhiteSpace(item.Title)
-                ? PlaybackSessionController.CleanChapterTitle(item.Title, Math.Max(0, item.ChapterIndex ?? 0))
+                ? $"Track {Math.Max(1, (item.ChapterIndex ?? 0) + 1)}"
                 : item.Title.Trim(),
             StartSeconds = Math.Max(0, item.StartSeconds ?? 0),
             EndSeconds = item.EndSeconds,

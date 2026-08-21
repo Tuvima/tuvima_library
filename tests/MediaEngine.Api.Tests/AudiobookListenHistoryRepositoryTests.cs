@@ -217,14 +217,14 @@ public sealed class AudiobookListenHistoryRepositoryTests : IDisposable
                 AssetId = ids.AssetId,
                 ChapterIndex = 3,
                 Title = "The Crawl Begins",
-                TitleSource = PlaybackChapterTitleSources.AiSuggested,
+                TitleSource = PlaybackChapterTitleSources.Override,
             });
 
         Assert.Equal(ids.WorkId, created.WorkId);
         Assert.Equal(ids.AssetId, created.AssetId);
         Assert.Equal(3, created.ChapterIndex);
         Assert.Equal("The Crawl Begins", created.Title);
-        Assert.Equal(PlaybackChapterTitleSources.AiSuggested, created.TitleSource);
+        Assert.Equal(PlaybackChapterTitleSources.Override, created.TitleSource);
 
         var listed = Assert.Single(await repository.GetByWorkAsync(ids.WorkId, ids.AssetId));
         Assert.Equal(created.Title, listed.Title);

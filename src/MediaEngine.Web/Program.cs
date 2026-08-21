@@ -154,7 +154,6 @@ builder.Services.AddScoped<ActiveProfileSessionService>();
 builder.Services.AddScoped<UIOrchestratorService>();
 builder.Services.AddScoped<IngestionLiveDashboardState>();
 builder.Services.AddScoped<MediaEditorLauncherService>();
-builder.Services.AddScoped<EditorAiCapabilityService>();
 builder.Services.AddScoped<CollectionEditorLauncherService>();
 builder.Services.AddScoped<MediaTileComposerService>();
 builder.Services.AddScoped<WatchlistService>();

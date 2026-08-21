@@ -114,7 +114,6 @@ public sealed record PlaybackChapterDto
 public static class PlaybackChapterKinds
 {
     public const string Chapter = "Chapter";
-    public const string Intro = "Intro";
 }
 
 public static class PlaybackChapterTitleSources
@@ -122,7 +121,6 @@ public static class PlaybackChapterTitleSources
     public const string Embedded = "Embedded";
     public const string Generated = "Generated";
     public const string Override = "Override";
-    public const string AiSuggested = "AiSuggested";
 }
 
 public static class AudiobookStartKinds
@@ -230,30 +228,6 @@ public sealed record UpsertAudiobookChapterTitleOverrideRequestDto
     public int ChapterIndex { get; init; }
     public string Title { get; init; } = string.Empty;
     public string? TitleSource { get; init; }
-}
-
-public sealed record SuggestAudiobookChapterNamesRequestDto
-{
-    public Guid? ProfileId { get; init; }
-    public Guid? AssetId { get; init; }
-}
-
-public sealed record AudiobookChapterNameSuggestionsDto
-{
-    public Guid WorkId { get; init; }
-    public Guid AssetId { get; init; }
-    public IReadOnlyList<AudiobookChapterNameSuggestionDto> Suggestions { get; init; } = [];
-    public IReadOnlyList<string> Warnings { get; init; } = [];
-}
-
-public sealed record AudiobookChapterNameSuggestionDto
-{
-    public int ChapterIndex { get; init; }
-    public string CurrentTitle { get; init; } = string.Empty;
-    public string? OriginalTitle { get; init; }
-    public string SuggestedTitle { get; init; } = string.Empty;
-    public double Confidence { get; init; }
-    public string? Reason { get; init; }
 }
 
 public sealed record PlayerQueueItemDto
@@ -517,12 +491,6 @@ public sealed class ListeningSettingsDto
     public List<double> AudiobookScanRates { get; set; } = [2d, 4d, 8d, 16d];
     public List<int> SleepTimerOptionsMinutes { get; set; } = [5, 10, 15, 30, 45, 60];
     public bool AllowEndOfChapterSleepTimer { get; set; } = true;
-    public bool DetectShortIntroChapters { get; set; } = true;
-    public int ShortIntroMaxSeconds { get; set; } = 30;
-    public string ShortIntroLabel { get; set; } = "Intro";
-    public bool HideSingleLargeChapterDetails { get; set; } = true;
-    public int MinimumChaptersForChapterDetails { get; set; } = 2;
-    public int SingleLargeChapterMinSeconds { get; set; } = 1800;
     public bool MusicCrossfade { get; set; }
     public int CrossfadeSeconds { get; set; } = 5;
     public string DefaultSleepTimer { get; set; } = "30";

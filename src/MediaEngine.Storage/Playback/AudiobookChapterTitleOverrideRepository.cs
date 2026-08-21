@@ -75,7 +75,7 @@ public sealed class AudiobookChapterTitleOverrideRepository
         }
 
         var title = BlankToNull(request.Title)
-            ?? throw new ArgumentException("A chapter title is required.", nameof(request));
+            ?? throw new ArgumentException("A track title is required.", nameof(request));
         var now = DateTimeOffset.UtcNow;
         var row = new OverrideRow
         {
@@ -83,7 +83,7 @@ public sealed class AudiobookChapterTitleOverrideRepository
             AssetId = request.AssetId,
             ChapterIndex = request.ChapterIndex,
             Title = title,
-            TitleSource = NormalizeTitleSource(request.TitleSource),
+            TitleSource = PlaybackChapterTitleSources.Override,
             UpdatedAt = now,
         };
 
@@ -151,14 +151,9 @@ public sealed class AudiobookChapterTitleOverrideRepository
         AssetId = row.AssetId,
         ChapterIndex = row.ChapterIndex,
         Title = row.Title,
-        TitleSource = NormalizeTitleSource(row.TitleSource),
+        TitleSource = PlaybackChapterTitleSources.Override,
         UpdatedAt = row.UpdatedAt,
     };
-
-    private static string NormalizeTitleSource(string? source) =>
-        string.Equals(source, PlaybackChapterTitleSources.AiSuggested, StringComparison.OrdinalIgnoreCase)
-            ? PlaybackChapterTitleSources.AiSuggested
-            : PlaybackChapterTitleSources.Override;
 
     private static string? BlankToNull(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value.Trim();
