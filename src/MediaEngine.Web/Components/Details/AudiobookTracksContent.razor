@@ -1,0 +1,32 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<section class="tl-audiobook-tracks" aria-labelledby="audiobook-tracks-heading">
+    <header class="tl-audiobook-tracks__heading">
+        <div>
+            <span>Audiobook</span>
+            <h2 id="audiobook-tracks-heading">Tracks</h2>
+        </div>
+        <span>@TrackSummary</span>
+    </header>
+
+    <MusicTrackList Groups="TrackGroups"
+                    AlbumTitle="@Model.Title"
+                    AlbumArtworkUrl="@ArtworkUrl"
+                    IsAudiobook="true"
+                    Compact="true" />
+</section>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+
+    private IReadOnlyList<MediaGroupingViewModel> TrackGroups => Model.MediaGroups
+        .Where(group => string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private int TrackCount => TrackGroups.SelectMany(group => group.Items).Count();
+    private string TrackSummary => $"{TrackCount} {(TrackCount == 1 ? "track" : "tracks")}";
+    private string? ArtworkUrl => Model.Artwork.CoverUrl
+        ?? Model.Artwork.PosterUrl
+        ?? Model.Artwork.HeroArtwork.Url;
+}

@@ -322,6 +322,16 @@ internal sealed partial class DetailCompositionOrchestrator
         items = NormalizeSequenceItems(items, entityType);
         items = SortSequenceItems(items);
         var hasPositionEvidence = items.Any(HasSequencePositionEvidence);
+        if (IsUnpositionedSelfNamedSequence(
+                items,
+                containerTitle,
+                detail.Title,
+                containerId,
+                sourceContainerId))
+        {
+            return null;
+        }
+
         if (items.Count <= 1 && !hasExplicitSequenceEvidence)
         {
             return null;
@@ -550,5 +560,26 @@ internal sealed partial class DetailCompositionOrchestrator
         => item.PositionNumber.HasValue
            || !string.IsNullOrWhiteSpace(item.PositionLabel)
            || !string.IsNullOrWhiteSpace(item.PositionText);
+
+    private static bool IsUnpositionedSelfNamedSequence(
+        IReadOnlyList<SequenceItemViewModel> items,
+        string containerTitle,
+        string workTitle,
+        string? containerId,
+        string? sourceContainerId)
+    {
+        if (items.Count > 1
+            || items.Any(HasSequencePositionEvidence)
+            || IsManifestBackedSequenceContainerId(containerId)
+            || IsManifestBackedSequenceContainerId(sourceContainerId))
+        {
+            return false;
+        }
+
+        return string.Equals(
+            NormalizeSeriesTitle(containerTitle),
+            NormalizeSeriesTitle(workTitle),
+            StringComparison.OrdinalIgnoreCase);
+    }
 
 }

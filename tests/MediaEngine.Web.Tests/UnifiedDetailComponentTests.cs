@@ -779,8 +779,9 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<AppPageState", routeHost);
         Assert.Contains("DetailTabNavigation.Resolve(_detail, _activeTab)", routeHost);
         Assert.Contains("Nav.NavigateTo(action.Route)", routeHost);
-        Assert.Contains("detailOrigin.initialize", routeHost);
-        Assert.Contains("detailOrigin.back", routeHost);
+        Assert.DoesNotContain("tl-detail-origin-back", routeHost);
+        Assert.DoesNotContain("detailOrigin.initialize", routeHost);
+        Assert.DoesNotContain("detailOrigin.back", routeHost);
         Assert.DoesNotContain("{Tab}", routeHost);
         Assert.DoesNotContain("BuildTabUrl", routeHost);
         Assert.DoesNotContain("DetailTabNavigation.BuildUrl", routeHost);
@@ -893,7 +894,7 @@ public sealed class UnifiedDetailComponentTests
         var capabilities = ReadSource("src/MediaEngine.Web/Components/Details/DetailPresentationCapabilities.cs");
 
         Assert.Contains("<MusicAlbumOverviewContent Model=\"Model\"", detailPage);
-        Assert.DoesNotContain("CurrentActiveTab is \"tracks\"", detailPage);
+        Assert.Contains("CurrentActiveTab is \"tracks\" && IsAudiobook", detailPage);
         Assert.Contains("tl-detail-stage--music-album", capabilities);
         Assert.Contains("ShowDetailNavigation => Model?.EntityType != DetailEntityType.Person", detailPage);
         Assert.DoesNotContain("<MusicTrackList", primaryModule);
@@ -1032,7 +1033,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("ShowPrimaryModuleAfterNavigation", detailPage);
         Assert.Contains("CurrentActiveTab == \"overview\"", detailPage);
         Assert.DoesNotContain("IsEmbeddedPrimaryModuleTab", detailPage);
-        Assert.DoesNotContain("CurrentActiveTab is \"tracks\"", detailPage);
+        Assert.Contains("CurrentActiveTab is \"tracks\" && IsAudiobook", detailPage);
         Assert.Contains("tl-detail-page__primary-content", detailPage);
         Assert.Contains("Embedded=\"true\"", detailPage);
         Assert.Contains("Embedded=\"false\"", detailPage);
@@ -1051,7 +1052,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<AudiobookOverviewContent Model=\"Model\"", detailPage);
         Assert.DoesNotContain("<AudiobookChapterList", primaryModule);
         Assert.DoesNotContain("IsAudiobook", ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumOverviewContent.razor"));
-        Assert.Contains("IsAudiobook=\"true\"", ReadSource("src/MediaEngine.Web/Components/Details/AudiobookOverviewContent.razor"));
+        Assert.DoesNotContain("<MusicTrackList", ReadSource("src/MediaEngine.Web/Components/Details/AudiobookOverviewContent.razor"));
+        Assert.Contains("IsAudiobook=\"true\"", ReadSource("src/MediaEngine.Web/Components/Details/AudiobookTracksContent.razor"));
         Assert.Contains("tl-embedded-audio__toolbar", audioTable);
         Assert.Contains("tl-embedded-audio__scroller", audioTable);
         Assert.DoesNotContain("Placeholder=\"@($\"Search {ItemNounPlural}\")\"", audioTable);

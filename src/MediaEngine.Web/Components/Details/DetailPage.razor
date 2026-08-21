@@ -89,6 +89,10 @@
                     <ChildrenListTab Groups="Model.MediaGroups" />
                 }
             }
+            else if (CurrentActiveTab is "tracks" && IsAudiobook)
+            {
+                <AudiobookTracksContent Model="Model" />
+            }
             else if (CurrentActiveTab is "series")
             {
                 @if (Model.SequencePlacement is not null)

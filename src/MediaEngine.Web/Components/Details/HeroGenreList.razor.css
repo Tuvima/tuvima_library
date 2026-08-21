@@ -1,5 +1,6 @@
 .tl-detail-hero-genres {
     position: relative;
+    z-index: 12;
     display: flex;
     flex-wrap: nowrap;
     align-items: center;
@@ -52,11 +53,14 @@
 
 .tl-detail-hero-genres__menu {
     position: absolute;
-    z-index: 20;
+    z-index: 40;
     top: calc(100% + 0.5rem);
     left: 0;
     display: grid;
     min-width: 12rem;
+    max-height: min(18rem, 38svh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
     padding: 0.45rem;
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 0.65rem;

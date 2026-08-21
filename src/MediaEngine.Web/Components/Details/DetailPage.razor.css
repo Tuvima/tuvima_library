@@ -11250,3 +11250,45 @@
     color: #fff !important;
     box-shadow: var(--tl-shadow-focus) !important;
 }
+
+/* Keep long audiobook identities readable without crowding the cover. */
+@media (min-width: 721px) {
+    .tl-detail-stage--audiobook ::deep .tl-detail-hero__copy,
+    .tl-detail-stage--audiobook ::deep .tl-detail-hero__identity,
+    .tl-detail-stage--audiobook ::deep .tl-detail-metadata-stack,
+    .tl-detail-stage--audiobook ::deep .tl-detail-hero__synopsis {
+        width: min(52rem, 50vw) !important;
+        max-width: min(52rem, 50vw) !important;
+    }
+
+    .tl-detail-stage--audiobook ::deep .tl-detail-hero__copy h1 {
+        width: 100% !important;
+        max-width: 28ch !important;
+    }
+
+    /* Albums use the same single action row as every other media detail. */
+    .tl-detail-stage--music-album ::deep .tl-detail-actions--music-album {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+        width: min(61rem, 100%) !important;
+        gap: 0.65rem !important;
+    }
+
+    .tl-detail-stage--music-album ::deep .tl-detail-actions--music-album .tl-detail-primary-actions,
+    .tl-detail-stage--music-album ::deep .tl-detail-actions--music-album .tl-detail-secondary-actions {
+        flex: 0 1 auto !important;
+        flex-wrap: nowrap !important;
+        align-items: stretch !important;
+    }
+
+    .tl-detail-stage--music-album ::deep .tl-detail-actions--music-album .tl-detail-secondary-actions {
+        gap: 0.65rem !important;
+    }
+}
+
+/* Raise the hero's stacking context only while the genre menu is open so a
+   long list remains above the detail navigation at the foot of the stage. */
+.tl-detail-stage ::deep .tl-detail-hero__inner:has(.tl-detail-hero-genres__overflow[open]) {
+    z-index: 10;
+}

@@ -4,7 +4,6 @@
 @inject IEngineApiClient ApiClient
 @inject UIOrchestratorService Orchestrator
 @inject NavigationManager Nav
-@inject IJSRuntime JS
 
 <PageTitle>@PageTitleText</PageTitle>
 
@@ -28,16 +27,6 @@ else if (_detail is null)
 else
 {
     <div class="tl-detail-route-shell">
-        @if (Request.OriginNavigation is { } origin)
-        {
-            <AppNativeButton Type="button"
-                             Class="tl-detail-origin-back"
-                             OnClick="NavigateBackAsync"
-                             aria-label="@origin.Label">
-                <MudIcon Icon="@Icons.Material.Outlined.ArrowBack" Size="Size.Small" />
-                <span>@origin.Label</span>
-            </AppNativeButton>
-        }
         <DetailPage Model="_detail"
                     ActiveTab="@_activeTab"
                     ActiveTabChanged="HandleTabChangedAsync"
@@ -57,12 +46,6 @@ else
 
     private string PageTitleText =>
         $"{_detail?.Title ?? Request.PageTitleFallback} - {Request.ProductTitle}";
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (firstRender && Request.OriginNavigation is not null)
-            await JS.InvokeVoidAsync("detailOrigin.initialize");
-    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -104,12 +87,6 @@ else
     {
         _activeTab = tab;
         return Task.CompletedTask;
-    }
-
-    private async Task NavigateBackAsync()
-    {
-        if (Request.OriginNavigation is { } origin)
-            await JS.InvokeVoidAsync("detailOrigin.back", origin.FallbackRoute);
     }
 
     private void ApplyDetailTabRoute()

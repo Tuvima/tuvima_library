@@ -57,6 +57,9 @@ public static class DetailTabNavigation
             "characters" or "portrayals" =>
                 model.CharacterGroups.Count > 0,
             "series" => model.SequencePlacement is not null,
+            "tracks" => model.MediaGroups.Any(group =>
+                string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase)
+                && group.Items.Count > 0),
             "related" => model.MediaGroups.Any(IsRecommendationGroup),
             _ => true,
         };

@@ -202,9 +202,9 @@
 
     private static int StatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
-        "certification" or "content_rating" => 1,
+        "certification" or "content_rating" => 0,
+        "year" => 1,
         "type" => 2,
-        "year" => 3,
         "duration" => 4,
         "page_count" or "track_count" or "season_count" or "episode_count" or "item_count" => 5,
         "read_count" => 6,
@@ -218,8 +218,8 @@
 
     private static int WatchStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
-        "year" => 0,
-        "certification" or "content_rating" => 1,
+        "certification" or "content_rating" => 0,
+        "year" => 1,
         "episode_count" => 2,
         "duration" => 3,
         "rating" => 4,
@@ -230,8 +230,8 @@
 
     private static int PrimaryChromeStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
-        "year" => 0,
-        "certification" or "content_rating" => 1,
+        "certification" or "content_rating" => 0,
+        "year" => 1,
         "page_count" or "track_count" or "season_count" or "episode_count" or "item_count" => 2,
         "duration" => 3,
         "rating" => 4,

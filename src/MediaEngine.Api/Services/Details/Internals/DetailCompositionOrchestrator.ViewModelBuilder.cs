@@ -839,7 +839,7 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.TvEpisode => ["overview", "cast", "characters", "related", "details"],
             DetailEntityType.Book when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.Book => ["overview", "credits", "related", "details"],
-            DetailEntityType.Audiobook => ["overview", "details"],
+            DetailEntityType.Audiobook => ["overview", "tracks", "details"],
             DetailEntityType.BookSeries when hasUniverse => ["overview", "universe", "related", "details"],
             DetailEntityType.BookSeries => ["overview", "related", "details"],
             DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "related", "details"],

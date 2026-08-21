@@ -83,6 +83,37 @@ public sealed class DetailTabNavigationTests
     }
 
     [Fact]
+    public void Resolve_AudiobookTracksTabRequiresOwnedTrackRows()
+    {
+        var model = new DetailPageViewModel
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            EntityType = DetailEntityType.Audiobook,
+            Title = "Test audiobook",
+            Tabs =
+            [
+                new DetailTab { Key = "overview", Label = "Overview" },
+                new DetailTab { Key = "tracks", Label = "Tracks" },
+                new DetailTab { Key = "details", Label = "Details" },
+            ],
+            MediaGroups =
+            [
+                new MediaGroupingViewModel
+                {
+                    Key = "tracks",
+                    Title = "Tracks",
+                    Items = [new MediaGroupingItemViewModel { Id = "track-1", Title = "Track 1", IsOwned = true }],
+                },
+            ],
+        };
+
+        var resolution = DetailTabNavigation.Resolve(model, "tracks");
+
+        Assert.Equal("tracks", resolution.ActiveTab);
+        Assert.True(resolution.IsRequestedTabValid);
+    }
+
+    [Fact]
     public void MediaNavigation_DoesNotCreateDetailTabUrls()
     {
         var workId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");

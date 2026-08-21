@@ -240,7 +240,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("DetailEntityType.TvSeason => [\"overview\", \"cast\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
         Assert.Contains("DetailEntityType.Book => [\"overview\", \"credits\", \"related\", \"details\"]", source);
-        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"details\"]", source);
+        Assert.Contains("DetailEntityType.Audiobook => [\"overview\", \"tracks\", \"details\"]", source);
         Assert.DoesNotContain("DetailEntityType.Audiobook when hasChapters", source);
         Assert.DoesNotContain("DetailEntityType.Book or DetailEntityType.Audiobook => [\"overview\", \"credits\", \"chapters\", \"universe\", \"editions\", \"details\"]", source);
         Assert.Contains("DetailEntityType.ComicIssue when hasUniverse => [\"overview\", \"credits\", \"universe\", \"related\", \"details\"]", source);
@@ -1364,7 +1364,7 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
-    public void BuildTabs_AudiobookMatchesMusicAlbumTrackLayout()
+    public void BuildTabs_AudiobookKeepsTracksOnTheirOwnTab()
     {
         var tabs = InvokePrivate<List<DetailTab>>(
             "BuildTabs",
@@ -1375,9 +1375,34 @@ public sealed class DetailComposerServiceTests
             false,
             true);
 
-        Assert.Equal(["overview", "details"], tabs.Select(tab => tab.Key));
+        Assert.Equal(["overview", "tracks", "details"], tabs.Select(tab => tab.Key));
         Assert.DoesNotContain(tabs, tab => tab.Key == "chapters");
         Assert.DoesNotContain(tabs, tab => tab.Key == "credits");
+    }
+
+    [Fact]
+    public void SequencePlacement_DropsAnUnpositionedContainerNamedAfterTheWork()
+    {
+        IReadOnlyList<SequenceItemViewModel> items =
+        [
+            new SequenceItemViewModel
+            {
+                Id = Guid.NewGuid().ToString("D"),
+                Title = "Dungeon Crawler Carl: A LitRPG/Gamelit Adventure (Unabridged)",
+                IsOwned = true,
+                IsCurrent = true,
+            },
+        ];
+
+        var isSelfNamed = InvokePrivate<bool>(
+            "IsUnpositionedSelfNamedSequence",
+            items,
+            "Dungeon Crawler Carl: A Litrpg/Gamelit Adventure (Unabridged)",
+            "Dungeon Crawler Carl: A LitRPG/Gamelit Adventure (Unabridged)",
+            "Gamelit Adventure (Unabridged)",
+            null);
+
+        Assert.True(isSelfNamed);
     }
 
     [Theory]
