@@ -1,6 +1,6 @@
 .listen-popup {
-    --listen-accent: var(--tl-accent-primary);
-    --listen-play-accent: #ffb11b;
+    --listen-accent: var(--playback-accent);
+    --listen-play-accent: var(--playback-accent);
     --listen-skip-center-bg: #07111f;
     box-sizing: border-box;
     height: 100dvh;
@@ -14,7 +14,7 @@
     border-radius: 20px;
     color: rgba(248, 250, 252, 0.94);
     background:
-        radial-gradient(circle at 50% 8%, color-mix(in srgb, var(--listen-accent) 24%, transparent), transparent 25rem),
+        radial-gradient(circle at 50% 8%, var(--playback-accent-soft), transparent 25rem),
         linear-gradient(180deg, rgba(12, 20, 43, 0.94), rgba(4, 10, 22, 0.99)),
         #07111f;
     box-shadow:
@@ -163,7 +163,7 @@
 .listen-popup__progress-slider,
 .listen-popup__volume-slider {
     width: 100%;
-    accent-color: var(--listen-accent);
+    accent-color: var(--playback-accent);
 }
 
 .listen-popup__progress-slider {
@@ -234,8 +234,8 @@
 .listen-popup__sheet-action:hover,
 .listen-popup__sheet-action:focus-visible,
 .listen-popup__sheet-action.is-active {
-    background: color-mix(in srgb, var(--listen-accent) 14%, transparent);
-    color: var(--listen-accent);
+    background: var(--playback-accent-soft);
+    color: var(--playback-accent);
 }
 
 .listen-popup__sheet-action span {
@@ -283,8 +283,8 @@
 .listen-popup__music-actions ::deep .listen-popup__sheet-action:hover,
 .listen-popup__music-actions ::deep .listen-popup__sheet-action:focus-visible,
 .listen-popup__music-actions ::deep .listen-popup__sheet-action.is-active {
-    background: color-mix(in srgb, var(--listen-accent) 14%, transparent);
-    color: var(--listen-accent);
+    background: var(--playback-accent-soft);
+    color: var(--playback-accent);
 }
 
 .listen-popup__volume-control {
@@ -357,7 +357,7 @@
 
 ::deep .listen-popup-sheet__music-row:hover,
 ::deep .listen-popup-sheet__music-row:focus-visible {
-    background: color-mix(in srgb, var(--listen-accent) 12%, transparent);
+    background: var(--playback-accent-soft);
 }
 
 .listen-popup-sheet__music-thumb {
@@ -425,7 +425,7 @@
 
 .listen-popup-sheet__row.is-active,
 .listen-popup-sheet__timer.is-active {
-    color: var(--listen-accent);
+    color: var(--playback-accent);
 }
 
 .listen-popup-sheet__copy {
@@ -450,7 +450,7 @@
 }
 
 .listen-popup-sheet__resume {
-    color: var(--listen-accent);
+    color: var(--playback-accent);
     white-space: nowrap;
 }
 

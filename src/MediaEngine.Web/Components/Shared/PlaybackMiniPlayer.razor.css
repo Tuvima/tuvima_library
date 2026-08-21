@@ -1,8 +1,9 @@
 .playback-mini-player {
     align-items: center;
-    background: var(--app-surface, #1e1f27);
-    border-top: 1px solid var(--app-border, #293036);
-    box-shadow: var(--app-shadow-lg, 0 -18px 36px rgba(0, 0, 0, 0.3));
+    background: linear-gradient(180deg, rgba(11, 23, 40, 0.98), rgba(7, 17, 31, 0.99));
+    border: 1px solid var(--playback-border);
+    border-radius: var(--playback-player-radius);
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.42);
     display: grid;
     gap: 20px;
     grid-template-columns: minmax(0, 300px) minmax(0, 1fr) auto;
@@ -12,10 +13,7 @@
 
 .playback-mini-player--audiobook {
     --listen-skip-center-bg: #07111f;
-    background:
-        linear-gradient(180deg, rgba(9, 20, 34, 0.96), rgba(6, 13, 24, 0.98)),
-        var(--app-surface, #1e1f27);
-    border-color: rgba(245, 158, 11, 0.26);
+    border-color: var(--playback-border);
 }
 
 .listen-player-shell--popped-out .playback-mini-player {

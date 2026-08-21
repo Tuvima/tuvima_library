@@ -773,9 +773,9 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("listen-player-shell--listen-route", hostSource, StringComparison.Ordinal);
         Assert.DoesNotContain(".listen-player-shell--listen-route {", hostCss, StringComparison.Ordinal);
         Assert.Contains("position: fixed", hostCss, StringComparison.Ordinal);
-        Assert.Contains("inset-inline: 0", hostCss, StringComparison.Ordinal);
-        Assert.Contains("bottom: 0", hostCss, StringComparison.Ordinal);
-        Assert.Contains("border-radius: 0", hostCss, StringComparison.Ordinal);
+        Assert.Contains("inset-inline: 16px", hostCss, StringComparison.Ordinal);
+        Assert.Contains("bottom: 16px", hostCss, StringComparison.Ordinal);
+        Assert.Contains("border-radius: var(--playback-player-radius)", hostCss, StringComparison.Ordinal);
     }
 
     [Fact]

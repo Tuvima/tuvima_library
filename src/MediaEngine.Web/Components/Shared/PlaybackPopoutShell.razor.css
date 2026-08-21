@@ -1,11 +1,11 @@
 .playback-popout-shell {
-    --listen-accent: var(--tl-status-warning, #f59e0b);
+    --listen-accent: var(--playback-accent);
     --listen-skip-center-bg: #07111f;
     background:
-        radial-gradient(circle at 50% 12%, rgba(245, 158, 11, 0.18), transparent 24rem),
-        linear-gradient(180deg, rgba(8, 18, 32, 0.92), rgba(4, 10, 19, 0.98)),
-        #07111f;
-    color: rgba(248, 250, 252, 0.94);
+        radial-gradient(circle at 50% 12%, var(--playback-accent-soft), transparent 24rem),
+        linear-gradient(180deg, color-mix(in srgb, var(--playback-surface) 92%, transparent), var(--playback-bg)),
+        var(--playback-bg);
+    color: var(--playback-text);
     display: flex;
     flex-direction: column;
     height: 100dvh;

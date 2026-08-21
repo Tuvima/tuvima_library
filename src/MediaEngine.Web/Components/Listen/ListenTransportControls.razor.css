@@ -76,7 +76,7 @@
     background: transparent !important;
     border: 0 !important;
     border-radius: 999px !important;
-    color: rgba(248, 250, 252, 0.9) !important;
+    color: var(--playback-text-secondary) !important;
     display: inline-flex !important;
     height: var(--listen-transport-secondary-size) !important;
     justify-content: center !important;
@@ -95,8 +95,8 @@
 .listen-transport ::deep .listen-now-panel__icon:focus-visible,
 .listen-transport ::deep .listen-popup__transport-icon:focus-visible,
 .listen-transport ::deep .listen-player__icon:focus-visible {
-    background: rgba(245, 158, 11, 0.12) !important;
-    color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b))) !important;
+    background: var(--playback-accent-soft) !important;
+    color: var(--playback-accent) !important;
 }
 
 .listen-transport ::deep .listen-now-panel__icon:disabled,

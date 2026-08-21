@@ -1,6 +1,6 @@
 .playback-timeline-meta-row {
     align-items: center;
-    color: rgba(248, 250, 252, 0.94);
+    color: var(--playback-text);
     display: flex;
     font-size: 0.92rem;
     font-weight: 700;
@@ -42,8 +42,8 @@
 }
 
 .playback-timeline-meta-row ::deep .playback-timeline-meta-row__icon {
-    color: rgba(248, 250, 252, 0.94) !important;
-    fill: rgba(248, 250, 252, 0.94) !important;
+    color: var(--playback-text) !important;
+    fill: var(--playback-text) !important;
     font-size: 20px !important;
     height: 20px;
     width: 20px;

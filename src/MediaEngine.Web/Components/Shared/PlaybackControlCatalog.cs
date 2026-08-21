@@ -63,6 +63,11 @@ public sealed record PlaybackControlState(
     bool HasChapters = false,
     bool HasQueue = true,
     bool HasLyrics = false,
+    bool HasCaptions = false,
+    bool HasAudioTracks = false,
+    bool HasQualityOptions = false,
+    bool IsShuffleEnabled = false,
+    bool IsRepeatEnabled = false,
     bool IsSleepTimerActive = false,
     string? SleepTimerValueText = null,
     int HistoryCount = 0,
@@ -151,11 +156,11 @@ public static class PlaybackControlCatalog
         switch (experience)
         {
             case PlaybackExperience.Music:
-                controls.Add(new(PlaybackControlKey.Queue, "Queue", "Queue", Icons.Material.Outlined.QueueMusic, PlaybackControlPlacement.ToolStrip, "queue", IsDisabled: !state.HasQueue));
-                controls.Add(new(PlaybackControlKey.History, "History", "History", Icons.Material.Outlined.History, PlaybackControlPlacement.ToolStrip, "history"));
-                controls.Add(new(PlaybackControlKey.Lyrics, "Lyrics", "Lyrics", Icons.Material.Outlined.Lyrics, PlaybackControlPlacement.ToolStrip, "lyrics", IsDisabled: !state.HasLyrics));
-                controls.Add(new(PlaybackControlKey.Shuffle, "Shuffle", "Shuffle", Icons.Material.Outlined.Shuffle, PlaybackControlPlacement.ToolStrip, "shuffle"));
-                controls.Add(new(PlaybackControlKey.Repeat, "Repeat", "Repeat", Icons.Material.Outlined.Repeat, PlaybackControlPlacement.ToolStrip, "repeat"));
+                controls.Add(Tool(PlaybackControlKey.Queue, "Queue", Icons.Material.Outlined.QueueMusic, "queue", state, IsDisabled: !state.HasQueue));
+                controls.Add(Tool(PlaybackControlKey.History, "History", Icons.Material.Outlined.History, "history", state));
+                controls.Add(Tool(PlaybackControlKey.Lyrics, "Lyrics", Icons.Material.Outlined.Lyrics, "lyrics", state, IsDisabled: !state.HasLyrics));
+                controls.Add(new(PlaybackControlKey.Shuffle, "Shuffle", "Shuffle", Icons.Material.Outlined.Shuffle, PlaybackControlPlacement.ToolStrip, "shuffle", IsActive: state.IsShuffleEnabled));
+                controls.Add(new(PlaybackControlKey.Repeat, "Repeat", "Repeat", Icons.Material.Outlined.Repeat, PlaybackControlPlacement.ToolStrip, "repeat", IsActive: state.IsRepeatEnabled));
                 break;
             case PlaybackExperience.Audiobook:
                 controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: DisplayFormat.FormatSpeedControl(state.PlaybackRate)));
@@ -167,11 +172,11 @@ public static class PlaybackControlCatalog
             case PlaybackExperience.Video:
                 controls.Add(Tool(PlaybackControlKey.Speed, "Speed", Icons.Material.Outlined.Speed, "speed", state, ValueText: DisplayFormat.FormatSpeedControl(state.PlaybackRate)));
                 controls.Add(Tool(PlaybackControlKey.Chapters, "Chapters", Icons.Material.Outlined.FormatListBulleted, "chapters", state, IsDisabled: !state.HasChapters));
-                controls.Add(new(PlaybackControlKey.Queue, "Queue", "Queue", Icons.Material.Outlined.QueuePlayNext, PlaybackControlPlacement.ToolStrip, "queue", IsDisabled: !state.HasQueue));
-                controls.Add(new(PlaybackControlKey.History, "History", "History", Icons.Material.Outlined.History, PlaybackControlPlacement.ToolStrip, "history"));
-                controls.Add(new(PlaybackControlKey.Captions, "Captions", "Captions and subtitles", Icons.Material.Outlined.ClosedCaption, PlaybackControlPlacement.ToolStrip, "captions"));
-                controls.Add(new(PlaybackControlKey.AudioTrack, "Audio", "Audio track", Icons.Material.Outlined.RecordVoiceOver, PlaybackControlPlacement.ToolStrip, "audio-track"));
-                controls.Add(new(PlaybackControlKey.Quality, "Quality", "Playback quality", Icons.Material.Outlined.HighQuality, PlaybackControlPlacement.ToolStrip, "quality"));
+                controls.Add(Tool(PlaybackControlKey.Queue, "Next Up", Icons.Material.Outlined.QueuePlayNext, "queue", state, IsDisabled: !state.HasQueue));
+                controls.Add(Tool(PlaybackControlKey.History, "History", Icons.Material.Outlined.History, "history", state));
+                controls.Add(Tool(PlaybackControlKey.Captions, "Captions", Icons.Material.Outlined.ClosedCaption, "captions", state, IsDisabled: !state.HasCaptions));
+                controls.Add(Tool(PlaybackControlKey.AudioTrack, "Audio", Icons.Material.Outlined.RecordVoiceOver, "audio-track", state, IsDisabled: !state.HasAudioTracks));
+                controls.Add(Tool(PlaybackControlKey.Quality, "Quality", Icons.Material.Outlined.HighQuality, "quality", state, IsDisabled: !state.HasQualityOptions));
                 controls.Add(new(PlaybackControlKey.Fullscreen, "Fullscreen", "Fullscreen", Icons.Material.Outlined.Fullscreen, PlaybackControlPlacement.Utility, "fullscreen"));
                 controls.Add(new(PlaybackControlKey.PictureInPicture, "PiP", "Picture in picture", Icons.Material.Outlined.PictureInPictureAlt, PlaybackControlPlacement.Utility, "picture-in-picture"));
                 controls.Add(new(PlaybackControlKey.SkipIntro, "Intro", "Skip intro", Icons.Material.Outlined.FastForward, PlaybackControlPlacement.Utility, "skip-intro", IsDisabled: true));

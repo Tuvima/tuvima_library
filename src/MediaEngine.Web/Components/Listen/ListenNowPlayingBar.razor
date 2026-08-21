@@ -33,64 +33,21 @@
     <div class="@PlayerShellClass"
          @ref="_playerShellRef"
          tabindex="0"
+         @onkeydown="HandlePlayerKeyDown"
          @ondragover:preventDefault="true"
          @ondrop:preventDefault="true"
          @ondrop="QueueDraggedItemsAsync">
         @if (Playback.IsPanelOpen)
         {
             <div class="listen-player-panel-backdrop" role="presentation" aria-hidden="true" @onclick="Playback.ClosePanel"></div>
-            <aside class="@($"listen-player-panel {(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? "listen-player-panel--lyrics" : null)}")">
+            <aside class="@($"listen-player-panel listen-player-panel--shared {(Playback.IsAudiobookMode ? "listen-player-panel--audiobook" : null)} {(Playback.ActiveTab == ListenPlaybackTabs.Lyrics ? "listen-player-panel--lyrics" : null)}")">
                 @if (Playback.IsAudiobookMode)
                 {
-                    <div class="listen-player-panel__sheet-header">
-                        <PlaybackSheetHandleButton Class="listen-player-panel__handle" Label="Close playback tool" OnClick="CloseBottomPanelAsync" />
-                        <div class="listen-player-panel__sheet-title">@BottomPanelTitle</div>
-                    </div>
-                }
-                else
-                {
-                    @if (Playback.ActiveTab == ListenPlaybackTabs.Lyrics)
-                    {
-                        <div class="listen-player-panel__lyrics-header">
-                            <div class="listen-player-panel__lyrics-heading">
-                                <MudIcon Icon="@Icons.Material.Outlined.Lyrics" />
-                                <span>Lyrics</span>
-                            </div>
-                            <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel" AriaLabel="Close lyrics">
-                                <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
-                            </AppNativeButton>
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="listen-player-panel__header">
-                            <div class="listen-player-panel__summary">
-                                <div class="listen-player-panel__thumb">
-                                    @if (!string.IsNullOrWhiteSpace(Playback.CurrentItem.CoverUrl))
-                                    {
-                                        <img src="@Playback.CurrentItem.CoverUrl" alt="@Playback.CurrentItem.Title" />
-                                    }
-                                    else
-                                    {
-                                        <MudIcon Icon="@FallbackIconFor(Playback.CurrentItem)" Class="tl-u-font-size-18px" />
-                                    }
-                                </div>
-                                <div class="listen-player-panel__copy">
-                                    <div class="listen-player-panel__title">@Playback.CurrentItem.Title</div>
-                                    <div class="listen-player-panel__subtitle">@PlayerSubtitleFor(Playback.CurrentItem, Playback.SourceLabel)</div>
-                                </div>
-                            </div>
-                            <div class="listen-player-panel__actions">
-                                <AppNativeButton Type="button" Class="listen-player-panel__close" OnClick="Playback.ClosePanel">
-                                    <MudIcon Icon="@Icons.Material.Outlined.Close" Class="tl-u-font-size-18px" />
-                                </AppNativeButton>
-                            </div>
-                        </div>
-                    }
-                }
-
-                @if (Playback.IsAudiobookMode)
-                {
+                    <PlaybackToolSheet Title="@BottomPanelTitle"
+                                       Subtitle="@BottomPanelSubtitle"
+                                       Icon="@BottomPanelIcon"
+                                       Surface="panel"
+                                       OnClose="CloseBottomPanelAsync">
                     @switch (_activeAudiobookPanelTool)
                     {
                         case "speed":
@@ -110,7 +67,7 @@
                                     @foreach (var chapter in CurrentChapters)
                                     {
                                         var isActive = IsCurrentChapter(chapter);
-                                        <AppNativeButton Type="button" Class="@($"listen-player-panel__tool-row listen-player-panel__tool-row--chapter {(isActive ? "is-active" : null)}")" OnClick="@(() => PlayAudiobookChapterFromPanelAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")" title="@($"Play {chapter.Title}")">
+                                        <AppNativeButton Type="button" Class="@($"listen-player-panel__tool-row listen-player-panel__tool-row--chapter {(isActive ? "is-active" : null)}")" OnClick="@(() => PlayAudiobookChapterFromPanelAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")" title="@($"Play {chapter.Title}")" data-playback-active-chapter="@(isActive ? "true" : null)">
                                             <span class="listen-player-panel__tool-copy">
                                                 <strong>@chapter.Title</strong>
                                             </span>
@@ -196,9 +153,15 @@
                                                        Class="listen-player-panel__sleep-control" />
                             break;
                     }
+                    </PlaybackToolSheet>
                 }
                 else
                 {
+                <PlaybackToolSheet Title="@MusicPanelTitle"
+                                   Subtitle="@MusicPanelSubtitle"
+                                   Icon="@MusicPanelIcon"
+                                   Surface="panel"
+                                   OnClose="CloseBottomPanelAsync">
                 @if (Playback.ActiveTab != ListenPlaybackTabs.Lyrics)
                 {
                     <div class="listen-player-panel__tabs" role="tablist" aria-label="Queue panel">
@@ -314,6 +277,7 @@
                         </div>
                     }
                 }
+                </PlaybackToolSheet>
                 }
             </aside>
         }
@@ -342,22 +306,19 @@
                     {
                         <div class="listen-player__error">@Playback.CurrentError</div>
                     }
+                    <AppNativeButton Type="button"
+                                     Class="listen-player__details"
+                                     OnClick="OpenCurrentDetails"
+                                     AriaLabel="View details"
+                                     title="View details">
+                        <MudIcon Icon="@Icons.Material.Outlined.Article" />
+                        <span>View Details</span>
+                    </AppNativeButton>
                 </div>
             </div>
 
             <div class="listen-player__transport">
                 <div class="listen-player__transport-line">
-                    @if (Playback.IsMusicMode)
-                    {
-                        <AppNativeButton Type="button"
-                                         Class="@PlayerModeButtonClass(Playback.ShuffleEnabled)"
-                                         OnClick="@(() => Playback.ToggleShuffleAsync())"
-                                         AriaLabel="Toggle shuffle"
-                                         title="Shuffle"
-                                         aria-pressed="@Playback.ShuffleEnabled">
-                            <MudIcon Icon="@Icons.Material.Outlined.Shuffle" Class="listen-player__utility-glyph" />
-                        </AppNativeButton>
-                    }
                     <ListenTransportControls Variant="bar"
                                              IsAudiobookMode="@Playback.IsAudiobookMode"
                                              IsPlaying="@Playback.IsPlaying"
@@ -379,19 +340,16 @@
                                              OnNextChapter="PlayNextChapterAsync"
                                              OnSkipBack="SkipBackAsync"
                                              OnSkipForward="SkipForwardAsync" />
-                    @if (Playback.IsMusicMode)
-                    {
-                        <AppNativeButton Type="button"
-                                         Class="@PlayerModeButtonClass(Playback.RepeatMode != PlayerRepeatModes.Off)"
-                                         OnClick="@(() => Playback.CycleRepeatModeAsync())"
-                                         AriaLabel="@RepeatAriaLabel"
-                                         title="@RepeatAriaLabel"
-                                         aria-pressed="@(Playback.RepeatMode != PlayerRepeatModes.Off)">
-                            <MudIcon Icon="@(Playback.RepeatMode == PlayerRepeatModes.One ? Icons.Material.Outlined.RepeatOne : Icons.Material.Outlined.Repeat)" Class="listen-player__utility-glyph" />
-                        </AppNativeButton>
-                    }
                 </div>
-
+                <div class="listen-player__progress">
+                    <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
+                    <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnChange="SeekAsync" AriaLabel="Playback position" aria-valuetext="@ProgressValueText" />
+                    <span>-@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
+                </div>
+                @if (Playback.IsAudiobookMode && Playback.CurrentChapter is { } currentChapter)
+                {
+                    <div class="listen-player__chapter-context">@currentChapter.Title</div>
+                }
             </div>
 
             <div class="listen-player__actions">
@@ -405,17 +363,11 @@
                 }
                 else
                 {
-                    <AppNativeButton Type="button"
-                                     Class="@PlayerModeButtonClass(Playback.IsPanelOpen && Playback.ActiveTab == ListenPlaybackTabs.Lyrics)"
-                                     OnClick="ToggleLyricsPanelAsync"
-                                     AriaLabel="Open synced lyrics"
-                                     title="Lyrics"
-                                     aria-pressed="@(Playback.IsPanelOpen && Playback.ActiveTab == ListenPlaybackTabs.Lyrics)">
-                        <MudIcon Icon="@Icons.Material.Outlined.Lyrics" Class="listen-player__utility-glyph" />
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ToggleMusicPanelAsync" AriaLabel="Open queue panel" title="Open queue panel">
-                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="listen-player__utility-glyph" />
-                    </AppNativeButton>
+                    <PlaybackControlStrip Controls="@MusicPanelControls"
+                                          Size="compact"
+                                          Class="listen-player__music-actions"
+                                          AriaLabel="Music tools"
+                                          OnControl="HandleMusicPanelControl" />
                 }
                 <AppNativeButton Type="button"
                                  Class="listen-player__icon listen-player__cast"
@@ -436,12 +388,6 @@
                 <AppNativeButton Type="button" Class="listen-player__icon" OnClick="ClosePlayerAsync" AriaLabel="Close player" title="Close player">
                     <MudIcon Icon="@Icons.Material.Outlined.Close" Class="listen-player__utility-glyph" />
                 </AppNativeButton>
-            </div>
-
-            <div class="listen-player__progress">
-                <span>@FormatTimestamp(Playback.CurrentTimeSeconds)</span>
-                <AppNativeInput Type="range" Min="0" Max="@ProgressMax" Step="1" Value="@Math.Min(Playback.CurrentTimeSeconds, ProgressMax)" Class="listen-player__progress-slider" OnChange="SeekAsync" AriaLabel="Playback position" aria-valuetext="@ProgressValueText" />
-                <span>@FormatTimestamp(Math.Max(0, Playback.DurationSeconds - Playback.CurrentTimeSeconds))</span>
             </div>
         </PlaybackMiniPlayer>
     </div>
@@ -466,6 +412,7 @@
     private Guid? _lyricsAssetId;
     private bool _lyricsLoading;
     private bool _shortcutsRegistered;
+    private bool _scrollActiveChapterPending;
     private string _activeAudiobookPanelTool = "speed";
     private List<LrcDisplayLine> _lyricsLines = [];
 
@@ -494,6 +441,18 @@
     private string VolumeStep => Playback.ClientSettings.VolumeStep.ToString("0.###", CultureInfo.InvariantCulture);
     private string ProgressValueText => $"{FormatTimestamp(Playback.CurrentTimeSeconds)} of {FormatTimestamp(ProgressMax)}";
     private string VolumeValueText => $"{Math.Clamp((int)Math.Round(Playback.Volume * 100d), 0, 100)}%";
+    private void OpenCurrentDetails()
+    {
+        if (Playback.CurrentItem is not { } current)
+        {
+            return;
+        }
+
+        var route = Playback.IsMusicMode && current.CollectionId.HasValue
+            ? $"/details/musicalbum/{current.CollectionId.Value:D}?context=listen&track={current.WorkId:D}"
+            : $"/details/work/{current.WorkId:D}?context=listen";
+        Nav.NavigateTo(route);
+    }
     private bool CanPlayNext =>
         Playback.CurrentIndex < Playback.Queue.Count - 1
         || Playback.Queue.Count > 1 && Playback.ShuffleEnabled
@@ -519,6 +478,22 @@
                 SleepTimerValueText: BottomSleepTimerValueText,
                 HistoryCount: Playback.AudiobookHistory.Count,
                 BookmarkCount: Playback.AudiobookBookmarks.Count));
+    private IReadOnlyList<PlaybackControlDefinition> MusicPanelControls =>
+        PlaybackControlCatalog.BuildToolStrip(
+            PlaybackExperience.Music,
+            PlaybackControlSurface.Bottom,
+            new PlaybackControlState(
+                ActiveSheet: Playback.IsPanelOpen ? Playback.ActiveTab switch
+                {
+                    ListenPlaybackTabs.Queue => "queue",
+                    ListenPlaybackTabs.History => "history",
+                    ListenPlaybackTabs.Lyrics => "lyrics",
+                    _ => null,
+                } : null,
+                HasQueue: Playback.HasQueue,
+                HasLyrics: true,
+                IsShuffleEnabled: Playback.ShuffleEnabled,
+                IsRepeatEnabled: Playback.RepeatMode != PlayerRepeatModes.Off));
 
     private string BottomPanelTitle => _activeAudiobookPanelTool switch
     {
@@ -528,6 +503,50 @@
         "bookmarks" => "Bookmarks",
         "sleep" => "Sleep Timer",
         _ => "Playback Tool",
+    };
+
+    private string BottomPanelSubtitle => _activeAudiobookPanelTool switch
+    {
+        "speed" => "Adjust playback speed",
+        "chapters" => Playback.CurrentChapter is { } chapter ? $"Current chapter · {chapter.Title}" : "Choose a chapter",
+        "history" => "Recent listening positions",
+        "bookmarks" => "Saved audiobook positions",
+        "sleep" => "Stop playback automatically",
+        _ => string.Empty,
+    };
+
+    private string BottomPanelIcon => _activeAudiobookPanelTool switch
+    {
+        "speed" => Icons.Material.Outlined.Speed,
+        "chapters" => Icons.Material.Outlined.FormatListBulleted,
+        "history" => Icons.Material.Outlined.History,
+        "bookmarks" => Icons.Material.Outlined.BookmarkBorder,
+        "sleep" => Icons.Material.Outlined.Bedtime,
+        _ => Icons.Material.Outlined.Tune,
+    };
+
+    private string MusicPanelTitle => Playback.ActiveTab switch
+    {
+        ListenPlaybackTabs.Queue => "Playing Next",
+        ListenPlaybackTabs.History => "Listening history",
+        ListenPlaybackTabs.Lyrics => "Lyrics",
+        _ => "Music tools",
+    };
+
+    private string MusicPanelSubtitle => Playback.ActiveTab switch
+    {
+        ListenPlaybackTabs.Queue => "Your current music queue",
+        ListenPlaybackTabs.History => "Played during this session",
+        ListenPlaybackTabs.Lyrics => Playback.CurrentItem?.Title ?? string.Empty,
+        _ => string.Empty,
+    };
+
+    private string MusicPanelIcon => Playback.ActiveTab switch
+    {
+        ListenPlaybackTabs.Queue => Icons.Material.Outlined.QueueMusic,
+        ListenPlaybackTabs.History => Icons.Material.Outlined.History,
+        ListenPlaybackTabs.Lyrics => Icons.Material.Outlined.Lyrics,
+        _ => Icons.Material.Outlined.MusicNote,
     };
 
     private string? BottomSleepTimerValueText => Playback.SleepTimerMode switch
@@ -599,6 +618,12 @@
             && !string.IsNullOrWhiteSpace(Playback.CurrentBrowserStreamUrl))
         {
             await SyncAudioAsync();
+        }
+
+        if (_scrollActiveChapterPending)
+        {
+            _scrollActiveChapterPending = false;
+            await JS.InvokeVoidAsync("playbackTools.scrollActiveChapter");
         }
     }
 
@@ -1072,10 +1097,60 @@
         return Task.CompletedTask;
     }
 
+    private async Task HandleMusicPanelControl(PlaybackControlDefinition control)
+    {
+        if (control.IsDisabled)
+        {
+            return;
+        }
+
+        switch (control.Key)
+        {
+            case PlaybackControlKey.Queue:
+                ToggleMusicToolPanel(ListenPlaybackTabs.Queue);
+                break;
+            case PlaybackControlKey.History:
+                ToggleMusicToolPanel(ListenPlaybackTabs.History);
+                break;
+            case PlaybackControlKey.Lyrics:
+                await ToggleLyricsPanelAsync();
+                break;
+            case PlaybackControlKey.Shuffle:
+                await Playback.ToggleShuffleAsync();
+                break;
+            case PlaybackControlKey.Repeat:
+                await Playback.CycleRepeatModeAsync();
+                break;
+        }
+    }
+
+    private void ToggleMusicToolPanel(string tab)
+    {
+        if (Playback.IsPanelOpen && Playback.ActiveTab == tab)
+        {
+            Playback.ClosePanel();
+            return;
+        }
+
+        Playback.SetActiveTab(tab);
+        if (!Playback.IsPanelOpen)
+        {
+            Playback.TogglePanel();
+        }
+    }
+
     private Task CloseBottomPanelAsync()
     {
         Playback.ClosePanel();
         return Task.CompletedTask;
+    }
+
+    private void HandlePlayerKeyDown(KeyboardEventArgs args)
+    {
+        if (Playback.IsPanelOpen && string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            Playback.ClosePanel();
+        }
     }
 
     private void HandleAudiobookPanelControl(PlaybackControlDefinition control)
@@ -1085,7 +1160,14 @@
             return;
         }
 
+        if (Playback.IsPanelOpen && string.Equals(_activeAudiobookPanelTool, control.Sheet, StringComparison.Ordinal))
+        {
+            Playback.ClosePanel();
+            return;
+        }
+
         _activeAudiobookPanelTool = control.Sheet;
+        _scrollActiveChapterPending = string.Equals(control.Sheet, "chapters", StringComparison.Ordinal);
         if (!Playback.IsPanelOpen)
         {
             Playback.TogglePanel();

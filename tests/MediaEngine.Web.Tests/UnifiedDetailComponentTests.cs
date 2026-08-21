@@ -1109,7 +1109,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("grid-template-columns: 72px 64px 104px 64px 72px", popupPlayerStyles);
         Assert.Contains("<PlaybackTimelineMetaRow", popupPlayer);
         Assert.Contains("playback-timeline-meta-row", playbackTimelineMetaRow);
-        Assert.Contains("color: rgba(248, 250, 252, 0.94);", playbackTimelineMetaRowStyles);
+        Assert.Contains("color: var(--playback-text);", playbackTimelineMetaRowStyles);
         Assert.DoesNotContain(".listen-popup__chapter-row", popupPlayerStyles);
         Assert.DoesNotContain("background: var(--listen-accent", transportControlStyles);
         Assert.DoesNotContain("background: var(--listen-audio-accent", transportControlStyles);
@@ -1390,10 +1390,10 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("playback-position-row-shell--list", positionRowCss);
         Assert.Contains("playback-position-row--list", positionRowCss);
         Assert.Contains("playback-position-row--add", positionRowCss);
-        Assert.Contains("border: 1px dashed rgba(245, 158, 11, 0.42);", positionRowCss);
-        Assert.Contains("border-bottom: 1px solid rgba(148, 163, 184, 0.16);", positionRowCss);
+        Assert.Contains("border: 1px solid var(--playback-accent-border);", positionRowCss);
+        Assert.Contains("border-bottom: 1px solid var(--playback-divider);", positionRowCss);
         Assert.Contains("margin-top: 0;", positionRowCss);
-        Assert.Contains("var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)))", positionRowCss);
+        Assert.Contains("var(--playback-accent)", positionRowCss);
         Assert.Contains("playback-position-list", positionList);
         Assert.Contains("overflow: hidden;", positionListCss);
         Assert.Contains("Quick presets", speedControl);
@@ -1482,7 +1482,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("Control.BadgeText", ReadSource("src/MediaEngine.Web/Components/Shared/PlaybackIconButton.razor"));
         Assert.Contains("playback-icon-button__badge", iconButtonCss);
         Assert.Contains("playback-icon-button--sleep-timer.is-active", iconButtonCss);
-        Assert.Contains("#c084fc", iconButtonCss, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("--playback-icon-button-badge-color: var(--playback-accent);", iconButtonCss, StringComparison.Ordinal);
+        Assert.DoesNotContain("#c084fc", iconButtonCss, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("<PlaybackSheetHandleButton", toolSheet);
         Assert.Contains("NormalizedPresentation", toolSheet);
         Assert.Contains("full-overlay", toolSheet);
@@ -1536,7 +1537,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("SleepTimerValueText: BottomSleepTimerValueText", host);
         Assert.Contains("Playback.TogglePanel();", host);
         Assert.Contains("ShortSleepTimerLabel", host);
-        Assert.Contains("grid-template-columns: minmax(280px, 0.82fr) minmax(440px, 1.45fr) minmax(320px, 0.9fr);", hostCss);
+        Assert.Contains("grid-template-columns: minmax(300px, 0.9fr) minmax(500px, 1.45fr) minmax(420px, 1.05fr);", hostCss);
         Assert.Contains(".listen-player__actions ::deep .playback-control-strip.listen-player__audiobook-actions", hostCss);
         Assert.Contains("grid-template-columns: repeat(5, minmax(52px, 1fr)) !important;", hostCss);
         Assert.Contains("width: clamp(300px, 24vw, 350px) !important;", hostCss);
@@ -1546,7 +1547,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("grid-template-rows: 24px 10px 12px;", hostCss);
         Assert.Contains("min-height: 52px;", hostCss);
         Assert.Contains("<PlaybackSleepTimerControl", host);
-        Assert.Contains("Close playback tool", host);
+        Assert.Contains("OnClose=\"CloseBottomPanelAsync\"", host);
         Assert.Contains("BottomPanelTitle", host);
         Assert.DoesNotContain("Class=\"listen-player-panel__audiobook-actions\"", host);
         Assert.DoesNotContain("listen-player-panel__audiobook-actions", hostCss);

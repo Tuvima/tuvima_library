@@ -2002,3 +2002,14 @@ window.detailOrigin = (() => {
 // Register before the first detail link is clicked so the originating lane
 // position can be captured on the initial navigation.
 window.detailOrigin.initialize();
+
+window.playbackTools = window.playbackTools || {
+    scrollActiveChapter: function () {
+        window.requestAnimationFrame(() => {
+            const active = document.querySelector('[data-playback-active-chapter="true"]');
+            if (active instanceof HTMLElement) {
+                active.scrollIntoView({ block: 'center', behavior: 'smooth' });
+            }
+        });
+    }
+};

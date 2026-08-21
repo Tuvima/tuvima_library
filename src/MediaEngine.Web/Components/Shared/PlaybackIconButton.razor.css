@@ -7,7 +7,7 @@
     background: transparent;
     border: 0;
     border-radius: 8px;
-    color: rgba(226, 232, 240, 0.84);
+    color: var(--playback-text-secondary);
     cursor: pointer;
     display: grid;
     gap: 4px;
@@ -28,12 +28,12 @@
 .playback-icon-button-shell ::deep .playback-icon-button:hover,
 .playback-icon-button-shell ::deep .playback-icon-button.is-selected,
 .playback-icon-button-shell ::deep .playback-icon-button.is-active {
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
+    background: var(--playback-accent-soft);
+    color: var(--playback-accent);
 }
 
 .playback-icon-button-shell ::deep .playback-icon-button:focus-visible {
-    outline: 2px solid rgba(147, 197, 253, 0.72);
+    outline: 2px solid var(--playback-focus-ring);
     outline-offset: 3px;
 }
 
@@ -52,9 +52,9 @@
 .playback-icon-button-shell ::deep .playback-icon-button__icon {
     color: currentColor !important;
     fill: currentColor !important;
-    font-size: 32px !important;
-    height: 32px;
-    width: 32px;
+    font-size: var(--playback-tool-icon-size) !important;
+    height: var(--playback-tool-icon-size);
+    width: var(--playback-tool-icon-size);
 }
 
 .playback-icon-button-shell--large ::deep .playback-icon-button__icon {
@@ -94,7 +94,7 @@
 }
 
 .playback-icon-button-shell ::deep .playback-icon-button--sleep-timer.is-active {
-    --playback-icon-button-badge-color: #c084fc;
-    background: rgba(168, 85, 247, 0.16);
-    color: #d8b4fe;
+    --playback-icon-button-badge-color: var(--playback-accent);
+    background: var(--playback-accent-soft);
+    color: var(--playback-accent);
 }

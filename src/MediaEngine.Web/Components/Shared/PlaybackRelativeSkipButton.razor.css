@@ -8,7 +8,7 @@
     justify-self: center;
     width: var(--playback-relative-skip-size);
     height: var(--playback-relative-skip-size);
-    color: rgba(248, 250, 252, 0.96);
+    color: var(--playback-text);
 }
 
 .playback-relative-skip--compact {
@@ -41,9 +41,9 @@
 
 .playback-relative-skip ::deep .playback-relative-skip__button:hover,
 .playback-relative-skip ::deep .playback-relative-skip__button:focus-visible {
-    background: rgba(245, 158, 11, 0.12);
-    color: var(--listen-accent, var(--listen-audio-accent, var(--tl-status-warning, #f59e0b)));
-    box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.28);
+    background: var(--playback-accent-soft);
+    color: var(--playback-accent);
+    box-shadow: inset 0 0 0 1px var(--playback-accent-border);
 }
 
 .playback-relative-skip ::deep .playback-relative-skip__button:active {

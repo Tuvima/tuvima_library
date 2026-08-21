@@ -122,28 +122,11 @@
             }
             else
             {
-                <section class="listen-popup__music-actions" aria-label="Music controls">
-                    <AppNativeButton Type="button" Class="@MusicActionClass(_snapshot.ShuffleEnabled)" OnClick="ToggleShuffleAsync" AriaLabel="Toggle shuffle" title="Shuffle" aria-pressed="@_snapshot.ShuffleEnabled">
-                        <MudIcon Icon="@Icons.Material.Outlined.Shuffle" Class="tl-u-font-size-24px" />
-                        <span>Shuffle</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@MusicActionClass(_activeSheet == "music-queue")" OnClick="@(() => ToggleSheet("music-queue"))" AriaLabel="Open queue" title="Queue">
-                        <MudIcon Icon="@Icons.Material.Outlined.QueueMusic" Class="tl-u-font-size-24px" />
-                        <span>Queue</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@MusicActionClass(_activeSheet == "music-history")" OnClick="@(() => ToggleSheet("music-history"))" AriaLabel="Open listening history" title="History">
-                        <MudIcon Icon="@Icons.Material.Outlined.History" Class="tl-u-font-size-24px" />
-                        <span>History</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="@MusicActionClass(_snapshot.RepeatMode != PlayerRepeatModes.Off)" OnClick="CycleRepeatAsync" AriaLabel="@RepeatLabel" title="@RepeatLabel" aria-pressed="@(_snapshot.RepeatMode != PlayerRepeatModes.Off)">
-                        <MudIcon Icon="@(_snapshot.RepeatMode == PlayerRepeatModes.One ? Icons.Material.Outlined.RepeatOne : Icons.Material.Outlined.Repeat)" Class="tl-u-font-size-24px" />
-                        <span>@RepeatShortLabel</span>
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="listen-popup__sheet-action" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute" title="Mute or unmute">
-                        <MudIcon Icon="@(_snapshot.IsMuted || _snapshot.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" Class="tl-u-font-size-24px" />
-                        <span>Volume</span>
-                    </AppNativeButton>
-                </section>
+                <PlaybackControlStrip Controls="@MusicToolControls"
+                                      Size="standard"
+                                      Class="listen-popup__actions listen-popup__music-actions"
+                                      AriaLabel="Music tools"
+                                      OnControl="HandleMusicToolControl" />
                 <section class="listen-popup__volume-control" aria-label="Volume control">
                     <MudIcon Icon="@Icons.Material.Outlined.VolumeDown" Class="listen-popup__volume-glyph" />
                     <AppNativeInput Type="range" Min="0" Max="1" Step="@VolumeStep" Value="@_snapshot.Volume" Class="listen-popup__volume-slider" OnChange="SetVolumeAsync" AriaLabel="Volume" aria-valuetext="@VolumeValueText" />
@@ -157,8 +140,10 @@
             <div class="listen-popup-sheet__backdrop" role="presentation" aria-hidden="true" @onclick="CloseSheet"></div>
             <PlaybackToolSheet Title="@SheetTitle"
                                Subtitle="@SheetSubtitle"
+                               Icon="@SheetIcon"
                                Surface="popup"
                                Presentation="full-overlay"
+                               Modal="true"
                                Class="listen-popup-sheet"
                                OnClose="CloseSheet">
                 @switch (_activeSheet)
@@ -180,7 +165,7 @@
                                 {
                                     var chapter = CurrentChapters[index];
                                     var isActive = IsCurrentChapter(chapter);
-                                    <PlaybackSheetRow Variant="chapter" Class="listen-popup-sheet__row listen-popup-sheet__row--chapter" IsActive="@isActive" OnClick="@(() => PlayChapterAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")">
+                                    <PlaybackSheetRow Variant="chapter" Class="listen-popup-sheet__row listen-popup-sheet__row--chapter" IsActive="@isActive" OnClick="@(() => PlayChapterAsync(chapter.Index))" AriaLabel="@($"Play {chapter.Title}")" data-playback-active-chapter="@(isActive ? "true" : null)">
                                         <span class="playback-sheet-row__copy listen-popup-sheet__copy">
                                             <strong>@chapter.Title</strong>
                                         </span>
@@ -358,6 +343,7 @@
     private ListenPlaybackSnapshot _snapshot = new();
     private DotNetObjectReference<ListenPlayerPopupPage>? _selfReference;
     private string? _activeSheet;
+    private bool _scrollActiveChapterPending;
     private bool _showOverflowMenu;
 
     private ListenQueueItem? CurrentItem =>
@@ -388,10 +374,12 @@
         ? string.Empty
         : $"--listen-popup-cover:url('{CurrentItem.CoverUrl.Replace("'", "%27", StringComparison.Ordinal)}');";
     private string RemainingLabel => $"{FormatTimestamp(Math.Max(0, ProgressMax - _snapshot.CurrentTimeSeconds))} left";
-    private string CurrentChapterProgressLabel =>
+    private PlaybackChapterDto? ActiveChapter =>
         CurrentChapters.LastOrDefault(chapter =>
             chapter.StartSeconds <= _snapshot.CurrentTimeSeconds
-            && (!chapter.EndSeconds.HasValue || _snapshot.CurrentTimeSeconds < chapter.EndSeconds.Value)) is { } chapter
+            && (!chapter.EndSeconds.HasValue || _snapshot.CurrentTimeSeconds < chapter.EndSeconds.Value));
+    private string CurrentChapterProgressLabel =>
+        ActiveChapter is { } chapter
                 ? $"{chapter.Title} of {CurrentChapters.Count}"
                 : string.Empty;
     private string ProgressPercentLabel =>
@@ -410,13 +398,23 @@
     private string SheetSubtitle => _activeSheet switch
     {
         "speed" => "Adjust playback speed",
-        "chapters" => string.Empty,
+        "chapters" => ActiveChapter is { } chapter ? $"Current chapter · {chapter.Title}" : "Choose a chapter",
         "history" => "Recent listening positions",
         "bookmarks" => "Saved audiobook positions",
         "sleep" => "Stop playback automatically",
         "music-queue" => "Your current music queue",
         "music-history" => "Played during this session",
         _ => string.Empty,
+    };
+    private string SheetIcon => _activeSheet switch
+    {
+        "speed" => Icons.Material.Outlined.Speed,
+        "chapters" => Icons.Material.Outlined.FormatListBulleted,
+        "history" or "music-history" => Icons.Material.Outlined.History,
+        "bookmarks" => Icons.Material.Outlined.BookmarkBorder,
+        "sleep" => Icons.Material.Outlined.Bedtime,
+        "music-queue" => Icons.Material.Outlined.QueueMusic,
+        _ => Icons.Material.Outlined.Tune,
     };
     private IReadOnlyList<PlaybackControlDefinition> AudiobookToolControls =>
         PlaybackControlCatalog.BuildToolStrip(
@@ -429,6 +427,21 @@
                 IsSleepTimerActive: _snapshot.SleepTimerMode != ListenSleepTimerModes.Off,
                 HistoryCount: _snapshot.AudiobookHistory.Count,
                 BookmarkCount: _snapshot.AudiobookBookmarks.Count));
+    private IReadOnlyList<PlaybackControlDefinition> MusicToolControls =>
+        PlaybackControlCatalog.BuildToolStrip(
+            PlaybackExperience.Music,
+            PlaybackControlSurface.Popup,
+            new PlaybackControlState(
+                ActiveSheet: _activeSheet switch
+                {
+                    "music-queue" => "queue",
+                    "music-history" => "history",
+                    _ => null,
+                },
+                HasQueue: _snapshot.Queue.Count > 0,
+                HasLyrics: false,
+                IsShuffleEnabled: _snapshot.ShuffleEnabled,
+                IsRepeatEnabled: _snapshot.RepeatMode != PlayerRepeatModes.Off));
     private string RepeatLabel => _snapshot.RepeatMode switch
     {
         PlayerRepeatModes.One => "Repeat one",
@@ -447,6 +460,11 @@
     {
         if (!firstRender)
         {
+            if (_scrollActiveChapterPending)
+            {
+                _scrollActiveChapterPending = false;
+                await JS.InvokeVoidAsync("playbackTools.scrollActiveChapter");
+            }
             return;
         }
 
@@ -496,10 +514,35 @@
         ToggleSheet(control.Sheet);
     }
 
+    private async Task HandleMusicToolControl(PlaybackControlDefinition control)
+    {
+        if (control.IsDisabled)
+        {
+            return;
+        }
+
+        switch (control.Key)
+        {
+            case PlaybackControlKey.Queue:
+                ToggleSheet("music-queue");
+                break;
+            case PlaybackControlKey.History:
+                ToggleSheet("music-history");
+                break;
+            case PlaybackControlKey.Shuffle:
+                await ToggleShuffleAsync();
+                break;
+            case PlaybackControlKey.Repeat:
+                await CycleRepeatAsync();
+                break;
+        }
+    }
+
     private void ToggleSheet(string sheet)
     {
         _showOverflowMenu = false;
         _activeSheet = _activeSheet == sheet ? null : sheet;
+        _scrollActiveChapterPending = string.Equals(_activeSheet, "chapters", StringComparison.Ordinal);
     }
 
     private void ToggleOverflowMenu()

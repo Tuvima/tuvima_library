@@ -19,12 +19,12 @@
 }
 
 .playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button:focus-visible {
-    outline: 2px solid rgba(147, 197, 253, 0.72);
+    outline: 2px solid var(--playback-focus-ring);
     outline-offset: 2px;
 }
 
 .playback-sheet-handle-button__bar {
-    background: rgba(148, 163, 184, 0.48);
+    background: color-mix(in srgb, var(--playback-text-muted) 48%, transparent);
     border-radius: 999px;
     display: block;
     height: 6px;
@@ -34,6 +34,6 @@
 
 .playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button:hover .playback-sheet-handle-button__bar,
 .playback-sheet-handle-button-shell ::deep .playback-sheet-handle-button:focus-visible .playback-sheet-handle-button__bar {
-    background: rgba(248, 250, 252, 0.72);
+    background: color-mix(in srgb, var(--playback-text) 72%, transparent);
     transform: scaleX(1.08);
 }

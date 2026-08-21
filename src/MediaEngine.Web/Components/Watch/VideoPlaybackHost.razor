@@ -2,6 +2,7 @@
 @using System.Globalization
 @using Microsoft.JSInterop
 @using MediaEngine.Contracts.Playback
+@using MediaEngine.Web.Components.Shared
 @using MediaEngine.Web.Services.Integration
 @using MediaEngine.Web.Services.Playback
 @inject PlaybackSessionController Playback
@@ -13,7 +14,9 @@
 
 <section class="@StageClass"
          aria-label="@(Playback.IsVideoMode ? "Video player" : null)"
-         aria-hidden="@(Playback.IsVideoMode ? "false" : "true")">
+         aria-hidden="@(Playback.IsVideoMode ? "false" : "true")"
+         tabindex="-1"
+         @onkeydown="HandleVideoKeyDown">
     <video @ref="_videoRef"
            id="tuvima-video-engine"
            class="video-playback-host__media"
@@ -94,27 +97,17 @@
 
             <div class="video-playback-host__toolbar">
                 <div class="video-playback-host__transport">
-                    <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="SkipBackAsync" AriaLabel="@($"Skip back {Playback.SkipBackSeconds} seconds")">
-                        <MudIcon Icon="@Icons.Material.Outlined.Replay10" />
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="video-playback-host__play" OnClick="TogglePlayPauseAsync" AriaLabel="@(Playback.IsPlaying ? "Pause" : "Play")">
-                        <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" />
-                    </AppNativeButton>
-                    <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="SkipForwardAsync" AriaLabel="@($"Skip forward {Playback.SkipForwardSeconds} seconds")">
-                        <MudIcon Icon="@Icons.Material.Outlined.Forward10" />
-                    </AppNativeButton>
+                    <PlaybackRelativeSkipButton Seconds="@Playback.SkipBackSeconds" Direction="back" Size="standard" OnClick="SkipBackAsync" />
+                    <PlaybackPrimaryButton IsPlaying="@Playback.IsPlaying" Size="standard" OnClick="TogglePlayPauseAsync" />
+                    <PlaybackRelativeSkipButton Seconds="@Playback.SkipForwardSeconds" Direction="forward" Size="standard" OnClick="SkipForwardAsync" />
                 </div>
 
                 <div class="video-playback-host__tools">
-                    <AppNativeButton Type="button"
-                                     Class="video-playback-host__icon"
-                                     Disabled="@(SubtitleTracks.Count == 0)"
-                                     OnClick="ToggleCaptionsAsync"
-                                     AriaLabel="Captions and subtitles"
-                                     title="Captions and subtitles">
-                        <MudIcon Icon="@Icons.Material.Outlined.ClosedCaption" />
-                    </AppNativeButton>
-                    <span class="video-playback-host__quality" title="Source quality">@QualityLabel</span>
+                    <PlaybackControlStrip Controls="@VideoToolControls"
+                                          Size="compact"
+                                          Class="video-playback-host__tool-strip"
+                                          AriaLabel="Video tools"
+                                          OnControl="HandleVideoToolControl" />
                     <AppNativeButton Type="button" Class="video-playback-host__icon" OnClick="ToggleMuteAsync" AriaLabel="Mute or unmute">
                         <MudIcon Icon="@(Playback.IsMuted || Playback.Volume <= 0 ? Icons.Material.Outlined.VolumeOff : Icons.Material.Outlined.VolumeUp)" />
                     </AppNativeButton>
@@ -135,6 +128,76 @@
                 </div>
             </div>
         </div>
+
+        @if (_activeToolSheet is not null)
+        {
+            <div class="video-playback-host__tool-backdrop" role="presentation" aria-hidden="true" @onclick="CloseToolSheet"></div>
+            <PlaybackToolSheet Title="@VideoToolTitle"
+                               Subtitle="@VideoToolSubtitle"
+                               Icon="@VideoToolIcon"
+                               Surface="popup"
+                               Modal="true"
+                               Class="video-playback-host__tool-sheet"
+                               OnClose="CloseToolSheet">
+                @switch (_activeToolSheet)
+                {
+                    case "speed":
+                        <PlaybackSpeedControl Value="@Playback.PlaybackRate" ValueChanged="SetPlaybackRateAsync" />
+                        break;
+                    case "chapters":
+                        <PlaybackSheetList>
+                            @foreach (var chapter in VideoChapters)
+                            {
+                                var isActive = IsCurrentVideoChapter(chapter);
+                                <PlaybackSheetRow Variant="chapter" IsActive="@isActive" OnClick="@(() => PlayVideoChapterAsync(chapter))" AriaLabel="@($"Play {chapter.Title}")">
+                                    <span class="playback-sheet-row__copy"><strong>@chapter.Title</strong></span>
+                                    <span class="playback-sheet-row__duration">@FormatTimestamp(Math.Max(0, (chapter.EndSeconds ?? chapter.StartSeconds) - chapter.StartSeconds))</span>
+                                </PlaybackSheetRow>
+                            }
+                        </PlaybackSheetList>
+                        break;
+                    case "queue":
+                        <PlaybackSheetList>
+                            @for (var index = Playback.CurrentIndex + 1; index < Playback.Queue.Count; index++)
+                            {
+                                var queueIndex = index;
+                                var item = Playback.Queue[index];
+                                <PlaybackSheetRow OnClick="@(() => PlayVideoQueueItemAsync(queueIndex))" AriaLabel="@($"Play {item.Title}")">
+                                    <span class="playback-sheet-row__copy"><strong>@item.Title</strong><span>@item.Subtitle</span></span>
+                                    <span class="playback-sheet-row__duration">@item.Duration</span>
+                                </PlaybackSheetRow>
+                            }
+                        </PlaybackSheetList>
+                        break;
+                    case "history":
+                        <PlaybackSheetList>
+                            @foreach (var item in Playback.History)
+                            {
+                                <PlaybackSheetRow IsButton="false">
+                                    <span class="playback-sheet-row__copy"><strong>@item.Title</strong><span>@item.Subtitle</span></span>
+                                    <span class="playback-sheet-row__duration">@item.Duration</span>
+                                </PlaybackSheetRow>
+                            }
+                        </PlaybackSheetList>
+                        break;
+                    case "captions":
+                        <PlaybackSheetList>
+                            <PlaybackSheetRow OnClick="ToggleCaptionsAsync" AriaLabel="Toggle captions">
+                                <span class="playback-sheet-row__copy"><strong>Captions</strong><span>@($"{SubtitleTracks.Count} track{(SubtitleTracks.Count == 1 ? string.Empty : "s")} available")</span></span>
+                                <span class="playback-sheet-row__resume">Toggle</span>
+                            </PlaybackSheetRow>
+                        </PlaybackSheetList>
+                        break;
+                    case "quality":
+                        <PlaybackSheetList>
+                            <PlaybackSheetRow IsButton="false" IsActive="true">
+                                <span class="playback-sheet-row__copy"><strong>@QualityLabel</strong><span>Current source quality</span></span>
+                            </PlaybackSheetRow>
+                        </PlaybackSheetList>
+                        break;
+                }
+            </PlaybackToolSheet>
+        }
     }
 </section>
 
@@ -160,15 +223,9 @@
 
         <div class="video-playback-dock__transport">
             <div class="video-playback-dock__buttons">
-                <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="SkipBackAsync" AriaLabel="@($"Skip back {Playback.SkipBackSeconds} seconds")">
-                    <MudIcon Icon="@Icons.Material.Outlined.Replay10" />
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="video-playback-dock__play" OnClick="TogglePlayPauseAsync" AriaLabel="@(Playback.IsPlaying ? "Pause" : "Play")">
-                    <MudIcon Icon="@(Playback.IsPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)" />
-                </AppNativeButton>
-                <AppNativeButton Type="button" Class="video-playback-dock__icon" OnClick="SkipForwardAsync" AriaLabel="@($"Skip forward {Playback.SkipForwardSeconds} seconds")">
-                    <MudIcon Icon="@Icons.Material.Outlined.Forward10" />
-                </AppNativeButton>
+                <PlaybackRelativeSkipButton Seconds="@Playback.SkipBackSeconds" Direction="back" Size="standard" OnClick="SkipBackAsync" />
+                <PlaybackPrimaryButton IsPlaying="@Playback.IsPlaying" Size="standard" OnClick="TogglePlayPauseAsync" />
+                <PlaybackRelativeSkipButton Seconds="@Playback.SkipForwardSeconds" Direction="forward" Size="standard" OnClick="SkipForwardAsync" />
             </div>
         </div>
 
@@ -212,6 +269,7 @@
     private bool? _lastAppliedMuteState;
     private double? _lastAppliedPlaybackRate;
     private Guid? _activeAssetId;
+    private string? _activeToolSheet;
 
     private string StageClass =>
         Playback.IsVideoMode && Playback.IsVideoExpanded
@@ -223,6 +281,50 @@
         (Playback.CurrentManifest?.SubtitleTracks ?? [])
             .Where(track => !string.IsNullOrWhiteSpace(track.DeliveryUrl))
             .ToList();
+    private IReadOnlyList<PlaybackChapterDto> VideoChapters => Playback.CurrentItem?.Chapters ?? [];
+    private IReadOnlyList<PlaybackControlDefinition> VideoToolControls =>
+        PlaybackControlCatalog.BuildToolStrip(
+            PlaybackExperience.Video,
+            PlaybackControlSurface.Fullscreen,
+            new PlaybackControlState(
+                ActiveSheet: _activeToolSheet,
+                PlaybackRate: Playback.PlaybackRate,
+                HasChapters: VideoChapters.Count > 0,
+                HasQueue: Playback.CurrentIndex < Playback.Queue.Count - 1,
+                HasCaptions: SubtitleTracks.Count > 0,
+                HasAudioTracks: false,
+                HasQualityOptions: true));
+    private string VideoToolTitle => _activeToolSheet switch
+    {
+        "speed" => "Playback speed",
+        "chapters" => "Chapters",
+        "queue" => "Next Up",
+        "history" => "Watching history",
+        "captions" => "Captions",
+        "audio-track" => "Audio track",
+        "quality" => "Quality",
+        _ => "Video tools",
+    };
+    private string VideoToolSubtitle => _activeToolSheet switch
+    {
+        "chapters" => VideoChapters.FirstOrDefault(IsCurrentVideoChapter) is { } chapter ? $"Current chapter · {chapter.Title}" : string.Empty,
+        "queue" => "Continue through the current queue",
+        "history" => "Played during this session",
+        "captions" => "Available subtitle tracks",
+        "quality" => "Current delivery quality",
+        _ => string.Empty,
+    };
+    private string VideoToolIcon => _activeToolSheet switch
+    {
+        "speed" => Icons.Material.Outlined.Speed,
+        "chapters" => Icons.Material.Outlined.FormatListBulleted,
+        "queue" => Icons.Material.Outlined.QueuePlayNext,
+        "history" => Icons.Material.Outlined.History,
+        "captions" => Icons.Material.Outlined.ClosedCaption,
+        "audio-track" => Icons.Material.Outlined.RecordVoiceOver,
+        "quality" => Icons.Material.Outlined.HighQuality,
+        _ => Icons.Material.Outlined.Tune,
+    };
     private string QualityLabel => StringHelpers.FirstNonBlankOr(
         "Source",
         Playback.CurrentItem?.Quality,
@@ -598,6 +700,45 @@
 
     private Task TogglePictureInPictureAsync()
         => JS.InvokeVoidAsync("listenPlayback.togglePictureInPicture", _videoRef).AsTask();
+
+    private void HandleVideoToolControl(PlaybackControlDefinition control)
+    {
+        if (control.IsDisabled || string.IsNullOrWhiteSpace(control.Sheet))
+        {
+            return;
+        }
+
+        _activeToolSheet = string.Equals(_activeToolSheet, control.Sheet, StringComparison.Ordinal)
+            ? null
+            : control.Sheet;
+    }
+
+    private void CloseToolSheet() => _activeToolSheet = null;
+
+    private Task HandleVideoKeyDown(KeyboardEventArgs args)
+    {
+        if (string.Equals(args.Key, "Escape", StringComparison.Ordinal))
+        {
+            CloseToolSheet();
+        }
+        return Task.CompletedTask;
+    }
+
+    private bool IsCurrentVideoChapter(PlaybackChapterDto chapter) =>
+        chapter.StartSeconds <= Playback.CurrentTimeSeconds
+        && (!chapter.EndSeconds.HasValue || Playback.CurrentTimeSeconds < chapter.EndSeconds.Value);
+
+    private async Task PlayVideoChapterAsync(PlaybackChapterDto chapter)
+    {
+        await SeekOnHostAsync(chapter.StartSeconds);
+        CloseToolSheet();
+    }
+
+    private async Task PlayVideoQueueItemAsync(int index)
+    {
+        await Playback.PlayIndexAsync(index);
+        CloseToolSheet();
+    }
 
     private async Task ClosePlayerAsync()
     {

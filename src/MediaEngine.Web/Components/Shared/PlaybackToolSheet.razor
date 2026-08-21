@@ -1,14 +1,27 @@
 @namespace MediaEngine.Web.Components.Shared
 @using System.Linq
 
-<section class="@RootClass" aria-label="@Title" aria-modal="true" @attributes="AdditionalAttributes">
+<section class="@RootClass" role="dialog" aria-label="@Title" aria-modal="@(Modal ? "true" : null)" @attributes="AdditionalAttributes">
     <PlaybackSheetHandleButton Class="playback-tool-sheet__handle" Label="@CloseLabel" OnClick="@OnClose" />
     <div class="playback-tool-sheet__header">
-        <h2>@Title</h2>
-        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        @if (!string.IsNullOrWhiteSpace(Icon))
         {
-            <p>@Subtitle</p>
+            <MudIcon Icon="@Icon" Class="playback-tool-sheet__header-icon" />
         }
+        <div class="playback-tool-sheet__heading">
+            <h2>@Title</h2>
+            @if (!string.IsNullOrWhiteSpace(Subtitle))
+            {
+                <p>@Subtitle</p>
+            }
+        </div>
+        <AppNativeButton Type="button"
+                         Class="playback-tool-sheet__close"
+                         OnClick="@OnClose"
+                         AriaLabel="@CloseAriaLabel"
+                         title="@CloseAriaLabel">
+            <MudIcon Icon="@Icons.Material.Outlined.Close" />
+        </AppNativeButton>
     </div>
     <div class="playback-tool-sheet__content">
         @ChildContent
@@ -23,10 +36,16 @@
     public string? Subtitle { get; set; }
 
     [Parameter]
+    public string? Icon { get; set; }
+
+    [Parameter]
     public string Surface { get; set; } = "panel";
 
     [Parameter]
     public string Presentation { get; set; } = "inline";
+
+    [Parameter]
+    public bool Modal { get; set; }
 
     [Parameter]
     public string? Class { get; set; }
@@ -43,6 +62,7 @@
     private string CloseLabel => Surface == "popup" || Presentation == "full-overlay"
         ? "Collapse sheet"
         : "Close sheet";
+    private string CloseAriaLabel => $"Close {Title}";
 
     private string NormalizedSurface => Surface switch
     {

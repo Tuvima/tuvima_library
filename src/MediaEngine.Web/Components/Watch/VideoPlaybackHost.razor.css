@@ -111,7 +111,7 @@
 ::deep .video-playback-host__progress,
 ::deep .video-playback-host__volume,
 ::deep .video-playback-dock__progress {
-    accent-color: #9a62ff;
+    accent-color: var(--playback-accent);
 }
 
 .video-playback-host__toolbar {
@@ -204,7 +204,7 @@
 }
 
 .video-playback-host__quality {
-    color: #a974ff;
+    color: var(--playback-text-secondary);
     font-size: 0.9rem;
     font-weight: 700;
     white-space: nowrap;
@@ -230,25 +230,22 @@
 .video-playback-dock {
     position: fixed;
     z-index: 1320;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    min-height: 148px;
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
+    min-height: 172px;
     display: grid;
-    grid-template-columns: minmax(280px, 0.82fr) minmax(440px, 1.45fr) minmax(260px, 0.9fr);
+    grid-template-columns: minmax(300px, 0.9fr) minmax(500px, 1.45fr) minmax(300px, 0.9fr);
     grid-template-rows: minmax(82px, auto) auto;
     column-gap: clamp(24px, 3vw, 52px);
     row-gap: 8px;
     align-items: center;
     padding: 12px clamp(20px, 3vw, 52px) 10px;
-    border: 0;
-    border-top: 1px solid rgba(154, 98, 255, 0.3);
-    border-radius: 0;
-    color: #fff;
-    background:
-        radial-gradient(circle at 52% 0, rgba(108, 63, 184, 0.12), transparent 36%),
-        linear-gradient(180deg, rgba(10, 20, 38, 0.985), rgba(4, 11, 23, 0.995));
-    box-shadow: 0 -16px 48px rgba(0, 0, 0, 0.42);
+    border: 1px solid var(--playback-border);
+    border-radius: var(--playback-player-radius);
+    color: var(--playback-text);
+    background: linear-gradient(180deg, rgba(11, 23, 40, 0.98), rgba(7, 17, 31, 0.99));
+    box-shadow: 0 18px 54px rgba(0, 0, 0, 0.42);
     backdrop-filter: blur(26px);
     -webkit-backdrop-filter: blur(26px);
 }
@@ -263,16 +260,33 @@
 }
 
 .video-playback-dock__thumb {
-    width: 82px;
-    height: 82px;
+    width: 112px;
+    height: 112px;
     aspect-ratio: 1;
     flex: 0 0 auto;
     display: grid;
     place-items: center;
     overflow: hidden;
     border-radius: 10px;
-    color: #a974ff;
+    color: var(--playback-text-secondary);
     background: rgba(255, 255, 255, 0.06);
+}
+
+.video-playback-host__tool-strip {
+    max-width: 500px;
+    min-width: 320px;
+}
+
+.video-playback-host__tool-backdrop {
+    background: rgba(2, 6, 12, 0.5);
+    inset: 0;
+    position: absolute;
+    z-index: 3;
+}
+
+.video-playback-host ::deep .video-playback-host__tool-sheet {
+    bottom: 96px;
+    z-index: 4;
 }
 
 .video-playback-dock__thumb img {
