@@ -11028,6 +11028,17 @@
     gap: 0.72rem;
 }
 
+.tl-detail-stage ::deep .tl-detail-actions--watch {
+    --tl-detail-hero-action-height: 3.5rem;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-action--primary {
+    height: var(--tl-detail-hero-action-height) !important;
+    min-height: var(--tl-detail-hero-action-height) !important;
+    max-height: var(--tl-detail-hero-action-height) !important;
+    font-size: clamp(1rem, 1.15vw, 1.12rem) !important;
+}
+
 .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-action--watch {
     flex: 0 0 auto;
     padding: 0;
@@ -11036,7 +11047,9 @@
 .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action {
     width: auto;
     min-width: 0;
-    min-height: 3rem !important;
+    height: var(--tl-detail-hero-action-height) !important;
+    min-height: var(--tl-detail-hero-action-height) !important;
+    max-height: var(--tl-detail-hero-action-height) !important;
     flex-direction: row;
     align-items: center;
     justify-content: center;
@@ -11083,6 +11096,12 @@
     font-size: 0.94rem !important;
     font-weight: 600;
     white-space: nowrap;
+}
+
+.tl-detail-stage ::deep .tl-detail-actions--watch .app-overflow-menu__trigger--labeled {
+    height: var(--tl-detail-hero-action-height) !important;
+    min-height: var(--tl-detail-hero-action-height) !important;
+    max-height: var(--tl-detail-hero-action-height) !important;
 }
 
 /* More belongs with the primary task controls (beside Shuffle where present)
@@ -11175,13 +11194,16 @@
 }
 
 @media (max-width: 720px) {
+    .tl-detail-stage ::deep .tl-detail-actions--watch {
+        --tl-detail-hero-action-height: 3.25rem;
+    }
+
     .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-secondary-actions {
         flex-wrap: wrap;
         gap: 0.5rem;
     }
 
     .tl-detail-stage ::deep .tl-detail-actions--watch .tl-detail-flat-action {
-        min-height: 2.75rem !important;
         padding: 0.5rem 0.78rem !important;
     }
 }

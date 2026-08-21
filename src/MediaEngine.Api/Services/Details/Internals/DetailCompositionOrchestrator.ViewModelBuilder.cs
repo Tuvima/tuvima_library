@@ -358,7 +358,10 @@ internal sealed partial class DetailCompositionOrchestrator
     {
         var pills = new List<MetadataPill>();
         AddPlain(pills, StringHelpers.FirstNonBlankOr(string.Empty, GetValue(canonicalValues, "content_rating"), GetValue(canonicalValues, "certification")), "content_rating");
-        AddPlain(pills, FormatRating(detail.Rating), "rating");
+        AddPlain(pills, FormatRating(StringHelpers.FirstNonBlankOr(
+            string.Empty,
+            detail.Rating,
+            GetValue(canonicalValues, MetadataFieldConstants.Rating))), "rating");
 
         foreach (var genre in SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty,
                      GetValue(canonicalValues, MetadataFieldConstants.Genre),

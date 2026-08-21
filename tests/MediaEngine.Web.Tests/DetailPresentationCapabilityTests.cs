@@ -55,6 +55,36 @@ public sealed class DetailPresentationCapabilityTests : AsyncBunitContext
     }
 
     [Fact]
+    public void HeroMetadata_PrimaryFactsKeepRatingAndDoNotRepeatBoxedStats()
+    {
+        var metadata = new[]
+        {
+            new MetadataPill { Label = "2026", Kind = "year" },
+            new MetadataPill { Label = "4.6", Kind = "rating" },
+            new MetadataPill { Label = "Audiobook", Kind = "type" },
+            Genre("Alternative Pop"),
+            Genre("Synth-Pop"),
+            Genre("Electronic"),
+            Genre("Dream Pop"),
+        };
+
+        var cut = Render<HeroMetadataPills>(parameters => parameters
+            .Add(component => component.Metadata, metadata)
+            .Add(component => component.EntityType, DetailEntityType.Audiobook)
+            .Add(component => component.UsePrimaryHeroChrome, true));
+
+        var facts = cut.FindAll(".tl-detail-watch-metadata-row--facts .tl-detail-watch-metadata-item");
+        Assert.Equal(2, facts.Count);
+        Assert.Equal("2026", facts[0].TextContent.Trim());
+        Assert.Equal("4.6", facts[1].TextContent.Trim());
+        Assert.Contains("tl-detail-watch-metadata-item--rating", facts[1].ClassList);
+        Assert.Empty(cut.FindAll(".tl-detail-metadata-row"));
+        Assert.DoesNotContain("Audiobook", cut.Markup);
+        Assert.Equal(2, cut.FindAll(".tl-detail-hero-genre").Count);
+        Assert.Equal("+2", cut.Find(".tl-detail-hero-genres__overflow summary").TextContent.Trim());
+    }
+
+    [Fact]
     public void HeroProgressBlock_UsesStructuredListeningProgressSemantics()
     {
         var cut = Render<HeroProgressBlock>(parameters => parameters

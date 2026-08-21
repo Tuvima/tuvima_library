@@ -1197,7 +1197,7 @@ public sealed class DetailComposerServiceTests
     {
         var source = ReadDetailComposerSource();
 
-        Assert.Contains("FormatRating(detail.Rating)", source);
+        Assert.Contains("detail.Rating,\n            GetValue(canonicalValues, MetadataFieldConstants.Rating)", source);
         Assert.Contains("ToString(\"0.0\"", source);
         Assert.Contains("canonicalArrayKey + MetadataFieldConstants.CompanionQidSuffix", source);
         Assert.Contains("headshot_url", source);

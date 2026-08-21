@@ -222,10 +222,11 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("tl-detail-metadata-item", source);
         Assert.Contains("tl-detail-metadata-item--rating", source);
         Assert.DoesNotContain("tl-detail-pill", source);
-        Assert.Contains(".Take(8)", source);
+        Assert.Contains(".Take(6)", source);
+        Assert.Contains(".Where(item => !KindEquals(item, \"genre\"))", source);
         Assert.Contains("or \"episode_count\" or \"duration\" or \"genre\" or \"quality\" or \"subtitles\" or \"rating\"", source);
         Assert.Contains("\"episode_count\" => 2", source);
-        Assert.Contains("\"genre\" => 4", source);
+        Assert.Contains("\"rating\" => 4", source);
     }
 
     [Fact]
@@ -239,6 +240,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains(".tl-detail-watch-metadata-row--facts", styles);
         Assert.Contains("flex-wrap: nowrap", styles);
         Assert.Contains("font-size: clamp(1rem, 1.3vw, 1.18rem)", styles);
+        Assert.Contains("--tl-detail-hero-action-height: 3.5rem", styles);
+        Assert.Contains("height: var(--tl-detail-hero-action-height) !important", styles);
         Assert.Contains("min-height: 4.8rem", styles);
         Assert.Contains(".tl-detail-primary-actions:has(> :only-child)", styles);
         Assert.Contains("grid-template-columns: 1fr", styles);

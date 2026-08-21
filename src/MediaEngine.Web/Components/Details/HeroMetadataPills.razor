@@ -9,7 +9,7 @@
 }
 
 <div class="tl-detail-metadata-stack">
-    @if (UsePrimaryHeroChrome && inlineStatItems.Count > 0)
+    @if (UsePrimaryHeroChrome && (inlineStatItems.Count > 0 || inlineGenreItems.Count > 0))
     {
         @if (inlinePrimaryItems.Count > 0)
         {
@@ -37,52 +37,55 @@
         }
     }
 
-    @if (!UsePrimaryHeroChrome && GenreItems.Count > 0)
+    @if (!UsePrimaryHeroChrome)
     {
-        <HeroGenreList Genres="GenreItems" />
-    }
-    else if (statItems.Count > 0 || ShouldRenderHeroBrand)
-    {
-        <div class="tl-detail-metadata-row" aria-label="Media details">
-            @if (ShouldRenderHeroBrand)
-            {
-                <span class="@HeroBrandBadgeClass"
-                      title="@HeroBrand!.Label"
-                      aria-label="@HeroBrand.Label">
-                    @if (!string.IsNullOrWhiteSpace(HeroBrand.ImageUrl))
+        @if (GenreItems.Count > 0)
+        {
+            <HeroGenreList Genres="GenreItems" />
+        }
+        @if (statItems.Count > 0 || ShouldRenderHeroBrand)
+        {
+            <div class="tl-detail-metadata-row" aria-label="Media details">
+                @if (ShouldRenderHeroBrand)
+                {
+                    <span class="@HeroBrandBadgeClass"
+                          title="@HeroBrand!.Label"
+                          aria-label="@HeroBrand.Label">
+                        @if (!string.IsNullOrWhiteSpace(HeroBrand.ImageUrl))
+                        {
+                            <img src="@HeroBrand.ImageUrl" alt="@HeroBrand.Label" />
+                        }
+                        else
+                        {
+                            <span>@HeroBrand.Label</span>
+                        }
+                    </span>
+                }
+                @foreach (var item in statItems)
+                {
+                    @if (!string.IsNullOrWhiteSpace(item.Route))
                     {
-                        <img src="@HeroBrand.ImageUrl" alt="@HeroBrand.Label" />
+                        <a class="@StatClass(item)" href="@item.Route" title="@item.Tooltip">
+                            <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
+                            <span class="tl-detail-metadata-item__value">@item.Label</span>
+                            <span class="tl-detail-metadata-item__label">@LabelFor(item)</span>
+                        </a>
                     }
                     else
                     {
-                        <span>@HeroBrand.Label</span>
+                        <span class="@StatClass(item)" title="@item.Tooltip">
+                            <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
+                            <span class="tl-detail-metadata-item__value">@item.Label</span>
+                            <span class="tl-detail-metadata-item__label">@LabelFor(item)</span>
+                        </span>
                     }
-                </span>
-            }
-            @foreach (var item in statItems)
-            {
-                @if (!string.IsNullOrWhiteSpace(item.Route))
-                {
-                    <a class="@StatClass(item)" href="@item.Route" title="@item.Tooltip">
-                        <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
-                        <span class="tl-detail-metadata-item__value">@item.Label</span>
-                        <span class="tl-detail-metadata-item__label">@LabelFor(item)</span>
-                    </a>
                 }
-                else
+                @if (IsAdminView)
                 {
-                    <span class="@StatClass(item)" title="@item.Tooltip">
-                        <MudIcon Icon="@IconFor(item)" Size="Size.Small" />
-                        <span class="tl-detail-metadata-item__value">@item.Label</span>
-                        <span class="tl-detail-metadata-item__label">@LabelFor(item)</span>
-                    </span>
+                    <span class="tl-detail-admin-health">@IdentityStatusLabel</span>
                 }
-            }
-            @if (IsAdminView)
-            {
-                <span class="tl-detail-admin-health">@IdentityStatusLabel</span>
-            }
-        </div>
+            </div>
+        }
     }
 
 </div>
@@ -130,11 +133,12 @@
         {
             return Metadata
                 .Where(IsWatchHeroStat)
+                .Where(item => !KindEquals(item, "genre"))
                 .Where(item => !string.IsNullOrWhiteSpace(item.Label))
                 .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
                 .Select(group => group.First())
                 .OrderBy(WatchStatSort)
-                .Take(8)
+                .Take(6)
                 .ToList();
         }
     }
@@ -142,11 +146,12 @@
     private IReadOnlyList<MetadataPill> PrimaryChromeStatItems =>
             Metadata
             .Where(IsPrimaryChromeHeroStat)
+            .Where(item => !KindEquals(item, "genre"))
             .Where(item => !string.IsNullOrWhiteSpace(item.Label))
             .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
             .Select(group => group.First())
             .OrderBy(PrimaryChromeStatSort)
-            .Take(5)
+            .Take(6)
             .ToList();
 
     private string IdentityStatusLabel => IdentityStatus switch
@@ -213,30 +218,28 @@
 
     private static int WatchStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
-        "certification" or "content_rating" => 0,
-        "year" => 1,
+        "year" => 0,
+        "certification" or "content_rating" => 1,
         "episode_count" => 2,
         "duration" => 3,
-        "genre" => 4,
+        "rating" => 4,
         "quality" => 5,
         "subtitles" => 6,
-        "rating" => 7,
         _ => 8,
     };
 
     private static int PrimaryChromeStatSort(MetadataPill item) => item.Kind?.ToLowerInvariant() switch
     {
-        "certification" or "content_rating" => 0,
-        "year" => 1,
-        "duration" => 2,
-        "page_count" or "track_count" or "season_count" or "episode_count" or "item_count" => 3,
-        "read_count" => 4,
-        "watch_count" => 5,
-        "listen_count" => 6,
-        "genre" => 4,
-        "quality" => 7,
-        "subtitles" => 8,
-        "rating" => 9,
+        "year" => 0,
+        "certification" or "content_rating" => 1,
+        "page_count" or "track_count" or "season_count" or "episode_count" or "item_count" => 2,
+        "duration" => 3,
+        "rating" => 4,
+        "read_count" => 5,
+        "watch_count" => 6,
+        "listen_count" => 7,
+        "quality" => 8,
+        "subtitles" => 9,
         _ => 10,
     };
 
