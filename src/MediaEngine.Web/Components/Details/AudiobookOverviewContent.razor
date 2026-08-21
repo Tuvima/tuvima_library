@@ -1,0 +1,54 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+<div class="tl-audiobook-overview">
+    <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
+                                                    OnTabRequested="OnTabRequested"
+                                                    OnContainerSelected="OnContainerSelected" />
+
+    @if (Model.SequencePlacement is not null)
+    {
+        <section class="tl-audiobook-overview__series" aria-label="@($"In the {Model.SequencePlacement.ContainerTitle} series")">
+            <SequencePlacementPanel Placement="Model.SequencePlacement"
+                                    Compact="true"
+                                    DetailSurface="true"
+                                    OnContainerSelected="OnContainerSelected" />
+        </section>
+    }
+
+    @if (Model.OwnedFormats.Count > 1)
+    {
+        <OwnedFormatsPanel Formats="Model.OwnedFormats"
+                           MultiFormatState="Model.MultiFormatState"
+                           SyncCapability="Model.SyncCapability" />
+    }
+
+    <section class="tl-audiobook-overview__tracks" aria-labelledby="audiobook-tracks-heading">
+        <header class="tl-audiobook-overview__heading">
+            <h2 id="audiobook-tracks-heading">Tracks</h2>
+            <span>@TrackSummary</span>
+        </header>
+
+        <MusicTrackList Groups="TrackGroups"
+                        AlbumTitle="@Model.Title"
+                        AlbumArtworkUrl="@ArtworkUrl"
+                        IsAudiobook="true"
+                        Compact="true" />
+    </section>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
+    [Parameter] public EventCallback<string> OnTabRequested { get; set; }
+    [Parameter] public EventCallback<SequenceContainerOptionViewModel> OnContainerSelected { get; set; }
+
+    private IReadOnlyList<MediaGroupingViewModel> TrackGroups => Model.MediaGroups
+        .Where(group => string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+
+    private int TrackCount => TrackGroups.SelectMany(group => group.Items).Count();
+    private string TrackSummary => $"{TrackCount} {(TrackCount == 1 ? "track" : "tracks")}";
+    private string? ArtworkUrl => Model.Artwork.CoverUrl
+        ?? Model.Artwork.PosterUrl
+        ?? Model.Artwork.HeroArtwork.Url;
+}

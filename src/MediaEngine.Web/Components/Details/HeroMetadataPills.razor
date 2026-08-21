@@ -4,7 +4,7 @@
 @{
     var inlineStatItems = InlineStatItems;
     var inlinePrimaryItems = inlineStatItems.Where(item => !KindEquals(item, "genre")).ToList();
-    var inlineGenreItems = inlineStatItems.Where(item => KindEquals(item, "genre")).ToList();
+    var inlineGenreItems = GenreItems;
     var statItems = StatItems;
 }
 
@@ -33,15 +33,13 @@
         }
         @if (inlineGenreItems.Count > 0)
         {
-            <div class="tl-detail-watch-metadata-row tl-detail-watch-metadata-row--genres" aria-label="Genres">
-                <span class="tl-detail-watch-genre-group">
-                    @foreach (var genreEntry in inlineGenreItems.Select((item, index) => new { item, index }))
-                    {
-                        <a class="@WatchStatClass(genreEntry.item)" href="@genreEntry.item.Route" title="@genreEntry.item.Tooltip">@WatchStatContent(genreEntry.item)</a>@if (genreEntry.index < inlineGenreItems.Count - 1){<span class="tl-detail-watch-genre-comma" aria-hidden="true">, </span>}
-                    }
-                </span>
-            </div>
+            <HeroGenreList Genres="inlineGenreItems" />
         }
+    }
+
+    @if (!UsePrimaryHeroChrome && GenreItems.Count > 0)
+    {
+        <HeroGenreList Genres="GenreItems" />
     }
     else if (statItems.Count > 0 || ShouldRenderHeroBrand)
     {
@@ -109,12 +107,19 @@
         : "tl-detail-hero-brand-badge tl-detail-hero-brand-badge--text";
 
     private IReadOnlyList<MetadataPill> StatItems =>
-        LimitGenres(Metadata)
+        Metadata
             .Where(IsHeroStat)
+            .Where(item => !KindEquals(item, "genre"))
             .Where(item => !ShouldSuppressTypeStat(item))
             .OrderBy(StatSort)
             .Take(EntityType == DetailEntityType.MusicAlbum ? 8 : 7)
             .ToList();
+
+    private IReadOnlyList<MetadataPill> GenreItems => Metadata
+        .Where(item => KindEquals(item, "genre"))
+        .Where(item => !string.IsNullOrWhiteSpace(item.Label))
+        .DistinctBy(item => item.Label, StringComparer.OrdinalIgnoreCase)
+        .ToList();
 
     private IReadOnlyList<MetadataPill> InlineStatItems
         => IsWatchHero ? WatchStatItems : PrimaryChromeStatItems;
@@ -123,7 +128,7 @@
     {
         get
         {
-            return LimitGenres(Metadata)
+            return Metadata
                 .Where(IsWatchHeroStat)
                 .Where(item => !string.IsNullOrWhiteSpace(item.Label))
                 .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
@@ -135,7 +140,7 @@
     }
 
     private IReadOnlyList<MetadataPill> PrimaryChromeStatItems =>
-            LimitGenres(Metadata)
+            Metadata
             .Where(IsPrimaryChromeHeroStat)
             .Where(item => !string.IsNullOrWhiteSpace(item.Label))
             .GroupBy(item => WatchStatGroupKey(item), StringComparer.OrdinalIgnoreCase)
@@ -275,18 +280,6 @@
             "genre" => $"genre:{item.Label}",
             _ => item.Kind ?? item.Label,
         };
-
-    private static IEnumerable<MetadataPill> LimitGenres(IEnumerable<MetadataPill> items)
-    {
-        var genreCount = 0;
-        foreach (var item in items)
-        {
-            if (KindEquals(item, "genre") && ++genreCount > 2)
-                continue;
-
-            yield return item;
-        }
-    }
 
     private static RenderFragment WatchStatContent(MetadataPill item) => builder =>
     {

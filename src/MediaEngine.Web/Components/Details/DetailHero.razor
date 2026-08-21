@@ -163,6 +163,7 @@
                                SecondaryActions="Model.SecondaryActions"
                                OverflowActions="Model.OverflowActions"
                                UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
+                               IsMusicAlbum="@(Model.EntityType == DetailEntityType.MusicAlbum)"
                                ActionAttributes="ActionAttributes"
                                OnActionSelected="OnActionSelected" />
             </ActionContent>
@@ -335,11 +336,14 @@
         var normalizedLength = title.Count(character => !char.IsWhiteSpace(character));
         var longestWordLength = words.Length == 0 ? 0 : words.Max(word => word.Trim(' ', '-', ':', ';', ',', '.', '\'').Length);
 
-        if (normalizedLength >= 42 || words.Length >= 8 || longestWordLength >= 14)
+        if (normalizedLength >= 48 || words.Length >= 9 || longestWordLength >= 18)
             return "tl-detail-hero--title-dense";
 
-        if (normalizedLength >= 30 || words.Length >= 5 || longestWordLength >= 11)
+        if (normalizedLength >= 40 || words.Length >= 8 || longestWordLength >= 14)
             return "tl-detail-hero--title-long";
+
+        if (normalizedLength >= 26 || words.Length >= 5 || longestWordLength >= 11)
+            return "tl-detail-hero--title-medium";
 
         return string.Empty;
     }

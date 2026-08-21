@@ -1,0 +1,37 @@
+@namespace MediaEngine.Web.Components.Details
+@using MediaEngine.Contracts.Details
+
+@if (Genres.Count > 0)
+{
+    <div class="tl-detail-hero-genres" aria-label="Genres">
+        @foreach (var genre in VisibleGenres)
+        {
+            <a class="tl-detail-hero-genre" href="@genre.Route" title="@genre.Tooltip">@genre.Label</a>
+        }
+
+        @if (HiddenGenres.Count > 0)
+        {
+            <details class="tl-detail-hero-genres__overflow">
+                <summary aria-label="@($"Show {HiddenGenres.Count} more genres")">+@HiddenGenres.Count</summary>
+                <div class="tl-detail-hero-genres__menu" role="menu">
+                    @foreach (var genre in HiddenGenres)
+                    {
+                        <a href="@genre.Route" role="menuitem" title="@genre.Tooltip">@genre.Label</a>
+                    }
+                </div>
+            </details>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<MetadataPill> Genres { get; set; } = [];
+    [Parameter] public int VisibleCount { get; set; } = 2;
+
+    private IReadOnlyList<MetadataPill> DistinctGenres => Genres
+        .Where(genre => !string.IsNullOrWhiteSpace(genre.Label))
+        .DistinctBy(genre => genre.Label, StringComparer.OrdinalIgnoreCase)
+        .ToList();
+    private IReadOnlyList<MetadataPill> VisibleGenres => DistinctGenres.Take(Math.Max(0, VisibleCount)).ToList();
+    private IReadOnlyList<MetadataPill> HiddenGenres => DistinctGenres.Skip(Math.Max(0, VisibleCount)).ToList();
+}

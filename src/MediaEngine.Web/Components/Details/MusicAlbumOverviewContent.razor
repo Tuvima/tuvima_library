@@ -11,7 +11,6 @@
         <MusicTrackList Groups="TrackGroups"
                         AlbumTitle="@Model.Title"
                         AlbumArtworkUrl="@ArtworkUrl"
-                        IsAudiobook="@IsAudiobook"
                         Compact="true" />
     </section>
 
@@ -30,16 +29,11 @@
         }
     </aside>
 
-    @if (!IsAudiobook)
-    {
-        <MusicAlbumSeriesRail Model="Model" />
-    }
+    <MusicAlbumSeriesRail Model="Model" />
 </div>
 
 @code {
     [Parameter, EditorRequired] public DetailPageViewModel Model { get; set; } = default!;
-
-    private bool IsAudiobook => Model.EntityType == DetailEntityType.Audiobook;
 
     private IReadOnlyList<MediaGroupingViewModel> TrackGroups =>
         Model.PrimaryModule.GroupKeys.Count == 0

@@ -353,7 +353,7 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("GetValue(tvPlaybackValues, MetadataFieldConstants.Genre)", source);
         Assert.Contains("SplitMetadataValues(playbackGenres).Take(2)", source);
         Assert.Contains("FROM canonical_value_arrays WHERE entity_id = @entityId ORDER BY key, ordinal", source);
-        Assert.Contains("GetValue(canonicalValues, MetadataFieldConstants.Genre),\n                     detail.Genre)).Take(2)", source);
+        Assert.Contains("GetValue(canonicalValues, MetadataFieldConstants.Genre),\n                     detail.Genre)).Take(12)", source);
         Assert.Contains("LoadWorkCanonicalMapAsync(workId, detail, ct)", source);
         Assert.Contains("SELECT ma.id", source);
         Assert.Contains("entityType == DetailEntityType.TvEpisode ? \"background\" : \"cover\"", source);
@@ -412,10 +412,13 @@ public sealed class DetailComposerServiceTests
         Assert.Contains("BuildListenHeroProgressLabel", source);
         Assert.Contains("BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups)", source);
         Assert.Contains("current.ResumePositionSeconds.Value / totalSeconds * 100", source);
-        Assert.Contains("Label = heroProgress is null ? \"Listen\" : \"Continue\"", source);
+        Assert.Contains("Label = heroProgress is null ? \"Listen\" : \"Continue Listening\"", source);
         Assert.Contains("ResumePositionSeconds = IsPositionWithinChapter(resumeSeconds, chapter.StartSeconds, chapter.EndSeconds)", source);
         Assert.Contains("ProgressPercent = progressPercent", source);
         Assert.Contains("DurationSeconds = durationSeconds", source);
+        Assert.Contains("var chapters = manifest?.Chapters ?? []", source);
+        Assert.Contains("OwnedCount = items.Count", source);
+        Assert.Contains("TotalCount = items.Count", source);
     }
 
     [Fact]

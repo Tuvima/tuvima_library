@@ -107,7 +107,7 @@ public sealed class DetailHeroPresentation
             secondaryTitleText is not null && model.SecondaryTitleTextHasMore,
             copy,
             copyHasMore,
-            model.Progress,
+            model.EntityType == DetailEntityType.MusicAlbum ? null : model.Progress,
             isWatchHero,
             usePrimaryHeroChrome,
             false,
@@ -188,6 +188,7 @@ public sealed class DetailHeroPresentation
 
     private static bool UsesReadOverviewCopy(DetailEntityType entityType)
         => entityType is DetailEntityType.Book
+            or DetailEntityType.Audiobook
             or DetailEntityType.BookSeries
             or DetailEntityType.ComicIssue
             or DetailEntityType.ComicSeries

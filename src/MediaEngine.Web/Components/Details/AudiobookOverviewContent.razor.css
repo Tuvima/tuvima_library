@@ -1,0 +1,53 @@
+.tl-audiobook-overview {
+    display: grid;
+    gap: clamp(2rem, 4vw, 4rem);
+    width: 100%;
+    padding-bottom: clamp(3rem, 6vw, 6rem);
+}
+
+.tl-audiobook-overview > ::deep .tl-overview-surface {
+    padding-bottom: 0;
+}
+
+.tl-audiobook-overview__series,
+.tl-audiobook-overview__tracks,
+.tl-audiobook-overview > ::deep .tl-owned-formats {
+    width: min(100% - clamp(3rem, 9vw, 11rem), 106rem);
+    margin-inline: auto;
+}
+
+.tl-audiobook-overview__heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.85rem;
+}
+
+.tl-audiobook-overview__heading h2 {
+    margin: 0;
+    color: var(--mud-palette-primary-lighten, #a98cff);
+    font-size: clamp(1.15rem, 1.35vw, 1.5rem);
+}
+
+.tl-audiobook-overview__heading span {
+    color: rgba(225, 231, 242, 0.64);
+    font-size: 0.86rem;
+}
+
+.tl-audiobook-overview__tracks ::deep .tl-embedded-audio {
+    min-height: 18rem;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+}
+
+@media (max-width: 720px) {
+    .tl-audiobook-overview__series,
+    .tl-audiobook-overview__tracks,
+    .tl-audiobook-overview > ::deep .tl-owned-formats {
+        width: calc(100% - 2rem);
+    }
+}

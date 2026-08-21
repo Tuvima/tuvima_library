@@ -362,7 +362,7 @@ internal sealed partial class DetailCompositionOrchestrator
 
         foreach (var genre in SplitMetadataValues(StringHelpers.FirstNonBlankOr(string.Empty,
                      GetValue(canonicalValues, MetadataFieldConstants.Genre),
-                     detail.Genre)).Take(2))
+                     detail.Genre)).Take(12))
         {
             pills.Add(new MetadataPill
             {
@@ -418,12 +418,25 @@ internal sealed partial class DetailCompositionOrchestrator
         string? runtime,
         IReadOnlyList<OwnedFormatViewModel> formats)
     {
-        if (!IsWatchEntity(entityType) && entityType is not DetailEntityType.Audiobook)
+        if (!IsWatchEntity(entityType)
+            && entityType is not (DetailEntityType.Audiobook or DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work))
         {
             return null;
         }
 
-        var progress = formats
+        var progressFormats = entityType switch
+        {
+            DetailEntityType.Audiobook => formats.Where(format => format.FormatType == MediaFormatType.Audiobook).ToList(),
+            DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => formats
+                .Where(format => format.FormatType is MediaFormatType.Ebook
+                    or MediaFormatType.Paperback
+                    or MediaFormatType.Hardcover
+                    or MediaFormatType.ComicIssue
+                    or MediaFormatType.ComicVolume)
+                .ToList(),
+            _ => formats,
+        };
+        var progress = progressFormats
             .Select(format => format.Progress)
             .Where(value => value?.Percent is > 0 and < 99.5)
             .OrderByDescending(value => value!.Percent)
@@ -434,13 +447,22 @@ internal sealed partial class DetailCompositionOrchestrator
         }
 
         var percent = Math.Clamp(progress.Percent, 0, 100);
-        var runtimeSource = StringHelpers.FirstNonBlankOr(string.Empty, formats.Select(format => format.Runtime).Prepend(runtime).ToArray());
+        var runtimeSource = StringHelpers.FirstNonBlankOr(string.Empty, progressFormats.Select(format => format.Runtime).Prepend(runtime).ToArray());
         return new ProgressViewModel
         {
             Percent = percent,
-            Label = entityType is DetailEntityType.Audiobook
-                ? BuildListenHeroProgressLabel(percent, runtimeSource)
-                : BuildHeroProgressLabel(percent, runtimeSource),
+            Kind = entityType switch
+            {
+                DetailEntityType.Audiobook => DetailProgressKind.Listening,
+                DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => DetailProgressKind.Reading,
+                _ => DetailProgressKind.Watching,
+            },
+            Label = entityType switch
+            {
+                DetailEntityType.Audiobook => BuildListenHeroProgressLabel(percent, runtimeSource),
+                DetailEntityType.Book or DetailEntityType.ComicIssue or DetailEntityType.Work => BuildReadHeroProgressLabel(percent),
+                _ => BuildHeroProgressLabel(percent, runtimeSource),
+            },
         };
     }
 
@@ -512,6 +534,7 @@ internal sealed partial class DetailCompositionOrchestrator
         return new ProgressViewModel
         {
             Percent = clampedPercent,
+            Kind = DetailProgressKind.Listening,
             Label = BuildListenHeroProgressLabel(clampedPercent, runtimeSource),
             ContextLabel = hasVisibleTracks ? $"{current.Title} of {tracks.Count}" : null,
             PercentLabel = $"{roundedPercent}%",
@@ -546,6 +569,7 @@ internal sealed partial class DetailCompositionOrchestrator
         return new ProgressViewModel
         {
             Percent = percent,
+            Kind = DetailProgressKind.Watching,
             Label = BuildHeroProgressLabel(percent, item.Duration),
         };
     }
@@ -566,6 +590,12 @@ internal sealed partial class DetailCompositionOrchestrator
         return string.IsNullOrWhiteSpace(timeLeft)
             ? $"Continue listening - {rounded}% listened"
             : $"Continue listening - {rounded}% listened - {timeLeft} left";
+    }
+
+    private static string BuildReadHeroProgressLabel(double percent)
+    {
+        var rounded = Math.Clamp((int)Math.Round(percent, MidpointRounding.AwayFromZero), 1, 99);
+        return $"Continue reading · {rounded}% complete";
     }
 
     private static bool IsWatchEntity(DetailEntityType entityType)
@@ -589,10 +619,10 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.Movie => BuildWatchActions($"/watch/player/{id}", heroProgress),
             DetailEntityType.TvEpisode => BuildWatchActions($"/watch/player/{id}", heroProgress, episodePosition),
             DetailEntityType.TvShow or DetailEntityType.TvSeason => BuildWatchActions(null, heroProgress),
-            DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", IsPrimary = true }],
-            DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue", Icon = "headphones", IsPrimary = true }],
-            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = "Read", Icon = "menu_book", IsPrimary = true }],
-            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue" : "Listen", Icon = "headphones", IsPrimary = true }],
+            DetailEntityType.Book or DetailEntityType.ComicIssue => [new DetailAction { Key = "read", Label = heroProgress is null ? "Read" : "Continue Reading", Icon = "menu_book", IsPrimary = true }],
+            DetailEntityType.Audiobook => [new DetailAction { Key = "listen", Label = heroProgress is null ? "Listen" : "Continue Listening", Icon = "headphones", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Ebook) => [new DetailAction { Key = "read", Label = heroProgress is null ? "Read" : "Continue Reading", Icon = "menu_book", IsPrimary = true }],
+            DetailEntityType.Work when formats.Any(f => f.FormatType == MediaFormatType.Audiobook) => [new DetailAction { Key = "listen", Label = HasAudiobookProgress(formats) ? "Continue Listening" : "Listen", Icon = "headphones", IsPrimary = true }],
             DetailEntityType.MusicAlbum => BuildMusicAlbumActions(),
             _ => [new DetailAction { Key = "open", Label = "Open", Icon = "open_in_new", IsPrimary = true }],
         };

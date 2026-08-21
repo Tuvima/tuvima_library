@@ -70,6 +70,14 @@
     font-size: 0.84rem;
 }
 
+.tl-embedded-audio--audiobook .tl-embedded-audio__table {
+    min-width: 28rem;
+}
+
+.tl-embedded-audio--audiobook .tl-embedded-audio__row {
+    grid-template-columns: 4.2rem minmax(16rem, 1fr) 6rem;
+}
+
 .tl-embedded-audio__row.is-playing {
     background: linear-gradient(
         90deg,
@@ -176,5 +184,13 @@
     .tl-embedded-audio__row {
         grid-template-columns: 3.5rem minmax(13rem, 1fr) 4.5rem 6.25rem 2.25rem;
         padding-inline: 0.35rem;
+    }
+
+    .tl-embedded-audio--audiobook .tl-embedded-audio__table {
+        min-width: 24rem;
+    }
+
+    .tl-embedded-audio--audiobook .tl-embedded-audio__row {
+        grid-template-columns: 3.5rem minmax(12rem, 1fr) 5rem;
     }
 }

@@ -510,11 +510,20 @@ public sealed class ReadingListeningSyncViewModel
 public sealed class ProgressViewModel
 {
     public double Percent { get; init; }
+    public DetailProgressKind Kind { get; init; }
     public string? Label { get; init; }
     public string? ContextLabel { get; init; }
     public string? PercentLabel { get; init; }
     public string? RemainingLabel { get; init; }
     public string? SecondaryLabel { get; init; }
+}
+
+public enum DetailProgressKind
+{
+    Unknown,
+    Reading,
+    Listening,
+    Watching,
 }
 
 public sealed class TextPositionViewModel

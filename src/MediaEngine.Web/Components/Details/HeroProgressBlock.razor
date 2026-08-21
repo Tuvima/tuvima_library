@@ -9,7 +9,7 @@
         {
             <div class="tl-detail-hero-progress__summary">
                 <span class="tl-detail-hero-progress__context">
-                    <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />
+                    <MudIcon Icon="@ProgressIcon" Size="Size.Small" />
                     <span>@Progress!.ContextLabel</span>
                 </span>
                 <span class="tl-detail-hero-progress__percent">@Progress.PercentLabel</span>
@@ -20,6 +20,7 @@
             <div class="tl-detail-hero-progress__label">@ProgressLabel</div>
         }
         <div class="tl-detail-hero-progress__track" role="progressbar"
+             aria-label="@ProgressLabel"
              aria-valuemin="0"
              aria-valuemax="100"
              aria-valuenow="@ProgressPercent">
@@ -46,8 +47,22 @@
         => $"--hero-progress:{ProgressPercent.ToString(CultureInfo.InvariantCulture)}%;";
 
     private string ProgressLabel => string.IsNullOrWhiteSpace(Progress?.Label)
-        ? $"{ProgressPercent}% watched"
+        ? $"{ProgressPercent}% {ProgressVerb}"
         : Progress.Label;
+
+    private string ProgressVerb => Progress?.Kind switch
+    {
+        DetailProgressKind.Reading => "read",
+        DetailProgressKind.Listening => "listened",
+        _ => "watched",
+    };
+
+    private string ProgressIcon => Progress?.Kind switch
+    {
+        DetailProgressKind.Listening => Icons.Material.Outlined.Headphones,
+        DetailProgressKind.Watching => Icons.Material.Outlined.PlayCircle,
+        _ => Icons.Material.Outlined.MenuBook,
+    };
 
     private bool HasStructuredProgress =>
         !string.IsNullOrWhiteSpace(Progress?.ContextLabel);

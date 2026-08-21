@@ -243,7 +243,7 @@
 }
 
 ::deep .tl-detail-hero-progress__track {
-    height: 4px;
+    height: 6px;
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.18);
     overflow: hidden;

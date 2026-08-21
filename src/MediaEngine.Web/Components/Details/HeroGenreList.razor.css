@@ -1,0 +1,89 @@
+.tl-detail-hero-genres {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 0.65rem;
+    max-width: 100%;
+}
+
+.tl-detail-hero-genre,
+.tl-detail-hero-genres__overflow > summary {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.15rem;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 48%, rgba(255, 255, 255, 0.2));
+    border-radius: 999px;
+    background: rgba(6, 9, 17, 0.42);
+    color: rgba(247, 244, 255, 0.9);
+    font-size: 0.9rem;
+    line-height: 1;
+    text-decoration: none;
+    white-space: nowrap;
+    backdrop-filter: blur(0.65rem);
+}
+
+.tl-detail-hero-genre:hover,
+.tl-detail-hero-genre:focus-visible,
+.tl-detail-hero-genres__overflow > summary:hover,
+.tl-detail-hero-genres__overflow > summary:focus-visible {
+    border-color: color-mix(in srgb, var(--tl-detail-primary, #8b5cf6) 78%, white);
+    color: #fff;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.22);
+}
+
+.tl-detail-hero-genres__overflow {
+    position: relative;
+}
+
+.tl-detail-hero-genres__overflow > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.tl-detail-hero-genres__overflow > summary::-webkit-details-marker {
+    display: none;
+}
+
+.tl-detail-hero-genres__menu {
+    position: absolute;
+    z-index: 20;
+    top: calc(100% + 0.5rem);
+    left: 0;
+    display: grid;
+    min-width: 12rem;
+    padding: 0.45rem;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 0.65rem;
+    background: rgba(8, 11, 20, 0.96);
+    box-shadow: 0 1rem 2.5rem rgba(0, 0, 0, 0.45);
+}
+
+.tl-detail-hero-genres__menu a {
+    padding: 0.55rem 0.65rem;
+    border-radius: 0.4rem;
+    color: rgba(247, 244, 255, 0.88);
+    text-decoration: none;
+}
+
+.tl-detail-hero-genres__menu a:hover,
+.tl-detail-hero-genres__menu a:focus-visible {
+    background: rgba(139, 92, 246, 0.22);
+    color: #fff;
+    outline: none;
+}
+
+@media (max-width: 720px) {
+    .tl-detail-hero-genres {
+        gap: 0.45rem;
+    }
+
+    .tl-detail-hero-genre,
+    .tl-detail-hero-genres__overflow > summary {
+        min-height: 2rem;
+        padding-inline: 0.72rem;
+        font-size: 0.82rem;
+    }
+}

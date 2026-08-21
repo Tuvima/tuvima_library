@@ -17,7 +17,9 @@
 {
     @if (Compact)
     {
-        <section class="tl-embedded-audio" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
+        <section class="@CompactSectionClass" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
+            @if (CompactToolbarLeadingContent is not null || SupportsMissingItems)
+            {
             <header class="tl-embedded-audio__toolbar">
                 @if (CompactToolbarLeadingContent is not null)
                 {
@@ -25,13 +27,17 @@
                         @CompactToolbarLeadingContent
                     </div>
                 }
-                <div class="tl-embedded-audio__tools">
-                    <label class="tl-embedded-audio__missing">
-                        <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
-                        <span>Show missing tracks</span>
-                    </label>
-                </div>
+                @if (SupportsMissingItems)
+                {
+                    <div class="tl-embedded-audio__tools">
+                        <label class="tl-embedded-audio__missing">
+                            <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
+                            <span>Show missing tracks</span>
+                        </label>
+                    </div>
+                }
             </header>
+            }
 
             <div class="tl-embedded-audio__scroller">
                 <div class="tl-embedded-audio__table" role="table" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
@@ -41,7 +47,7 @@
                         var isPlaying = IsCurrentItem(item);
                         <div class="@CompactRowClass(item, isPlaying)"
                              role="row"
-                             draggable="@item.IsOwned"
+                             draggable="@CanQueue(item)"
                              data-work-id="@item.Id"
                              data-asset-id="@item.AssetId"
                              @ondragstart="@(() => StartDrag(item))"
@@ -74,19 +80,22 @@
                                 }
                             </div>
                             <div class="tl-embedded-audio__duration" role="cell">@DisplayDuration(item)</div>
-                            <div class="tl-embedded-audio__status" role="cell">
-                                <span class="@(item.IsOwned ? "is-owned" : "is-missing")">
-                                    <MudIcon Icon="@(item.IsOwned ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.CloudOff)" Size="Size.Small" />
-                                    <span>@(item.IsOwned ? "Owned" : "Missing")</span>
-                                </span>
-                            </div>
-                            <AppIconButton Icon="@Icons.Material.Outlined.MoreHoriz"
-                                           Size="Size.Small"
-                                           Class="tl-embedded-audio__more"
-                                           AriaLabel="@($"Add {item.Title} to queue")"
-                                           Tooltip="Add to queue"
-                                           Disabled="@(!item.IsOwned)"
-                                           OnClick="@(() => QueueItemAsync(item))" />
+                            @if (SupportsMissingItems)
+                            {
+                                <div class="tl-embedded-audio__status" role="cell">
+                                    <span class="@(item.IsOwned ? "is-owned" : "is-missing")">
+                                        <MudIcon Icon="@(item.IsOwned ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.CloudOff)" Size="Size.Small" />
+                                        <span>@(item.IsOwned ? "Owned" : "Missing")</span>
+                                    </span>
+                                </div>
+                                <AppIconButton Icon="@Icons.Material.Outlined.MoreHoriz"
+                                               Size="Size.Small"
+                                               Class="tl-embedded-audio__more"
+                                               AriaLabel="@($"Add {item.Title} to queue")"
+                                               Tooltip="Add to queue"
+                                               Disabled="@(!CanQueue(item))"
+                                               OnClick="@(() => QueueItemAsync(item))" />
+                            }
                         </div>
                     }
                 </div>
@@ -94,7 +103,7 @@
 
             @if (CompactVisibleItems.Count == 0)
             {
-                <div class="tl-detail-track-empty">No tracks match the current view.</div>
+                <div class="tl-detail-track-empty">No @ItemNounPlural match the current view.</div>
             }
         </section>
     }
@@ -102,11 +111,14 @@
     {
     <section class="tl-detail-track-section" aria-label="@($"{SourceTitle} {ItemNounPlural}")">
         <div class="tl-detail-track-toolbar">
-            <span>@OwnedCount of @Items.Count tracks owned</span>
-            <label class="tl-detail-track-toggle">
-                <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
-                <span>Show missing tracks</span>
-            </label>
+            <span>@TrackCountSummary</span>
+            @if (SupportsMissingItems)
+            {
+                <label class="tl-detail-track-toggle">
+                    <AppNativeInput Type="checkbox" Checked="@_showMissingItems" OnChange="ToggleMissingItems" />
+                    <span>Show missing tracks</span>
+                </label>
+            }
         </div>
 
         <div class="tl-audio-item-table"
@@ -154,7 +166,7 @@
                             var item = VisibleItems[index];
                             var isPlaying = IsCurrentItem(item);
                             <tr class="@RowClass(item, isPlaying)"
-                                draggable="@item.IsOwned"
+                                draggable="@CanQueue(item)"
                                 data-audio-row="true"
                                 data-work-id="@item.Id"
                                 data-asset-id="@item.AssetId"
@@ -275,7 +287,9 @@
     private double _resizeStartX;
     private int _resizeStartWidth;
 
-    private const string ItemNounPlural = "tracks";
+    private string ItemNounPlural => IsAudiobook ? "audiobook tracks" : "tracks";
+    private bool SupportsMissingItems => !IsAudiobook;
+    private string CompactSectionClass => $"tl-embedded-audio{(IsAudiobook ? " tl-embedded-audio--audiobook" : string.Empty)}";
 
     private IReadOnlyList<MediaGroupingItemViewModel> Items =>
         Groups.SelectMany(group => group.Items)
@@ -285,11 +299,14 @@
             .ToList();
 
     private IReadOnlyList<MediaGroupingItemViewModel> VisibleItems =>
-        SortItems(_showMissingItems ? Items : Items.Where(item => item.IsOwned));
+        SortItems(!SupportsMissingItems || _showMissingItems ? Items : Items.Where(item => item.IsOwned));
 
     private IReadOnlyList<MediaGroupingItemViewModel> CompactVisibleItems => VisibleItems;
 
     private int OwnedCount => Items.Count(item => item.IsOwned);
+    private string TrackCountSummary => IsAudiobook
+        ? $"{Items.Count} {(Items.Count == 1 ? "local track" : "local tracks")}"
+        : $"{OwnedCount} of {Items.Count} tracks owned";
 
     private bool ShowArtistColumn =>
         Items.Select(item => item.Artist)
@@ -313,7 +330,7 @@
             _sortColumn = "track";
             _sortDescending = false;
             _columns.Clear();
-            _columns.AddRange(MusicColumns());
+            _columns.AddRange(IsAudiobook ? AudiobookColumns() : MusicColumns());
         }
 
         _favoriteIds.Clear();
@@ -335,6 +352,14 @@
         new("status", "Status", 158, 128, true),
         new("favorite", "Favorite", 92, 76, true, "center"),
         new("queue", "Queue", 86, 72, false, "center"),
+    ];
+
+    private static IReadOnlyList<AudioTableColumn> AudiobookColumns() =>
+    [
+        new("track", "#", 88, 72, true),
+        new("title", "Title", 520, 240, true),
+        new("progress", "Progress", 180, 140, true, "right"),
+        new("duration", "Duration", 132, 104, true, "right"),
     ];
 
     private async Task PlayItemAsync(MediaGroupingItemViewModel item)
@@ -619,10 +644,10 @@
     }
 
     private string RowClass(MediaGroupingItemViewModel item, bool isPlaying)
-        => $"tl-detail-track-row tl-audio-item-table__row{(isPlaying ? " is-playing" : string.Empty)}{(!item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
+        => $"tl-detail-track-row tl-audio-item-table__row{(isPlaying ? " is-playing" : string.Empty)}{(SupportsMissingItems && !item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
 
     private string CompactRowClass(MediaGroupingItemViewModel item, bool isPlaying)
-        => $"tl-embedded-audio__row{(isPlaying ? " is-playing" : string.Empty)}{(!item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
+        => $"tl-embedded-audio__row{(isPlaying ? " is-playing" : string.Empty)}{(SupportsMissingItems && !item.IsOwned ? " is-missing" : string.Empty)}{(_draggingItemId == item.Id ? " is-dragging" : string.Empty)}";
 
     private string ColumnHeaderClass(AudioTableColumn column)
         => $"tl-audio-item-table__head-cell tl-audio-item-table__head-cell--{column.Key}{(column.Align is "right" ? " is-right" : column.Align is "center" ? " is-center" : string.Empty)}";
@@ -635,6 +660,9 @@
 
     private bool CanFavorite(MediaGroupingItemViewModel item)
         => !IsAudiobook && item.IsOwned && ItemId(item) != Guid.Empty;
+
+    private bool CanQueue(MediaGroupingItemViewModel item)
+        => !IsAudiobook && item.IsOwned;
 
     private static Guid ItemId(MediaGroupingItemViewModel item)
         => Guid.TryParse(item.Id, out var id) ? id : Guid.Empty;
