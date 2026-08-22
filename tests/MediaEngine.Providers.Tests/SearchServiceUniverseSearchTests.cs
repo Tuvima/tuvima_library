@@ -139,6 +139,39 @@ public sealed class SearchServiceUniverseSearchTests
         Assert.Equal(0, disabledProvider.SearchCount);
     }
 
+    [Fact]
+    public async Task SearchRetail_AutomaticPreview_UsesPipelineFetchAndDecisionPath()
+    {
+        var apple = new CapturingRetailProvider("apple_api");
+        var service = BuildSearchService(apple);
+
+        var result = await service.SearchRetailAutomaticAsync(new SearchRetailRequest(
+            Query: "Dungeon Crawler Carl",
+            MediaType: "Audiobooks",
+            MaxCandidates: 5,
+            LocalTitle: "stale enriched title",
+            LocalAuthor: "stale enriched author",
+            FileHints: new Dictionary<string, string>
+            {
+                ["title"] = "Dungeon Crawler Carl",
+                ["author"] = "Matt Dinniman",
+                ["narrator"] = "Jeff Hays",
+            },
+            SearchFields: new Dictionary<string, string>
+            {
+                ["title"] = "Dungeon Crawler Carl",
+                ["author"] = "Matt Dinniman",
+                ["narrator"] = "Jeff Hays",
+            }));
+
+        var candidate = Assert.Single(result.Candidates);
+        Assert.Equal(1, apple.FetchCount);
+        Assert.Equal(0, apple.SearchCount);
+        Assert.Equal("Dungeon Crawler Carl", apple.LastFetchRequest!.Title);
+        Assert.Equal("Jeff Hays", apple.LastFetchRequest.Narrator);
+        Assert.Equal("AutoAccepted", candidate.ExtraFields["automatic_outcome"]);
+    }
+
     private static SearchService BuildSearchService(params IExternalMetadataProvider[] providers)
     {
         var configLoader = new ConfigurationDirectoryLoader(Path.Combine(FindRepoRoot(), "config"));
@@ -213,6 +246,8 @@ public sealed class SearchServiceUniverseSearchTests
         public IReadOnlyList<string> CapabilityTags => ["title", "cover"];
         public Guid ProviderId => WellKnownProviders.OpenLibrary;
         public int SearchCount { get; private set; }
+        public int FetchCount { get; private set; }
+        public ProviderLookupRequest? LastFetchRequest { get; private set; }
 
         public bool CanHandle(MediaType mediaType) => mediaType is MediaType.Books or MediaType.Audiobooks;
 
@@ -220,8 +255,19 @@ public sealed class SearchServiceUniverseSearchTests
 
         public Task<IReadOnlyList<ProviderClaim>> FetchAsync(
             ProviderLookupRequest request,
-            CancellationToken ct = default) =>
-            Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
+            CancellationToken ct = default)
+        {
+            FetchCount++;
+            LastFetchRequest = request;
+            return Task.FromResult<IReadOnlyList<ProviderClaim>>(
+            [
+                new("provider_item_id", "1553350212", 1.0),
+                new("title", "Dungeon Crawler Carl", 1.0),
+                new("author", "Matt Dinniman", 1.0),
+                new("narrator", "Jeff Hays", 1.0),
+                new("year", "2020", 1.0),
+            ]);
+        }
 
         public Task<IReadOnlyList<SearchResultItem>> SearchAsync(
             ProviderLookupRequest request,

@@ -73,6 +73,7 @@ public static class TuvimaProviderServiceCollectionExtensions
         services.AddSingleton<RetailCandidateScorer>();
         services.AddSingleton<RetailMatchWorker>();
         services.AddSingleton<WikidataBridgeWorker>();
+        services.AddSingleton<WikidataMatchPreviewService>();
         services.AddSingleton<QuickHydrationWorker>();
         services.AddSingleton<IIdentityPipelineSignal, IdentityPipelineSignal>();
         services.AddSingleton<PostPipelineService>();

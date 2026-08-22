@@ -223,27 +223,7 @@ public sealed partial class WikidataBridgeWorker
             }
 
             var resolveRequests = contexts
-                .Select(ctx => new WikidataResolveRequest
-                {
-                    CorrelationKey     = ctx.Job.Id.ToString(),
-                    MediaType          = ctx.MediaType,
-                    ResolutionScope    = ResolveBridgeResolutionScope(ctx.MediaType),
-                    Strategy           = ResolveStrategy.Auto,
-                    BridgeIds          = ctx.BridgeDict,
-                    WikidataProperties = ctx.WikidataProps,
-                    IsEditionAware     = ctx.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
-                    AllowConstrainedTextFallback = ShouldAllowConstrainedTextFallback(ctx),
-                    AlbumTitle         = ctx.AlbumHint,
-                    Artist             = ctx.ArtistHint,
-                    Title              = ctx.TitleHint,
-                    Author             = ctx.AuthorHint,
-                    Year               = BuildBridgeYearHint(ctx.MediaType, ctx.SeriesHint, ctx.YearHint),
-                    FileLanguage       = ctx.LanguageHint,
-                    SeriesTitle        = ctx.SeriesHint,
-                    SeasonNumber       = ctx.SeasonNumber,
-                    EpisodeNumber      = ctx.EpisodeNumber,
-                    IssueNumber        = ctx.IssueNumber,
-                })
+                .Select(ctx => BuildResolveRequest(ctx, ctx.Job.Id.ToString()))
                 .ToList();
 
             var resolveResults = await reconAdapter.ResolveBatchAsync(resolveRequests, ct);

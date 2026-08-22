@@ -24,6 +24,7 @@ public sealed class SearchService : ISearchService
     private readonly IConfigurationLoader _configLoader;
     private readonly IFuzzyMatchingService _fuzzy;
     private readonly IRetailMatchScoringService _retailScoring;
+    private readonly RetailCandidateScorer _candidateScorer;
     private readonly ILogger<SearchService> _logger;
 
     // Providers that should not be used for retail search
@@ -52,7 +53,8 @@ public sealed class SearchService : ISearchService
         IConfigurationLoader configLoader,
         IFuzzyMatchingService fuzzy,
         IRetailMatchScoringService retailScoring,
-        ILogger<SearchService> logger)
+        ILogger<SearchService> logger,
+        RetailCandidateScorer? candidateScorer = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(configLoader);
@@ -66,6 +68,7 @@ public sealed class SearchService : ISearchService
         _configLoader   = configLoader;
         _fuzzy          = fuzzy;
         _retailScoring  = retailScoring;
+        _candidateScorer = candidateScorer ?? new RetailCandidateScorer();
         _logger         = logger;
     }
 
@@ -189,15 +192,26 @@ public sealed class SearchService : ISearchService
     }
 
     /// <inheritdoc/>
-    public async Task<SearchRetailResult> SearchRetailAsync(
+    public Task<SearchRetailResult> SearchRetailAsync(
         SearchRetailRequest request,
-        CancellationToken ct = default)
+        CancellationToken ct = default) =>
+        SearchRetailCoreAsync(request, useAutomaticMatching: false, ct);
+
+    internal Task<SearchRetailResult> SearchRetailAutomaticAsync(
+        SearchRetailRequest request,
+        CancellationToken ct = default) =>
+        SearchRetailCoreAsync(request, useAutomaticMatching: true, ct);
+
+    private async Task<SearchRetailResult> SearchRetailCoreAsync(
+        SearchRetailRequest request,
+        bool useAutomaticMatching,
+        CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Query))
             return new SearchRetailResult([], request.Query, request.MediaType);
 
         var mediaType      = MediaTypeParser.Parse(request.MediaType);
-        var retailProviders = GetRetailProviders(mediaType);
+        var retailProviders = GetRetailProviders(mediaType, useAutomaticMatching);
 
         if (retailProviders.Count == 0)
             return new SearchRetailResult([], request.Query, request.MediaType);
@@ -212,8 +226,11 @@ public sealed class SearchService : ISearchService
         var candidates = new List<RetailCandidate>();
 
         // Call each retail provider in parallel
-        var tasks = retailProviders.Select(p =>
-            SearchProviderAsync(p, request.Query, mediaType, providerEndpoints, request.MaxCandidates, request.SearchFields, ct));
+        var tasks = retailProviders.Select(p => useAutomaticMatching
+            ? FetchAutomaticProviderCandidateAsync(
+                p, request.Query, mediaType, providerEndpoints, request.SearchFields, ct)
+            : SearchProviderAsync(
+                p, request.Query, mediaType, providerEndpoints, request.MaxCandidates, request.SearchFields, ct));
 
         var results = await Task.WhenAll(tasks).ConfigureAwait(false);
         foreach (var providerResults in results)
@@ -245,7 +262,35 @@ public sealed class SearchService : ISearchService
                     structuralBonus: structuralBonus);
 
                 c.MatchScores = ToFieldMatchResult(scores);
-                c.CompositeScore = scores.CompositeScore;
+                if (useAutomaticMatching)
+                {
+                    var pipeline = _configLoader.LoadPipelines().GetPipelineForMediaType(request.MediaType);
+                    var hydration = _configLoader.LoadHydration();
+                    var decision = _candidateScorer.EvaluateDecision(
+                        fileHints,
+                        c.Title,
+                        c.Author,
+                        c.Year,
+                        scores,
+                        scores.CompositeScore,
+                        pipeline.Scoring.AutoAcceptThreshold ?? hydration.RetailAutoAcceptThreshold,
+                        pipeline.Scoring.AmbiguousThreshold ?? hydration.RetailAmbiguousThreshold,
+                        "editor_preview",
+                        mediaType: mediaType,
+                        extendedMetadata: extMeta);
+                    c.CompositeScore = decision.FinalScore;
+                    if (c.ExtraFields is Dictionary<string, string> mutableFields)
+                    {
+                        mutableFields["automatic_outcome"] = decision.Outcome;
+                        mutableFields["threshold_path"] = decision.ThresholdPath;
+                        if (decision.RejectionReasons.Count > 0)
+                            mutableFields["rejection_reasons"] = string.Join(",", decision.RejectionReasons);
+                    }
+                }
+                else
+                {
+                    c.CompositeScore = scores.CompositeScore;
+                }
             }
 
             candidates = candidates.OrderByDescending(c => c.CompositeScore).ToList();
@@ -432,17 +477,122 @@ public sealed class SearchService : ISearchService
         }
     }
 
-    private IReadOnlyList<IExternalMetadataProvider> GetRetailProviders(MediaType mediaType)
+    private async Task<IEnumerable<RetailCandidate>> FetchAutomaticProviderCandidateAsync(
+        IExternalMetadataProvider provider,
+        string query,
+        MediaType mediaType,
+        Dictionary<string, Dictionary<string, string>> providerEndpoints,
+        IReadOnlyDictionary<string, string>? searchFields,
+        CancellationToken ct)
+    {
+        try
+        {
+            var fields = searchFields ?? new Dictionary<string, string>();
+            var (language, country) = GetConfiguredLocale();
+            var title = fields.GetValueOrDefault(MetadataFieldConstants.Title)
+                ?? fields.GetValueOrDefault(MetadataFieldConstants.ShowName)
+                ?? query;
+            var author = fields.GetValueOrDefault(MetadataFieldConstants.Author)
+                ?? fields.GetValueOrDefault(MetadataFieldConstants.Artist);
+            var request = new ProviderLookupRequest
+            {
+                EntityId = Guid.NewGuid(),
+                EntityType = EntityType.MediaAsset,
+                MediaType = mediaType,
+                Title = title,
+                Author = author,
+                Year = fields.GetValueOrDefault(MetadataFieldConstants.Year),
+                Narrator = fields.GetValueOrDefault(MetadataFieldConstants.Narrator),
+                ShowName = fields.GetValueOrDefault(MetadataFieldConstants.ShowName)
+                    ?? fields.GetValueOrDefault(MetadataFieldConstants.Series),
+                Album = fields.GetValueOrDefault(MetadataFieldConstants.Album),
+                Artist = fields.GetValueOrDefault(MetadataFieldConstants.Artist),
+                Composer = fields.GetValueOrDefault(MetadataFieldConstants.Composer),
+                Director = fields.GetValueOrDefault(MetadataFieldConstants.Director),
+                SeasonNumber = fields.GetValueOrDefault(MetadataFieldConstants.SeasonNumber),
+                EpisodeNumber = fields.GetValueOrDefault(MetadataFieldConstants.EpisodeNumber),
+                TrackNumber = fields.GetValueOrDefault(MetadataFieldConstants.TrackNumber),
+                Series = fields.GetValueOrDefault(MetadataFieldConstants.Series),
+                Genre = fields.GetValueOrDefault(MetadataFieldConstants.Genre),
+                Isbn = fields.GetValueOrDefault(BridgeIdKeys.Isbn),
+                Asin = fields.GetValueOrDefault(BridgeIdKeys.Asin),
+                Hints = new Dictionary<string, string>(fields, StringComparer.OrdinalIgnoreCase),
+                BaseUrl = GetProviderBaseUrl(provider.Name, providerEndpoints),
+                Language = language,
+                FileLanguage = fields.GetValueOrDefault(MetadataFieldConstants.Language),
+                Country = country,
+            };
+
+            var claims = await provider.FetchAsync(request, ct).ConfigureAwait(false);
+            if (claims.Count == 0)
+                return [];
+
+            var extraFields = claims
+                .Where(claim => !string.IsNullOrWhiteSpace(claim.Key) && !string.IsNullOrWhiteSpace(claim.Value))
+                .GroupBy(claim => claim.Key, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First().Value, StringComparer.OrdinalIgnoreCase);
+            var candidateTitle = extraFields.GetValueOrDefault(MetadataFieldConstants.Title);
+            if (string.IsNullOrWhiteSpace(candidateTitle))
+                return [];
+
+            return
+            [
+                new RetailCandidate
+                {
+                    ProviderId = provider.ProviderId.ToString(),
+                    ProviderName = provider.Name,
+                    ProviderItemId = extraFields.GetValueOrDefault("provider_item_id"),
+                    Title = candidateTitle,
+                    Year = extraFields.GetValueOrDefault(MetadataFieldConstants.Year),
+                    Author = extraFields.GetValueOrDefault(MetadataFieldConstants.Author)
+                        ?? extraFields.GetValueOrDefault(MetadataFieldConstants.Artist),
+                    Director = extraFields.GetValueOrDefault(MetadataFieldConstants.Director),
+                    Description = extraFields.GetValueOrDefault(MetadataFieldConstants.Description),
+                    CoverUrl = extraFields.GetValueOrDefault(MetadataFieldConstants.CoverUrl)
+                        ?? extraFields.GetValueOrDefault("cover"),
+                    Confidence = claims.Max(claim => claim.Confidence),
+                    ExtraFields = extraFields,
+                }
+            ];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex,
+                "Automatic retail preview failed for provider '{Provider}', query '{Query}'",
+                provider.Name,
+                query);
+            return [];
+        }
+    }
+
+    private IReadOnlyList<IExternalMetadataProvider> GetRetailProviders(
+        MediaType mediaType,
+        bool useAutomaticMatching = false)
     {
         var allConfigs = _configLoader.LoadAllProviders();
-
-        return ProviderExecutionFilter.EnabledProviders(_providers, allConfigs)
+        var enabled = ProviderExecutionFilter.EnabledProviders(_providers, allConfigs)
             .Where(p =>
             {
                 if (ExcludedFromRetail.Contains(p.Name)) return false;
                 if (!p.CanHandle(mediaType) || !p.CanHandle(EntityType.Work)) return false;
                 return true;
             })
+            .ToList();
+
+        if (!useAutomaticMatching)
+            return enabled;
+
+        var pipeline = _configLoader.LoadPipelines().GetPipelineForMediaType(mediaType.ToString());
+        var configuredOrder = pipeline.Providers
+            .Where(entry => !entry.RequiresIdentity || entry.UseAsIdentityFallback)
+            .OrderBy(entry => entry.Rank)
+            .Take(Math.Max(1, pipeline.MaxProviderAttempts))
+            .Select((entry, index) => (entry.Name, index))
+            .ToDictionary(item => item.Name, item => item.index, StringComparer.OrdinalIgnoreCase);
+
+        return enabled
+            .Where(provider => configuredOrder.ContainsKey(provider.Name))
+            .OrderBy(provider => configuredOrder[provider.Name])
             .ToList();
     }
 
@@ -532,22 +682,15 @@ public sealed class SearchService : ISearchService
     /// </summary>
     private static Dictionary<string, string> BuildFileHints(SearchRetailRequest request)
     {
-        var hints = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var hints = request.FileHints is { Count: > 0 }
+            ? new Dictionary<string, string>(request.FileHints, StringComparer.OrdinalIgnoreCase)
+            : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         if (!string.IsNullOrWhiteSpace(request.LocalTitle))
-            hints["title"] = request.LocalTitle;
+            hints.TryAdd("title", request.LocalTitle);
         if (!string.IsNullOrWhiteSpace(request.LocalAuthor))
-            hints["author"] = request.LocalAuthor;
+            hints.TryAdd("author", request.LocalAuthor);
         if (!string.IsNullOrWhiteSpace(request.LocalYear))
-            hints["year"] = request.LocalYear;
-
-        // Merge any additional file hints (narrator, series, publisher, etc.)
-        if (request.FileHints is { Count: > 0 })
-        {
-            foreach (var (k, v) in request.FileHints)
-            {
-                hints.TryAdd(k, v);
-            }
-        }
+            hints.TryAdd("year", request.LocalYear);
         return hints;
     }
 

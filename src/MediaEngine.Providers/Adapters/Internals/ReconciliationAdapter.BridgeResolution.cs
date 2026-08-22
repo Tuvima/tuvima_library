@@ -250,6 +250,7 @@ public sealed partial class ReconciliationAdapter
             {
                 _logger.LogInformation(
                     "{Provider}: Stage2 — {Key} not resolved", Name, correlationKey);
+                results[correlationKey] = BuildUnresolvedResult(libResult);
                 continue;
             }
 
@@ -264,7 +265,10 @@ public sealed partial class ReconciliationAdapter
                 ct).ConfigureAwait(false);
 
             if (accepted is null)
+            {
+                results[correlationKey] = BuildUnresolvedResult(libResult);
                 continue;
+            }
 
             var finalQid = accepted.FinalQid;
             var finalWorkQid = accepted.FinalWorkQid;
@@ -369,6 +373,17 @@ public sealed partial class ReconciliationAdapter
                 finalIsEdition, claims.Count, collectedBridgeIds.Count);
         }
     }
+
+    private static WikidataResolveResult BuildUnresolvedResult(BridgeResolutionResult result) => new()
+    {
+        Found = false,
+        MatchedBy = MapBridgeResolutionStrategy(result.MatchedBy),
+        BridgeDiagnostics = result.Diagnostics,
+        RankedBridgeCandidates = result.Candidates,
+        BridgeRollup = result.Rollup,
+        BridgeSeries = result.Series,
+        BridgeRelationships = result.Relationships,
+    };
 
     private async Task<AcceptedBridgeCandidate?> SelectAcceptedBridgeCandidateAsync(
         string correlationKey,

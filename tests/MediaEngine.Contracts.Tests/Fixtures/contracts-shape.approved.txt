@@ -2723,6 +2723,7 @@ MediaEngine.Contracts.Matching.MediaEngine.Contracts.Matching.ItemCanonicalLinke
   WikipediaExtract: System.String | nullability=nullable | accessors=get,set
   ResolutionTier: System.String | nullability=nullable | accessors=get,set
   Confidence: System.Double | nullability=not-null | accessors=get,set
+  MatchScores: MediaEngine.Contracts.Search.FieldMatchScoresDto | nullability=nullable | accessors=get,set
   BridgeIds: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
   MediaTypeMetadata: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
   LinkState: System.String | nullability=not-null | accessors=get,set

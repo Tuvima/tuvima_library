@@ -94,7 +94,7 @@ public sealed class CanonicalCandidateBuilderTests
     }
 
     [Fact]
-    public void CanonicalCandidate_UsesActualFieldComparisonInsteadOfResolutionTierConfidence()
+    public void CanonicalCandidate_KeepsAutomaticResolverConfidenceSeparateFromFieldComparison()
     {
         var candidate = new UniverseCandidate
         {
@@ -115,7 +115,7 @@ public sealed class CanonicalCandidateBuilderTests
 
         var result = CanonicalCandidateBuilder.BuildLinkedCandidate(candidate, "Audiobooks", AudiobookPolicy);
 
-        Assert.Equal(0.98, result.Confidence);
+        Assert.Equal(0.55, result.Confidence);
         Assert.NotNull(result.MatchScores);
         Assert.Equal(1, result.MatchScores.TitleScore);
         Assert.Null(result.CoverUrl);

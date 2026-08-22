@@ -19,6 +19,8 @@ public sealed class Phase5EditorEndpointRouteTests
         Assert.Contains("/{entityId:guid}/editor-preferences/{profileId:guid}", canonical, StringComparison.Ordinal);
         Assert.Contains("ExpectedRevision", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/canonical-search", canonical, StringComparison.Ordinal);
+        Assert.Contains("retailMatchPreview.SearchAsync", canonical, StringComparison.Ordinal);
+        Assert.Contains("wikidataMatchPreview.PreviewCandidatesAsync", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/canonical-apply", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/retail-match", canonical, StringComparison.Ordinal);
         Assert.Contains("/{entityId:guid}/wikidata-match", canonical, StringComparison.Ordinal);

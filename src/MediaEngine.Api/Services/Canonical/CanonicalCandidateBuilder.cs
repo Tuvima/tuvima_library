@@ -251,9 +251,9 @@ internal sealed class CanonicalCandidateBuilder(
             CoverUrl = null,
             WikipediaExtract = candidate.WikipediaExtract,
             ResolutionTier = candidate.ResolutionTier,
-            Confidence = candidate.MatchScores?.CompositeScore > 0
-                ? candidate.MatchScores.CompositeScore
-                : candidate.Confidence,
+            // Canonical confidence belongs to the Stage 2 bridge resolver. Field scores
+            // explain the comparison but must not replace the resolver's acceptance score.
+            Confidence = candidate.Confidence,
             MatchScores = candidate.MatchScores is null
                 ? null
                 : new MediaEngine.Contracts.Search.FieldMatchScoresDto

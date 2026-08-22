@@ -17,6 +17,7 @@ using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Models;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Services;
 using MediaEngine.Providers.Workers;
 using MediaEngine.Storage.Contracts;
 
@@ -240,7 +241,8 @@ public static class ItemCanonicalEndpoints
         group.MapPost("/{entityId:guid}/canonical-search", async (
             Guid entityId,
             ItemCanonicalSearchRequestDto request,
-            ISearchService searchService,
+            RetailMatchPreviewService retailMatchPreview,
+            WikidataMatchPreviewService wikidataMatchPreview,
             IItemCanonicalRepository itemCanonicalData,
             CancellationToken ct) =>
         {
@@ -274,7 +276,7 @@ public static class ItemCanonicalEndpoints
 
             if (shouldSearchRetail)
             {
-                var retail = await searchService.SearchRetailAsync(
+                var retail = await retailMatchPreview.SearchAsync(
                     new Domain.Models.SearchRetailRequest(
                         Query: query,
                         MediaType: mediaType,
@@ -293,14 +295,12 @@ public static class ItemCanonicalEndpoints
 
             if (shouldSearchUniverse)
             {
-                var universe = await searchService.SearchUniverseAsync(
-                    new Domain.Models.SearchUniverseRequest(
-                        Query: query,
-                        MediaType: mediaType,
-                        MaxCandidates: Math.Clamp(request.MaxCandidates, 1, 10),
-                        LocalTitle: context.WorkTitle,
-                        LocalAuthor: context.PrimaryCreator,
-                        LocalYear: context.Year),
+                var universe = await wikidataMatchPreview.PreviewCandidatesAsync(
+                    context.AssetId,
+                    mediaType,
+                    query,
+                    draftFields,
+                    Math.Clamp(request.MaxCandidates, 1, 10),
                     ct);
 
                 linkedCandidates = universe.Candidates

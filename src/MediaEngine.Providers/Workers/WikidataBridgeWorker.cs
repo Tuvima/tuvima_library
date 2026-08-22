@@ -57,6 +57,7 @@ public sealed partial class WikidataBridgeWorker
     private readonly IEnrichmentConcurrencyLimiter _concurrency;
     private readonly IMediaOperationTracker? _operationTracker;
     private readonly IEntityCapabilityStateRepository? _capabilityStates;
+    private readonly IRetailMatchScoringService? _retailMatchScoring;
     private readonly ILogger<WikidataBridgeWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(60);
@@ -96,7 +97,8 @@ public sealed partial class WikidataBridgeWorker
         IEntityCapabilityStateRepository? capabilityStates = null,
         CollectionFinalizationService? collectionFinalization = null,
         IWorkIdentityReconciliationService? workIdentityReconciliation = null,
-        IPipelineExecutionSnapshotProvider? configurationSnapshots = null)
+        IPipelineExecutionSnapshotProvider? configurationSnapshots = null,
+        IRetailMatchScoringService? retailMatchScoring = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -126,6 +128,7 @@ public sealed partial class WikidataBridgeWorker
         _concurrency = concurrencyLimiter ?? NoopEnrichmentConcurrencyLimiter.Instance;
         _operationTracker = operationTracker;
         _capabilityStates = capabilityStates;
+        _retailMatchScoring = retailMatchScoring;
 
         // Lease size is read once at construction. A restart applies any
         // config change — same lifetime as every other CoreConfiguration value.

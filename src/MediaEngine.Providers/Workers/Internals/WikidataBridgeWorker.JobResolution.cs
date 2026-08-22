@@ -131,27 +131,7 @@ public sealed partial class WikidataBridgeWorker
         try
         {
             var result = await reconAdapter.ResolveAsync(
-                new WikidataResolveRequest
-                {
-                    CorrelationKey     = job.Id.ToString(),
-                    MediaType          = mediaType,
-                    ResolutionScope    = resolutionScope,
-                    Strategy           = ResolveStrategy.Auto,
-                    BridgeIds          = bridgeDict,
-                    WikidataProperties = wikidataProps,
-                    IsEditionAware     = mediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
-                    AllowConstrainedTextFallback = ShouldAllowConstrainedTextFallback(ctx),
-                    AlbumTitle         = albumHint,
-                    Artist             = artistHint,
-                    Title              = titleHint,
-                    Author             = authorHint,
-                    Year               = BuildBridgeYearHint(mediaType, seriesHint, yearHint),
-                    FileLanguage       = languageHint,
-                    SeriesTitle        = seriesHint,
-                    SeasonNumber       = seasonNumber,
-                    EpisodeNumber      = episodeNumber,
-                    IssueNumber        = issueNumber,
-                }, ct);
+                BuildResolveRequest(ctx, job.Id.ToString()), ct);
 
             if (result.Found)
             {
@@ -300,6 +280,28 @@ public sealed partial class WikidataBridgeWorker
         => mediaType == MediaType.Comics && !string.IsNullOrWhiteSpace(seriesHint)
             ? null
             : yearHint;
+
+    private WikidataResolveRequest BuildResolveRequest(JobContext ctx, string correlationKey) => new()
+    {
+        CorrelationKey = correlationKey,
+        MediaType = ctx.MediaType,
+        ResolutionScope = ResolveBridgeResolutionScope(ctx.MediaType),
+        Strategy = ResolveStrategy.Auto,
+        BridgeIds = ctx.BridgeDict,
+        WikidataProperties = ctx.WikidataProps,
+        IsEditionAware = ctx.MediaType is MediaType.Books or MediaType.Audiobooks or MediaType.Music,
+        AllowConstrainedTextFallback = ShouldAllowConstrainedTextFallback(ctx),
+        AlbumTitle = ctx.AlbumHint,
+        Artist = ctx.ArtistHint,
+        Title = ctx.TitleHint,
+        Author = ctx.AuthorHint,
+        Year = BuildBridgeYearHint(ctx.MediaType, ctx.SeriesHint, ctx.YearHint),
+        FileLanguage = ctx.LanguageHint,
+        SeriesTitle = ctx.SeriesHint,
+        SeasonNumber = ctx.SeasonNumber,
+        EpisodeNumber = ctx.EpisodeNumber,
+        IssueNumber = ctx.IssueNumber,
+    };
 
     private bool ShouldAllowConstrainedTextFallback(JobContext ctx)
     {

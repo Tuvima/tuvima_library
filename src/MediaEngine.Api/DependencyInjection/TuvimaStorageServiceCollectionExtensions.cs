@@ -91,7 +91,9 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<ILibraryItemRepository, LibraryItemRepository>();
         services.AddSingleton<ISearchIndexRepository, SearchIndexRepository>();
         services.AddSingleton<IPlaybackSegmentRepository, PlaybackSegmentRepository>();
-        services.AddSingleton<ISearchService, SearchService>();
+        services.AddSingleton<SearchService>();
+        services.AddSingleton<ISearchService>(sp => sp.GetRequiredService<SearchService>());
+        services.AddSingleton<RetailMatchPreviewService>();
         services.AddSingleton<IImageCacheRepository, ImageCacheRepository>();
         services.AddSingleton<IProviderResponseCacheRepository, ProviderResponseCacheRepository>();
         services.AddSingleton<ISearchResultsCacheRepository, SearchResultsCacheRepository>();
