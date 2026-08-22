@@ -297,7 +297,7 @@
 }
 
 .sme-header-match-state__item.is-unmatched ::deep .mud-icon-root {
-    color: var(--tl-text-faint);
+    color: var(--tl-status-danger);
 }
 
 .sme-subtitle {
@@ -7848,7 +7848,7 @@
 .sme-match-search-panel ::deep .sme-search-row .app-text-field .mud-input-slot,
 .sme-match-search-panel ::deep .sme-search-row .app-text-field .mud-input-outlined,
 .sme-match-search-panel ::deep .sme-search-row .app-text-field input.mud-input-root {
-    background: var(--tl-bg-shell) !important;
+    background: transparent !important;
     box-shadow: none !important;
 }
 
