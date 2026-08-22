@@ -122,7 +122,8 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("ResolveSubtitle(model, isWatchHero)", presentation);
         Assert.Contains("isWatchHero || UsesPrimaryHeroChrome(model.EntityType)", presentation);
         Assert.Contains("Title=\"@Model.Title\"", hero);
-        Assert.Contains("<HeroProgressBlock Progress=\"Presentation.Progress\" />", hero);
+        Assert.Contains("Progress=\"Presentation.Progress\"", hero);
+        Assert.DoesNotContain("<HeroProgressBlock", hero, StringComparison.Ordinal);
         Assert.Contains("HeroCreditLines", hero);
         Assert.Contains("tl-detail-hero-credit-stack--audiobook", hero);
         Assert.Contains("CreditGroupType.Narrators", hero);

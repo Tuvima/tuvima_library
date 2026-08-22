@@ -1,13 +1,36 @@
 ﻿@namespace MediaEngine.Web.Components.Details
+@using System.Globalization
 @using MediaEngine.Contracts.Details
 
-<div class="tl-detail-actions @(IsPrimaryHeroActionRow ? "tl-detail-actions--watch" : null) @(IsMusicAlbum ? "tl-detail-actions--music-album" : null)">
+<div class="tl-detail-actions @(IsPrimaryHeroActionRow ? "tl-detail-actions--watch" : null) @(IsMusicAlbum ? "tl-detail-actions--music-album" : null) @(HasEmbeddedProgress ? "tl-detail-actions--has-progress" : null)">
     <div class="tl-detail-primary-actions @(HasPrimaryOverflowCluster ? "tl-detail-primary-actions--with-overflow" : null) @(HasCollectionPrimaryOverflowCluster ? "tl-detail-primary-actions--collection-overflow" : null)">
-        @foreach (var action in PrimaryActions)
+        @for (var actionIndex = 0; actionIndex < PrimaryActions.Count; actionIndex++)
         {
-            <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)}")' Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
+            var action = PrimaryActions[actionIndex];
+            var embedsProgress = ShouldEmbedProgress(actionIndex);
+            <AppNativeButton Type="button" Class='@($"tl-media-action tl-media-action--primary tl-detail-action tl-detail-action--primary tl-detail-action--{ActionKeyClass(action)} {(embedsProgress ? "tl-detail-action--has-progress" : null)}")' AriaLabel="@(embedsProgress ? $"{PrimaryLabel(action)}, {EmbeddedProgressLabel}" : null)" Disabled="@action.IsDisabled" Title="@TooltipFor(action)" OnClick="@(() => Select(action))" @attributes="AttributesFor(action)">
                 <MudIcon Icon="@IconFor(action)" Size="Size.Medium" />
-                <span>@PrimaryLabel(action)</span>
+                @if (embedsProgress)
+                {
+                    <span class="tl-detail-action-progress__copy">
+                        <span class="tl-detail-action-progress__label">@PrimaryLabel(action)</span>
+                        <span class="tl-detail-action-progress__summary">@EmbeddedProgressLabel</span>
+                    </span>
+                    <span class="tl-detail-action-progress__track"
+                          role="progressbar"
+                          aria-label="@EmbeddedProgressAriaLabel"
+                          aria-valuemin="0"
+                          aria-valuemax="100"
+                          aria-valuenow="@EmbeddedProgressPercent">
+                        <AppCssElement Tag="span"
+                                       Class="tl-detail-action-progress__fill"
+                                       Css="@EmbeddedProgressStyle" />
+                    </span>
+                }
+                else
+                {
+                    <span>@PrimaryLabel(action)</span>
+                }
             </AppNativeButton>
         }
         @if (HasPrimaryOverflowCluster)
@@ -147,6 +170,7 @@
     [Parameter] public IReadOnlyList<DetailAction> PrimaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> SecondaryActions { get; set; } = [];
     [Parameter] public IReadOnlyList<DetailAction> OverflowActions { get; set; } = [];
+    [Parameter] public ProgressViewModel? Progress { get; set; }
     [Parameter] public bool UsePrimaryHeroChrome { get; set; }
     [Parameter] public bool IsMusicAlbum { get; set; }
     [Parameter] public EventCallback<DetailAction> OnActionSelected { get; set; }
@@ -162,6 +186,26 @@
     private bool HasPrimaryOverflowCluster => OverflowMenuActions.Count > 0 && VisibleSecondaryActions.Count == 0;
     private bool HasCollectionPrimaryOverflowCluster =>
         HasPrimaryOverflowCluster && PrimaryActions.Any(action => action.Key == "shuffle-collection");
+    private bool HasEmbeddedProgress => Progress?.Percent is > 0 && PrimaryActions.Count > 0;
+    private int EmbeddedProgressPercent => Progress is null
+        ? 0
+        : Math.Clamp((int)Math.Round(Progress.Percent, MidpointRounding.AwayFromZero), 0, 100);
+    private string EmbeddedProgressStyle =>
+        $"width:{EmbeddedProgressPercent.ToString(CultureInfo.InvariantCulture)}%;";
+    private string EmbeddedProgressLabel =>
+        $"{EmbeddedProgressPercent}% {ProgressVerb}";
+    private string EmbeddedProgressAriaLabel =>
+        string.IsNullOrWhiteSpace(Progress?.Label) ? EmbeddedProgressLabel : Progress.Label;
+    private string ProgressVerb => Progress?.Kind switch
+    {
+        DetailProgressKind.Reading => "read",
+        DetailProgressKind.Listening => "listened",
+        DetailProgressKind.Watching => "watched",
+        _ => "complete",
+    };
+
+    private bool ShouldEmbedProgress(int actionIndex) =>
+        HasEmbeddedProgress && actionIndex == 0;
 
     private Task Select(DetailAction action)
         => action.IsDisabled ? Task.CompletedTask : OnActionSelected.InvokeAsync(action);

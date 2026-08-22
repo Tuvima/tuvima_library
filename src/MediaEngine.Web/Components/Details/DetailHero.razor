@@ -162,14 +162,12 @@
                 <HeroActionRow PrimaryActions="Model.PrimaryActions"
                                SecondaryActions="Model.SecondaryActions"
                                OverflowActions="Model.OverflowActions"
+                               Progress="Presentation.Progress"
                                UsePrimaryHeroChrome="Presentation.UsePrimaryHeroChrome"
                                IsMusicAlbum="@(Model.EntityType == DetailEntityType.MusicAlbum)"
                                ActionAttributes="ActionAttributes"
                                OnActionSelected="OnActionSelected" />
             </ActionContent>
-            <ProgressContent>
-                <HeroProgressBlock Progress="Presentation.Progress" />
-            </ProgressContent>
             <SynopsisTrailingContent>
                 @if (Presentation.HeroCopyHasMore)
                 {

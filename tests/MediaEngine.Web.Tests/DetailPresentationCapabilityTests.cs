@@ -122,6 +122,31 @@ public sealed class DetailPresentationCapabilityTests : AsyncBunitContext
         Assert.Contains("Shuffle", cut.Markup);
     }
 
+    [Fact]
+    public void HeroActionRow_EmbedsProgressInTheMainAction()
+    {
+        var cut = Render<HeroActionRow>(parameters => parameters
+            .Add(component => component.PrimaryActions, new[]
+            {
+                new DetailAction { Key = "listen", Label = "Continue Listening", Icon = "headphones", IsPrimary = true },
+            })
+            .Add(component => component.Progress, new ProgressViewModel
+            {
+                Kind = DetailProgressKind.Listening,
+                Percent = 98,
+                Label = "Continue listening - 98% listened",
+            }));
+
+        var primary = cut.Find(".tl-detail-action--has-progress");
+        var progress = primary.QuerySelector("[role='progressbar']");
+
+        Assert.NotNull(progress);
+        Assert.Equal("98", progress!.GetAttribute("aria-valuenow"));
+        Assert.Equal("Continue listening - 98% listened", progress.GetAttribute("aria-label"));
+        Assert.Contains("98% listened", primary.TextContent);
+        Assert.Contains("width:98%", primary.InnerHtml);
+    }
+
     private static MetadataPill Genre(string label) => new()
     {
         Label = label,
