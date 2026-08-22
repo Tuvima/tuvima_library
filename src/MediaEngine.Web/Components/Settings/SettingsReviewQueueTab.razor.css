@@ -82,7 +82,9 @@
 .settings-review-guidance__icon .mud-icon-root { font-size: 1.15rem !important; }
 .settings-review-guidance h4 { color: #d6a8ff; }
 .settings-review-technical { margin: 0; padding: 0 14px; border-bottom: 1px solid var(--tl-border-subtle); }
-.settings-review-technical summary { padding: 11px 0; color: var(--tl-text-secondary); font-size: .72rem; cursor: pointer; }
+.settings-review-technical ::deep .settings-review-technical__toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 11px 0; border: 0; color: var(--tl-text-secondary); background: transparent; font-size: .72rem; text-align: left; cursor: pointer; }
+.settings-review-technical ::deep .settings-review-technical__toggle .mud-icon-root { font-size: 1rem; transition: transform .15s ease; }
+.settings-review-technical ::deep .settings-review-technical__toggle.is-open .mud-icon-root { transform: rotate(180deg); }
 .settings-review-technical dl { display: grid; gap: 7px; margin: 0 0 12px; }
 .settings-review-technical dl div { display: grid; grid-template-columns: 90px 1fr; gap: 8px; }
 .settings-review-technical dt { color: var(--tl-text-secondary); font-size: .65rem; }

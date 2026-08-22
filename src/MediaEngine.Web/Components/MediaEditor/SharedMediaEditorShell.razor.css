@@ -271,6 +271,35 @@
     font-weight: 700;
 }
 
+.sme-header-match-state {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--tl-space-4);
+    margin-top: var(--tl-space-3);
+}
+
+.sme-header-match-state__item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--tl-space-1);
+    color: var(--tl-text-muted);
+    font-size: var(--tl-font-size-xs);
+    font-weight: var(--tl-font-weight-medium);
+}
+
+.sme-header-match-state__item ::deep .mud-icon-root {
+    font-size: var(--tl-font-size-md);
+}
+
+.sme-header-match-state__item.is-matched {
+    color: var(--tl-status-success);
+}
+
+.sme-header-match-state__item.is-unmatched ::deep .mud-icon-root {
+    color: var(--tl-text-faint);
+}
+
 .sme-subtitle {
     margin-top: 8px;
 }
@@ -7247,9 +7276,9 @@
 .sme-history-day__events::before {
     content: "";
     position: absolute;
-    top: 1.35rem;
-    bottom: 1.35rem;
-    left: calc(8.75rem + 1.625rem);
+    top: 2.125rem;
+    bottom: 2.125rem;
+    left: calc(8.75rem + 0.85rem + 1.625rem);
     width: 1px;
     background: rgba(137, 157, 193, 0.24);
 }
@@ -7811,6 +7840,16 @@
 
 .sme-match-search-panel .sme-search-row {
     margin-top: var(--tl-space-4);
+}
+
+/* Matching search uses one quiet field surface instead of stacking the
+   generic raised input fill over the matching panel. */
+.sme-match-search-panel ::deep .sme-search-row .app-text-field .mud-input,
+.sme-match-search-panel ::deep .sme-search-row .app-text-field .mud-input-slot,
+.sme-match-search-panel ::deep .sme-search-row .app-text-field .mud-input-outlined,
+.sme-match-search-panel ::deep .sme-search-row .app-text-field input.mud-input-root {
+    background: var(--tl-bg-shell) !important;
+    box-shadow: none !important;
 }
 
 .sme-match-independence-note {

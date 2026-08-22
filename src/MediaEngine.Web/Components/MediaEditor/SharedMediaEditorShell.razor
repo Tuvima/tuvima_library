@@ -55,20 +55,21 @@
                     else
                     {
                         <div class="sme-kicker">@HeaderKicker</div>
-                        @if (!string.IsNullOrWhiteSpace(BreadcrumbText))
-                        {
-                            <div class="sme-breadcrumb">@BreadcrumbText</div>
-                        }
                         <h2 class="sme-title" tabindex="-1">@HeaderTitle</h2>
-                        @if (!string.IsNullOrWhiteSpace(HeaderSubtitle))
+                        @if (IsSingleItem)
                         {
-                            <div class="sme-subtitle">@NormalizeDisplaySpacing(HeaderSubtitle)</div>
-                        }
-                        @if (IsSingleItem && !string.IsNullOrWhiteSpace(_detail?.WikidataQid))
-                        {
-                            <a class="sme-qid-link" href="https://www.wikidata.org/wiki/@_detail!.WikidataQid" target="_blank" rel="noopener">
-                                @_detail.WikidataQid
-                            </a>
+                            <div class="sme-header-match-state" aria-label="Identity match status">
+                                <span class="sme-header-match-state__item @(HasCurrentRetailMatch ? "is-matched" : "is-unmatched")"
+                                      title="@(HasCurrentRetailMatch ? "Retail match linked" : "No retail match")">
+                                    <MudIcon Icon="@(HasCurrentRetailMatch ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
+                                    Retail
+                                </span>
+                                <span class="sme-header-match-state__item @(HasCurrentCanonicalIdentity ? "is-matched" : "is-unmatched")"
+                                      title="@(HasCurrentCanonicalIdentity ? "Canonical identity linked" : "No canonical identity")">
+                                    <MudIcon Icon="@(HasCurrentCanonicalIdentity ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
+                                    Canonical
+                                </span>
+                            </div>
                         }
                     }
                 </div>

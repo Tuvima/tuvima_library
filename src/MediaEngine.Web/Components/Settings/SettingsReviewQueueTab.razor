@@ -202,27 +202,36 @@
 
                     @if (HasTechnicalDetails(selected))
                     {
-                        <details class="settings-review-technical">
-                            <summary>Show technical details</summary>
-                            <dl>
-                                @if (!string.IsNullOrWhiteSpace(selected.Detail))
-                                {
-                                    <div><dt>Pipeline detail</dt><dd>@selected.Detail</dd></div>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(selected.SourceCapabilityId))
-                                {
-                                    <div><dt>Capability</dt><dd>@selected.SourceCapabilityId</dd></div>
-                                }
-                                @if (selected.SourceOperationId.HasValue)
-                                {
-                                    <div><dt>Operation ID</dt><dd>@selected.SourceOperationId</dd></div>
-                                }
-                                @if (!string.IsNullOrWhiteSpace(selected.CandidatesJson))
-                                {
-                                    <div><dt>Candidate evidence</dt><dd>Captured for comparison in the focused review.</dd></div>
-                                }
-                            </dl>
-                        </details>
+                        <div class="settings-review-technical">
+                            <AppNativeButton Type="button"
+                                             Class="@($"settings-review-technical__toggle {(_showTechnicalDetails ? "is-open" : string.Empty)}")"
+                                             aria-expanded="@_showTechnicalDetails"
+                                             OnClick="@(() => _showTechnicalDetails = !_showTechnicalDetails)">
+                                <span>@(_showTechnicalDetails ? "Hide technical details" : "Show technical details")</span>
+                                <MudIcon Icon="@Icons.Material.Outlined.ExpandMore" />
+                            </AppNativeButton>
+                            @if (_showTechnicalDetails)
+                            {
+                                <dl>
+                                    @if (!string.IsNullOrWhiteSpace(selected.Detail))
+                                    {
+                                        <div><dt>Pipeline detail</dt><dd>@selected.Detail</dd></div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(selected.SourceCapabilityId))
+                                    {
+                                        <div><dt>Capability</dt><dd>@selected.SourceCapabilityId</dd></div>
+                                    }
+                                    @if (selected.SourceOperationId.HasValue)
+                                    {
+                                        <div><dt>Operation ID</dt><dd>@selected.SourceOperationId</dd></div>
+                                    }
+                                    @if (!string.IsNullOrWhiteSpace(selected.CandidatesJson))
+                                    {
+                                        <div><dt>Candidate evidence</dt><dd>Captured for comparison in the focused review.</dd></div>
+                                    }
+                                </dl>
+                            }
+                        </div>
                     }
 
                     <section class="settings-review-recommended">
@@ -290,6 +299,7 @@
     private readonly HashSet<Guid> _busyIds = [];
     private bool _loading = true;
     private bool _inspectorOpen;
+    private bool _showTechnicalDetails;
     private string? _error;
     private Guid? _selectedId;
     private Guid? _dismissConfirmationId;

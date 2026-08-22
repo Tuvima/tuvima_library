@@ -333,7 +333,6 @@ public partial class SharedMediaEditorShell
     protected string HeaderKicker =>
         Request.Mode switch
         {
-            SharedMediaEditorMode.Review => "Review",
             SharedMediaEditorMode.Batch => $"{Request.EntityIds.Count} items",
             _ when IsContainerEditor => ContainerRootScope?.Label ?? ActiveScope?.Label ?? _schema.MediaType,
             _ => ActiveScope?.Label ?? _schema.MediaType,

@@ -274,6 +274,11 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Advanced canonical identity", shell, StringComparison.Ordinal);
         Assert.Contains("Label=\"Choose what to update\"", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-header-match-state", shell, StringComparison.Ordinal);
+        Assert.Contains("HasCurrentRetailMatch ? Icons.Material.Filled.CheckCircle", shell, StringComparison.Ordinal);
+        Assert.Contains("HasCurrentCanonicalIdentity ? Icons.Material.Filled.CheckCircle", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("<div class=\"sme-breadcrumb\">@BreadcrumbText</div>", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("class=\"sme-qid-link\"", shell, StringComparison.Ordinal);
         Assert.Contains("<AppMediaTypeSelect Value=\"@_selectedMediaType\"", shell, StringComparison.Ordinal);
         Assert.Contains("ValueChanged=\"OnSelectedMediaTypeChanged\"", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("sme-match-type-select", shell, StringComparison.Ordinal);
@@ -294,6 +299,8 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("BuildCurrentIdentityIdentifiers", code, StringComparison.Ordinal);
         Assert.DoesNotContain("BuildProviderItemUrl", code, StringComparison.Ordinal);
         Assert.DoesNotContain("https://www.themoviedb.org/", code, StringComparison.Ordinal);
+        Assert.Contains("left: calc(8.75rem + 0.85rem + 1.625rem);", styles, StringComparison.Ordinal);
+        Assert.Contains("background: var(--tl-bg-shell) !important;", styles, StringComparison.Ordinal);
         Assert.DoesNotContain("https://www.wikidata.org/wiki/", code, StringComparison.Ordinal);
         Assert.Contains("BuildCandidateChips", code, StringComparison.Ordinal);
         Assert.Contains("FormatCandidateScore", code, StringComparison.Ordinal);
