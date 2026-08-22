@@ -154,8 +154,9 @@ public static class ReviewTargetResolver
             "AmbiguousMediaType" or "RootWatchFolder" => MediaEditorIdentityIntent.ReclassifyMediaType,
             "ArtworkUnconfirmed" => MediaEditorIdentityIntent.ConfirmArtwork,
             "WritebackFailed" => MediaEditorIdentityIntent.ResolveWriteback,
-            "MetadataConflict" or "LowConfidence" => MediaEditorIdentityIntent.EditLocalDetails,
-            _ => MediaEditorIdentityIntent.EditLocalDetails,
+            "PlaceholderTitle" or "StagedUnidentifiable" or "MetadataConflict" or "LowConfidence"
+                => MediaEditorIdentityIntent.FixRetailMatch,
+            _ => MediaEditorIdentityIntent.FixRetailMatch,
         };
 
     private static string ResolveInitialTab(MediaEditorIdentityIntent intent) =>
@@ -174,7 +175,7 @@ public static class ReviewTargetResolver
     private static string ResolvePrimaryActionLabel(MediaEditorIdentityIntent intent) =>
         intent switch
         {
-            MediaEditorIdentityIntent.FixRetailMatch => "Find Retail Match",
+            MediaEditorIdentityIntent.FixRetailMatch => "Find match",
             MediaEditorIdentityIntent.ConfirmRetailMatch => "Confirm Retail Match",
             MediaEditorIdentityIntent.FixWikidataMatch => "Search Wikidata",
             MediaEditorIdentityIntent.ConfirmWikidataMatch => "Choose Wikidata Match",

@@ -38,7 +38,8 @@ public sealed class ReviewTargetResolverTests
     }
 
     [Theory]
-    [InlineData("RetailMatchFailed", MediaEditorIdentityIntent.FixRetailMatch, "Find Retail Match")]
+    [InlineData("RetailMatchFailed", MediaEditorIdentityIntent.FixRetailMatch, "Find match")]
+    [InlineData("PlaceholderTitle", MediaEditorIdentityIntent.FixRetailMatch, "Find match")]
     [InlineData("RetailMatchAmbiguous", MediaEditorIdentityIntent.ConfirmRetailMatch, "Confirm Retail Match")]
     [InlineData("WikidataBridgeFailed", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]
     [InlineData("MissingQid", MediaEditorIdentityIntent.FixWikidataMatch, "Search Wikidata")]

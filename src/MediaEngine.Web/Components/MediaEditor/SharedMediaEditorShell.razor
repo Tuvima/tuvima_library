@@ -788,10 +788,6 @@
                                     <section class="sme-match-current-panel sme-match-summary-card">
                                         <div class="sme-match-summary-heading">
                                             <h3>Retail Provider</h3>
-                                            <span class="sme-match-state @(HasCurrentRetailMatch ? "sme-match-state--success" : "sme-match-state--neutral")">
-                                                <MudIcon Icon="@(HasCurrentRetailMatch ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Info)" Size="Size.Small" />
-                                                @CurrentMatchStatusLabel
-                                            </span>
                                         </div>
                                         <div class="sme-match-summary-body">
                                             <div class="sme-match-identity-art @ArtworkShapeClass">
@@ -834,10 +830,6 @@
                                     <section class="sme-canonical-identity-panel sme-match-summary-card">
                                         <div class="sme-match-summary-heading">
                                             <h3>Canonical Identity</h3>
-                                            <span class="sme-match-state @(HasCurrentCanonicalIdentity ? "sme-match-state--success" : "sme-match-state--neutral")">
-                                                <MudIcon Icon="@(HasCurrentCanonicalIdentity ? Icons.Material.Outlined.CheckCircle : Icons.Material.Outlined.Info)" Size="Size.Small" />
-                                                @CurrentCanonicalStatusLabel
-                                            </span>
                                         </div>
                                         <div class="sme-match-summary-body">
                                             <div class="sme-match-canonical-art"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></div>
@@ -869,15 +861,7 @@
                                     </section>
                                 </div>
 
-                                @if (!_showMatchSearch)
-                                {
-                                    <div class="sme-match-collapsed-actions">
-                                        <span><strong>Current identities remain unchanged.</strong><small>Search only when you need to correct one of these matches.</small></span>
-                                        <AppButton Label="Change match" StartIcon="@Icons.Material.Outlined.Sync" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="OpenMatchSearch" />
-                                    </div>
-                                }
-
-                                <section class="sme-match-search-panel @(!_showMatchSearch ? "sme-match-search-panel--collapsed" : null)" aria-hidden="@(!_showMatchSearch)">
+                                <section class="sme-match-search-panel">
                                     @if (SupportsCanonicalSearch)
                                     {
                                         <div class="sme-match-search-modes" role="tablist" aria-label="Match search type">
@@ -895,10 +879,6 @@
                                                              OnClick="@(() => SelectMatchSearchMode("wikidata"))">
                                                 Canonical Identity
                                             </AppNativeButton>
-                                            <AppButton Label="Cancel change"
-                                                       StartIcon="@Icons.Material.Outlined.Close"
-                                                       Class="sme-match-cancel-change"
-                                                       OnClick="CloseMatchSearch" />
                                         </div>
 
                                         <div class="sme-match-independence-note">

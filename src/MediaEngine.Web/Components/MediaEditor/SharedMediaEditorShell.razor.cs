@@ -141,7 +141,6 @@ public partial class SharedMediaEditorShell
     private string _lastNonFileTab => _tabState.LastNonFileTab;
     private bool _showArtworkUrlInput;
     private bool _matchActionPending;
-    private bool _showMatchSearch;
     private bool _customizeMatchChanges;
     private bool _hasCommittedChanges;
     private string? _matchActionStatus;
@@ -356,7 +355,6 @@ public partial class SharedMediaEditorShell
     protected string EditorPageTitle => _activeTab switch
     {
         "artwork" => "Manage Artwork",
-        "links" when _showMatchSearch => "Edit Match — Change Identity",
         "links" => "Edit Match",
         "file" => "Edit Files",
         "history" => "Edit History",
@@ -369,7 +367,6 @@ public partial class SharedMediaEditorShell
     protected string EditorHeaderDescription => _activeTab switch
     {
         "artwork" => "Manage artwork for this item.",
-        "links" when _showMatchSearch => "Replace the current match for this item.",
         "links" => "Review and update this item's identity.",
         "file" => "View and manage files and processing.",
         "history" => "View changes and activity for this item.",
@@ -1537,12 +1534,14 @@ public partial class SharedMediaEditorShell
         {
             case MediaEditorIdentityIntent.FixRetailMatch:
             case MediaEditorIdentityIntent.ConfirmRetailMatch:
-                OpenMatchSearch();
+                _activeMatchSearchMode = "retail";
+                _canonicalSearchResponse = null;
+                _selectedCandidateId = null;
+                _retailCandidateDetail = null;
                 break;
 
             case MediaEditorIdentityIntent.FixWikidataMatch:
             case MediaEditorIdentityIntent.ConfirmWikidataMatch:
-                _showMatchSearch = true;
                 _activeMatchSearchMode = "wikidata";
                 _canonicalSearchResponse = null;
                 _selectedCandidateId = null;
@@ -2492,10 +2491,6 @@ public partial class SharedMediaEditorShell
     protected bool HasCurrentCanonicalIdentity =>
         !string.Equals(CurrentCanonicalQid, "Not linked", StringComparison.OrdinalIgnoreCase);
 
-    protected string CurrentMatchStatusLabel => HasCurrentRetailMatch ? "Matched" : "Provider match pending";
-
-    protected string CurrentCanonicalStatusLabel => HasCurrentCanonicalIdentity ? "Confirmed" : "Provider only";
-
     protected MatchCardDisplay BuildCurrentWikidataMatchCard()
     {
         var summary = IdentityTargetSummary;
@@ -2904,22 +2899,6 @@ public partial class SharedMediaEditorShell
     protected static string FormatSuggestedFieldLabel(string key) =>
         CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
 
-    protected void OpenMatchSearch()
-    {
-        _showMatchSearch = true;
-        _activeMatchSearchMode = !HasCurrentCanonicalIdentity && HasCurrentRetailMatch ? "wikidata" : "retail";
-    }
-
-    protected void CloseMatchSearch()
-    {
-        CancelCanonicalSearch();
-        _showMatchSearch = false;
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
-        _retailCandidateDetail = null;
-        _customizeMatchChanges = false;
-    }
-
     protected void SelectMatchSearchMode(string mode)
     {
         var normalized = string.Equals(mode, "wikidata", StringComparison.OrdinalIgnoreCase)
@@ -2941,15 +2920,7 @@ public partial class SharedMediaEditorShell
         if (!string.Equals(_activeTab, "links", StringComparison.OrdinalIgnoreCase))
             return;
 
-        if (Request.Mode == SharedMediaEditorMode.Review || !HasCurrentRetailMatch || !HasCurrentCanonicalIdentity)
-        {
-            _showMatchSearch = true;
-            _activeMatchSearchMode = !HasCurrentCanonicalIdentity && HasCurrentRetailMatch ? "wikidata" : "retail";
-            return;
-        }
-
-        _showMatchSearch = false;
-        _activeMatchSearchMode = "retail";
+        _activeMatchSearchMode = !HasCurrentCanonicalIdentity && HasCurrentRetailMatch ? "wikidata" : "retail";
     }
 
     protected sealed record CandidateConfidenceSignal(string Label, string Value, double Score);

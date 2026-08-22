@@ -140,7 +140,6 @@
                 else
                 {
                     var issue = ReviewIssueClassifier.Classify(selected.Trigger);
-                    var target = ReviewTargetResolver.Resolve(selected.MediaType, selected.Trigger);
                     var details = ReviewIssuePresentationBuilder.Build(selected);
                     var selectedIndex = SelectedVisibleIndex;
 
@@ -229,16 +228,12 @@
                     <section class="settings-review-recommended">
                         <h4>Recommended next step</h4>
                         <div class="settings-review-inspector__actions">
-                            <AppButton Label="@target.PrimaryActionLabel"
+                            <AppButton Label="Find match"
                                        ButtonStyle="AppButtonStyle.Filled"
                                        Tone="AppUiTone.Primary"
                                        StartIcon="@Icons.Material.Outlined.Search"
                                        Disabled="@_busyIds.Contains(selected.Id)"
-                                       OnClick="@(() => RunRecommendedActionAsync(selected))" />
-                            <AppButton Label="Open complete review"
-                                       StartIcon="@Icons.Material.Outlined.OpenInNew"
-                                       Disabled="@_busyIds.Contains(selected.Id)"
-                                       OnClick="@(() => OpenReviewEditorAsync(selected, false))" />
+                                       OnClick="@(() => OpenReviewEditorAsync(selected))" />
                             @if (IsWikidataReview(selected.Trigger))
                             {
                                 <AppButton Label="Keep provider match"
@@ -437,10 +432,7 @@
         finally { _busyIds.Remove(item.Id); }
     }
 
-    private Task RunRecommendedActionAsync(ReviewItemViewModel item) =>
-        item.Trigger == "WritebackFailed" ? RetryWritebackAsync(item) : OpenReviewEditorAsync(item, true);
-
-    private async Task OpenReviewEditorAsync(ReviewItemViewModel item, bool focused)
+    private async Task OpenReviewEditorAsync(ReviewItemViewModel item)
     {
         _busyIds.Add(item.Id);
         try
@@ -453,14 +445,14 @@
                 LaunchEntityId = item.EntityId,
                 LaunchEntityKind = StringHelpers.FirstNonBlankOr("", item.EntityType, "review"),
                 Mode = SharedMediaEditorMode.Review,
-                IdentityIntent = focused ? target.Intent : MediaEditorIdentityIntent.EditLocalDetails,
-                InitialTab = focused ? target.InitialTab : "details",
-                InitialCanonicalTargetGroup = focused ? target.CanonicalTargetGroup : null,
+                IdentityIntent = target.Intent,
+                InitialTab = "links",
+                InitialCanonicalTargetGroup = target.CanonicalTargetGroup,
                 ReviewItemId = item.Id,
                 ReviewTrigger = item.Trigger,
                 MediaType = item.MediaType,
                 HeaderTitle = title,
-                HeaderSubtitle = focused ? target.PrimaryActionLabel : "Complete review",
+                HeaderSubtitle = "Find match",
                 CoverUrl = item.CoverUrl,
                 PreviewItems = [new MediaEditorPreviewItem { EntityId = item.EntityId, Title = title, CoverUrl = item.CoverUrl, MediaType = item.MediaType }],
             });
@@ -482,19 +474,6 @@
                 Snackbar.Add("Provider match kept and canonical matching skipped.", Severity.Success);
             }
             else Snackbar.Add("The issue could not be resolved.", Severity.Warning);
-        }
-        finally { _busyIds.Remove(item.Id); }
-    }
-
-    private async Task RetryWritebackAsync(ReviewItemViewModel item)
-    {
-        _busyIds.Add(item.Id);
-        try
-        {
-            if (await Orchestrator.RetryRetagForAssetAsync(item.EntityId))
-                Snackbar.Add("Write-back retry queued. This issue remains open until the file is updated.", Severity.Info);
-            else
-                Snackbar.Add("Write-back retry could not be queued.", Severity.Warning);
         }
         finally { _busyIds.Remove(item.Id); }
     }
