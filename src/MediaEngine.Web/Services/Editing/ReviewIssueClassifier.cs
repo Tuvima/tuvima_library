@@ -18,6 +18,13 @@ public sealed record ReviewIssuePresentation(
 
 public static class ReviewIssueClassifier
 {
+    public const string CategoryAll = "all";
+    public const string CategoryQuickFix = "quick";
+    public const string CategoryManualReview = "manual";
+    public const string CategoryNoProviderMatch = "no-provider-match";
+    public const string CategoryIncompleteMetadata = "incomplete-metadata";
+    public const string CategoryDuplicates = "duplicates";
+
     public static ReviewIssuePresentation Classify(string? trigger)
     {
         var rootCause = ReviewRootCauseExtensions.FromTrigger(trigger);
@@ -38,4 +45,23 @@ public static class ReviewIssueClassifier
             _ => new(ReviewIssueBucket.ManualReview, "Manual review needed", "The ingestion pipeline could not safely make this decision automatically.", false),
         };
     }
+
+    public static string CategoryFor(string? trigger) => trigger switch
+    {
+        "RetailMatchFailed" => CategoryNoProviderMatch,
+        "PlaceholderTitle" or "StagedUnidentifiable" => CategoryIncompleteMetadata,
+        _ when trigger?.Contains("Duplicate", StringComparison.OrdinalIgnoreCase) == true => CategoryDuplicates,
+        _ => Classify(trigger).Bucket == ReviewIssueBucket.QuickFix ? CategoryQuickFix : CategoryManualReview,
+    };
+
+    public static bool MatchesCategory(string? trigger, string category) => category switch
+    {
+        CategoryAll => true,
+        CategoryQuickFix => Classify(trigger).Bucket == ReviewIssueBucket.QuickFix,
+        CategoryManualReview => Classify(trigger).Bucket is ReviewIssueBucket.ManualReview or ReviewIssueBucket.HighPriority,
+        CategoryNoProviderMatch => CategoryFor(trigger) == CategoryNoProviderMatch,
+        CategoryIncompleteMetadata => CategoryFor(trigger) == CategoryIncompleteMetadata,
+        CategoryDuplicates => CategoryFor(trigger) == CategoryDuplicates,
+        _ => true,
+    };
 }

@@ -16,6 +16,9 @@ public sealed class ReviewItemDto
     [JsonPropertyName("created_at")] public DateTimeOffset CreatedAt { get; init; }
     [JsonPropertyName("resolved_at")] public DateTimeOffset? ResolvedAt { get; init; }
     [JsonPropertyName("resolved_by")] public string? ResolvedBy { get; init; }
+    [JsonPropertyName("source_operation_id")] public Guid? SourceOperationId { get; init; }
+    [JsonPropertyName("source_capability_id")] public string? SourceCapabilityId { get; init; }
+    [JsonPropertyName("source_capability_sub_key")] public string? SourceCapabilitySubKey { get; init; }
     [JsonPropertyName("media_type")] public string? MediaType { get; init; }
     [JsonPropertyName("entity_title")] public string? EntityTitle { get; init; }
     [JsonPropertyName("cover_url")] public string? CoverUrl { get; init; }

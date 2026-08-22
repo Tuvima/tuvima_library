@@ -34,4 +34,21 @@ public sealed class ReviewIssueClassifierTests
     {
         Assert.Equal(expectedLabel, ReviewIssueClassifier.Classify(trigger).Label);
     }
+
+    [Theory]
+    [InlineData("RetailMatchFailed", ReviewIssueClassifier.CategoryNoProviderMatch)]
+    [InlineData("PlaceholderTitle", ReviewIssueClassifier.CategoryIncompleteMetadata)]
+    [InlineData("StagedUnidentifiable", ReviewIssueClassifier.CategoryIncompleteMetadata)]
+    [InlineData("PossibleDuplicate", ReviewIssueClassifier.CategoryDuplicates)]
+    [InlineData("ArtworkUnconfirmed", ReviewIssueClassifier.CategoryQuickFix)]
+    public void CategoryFor_UsesUserFacingQueueCategories(string trigger, string expected)
+    {
+        Assert.Equal(expected, ReviewIssueClassifier.CategoryFor(trigger));
+    }
+
+    [Fact]
+    public void ManualReviewCategory_IncludesHighPriorityIssues()
+    {
+        Assert.True(ReviewIssueClassifier.MatchesCategory("WritebackFailed", ReviewIssueClassifier.CategoryManualReview));
+    }
 }

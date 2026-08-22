@@ -61,6 +61,8 @@ public sealed class ReviewQueueReadServiceTests : IDisposable
         Assert.Equal("Movies", assetReview.MediaType);
         Assert.Equal("603", assetReview.BridgeIdentifiers["tmdb_id"]);
         Assert.Equal("Q83495", assetReview.BridgeIdentifiers["wikidata_qid"]);
+        Assert.NotNull(assetReview.SourceOperationId);
+        Assert.Equal("identity.retail-match", assetReview.SourceCapabilityId);
     }
 
     [Fact]
@@ -95,6 +97,8 @@ public sealed class ReviewQueueReadServiceTests : IDisposable
         CreatedAt = DateTimeOffset.UtcNow,
         ReviewReadyAt = DateTimeOffset.UtcNow,
         AutomationCompletedAt = DateTimeOffset.UtcNow,
+        SourceOperationId = Guid.NewGuid(),
+        SourceCapabilityId = "identity.retail-match",
     };
 
     private void SeedMediaAsset(Guid workId, Guid editionId, Guid assetId)

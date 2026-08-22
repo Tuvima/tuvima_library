@@ -44,6 +44,15 @@ public sealed class ReviewItemViewModel
     [JsonPropertyName("resolved_by")]
     public string? ResolvedBy { get; set; }
 
+    [JsonPropertyName("source_operation_id")]
+    public Guid? SourceOperationId { get; set; }
+
+    [JsonPropertyName("source_capability_id")]
+    public string? SourceCapabilityId { get; set; }
+
+    [JsonPropertyName("source_capability_sub_key")]
+    public string? SourceCapabilitySubKey { get; set; }
+
     /// <summary>Entity title (best-available), populated from canonical values.</summary>
     [JsonPropertyName("entity_title")]
     public string? EntityTitle { get; set; }

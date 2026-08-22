@@ -65,6 +65,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
                     rq.created_at,
                     rq.resolved_at,
                     rq.resolved_by,
+                    rq.source_operation_id,
+                    rq.source_capability_id,
+                    rq.source_capability_sub_key,
                     rq.review_ready_at,
                     rq.automation_completed_at,
                     CASE
@@ -107,6 +110,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
                 p.created_at AS CreatedAt,
                 p.resolved_at AS ResolvedAt,
                 p.resolved_by AS ResolvedBy,
+                p.source_operation_id AS SourceOperationId,
+                p.source_capability_id AS SourceCapabilityId,
+                p.source_capability_sub_key AS SourceCapabilitySubKey,
                 p.review_ready_at AS ReviewReadyAt,
                 p.automation_completed_at AS AutomationCompletedAt,
                 p.asset_id AS AssetId,
@@ -168,6 +174,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
                     rq.created_at,
                     rq.resolved_at,
                     rq.resolved_by,
+                    rq.source_operation_id,
+                    rq.source_capability_id,
+                    rq.source_capability_sub_key,
                     rq.review_ready_at,
                     rq.automation_completed_at,
                     CASE
@@ -209,6 +218,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
                 i.created_at AS CreatedAt,
                 i.resolved_at AS ResolvedAt,
                 i.resolved_by AS ResolvedBy,
+                i.source_operation_id AS SourceOperationId,
+                i.source_capability_id AS SourceCapabilityId,
+                i.source_capability_sub_key AS SourceCapabilitySubKey,
                 i.review_ready_at AS ReviewReadyAt,
                 i.automation_completed_at AS AutomationCompletedAt,
                 i.asset_id AS AssetId,
@@ -308,6 +320,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         CreatedAt = ParseDate(row.CreatedAt) ?? DateTimeOffset.UtcNow,
         ResolvedAt = ParseDate(row.ResolvedAt),
         ResolvedBy = row.ResolvedBy,
+        SourceOperationId = row.SourceOperationId,
+        SourceCapabilityId = row.SourceCapabilityId,
+        SourceCapabilitySubKey = row.SourceCapabilitySubKey,
         ReviewReadyAt = ParseDate(row.ReviewReadyAt),
         AutomationCompletedAt = ParseDate(row.AutomationCompletedAt),
     };
@@ -332,6 +347,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         CreatedAt = entry.CreatedAt,
         ResolvedAt = entry.ResolvedAt,
         ResolvedBy = entry.ResolvedBy,
+        SourceOperationId = entry.SourceOperationId,
+        SourceCapabilityId = entry.SourceCapabilityId,
+        SourceCapabilitySubKey = entry.SourceCapabilitySubKey,
         MediaType = mediaType,
         EntityTitle = entityTitle,
         CoverUrl = coverUrl,
@@ -432,6 +450,9 @@ public sealed class ReviewQueueReadService : IReviewQueueReadService
         public string? CreatedAt { get; init; }
         public string? ResolvedAt { get; init; }
         public string? ResolvedBy { get; init; }
+        public Guid? SourceOperationId { get; init; }
+        public string? SourceCapabilityId { get; init; }
+        public string? SourceCapabilitySubKey { get; init; }
         public string? ReviewReadyAt { get; init; }
         public string? AutomationCompletedAt { get; init; }
         public Guid? AssetId { get; init; }

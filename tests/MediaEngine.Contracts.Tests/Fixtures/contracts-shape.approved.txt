@@ -4558,6 +4558,9 @@ MediaEngine.Contracts.Review.MediaEngine.Contracts.Review.ReviewItemDto
   CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
   ResolvedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
   ResolvedBy: System.String | nullability=nullable | accessors=get,init
+  SourceOperationId: System.Guid? | nullability=nullable | accessors=get,init
+  SourceCapabilityId: System.String | nullability=nullable | accessors=get,init
+  SourceCapabilitySubKey: System.String | nullability=nullable | accessors=get,init
   MediaType: System.String | nullability=nullable | accessors=get,init
   EntityTitle: System.String | nullability=nullable | accessors=get,init
   CoverUrl: System.String | nullability=nullable | accessors=get,init
