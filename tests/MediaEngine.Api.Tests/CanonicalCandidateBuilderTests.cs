@@ -74,6 +74,9 @@ public sealed class CanonicalCandidateBuilderTests
 
         Assert.True(result.IsApplicable);
         Assert.Null(result.BlockedReason);
+        Assert.Equal("Dungeon Crawler Carl", result.RequiredFields["title"]);
+        Assert.Equal("Matt Dinniman", result.RequiredFields["author"]);
+        Assert.Equal("2020", result.SuggestedFields["year"]);
     }
 
     [Fact]

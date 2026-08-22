@@ -1090,13 +1090,16 @@ public static class ItemCanonicalEndpoints
                     return ApiErrors.BadRequest("QID is required when replacing a Wikidata match.");
 
                 var qid = request.Qid.Trim();
-                var acceptedSuggestedFields = request.AcceptedSuggestedKeys
-                    .Where(key => policy.SuggestedFieldKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+                var allowedCandidateFieldKeys = policy.RequiredFieldKeys
+                    .Concat(policy.SuggestedFieldKeys)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var acceptedCandidateFields = request.AcceptedSuggestedKeys
+                    .Where(allowedCandidateFieldKeys.Contains)
                     .Where(key => request.SuggestedFields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToDictionary(key => key, key => request.SuggestedFields[key], StringComparer.OrdinalIgnoreCase);
 
-                var replacementClaims = acceptedSuggestedFields.Select(pair => new MetadataClaim
+                var replacementClaims = acceptedCandidateFields.Select(pair => new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
                     EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, pair.Key),
@@ -1121,7 +1124,7 @@ public static class ItemCanonicalEndpoints
                 });
                 await claimRepo.InsertBatchAsync(replacementClaims, ct);
 
-                var replacementCanonicals = acceptedSuggestedFields.Select(pair => new CanonicalValue
+                var replacementCanonicals = acceptedCandidateFields.Select(pair => new CanonicalValue
                 {
                     EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, pair.Key),
                     Key = pair.Key,
@@ -1144,14 +1147,14 @@ public static class ItemCanonicalEndpoints
                 await canonicalRepo.UpsertBatchAsync(replacementCanonicals, ct);
 
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.UserReplaced, WorkWikidataMatchSource.User, true, qid, ct: ct);
-                fieldsApplied = 1 + acceptedSuggestedFields.Count;
+                fieldsApplied = 1 + acceptedCandidateFields.Count;
 
                 if (request.RehydrateNow)
                 {
                     var canonicals = await canonicalRepo.GetByEntityAsync(workId, ct);
                     var hints = canonicals
                         .ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
-                    foreach (var (key, value) in acceptedSuggestedFields)
+                    foreach (var (key, value) in acceptedCandidateFields)
                         hints[key] = value;
                     identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
                     {

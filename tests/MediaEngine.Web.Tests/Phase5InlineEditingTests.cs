@@ -337,7 +337,10 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("The user must explicitly select a candidate", code, StringComparison.Ordinal);
         Assert.Contains("CanApplyRetailCandidate", code, StringComparison.Ordinal);
         Assert.Contains("CanApplyLinkedCandidate", code, StringComparison.Ordinal);
-        Assert.Contains("AcceptedSuggestedKeys = []", code, StringComparison.Ordinal);
+        Assert.Contains("candidate.RequiredFields", code, StringComparison.Ordinal);
+        Assert.Contains(".Concat(candidate.SuggestedFields)", code, StringComparison.Ordinal);
+        Assert.Contains("SuggestedFields = candidateFields", code, StringComparison.Ordinal);
+        Assert.Contains("AcceptedSuggestedKeys = candidateFields.Keys.ToList()", code, StringComparison.Ordinal);
         Assert.DoesNotContain("_selectedSuggestedFieldKeys", code, StringComparison.Ordinal);
         Assert.Contains("sme-match-result-hero", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Canonical ID", shell, StringComparison.Ordinal);

@@ -3292,6 +3292,11 @@ public partial class SharedMediaEditorShell
         var qid = candidate.QidFields.TryGetValue("wikidata_qid", out var qidField)
             ? qidField
             : candidate.Qid;
+        var candidateFields = candidate.RequiredFields
+            .Concat(candidate.SuggestedFields)
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+            .GroupBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last().Value, StringComparer.OrdinalIgnoreCase);
         _matchActionPending = true;
         _matchActionStatus = "Applying canonical Wikidata identity...";
         StateHasChanged();
@@ -3305,8 +3310,8 @@ public partial class SharedMediaEditorShell
                 TargetScopeId = ActiveScope?.ScopeId ?? string.Empty,
                 Action = "replace",
                 Qid = qid,
-                SuggestedFields = [],
-                AcceptedSuggestedKeys = [],
+                SuggestedFields = candidateFields,
+                AcceptedSuggestedKeys = candidateFields.Keys.ToList(),
                 ReviewItemId = Request.ReviewItemId,
             });
 

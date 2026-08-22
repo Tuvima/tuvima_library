@@ -181,7 +181,7 @@ public sealed class ItemEndpointRouteTests
     }
 
     [Fact]
-    public void ItemCanonicalEndpoints_WikidataReplacementAppliesOnlyAcceptedSuggestedFields()
+    public void ItemCanonicalEndpoints_WikidataReplacementAppliesAcceptedCanonicalCandidateFields()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
         var contracts = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Matching\MatchingDtos.cs"));
@@ -189,10 +189,11 @@ public sealed class ItemEndpointRouteTests
 
         Assert.Contains("AcceptedSuggestedKeys", contracts, StringComparison.Ordinal);
         Assert.Contains("SuggestedFields", contracts, StringComparison.Ordinal);
-        Assert.Contains("policy.SuggestedFieldKeys.Contains", route, StringComparison.Ordinal);
+        Assert.Contains("policy.RequiredFieldKeys", route, StringComparison.Ordinal);
+        Assert.Contains(".Concat(policy.SuggestedFieldKeys)", route, StringComparison.Ordinal);
         Assert.Contains("request.SuggestedFields.TryGetValue", route, StringComparison.Ordinal);
         Assert.Contains("IsUserLocked = true", route, StringComparison.Ordinal);
-        Assert.Contains("fieldsApplied = 1 + acceptedSuggestedFields.Count", route, StringComparison.Ordinal);
+        Assert.Contains("fieldsApplied = 1 + acceptedCandidateFields.Count", route, StringComparison.Ordinal);
     }
 
     [Fact]
