@@ -241,7 +241,7 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
                             var parts = new List<string>();
                             if (!string.IsNullOrEmpty(ed.Narrator))
                                 parts.Add($"Narrated by {ed.Narrator}");
-                            if (!string.IsNullOrEmpty(ed.Duration))
+                            if (IsDisplayableSearchMetadata(ed.Duration))
                                 parts.Add($"Duration: {ed.Duration}");
                             if (!string.IsNullOrEmpty(ed.Publisher))
                                 parts.Add($"Publisher: {ed.Publisher}");
@@ -261,7 +261,16 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
                                 ProviderItemId: ed.EditionQid ?? c.Id,
                                 Confidence:     c.Score / 100.0,
                                 ProviderName:   Name,
-                                ResultType:     "audiobook_edition"));
+                                ResultType:     "audiobook_edition",
+                                ExtraFields: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                                {
+                                    ["canonical_kind"] = "Audiobook edition",
+                                    ["narrator"] = ed.Narrator ?? string.Empty,
+                                    ["duration"] = ed.Duration ?? string.Empty,
+                                    ["publisher"] = ed.Publisher ?? string.Empty,
+                                    ["asin"] = ed.ASIN ?? string.Empty,
+                                }.Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+                                    .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase)));
                         }
                     }
 
@@ -275,7 +284,11 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
                         ProviderItemId: c.Id,
                         Confidence:     c.Score / 100.0,
                         ProviderName:   Name,
-                        ResultType:     "work"));
+                        ResultType:     "work",
+                        ExtraFields: new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            ["canonical_kind"] = "Work",
+                        }));
                 }
 
                 // Editions first, then work fallbacks.
@@ -305,6 +318,18 @@ public sealed partial class ReconciliationAdapter : IExternalMetadataProvider
             _logger.LogWarning(ex, "{Provider}: SearchAsync failed", Name);
             return [];
         }
+    }
+
+    private static bool IsDisplayableSearchMetadata(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)
+            || Regex.IsMatch(value.Trim(), @"^Q\d+$", RegexOptions.IgnoreCase))
+        {
+            return false;
+        }
+
+        var compact = Regex.Replace(value, @"\D", string.Empty);
+        return compact.Length <= 8;
     }
 
     // ── Public direct-call methods (used by the hydration pipeline) ───────────

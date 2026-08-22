@@ -230,6 +230,9 @@ public sealed class ItemCanonicalLinkedCandidateDto
     [JsonPropertyName("confidence")]
     public double Confidence { get; set; }
 
+    [JsonPropertyName("match_scores")]
+    public FieldMatchScoresDto? MatchScores { get; set; }
+
     [JsonPropertyName("bridge_ids")]
     public Dictionary<string, string> BridgeIds { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 

@@ -847,7 +847,7 @@
                                             </div>
                                             <dl class="sme-match-provider-facts">
                                                 <div><dt>Source</dt><dd>Wikidata</dd></div>
-                                                <div><dt>Canonical ID</dt><dd>@CurrentCanonicalQid</dd></div>
+                                                <div><dt>Status</dt><dd>@(HasCurrentCanonicalIdentity ? "Matched" : "Not matched")</dd></div>
                                             </dl>
                                         </div>
                                         @if (currentQid.Links.Count > 0)
@@ -897,21 +897,21 @@
 
                                         <div class="sme-search-row">
                                             <AppTextField T="string"
-                                                          Value="@_canonicalSearchQuery"
-                                                          ValueChanged="@((string? value) => _canonicalSearchQuery = value ?? string.Empty)"
+                                                          Value="@ActiveMatchSearchQuery"
+                                                          ValueChanged="@SetActiveMatchSearchQuery"
                                                           Placeholder="@($"Search by title, creator, year, or identifier")"
                                                           Variant="Variant.Outlined"
                                                           Margin="Margin.Dense"
                                                           Immediate="true"
                                                           Class="sme-text-input" />
-                                            @if (_searchingCanonical)
+                                            @if (IsActiveMatchSearchPending)
                                             {
                                                 <AppButton Variant="Variant.Outlined"
                                                            Color="Color.Inherit"
                                                            Class="sme-inline-btn"
-                                                           StartIcon="@Icons.Material.Outlined.StopCircle"
-                                                           OnClick="CancelCanonicalSearch">
-                                                    Cancel search
+                                                           StartIcon="@Icons.Material.Outlined.Sync"
+                                                           OnClick="CancelActiveMatchSearch">
+                                                    Searching…
                                                 </AppButton>
                                             }
                                             else
@@ -928,30 +928,41 @@
 
                                         <div class="sme-match-search-tip">Include title, creator, year, ISBN, or provider identifiers for the best results.</div>
 
+                                        @if (IsActiveMatchSearchPending)
+                                        {
+                                            <div class="sme-match-searching" role="status" aria-live="polite">
+                                                <AppProgressBar Indeterminate="true" />
+                                                <span>@(IsWikidataSearchMode ? "Searching Wikidata for canonical identities…" : "Searching configured retail providers…")</span>
+                                            </div>
+                                        }
+
                                         <div class="sme-match-results">
-                                            @if (_canonicalSearchResponse is null)
+                                            @{
+                                                var searchResponse = ActiveMatchSearchResponse;
+                                            }
+                                            @if (searchResponse is null)
                                             {
                                                 <div class="sme-empty-panel">
                                                     <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
                                                     <span>@(IsWikidataSearchMode ? "Search Wikidata for a canonical identity." : "Search retail providers for a provider match.")</span>
                                                 </div>
                                             }
-                                            else if (_canonicalSearchResponse.LinkedCandidates.Count == 0 && _canonicalSearchResponse.RetailCandidates.Count == 0)
+                                            else if (searchResponse.LinkedCandidates.Count == 0 && searchResponse.RetailCandidates.Count == 0)
                                             {
                                                 <div class="sme-empty-panel">
                                                     <MudIcon Icon="@Icons.Material.Outlined.SearchOff" Class="tl-u-font-size-24px tl-u-opacity-0-18" />
-                                                    <span>@(_canonicalSearchResponse.NoResultMessage ?? "No safe canonical results were found.")</span>
+                                                    <span>@(searchResponse.NoResultMessage ?? "No safe matching results were found.")</span>
                                                 </div>
                                             }
                                             else if (IsWikidataSearchMode)
                                             {
-                                                @for (var canonicalIndex = 0; canonicalIndex < _canonicalSearchResponse.LinkedCandidates.Count; canonicalIndex++)
+                                                @for (var canonicalIndex = 0; canonicalIndex < searchResponse.LinkedCandidates.Count; canonicalIndex++)
                                                 {
-                                                    var candidate = _canonicalSearchResponse.LinkedCandidates[canonicalIndex];
+                                                    var candidate = searchResponse.LinkedCandidates[canonicalIndex];
                                                     var candidateId = GetCandidateId(candidate);
                                                     var isSelected = IsCandidateSelected(candidateId);
                                                     var isBestMatch = canonicalIndex == 0;
-                                                    var confidenceSignals = BuildCanonicalConfidenceSignals(candidate);
+                                                    var comparisonRows = BuildCanonicalComparisonRows(candidate);
                                                     var identityLink = BuildWikidataIdentityLinks(candidate.Qid).FirstOrDefault();
                                                     <div class="sme-match-result-card sme-match-result-card--canonical @(isSelected ? "sme-match-result-card--selected" : "")">
                                                         <div class="sme-match-result-hero">
@@ -963,16 +974,6 @@
                                                                 <span class="sme-match-selection-indicator" aria-hidden="true">
                                                                     <MudIcon Icon="@(isSelected ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
                                                                 </span>
-                                                                <div class="sme-match-result-art sme-match-result-art--qid @ArtworkShapeClass">
-                                                                    @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
-                                                                    {
-                                                                        <img src="@candidate.CoverUrl" alt="" />
-                                                                    }
-                                                                    else
-                                                                    {
-                                                                        <MudIcon Icon="@Icons.Material.Outlined.Hub" />
-                                                                    }
-                                                                </div>
                                                                 <div class="sme-match-result-copy">
                                                                     <div class="sme-match-result-title">@candidate.Label</div>
                                                                     <div class="sme-match-result-meta">@BuildWikidataCandidateSubtitle(candidate)</div>
@@ -997,7 +998,7 @@
                                                                            Class="sme-match-use-action"
                                                                            Disabled="@(!CanApplyLinkedCandidate(candidate))"
                                                                            OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                                    @(_matchActionPending ? "Applying..." : "Use canonical identity")
+                                                                    @(_matchActionPending ? "Applying…" : "Apply selection")
                                                                 </AppButton>
                                                             }
                                                         </div>
@@ -1011,48 +1012,36 @@
                                                                 <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                                                 <span>This links the item to the selected shared work. Retail edition data and editable metadata remain unchanged.</span>
                                                             </div>
-                                                            <div class="sme-match-selected-detail">
-                                                                <section class="sme-match-detail-panel">
-                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Canonical details</h4>
-                                                                    <dl class="sme-match-detail-facts">
-                                                                        <div><dt>Source</dt><dd>Wikidata</dd></div>
-                                                                        <div><dt>Canonical ID</dt><dd>@candidate.Qid</dd></div>
-                                                                        @if (!string.IsNullOrWhiteSpace(candidate.InstanceOf))
-                                                                        {
-                                                                            <div><dt>Work type</dt><dd>@candidate.InstanceOf</dd></div>
-                                                                        }
-                                                                        @if (!string.IsNullOrWhiteSpace(candidate.Author ?? candidate.Director))
-                                                                        {
-                                                                            <div><dt>Creator</dt><dd>@(candidate.Author ?? candidate.Director)</dd></div>
-                                                                        }
-                                                                        @if (!string.IsNullOrWhiteSpace(candidate.Year))
-                                                                        {
-                                                                            <div><dt>Published</dt><dd>@candidate.Year</dd></div>
-                                                                        }
-                                                                        @if (!string.IsNullOrWhiteSpace(candidate.ResolutionTier))
-                                                                        {
-                                                                            <div><dt>Resolved by</dt><dd>@candidate.ResolutionTier</dd></div>
-                                                                        }
-                                                                    </dl>
-                                                                    @if (identityLink is not null)
+                                                            <section class="sme-match-comparison-panel">
+                                                                <div class="sme-match-comparison-heading">
+                                                                    <h4>Match comparison</h4>
+                                                                    <span>Total confidence <strong>@FormatCandidateScore(candidate.Confidence)</strong></span>
+                                                                </div>
+                                                                <div class="sme-match-comparison-table" role="table" aria-label="Canonical match comparison">
+                                                                    <div class="sme-match-comparison-row sme-match-comparison-row--header" role="row">
+                                                                        <span role="columnheader">Field</span>
+                                                                        <span role="columnheader">Your item</span>
+                                                                        <span role="columnheader">Wikidata</span>
+                                                                        <span role="columnheader">Match</span>
+                                                                    </div>
+                                                                    @foreach (var row in comparisonRows)
                                                                     {
-                                                                        <a class="sme-match-detail-link" href="@identityLink.Url" target="_blank" rel="noopener noreferrer">View @identityLink.Label <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
+                                                                        <div class="sme-match-comparison-row" role="row">
+                                                                            <strong role="cell">@row.Label</strong>
+                                                                            <span role="cell">@row.LocalValue</span>
+                                                                            <span role="cell">@row.CandidateValue</span>
+                                                                            <span role="cell" class="@GetConfidenceSignalClass(row.Score)">
+                                                                                <MudIcon Icon="@GetConfidenceSignalIcon(row.Score)" Size="Size.Small" />
+                                                                                @(row.Score >= 0 ? $"{GetComparisonScoreLabel(row.Score)} · {FormatCandidateScore(row.Score)}" : "Not compared")
+                                                                            </span>
+                                                                        </div>
                                                                     }
-                                                                </section>
-                                                                <aside class="sme-match-confidence-panel">
-                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" /> Why this confidence?</h4>
-                                                                    <dl>
-                                                                        @foreach (var signal in confidenceSignals)
-                                                                        {
-                                                                            <div class="@GetConfidenceSignalClass(signal.Score)">
-                                                                                <dt><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</dt>
-                                                                                <dd><span>@signal.Value</span><strong>@(signal.Score >= 0 ? FormatCandidateScore(signal.Score) : "—")</strong></dd>
-                                                                            </div>
-                                                                        }
-                                                                    </dl>
-                                                                    <div class="sme-match-confidence-total"><span>Total confidence</span><strong>@FormatCandidateScore(candidate.Confidence)</strong></div>
-                                                                </aside>
-                                                            </div>
+                                                                </div>
+                                                                @if (identityLink is not null)
+                                                                {
+                                                                    <a class="sme-match-detail-link" href="@identityLink.Url" target="_blank" rel="noopener noreferrer">View on Wikidata <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
+                                                                }
+                                                            </section>
                                                             @if (!string.IsNullOrWhiteSpace(candidate.WikipediaExtract ?? candidate.Description))
                                                             {
                                                                 <section class="sme-candidate-evidence-panel">
@@ -1071,25 +1060,25 @@
                                                                Class="sme-inline-btn"
                                                                Disabled="@_matchActionPending"
                                                                OnClick="MarkWikidataMissingAsync">
-                                                        Mark Wikidata Missing
+                                                        Mark canonical identity missing
                                                     </AppButton>
                                                     <AppButton Variant="Variant.Outlined"
                                                                Color="Color.Inherit"
                                                                Class="sme-inline-btn"
                                                                Disabled="@_matchActionPending"
                                                                OnClick="ClearWikidataMatchAsync">
-                                                        Clear QID
+                                                        Clear canonical match
                                                     </AppButton>
                                                 </div>
                                             }
                                             else
                                             {
-                                                @for (var retailIndex = 0; retailIndex < _canonicalSearchResponse.RetailCandidates.Count; retailIndex++)
+                                                @for (var retailIndex = 0; retailIndex < searchResponse.RetailCandidates.Count; retailIndex++)
                                                 {
-                                                    var candidate = _canonicalSearchResponse.RetailCandidates[retailIndex];
+                                                    var candidate = searchResponse.RetailCandidates[retailIndex];
                                                     var candidateId = GetCandidateId(candidate);
                                                     var candidateScore = GetRetailCandidateScore(candidate);
-                                                    var confidenceSignals = BuildRetailConfidenceSignals(candidate);
+                                                    var comparisonRows = BuildRetailComparisonRows(candidate);
                                                     var isSelected = IsCandidateSelected(candidateId);
                                                     var isBestMatch = retailIndex == 0;
                                                     var evidenceNotice = GetRetailCandidateEvidenceNotice(candidate);
@@ -1137,7 +1126,7 @@
                                                                            Class="sme-match-use-action"
                                                                            Disabled="@(!CanApplyRetailCandidate(candidate))"
                                                                            OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                                    @(_matchActionPending ? "Applying..." : "Use retail match")
+                                                                    @(_matchActionPending ? "Applying…" : "Apply selection")
                                                                 </AppButton>
                                                             }
                                                         </div>
@@ -1155,30 +1144,32 @@
                                                                 <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
                                                                 <span>This changes the linked retail edition and refreshes provider-managed artwork. Canonical identity and user-edited metadata remain unchanged.</span>
                                                             </div>
-                                                            <div class="sme-match-selected-detail">
-                                                                <section class="sme-match-detail-panel">
-                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" /> Edition details</h4>
-                                                                    <dl class="sme-match-detail-facts">
-                                                                        @foreach (var fact in BuildRetailCandidateFacts(candidate))
-                                                                        {
-                                                                            <div><dt>@fact.Label</dt><dd>@fact.Value</dd></div>
-                                                                        }
-                                                                    </dl>
-                                                                </section>
-                                                                <aside class="sme-match-confidence-panel">
-                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" /> Why this confidence?</h4>
-                                                                    <dl>
-                                                                        @foreach (var signal in confidenceSignals)
-                                                                        {
-                                                                            <div class="@GetConfidenceSignalClass(signal.Score)">
-                                                                                <dt><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</dt>
-                                                                                <dd><span>@signal.Value</span><strong>@(signal.Score >= 0 ? FormatCandidateScore(signal.Score) : "—")</strong></dd>
-                                                                            </div>
-                                                                        }
-                                                                    </dl>
-                                                                    <div class="sme-match-confidence-total"><span>Total confidence</span><strong>@FormatCandidateScore(candidateScore)</strong></div>
-                                                                </aside>
-                                                            </div>
+                                                            <section class="sme-match-comparison-panel">
+                                                                <div class="sme-match-comparison-heading">
+                                                                    <h4>Match comparison</h4>
+                                                                    <span>Total confidence <strong>@FormatCandidateScore(candidateScore)</strong></span>
+                                                                </div>
+                                                                <div class="sme-match-comparison-table" role="table" aria-label="Retail match comparison">
+                                                                    <div class="sme-match-comparison-row sme-match-comparison-row--header" role="row">
+                                                                        <span role="columnheader">Field</span>
+                                                                        <span role="columnheader">Your item</span>
+                                                                        <span role="columnheader">Retail result</span>
+                                                                        <span role="columnheader">Match</span>
+                                                                    </div>
+                                                                    @foreach (var row in comparisonRows)
+                                                                    {
+                                                                        <div class="sme-match-comparison-row" role="row">
+                                                                            <strong role="cell">@row.Label</strong>
+                                                                            <span role="cell">@row.LocalValue</span>
+                                                                            <span role="cell">@row.CandidateValue</span>
+                                                                            <span role="cell" class="@GetConfidenceSignalClass(row.Score)">
+                                                                                <MudIcon Icon="@GetConfidenceSignalIcon(row.Score)" Size="Size.Small" />
+                                                                                @(row.Score >= 0 ? $"{GetComparisonScoreLabel(row.Score)} · {FormatCandidateScore(row.Score)}" : "Not compared")
+                                                                            </span>
+                                                                        </div>
+                                                                    }
+                                                                </div>
+                                                            </section>
                                                             <section class="sme-candidate-evidence-panel">
                                                                 @if (!string.IsNullOrWhiteSpace(candidate.Description))
                                                                 {

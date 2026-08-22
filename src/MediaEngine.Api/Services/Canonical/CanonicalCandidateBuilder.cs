@@ -248,10 +248,28 @@ internal sealed class CanonicalCandidateBuilder(
             Year = candidate.Year,
             Author = candidate.Author,
             Director = candidate.Director,
-            CoverUrl = candidate.CoverUrl,
+            CoverUrl = null,
             WikipediaExtract = candidate.WikipediaExtract,
             ResolutionTier = candidate.ResolutionTier,
-            Confidence = candidate.Confidence,
+            Confidence = candidate.MatchScores?.CompositeScore > 0
+                ? candidate.MatchScores.CompositeScore
+                : candidate.Confidence,
+            MatchScores = candidate.MatchScores is null
+                ? null
+                : new MediaEngine.Contracts.Search.FieldMatchScoresDto
+                {
+                    TitleScore = candidate.MatchScores.TitleScore,
+                    AuthorScore = candidate.MatchScores.AuthorScore,
+                    YearScore = candidate.MatchScores.YearScore,
+                    FormatScore = candidate.MatchScores.FormatScore,
+                    CompositeScore = candidate.MatchScores.CompositeScore,
+                    TitleVerdict = (int)candidate.MatchScores.TitleVerdict,
+                    AuthorVerdict = (int)candidate.MatchScores.AuthorVerdict,
+                    YearVerdict = (int)candidate.MatchScores.YearVerdict,
+                    FormatVerdict = (int)candidate.MatchScores.FormatVerdict,
+                    CoverScore = candidate.MatchScores.CoverScore,
+                    CoverVerdict = (int)candidate.MatchScores.CoverVerdict,
+                },
             BridgeIds = candidate.BridgeIds?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)
                 ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             MediaTypeMetadata = candidate.MediaTypeMetadata?.ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase)

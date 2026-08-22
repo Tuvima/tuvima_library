@@ -68,6 +68,27 @@ public sealed class SearchServiceUniverseSearchTests
     }
 
     [Fact]
+    public async Task SearchUniverse_AudiobookKeepsNamedWikidataMetadataWithoutRetailArtworkLookup()
+    {
+        var wikidata = new AudiobookWikidataProvider();
+        var retail = new CapturingRetailProvider("apple_api");
+        var service = BuildSearchService(wikidata, retail);
+
+        var result = await service.SearchUniverseAsync(new SearchUniverseRequest(
+            Query: "Dungeon Crawler Carl",
+            MediaType: "Audiobooks",
+            MaxCandidates: 5,
+            LocalTitle: "Dungeon Crawler Carl",
+            LocalAuthor: "Matt Dinniman"));
+
+        var candidate = Assert.Single(result.Candidates);
+        Assert.Null(candidate.CoverUrl);
+        Assert.Equal("Matt Dinniman", candidate.Author);
+        Assert.Equal("Jeff Hays", candidate.MediaTypeMetadata!["narrator"]);
+        Assert.Equal(0, retail.SearchCount);
+    }
+
+    [Fact]
     public void ReconciliationTitleConstraints_DoNotApplyBookAuthorConstraintToMovieOrExactQid()
     {
         var method = typeof(ReconciliationAdapter).GetMethod(
@@ -193,7 +214,7 @@ public sealed class SearchServiceUniverseSearchTests
         public Guid ProviderId => WellKnownProviders.OpenLibrary;
         public int SearchCount { get; private set; }
 
-        public bool CanHandle(MediaType mediaType) => mediaType == MediaType.Books;
+        public bool CanHandle(MediaType mediaType) => mediaType is MediaType.Books or MediaType.Audiobooks;
 
         public bool CanHandle(EntityType entityType) => entityType == EntityType.Work;
 
@@ -221,6 +242,43 @@ public sealed class SearchServiceUniverseSearchTests
                     ProviderName: Name),
             ]);
         }
+    }
+
+    private sealed class AudiobookWikidataProvider : IExternalMetadataProvider
+    {
+        public string Name => "wikidata_reconciliation";
+        public ProviderDomain Domain => ProviderDomain.Universal;
+        public IReadOnlyList<string> CapabilityTags => ["wikidata"];
+        public Guid ProviderId => Guid.Parse("b3000003-d000-4000-8000-000000000004");
+
+        public bool CanHandle(MediaType mediaType) => true;
+        public bool CanHandle(EntityType entityType) => true;
+
+        public Task<IReadOnlyList<ProviderClaim>> FetchAsync(ProviderLookupRequest request, CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<ProviderClaim>>([]);
+
+        public Task<IReadOnlyList<SearchResultItem>> SearchAsync(
+            ProviderLookupRequest request,
+            int limit = 25,
+            CancellationToken ct = default) =>
+            Task.FromResult<IReadOnlyList<SearchResultItem>>(
+            [
+                new SearchResultItem(
+                    Title: "Dungeon Crawler Carl",
+                    Author: null,
+                    Description: "2020 novel by Matt Dinniman",
+                    Year: "2020",
+                    ThumbnailUrl: "https://retail.example/should-not-be-used.jpg",
+                    ProviderItemId: "Q136529136",
+                    Confidence: 0.99,
+                    ProviderName: Name,
+                    ResultType: "audiobook_edition",
+                    ExtraFields: new Dictionary<string, string>
+                    {
+                        ["author"] = "Matt Dinniman",
+                        ["narrator"] = "Jeff Hays",
+                    }),
+            ]);
     }
 
     private sealed class StubFuzzyMatchingService : IFuzzyMatchingService

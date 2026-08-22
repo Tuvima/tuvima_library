@@ -92,4 +92,32 @@ public sealed class CanonicalCandidateBuilderTests
         Assert.False(result.IsApplicable);
         Assert.Equal("This result does not include a valid Wikidata QID.", result.BlockedReason);
     }
+
+    [Fact]
+    public void CanonicalCandidate_UsesActualFieldComparisonInsteadOfResolutionTierConfidence()
+    {
+        var candidate = new UniverseCandidate
+        {
+            Qid = "Q136529136",
+            Label = "Dungeon Crawler Carl",
+            Author = "Matt Dinniman",
+            Confidence = 0.55,
+            CoverUrl = "https://retail.example/cover.jpg",
+            MatchScores = new FieldMatchResult
+            {
+                TitleScore = 1,
+                AuthorScore = 1,
+                YearScore = -1,
+                FormatScore = 1,
+                CompositeScore = 0.98,
+            },
+        };
+
+        var result = CanonicalCandidateBuilder.BuildLinkedCandidate(candidate, "Audiobooks", AudiobookPolicy);
+
+        Assert.Equal(0.98, result.Confidence);
+        Assert.NotNull(result.MatchScores);
+        Assert.Equal(1, result.MatchScores.TitleScore);
+        Assert.Null(result.CoverUrl);
+    }
 }

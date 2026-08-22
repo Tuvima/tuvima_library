@@ -332,12 +332,10 @@ public sealed partial class ReconciliationAdapter
             ct).ConfigureAwait(false);
     }
 
-    private static string? GetEditionNarrator(EditionInfo edition)
-    {
-        if (!edition.Claims.TryGetValue("P175", out var narratorClaims) || narratorClaims.Count == 0)
-            return null;
-        return narratorClaims[0].Value?.EntityLabel ?? narratorClaims[0].Value?.RawValue ?? narratorClaims[0].Value?.EntityId;
-    }
+    private static string? GetEditionNarrator(
+        EditionInfo edition,
+        IReadOnlyDictionary<string, string?>? resolvedLabels = null) =>
+        GetEditionClaimLabel(edition, "P175", resolvedLabels);
 
     private static string? GetEditionClaimValue(EditionInfo edition, string propertyId)
     {
@@ -346,12 +344,47 @@ public sealed partial class ReconciliationAdapter
         return claims[0].Value?.RawValue;
     }
 
-    private static string? GetEditionClaimLabel(EditionInfo edition, string propertyId)
+    private static string? GetEditionClaimLabel(
+        EditionInfo edition,
+        string propertyId,
+        IReadOnlyDictionary<string, string?>? resolvedLabels = null)
     {
         if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
             return null;
-        return claims[0].Value?.EntityLabel ?? claims[0].Value?.RawValue ?? claims[0].Value?.EntityId;
+
+        var value = claims[0].Value;
+        if (!string.IsNullOrWhiteSpace(value?.EntityLabel))
+            return value.EntityLabel;
+
+        var entityId = value?.EntityId;
+        if (string.IsNullOrWhiteSpace(entityId) && IsExactQid(value?.RawValue))
+            entityId = value!.RawValue;
+        if (!string.IsNullOrWhiteSpace(entityId)
+            && resolvedLabels?.TryGetValue(entityId, out var resolvedLabel) == true
+            && !string.IsNullOrWhiteSpace(resolvedLabel))
+        {
+            return resolvedLabel;
+        }
+
+        return IsExactQid(value?.RawValue) || IsExactQid(entityId)
+            ? null
+            : value?.RawValue ?? entityId;
     }
+
+    private static string? GetEditionClaimEntityId(EditionInfo edition, string propertyId)
+    {
+        if (!edition.Claims.TryGetValue(propertyId, out var claims) || claims.Count == 0)
+            return null;
+
+        var value = claims[0].Value;
+        if (IsExactQid(value?.EntityId))
+            return value!.EntityId;
+        return IsExactQid(value?.RawValue) ? value!.RawValue : null;
+    }
+
+    private static bool IsExactQid(string? value) =>
+        !string.IsNullOrWhiteSpace(value)
+        && Regex.IsMatch(value.Trim(), @"^Q\d+$", RegexOptions.IgnoreCase);
 
     /// <summary>
     /// Discovers audiobook editions of a work via P747 (has_edition_or_translation)
@@ -381,12 +414,30 @@ public sealed partial class ReconciliationAdapter
             if (editions.Count == 0)
                 return [];
 
+            var referencedQids = editions
+                .SelectMany(edition => new[]
+                {
+                    GetEditionClaimEntityId(edition, "P175"),
+                    GetEditionClaimEntityId(edition, "P123"),
+                })
+                .Where(qid => !string.IsNullOrWhiteSpace(qid))
+                .Select(qid => qid!)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            IReadOnlyDictionary<string, string?> resolvedLabels = new Dictionary<string, string?>();
+            if (referencedQids.Count > 0)
+            {
+                resolvedLabels = await _reconciler.Labels
+                    .GetBatchAsync(referencedQids, language, withFallbackLanguage: true, ct)
+                    .ConfigureAwait(false);
+            }
+
             var results = editions.Select(e =>
             {
-                var narrator  = GetEditionNarrator(e);
+                var narrator  = GetEditionNarrator(e, resolvedLabels);
                 var duration  = GetEditionClaimValue(e, "P2047");
                 var asin      = GetEditionClaimValue(e, "P5749");
-                var publisher = GetEditionClaimLabel(e, "P123");
+                var publisher = GetEditionClaimLabel(e, "P123", resolvedLabels);
                 return new AudiobookEditionData(e.EntityId, e.Label, narrator, duration, asin, publisher);
             }).ToList();
 

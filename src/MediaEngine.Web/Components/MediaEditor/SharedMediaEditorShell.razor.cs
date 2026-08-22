@@ -101,18 +101,22 @@ public partial class SharedMediaEditorShell
     private readonly HashSet<string> _audiobookChapterOverrideKeys = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, bool> _contentGroupExpandedOverrides = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _artworkApplyingKeys = new(StringComparer.OrdinalIgnoreCase);
-    private ItemCanonicalSearchResponseDto? _canonicalSearchResponse;
-    private CancellationTokenSource? _canonicalSearchCts;
+    private ItemCanonicalSearchResponseDto? _retailSearchResponse;
+    private ItemCanonicalSearchResponseDto? _wikidataSearchResponse;
+    private CancellationTokenSource? _retailSearchCts;
+    private CancellationTokenSource? _wikidataSearchCts;
     private RetailCandidateDetailDto? _retailCandidateDetail;
     private readonly MediaEditorTabState _tabState = new();
     private string _activeTab => _tabState.ActiveTab;
     private string _activeScopeId = string.Empty;
     private string _canonicalTargetGroup = "";
-    private string _canonicalSearchQuery = "";
+    private string _retailSearchQuery = "";
+    private string _wikidataSearchQuery = "";
     private string _activeMatchSearchMode = "retail";
     private string _artworkUrlInput = string.Empty;
     private string? _artworkAddMenuAssetType;
-    private string? _selectedCandidateId;
+    private string? _selectedRetailCandidateId;
+    private string? _selectedWikidataCandidateId;
     private string? _selectedArtworkAssetType;
     private string? _focusedArtworkVariantKey;
     private string? _deleteConfirmArtworkVariantKey;
@@ -122,7 +126,8 @@ public partial class SharedMediaEditorShell
     private bool _loading = true;
     private bool _saving;
     private bool _reclassifying;
-    private bool _searchingCanonical;
+    private bool _searchingRetail;
+    private bool _searchingWikidata;
     private bool _loadingRetailCandidateDetail;
     private bool _artworkUrlSubmitting;
     private bool _providerArtworkRefreshing;
@@ -160,6 +165,12 @@ public partial class SharedMediaEditorShell
     protected IReadOnlyList<(string Key, string Label)> QuickSearchTargets => ResolveQuickSearchTargets();
     protected IReadOnlyList<ArtworkSlotDefinition> ArtworkSlots => ResolveArtworkSlots(ArtworkScope);
     protected bool SupportsCanonicalSearch => QuickSearchTargets.Count > 0;
+    protected ItemCanonicalSearchResponseDto? ActiveMatchSearchResponse =>
+        IsWikidataSearchMode ? _wikidataSearchResponse : _retailSearchResponse;
+    protected string ActiveMatchSearchQuery =>
+        IsWikidataSearchMode ? _wikidataSearchQuery : _retailSearchQuery;
+    protected bool IsActiveMatchSearchPending =>
+        IsWikidataSearchMode ? _searchingWikidata : _searchingRetail;
     protected string? CanonicalSearchUnavailableReason => GetCanonicalSearchUnavailableReason();
     protected IReadOnlyList<MediaEditorScopeDto> ScopeOptions =>
         (_editorContext?.Scopes ?? [])
@@ -590,7 +601,7 @@ public partial class SharedMediaEditorShell
                 _tabState.ActivateFile();
 
             EnsureActiveTabVisible();
-            _canonicalSearchQuery = BuildSuggestedSearchQuery();
+            InitializeMatchSearchQueries();
             InitializeMatchSearchState();
         }
         catch (Exception ex)
@@ -766,9 +777,7 @@ public partial class SharedMediaEditorShell
         _selectedMediaType = NormalizeEditorMediaType(_detail?.MediaType ?? _editorContext?.MediaType ?? Request.MediaType);
         _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
         _canonicalTargetGroup = ActiveScope?.CanonicalTargetGroup ?? _schema.DefaultTargetGroup;
-        _canonicalSearchQuery = BuildSuggestedSearchQuery();
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
+        ResetMatchSearchState();
         _showQuarantineConfirm = false;
         _pendingMembershipPreview = null;
         CloseArtworkZoom();
@@ -941,9 +950,7 @@ public partial class SharedMediaEditorShell
         }
 
         _canonicalTargetGroup = targetGroup;
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
-        _canonicalSearchQuery = BuildSuggestedSearchQuery();
+        ResetMatchSearchState();
         _matchActionStatus = null;
         StateHasChanged();
     }
@@ -1530,17 +1537,11 @@ public partial class SharedMediaEditorShell
             case MediaEditorIdentityIntent.FixRetailMatch:
             case MediaEditorIdentityIntent.ConfirmRetailMatch:
                 _activeMatchSearchMode = "retail";
-                _canonicalSearchResponse = null;
-                _selectedCandidateId = null;
-                _retailCandidateDetail = null;
                 break;
 
             case MediaEditorIdentityIntent.FixWikidataMatch:
             case MediaEditorIdentityIntent.ConfirmWikidataMatch:
                 _activeMatchSearchMode = "wikidata";
-                _canonicalSearchResponse = null;
-                _selectedCandidateId = null;
-                _retailCandidateDetail = null;
                 break;
 
             default:
@@ -1597,7 +1598,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task HandleClose()
     {
-        CancelCanonicalSearch();
+        CancelAllMatchSearches();
         if (IsDirty)
         {
             _confirmDiscard = true;
@@ -1674,9 +1675,8 @@ public partial class SharedMediaEditorShell
                 return;
             }
 
-            _canonicalSearchResponse = null;
+            ResetMatchSearchState();
             _editedValues.Clear();
-            _selectedCandidateId = null;
             _scopeStates.Clear();
             _navigator = null;
             await LoadSingleItemAsync(resetEditorState: true);
@@ -2105,7 +2105,7 @@ public partial class SharedMediaEditorShell
     private static string FormatProviderArtworkSkipReason(string? reason) =>
         reason switch
         {
-            "missing_qid" => "confirmed Wikidata QID required.",
+            "missing_qid" => "confirmed canonical identity required.",
             "missing_bridge_id" => "provider bridge ID required.",
             "missing_api_key" => "Fanart.tv API key is not configured.",
             "provider_no_result" => "provider returned no artwork.",
@@ -2244,10 +2244,11 @@ public partial class SharedMediaEditorShell
         if (!IsSingleItem || IsFileScope)
             return;
 
-        CancelCanonicalSearch();
+        var isWikidataSearch = IsWikidataSearchMode;
+        CancelMatchSearch(isWikidataSearch);
         var searchCts = new CancellationTokenSource();
-        _canonicalSearchCts = searchCts;
-        _searchingCanonical = true;
+        SetMatchSearchCts(isWikidataSearch, searchCts);
+        SetMatchSearchPending(isWikidataSearch, true);
         StateHasChanged();
 
         try
@@ -2260,16 +2261,17 @@ public partial class SharedMediaEditorShell
                     TargetKind = GetCanonicalTargetKind(_canonicalTargetGroup),
                     TargetFieldGroup = _canonicalTargetGroup,
                     DraftFields = BuildDraftFields(),
-                    QueryOverride = string.IsNullOrWhiteSpace(_canonicalSearchQuery) ? null : _canonicalSearchQuery.Trim(),
-                    SearchMode = GetCanonicalSearchMode(),
+                    QueryOverride = string.IsNullOrWhiteSpace(GetMatchSearchQuery(isWikidataSearch))
+                        ? null
+                        : GetMatchSearchQuery(isWikidataSearch).Trim(),
+                    SearchMode = GetCanonicalSearchMode(isWikidataSearch),
                 }, searchCts.Token);
 
             if (searchCts.IsCancellationRequested)
                 return;
 
-            _canonicalSearchResponse = response;
-            _selectedCandidateId = null;
-            _retailCandidateDetail = null;
+            SetMatchSearchResponse(isWikidataSearch, response);
+            ClearMatchSelection(isWikidataSearch);
             if (response is null)
             {
                 Snackbar.Add(ApiClient.LastError ?? "Canonical search failed.", Severity.Error);
@@ -2281,10 +2283,10 @@ public partial class SharedMediaEditorShell
         }
         finally
         {
-            if (ReferenceEquals(_canonicalSearchCts, searchCts))
+            if (ReferenceEquals(GetMatchSearchCts(isWikidataSearch), searchCts))
             {
-                _canonicalSearchCts = null;
-                _searchingCanonical = false;
+                SetMatchSearchCts(isWikidataSearch, null);
+                SetMatchSearchPending(isWikidataSearch, false);
                 searchCts.Dispose();
                 await InvokeAsync(StateHasChanged);
             }
@@ -2335,8 +2337,8 @@ public partial class SharedMediaEditorShell
     private bool IsWikidataSearchMode =>
         string.Equals(_activeMatchSearchMode, "wikidata", StringComparison.OrdinalIgnoreCase);
 
-    private string GetCanonicalSearchMode() =>
-        IsWikidataSearchMode ? "wikidata_only" : "retail_only";
+    private static string GetCanonicalSearchMode(bool isWikidataSearch) =>
+        isWikidataSearch ? "wikidata_only" : "retail_only";
 
     protected string GetCanonicalTargetLabel(string targetGroup) =>
         QuickSearchTargets.FirstOrDefault(target => string.Equals(target.Key, targetGroup, StringComparison.OrdinalIgnoreCase)).Label
@@ -2395,7 +2397,7 @@ public partial class SharedMediaEditorShell
             ("Status", GetMatchStatusLabel(summary, hasProvider, hasQid)),
             ("Retail Provider", !string.IsNullOrWhiteSpace(provider) ? provider : "Not linked"),
             ("Provider ID", !string.IsNullOrWhiteSpace(providerId) ? providerId! : "Not linked"),
-            ("Wikidata Identity", !string.IsNullOrWhiteSpace(qid) ? qid! : "No QID"),
+            ("Canonical Identity", hasQid ? "Matched" : "Not matched"),
         };
 
         if (!string.IsNullOrWhiteSpace(universe))
@@ -2491,7 +2493,7 @@ public partial class SharedMediaEditorShell
             chips.Add(provider);
 
         return new MatchCardDisplay(
-            Badge: !string.IsNullOrWhiteSpace(qid) ? qid! : "No QID",
+            Badge: !string.IsNullOrWhiteSpace(qid) ? "Matched" : "Not matched",
             Title: title,
             Creator: type,
             Year: year,
@@ -2704,6 +2706,177 @@ public partial class SharedMediaEditorShell
         ];
     }
 
+    protected IReadOnlyList<CandidateComparisonRow> BuildCanonicalComparisonRows(ItemCanonicalLinkedCandidateDto candidate)
+    {
+        var draft = BuildDraftFields();
+        var scores = candidate.MatchScores;
+        var rows = new List<CandidateComparisonRow>
+        {
+            BuildComparisonRow(
+                "Title",
+                FirstDraftValue(draft, "title", "album", "show_name", "series", "episode_title"),
+                candidate.Label,
+                scores?.TitleScore),
+            BuildComparisonRow(
+                "Work type",
+                GetLocalCanonicalTypeLabel(),
+                FirstNamedCandidateValue(candidate, "canonical_kind") ?? candidate.InstanceOf,
+                scores?.FormatScore ?? (candidate.IsApplicable ? 1 : 0)),
+            BuildComparisonRow(
+                "Creator",
+                FirstDraftValue(draft, "author", "director", "artist"),
+                FirstNamedCandidateValue(candidate, "author", "creator", "director")
+                    ?? candidate.Author
+                    ?? candidate.Director,
+                scores?.AuthorScore),
+            BuildComparisonRow(
+                "Published",
+                FirstDraftValue(draft, "year", "release_date"),
+                candidate.Year,
+                scores?.YearScore),
+        };
+
+        AddOptionalComparisonRow(rows, "Narrator",
+            StringHelpers.FirstNonBlank(
+                FirstDraftValue(draft, "narrator"),
+                _detail?.Narrator,
+                GetBaselineValue("narrator")),
+            FirstNamedCandidateValue(candidate, "narrator", "narrators"));
+        AddOptionalComparisonRow(rows, "Publisher",
+            FirstDraftValue(draft, "publisher"),
+            FirstNamedCandidateValue(candidate, "publisher"));
+        AddOptionalComparisonRow(rows, "Language",
+            FirstDraftValue(draft, "language"),
+            FirstNamedCandidateValue(candidate, "language"));
+        AddOptionalComparisonRow(rows, "ISBN",
+            FirstDraftValue(draft, "isbn", "isbn_13", "isbn_10"),
+            FirstNamedCandidateValue(candidate, "isbn", "isbn_13", "isbn_10"));
+
+        return rows;
+    }
+
+    protected IReadOnlyList<CandidateComparisonRow> BuildRetailComparisonRows(ItemCanonicalRetailCandidateDto candidate)
+    {
+        var draft = BuildDraftFields();
+        var scores = candidate.MatchScores;
+        var rows = new List<CandidateComparisonRow>
+        {
+            BuildComparisonRow("Title", FirstDraftValue(draft, "title", "album", "show_name", "episode_title"), candidate.Title, scores?.TitleScore),
+            BuildComparisonRow("Creator", FirstDraftValue(draft, "author", "director", "artist"), candidate.Author ?? candidate.Director, scores?.AuthorScore),
+            BuildComparisonRow("Published", FirstDraftValue(draft, "year", "release_date"), candidate.Year, scores?.YearScore),
+            BuildComparisonRow("Format", GetLocalCanonicalTypeLabel(), FirstNamedCandidateValue(candidate, "format", "kind", "media_type") ?? GetLocalCanonicalTypeLabel(), scores?.FormatScore),
+        };
+
+        AddOptionalComparisonRow(rows, "Narrator",
+            StringHelpers.FirstNonBlank(
+                FirstDraftValue(draft, "narrator"),
+                _detail?.Narrator,
+                GetBaselineValue("narrator")),
+            FirstNamedCandidateValue(candidate, "narrator", "narrators"));
+        AddOptionalComparisonRow(rows, "Publisher",
+            FirstDraftValue(draft, "publisher"),
+            FirstNamedCandidateValue(candidate, "publisher"));
+        AddOptionalComparisonRow(rows, "Language",
+            FirstDraftValue(draft, "language"),
+            FirstNamedCandidateValue(candidate, "language"));
+        AddOptionalComparisonRow(rows, "Genre",
+            FirstDraftValue(draft, "genre", "genres"),
+            FirstNamedCandidateValue(candidate, "genre", "genres"));
+        AddOptionalComparisonRow(rows, "ISBN",
+            FirstDraftValue(draft, "isbn", "isbn_13", "isbn_10"),
+            FirstNamedCandidateValue(candidate, "isbn", "isbn_13", "isbn_10"));
+
+        return rows;
+    }
+
+    private CandidateComparisonRow BuildComparisonRow(
+        string label,
+        string? localValue,
+        string? candidateValue,
+        double? suppliedScore = null)
+    {
+        candidateValue = NormalizeNamedCandidateValue(candidateValue);
+        var evidence = BuildTextEvidence(label, localValue, candidateValue);
+        var score = suppliedScore is >= 0 ? suppliedScore.Value : evidence.Score;
+        return new CandidateComparisonRow(label, DisplayComparisonValue(localValue), DisplayComparisonValue(candidateValue), score);
+    }
+
+    private void AddOptionalComparisonRow(
+        ICollection<CandidateComparisonRow> rows,
+        string label,
+        string? localValue,
+        string? candidateValue)
+    {
+        candidateValue = NormalizeNamedCandidateValue(candidateValue);
+        if (string.IsNullOrWhiteSpace(localValue) && string.IsNullOrWhiteSpace(candidateValue))
+            return;
+
+        rows.Add(BuildComparisonRow(label, localValue, candidateValue));
+    }
+
+    private string GetLocalCanonicalTypeLabel() =>
+        ReviewTargetResolver.NormalizeMediaType(_selectedMediaType) switch
+        {
+            "Audiobooks" => "Audiobook",
+            "Books" => "Book",
+            "Movies" => "Movie",
+            "TV" => "TV",
+            "Music" => "Music",
+            "Comics" => "Comic",
+            var value => value,
+        };
+
+    private static string? FirstNamedCandidateValue(ItemCanonicalLinkedCandidateDto candidate, params string[] keys) =>
+        FirstNamedCandidateValue([candidate.MediaTypeMetadata, candidate.RequiredFields, candidate.SuggestedFields], keys);
+
+    private static string? FirstNamedCandidateValue(ItemCanonicalRetailCandidateDto candidate, params string[] keys) =>
+        FirstNamedCandidateValue([candidate.ExtraFields, candidate.RequiredFields, candidate.SuggestedFields], keys);
+
+    private static string? FirstNamedCandidateValue(
+        IEnumerable<IReadOnlyDictionary<string, string>> sources,
+        params string[] keys)
+    {
+        foreach (var source in sources)
+        {
+            foreach (var key in keys)
+            {
+                if (source.TryGetValue(key, out var value)
+                    && !string.IsNullOrWhiteSpace(NormalizeNamedCandidateValue(value)))
+                {
+                    return NormalizeNamedCandidateValue(value);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static string? NormalizeNamedCandidateValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var trimmed = value.Trim();
+        var tokens = Regex.Split(trimmed, @"\s*[,;|]\s*")
+            .Where(token => !string.IsNullOrWhiteSpace(token))
+            .ToList();
+        return tokens.Count > 0 && tokens.All(token => Regex.IsMatch(token, @"^Q\d+$", RegexOptions.IgnoreCase))
+            ? null
+            : trimmed;
+    }
+
+    protected static string DisplayComparisonValue(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value.Trim();
+
+    protected static string GetComparisonScoreLabel(double score) =>
+        score switch
+        {
+            >= 0.95 => "Exact",
+            >= 0.7 => "Close",
+            >= 0 => "Different",
+            _ => "Not compared",
+        };
+
     private static CandidateConfidenceSignal BuildTextEvidence(string label, string? localValue, string? candidateValue)
     {
         if (string.IsNullOrWhiteSpace(localValue) || string.IsNullOrWhiteSpace(candidateValue))
@@ -2809,11 +2982,12 @@ public partial class SharedMediaEditorShell
 
     protected async Task ApplyUnlinkedCanonicalAsync()
     {
-        if (_canonicalSearchResponse is null)
+        var searchResponse = ActiveMatchSearchResponse;
+        if (searchResponse is null)
             return;
 
-        var fields = _canonicalSearchResponse.UnlinkedFields.Count > 0
-            ? _canonicalSearchResponse.UnlinkedFields
+        var fields = searchResponse.UnlinkedFields.Count > 0
+            ? searchResponse.UnlinkedFields
             : BuildDraftFields()
                 .Where(pair => MediaEditorSchemaCatalog.GetStrongFieldKeys(_canonicalTargetGroup).Contains(pair.Key, StringComparer.OrdinalIgnoreCase))
                 .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.OrdinalIgnoreCase);
@@ -2837,7 +3011,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task SelectCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
-        _selectedCandidateId = GetCandidateId(candidate);
+        _selectedRetailCandidateId = GetCandidateId(candidate);
         _retailCandidateDetail = null;
 
         if (!string.Equals(ReviewTargetResolver.NormalizeMediaType(_selectedMediaType), "Music", StringComparison.OrdinalIgnoreCase))
@@ -2865,7 +3039,7 @@ public partial class SharedMediaEditorShell
         var candidateId = GetCandidateId(candidate);
         if (IsCandidateSelected(candidateId))
         {
-            _selectedCandidateId = null;
+            _selectedRetailCandidateId = null;
             _retailCandidateDetail = null;
             return;
         }
@@ -2891,7 +3065,7 @@ public partial class SharedMediaEditorShell
 
     protected void SelectCandidate(ItemCanonicalLinkedCandidateDto candidate)
     {
-        _selectedCandidateId = GetCandidateId(candidate);
+        _selectedWikidataCandidateId = GetCandidateId(candidate);
     }
 
     protected bool CanApplyRetailCandidate(ItemCanonicalRetailCandidateDto candidate) =>
@@ -2916,11 +3090,7 @@ public partial class SharedMediaEditorShell
         if (string.Equals(_activeMatchSearchMode, normalized, StringComparison.OrdinalIgnoreCase))
             return;
 
-        CancelCanonicalSearch();
         _activeMatchSearchMode = normalized;
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
-        _retailCandidateDetail = null;
     }
 
     private void InitializeMatchSearchState()
@@ -2932,18 +3102,94 @@ public partial class SharedMediaEditorShell
     }
 
     protected sealed record CandidateConfidenceSignal(string Label, string Value, double Score);
+    protected sealed record CandidateComparisonRow(string Label, string LocalValue, string CandidateValue, double Score);
 
-    protected void CancelCanonicalSearch()
+    protected void SetActiveMatchSearchQuery(string? value)
     {
-        var cts = _canonicalSearchCts;
-        _canonicalSearchCts = null;
+        if (IsWikidataSearchMode)
+            _wikidataSearchQuery = value ?? string.Empty;
+        else
+            _retailSearchQuery = value ?? string.Empty;
+    }
+
+    protected void CancelActiveMatchSearch() => CancelMatchSearch(IsWikidataSearchMode);
+
+    private void CancelMatchSearch(bool isWikidataSearch)
+    {
+        var cts = GetMatchSearchCts(isWikidataSearch);
+        SetMatchSearchCts(isWikidataSearch, null);
         if (cts is not null)
         {
             cts.Cancel();
             cts.Dispose();
         }
 
-        _searchingCanonical = false;
+        SetMatchSearchPending(isWikidataSearch, false);
+    }
+
+    private void CancelAllMatchSearches()
+    {
+        CancelMatchSearch(false);
+        CancelMatchSearch(true);
+    }
+
+    private void ResetMatchSearchState()
+    {
+        CancelAllMatchSearches();
+        _retailSearchResponse = null;
+        _wikidataSearchResponse = null;
+        _selectedRetailCandidateId = null;
+        _selectedWikidataCandidateId = null;
+        _retailCandidateDetail = null;
+        InitializeMatchSearchQueries();
+    }
+
+    private void InitializeMatchSearchQueries()
+    {
+        var suggestedQuery = BuildSuggestedSearchQuery();
+        _retailSearchQuery = suggestedQuery;
+        _wikidataSearchQuery = suggestedQuery;
+    }
+
+    private string GetMatchSearchQuery(bool isWikidataSearch) =>
+        isWikidataSearch ? _wikidataSearchQuery : _retailSearchQuery;
+
+    private CancellationTokenSource? GetMatchSearchCts(bool isWikidataSearch) =>
+        isWikidataSearch ? _wikidataSearchCts : _retailSearchCts;
+
+    private void SetMatchSearchCts(bool isWikidataSearch, CancellationTokenSource? cts)
+    {
+        if (isWikidataSearch)
+            _wikidataSearchCts = cts;
+        else
+            _retailSearchCts = cts;
+    }
+
+    private void SetMatchSearchPending(bool isWikidataSearch, bool pending)
+    {
+        if (isWikidataSearch)
+            _searchingWikidata = pending;
+        else
+            _searchingRetail = pending;
+    }
+
+    private void SetMatchSearchResponse(bool isWikidataSearch, ItemCanonicalSearchResponseDto? response)
+    {
+        if (isWikidataSearch)
+            _wikidataSearchResponse = response;
+        else
+            _retailSearchResponse = response;
+    }
+
+    private void ClearMatchSelection(bool isWikidataSearch)
+    {
+        if (isWikidataSearch)
+            _selectedWikidataCandidateId = null;
+        else
+        {
+            _selectedRetailCandidateId = null;
+            _retailCandidateDetail = null;
+        }
     }
 
     protected string FormatCandidateDuration(double? seconds)
@@ -3006,7 +3252,8 @@ public partial class SharedMediaEditorShell
     }
 
     protected bool IsCandidateSelected(string candidateId) =>
-        string.Equals(_selectedCandidateId, candidateId, StringComparison.Ordinal);
+        string.Equals(_selectedRetailCandidateId, candidateId, StringComparison.Ordinal)
+        || string.Equals(_selectedWikidataCandidateId, candidateId, StringComparison.Ordinal);
 
     protected async Task ApplyRetailCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
@@ -3253,7 +3500,7 @@ public partial class SharedMediaEditorShell
             "show_episode" => new[] { GetValue(values, "show_name"), SeasonEpisodeLabel(values) },
             "show" => new[] { GetValue(values, "show_name") },
             "book_identity" => new[] { GetValue(values, "title"), GetValue(values, "author") },
-            "audiobook_identity" => new[] { GetValue(values, "title"), GetValue(values, "author"), GetValue(values, "narrator") },
+            "audiobook_identity" => new[] { GetValue(values, "title"), GetValue(values, "author") },
             "narrator" => new[] { GetValue(values, "narrator") },
             "series" => new[] { GetValue(values, "series") },
             "issue" => new[] { GetValue(values, "series"), GetValue(values, "series_position"), GetValue(values, "title") },
@@ -3953,7 +4200,7 @@ public partial class SharedMediaEditorShell
         return
         [
             ("Retail Match", !string.IsNullOrWhiteSpace(provider) ? provider : hasProviderEvidence ? "Retail matched" : "Not linked"),
-            ("Wikidata", hasQid ? summary!.WikidataQid! : "No QID"),
+            ("Canonical Identity", hasQid ? "Matched" : "Not matched"),
             ("Status", GetMatchStatusLabel(summary, hasProviderEvidence, hasQid)),
             ("File Metadata", _editorContext?.FileMetadataSyncStatus ?? "Unknown"),
             ("Universe", string.IsNullOrWhiteSpace(summary?.UniverseName) ? "-" : summary!.UniverseName!),
@@ -5237,9 +5484,7 @@ public partial class SharedMediaEditorShell
         _selectedMediaType = NormalizeEditorMediaType(value);
         _schema = MediaEditorSchemaCatalog.Resolve(_selectedMediaType);
         _canonicalTargetGroup = _schema.DefaultTargetGroup;
-        _canonicalSearchQuery = BuildSuggestedSearchQuery();
-        _canonicalSearchResponse = null;
-        _selectedCandidateId = null;
+        ResetMatchSearchState();
         return Task.CompletedTask;
     }
 

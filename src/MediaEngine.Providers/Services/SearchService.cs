@@ -13,7 +13,7 @@ namespace MediaEngine.Providers.Services;
 /// Orchestrates user-triggered metadata search across Wikidata (Universe mode)
 /// and retail providers (Retail mode).
 ///
-/// Universe search: calls retail providers to fetch cover art for QID candidates.
+/// Universe search: returns text-first Wikidata candidates and named comparison metadata.
 ///
 /// Retail search: calls the relevant retail providers (filtered by media type) via
 /// SearchAsync to return title/cover matches without requiring a Wikidata QID.
@@ -134,8 +134,6 @@ public sealed class SearchService : ISearchService
             if (searchResults.Count == 0)
                 return new SearchUniverseResult([], request.Query, request.MediaType);
 
-            // Collect retail providers for cover art enrichment
-            var retailProviders = GetRetailProviders(mediaType);
             var candidates = new List<UniverseCandidate>();
 
             foreach (var result in searchResults)
@@ -154,10 +152,7 @@ public sealed class SearchService : ISearchService
                     InstanceOf     = ExtractInstanceOfFromDescription(result.Description),
                 };
 
-                // Enrich with cover art from retail providers
-                var enriched = await EnrichCandidateAsync(
-                    qidCandidate, request.Query, mediaType, retailProviders, providerEndpoints, ct)
-                    .ConfigureAwait(false);
+                var enriched = BuildUniverseCandidate(qidCandidate, mediaType, result.ExtraFields);
 
                 candidates.Add(enriched);
             }
@@ -267,94 +262,17 @@ public sealed class SearchService : ISearchService
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private async Task<UniverseCandidate> EnrichCandidateAsync(
+    private static UniverseCandidate BuildUniverseCandidate(
         QidCandidate candidate,
-        string originalQuery,
         MediaType mediaType,
-        IReadOnlyList<IExternalMetadataProvider> retailProviders,
-        Dictionary<string, Dictionary<string, string>> providerEndpoints,
-        CancellationToken ct)
+        IReadOnlyDictionary<string, string>? sourceMetadata)
     {
-        var (language, country) = GetConfiguredLocale();
-        string? coverUrl     = null;
-        string? retailAuthor = null;
-
-        // Try to get cover art from retail providers — waterfall through all, then retry with original query
-        if (retailProviders.Count > 0)
-        {
-            // First pass: try each provider with the Wikidata label (precise)
-            foreach (var provider in retailProviders)
-            {
-                if (coverUrl is not null) break;
-                try
-                {
-                    var retailRequest = new ProviderLookupRequest
-                    {
-                        EntityId   = Guid.NewGuid(),
-                        EntityType = EntityType.Work,
-                        MediaType  = mediaType,
-                        Title      = candidate.Label,
-                        BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                        Language   = language,
-                        Country    = country,
-                    };
-
-                    var results = await provider.SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
-                    if (results.Count > 0 && !string.IsNullOrEmpty(results[0].ThumbnailUrl))
-                    {
-                        coverUrl = results[0].ThumbnailUrl;
-                        // Also capture author from retail provider (pen name friendly)
-                        retailAuthor ??= results[0].Author;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex,
-                        "Retail cover art enrichment failed for candidate {Qid} from provider {Provider}",
-                        candidate.Qid, provider.Name);
-                }
-            }
-
-            // Second pass: retry with original search query if no cover found
-            if (coverUrl is null
-                && !string.Equals(candidate.Label, originalQuery, StringComparison.OrdinalIgnoreCase))
-            {
-                foreach (var provider in retailProviders)
-                {
-                    if (coverUrl is not null) break;
-                    try
-                    {
-                        var retailRequest = new ProviderLookupRequest
-                        {
-                            EntityId   = Guid.NewGuid(),
-                            EntityType = EntityType.Work,
-                            MediaType  = mediaType,
-                            Title      = originalQuery,
-                            BaseUrl    = GetProviderBaseUrl(provider.Name, providerEndpoints),
-                            Language   = language,
-                            Country    = country,
-                        };
-
-                        var results = await provider.SearchAsync(retailRequest, 1, ct).ConfigureAwait(false);
-                        if (results.Count > 0 && !string.IsNullOrEmpty(results[0].ThumbnailUrl))
-                        {
-                            coverUrl = results[0].ThumbnailUrl;
-                            retailAuthor ??= results[0].Author;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogDebug(ex,
-                            "Retail cover art fallback failed for candidate {Qid} from provider {Provider}",
-                            candidate.Qid, provider.Name);
-                    }
-                }
-            }
-        }
-
         // Parse year from the Wikidata description heuristically
         // (e.g. "1965 novel by Frank Herbert" → year="1965")
         string? year = ExtractYearFromDescription(candidate.Description);
+        var metadata = BuildMediaTypeMetadata(candidate, mediaType, sourceMetadata);
+        var author = GetNamedMetadataValue(metadata, "author", "creator")
+            ?? ExtractAuthorFromDescription(candidate.Description);
 
         return new UniverseCandidate
         {
@@ -363,27 +281,54 @@ public sealed class SearchService : ISearchService
             Description       = candidate.Description,
             InstanceOf        = candidate.InstanceOf ?? ExtractInstanceOfFromDescription(candidate.Description),
             Year              = year,
-            Author            = retailAuthor ?? ExtractAuthorFromDescription(candidate.Description),
-            CoverUrl          = coverUrl,
+            Author            = author,
+            CoverUrl          = null,
             ResolutionTier    = candidate.ResolutionTier,
             Confidence        = EstimateConfidence(candidate.ResolutionTier),
             BridgeIds         = new Dictionary<string, string>(),
             MediaType         = mediaType.ToString(),
-            MediaTypeMetadata = BuildMediaTypeMetadata(candidate, mediaType, retailAuthor),
+            MediaTypeMetadata = metadata,
         };
     }
 
     private static IReadOnlyDictionary<string, string>? BuildMediaTypeMetadata(
-        QidCandidate candidate, MediaType mediaType, string? retailAuthor)
+        QidCandidate candidate,
+        MediaType mediaType,
+        IReadOnlyDictionary<string, string>? sourceMetadata)
     {
-        return mediaType switch
+        var metadata = sourceMetadata?
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Value))
+            .ToDictionary(pair => pair.Key, pair => pair.Value.Trim(), StringComparer.OrdinalIgnoreCase)
+            ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        if (mediaType is MediaType.Books or MediaType.Audiobooks)
         {
-            MediaType.Books or MediaType.Audiobooks => new Dictionary<string, string>
+            var author = ExtractAuthorFromDescription(candidate.Description);
+            if (!string.IsNullOrWhiteSpace(author))
+                metadata.TryAdd("author", author);
+        }
+
+        return metadata.Count == 0 ? null : metadata;
+    }
+
+    private static string? GetNamedMetadataValue(
+        IReadOnlyDictionary<string, string>? metadata,
+        params string[] keys)
+    {
+        if (metadata is null)
+            return null;
+
+        foreach (var key in keys)
+        {
+            if (metadata.TryGetValue(key, out var value)
+                && !string.IsNullOrWhiteSpace(value)
+                && !IsExactWikidataQid(value.Trim()))
             {
-                ["author"] = retailAuthor ?? ExtractAuthorFromDescription(candidate.Description) ?? string.Empty,
-            },
-            _ => null,
-        };
+                return value.Trim();
+            }
+        }
+
+        return null;
     }
 
     private async Task<IEnumerable<RetailCandidate>> SearchProviderAsync(
