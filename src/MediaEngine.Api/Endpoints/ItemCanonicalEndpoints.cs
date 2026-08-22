@@ -1096,7 +1096,25 @@ public static class ItemCanonicalEndpoints
                     return ApiErrors.BadRequest("QID is required when replacing a Wikidata match.");
 
                 var qid = request.Qid.Trim();
-                await claimRepo.InsertBatchAsync([new MetadataClaim
+                var acceptedSuggestedFields = request.AcceptedSuggestedKeys
+                    .Where(key => policy.SuggestedFieldKeys.Contains(key, StringComparer.OrdinalIgnoreCase))
+                    .Where(key => request.SuggestedFields.TryGetValue(key, out var value) && !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(key => key, key => request.SuggestedFields[key], StringComparer.OrdinalIgnoreCase);
+
+                var replacementClaims = acceptedSuggestedFields.Select(pair => new MetadataClaim
+                {
+                    Id = Guid.NewGuid(),
+                    EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, pair.Key),
+                    ProviderId = WellKnownProviders.UserManual,
+                    DecisionSourceProviderId = WellKnownProviders.UserManual,
+                    ClaimKey = pair.Key,
+                    ClaimValue = pair.Value,
+                    Confidence = 1.0,
+                    ClaimedAt = now,
+                    IsUserLocked = true,
+                }).ToList();
+                replacementClaims.Add(new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
                     EntityId = workId,
@@ -1106,9 +1124,20 @@ public static class ItemCanonicalEndpoints
                     ClaimValue = qid,
                     Confidence = 1.0,
                     ClaimedAt = now,
-                }], ct);
+                });
+                await claimRepo.InsertBatchAsync(replacementClaims, ct);
 
-                await canonicalRepo.UpsertBatchAsync([new CanonicalValue
+                var replacementCanonicals = acceptedSuggestedFields.Select(pair => new CanonicalValue
+                {
+                    EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, pair.Key),
+                    Key = pair.Key,
+                    Value = pair.Value,
+                    LastScoredAt = now,
+                    IsConflicted = false,
+                    NeedsReview = false,
+                    WinningProviderId = WellKnownProviders.UserManual,
+                }).ToList();
+                replacementCanonicals.Add(new CanonicalValue
                 {
                     EntityId = workId,
                     Key = BridgeIdKeys.WikidataQid,
@@ -1117,15 +1146,19 @@ public static class ItemCanonicalEndpoints
                     IsConflicted = false,
                     NeedsReview = false,
                     WinningProviderId = WellKnownProviders.Wikidata,
-                }], ct);
+                });
+                await canonicalRepo.UpsertBatchAsync(replacementCanonicals, ct);
 
                 await collectionRepo.UpdateWorkWikidataMatchStateAsync(workId, WorkWikidataStatus.UserReplaced, WorkWikidataMatchSource.User, true, qid, ct: ct);
-                fieldsApplied = 1;
+                fieldsApplied = 1 + acceptedSuggestedFields.Count;
 
                 if (request.RehydrateNow)
                 {
                     var canonicals = await canonicalRepo.GetByEntityAsync(workId, ct);
-                    var hints = canonicals.ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+                    var hints = canonicals
+                        .ToDictionary(c => c.Key, c => c.Value, StringComparer.OrdinalIgnoreCase);
+                    foreach (var (key, value) in acceptedSuggestedFields)
+                        hints[key] = value;
                     identityJobId = await pipeline.EnqueueAsync(new HarvestRequest
                     {
                         EntityId = context.AssetId,
@@ -1183,7 +1216,11 @@ public static class ItemCanonicalEndpoints
                     request.TargetScopeId,
                     policy.TargetFieldGroup,
                     "user_manual",
-                    [BridgeIdKeys.WikidataQid, "wikidata_status"]),
+                    request.AcceptedSuggestedKeys
+                        .Append(BridgeIdKeys.WikidataQid)
+                        .Append("wikidata_status")
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray()),
                 ct);
 
             if (request.ReviewItemId is { } reviewItemId)

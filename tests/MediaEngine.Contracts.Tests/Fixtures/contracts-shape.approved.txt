@@ -1265,6 +1265,8 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailPrimaryModuleV
   SupportsLaneFilter: System.Boolean | nullability=not-null | accessors=get,init
   SupportsRoleFilter: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailProgressKind
+
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.DetailTab
   Key: System.String | nullability=not-null | accessors=get,init
   Label: System.String | nullability=not-null | accessors=get,init
@@ -1424,6 +1426,7 @@ MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.PersonRelatedLink
 
 MediaEngine.Contracts.Details.MediaEngine.Contracts.Details.ProgressViewModel
   Percent: System.Double | nullability=not-null | accessors=get,init
+  Kind: MediaEngine.Contracts.Details.DetailProgressKind | nullability=not-null | accessors=get,init
   Label: System.String | nullability=nullable | accessors=get,init
   ContextLabel: System.String | nullability=nullable | accessors=get,init
   PercentLabel: System.String | nullability=nullable | accessors=get,init
@@ -2798,6 +2801,8 @@ MediaEngine.Contracts.Matching.MediaEngine.Contracts.Matching.ReplaceWikidataMat
   TargetScopeId: System.String | nullability=not-null | accessors=get,set
   Action: System.String | nullability=not-null | accessors=get,set
   Qid: System.String | nullability=nullable | accessors=get,set
+  SuggestedFields: System.Collections.Generic.Dictionary<System.String, System.String> | nullability=not-null | accessors=get,set
+  AcceptedSuggestedKeys: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,set
   RejectedQid: System.String | nullability=nullable | accessors=get,set
   Reason: System.String | nullability=nullable | accessors=get,set
   KeepRetailMatch: System.Boolean | nullability=not-null | accessors=get,set

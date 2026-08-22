@@ -3,7 +3,7 @@
 # Compatibility is enforced separately by wire-compatibility.approved.txt.
 # Serializer: System.Text.Json JsonSerializerDefaults.Web; DefaultIgnoreCondition=Never
 # Regenerate intentionally with TUVIMA_UPDATE_WIRE_SNAPSHOT=1.
-# scopes: contracts=589; api=0; web-client=87
+# scopes: contracts=590; api=0; web-client=87
 
 [contracts] MediaEngine.Contracts.Activity.ActivityBatchItemDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -1558,6 +1558,13 @@
   SupportsRoleFilter: System.Boolean | json=supportsRoleFilter | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"kind":0,"title":"sample","groupKeys":[],"supportsLaneFilter":true,"supportsRoleFilter":true}
 
+[contracts] MediaEngine.Contracts.Details.DetailProgressKind
+  kind=enum | converter=default | number-handling=default | unmapped=default
+  enum Unknown=0 | json=0
+  enum Reading=1 | json=1
+  enum Listening=2 | json=2
+  enum Watching=3 | json=3
+
 [contracts] MediaEngine.Contracts.Details.DetailTab
   kind=class | converter=default | number-handling=default | unmapped=default
   Key: System.String | json=key | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -1781,12 +1788,13 @@
 [contracts] MediaEngine.Contracts.Details.ProgressViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
   Percent: System.Double | json=percent | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Kind: MediaEngine.Contracts.Details.DetailProgressKind | json=kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Label: System.String | json=label | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ContextLabel: System.String | json=contextLabel | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   PercentLabel: System.String | json=percentLabel | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RemainingLabel: System.String | json=remainingLabel | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SecondaryLabel: System.String | json=secondaryLabel | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"percent":7,"label":"sample","contextLabel":"sample","percentLabel":"sample","remainingLabel":"sample","secondaryLabel":"sample"}
+  sample={"percent":7,"kind":0,"label":"sample","contextLabel":"sample","percentLabel":"sample","remainingLabel":"sample","secondaryLabel":"sample"}
 
 [contracts] MediaEngine.Contracts.Details.ReadingListeningSyncCapabilityViewModel
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3402,12 +3410,14 @@
   TargetScopeId: System.String | json=target_scope_id | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Action: System.String | json=action | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Qid: System.String | json=qid | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  SuggestedFields: System.Collections.Generic.Dictionary<System.String, System.String> | json=suggested_fields | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AcceptedSuggestedKeys: System.Collections.Generic.List<System.String> | json=accepted_suggested_keys | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RejectedQid: System.String | json=rejected_qid | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Reason: System.String | json=reason | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   KeepRetailMatch: System.Boolean | json=keep_retail_match | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   RehydrateNow: System.Boolean | json=rehydrate_now | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ReviewItemId: System.Guid? | json=review_item_id | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"target_kind":"sample","target_field_group":"sample","target_scope_id":"sample","action":"sample","qid":"sample","rejected_qid":"sample","reason":"sample","keep_retail_match":true,"rehydrate_now":true,"review_item_id":"11111111-2222-3333-4444-555555555555"}
+  sample={"target_kind":"sample","target_field_group":"sample","target_scope_id":"sample","action":"sample","qid":"sample","suggested_fields":{},"accepted_suggested_keys":[],"rejected_qid":"sample","reason":"sample","keep_retail_match":true,"rehydrate_now":true,"review_item_id":"11111111-2222-3333-4444-555555555555"}
 
 [contracts] MediaEngine.Contracts.Metadata.ArtworkEditorDto
   kind=class | converter=default | number-handling=default | unmapped=default

@@ -2295,10 +2295,8 @@ public partial class SharedMediaEditorShell
                 _selectedSuggestedFieldKeys[GetCandidateId(candidate)] = candidate.SuggestedFields.Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
             }
 
-            if (IsWikidataSearchMode && response.LinkedCandidates.Count > 0)
-                _selectedCandidateId = GetCandidateId(response.LinkedCandidates[0]);
-            else if (!IsWikidataSearchMode && response.RetailCandidates.Count > 0)
-                await SelectCandidateAsync(response.RetailCandidates[0]);
+            // Search ranking is advisory. The user must explicitly select a candidate
+            // before either identity workflow exposes an applicable confirmation action.
         }
         finally
         {
@@ -2689,6 +2687,61 @@ public partial class SharedMediaEditorShell
             _ => "Confidence unavailable",
         };
 
+    protected static string GetMatchQualityLabel(double score) =>
+        score switch
+        {
+            >= 0.75 => "Strong",
+            >= 0.55 => "Possible",
+            _ => "Low",
+        };
+
+    protected static string GetMatchQualityClass(double score) =>
+        GetMatchQualityLabel(score).ToLowerInvariant();
+
+    protected IReadOnlyList<CandidateConfidenceSignal> BuildCanonicalConfidenceSignals(ItemCanonicalLinkedCandidateDto candidate)
+    {
+        var draft = BuildDraftFields();
+        var title = FirstDraftValue(draft, "title", "album", "show_name", "series", "episode_title");
+        var creator = FirstDraftValue(draft, "author", "director", "artist", "narrator");
+        var candidateCreator = !string.IsNullOrWhiteSpace(candidate.Author) ? candidate.Author : candidate.Director;
+        var year = FirstDraftValue(draft, "year", "release_date");
+
+        return
+        [
+            BuildTextEvidence("Title", title, candidate.Label),
+            BuildTextEvidence("Creator", creator, candidateCreator),
+            BuildTextEvidence("Year", year, candidate.Year),
+            new CandidateConfidenceSignal(
+                "Type compatible",
+                candidate.IsApplicable ? "Compatible" : candidate.BlockedReason ?? "Not applicable",
+                candidate.IsApplicable ? 1 : 0),
+        ];
+    }
+
+    private static CandidateConfidenceSignal BuildTextEvidence(string label, string? localValue, string? candidateValue)
+    {
+        if (string.IsNullOrWhiteSpace(localValue) || string.IsNullOrWhiteSpace(candidateValue))
+            return new CandidateConfidenceSignal($"{label} unavailable", "Not compared", -1);
+
+        var local = NormalizeEvidenceValue(localValue);
+        var candidate = NormalizeEvidenceValue(candidateValue);
+        if (string.Equals(local, candidate, StringComparison.Ordinal))
+            return new CandidateConfidenceSignal($"{label} exact", "Exact", 1);
+
+        if (local.Contains(candidate, StringComparison.Ordinal) || candidate.Contains(local, StringComparison.Ordinal))
+            return new CandidateConfidenceSignal($"{label} close", "Close", 0.75);
+
+        return new CandidateConfidenceSignal($"{label} differs", "Different", 0.2);
+    }
+
+    private static string FirstDraftValue(IReadOnlyDictionary<string, string> values, params string[] keys) =>
+        keys.Select(key => values.TryGetValue(key, out var value) ? value : null)
+            .FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value))
+        ?? string.Empty;
+
+    private static string NormalizeEvidenceValue(string value) =>
+        Regex.Replace(value.Trim().ToLowerInvariant(), @"[^\p{L}\p{N}]+", " ").Trim();
+
     protected static IReadOnlyList<CandidateConfidenceSignal> BuildRetailConfidenceSignals(ItemCanonicalRetailCandidateDto candidate)
     {
         var scores = candidate.MatchScores;
@@ -2822,6 +2875,35 @@ public partial class SharedMediaEditorShell
         _customizeMatchChanges = false;
     }
 
+    protected bool CanApplyRetailCandidate(ItemCanonicalRetailCandidateDto candidate) =>
+        IsCandidateSelected(GetCandidateId(candidate))
+        && candidate.IsApplicable
+        && !_matchActionPending
+        && !string.IsNullOrWhiteSpace(candidate.ProviderName)
+        && !string.IsNullOrWhiteSpace(candidate.ProviderItemId);
+
+    protected bool CanApplyLinkedCandidate(ItemCanonicalLinkedCandidateDto candidate) =>
+        IsCandidateSelected(GetCandidateId(candidate))
+        && candidate.IsApplicable
+        && !_matchActionPending
+        && (!string.IsNullOrWhiteSpace(candidate.Qid)
+            || candidate.QidFields.TryGetValue("wikidata_qid", out var qid) && !string.IsNullOrWhiteSpace(qid));
+
+    protected string GetSelectedChangeSummary(IReadOnlyDictionary<string, string> suggestedFields, string candidateId)
+    {
+        if (suggestedFields.Count == 0)
+            return "Required identity values will be applied.";
+
+        var selectedCount = GetAcceptedSuggestedKeys(candidateId)
+            .Count(key => suggestedFields.ContainsKey(key));
+        return selectedCount == 1
+            ? "1 optional value selected."
+            : $"{selectedCount} optional values selected.";
+    }
+
+    protected static string FormatSuggestedFieldLabel(string key) =>
+        CultureInfo.CurrentCulture.TextInfo.ToTitleCase(key.Replace('_', ' '));
+
     protected void OpenMatchSearch()
     {
         _showMatchSearch = true;
@@ -2946,7 +3028,7 @@ public partial class SharedMediaEditorShell
 
     protected async Task ApplyRetailCandidateAsync(ItemCanonicalRetailCandidateDto candidate)
     {
-        if (!candidate.IsApplicable || _matchActionPending)
+        if (!CanApplyRetailCandidate(candidate))
             return;
 
         var acceptedSuggested = GetAcceptedSuggestedKeys(GetCandidateId(candidate));
@@ -2980,12 +3062,13 @@ public partial class SharedMediaEditorShell
 
     protected async Task ApplyLinkedCandidateAsync(ItemCanonicalLinkedCandidateDto candidate)
     {
-        if (!candidate.IsApplicable || _matchActionPending)
+        if (!CanApplyLinkedCandidate(candidate))
             return;
 
         var qid = candidate.QidFields.TryGetValue("wikidata_qid", out var qidField)
             ? qidField
             : candidate.Qid;
+        var acceptedSuggested = GetAcceptedSuggestedKeys(GetCandidateId(candidate));
 
         _matchActionPending = true;
         _matchActionStatus = "Applying canonical Wikidata identity...";
@@ -3000,6 +3083,8 @@ public partial class SharedMediaEditorShell
                 TargetScopeId = ActiveScope?.ScopeId ?? string.Empty,
                 Action = "replace",
                 Qid = qid,
+                SuggestedFields = candidate.SuggestedFields,
+                AcceptedSuggestedKeys = acceptedSuggested,
                 ReviewItemId = Request.ReviewItemId,
             });
 

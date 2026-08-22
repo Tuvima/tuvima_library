@@ -383,6 +383,12 @@ public sealed class ReplaceWikidataMatchRequestDto
     [JsonPropertyName("qid")]
     public string? Qid { get; set; }
 
+    [JsonPropertyName("suggested_fields")]
+    public Dictionary<string, string> SuggestedFields { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+
+    [JsonPropertyName("accepted_suggested_keys")]
+    public List<string> AcceptedSuggestedKeys { get; set; } = [];
+
     [JsonPropertyName("rejected_qid")]
     public string? RejectedQid { get; set; }
 

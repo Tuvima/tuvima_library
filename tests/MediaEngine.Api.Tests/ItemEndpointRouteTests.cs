@@ -181,6 +181,21 @@ public sealed class ItemEndpointRouteTests
     }
 
     [Fact]
+    public void ItemCanonicalEndpoints_WikidataReplacementAppliesOnlyAcceptedSuggestedFields()
+    {
+        var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
+        var contracts = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Contracts\Matching\MatchingDtos.cs"));
+        var route = source[source.IndexOf("/{entityId:guid}/wikidata-match", StringComparison.Ordinal)..];
+
+        Assert.Contains("AcceptedSuggestedKeys", contracts, StringComparison.Ordinal);
+        Assert.Contains("SuggestedFields", contracts, StringComparison.Ordinal);
+        Assert.Contains("policy.SuggestedFieldKeys.Contains", route, StringComparison.Ordinal);
+        Assert.Contains("request.SuggestedFields.TryGetValue", route, StringComparison.Ordinal);
+        Assert.Contains("IsUserLocked = true", route, StringComparison.Ordinal);
+        Assert.Contains("fieldsApplied = 1 + acceptedSuggestedFields.Count", route, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ItemCanonicalEndpoints_RetailReplacementQueuesBeforeOptionalProviderSideEffects()
     {
         var source = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Api\Endpoints\ItemCanonicalEndpoints.cs"));
