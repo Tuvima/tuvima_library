@@ -12,8 +12,7 @@ public sealed class MediaEditorSchemaCatalogTests
         var schema = MediaEditorSchemaCatalog.Resolve("Audiobooks");
 
         Assert.Equal("audiobook_identity", schema.DefaultTargetGroup);
-        Assert.Equal(("audiobook_identity", "Audiobook"), schema.QuickSearchTargets[0]);
-        Assert.Equal(("narrator", "Narrator"), schema.QuickSearchTargets[1]);
+        Assert.Equal([("audiobook_identity", "Audiobook")], schema.QuickSearchTargets);
     }
 
     [Fact]

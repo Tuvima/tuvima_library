@@ -272,7 +272,8 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("sme-match-search-panel--collapsed", shell, StringComparison.Ordinal);
         Assert.Contains("<section class=\"sme-match-search-panel\">", shell, StringComparison.Ordinal);
         Assert.DoesNotContain("Advanced canonical identity", shell, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Choose what to update\"", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Choose what to update", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Identity target", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-actions", shell, StringComparison.Ordinal);
         Assert.Contains("sme-header-match-state", shell, StringComparison.Ordinal);
         Assert.Contains("HasCurrentRetailMatch ? Icons.Material.Filled.CheckCircle", shell, StringComparison.Ordinal);
@@ -288,7 +289,7 @@ public sealed class Phase5InlineEditingTests
         Assert.DoesNotContain("Keep QID", shell, StringComparison.Ordinal);
         Assert.Contains("Clear QID", shell, StringComparison.Ordinal);
         Assert.Contains("Use retail match", shell, StringComparison.Ordinal);
-        Assert.Contains("Use selected identity", shell, StringComparison.Ordinal);
+        Assert.Contains("Use canonical identity", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-selection-indicator", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-quality--@GetMatchQualityClass", shell, StringComparison.Ordinal);
         Assert.Contains("BuildCanonicalConfidenceSignals", shell, StringComparison.Ordinal);
@@ -324,7 +325,12 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("The user must explicitly select a candidate", code, StringComparison.Ordinal);
         Assert.Contains("CanApplyRetailCandidate", code, StringComparison.Ordinal);
         Assert.Contains("CanApplyLinkedCandidate", code, StringComparison.Ordinal);
-        Assert.Contains("AcceptedSuggestedKeys = acceptedSuggested", code, StringComparison.Ordinal);
+        Assert.Contains("AcceptedSuggestedKeys = []", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("_selectedSuggestedFieldKeys", code, StringComparison.Ordinal);
+        Assert.Contains("sme-match-result-hero", shell, StringComparison.Ordinal);
+        Assert.Contains("Edition details", shell, StringComparison.Ordinal);
+        Assert.Contains("Canonical details", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-consequence-note", shell, StringComparison.Ordinal);
         Assert.Contains(".sme-match-workflow", styles, StringComparison.Ordinal);
         Assert.Contains(".sme-match-result-card--selected", styles, StringComparison.Ordinal);
         Assert.Contains(".sme-match-result-summary--selectable:focus-visible", styles, StringComparison.Ordinal);
@@ -534,7 +540,7 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("aria-label=\"Edit level\"", shell, StringComparison.Ordinal);
         Assert.Contains("SelectScopeAsync(scope.ScopeId)", shell, StringComparison.Ordinal);
-        Assert.Contains("Identity target", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("Identity target", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-section-heading", shell, StringComparison.Ordinal);
         Assert.Contains("Open @scope.Label Artwork", shell, StringComparison.Ordinal);
         Assert.Contains("private Guid CanonicalEndpointEntityId => CurrentEntityId", code, StringComparison.Ordinal);

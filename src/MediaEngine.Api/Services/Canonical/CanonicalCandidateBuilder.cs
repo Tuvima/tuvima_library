@@ -139,10 +139,20 @@ internal sealed class CanonicalCandidateBuilder(
         var requiredFields = ExtractFields(allFields, policy.RequiredFieldKeys, allowContainerTitleAliases);
         var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys, allowContainerTitleAliases);
         var bridgeIds = ExtractFields(allFields, policy.BridgeIdKeys);
-        var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
         var providerItemId = string.IsNullOrWhiteSpace(candidate.ProviderItemId)
             ? ResolveProviderItemId(candidate.ProviderName, policy.TargetFieldGroup, allFields)
             : candidate.ProviderItemId;
+        var hasProviderName = !string.IsNullOrWhiteSpace(candidate.ProviderName);
+        var hasProviderRegistration = Guid.TryParse(candidate.ProviderId, out _);
+        var hasProviderItemId = !string.IsNullOrWhiteSpace(providerItemId);
+        var isApplicable = hasProviderName && hasProviderRegistration && hasProviderItemId;
+        var blockedReason = !hasProviderName
+            ? "This result does not identify its retail provider."
+            : !hasProviderRegistration
+                ? "This result came from a provider that is no longer available."
+                : !hasProviderItemId
+                    ? "This result does not include a stable provider item ID."
+                    : null;
 
         return new ItemCanonicalRetailCandidateDto
         {
@@ -178,8 +188,8 @@ internal sealed class CanonicalCandidateBuilder(
                 ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             LinkState = "provider_only",
             LinkStatusLabel = "Linked to provider only",
-            IsApplicable = missingRequired.Count == 0,
-            BlockedReason = missingRequired.Count == 0 ? null : $"Missing required anchors: {string.Join(", ", missingRequired)}.",
+            IsApplicable = isApplicable,
+            BlockedReason = blockedReason,
             RequiredFields = requiredFields,
             SuggestedFields = suggestedFields,
             BridgeIds = bridgeIds,
@@ -222,13 +232,16 @@ internal sealed class CanonicalCandidateBuilder(
         var allFields = BuildUniverseFieldBag(candidate, mediaType, policy.TargetFieldGroup);
         var requiredFields = ExtractFields(allFields, policy.RequiredFieldKeys);
         var suggestedFields = ExtractFields(allFields, policy.SuggestedFieldKeys);
-        var qidFields = policy.QidFieldKeys.ToDictionary(key => key, _ => candidate.Qid, StringComparer.OrdinalIgnoreCase);
-        var missingRequired = policy.RequiredFieldKeys.Where(key => !requiredFields.ContainsKey(key)).ToList();
+        var qid = candidate.Qid?.Trim() ?? string.Empty;
+        var qidFields = policy.QidFieldKeys.ToDictionary(key => key, _ => qid, StringComparer.OrdinalIgnoreCase);
+        var hasValidQid = qid.Length > 1
+            && qid[0] is 'Q' or 'q'
+            && qid.AsSpan(1).ToArray().All(char.IsDigit);
 
         return new ItemCanonicalLinkedCandidateDto
         {
-            CandidateId = $"wikidata:{candidate.Qid}",
-            Qid = candidate.Qid,
+            CandidateId = $"wikidata:{qid}",
+            Qid = qid,
             Label = candidate.Label,
             Description = candidate.Description,
             InstanceOf = candidate.InstanceOf,
@@ -245,8 +258,8 @@ internal sealed class CanonicalCandidateBuilder(
                 ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
             LinkState = "linked",
             LinkStatusLabel = "Linked to Wikidata",
-            IsApplicable = missingRequired.Count == 0,
-            BlockedReason = missingRequired.Count == 0 ? null : $"Missing required anchors: {string.Join(", ", missingRequired)}.",
+            IsApplicable = hasValidQid,
+            BlockedReason = hasValidQid ? null : "This result does not include a valid Wikidata QID.",
             RequiredFields = requiredFields,
             SuggestedFields = suggestedFields,
             QidFields = qidFields,

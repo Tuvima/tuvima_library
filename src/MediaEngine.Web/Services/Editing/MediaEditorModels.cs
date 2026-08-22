@@ -452,7 +452,7 @@ public static class MediaEditorSchemaCatalog
     {
         MediaType = "Audiobooks",
         DefaultTargetGroup = "audiobook_identity",
-        QuickSearchTargets = [("audiobook_identity", "Audiobook"), ("narrator", "Narrator")],
+        QuickSearchTargets = [("audiobook_identity", "Audiobook")],
         Groups =
         [
             Group("audiobook_details", "Details", "details",

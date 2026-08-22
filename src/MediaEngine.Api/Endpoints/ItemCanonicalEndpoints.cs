@@ -687,12 +687,6 @@ public static class ItemCanonicalEndpoints
                 .Where(kv => allowedFieldKeys.Contains(kv.Key) && !string.IsNullOrWhiteSpace(kv.Value))
                 .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.OrdinalIgnoreCase);
 
-            var missingRequiredFields = policy.RequiredFieldKeys
-                .Where(key => !selectedFields.ContainsKey(key))
-                .ToList();
-            if (missingRequiredFields.Count > 0)
-                return ApiErrors.BadRequest($"Retail match is missing required fields: {string.Join(", ", missingRequiredFields)}.");
-
             var selectedBridgeIds = request.BridgeIds
                 .Where(kv => policy.BridgeIdKeys.Contains(kv.Key, StringComparer.OrdinalIgnoreCase)
                              && !string.IsNullOrWhiteSpace(kv.Value))
@@ -1310,11 +1304,11 @@ public static class ItemCanonicalEndpoints
                 [MetadataFieldConstants.Series, MetadataFieldConstants.Author],
                 true, true, true),
             ("Audiobooks", "audiobook_identity") => new CanonicalTargetPolicy(mediaType, string.IsNullOrWhiteSpace(targetKind) ? "item" : targetKind, "audiobook_identity",
-                [MetadataFieldConstants.Title, MetadataFieldConstants.Author, MetadataFieldConstants.Narrator],
-                [MetadataFieldConstants.Series, MetadataFieldConstants.SeriesPosition, MetadataFieldConstants.Year, MetadataFieldConstants.PublisherField, MetadataFieldConstants.DurationField, MetadataFieldConstants.Genre],
+                [MetadataFieldConstants.Title, MetadataFieldConstants.Author],
+                [MetadataFieldConstants.Narrator, MetadataFieldConstants.Series, MetadataFieldConstants.SeriesPosition, MetadataFieldConstants.Year, MetadataFieldConstants.PublisherField, MetadataFieldConstants.DurationField, MetadataFieldConstants.Genre],
                 [BridgeIdKeys.AudibleId, BridgeIdKeys.Isbn, BridgeIdKeys.Asin],
                 [BridgeIdKeys.WikidataQid],
-                [MetadataFieldConstants.Title, MetadataFieldConstants.Author, MetadataFieldConstants.Narrator],
+                [MetadataFieldConstants.Title, MetadataFieldConstants.Author],
                 true, true, true),
             ("Books", "series") => new CanonicalTargetPolicy(mediaType, "container", "series",
                 [MetadataFieldConstants.Series],

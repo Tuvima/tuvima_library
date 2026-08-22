@@ -895,23 +895,6 @@
                                                 : "Select the retail provider record that represents this specific edition or release.")</p>
                                         </div>
 
-                                    @if (QuickSearchTargets.Count > 1)
-                                    {
-                                        <div class="sme-identity-targets" aria-label="Identity target">
-                                            <span>Identity target</span>
-                                            @foreach (var target in QuickSearchTargets)
-                                            {
-                                                var isActiveTarget = string.Equals(target.Key, _canonicalTargetGroup, StringComparison.OrdinalIgnoreCase);
-                                                <AppButton Variant="Variant.Text"
-                                                           Color="Color.Inherit"
-                                                           Class="@(isActiveTarget ? "sme-identity-target sme-identity-target--active" : "sme-identity-target")"
-                                                           OnClick="@(() => SelectCanonicalTargetGroup(target.Key))">
-                                                    @target.Label
-                                                </AppButton>
-                                            }
-                                        </div>
-                                    }
-
                                         <div class="sme-search-row">
                                             <AppTextField T="string"
                                                           Value="@_canonicalSearchQuery"
@@ -962,79 +945,122 @@
                                             }
                                             else if (IsWikidataSearchMode)
                                             {
-                                                @foreach (var candidate in _canonicalSearchResponse.LinkedCandidates)
+                                                @for (var canonicalIndex = 0; canonicalIndex < _canonicalSearchResponse.LinkedCandidates.Count; canonicalIndex++)
                                                 {
+                                                    var candidate = _canonicalSearchResponse.LinkedCandidates[canonicalIndex];
                                                     var candidateId = GetCandidateId(candidate);
                                                     var isSelected = IsCandidateSelected(candidateId);
+                                                    var isBestMatch = canonicalIndex == 0;
                                                     var confidenceSignals = BuildCanonicalConfidenceSignals(candidate);
                                                     var identityLink = BuildWikidataIdentityLinks(candidate.Qid).FirstOrDefault();
-                                                    <div class="sme-match-result-card sme-match-result-card--canonical @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
-                                                        <AppNativeButton Type="button"
-                                                                         Class="sme-match-result-summary sme-match-result-summary--selectable"
-                                                                         aria-pressed="@isSelected"
-                                                                         AriaLabel="@($"Select {candidate.Label} as the canonical identity")"
-                                                                         OnClick="@(() => SelectCandidate(candidate))">
-                                                            <span class="sme-match-selection-indicator" aria-hidden="true">
-                                                                <MudIcon Icon="@(isSelected ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
-                                                            </span>
-                                                            <div class="sme-match-result-copy">
-                                                                <div class="sme-match-result-title">@candidate.Label</div>
-                                                                <div class="sme-match-result-meta">@BuildWikidataCandidateSubtitle(candidate)</div>
-                                                                <div class="sme-match-chip-row">
-                                                                    <span class="sme-match-id-chip">@candidate.Qid</span>
-                                                                    <span class="sme-match-quality sme-match-quality--@GetMatchQualityClass(candidate.Confidence)">@GetMatchQualityLabel(candidate.Confidence) match</span>
-                                                                </div>
-                                                                <div class="sme-match-result-evidence">
-                                                                    @foreach (var signal in confidenceSignals.Take(4))
+                                                    <div class="sme-match-result-card sme-match-result-card--canonical @(isSelected ? "sme-match-result-card--selected" : "")">
+                                                        <div class="sme-match-result-hero">
+                                                            <AppNativeButton Type="button"
+                                                                             Class="sme-match-result-summary sme-match-result-summary--selectable"
+                                                                             aria-pressed="@isSelected"
+                                                                             AriaLabel="@($"Select {candidate.Label} as the canonical identity")"
+                                                                             OnClick="@(() => SelectCandidate(candidate))">
+                                                                <span class="sme-match-selection-indicator" aria-hidden="true">
+                                                                    <MudIcon Icon="@(isSelected ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
+                                                                </span>
+                                                                <div class="sme-match-result-art sme-match-result-art--qid @ArtworkShapeClass">
+                                                                    @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
                                                                     {
-                                                                        <span class="@GetConfidenceSignalClass(signal.Score)"><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</span>
+                                                                        <img src="@candidate.CoverUrl" alt="" />
+                                                                    }
+                                                                    else
+                                                                    {
+                                                                        <MudIcon Icon="@Icons.Material.Outlined.Hub" />
                                                                     }
                                                                 </div>
+                                                                <div class="sme-match-result-copy">
+                                                                    <div class="sme-match-result-title">@candidate.Label</div>
+                                                                    <div class="sme-match-result-meta">@BuildWikidataCandidateSubtitle(candidate)</div>
+                                                                    <div class="sme-match-chip-row">
+                                                                        @if (isBestMatch)
+                                                                        {
+                                                                            <span class="sme-match-best-badge"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> Best match</span>
+                                                                        }
+                                                                        <span class="sme-match-quality sme-match-quality--@GetMatchQualityClass(candidate.Confidence)">@GetMatchQualityLabel(candidate.Confidence) match</span>
+                                                                    </div>
+                                                                </div>
+                                                            </AppNativeButton>
+                                                            <div class="sme-match-result-confidence" aria-label="@GetCandidateConfidenceLabel(candidate.Confidence)">
+                                                                <small>Confidence</small>
+                                                                <strong>@FormatCandidateScore(candidate.Confidence)</strong>
+                                                                <span>@GetCandidateConfidenceSummary(candidate.Confidence)</span>
                                                             </div>
-                                                            <span class="sme-match-result-confidence"><strong>@FormatCandidateScore(candidate.Confidence)</strong><small>confidence</small></span>
-                                                        </AppNativeButton>
-                                                        <div class="sme-match-result-footer">
-                                                            @if (identityLink is not null)
+                                                            @if (isSelected)
                                                             {
-                                                                <a href="@identityLink.Url" target="_blank" rel="noopener noreferrer">@identityLink.Label <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
-                                                            }
-                                                            @if (!isSelected)
-                                                            {
-                                                                <AppButton Label="Select"
-                                                                           OnClick="@(() => SelectCandidate(candidate))" />
+                                                                <AppButton Variant="Variant.Filled"
+                                                                           Color="Color.Primary"
+                                                                           Class="sme-match-use-action"
+                                                                           Disabled="@(!CanApplyLinkedCandidate(candidate))"
+                                                                           OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
+                                                                    @(_matchActionPending ? "Applying..." : "Use canonical identity")
+                                                                </AppButton>
                                                             }
                                                         </div>
                                                         @if (isSelected)
                                                         {
-                                                            <div class="sme-match-selected-bar">
-                                                                <div>
-                                                                    <strong>Selected identity</strong>
-                                                                    <span>@GetSelectedChangeSummary(candidate.SuggestedFields, candidateId)</span>
-                                                                </div>
-                                                                <div class="sme-match-result-actions">
-                                                                @if (candidate.SuggestedFields.Count > 0)
-                                                                {
-                                                                    <AppButton Label="Choose what to update"
-                                                                               StartIcon="@Icons.Material.Outlined.Tune"
-                                                                               Disabled="@_matchActionPending"
-                                                                               OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
-                                                                }
-                                                                <AppButton Variant="Variant.Filled"
-                                                                           Color="Color.Primary"
-                                                                           Class="sme-inline-btn sme-inline-btn--primary"
-                                                                           Disabled="@(!CanApplyLinkedCandidate(candidate))"
-                                                                           OnClick="@(() => ApplyLinkedCandidateAsync(candidate))">
-                                                                    @(_matchActionPending ? "Applying..." : "Use selected identity")
-                                                                </AppButton>
-                                                                </div>
-                                                            </div>
                                                             @if (!candidate.IsApplicable && !string.IsNullOrWhiteSpace(candidate.BlockedReason))
                                                             {
                                                                 <div class="sme-match-blocked-reason" role="status"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" Size="Size.Small" /> @candidate.BlockedReason</div>
                                                             }
-                                                            @if (_customizeMatchChanges)
+                                                            <div class="sme-match-consequence-note">
+                                                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                                                <span>This links the item to the selected shared work. Retail edition data and editable metadata remain unchanged.</span>
+                                                            </div>
+                                                            <div class="sme-match-selected-detail">
+                                                                <section class="sme-match-detail-panel">
+                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.Hub" Size="Size.Small" /> Canonical details</h4>
+                                                                    <dl class="sme-match-detail-facts">
+                                                                        <div><dt>Source</dt><dd>Wikidata</dd></div>
+                                                                        <div><dt>Canonical ID</dt><dd>@candidate.Qid</dd></div>
+                                                                        @if (!string.IsNullOrWhiteSpace(candidate.InstanceOf))
+                                                                        {
+                                                                            <div><dt>Work type</dt><dd>@candidate.InstanceOf</dd></div>
+                                                                        }
+                                                                        @if (!string.IsNullOrWhiteSpace(candidate.Author ?? candidate.Director))
+                                                                        {
+                                                                            <div><dt>Creator</dt><dd>@(candidate.Author ?? candidate.Director)</dd></div>
+                                                                        }
+                                                                        @if (!string.IsNullOrWhiteSpace(candidate.Year))
+                                                                        {
+                                                                            <div><dt>Published</dt><dd>@candidate.Year</dd></div>
+                                                                        }
+                                                                        @if (!string.IsNullOrWhiteSpace(candidate.ResolutionTier))
+                                                                        {
+                                                                            <div><dt>Resolved by</dt><dd>@candidate.ResolutionTier</dd></div>
+                                                                        }
+                                                                    </dl>
+                                                                    @if (identityLink is not null)
+                                                                    {
+                                                                        <a class="sme-match-detail-link" href="@identityLink.Url" target="_blank" rel="noopener noreferrer">View @identityLink.Label <MudIcon Icon="@Icons.Material.Outlined.OpenInNew" Size="Size.Small" /></a>
+                                                                    }
+                                                                </section>
+                                                                <aside class="sme-match-confidence-panel">
+                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" /> Why this confidence?</h4>
+                                                                    <dl>
+                                                                        @foreach (var signal in confidenceSignals)
+                                                                        {
+                                                                            <div class="@GetConfidenceSignalClass(signal.Score)">
+                                                                                <dt><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</dt>
+                                                                                <dd><span>@signal.Value</span><strong>@(signal.Score >= 0 ? FormatCandidateScore(signal.Score) : "—")</strong></dd>
+                                                                            </div>
+                                                                        }
+                                                                    </dl>
+                                                                    <div class="sme-match-confidence-total"><span>Total confidence</span><strong>@FormatCandidateScore(candidate.Confidence)</strong></div>
+                                                                </aside>
+                                                            </div>
+                                                            @if (!string.IsNullOrWhiteSpace(candidate.WikipediaExtract ?? candidate.Description))
                                                             {
-                                                                @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
+                                                                <section class="sme-candidate-evidence-panel">
+                                                                    <div class="sme-candidate-description">
+                                                                        <h4><MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" /> Description</h4>
+                                                                        <p>@(candidate.WikipediaExtract ?? candidate.Description)</p>
+                                                                    </div>
+                                                                </section>
                                                             }
                                                         }
                                                     </div>
@@ -1066,89 +1092,81 @@
                                                     var confidenceSignals = BuildRetailConfidenceSignals(candidate);
                                                     var isSelected = IsCandidateSelected(candidateId);
                                                     var isBestMatch = retailIndex == 0;
-                                                    <div class="sme-match-result-card sme-match-result-card--retail @(IsCandidateSelected(candidateId) ? "sme-match-result-card--selected" : "")">
-                                                        <AppNativeButton Type="button"
-                                                                         Class="sme-match-result-summary sme-match-result-summary--selectable"
-                                                                         aria-pressed="@isSelected"
-                                                                         AriaLabel="@($"Select {candidate.Title} from {candidate.ProviderName}")"
-                                                                         OnClick="@(() => SelectCandidateAsync(candidate))">
-                                                            <span class="sme-match-selection-indicator" aria-hidden="true">
-                                                                <MudIcon Icon="@(isSelected ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
-                                                            </span>
-                                                            <div class="sme-match-result-art @ArtworkShapeClass">
-                                                                @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
-                                                                {
-                                                                    <img src="@candidate.CoverUrl" alt="" />
-                                                                }
-                                                                else
-                                                                {
-                                                                    <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-24px tl-u-opacity-0-24" />
-                                                                }
-                                                            </div>
-                                                            <div class="sme-match-result-copy">
-                                                                <div class="sme-match-result-title">@candidate.Title</div>
-                                                                <div class="sme-match-result-meta">@NormalizeDisplaySpacing(BuildRetailCandidateSubtitle(candidate))</div>
-                                                                <div class="sme-match-chip-row">
-                                                                    @if (isBestMatch)
+                                                    var evidenceNotice = GetRetailCandidateEvidenceNotice(candidate);
+                                                    <div class="sme-match-result-card sme-match-result-card--retail @(isSelected ? "sme-match-result-card--selected" : "")">
+                                                        <div class="sme-match-result-hero">
+                                                            <AppNativeButton Type="button"
+                                                                             Class="sme-match-result-summary sme-match-result-summary--selectable"
+                                                                             aria-pressed="@isSelected"
+                                                                             AriaLabel="@($"Select {candidate.Title} from {candidate.ProviderName}")"
+                                                                             OnClick="@(() => SelectCandidateAsync(candidate))">
+                                                                <span class="sme-match-selection-indicator" aria-hidden="true">
+                                                                    <MudIcon Icon="@(isSelected ? Icons.Material.Filled.CheckCircle : Icons.Material.Outlined.RadioButtonUnchecked)" Size="Size.Small" />
+                                                                </span>
+                                                                <div class="sme-match-result-art @ArtworkShapeClass">
+                                                                    @if (!string.IsNullOrWhiteSpace(candidate.CoverUrl))
                                                                     {
-                                                                        <span class="sme-match-best-badge"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> Best match</span>
+                                                                        <img src="@candidate.CoverUrl" alt="" />
                                                                     }
-                                                                    <span class="sme-match-quality sme-match-quality--@GetMatchQualityClass(candidateScore)">@GetMatchQualityLabel(candidateScore) match</span>
-                                                                </div>
-                                                                <div class="sme-match-result-evidence">
-                                                                    @foreach (var signal in confidenceSignals.Take(3))
+                                                                    else
                                                                     {
-                                                                        <span class="@GetConfidenceSignalClass(signal.Score)"><MudIcon Icon="@GetConfidenceSignalIcon(signal.Score)" Size="Size.Small" /> @signal.Label</span>
+                                                                        <MudIcon Icon="@Icons.Material.Outlined.Image" Class="tl-u-font-size-24px tl-u-opacity-0-24" />
                                                                     }
                                                                 </div>
+                                                                <div class="sme-match-result-copy">
+                                                                    <div class="sme-match-result-title">@candidate.Title</div>
+                                                                    <div class="sme-match-result-meta">@NormalizeDisplaySpacing(BuildRetailCandidateSubtitle(candidate))</div>
+                                                                    <div class="sme-match-chip-row">
+                                                                        @if (isBestMatch)
+                                                                        {
+                                                                            <span class="sme-match-best-badge"><MudIcon Icon="@Icons.Material.Filled.Star" Size="Size.Small" /> Best match</span>
+                                                                        }
+                                                                        <span class="sme-match-quality sme-match-quality--@GetMatchQualityClass(candidateScore)">@GetMatchQualityLabel(candidateScore) match</span>
+                                                                    </div>
+                                                                </div>
+                                                            </AppNativeButton>
+                                                            <div class="sme-match-result-confidence" aria-label="@GetCandidateConfidenceLabel(candidateScore)">
+                                                                <small>Confidence</small>
+                                                                <strong>@FormatCandidateScore(candidateScore)</strong>
+                                                                <span>@GetCandidateConfidenceSummary(candidateScore)</span>
                                                             </div>
-                                                            <dl class="sme-match-result-provider">
-                                                                <div><dt>Provider</dt><dd>@FormatProviderName(candidate.ProviderName, _selectedMediaType)</dd></div>
-                                                                <div><dt>Provider ID</dt><dd>@(candidate.ProviderItemId ?? candidate.ProviderId)</dd></div>
-                                                            </dl>
-                                                            <span class="sme-match-result-confidence"><strong>@FormatCandidateScore(candidateScore)</strong><small>confidence</small></span>
-                                                        </AppNativeButton>
-                                                        @if (!isSelected)
-                                                        {
-                                                            <div class="sme-match-result-footer sme-match-result-footer--end">
-                                                                <AppButton Label="Select"
-                                                                           OnClick="@(() => SelectCandidateAsync(candidate))" />
-                                                            </div>
-                                                        }
+                                                            @if (isSelected)
+                                                            {
+                                                                <AppButton Variant="Variant.Filled"
+                                                                           Color="Color.Primary"
+                                                                           Class="sme-match-use-action"
+                                                                           Disabled="@(!CanApplyRetailCandidate(candidate))"
+                                                                           OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
+                                                                    @(_matchActionPending ? "Applying..." : "Use retail match")
+                                                                </AppButton>
+                                                            }
+                                                        </div>
                                                         @if (isSelected)
                                                         {
-                                                            <div class="sme-match-selected-bar">
-                                                                <div>
-                                                                    <strong>Selected retail match</strong>
-                                                                    <span>@GetSelectedChangeSummary(candidate.SuggestedFields, candidateId)</span>
-                                                                </div>
-                                                                <div class="sme-match-result-actions">
-                                                                    @if (candidate.SuggestedFields.Count > 0)
-                                                                    {
-                                                                        <AppButton Label="Choose what to update"
-                                                                                   StartIcon="@Icons.Material.Outlined.Tune"
-                                                                                   Disabled="@_matchActionPending"
-                                                                                   OnClick="@(() => _customizeMatchChanges = !_customizeMatchChanges)" />
-                                                                    }
-                                                                    <AppButton Variant="Variant.Filled"
-                                                                               Color="Color.Primary"
-                                                                               Class="sme-inline-btn sme-inline-btn--primary"
-                                                                               Disabled="@(!CanApplyRetailCandidate(candidate))"
-                                                                               OnClick="@(() => ApplyRetailCandidateAsync(candidate))">
-                                                                        @(_matchActionPending ? "Applying..." : "Use retail match")
-                                                                    </AppButton>
-                                                                </div>
-                                                            </div>
                                                             @if (!candidate.IsApplicable && !string.IsNullOrWhiteSpace(candidate.BlockedReason))
                                                             {
                                                                 <div class="sme-match-blocked-reason" role="status"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" Size="Size.Small" /> @candidate.BlockedReason</div>
                                                             }
+                                                            else if (!string.IsNullOrWhiteSpace(evidenceNotice))
+                                                            {
+                                                                <div class="sme-match-evidence-notice" role="status"><MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" /> @evidenceNotice</div>
+                                                            }
+                                                            <div class="sme-match-consequence-note">
+                                                                <MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />
+                                                                <span>This changes the linked retail edition and refreshes provider-managed artwork. Canonical identity and user-edited metadata remain unchanged.</span>
+                                                            </div>
                                                             <div class="sme-match-selected-detail">
-                                                                <div class="sme-match-import-settings">
-                                                                    <div><strong>Provider details</strong><span>Review the edition-specific information before applying it.</span></div>
-                                                                </div>
+                                                                <section class="sme-match-detail-panel">
+                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" /> Edition details</h4>
+                                                                    <dl class="sme-match-detail-facts">
+                                                                        @foreach (var fact in BuildRetailCandidateFacts(candidate))
+                                                                        {
+                                                                            <div><dt>@fact.Label</dt><dd>@fact.Value</dd></div>
+                                                                        }
+                                                                    </dl>
+                                                                </section>
                                                                 <aside class="sme-match-confidence-panel">
-                                                                    <h4>Why this confidence?</h4>
+                                                                    <h4><MudIcon Icon="@Icons.Material.Outlined.VerifiedUser" Size="Size.Small" /> Why this confidence?</h4>
                                                                     <dl>
                                                                         @foreach (var signal in confidenceSignals)
                                                                         {
@@ -1161,26 +1179,13 @@
                                                                     <div class="sme-match-confidence-total"><span>Total confidence</span><strong>@FormatCandidateScore(candidateScore)</strong></div>
                                                                 </aside>
                                                             </div>
-                                                            @if (_customizeMatchChanges)
-                                                            {
-                                                                @RenderSuggestedFields(candidateId, candidate.SuggestedFields)
-                                                            }
-                                                            <div class="sme-candidate-evidence-panel sme-candidate-evidence-panel--secondary">
+                                                            <section class="sme-candidate-evidence-panel">
                                                                 @if (!string.IsNullOrWhiteSpace(candidate.Description))
                                                                 {
                                                                     <div class="sme-candidate-description">
-                                                                        <strong>Description</strong>
+                                                                        <h4><MudIcon Icon="@Icons.Material.Outlined.Description" Size="Size.Small" /> Description</h4>
                                                                         <p>@candidate.Description</p>
                                                                     </div>
-                                                                }
-                                                                @if (BuildRetailCandidateFacts(candidate).Count > 0)
-                                                                {
-                                                                    <dl class="sme-candidate-facts">
-                                                                        @foreach (var fact in BuildRetailCandidateFacts(candidate))
-                                                                        {
-                                                                            <div><dt>@fact.Label</dt><dd>@fact.Value</dd></div>
-                                                                        }
-                                                                    </dl>
                                                                 }
                                                                 @if (_loadingRetailCandidateDetail)
                                                                 {
@@ -1213,7 +1218,7 @@
                                                                         }
                                                                     </div>
                                                                 }
-                                                            </div>
+                                                            </section>
                                                         }
                                                     </div>
                                                             }
@@ -1848,23 +1853,3 @@
             }
         </div>
 </MediaEditorSurface>
-
-@code {
-    private RenderFragment RenderSuggestedFields(string candidateId, Dictionary<string, string> fields) => @<div class="sme-suggested-fields">
-        @if (fields.Count > 0)
-        {
-            <div class="sme-suggested-title">Choose what to update</div>
-            @foreach (var field in fields.OrderBy(x => x.Key, StringComparer.OrdinalIgnoreCase))
-            {
-                <AppCheckbox
-                             Value="@IsSuggestedFieldSelected(candidateId, field.Key)"
-                             ValueChanged="@((bool value) => ToggleSuggestedField(candidateId, field.Key, value))"
-                             Color="Color.Primary"
-                             Dense="true"
-                             Class="sme-suggested-field">
-                    @FormatSuggestedFieldLabel(field.Key): @field.Value
-                </AppCheckbox>
-            }
-        }
-    </div>;
-}
