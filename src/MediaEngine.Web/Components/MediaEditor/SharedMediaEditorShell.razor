@@ -928,19 +928,39 @@
 
                                         <div class="sme-match-search-tip">Include title, creator, year, ISBN, or provider identifiers for the best results.</div>
 
-                                        @if (IsActiveMatchSearchPending)
-                                        {
-                                            <div class="sme-match-searching" role="status" aria-live="polite">
-                                                <AppProgressBar Indeterminate="true" />
-                                                <span>@(IsWikidataSearchMode ? "Searching Wikidata for canonical identities…" : "Searching configured retail providers…")</span>
-                                            </div>
-                                        }
-
                                         <div class="sme-match-results">
                                             @{
                                                 var searchResponse = ActiveMatchSearchResponse;
                                             }
-                                            @if (searchResponse is null)
+                                            @if (IsActiveMatchSearchPending)
+                                            {
+                                                <div class="sme-match-searching" role="status" aria-live="polite">
+                                                    <div class="sme-match-searching__status">
+                                                        <span class="sme-match-search-spinner" aria-hidden="true"></span>
+                                                        <strong>@(IsWikidataSearchMode ? "Searching Wikidata…" : "Searching retail providers…")</strong>
+                                                        <span>This usually takes a few seconds.</span>
+                                                    </div>
+                                                    <div class="sme-match-search-skeletons" aria-hidden="true">
+                                                        @for (var placeholderIndex = 0; placeholderIndex < 3; placeholderIndex++)
+                                                        {
+                                                            <div class="sme-match-search-skeleton @(IsWikidataSearchMode ? "sme-match-search-skeleton--canonical" : "")">
+                                                                <span class="sme-match-search-skeleton__selection"></span>
+                                                                <span class="sme-match-search-skeleton__art"></span>
+                                                                <span class="sme-match-search-skeleton__copy">
+                                                                    <span class="sme-match-search-skeleton__title"></span>
+                                                                    <span class="sme-match-search-skeleton__meta">
+                                                                        <span></span><i></i><span></span><span></span>
+                                                                    </span>
+                                                                </span>
+                                                                <span class="sme-match-search-skeleton__confidence">
+                                                                    <span></span><small>Confidence</small>
+                                                                </span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            else if (searchResponse is null)
                                             {
                                                 <div class="sme-empty-panel">
                                                     <MudIcon Icon="@Icons.Material.Outlined.TravelExplore" Class="tl-u-font-size-24px tl-u-opacity-0-18" />

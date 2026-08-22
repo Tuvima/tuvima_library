@@ -324,6 +324,11 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("font-weight: var(--tl-font-weight-semibold);", styles, StringComparison.Ordinal);
         Assert.Contains("Searching…", shell, StringComparison.Ordinal);
         Assert.Contains("sme-match-searching", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-search-spinner", shell, StringComparison.Ordinal);
+        Assert.Contains("sme-match-search-skeletons", shell, StringComparison.Ordinal);
+        Assert.Contains("This usually takes a few seconds.", shell, StringComparison.Ordinal);
+        Assert.Equal(1, shell.Split("<AppProgressBar Indeterminate=\"true\" />", StringSplitOptions.None).Length - 1);
+        Assert.Contains("@keyframes sme-match-search-spin", styles, StringComparison.Ordinal);
         Assert.Contains("SelectMatchSearchMode", code, StringComparison.Ordinal);
         Assert.Contains("CancelActiveMatchSearch", code, StringComparison.Ordinal);
         Assert.Contains("_retailSearchResponse", code, StringComparison.Ordinal);
