@@ -180,8 +180,8 @@ public sealed class UiArchitectureGuardrailTests
         Assert.DoesNotContain("@code", markup);
         Assert.Contains("public partial class IngestionLiveDashboard", codeBehind);
         Assert.Contains("public sealed class IngestionDashboardSelectionState", selection);
-        Assert.Contains("library-update-stage-cards", css);
-        Assert.Contains("library-update-stage-detail-panel", css);
+        Assert.Contains("library-update-stage-cards", markup);
+        Assert.Contains("library-update-stage-detail-panel", markup);
 
         var retiredCssFamilies = new[]
         {

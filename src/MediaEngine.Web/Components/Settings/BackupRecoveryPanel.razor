@@ -5,44 +5,9 @@
 @inject IJSRuntime JS
 @inject ISnackbar Snackbar
 
-<AppPanel Elevation="0" Class="tl-card backup-panel">
-    <div class="backup-panel__header">
-        <div>
-            <MudText Typo="Typo.caption" Class="backup-panel__eyebrow">Recovery</MudText>
-            <MudText Typo="Typo.h6">Backup &amp; Restore</MudText>
-            <MudText Typo="Typo.body2" Class="backup-panel__description">
-                Protect the library database and safe configuration. Provider secrets stay on this server and are never included.
-            </MudText>
-        </div>
-        <AppActionBar Align="AppHorizontalAlignment.End" Class="backup-panel__header-actions">
-            <AppButton Label="Refresh"
-                       StartIcon="@Icons.Material.Outlined.Refresh"
-                       Disabled="@(_busy || _loading)"
-                       OnClick="LoadAsync" />
-            <AppButton Variant="Variant.Filled"
-                       Size="Size.Small"
-                       Color="Color.Primary"
-                       StartIcon="@Icons.Material.Outlined.Backup"
-                       Disabled="@(_busy || _loading)"
-                       OnClick="CreateAsync">
-                Create backup
-            </AppButton>
-        </AppActionBar>
-    </div>
-
-    <div class="backup-panel__workflow" aria-label="Backup and restore process">
-        <div>
-            <span>1</span>
-            <p><strong>Create or choose a recovery point.</strong> Each archive contains a consistent SQLite snapshot and non-secret configuration.</p>
-        </div>
-        <div>
-            <span>2</span>
-            <p><strong>Schedule the restore.</strong> The Engine validates and stages the selected archive while it is running.</p>
-        </div>
-        <div>
-            <span>3</span>
-            <p><strong>Restart the Engine to apply it.</strong> The current database is retained as a recovery copy before replacement.</p>
-        </div>
+<div class="backup-page">
+    <div class="backup-page__toolbar">
+        <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" Disabled="@(_busy || _loading)" OnClick="LoadAsync" />
     </div>
 
     @if (_loading)
@@ -52,40 +17,65 @@
             <span>Loading backups...</span>
         </div>
     }
-    else if (_backups.Count == 0)
-    {
-        <div class="backup-panel__empty">
-            <MudIcon Icon="@Icons.Material.Outlined.Inventory2" />
-            <div>
-                <MudText Typo="Typo.subtitle2">No recovery points yet</MudText>
-                <MudText Typo="Typo.body2">Create a backup before significant library or configuration changes.</MudText>
-            </div>
-        </div>
-    }
     else
     {
-        <div class="backup-list" aria-label="Available backups">
-            @foreach (var backup in _backups)
+        <AppPanel Elevation="0" Class="tl-card backup-status">
+            <MudText Typo="Typo.h6">Backup status</MudText>
+            @if (LatestBackup is null)
             {
-                <div class="backup-list__row">
-                    <span class="backup-list__icon"><MudIcon Icon="@Icons.Material.Outlined.Archive" /></span>
-                    <div class="backup-list__identity">
-                        <strong>@backup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong>
-                        <small>@FormatBytes(backup.SizeBytes) · @(backup.IncludesSecrets ? "Includes secrets" : "Database + safe configuration; no secrets")</small>
-                    </div>
-                    <div class="backup-list__actions">
-                        <AppButton Variant="Variant.Text" Size="Size.Small" Color="Color.Default"
-                                   StartIcon="@Icons.Material.Outlined.Download"
-                                   Disabled="@_busy"
-                                   OnClick="@(() => DownloadAsync(backup))">Download</AppButton>
-                        <AppButton Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning"
-                                   StartIcon="@Icons.Material.Outlined.Restore"
-                                   Disabled="@_busy"
-                                   OnClick="@(() => RestoreAsync(backup))">Restore</AppButton>
-                    </div>
+                <div class="backup-status__empty"><MudIcon Icon="@Icons.Material.Outlined.Inventory2" /><span><strong>No recovery points yet</strong><small>Create a backup before significant library or configuration changes.</small></span></div>
+            }
+            else
+            {
+                <div class="backup-status__notice"><MudIcon Icon="@Icons.Material.Outlined.CheckCircle" /><span>Latest recovery point was created successfully.</span></div>
+                <div class="backup-status__facts">
+                    <div><small>Latest backup</small><strong>@LatestBackup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong></div>
+                    <div><small>Backup size</small><strong>@FormatBytes(LatestBackup.SizeBytes)</strong></div>
+                    <div><small>Recovery points</small><strong>@_backups.Count</strong></div>
                 </div>
             }
+        </AppPanel>
+
+        <div class="backup-actions-grid">
+            <AppPanel Elevation="0" Class="tl-card backup-action-card">
+                <MudText Typo="Typo.h6">Create backup</MudText>
+                <p>Back up the library database and safe configuration. Provider secrets stay on this server.</p>
+                <AppButton Label="Create backup" StartIcon="@Icons.Material.Outlined.Backup" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@_busy" Loading="@_busy" OnClick="CreateAsync" />
+            </AppPanel>
+
+            <AppPanel Elevation="0" Class="tl-card backup-action-card">
+                <MudText Typo="Typo.h6">Restore</MudText>
+                <p>The Engine validates and stages your chosen recovery point. Restart the Engine to apply it; the current database remains available as a recovery copy.</p>
+                @if (_backups.Count == 0)
+                {
+                    <AppButton Label="No backups available" Disabled="true" />
+                }
+                else
+                {
+                    <div class="backup-list" aria-label="Available recovery points">
+                        @foreach (var backup in _backups)
+                        {
+                            <div class="backup-list__row">
+                                <div class="backup-list__identity"><strong>@backup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong><small>@FormatBytes(backup.SizeBytes)</small></div>
+                                <div class="backup-list__actions">
+                                    <AppButton Label="Download" ButtonStyle="AppButtonStyle.Text" StartIcon="@Icons.Material.Outlined.Download" Disabled="@_busy" OnClick="@(() => DownloadAsync(backup))" />
+                                    <AppButton Label="Restore" ButtonStyle="AppButtonStyle.Outlined" Tone="AppUiTone.Warning" StartIcon="@Icons.Material.Outlined.Restore" Disabled="@_busy" OnClick="@(() => RestoreAsync(backup))" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </AppPanel>
         </div>
+
+        <details class="backup-advanced">
+            <summary>Advanced</summary>
+            <div class="backup-advanced__content">
+                <div><span>Stored content</span><strong>SQLite snapshot + non-secret configuration</strong></div>
+                <div><span>Total archive size</span><strong>@FormatBytes(_backups.Sum(item => item.SizeBytes))</strong></div>
+                <p>Backup location and retention are controlled by the Engine's server configuration.</p>
+            </div>
+        </details>
     }
 
     @if (!string.IsNullOrWhiteSpace(_notice))
@@ -96,7 +86,7 @@
             @_notice
         </AppAlert>
     }
-</AppPanel>
+</div>
 
 @code {
     private IReadOnlyList<BackupArchiveDto> _backups = [];
@@ -104,6 +94,7 @@
     private bool _busy;
     private bool _restartRequired;
     private string? _notice;
+    private BackupArchiveDto? LatestBackup => _backups.OrderByDescending(item => item.CreatedAt).FirstOrDefault();
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
 

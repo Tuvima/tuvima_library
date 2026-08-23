@@ -5,7 +5,72 @@
 @implements IAsyncDisposable
 
 <div class="tl-page ingestion-operations">
-    <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
+    <div class="ingestion-operations__toolbar">
+        <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" Disabled="@Dashboard.IsLoading" OnClick="RefreshAsync" />
+        <AppButton Label="Scan now" StartIcon="@Icons.Material.Outlined.PlayArrow" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(Dashboard.IsLoading || Dashboard.IsScanStarting)" Loading="@Dashboard.IsScanStarting" OnClick="ScanNowAsync" />
+    </div>
+
+    @if (Dashboard.IsLoading && Dashboard.Snapshot is null)
+    {
+        <AppPageState Kind="AppPageStateKind.Loading" Title="Loading media processing" />
+    }
+    else if (!string.IsNullOrWhiteSpace(Dashboard.Error))
+    {
+        <AppAlert Tone="AppUiTone.Warning">@Dashboard.Error</AppAlert>
+    }
+    else
+    {
+        <AppPanel Elevation="0" Class="tl-card ingestion-operations__current">
+            <div class="ingestion-operations__heading"><div><h3>Current activity</h3><p>@Dashboard.LibraryUpdateStatus.MainLine</p></div><AppStatusBadge Text="@Dashboard.LibraryUpdateStatus.StatusLabel" Tone="@StatusTone(Dashboard.LibraryUpdateStatus.StatusTone)" /></div>
+            @if (Dashboard.LibraryUpdateStatus.ShowProgress)
+            {
+                <div class="ingestion-operations__progress"><span>@Dashboard.LibraryUpdateStatus.Heading</span><strong>@($"{Dashboard.LibraryUpdateStatus.ProgressPercent:0}%")</strong></div>
+                <AppProgressBar Value="@Dashboard.LibraryUpdateStatus.ProgressPercent" ShowValue="false" Indeterminate="@Dashboard.LibraryUpdateStatus.IsIndeterminate" />
+                @if (!string.IsNullOrWhiteSpace(Dashboard.LibraryUpdateStatus.CurrentItemTitle))
+                {
+                    <p class="ingestion-operations__current-item">@Dashboard.LibraryUpdateStatus.CurrentStep · @Dashboard.LibraryUpdateStatus.CurrentItemTitle</p>
+                }
+            }
+        </AppPanel>
+
+        <AppPanel Elevation="0" Class="tl-card ingestion-operations__results">
+            <h3>Latest scan results</h3>
+            @if (LatestBatch is null)
+            {
+                <p class="ingestion-operations__muted">No completed scan has been reported.</p>
+            }
+            else
+            {
+                <p class="ingestion-operations__muted">Started @FormatRelative(LatestBatch.StartedAt)</p>
+                <div class="ingestion-operations__metrics">
+                    <div><span>Added or updated</span><strong>@LatestBatch.RegisteredCount</strong></div>
+                    <div><span>Need review</span><strong>@LatestBatch.ReviewCount</strong></div>
+                    <div><span>Failed</span><strong>@LatestBatch.FailedCount</strong></div>
+                    <div><span>Processed</span><strong>@LatestBatch.ProcessedFiles</strong></div>
+                </div>
+            }
+        </AppPanel>
+
+        <AppPanel Elevation="0" Class="tl-card ingestion-operations__recent">
+            <div class="ingestion-operations__heading"><h3>Recent activity</h3><AppButton Href="/settings/activity" Label="View activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
+            @if (Dashboard.RecentActivity.Count == 0)
+            {
+                <p class="ingestion-operations__muted">No recent media processing activity.</p>
+            }
+            else
+            {
+                <div class="ingestion-operations__activity" role="list">
+                    @foreach (var entry in Dashboard.RecentActivity.Take(5))
+                    {
+                        <div role="listitem"><span>@ActivityText(entry)</span><time datetime="@entry.OccurredAt">@FormatRelative(entry.OccurredAt)</time></div>
+                    }
+                </div>
+            }
+        </AppPanel>
+
+        <details class="ingestion-operations__advanced">
+            <summary>Processing details</summary>
+            <IngestionLiveDashboard Snapshot="Dashboard.Snapshot"
                             Status="Dashboard.LibraryUpdateStatus"
                             Metrics="Dashboard.Metrics"
                             OverallProgress="Dashboard.OverallProgress"
@@ -22,9 +87,11 @@
                             Loading="Dashboard.IsLoading"
                             ScanStarting="Dashboard.IsScanStarting"
                             Error="@Dashboard.Error"
-                            Subsection="overview"
+                            Subsection="batches"
                             OnRefresh="RefreshAsync"
                             OnScanNow="ScanNowAsync" />
+        </details>
+    }
 </div>
 
 @code {
@@ -40,6 +107,37 @@
 
     private IReadOnlyList<IngestionReviewReasonDto> ReviewReasons =>
         Dashboard.Snapshot?.ReviewReasons ?? [];
+
+    private IngestionOperationsBatchDto? LatestBatch => Dashboard.Snapshot?.RecentBatches
+        .OrderByDescending(batch => batch.StartedAt)
+        .FirstOrDefault();
+
+    private static string ActivityText(ActivityEntryResponse entry) =>
+        string.IsNullOrWhiteSpace(entry.Detail) ? entry.ActionType.Replace('_', ' ') : entry.Detail;
+
+    private static string FormatRelative(DateTimeOffset value)
+    {
+        var elapsed = DateTimeOffset.UtcNow - value.ToUniversalTime();
+        return elapsed.TotalMinutes switch
+        {
+            < 1 => "just now",
+            < 60 => $"{(int)elapsed.TotalMinutes}m ago",
+            < 1440 => $"{(int)elapsed.TotalHours}h ago",
+            _ => $"{(int)elapsed.TotalDays}d ago",
+        };
+    }
+
+    private static string FormatRelative(string value) =>
+        DateTimeOffset.TryParse(value, out var parsed) ? FormatRelative(parsed) : "recently";
+
+    private static AppUiTone StatusTone(string? tone) => tone?.ToLowerInvariant() switch
+    {
+        "success" => AppUiTone.Success,
+        "warning" => AppUiTone.Warning,
+        "error" or "danger" => AppUiTone.Error,
+        "primary" or "info" => AppUiTone.Primary,
+        _ => AppUiTone.Neutral,
+    };
 
     private void OnDashboardChanged()
     {
