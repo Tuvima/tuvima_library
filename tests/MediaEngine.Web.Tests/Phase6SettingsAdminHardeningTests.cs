@@ -3,6 +3,21 @@ namespace MediaEngine.Web.Tests;
 public sealed class Phase6SettingsAdminHardeningTests
 {
     [Fact]
+    public void SystemOverview_RemainsConciseAndRoutesProcessingToMediaManagement()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OverviewTab.razor");
+
+        Assert.Contains("System Status", source, StringComparison.Ordinal);
+        Assert.Contains("Recent Activity", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/activity/events", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<BackupRecoveryPanel", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("/settings/ingestion", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Operational Snapshot", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recent Ingestion Runs", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run ID", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SettingsShell_RendersStatusBadgesAndEngineUnavailableState()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
@@ -30,18 +45,27 @@ public sealed class Phase6SettingsAdminHardeningTests
     public void LibrariesTab_RendersSchemaThreeMediaManagement()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
+        var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
+        var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
-        Assert.Contains("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/overview", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/incoming", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/read", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/watch", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/listen", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/view", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"overview\", \"Overview\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(\"incoming\", \"Incoming\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(\"libraries\", \"Libraries\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(\"activity\", \"Activity\"", nav, StringComparison.Ordinal);
+        Assert.Contains("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
         Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);
         Assert.Contains("Incoming folders", source, StringComparison.Ordinal);
+        Assert.Contains("Filter libraries", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"all\", \"All\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"watch\", \"Watch\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"listen\", \"Listen\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"view\", \"View\"", source, StringComparison.Ordinal);
+        Assert.Contains("<IngestionTasksTab />", source, StringComparison.Ordinal);
+        Assert.Contains("Not checked", source, StringComparison.Ordinal);
         Assert.Contains("Folders &amp; sources", source, StringComparison.Ordinal);
         Assert.Contains("Existing folders stay unchanged", source, StringComparison.Ordinal);
         Assert.Contains("Primary destination", source, StringComparison.Ordinal);

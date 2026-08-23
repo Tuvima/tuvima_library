@@ -1,39 +1,12 @@
 .users-access-settings,
-.users-access-settings__grid {
+.users-access-settings__section {
     min-width: 0;
-}
-
-.users-access-settings__grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
 }
 
 .users-access-settings__section {
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    gap: 16px;
-}
-
-::deep .users-access-settings__section .tl-page {
-    gap: 12px;
-}
-
-::deep .users-access-settings__section .security-settings > .app-card {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-}
-
-::deep .users-access-settings__section .security-settings > .app-card > .app-card__header {
-    display: none;
-}
-
-::deep .users-access-settings__section--keys .tl-page > .mud-stack:first-child .mud-typography-h6,
-::deep .users-access-settings__section--keys .tl-page > .mud-stack:first-child > .mud-icon-root {
-    display: none;
+    gap: var(--tl-space-5);
 }
 
 ::deep .users-access-settings__section .app-table,
@@ -41,15 +14,8 @@
     overflow-x: auto;
 }
 
-@media (min-width: 1500px) {
-    .users-access-settings__grid {
-        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-        align-items: start;
-    }
-}
-
 @media (max-width: 700px) {
     .users-access-settings__section {
-        padding: 16px;
+        gap: var(--tl-space-4);
     }
 }

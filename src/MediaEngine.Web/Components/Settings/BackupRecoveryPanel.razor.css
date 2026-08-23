@@ -25,6 +25,50 @@
     color: var(--settings-muted, rgba(220, 229, 255, 0.64)) !important;
 }
 
+.backup-panel__header-actions {
+    flex: 0 0 auto;
+}
+
+.backup-panel__workflow {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.backup-panel__workflow > div {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 10px;
+    padding: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.backup-panel__workflow span {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 50%;
+    color: #d8cbff;
+    font-size: 13px;
+    font-weight: 800;
+    background: rgba(154, 109, 255, 0.18);
+}
+
+.backup-panel__workflow p {
+    margin: 0;
+    color: var(--settings-muted, rgba(220, 229, 255, 0.64));
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.backup-panel__workflow strong {
+    display: block;
+    color: rgba(255, 255, 255, 0.92);
+}
+
 .backup-panel__loading,
 .backup-panel__empty {
     display: flex;
@@ -110,5 +154,9 @@
     .backup-list__actions {
         grid-column: 2;
         flex-wrap: wrap;
+    }
+
+    .backup-panel__workflow {
+        grid-template-columns: 1fr;
     }
 }

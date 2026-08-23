@@ -26,7 +26,7 @@
                Ripple="false"
                Disabled="@Disabled"
                Label="@SwitchLabel"
-               aria-label="@AriaLabel"
+               aria-label="@EffectiveAriaLabel"
                Class="app-switch-row__control" />
 </div>
 
@@ -47,6 +47,8 @@
     [Parameter] public string? Class { get; set; }
 
     private Color MudColor => Color ?? AppUiMaps.ToMudColor(Tone);
+
+    private string? EffectiveAriaLabel => AriaLabel ?? SwitchLabel ?? Label;
 
     private bool HasCopy => !string.IsNullOrWhiteSpace(Label) || !string.IsNullOrWhiteSpace(Description);
 

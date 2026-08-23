@@ -24,8 +24,11 @@ public sealed class IngestionOperationsPageGuardrailTests
 
         Assert.Contains("IngestionLiveDashboardState", source, StringComparison.Ordinal);
         Assert.Contains("<IngestionLiveDashboard", source, StringComparison.Ordinal);
-        Assert.Contains("<EnrichmentRefreshSchedulePanel", source, StringComparison.Ordinal);
-        Assert.Contains("Upcoming Refreshes", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<EnrichmentRefreshSchedulePanel", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Upcoming Refreshes", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("AppSegmentedControl", source, StringComparison.Ordinal);
+        Assert.Contains("Subsection=\"overview\"", source, StringComparison.Ordinal);
+        Assert.Contains("View processing details", dashboardSource, StringComparison.Ordinal);
         Assert.DoesNotContain("<IngestionActivityList", source, StringComparison.Ordinal);
         Assert.Contains("Status=\"Dashboard.LibraryUpdateStatus\"", source, StringComparison.Ordinal);
         Assert.Contains("ShouldRender", dashboardSource, StringComparison.Ordinal);

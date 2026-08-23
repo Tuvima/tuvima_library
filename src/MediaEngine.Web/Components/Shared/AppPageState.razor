@@ -1,9 +1,12 @@
 ﻿@namespace MediaEngine.Web.Components.Shared
 
-<div class="@RootClass">
+<div class="@RootClass"
+     role="@LiveRegionRole"
+     aria-live="@LiveRegionPoliteness"
+     aria-busy="@(Kind == AppPageStateKind.Loading ? "true" : "false")">
     @if (!string.IsNullOrWhiteSpace(Icon))
     {
-        <MudIcon Icon="@Icon" Class="app-page-state__icon" />
+        <MudIcon Icon="@Icon" Class="app-page-state__icon" aria-hidden="true" />
     }
     @if (!string.IsNullOrWhiteSpace(Title))
     {
@@ -38,4 +41,8 @@
             $"app-page-state--{Kind.ToString().ToLowerInvariant()}",
             Class,
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
+
+    private string LiveRegionRole => Kind == AppPageStateKind.Error ? "alert" : "status";
+
+    private string LiveRegionPoliteness => Kind == AppPageStateKind.Error ? "assertive" : "polite";
 }

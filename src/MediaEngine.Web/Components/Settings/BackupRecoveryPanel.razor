@@ -14,14 +14,35 @@
                 Protect the library database and safe configuration. Provider secrets stay on this server and are never included.
             </MudText>
         </div>
-        <AppButton Variant="Variant.Filled"
-                   Size="Size.Small"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Outlined.Backup"
-                   Disabled="@_busy"
-                   OnClick="CreateAsync">
-            Create backup
-        </AppButton>
+        <AppActionBar Align="AppHorizontalAlignment.End" Class="backup-panel__header-actions">
+            <AppButton Label="Refresh"
+                       StartIcon="@Icons.Material.Outlined.Refresh"
+                       Disabled="@(_busy || _loading)"
+                       OnClick="LoadAsync" />
+            <AppButton Variant="Variant.Filled"
+                       Size="Size.Small"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Outlined.Backup"
+                       Disabled="@(_busy || _loading)"
+                       OnClick="CreateAsync">
+                Create backup
+            </AppButton>
+        </AppActionBar>
+    </div>
+
+    <div class="backup-panel__workflow" aria-label="Backup and restore process">
+        <div>
+            <span>1</span>
+            <p><strong>Create or choose a recovery point.</strong> Each archive contains a consistent SQLite snapshot and non-secret configuration.</p>
+        </div>
+        <div>
+            <span>2</span>
+            <p><strong>Schedule the restore.</strong> The Engine validates and stages the selected archive while it is running.</p>
+        </div>
+        <div>
+            <span>3</span>
+            <p><strong>Restart the Engine to apply it.</strong> The current database is retained as a recovery copy before replacement.</p>
+        </div>
     </div>
 
     @if (_loading)
@@ -44,13 +65,13 @@
     else
     {
         <div class="backup-list" aria-label="Available backups">
-            @foreach (var backup in _backups.Take(5))
+            @foreach (var backup in _backups)
             {
                 <div class="backup-list__row">
                     <span class="backup-list__icon"><MudIcon Icon="@Icons.Material.Outlined.Archive" /></span>
                     <div class="backup-list__identity">
                         <strong>@backup.CreatedAt.ToLocalTime().ToString("MMM d, yyyy · h:mm tt")</strong>
-                        <small>@FormatBytes(backup.SizeBytes) · Database + safe configuration</small>
+                        <small>@FormatBytes(backup.SizeBytes) · @(backup.IncludesSecrets ? "Includes secrets" : "Database + safe configuration; no secrets")</small>
                     </div>
                     <div class="backup-list__actions">
                         <AppButton Variant="Variant.Text" Size="Size.Small" Color="Color.Default"
@@ -69,7 +90,11 @@
 
     @if (!string.IsNullOrWhiteSpace(_notice))
     {
-        <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Dense="true">@_notice</AppAlert>
+        <AppAlert Severity="@(_restartRequired ? Severity.Warning : Severity.Info)"
+                  Variant="Variant.Outlined"
+                  Dense="true">
+            @_notice
+        </AppAlert>
     }
 </AppPanel>
 
@@ -77,6 +102,7 @@
     private IReadOnlyList<BackupArchiveDto> _backups = [];
     private bool _loading = true;
     private bool _busy;
+    private bool _restartRequired;
     private string? _notice;
 
     protected override async Task OnInitializedAsync() => await LoadAsync();
@@ -92,6 +118,7 @@
     {
         _busy = true;
         _notice = null;
+        _restartRequired = false;
         var backup = await ApiClient.CreateBackupAsync();
         if (backup is null)
         {
@@ -134,7 +161,12 @@
         if (result?.Scheduled == true)
         {
             _notice = result.Message;
-            Snackbar.Add("Restore scheduled. Restart the Engine when ready.", Severity.Warning);
+            _restartRequired = result.RestartRequired;
+            Snackbar.Add(
+                result.RestartRequired
+                    ? "Restore scheduled. Restart the Engine when ready."
+                    : "Restore scheduled.",
+                result.RestartRequired ? Severity.Warning : Severity.Success);
         }
         else
         {

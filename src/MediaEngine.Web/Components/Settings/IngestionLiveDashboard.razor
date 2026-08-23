@@ -52,10 +52,12 @@
                                     Class="library-update-progress" />
                 </div>
 
-                <div class="library-update-stage-cards" aria-label="Ingestion stages">
-                    @foreach (var stage in DisplayStageRows)
-                    {
-                        <AppNativeButton @key="StageRenderKey(stage)"
+                <details class="library-update-processing-details">
+                    <summary>View processing details</summary>
+                    <div class="library-update-stage-cards" aria-label="Ingestion stages">
+                        @foreach (var stage in DisplayStageRows)
+                        {
+                            <AppNativeButton @key="StageRenderKey(stage)"
                                          Type="button"
                                          Class="@StageCardClass(stage)"
                                          AriaLabel="@StageSelectionLabel(stage)"
@@ -91,29 +93,30 @@
                             </span>
                             <strong>@DisplayStageLabel(stage)</strong>
                             <span>@StageCardSummary(stage)</span>
-                        </AppNativeButton>
-                    }
-                </div>
+                            </AppNativeButton>
+                        }
+                    </div>
 
-                @if (SelectedStage is not null)
-                {
-                    <section class="library-update-stage-detail-panel" aria-label="@($"{DisplayStageLabel(SelectedStage)} details")">
-                        <div class="library-update-stage-detail-panel__items">
-                            @foreach (var detail in StageDetailLines(SelectedStage))
-                            {
-                                <div @key="StageDetailKey(detail)" class="@StageDetailClass(detail)">
-                                    <span class="library-update-stage-detail__icon" aria-hidden="true" title="@StageDetailTooltip(detail)">
-                                        <MudTooltip Text="@StageDetailTooltip(detail)" Placement="Placement.Top">
-                                            <MudIcon Icon="@detail.Icon" />
-                                        </MudTooltip>
-                                    </span>
-                                    <strong>@detail.Value</strong>
-                                    <span>@detail.Label</span>
-                                </div>
-                            }
-                        </div>
-                    </section>
-                }
+                    @if (SelectedStage is not null)
+                    {
+                        <section class="library-update-stage-detail-panel" aria-label="@($"{DisplayStageLabel(SelectedStage)} details")">
+                            <div class="library-update-stage-detail-panel__items">
+                                @foreach (var detail in StageDetailLines(SelectedStage))
+                                {
+                                    <div @key="StageDetailKey(detail)" class="@StageDetailClass(detail)">
+                                        <span class="library-update-stage-detail__icon" aria-hidden="true" title="@StageDetailTooltip(detail)">
+                                            <MudTooltip Text="@StageDetailTooltip(detail)" Placement="Placement.Top">
+                                                <MudIcon Icon="@detail.Icon" />
+                                            </MudTooltip>
+                                        </span>
+                                        <strong>@detail.Value</strong>
+                                        <span>@detail.Label</span>
+                                    </div>
+                                }
+                            </div>
+                        </section>
+                    }
+                </details>
             }
             else if (!Model.ShowProgress && Model.EnrichmentTotal <= 0)
             {

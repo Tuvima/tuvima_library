@@ -44,8 +44,7 @@
                     <th>Sign-in</th>
                     @if (!LinkedAccountsOnly)
                     {
-                        <th>@L["Users_ColLastActive"]</th>
-                        <th>@L["Users_ColStatus"]</th>
+                        <th>Created</th>
                     }
                     <th class="users-table__actions">@L["Users_ColActions"]</th>
                 </tr>
@@ -72,8 +71,7 @@
                         </td>
                         @if (!LinkedAccountsOnly)
                         {
-                            <td><span class="users-table__muted">@row.LastActive</span></td>
-                            <td><AppStatusBadge Text="@row.Status" Tone="@StatusTone(row.Status)" /></td>
+                            <td><span class="users-table__muted">@row.Created</span></td>
                         }
                         <td class="users-table__actions">
                             <AppIconButton Icon="@Icons.Material.Outlined.Link"
@@ -219,8 +217,7 @@
         string AvatarColor,
         string Role,
         int    ExternalLoginCount,
-        string LastActive,
-        string Status,
+        string Created,
         bool   IsSeed);
 
     private bool           _loading  = true;
@@ -269,13 +266,6 @@
         _               => AppUiTone.Neutral,
     };
 
-    private static AppUiTone StatusTone(string status) => status switch
-    {
-        "Active"  => AppUiTone.Success,
-        "Pending" => AppUiTone.Warning,
-        _         => AppUiTone.Neutral,
-    };
-
     private static string GetInitials(string displayName)
     {
         var parts = displayName.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -306,7 +296,6 @@
                     p.Role,
                     linkedAccounts.Count,
                     p.CreatedAt.LocalDateTime.ToString("MMM d, yyyy"),
-                    "Active",
                     p.IsSeed));
             }
 

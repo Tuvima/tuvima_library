@@ -19,296 +19,39 @@
 else
 {
     <div class="settings-playback-page settings-plugin-page">
-        <AppCard Class="settings-summary-strip settings-plugin-summary">
-            <div class="settings-plugin-summary__grid">
-                <AppMetricCard Icon="@Icons.Material.Outlined.Extension"
-                               Label="Plugins"
-                               Value="@_plugins.Count.ToString()"
-                               Tone="AppUiTone.Primary" />
-                <AppMetricCard Icon="@Icons.Material.Outlined.PowerSettingsNew"
-                               Label="Enabled"
-                               Value="@_plugins.Count(p => p.Enabled).ToString()"
-                               Tone="AppUiTone.Success" />
-                <AppMetricCard Icon="@Icons.Material.Outlined.DynamicFeed"
-                               Label="Dynamic"
-                               Value="@_plugins.Count(p => !p.IsBuiltIn).ToString()"
-                               Tone="AppUiTone.Info" />
-                <AppMetricCard Icon="@Icons.Material.Outlined.ReportProblem"
-                               Label="Needs setup"
-                               Value="@_plugins.Count(p => !string.IsNullOrWhiteSpace(p.LoadError)).ToString()"
-                               Tone="AppUiTone.Warning" />
-                <div class="settings-plugin-summary__actions">
-                    <AppButton Label="Reload"
-                               StartIcon="@Icons.Material.Outlined.Refresh"
-                               Tone="AppUiTone.Primary"
-                               OnClick="@ReloadAsync" />
-                </div>
-            </div>
-        </AppCard>
-
-        <AppAlert Tone="AppUiTone.Info">
-            Partial. Plugin list, enable/disable, plugin-provided settings, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
-        </AppAlert>
-
         @if (!string.IsNullOrWhiteSpace(_error))
         {
             <AppAlert Tone="AppUiTone.Error">@_error</AppAlert>
         }
-
-        <div class="settings-plugin-manager">
-            <AppCard Class="settings-plugin-list-panel">
-                <AppSearchField Value="@_search"
-                                ValueChanged="@((string? value) => _search = value ?? string.Empty)"
-                                Placeholder="Search plugins..." />
-
-                <AppActionBar Align="AppHorizontalAlignment.Start" Class="settings-plugin-filter-row">
-                    @FilterButton("all", "All")
-                    @FilterButton("enabled", "Enabled")
-                    @FilterButton("dynamic", "Dynamic")
-                    @FilterButton("setup", "Needs setup")
-                </AppActionBar>
-
-                <div class="settings-plugin-list">
-                    @foreach (var plugin in FilteredPlugins)
-                    {
-                        var selected = string.Equals(plugin.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase);
-                        <div class="settings-plugin-list-item @(selected ? "settings-plugin-list-item--selected" : null)"
-                             role="button"
-                             tabindex="0"
-                             @onkeydown="@(args => HandlePluginKeyDown(args, plugin.Id))"
-                             @onclick="@(() => SelectPlugin(plugin.Id))">
-                            <span class="settings-plugin-list-item__icon">
-                                <MudIcon Icon="@PluginIcon(plugin)" Size="Size.Small" />
-                            </span>
-                            <span class="settings-plugin-list-item__body">
-                                <span class="settings-plugin-list-item__title">@plugin.Name</span>
-                                <span class="settings-plugin-list-item__meta">@plugin.Id - v@(plugin.Version)</span>
-                                <span class="settings-plugin-list-item__chips">
-                                    <span>@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</span>
-                                    @if (plugin.ToolRequirements.Count > 0)
-                                    {
-                                        <span>Tools</span>
-                                    }
-                                    @if (plugin.AiPermissions.Count > 0)
-                                    {
-                                        <span>AI</span>
-                                    }
-                                    @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
-                                    {
-                                        <span class="settings-plugin-list-item__chip--warning">Setup</span>
-                                    }
-                                </span>
-                            </span>
-                            <AppSwitchRow Value="@plugin.Enabled"
-                                          ValueChanged="@(v => SetEnabledAsync(plugin, v))"
-                                          StopClickPropagation="true"
-                                          Class="settings-plugin-list-item__toggle" />
-                        </div>
-                    }
-                </div>
-
-                <div class="settings-plugin-list-count">@FilteredPlugins.Count() of @_plugins.Count plugins shown</div>
-            </AppCard>
-
-            <AppCard Class="settings-plugin-detail-panel">
-                @if (SelectedPlugin is null)
-                {
-                    <AppAlert Tone="AppUiTone.Info">No plugin is selected.</AppAlert>
-                }
-                else
-                {
-                    var plugin = SelectedPlugin;
-
-                    <div class="settings-plugin-detail-stack">
-                        <div class="settings-plugin-detail-header">
-                            <span class="settings-plugin-detail-header__icon">
-                                <MudIcon Icon="@PluginIcon(plugin)" />
-                            </span>
-                            <div class="settings-plugin-detail-header__copy">
-                                <div class="settings-plugin-detail-header__title-row">
-                                    <span class="settings-plugin-detail-header__title">@plugin.Name</span>
-                                    <AppChip Text="@plugin.Version" />
-                                    <AppChip Text="@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")"
-                                             Tone="@(plugin.IsBuiltIn ? AppUiTone.Neutral : AppUiTone.Info)" />
-                                </div>
-                                <div class="settings-plugin-detail-header__id">@plugin.Id</div>
-                                <div class="settings-plugin-detail-header__description">@plugin.Description</div>
-                            </div>
-                            <AppSwitchRow Value="@plugin.Enabled"
-                                          ValueChanged="@(v => SetEnabledAsync(plugin, v))"
-                                          Class="settings-plugin-detail-header__switch" />
-                        </div>
-
-                        @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
-                        {
-                            <AppAlert Tone="AppUiTone.Warning">@plugin.LoadError</AppAlert>
-                        }
-
-                        <div class="settings-plugin-chiprow">
-                            @foreach (var capability in plugin.Capabilities)
-                            {
-                                <MudTooltip Text="@capability.Description">
-                                    <AppChip Text="@capability.Name" />
-                                </MudTooltip>
-                            }
-                            @if (plugin.ToolRequirements.Count > 0)
-                            {
-                                <AppChip Text="@($"{plugin.ToolRequirements.Count} tool(s)")"
-                                         Tone="AppUiTone.Warning" />
-                            }
-                            @if (plugin.AiPermissions.Count > 0)
-                            {
-                                <AppChip Text="@($"{plugin.AiPermissions.Count} AI permission(s)")"
-                                         Tone="AppUiTone.Primary" />
-                            }
-                        </div>
-
-                        <AppTabs ActivePanelIndex="@ActivePanelIndex"
-                                 Class="settings-tab-strip settings-plugin-tabs">
-                            <AppTabPanel Text="Overview" Icon="@Icons.Material.Outlined.Info">
-                                <div class="settings-plugin-tab-body">
-                                    <MudText Typo="Typo.body1">@plugin.Description</MudText>
-                                    <AppTable Class="settings-plugin-job-table">
-                                        <tbody>
-                                            <tr><td>Status</td><td>@(plugin.Enabled ? "Enabled" : "Disabled")</td></tr>
-                                            <tr><td>Source</td><td>@(plugin.IsBuiltIn ? "Built in" : "Dynamic plugin folder")</td></tr>
-                                            <tr><td>Capabilities</td><td>@plugin.Capabilities.Count</td></tr>
-                                            <tr><td>Required tools</td><td>@plugin.ToolRequirements.Count</td></tr>
-                                            <tr><td>AI permissions</td><td>@plugin.AiPermissions.Count</td></tr>
-                                        </tbody>
-                                    </AppTable>
-                                </div>
-                            </AppTabPanel>
-                            <AppTabPanel Text="Settings" Icon="@Icons.Material.Outlined.Tune">
-                                <div class="settings-plugin-tab-body">
-                                    @{
-                                        var settingEntries = GetSettingEntries(plugin).ToList();
-                                        var primarySettings = settingEntries.Where(setting => !setting.Advanced).ToList();
-                                        var advancedSettings = settingEntries.Where(setting => setting.Advanced).ToList();
-                                    }
-                                    @if (settingEntries.Count == 0)
-                                    {
-                                        <AppAlert Tone="AppUiTone.Info">This plugin does not expose user settings.</AppAlert>
-                                    }
-                                    else
-                                    {
-                                        @foreach (var setting in primarySettings)
-                                        {
-                                            @SettingEditor(plugin, setting)
-                                        }
-
-                                        @if (advancedSettings.Count > 0)
-                                        {
-                                            <MudExpansionPanels Elevation="0" Dense="true" Class="mb-2">
-                                                <MudExpansionPanel Text="Advanced settings">
-                                                    @foreach (var setting in advancedSettings)
-                                                    {
-                                                        @SettingEditor(plugin, setting)
-                                                    }
-                                                </MudExpansionPanel>
-                                            </MudExpansionPanels>
-                                        }
-                                    }
-                                </div>
-                            </AppTabPanel>
-                            <AppTabPanel Text="Health & Jobs" Icon="@Icons.Material.Outlined.HealthAndSafety">
-                                <div class="settings-plugin-tab-body">
-                                    <AppActionBar Align="AppHorizontalAlignment.Start">
-                                        <AppButton Label="Check health"
-                                                   StartIcon="@Icons.Material.Outlined.HealthAndSafety"
-                                                   Size="AppControlSize.Compact"
-                                                   OnClick="@(() => CheckHealthAsync(plugin))" />
-                                        <AppButton Label="Refresh jobs"
-                                                   StartIcon="@Icons.Material.Outlined.History"
-                                                   Size="AppControlSize.Compact"
-                                                   Tone="AppUiTone.Primary"
-                                                   OnClick="@(() => LoadJobsAsync(plugin))" />
-                                    </AppActionBar>
-
-                                    @if (_health.TryGetValue(plugin.Id, out var health))
-                                    {
-                                        <AppAlert Tone="@HealthTone(health.Status)">
-                                            @health.Status
-                                            @if (health.Checks.Count > 0)
-                                            {
-                                                <span> - @string.Join(" ", health.Checks.Select(c => c.Message).Where(m => !string.IsNullOrWhiteSpace(m)))</span>
-                                            }
-                                        </AppAlert>
-                                    }
-
-                                    @if (_jobs.TryGetValue(plugin.Id, out var jobs) && jobs.Count > 0)
-                                    {
-                                        <AppTable Class="settings-plugin-job-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Status</th>
-                                                    <th>Type</th>
-                                                    <th>Progress</th>
-                                                    <th>Result</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                @foreach (var job in jobs.Take(8))
-                                                {
-                                                    <tr>
-                                                        <td>@job.Status</td>
-                                                        <td>@job.OperationType</td>
-                                                        <td>@job.ItemsCompleted / @job.ItemsTotal</td>
-                                                        <td>@(job.ResultSummary ?? "-")</td>
-                                                    </tr>
-                                                }
-                                            </tbody>
-                                        </AppTable>
-                                    }
-                                    else
-                                    {
-                                        <AppAlert Tone="AppUiTone.Info">No recent jobs are recorded for this plugin.</AppAlert>
-                                    }
-                                </div>
-                            </AppTabPanel>
-                            <AppTabPanel Text="Capabilities" Icon="@Icons.Material.Outlined.CheckCircleOutline">
-                                <div class="settings-plugin-tab-body">
-                                    @if (plugin.Capabilities.Count == 0 && plugin.ToolRequirements.Count == 0 && plugin.AiPermissions.Count == 0)
-                                    {
-                                        <AppEmptyState Title="No declared capabilities" Message="This plugin does not publish capability metadata." />
-                                    }
-                                    <AppTable Class="settings-plugin-job-table">
-                                        <tbody>
-                                            @foreach (var capability in plugin.Capabilities)
-                                            {
-                                                <tr><td>@capability.Name</td><td>@capability.Description</td></tr>
-                                            }
-                                            @foreach (var requirement in plugin.ToolRequirements)
-                                            {
-                                                <tr><td>Required tool</td><td>@requirement</td></tr>
-                                            }
-                                            @foreach (var permission in plugin.AiPermissions)
-                                            {
-                                                <tr><td>AI permission</td><td>@permission</td></tr>
-                                            }
-                                        </tbody>
-                                    </AppTable>
-                                </div>
-                            </AppTabPanel>
-                        </AppTabs>
-                        @DangerPanel(plugin)
-                    </div>
-                }
-            </AppCard>
-        </div>
-        @ApprovedCatalogPanel()
+        @if (NormalizedSubsection == "catalog")
+        {
+            @ApprovedCatalogPanel()
+        }
+        else
+        {
+            @if (NormalizedSubsection == "overview")
+            {
+                @OverviewSummary()
+                <AppAlert Tone="AppUiTone.Info">
+                    Plugin list, enable/disable, plugin-provided settings, health checks, jobs, delete actions, and the approved GitHub catalog use Engine APIs where available. Install and update marketplace flows are planned and are not shown as live controls.
+                </AppAlert>
+            }
+            @PluginManager()
+        }
     </div>
 }
 
 @code {
     [Parameter] public string Subsection { get; set; } = "overview";
 
-    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    private string NormalizedSubsection => Subsection?.Trim().ToLowerInvariant() switch
     {
-        "settings" => 1,
-        "jobs-health" or "health" => 2,
-        "help" or "capabilities" => 3,
-        _ => 0,
+        "settings" => "settings",
+        "jobs-health" => "jobs-health",
+        "catalog" => "catalog",
+        "capabilities" => "capabilities",
+        "danger" => "danger",
+        _ => "overview",
     };
 
     private readonly JsonSerializerOptions _json = MediaEngineJson.Web;
@@ -327,6 +70,183 @@ else
     private IEnumerable<PluginSummaryResponse> FilteredPlugins => _plugins.Where(MatchesFilter);
 
     private PluginSummaryResponse? SelectedPlugin => _plugins.FirstOrDefault(p => string.Equals(p.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase));
+
+    private RenderFragment OverviewSummary() => @<AppCard Class="settings-summary-strip settings-plugin-summary">
+        <div class="settings-plugin-summary__grid">
+            <AppMetricCard Icon="@Icons.Material.Outlined.Extension" Label="Plugins" Value="@_plugins.Count.ToString()" Tone="AppUiTone.Primary" />
+            <AppMetricCard Icon="@Icons.Material.Outlined.PowerSettingsNew" Label="Enabled" Value="@_plugins.Count(p => p.Enabled).ToString()" Tone="AppUiTone.Success" />
+            <AppMetricCard Icon="@Icons.Material.Outlined.DynamicFeed" Label="Dynamic" Value="@_plugins.Count(p => !p.IsBuiltIn).ToString()" Tone="AppUiTone.Info" />
+            <AppMetricCard Icon="@Icons.Material.Outlined.ReportProblem" Label="Needs setup" Value="@_plugins.Count(p => !string.IsNullOrWhiteSpace(p.LoadError)).ToString()" Tone="AppUiTone.Warning" />
+            <div class="settings-plugin-summary__actions">
+                <AppButton Label="Reload" StartIcon="@Icons.Material.Outlined.Refresh" Tone="AppUiTone.Primary" OnClick="@ReloadAsync" />
+            </div>
+        </div>
+    </AppCard>;
+
+    private RenderFragment PluginManager() => @<div class="settings-plugin-manager">
+        <AppCard Class="settings-plugin-list-panel">
+            <AppSearchField Value="@_search"
+                            ValueChanged="@((string? value) => _search = value ?? string.Empty)"
+                            Placeholder="Search plugins..." />
+            <AppActionBar Align="AppHorizontalAlignment.Start" Class="settings-plugin-filter-row">
+                @FilterButton("all", "All")
+                @FilterButton("enabled", "Enabled")
+                @FilterButton("dynamic", "Dynamic")
+                @FilterButton("setup", "Needs setup")
+            </AppActionBar>
+            <div class="settings-plugin-list">
+                @foreach (var plugin in FilteredPlugins)
+                {
+                    var selected = string.Equals(plugin.Id, _selectedPluginId, StringComparison.OrdinalIgnoreCase);
+                    <div class="settings-plugin-list-item @(selected ? "settings-plugin-list-item--selected" : null)"
+                         role="button"
+                         tabindex="0"
+                         @onkeydown="@(args => HandlePluginKeyDown(args, plugin.Id))"
+                         @onclick="@(() => SelectPlugin(plugin.Id))">
+                        <span class="settings-plugin-list-item__icon"><MudIcon Icon="@PluginIcon(plugin)" Size="Size.Small" /></span>
+                        <span class="settings-plugin-list-item__body">
+                            <span class="settings-plugin-list-item__title">@plugin.Name</span>
+                            <span class="settings-plugin-list-item__meta">@plugin.Id - v@(plugin.Version)</span>
+                            <span class="settings-plugin-list-item__chips">
+                                <span>@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")</span>
+                                @if (plugin.ToolRequirements.Count > 0) { <span>Tools</span> }
+                                @if (plugin.AiPermissions.Count > 0) { <span>AI</span> }
+                                @if (!string.IsNullOrWhiteSpace(plugin.LoadError)) { <span class="settings-plugin-list-item__chip--warning">Setup</span> }
+                            </span>
+                        </span>
+                        <AppSwitchRow Value="@plugin.Enabled"
+                                      ValueChanged="@(v => SetEnabledAsync(plugin, v))"
+                                      StopClickPropagation="true"
+                                      Class="settings-plugin-list-item__toggle" />
+                    </div>
+                }
+            </div>
+            <div class="settings-plugin-list-count">@FilteredPlugins.Count() of @_plugins.Count plugins shown</div>
+        </AppCard>
+        <AppCard Class="settings-plugin-detail-panel">
+            @if (SelectedPlugin is null)
+            {
+                <AppEmptyState Title="No plugin selected" Message="Choose an installed plugin to inspect this section." />
+            }
+            else
+            {
+                var plugin = SelectedPlugin;
+                <div class="settings-plugin-detail-stack">
+                    <div class="settings-plugin-detail-header">
+                        <span class="settings-plugin-detail-header__icon"><MudIcon Icon="@PluginIcon(plugin)" /></span>
+                        <div class="settings-plugin-detail-header__copy">
+                            <div class="settings-plugin-detail-header__title-row">
+                                <span class="settings-plugin-detail-header__title">@plugin.Name</span>
+                                <AppChip Text="@plugin.Version" />
+                                <AppChip Text="@(plugin.IsBuiltIn ? "Built-in" : "Dynamic")" Tone="@(plugin.IsBuiltIn ? AppUiTone.Neutral : AppUiTone.Info)" />
+                            </div>
+                            <div class="settings-plugin-detail-header__id">@plugin.Id</div>
+                            <div class="settings-plugin-detail-header__description">@plugin.Description</div>
+                        </div>
+                        <AppSwitchRow Value="@plugin.Enabled" ValueChanged="@(v => SetEnabledAsync(plugin, v))" Class="settings-plugin-detail-header__switch" />
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(plugin.LoadError))
+                    {
+                        <AppAlert Tone="AppUiTone.Warning">@plugin.LoadError</AppAlert>
+                    }
+                    @PluginSubsection(plugin)
+                </div>
+            }
+        </AppCard>
+    </div>;
+
+    private RenderFragment PluginSubsection(PluginSummaryResponse plugin) => NormalizedSubsection switch
+    {
+        "settings" => PluginSettingsPanel(plugin),
+        "jobs-health" => PluginHealthJobsPanel(plugin),
+        "capabilities" => PluginCapabilitiesPanel(plugin),
+        "danger" => DangerPanel(plugin),
+        _ => PluginOverviewPanel(plugin),
+    };
+
+    private RenderFragment PluginOverviewPanel(PluginSummaryResponse plugin) => @<div class="settings-plugin-tab-body">
+        <MudText Typo="Typo.body1">@plugin.Description</MudText>
+        <AppTable Class="settings-plugin-job-table">
+            <tbody>
+                <tr><td>Status</td><td>@(plugin.Enabled ? "Enabled" : "Disabled")</td></tr>
+                <tr><td>Source</td><td>@(plugin.IsBuiltIn ? "Built in" : "Dynamic plugin folder")</td></tr>
+                <tr><td>Capabilities</td><td>@plugin.Capabilities.Count</td></tr>
+                <tr><td>Required tools</td><td>@plugin.ToolRequirements.Count</td></tr>
+                <tr><td>AI permissions</td><td>@plugin.AiPermissions.Count</td></tr>
+            </tbody>
+        </AppTable>
+    </div>;
+
+    private RenderFragment PluginSettingsPanel(PluginSummaryResponse plugin) => @<div class="settings-plugin-tab-body">
+        @{ var settingEntries = GetSettingEntries(plugin).ToList(); var primarySettings = settingEntries.Where(setting => !setting.Advanced).ToList(); var advancedSettings = settingEntries.Where(setting => setting.Advanced).ToList(); }
+        @if (settingEntries.Count == 0)
+        {
+            <AppEmptyState Title="No plugin settings" Message="This plugin does not expose user-configurable settings." />
+        }
+        else
+        {
+            @foreach (var setting in primarySettings) { @SettingEditor(plugin, setting) }
+            @if (advancedSettings.Count > 0)
+            {
+                <MudExpansionPanels Elevation="0" Dense="true" Class="mb-2">
+                    <MudExpansionPanel Text="Advanced settings">
+                        @foreach (var setting in advancedSettings) { @SettingEditor(plugin, setting) }
+                    </MudExpansionPanel>
+                </MudExpansionPanels>
+            }
+        }
+    </div>;
+
+    private RenderFragment PluginHealthJobsPanel(PluginSummaryResponse plugin) => @<div class="settings-plugin-tab-body">
+        <AppActionBar Align="AppHorizontalAlignment.Start">
+            <AppButton Label="Check health" StartIcon="@Icons.Material.Outlined.HealthAndSafety" Size="AppControlSize.Compact" OnClick="@(() => CheckHealthAsync(plugin))" />
+            <AppButton Label="Refresh jobs" StartIcon="@Icons.Material.Outlined.History" Size="AppControlSize.Compact" Tone="AppUiTone.Primary" OnClick="@(() => LoadJobsAsync(plugin))" />
+        </AppActionBar>
+        @if (_health.TryGetValue(plugin.Id, out var health))
+        {
+            <AppAlert Tone="@HealthTone(health.Status)">
+                @health.Status
+                @if (health.Checks.Count > 0) { <span> - @string.Join(" ", health.Checks.Select(c => c.Message).Where(m => !string.IsNullOrWhiteSpace(m)))</span> }
+            </AppAlert>
+        }
+        else
+        {
+            <AppAlert Tone="AppUiTone.Info">Health has not been checked during this visit.</AppAlert>
+        }
+        @if (_jobs.TryGetValue(plugin.Id, out var jobs) && jobs.Count > 0)
+        {
+            <AppTable Class="settings-plugin-job-table">
+                <thead><tr><th>Status</th><th>Type</th><th>Progress</th><th>Result</th></tr></thead>
+                <tbody>
+                    @foreach (var job in jobs.Take(8))
+                    {
+                        <tr><td>@job.Status</td><td>@job.OperationType</td><td>@job.ItemsCompleted / @job.ItemsTotal</td><td>@(job.ResultSummary ?? "-")</td></tr>
+                    }
+                </tbody>
+            </AppTable>
+        }
+        else
+        {
+            <AppEmptyState Title="No recent jobs" Message="The Engine has not returned any recent jobs for this plugin." />
+        }
+    </div>;
+
+    private RenderFragment PluginCapabilitiesPanel(PluginSummaryResponse plugin) => @<div class="settings-plugin-tab-body">
+        @if (plugin.Capabilities.Count == 0 && plugin.ToolRequirements.Count == 0 && plugin.AiPermissions.Count == 0)
+        {
+            <AppEmptyState Title="No declared capabilities" Message="This plugin does not publish capability metadata." />
+        }
+        else
+        {
+            <AppTable Class="settings-plugin-job-table">
+                <tbody>
+                    @foreach (var capability in plugin.Capabilities) { <tr><td>@capability.Name</td><td>@capability.Description</td></tr> }
+                    @foreach (var requirement in plugin.ToolRequirements) { <tr><td>Required tool</td><td>@requirement</td></tr> }
+                    @foreach (var permission in plugin.AiPermissions) { <tr><td>AI permission</td><td>@permission</td></tr> }
+                </tbody>
+            </AppTable>
+        }
+    </div>;
 
     private RenderFragment DangerPanel(PluginSummaryResponse plugin) => @<AppCard Class="settings-plugin-danger-card">
         <div class="settings-plugin-danger-header">
