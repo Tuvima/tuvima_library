@@ -32,13 +32,11 @@ else if (_settings is not null)
             <AppAlert Severity="Severity.Error" Variant="Variant.Outlined">@_saveError</AppAlert>
         }
 
-        <AppTabs Rounded="true"
-                 Elevation="0"
-                 Color="Color.Primary"
-                 Class="settings-tab-strip settings-playback-tabs"
-                 ActivePanelIndex="@ActivePanelIndex"
-                 ActivePanelIndexChanged="OnActivePanelChanged">
-            <AppTabPanel Text="General">
+        <section class="settings-playback-section"
+                 data-playback-section="@ActiveSubsection"
+                 aria-label="@PlaybackSectionLabel">
+        @if (ActiveSubsection == "general")
+        {
                 <div class="settings-tab-panel playback-general-grid">
                     <SettingsSectionPanel Title="Resume & Progress"
                                           Description="Manage how progress is tracked and resumed."
@@ -187,9 +185,9 @@ else if (_settings is not null)
                         </div>
                     </SettingsSectionPanel>
                 </div>
-            </AppTabPanel>
-
-            <AppTabPanel Text="Watching">
+        }
+        else if (ActiveSubsection == "watching")
+        {
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Video Speed" Icon="@Icons.Material.Outlined.Speed">
@@ -222,9 +220,9 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
-            </AppTabPanel>
-
-            <AppTabPanel Text="Listening">
+        }
+        else if (ActiveSubsection == "listening")
+        {
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Audiobook Speed" Icon="@Icons.Material.Outlined.Speed">
@@ -277,9 +275,9 @@ else if (_settings is not null)
                         </MudExpansionPanels>
                     </MudItem>
                 </MudGrid>
-            </AppTabPanel>
-
-            <AppTabPanel Text="Reading">
+        }
+        else if (ActiveSubsection == "reading")
+        {
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Reading Mode" Icon="@Icons.Material.Outlined.ChromeReaderMode">
@@ -315,9 +313,9 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
-            </AppTabPanel>
-
-            <AppTabPanel Text="Subtitles">
+        }
+        else
+        {
                 <MudGrid Spacing="3" Class="settings-tab-panel">
                     <MudItem xs="12" lg="6">
                         <SettingsSectionPanel Title="Language Defaults" Icon="@Icons.Material.Outlined.Translate">
@@ -343,8 +341,8 @@ else if (_settings is not null)
                         </SettingsSectionPanel>
                     </MudItem>
                 </MudGrid>
-            </AppTabPanel>
-        </AppTabs>
+        }
+        </section>
     </MudStack>
 }
 @code {
@@ -354,13 +352,21 @@ else if (_settings is not null)
     private UserPlaybackSettingsDto? _settings;
     private UserPlaybackSettingsDto? _savedSettings;
     private ProfileViewModel? _activeProfile;
-    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    private string ActiveSubsection => Subsection.ToLowerInvariant() switch
     {
-        "watching" => 1,
-        "listening" => 2,
-        "reading" => 3,
-        "subtitles" => 4,
-        _ => 0,
+        "watching" => "watching",
+        "listening" => "listening",
+        "reading" => "reading",
+        "subtitles" => "subtitles",
+        _ => "general",
+    };
+    private string PlaybackSectionLabel => ActiveSubsection switch
+    {
+        "watching" => "Watching preferences",
+        "listening" => "Listening preferences",
+        "reading" => "Reading preferences",
+        "subtitles" => "Subtitle preferences",
+        _ => "General playback preferences",
     };
     private bool _loading = true;
     private string? _loadError;
@@ -441,15 +447,6 @@ else if (_settings is not null)
     private Color SubtitlePreviewColor => _settings?.Subtitles.SubtitleStyle == PlaybackPreferenceValues.HighContrast
         ? Color.Warning
         : Color.Default;
-
-    private void OnActivePanelChanged(int index)
-    {
-        var slugs = new[] { "general", "watching", "listening", "reading", "subtitles" };
-        if (index < 0 || index >= slugs.Length)
-            return;
-
-        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Playback, slugs[index]));
-    }
 
     private void OpenWatchingSettings() =>
         Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Playback, "watching"));

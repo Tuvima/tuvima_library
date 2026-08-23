@@ -3,22 +3,9 @@
     container-type: inline-size;
 }
 
-.settings-playback-page ::deep .settings-playback-tabs .mud-tab {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-    padding-inline: 16px !important;
-}
-
-.settings-playback-page ::deep .settings-playback-tabs .mud-tooltip-root {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    min-width: 0 !important;
-}
-
-.settings-playback-page ::deep .settings-playback-tabs .mud-tabs-toolbar-content,
-.settings-playback-page ::deep .settings-playback-tabs .mud-tabs-tabbar-content {
-    justify-content: flex-start !important;
+.settings-playback-section {
+    display: block;
+    min-width: 0;
 }
 
 .playback-general-grid {
