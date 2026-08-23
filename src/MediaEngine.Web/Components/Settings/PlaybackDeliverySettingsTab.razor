@@ -1,34 +1,41 @@
 @namespace MediaEngine.Web.Components.Settings
 
-<div class="tl-page playback-delivery">
-    <AppTabs ActivePanelIndex="@ActivePanelIndex"
-             Class="settings-tab-strip">
-        <AppTabPanel Text="Transcoding" Icon="@Icons.Material.Outlined.VideoSettings">
-            <MudStack Spacing="4" Class="settings-tab-panel playback-delivery__overview">
-                <EncodeSettingsTab Section="overview" />
-                <OfflineDownloadsTab Title="Active Jobs" />
-            </MudStack>
-        </AppTabPanel>
-        <AppTabPanel Text="Variant Storage" Icon="@Icons.Material.Outlined.Storage">
-            <EncodeSettingsTab Section="storage" />
-        </AppTabPanel>
-        <AppTabPanel Text="Active Jobs" Icon="@Icons.Material.Outlined.PendingActions">
+<section class="tl-page playback-delivery"
+         data-delivery-section="@ActiveSection"
+         aria-label="@ActiveSectionLabel">
+    @switch (ActiveSection)
+    {
+        case "storage":
+            <EncodeSettingsTab @key="ActiveSection" Section="storage" />
+            break;
+        case "active-jobs":
             <OfflineDownloadsTab />
-        </AppTabPanel>
-        <AppTabPanel Text="Diagnostics" Icon="@Icons.Material.Outlined.MonitorHeart">
-            <EncodeSettingsTab Section="diagnostics" />
-        </AppTabPanel>
-    </AppTabs>
-</div>
+            break;
+        case "diagnostics":
+            <EncodeSettingsTab @key="ActiveSection" Section="diagnostics" />
+            break;
+        default:
+            <EncodeSettingsTab @key="ActiveSection" Section="transcoding" />
+            break;
+    }
+</section>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "transcoding";
 
-    private int ActivePanelIndex => Subsection.ToLowerInvariant() switch
+    private string ActiveSection => Subsection.ToLowerInvariant() switch
     {
-        "storage" or "variant-storage" => 1,
-        "jobs" or "active-jobs" or "offline" => 2,
-        "diagnostics" => 3,
-        _ => 0,
+        "storage" => "storage",
+        "active-jobs" => "active-jobs",
+        "diagnostics" => "diagnostics",
+        _ => "transcoding",
+    };
+
+    private string ActiveSectionLabel => ActiveSection switch
+    {
+        "storage" => "Variant Storage",
+        "active-jobs" => "Active Jobs",
+        "diagnostics" => "Diagnostics",
+        _ => "Transcoding",
     };
 }

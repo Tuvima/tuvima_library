@@ -10,12 +10,54 @@
     {
         <AppSkeleton Size="AppControlSize.Large" />
     }
+    else if (IsSection("diagnostics"))
+    {
+        <AppCard Title="Playback tools and services">
+            @if (_diagnostics is null)
+            {
+                <AppErrorState Title="Diagnostics are unavailable"
+                               Message="The Engine did not return playback diagnostics. No sample status has been substituted." />
+            }
+            else
+            {
+                <div class="encode-settings__diagnostics">
+                    <AppMetricCard Label="FFmpeg"
+                                   Value="@ToolStatus(_diagnostics.FFmpegAvailable, _diagnostics.FFmpegVersion)"
+                                   Tone="@(_diagnostics.FFmpegAvailable ? AppUiTone.Success : AppUiTone.Warning)" />
+                    <AppMetricCard Label="MediaInfo"
+                                   Value="@ToolStatus(_diagnostics.MediaInfoAvailable, _diagnostics.MediaInfoVersion)"
+                                   Tone="@(_diagnostics.MediaInfoAvailable ? AppUiTone.Success : AppUiTone.Warning)" />
+                    <AppMetricCard Label="Active encode jobs"
+                                   Value="@_diagnostics.ActiveJobs.Count.ToString()" />
+                </div>
+
+                @if (_diagnostics.Warnings.Count > 0)
+                {
+                    <AppAlert Tone="AppUiTone.Warning" Class="mt-4">
+                        <strong>Engine warnings</strong>
+                        <ul class="encode-settings__warnings">
+                            @foreach (var warning in _diagnostics.Warnings)
+                            {
+                                <li>@warning</li>
+                            }
+                        </ul>
+                    </AppAlert>
+                }
+                else
+                {
+                    <AppAlert Tone="AppUiTone.Success" Class="mt-4">
+                        The Engine reported no playback delivery warnings.
+                    </AppAlert>
+                }
+            }
+        </AppCard>
+    }
     else if (!_settingsAvailable)
     {
         <AppErrorState Title="Playback delivery settings are unavailable"
                        Message="Start the Engine or retry before changing transcoding and variant storage." />
     }
-    else if (IsSection("transcoding") || IsSection("overview"))
+    else if (IsSection("transcoding"))
     {
         <div class="encode-settings__grid">
             <AppCard Title="Scheduled Encodes">
@@ -33,42 +75,42 @@
             </AppCard>
 
             <AppCard Title="Encode Profiles">
-                <AppTable>
-                    <thead>
-                        <tr>
-                            <th>Profile</th>
-                            <th>Target</th>
-                            <th>Codec</th>
-                            <th>Container</th>
-                            <th>Size guidance</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var profile in _settings.QualityProfiles)
-                        {
-                            <tr>
-                                <td>@profile.Name</td>
-                                <td>@profile.Resolution</td>
-                                <td>@profile.Codec / @profile.AudioCodec</td>
-                                <td>@profile.Container</td>
-                                <td>@profile.SizeGuidance</td>
-                            </tr>
-                        }
-                    </tbody>
-                </AppTable>
+                @if (_settings.QualityProfiles.Count == 0)
+                {
+                    <AppEmptyState Title="No encode profiles are configured"
+                                   Message="Add profiles to the Engine transcoding configuration before scheduling encodes." />
+                }
+                else
+                {
+                    <div class="encode-settings__table-wrap">
+                        <AppTable>
+                            <thead>
+                                <tr>
+                                    <th>Profile</th>
+                                    <th>Target</th>
+                                    <th>Codec</th>
+                                    <th>Container</th>
+                                    <th>Size guidance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var profile in _settings.QualityProfiles)
+                                {
+                                    <tr>
+                                        <td>@profile.Name</td>
+                                        <td>@profile.Resolution</td>
+                                        <td>@profile.Codec / @profile.AudioCodec</td>
+                                        <td>@profile.Container</td>
+                                        <td>@profile.SizeGuidance</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </AppTable>
+                    </div>
+                }
             </AppCard>
         </div>
-        @if (IsSection("overview"))
-        {
-            <AppCard Title="Variant Storage" Class="encode-settings__overview-storage">
-                <AppTextField @bind-Value="_variantRoot" Label="Variant cache location" />
-                <AppNumericField @bind-Value="_cacheSizeGb" Label="Cache size limit (GB)" Min="1" Max="5000" />
-                <AppNumericField @bind-Value="_retentionDays" Label="Retention days" Min="1" Max="3650" />
-                <AppSwitchRow @bind-Value="_cleanupLru"
-                              Label="Use least-recently-used cleanup before deleting old variants" />
-            </AppCard>
-        }
-        @SaveButton(IsSection("overview") ? "Save Playback & Delivery" : "Save Transcoding Settings")
+        @SaveButton("Save Transcoding Settings")
     }
     else if (IsSection("storage"))
     {
@@ -87,29 +129,6 @@
                           Label="Use least-recently-used cleanup before deleting old variants" />
         </AppCard>
         @SaveButton("Save Variant Storage")
-    }
-    else
-    {
-        <AppCard Title="Diagnostics">
-            @if (_diagnostics is null)
-            {
-                <AppEmptyState Title="Diagnostics unavailable"
-                               Message="No playback diagnostics were returned by the Engine." />
-            }
-            else
-            {
-                <div class="encode-settings__diagnostics">
-                    <AppMetricCard Label="FFmpeg"
-                                   Value="@(_diagnostics.FFmpegAvailable ? "Available" : "Unavailable")"
-                                   Tone="@(_diagnostics.FFmpegAvailable ? AppUiTone.Success : AppUiTone.Warning)" />
-                    <AppMetricCard Label="MediaInfo"
-                                   Value="@(_diagnostics.MediaInfoAvailable ? "Available" : "Unavailable")"
-                                   Tone="@(_diagnostics.MediaInfoAvailable ? AppUiTone.Success : AppUiTone.Warning)" />
-                    <AppMetricCard Label="Active jobs"
-                                   Value="@_diagnostics.ActiveJobs.Count.ToString()" />
-                </div>
-            }
-        </AppCard>
     }
 </div>
 
@@ -139,13 +158,21 @@
 
     protected override async Task OnInitializedAsync()
     {
-        var settings = await ApiClient.GetTranscodingSettingsAsync();
-        _diagnostics = await ApiClient.GetPlaybackDiagnosticsAsync();
-        if (settings is not null)
+        _loading = true;
+
+        if (IsSection("diagnostics"))
         {
-            _settings = settings;
-            _settingsAvailable = true;
-            HydrateForm(settings);
+            _diagnostics = await ApiClient.GetPlaybackDiagnosticsAsync();
+        }
+        else
+        {
+            var settings = await ApiClient.GetTranscodingSettingsAsync();
+            _settingsAvailable = settings is not null;
+            if (settings is not null)
+            {
+                _settings = settings;
+                HydrateForm(settings);
+            }
         }
 
         _loading = false;
@@ -153,6 +180,11 @@
 
     private bool IsSection(string section) =>
         string.Equals(Section, section, StringComparison.OrdinalIgnoreCase);
+
+    private static string ToolStatus(bool available, string? version) =>
+        available
+            ? string.IsNullOrWhiteSpace(version) ? "Available" : version
+            : "Unavailable";
 
     private RenderFragment SaveButton(string label) => @<div class="encode-settings__save-row">
         <AppButton Label="@(_saving ? "Saving..." : label)"
