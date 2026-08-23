@@ -132,6 +132,28 @@ public sealed class Phase5InlineEditingTests
     }
 
     [Fact]
+    public void EditorNavigation_HighlightsEverySelectedMenuItemWithTheSharedState()
+    {
+        var sharedShell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor");
+        var sharedCode = ReadSource("src/MediaEngine.Web/Components/MediaEditor/SharedMediaEditorShell.razor.cs");
+        var personShell = ReadSource("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor");
+        var collectionShell = ReadSource("src/MediaEngine.Web/Components/Collections/CollectionEditorShell.razor");
+        var globalStyles = ReadSource("src/MediaEngine.Web/wwwroot/app.css");
+
+        Assert.Contains("app-selection-nav__item sme-section-nav__item is-active", sharedCode, StringComparison.Ordinal);
+        Assert.Contains("app-selection-nav__item person-editor__nav-item is-active", personShell, StringComparison.Ordinal);
+        Assert.Contains("app-selection-nav__item sme-section-nav__item is-active", collectionShell, StringComparison.Ordinal);
+        Assert.Contains("is-active is-group-open", sharedCode, StringComparison.Ordinal);
+        Assert.Contains("is-active is-group-open", personShell, StringComparison.Ordinal);
+        Assert.Contains("is-active is-group-open", collectionShell, StringComparison.Ordinal);
+        Assert.Contains("aria-current", sharedShell, StringComparison.Ordinal);
+        Assert.Contains("aria-current", personShell, StringComparison.Ordinal);
+        Assert.Contains("aria-current", collectionShell, StringComparison.Ordinal);
+        Assert.Contains(".app-selection-nav__item.is-active", globalStyles, StringComparison.Ordinal);
+        Assert.Contains("background: var(--tl-menu-item-selected) !important", globalStyles, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void PersonEditor_UsesMediaArtworkWorkspaceAndOmitsMatchAndPersonalNotes()
     {
         var source = ReadSource("src/MediaEngine.Web/Components/MediaEditor/PersonEditorDialog.razor");

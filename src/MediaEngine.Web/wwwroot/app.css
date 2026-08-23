@@ -5045,6 +5045,19 @@ body:has(.tl-detail-page) .layout-shell__nav-link::after {
     background: var(--tl-menu-item-selected) !important;
 }
 
+/* Shared selected state for persistent navigation menus. Editor rails, settings
+   selectors, and lane menus use this treatment instead of relying on icon color. */
+.app-selection-nav__item.is-active {
+    border-color: var(--tl-accent-primary-border) !important;
+    color: var(--tl-text-primary) !important;
+    background: var(--tl-menu-item-selected) !important;
+    box-shadow: inset var(--tl-space-1) 0 0 var(--tl-accent-primary) !important;
+}
+
+.app-selection-nav__item.is-active .mud-icon-root {
+    color: var(--tl-accent-primary-hover) !important;
+}
+
 .app-menu-popover .mud-list-item.mud-disabled,
 .app-menu-popover .mud-menu-item.mud-disabled,
 .app-menu-popover .app-menu-item:disabled,

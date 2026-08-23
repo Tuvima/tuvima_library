@@ -1888,11 +1888,11 @@ public partial class SharedMediaEditorShell
     protected string GetSectionNavClass(string tabId)
     {
         if (!string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase))
-            return "sme-section-nav__item";
+            return "app-selection-nav__item sme-section-nav__item";
 
         return string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
-            ? "sme-section-nav__item is-group-open"
-            : "sme-section-nav__item is-active";
+            ? "app-selection-nav__item sme-section-nav__item is-active is-group-open"
+            : "app-selection-nav__item sme-section-nav__item is-active";
     }
 
     protected Task OnTabChanged(int index)

@@ -124,9 +124,14 @@
 }
 
 .collection-editor-rail ::deep .sme-section-nav__item.is-active {
-    color: #c4b5fd;
-    border-color: rgba(124, 58, 237, 0.25);
-    background: linear-gradient(90deg, rgba(79, 70, 229, 0.22), rgba(79, 70, 229, 0.08));
+    border-color: var(--tl-accent-primary-border);
+    color: var(--tl-text-primary);
+    background: var(--tl-menu-item-selected);
+    box-shadow: inset var(--tl-space-1) 0 0 var(--tl-accent-primary);
+}
+
+.collection-editor-rail ::deep .sme-section-nav__item.is-active .mud-icon-root {
+    color: var(--tl-accent-primary-hover);
 }
 
 .collection-editor-rail .sme-section-nav__nested {

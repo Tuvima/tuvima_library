@@ -238,6 +238,7 @@
                         <AppButton Variant="Variant.Text"
                                    Color="Color.Inherit"
                                    Class="@GetSectionNavClass(tab.Id)"
+                                   aria-current="@(string.Equals(tab.Id, _activeTab, StringComparison.OrdinalIgnoreCase) ? "page" : null)"
                                    Disabled="@IsTabDisabled(tab.Id)"
                                    OnClick="@(() => OnTabChanged(tabIndex))">
                             <MudIcon Icon="@tab.Icon" Size="Size.Small" />
@@ -251,7 +252,7 @@
                                     var isSelectedSlot = string.Equals(slotItem.AssetType, SelectedArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
                                     <AppButton Variant="Variant.Text"
                                                Color="Color.Inherit"
-                                               Class="@(isSelectedSlot ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
+                                               Class="@(isSelectedSlot ? "app-selection-nav__item sme-section-nav__nested-item is-active" : "app-selection-nav__item sme-section-nav__nested-item")"
                                                aria-current="@(isSelectedSlot ? "page" : null)"
                                                OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
                                         <MudIcon Icon="@slotItem.Icon" Size="Size.Small" />

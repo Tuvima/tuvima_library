@@ -48,6 +48,7 @@
                 <AppButton Variant="Variant.Text"
                            Color="Color.Inherit"
                            Class="@GetPersonTabClass(captured.Id)"
+                           aria-current="@(string.Equals(captured.Id, _activeTab, StringComparison.OrdinalIgnoreCase) ? "page" : null)"
                            OnClick="@(() => SelectPersonTabAsync(captured.Id))">
                     <MudIcon Icon="@captured.Icon" Size="Size.Small" />
                     <span>@captured.Label</span>
@@ -60,7 +61,7 @@
                             var isActive = string.Equals(slot.AssetType, SelectedPersonArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
                             <AppButton Variant="Variant.Text"
                                        Color="Color.Inherit"
-                                       Class="@(isActive ? "person-editor__nav-nested-item is-active" : "person-editor__nav-nested-item")"
+                                       Class="@(isActive ? "app-selection-nav__item person-editor__nav-nested-item is-active" : "app-selection-nav__item person-editor__nav-nested-item")"
                                        aria-current="@(isActive ? "page" : null)"
                                        OnClick="@(() => SelectPersonArtworkSlot(slot.AssetType))">
                                 <MudIcon Icon="@GetArtworkIcon(slot.AssetType)" Size="Size.Small" />
@@ -519,11 +520,11 @@
     private string GetPersonTabClass(string tabId)
     {
         if (!string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase))
-            return "person-editor__nav-item";
+            return "app-selection-nav__item person-editor__nav-item";
 
         return string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
-            ? "person-editor__nav-item is-group-open"
-            : "person-editor__nav-item is-active";
+            ? "app-selection-nav__item person-editor__nav-item is-active is-group-open"
+            : "app-selection-nav__item person-editor__nav-item is-active";
     }
 
     private ArtworkVariantDto? SelectedPersonArtworkVariant

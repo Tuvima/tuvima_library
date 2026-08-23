@@ -111,6 +111,10 @@
     box-shadow: inset var(--tl-space-1) 0 0 var(--tl-accent-primary);
 }
 
+::deep .person-editor__nav-item.is-active .mud-icon-root {
+    color: var(--tl-accent-primary-hover);
+}
+
 .person-editor__nav-footer {
     display: grid;
     gap: var(--tl-space-1);

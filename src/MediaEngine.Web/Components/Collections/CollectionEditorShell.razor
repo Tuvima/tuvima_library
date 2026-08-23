@@ -45,6 +45,7 @@
                     <AppButton Variant="Variant.Text"
                                Color="Color.Inherit"
                                Class="@TabClass(tab.Id)"
+                               aria-current="@(IsTabSelected(tab.Id) ? "page" : null)"
                                OnClick="@(() => OnTabChanged(tabIndex))">
                         <MudIcon Icon="@tab.Icon" Size="Size.Small" />
                         <span>@tab.Label</span>
@@ -58,7 +59,7 @@
                                 var isSelected = string.Equals(artworkTab.Slot, _activeArtworkSlot, StringComparison.OrdinalIgnoreCase);
                                 <AppButton Variant="Variant.Text"
                                            Color="Color.Inherit"
-                                           Class="@(isSelected ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
+                                           Class="@(isSelected ? "app-selection-nav__item sme-section-nav__nested-item is-active" : "app-selection-nav__item sme-section-nav__nested-item")"
                                            aria-current="@(isSelected ? "page" : null)"
                                            OnClick="@(() => SelectArtworkTab(artworkTab))">
                                     <MudIcon Icon="@artworkTab.Icon" Size="Size.Small" />
@@ -221,13 +222,20 @@
             _ => Icons.Material.Outlined.Collections,
         };
 
-    private string TabClass(string tabId) =>
-        string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
-        && _activeTab.StartsWith("artwork", StringComparison.OrdinalIgnoreCase)
-            ? "sme-section-nav__item is-group-open"
-            : string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase)
-                ? "sme-section-nav__item is-active"
-                : "sme-section-nav__item";
+    private bool IsTabSelected(string tabId) =>
+        string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
+           && _activeTab.StartsWith("artwork", StringComparison.OrdinalIgnoreCase);
+
+    private string TabClass(string tabId)
+    {
+        if (!IsTabSelected(tabId))
+            return "app-selection-nav__item sme-section-nav__item";
+
+        return string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
+            ? "app-selection-nav__item sme-section-nav__item is-active is-group-open"
+            : "app-selection-nav__item sme-section-nav__item is-active";
+    }
     private string DialogEyebrow => IsPlaylistDialog ? "Playlist editor" : "Collection editor";
     private string DialogTitle => EditingCollection is not null
         ? "Edit Collection"
