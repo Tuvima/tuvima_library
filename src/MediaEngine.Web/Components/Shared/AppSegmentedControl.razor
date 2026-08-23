@@ -1,12 +1,11 @@
 @namespace MediaEngine.Web.Components.Shared
 
-<div class="@RootClass" role="tablist" aria-label="@AriaLabel">
+<div class="@RootClass" role="group" aria-label="@AriaLabel">
     @foreach (var option in Options)
     {
         <button type="button"
                 class="app-segmented-control__item @(option.Value == Value ? "is-selected" : null)"
-                role="tab"
-                aria-selected="@(option.Value == Value)"
+                aria-pressed="@(option.Value == Value ? "true" : "false")"
                 aria-disabled="@Disabled"
                 disabled="@Disabled"
                 @onclick="@(() => SelectOption(option.Value))">

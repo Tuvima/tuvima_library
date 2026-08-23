@@ -1,6 +1,7 @@
 using Bunit;
 using MediaEngine.Web.Components.Pages;
 using MediaEngine.Web.Components.Shared;
+using MediaEngine.Web.Models.ViewDTOs;
 using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using MudBlazor;
@@ -60,6 +61,7 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
         Assert.Single(cut.FindAll($".app-page-state--{kind.ToString().ToLowerInvariant()}"));
         Assert.Contains(title, cut.Markup);
         Assert.Contains("State message", cut.Markup);
+        Assert.Equal(kind == AppPageStateKind.Error ? "alert" : "status", cut.Find(".app-page-state").GetAttribute("role"));
     }
 
     [Theory]
@@ -173,6 +175,41 @@ public sealed class SharedUiPrimitiveTests : AsyncBunitContext
         Assert.Contains("Status", cut.Markup);
         Assert.Contains("Provider is enabled.", cut.Markup);
         Assert.Contains("disabled", cut.Markup, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("Status", cut.Find("input[type='checkbox']").GetAttribute("aria-label"));
+    }
+
+    [Fact]
+    public void AppSegmentedControl_UsesPressedButtonsForFilterSemantics()
+    {
+        var cut = Render<AppSegmentedControl>(parameters => parameters
+            .Add(component => component.AriaLabel, "Library area")
+            .Add(component => component.Value, "read")
+            .Add(component => component.Options,
+            [
+                new AppSelectOption("all", "All"),
+                new AppSelectOption("read", "Read"),
+            ]));
+
+        Assert.Equal("group", cut.Find(".app-segmented-control").GetAttribute("role"));
+        Assert.Equal("true", cut.FindAll("button")[1].GetAttribute("aria-pressed"));
+        Assert.Null(cut.FindAll("button")[1].GetAttribute("aria-selected"));
+    }
+
+    [Fact]
+    public void SettingsSubsectionNav_RendersCanonicalLinksAndActiveState()
+    {
+        Services.GetRequiredService<NavigationManager>().NavigateTo("/settings/providers/health");
+
+        var cut = Render<SettingsSubsectionNav>(parameters => parameters
+            .Add(component => component.Section, SettingsSection.Providers)
+            .Add(component => component.ActiveSubsection, "health")
+            .Add(component => component.AriaLabel, "Metadata sections"));
+
+        Assert.Equal(4, cut.FindAll("a.settings-subsection-nav__item").Count);
+        var active = cut.Find("a[href='/settings/providers/health']");
+        Assert.Equal("page", active.GetAttribute("aria-current"));
+        Assert.Equal("true", active.GetAttribute("aria-selected"));
+        Assert.Contains("is-active", active.ClassList);
     }
 
     [Fact]

@@ -16,33 +16,6 @@
 }
 
 <div class="media-management">
-    <nav class="media-management__navigation" aria-label="Media Management sections">
-        <NavLink href="/settings/media-management/overview" ActiveClass="is-active">
-            <MudIcon Icon="@Icons.Material.Outlined.Dashboard" Size="Size.Small" />
-            <span>Overview</span>
-        </NavLink>
-        <NavLink href="/settings/media-management/incoming" ActiveClass="is-active">
-            <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" Size="Size.Small" />
-            <span>Incoming</span>
-        </NavLink>
-        <NavLink href="/settings/media-management/read" ActiveClass="is-active">
-            <MudIcon Icon="@Icons.Material.Outlined.MenuBook" Size="Size.Small" />
-            <span>Read</span>
-        </NavLink>
-        <NavLink href="/settings/media-management/watch" ActiveClass="is-active">
-            <MudIcon Icon="@Icons.Material.Outlined.Tv" Size="Size.Small" />
-            <span>Watch</span>
-        </NavLink>
-        <NavLink href="/settings/media-management/listen" ActiveClass="is-active">
-            <MudIcon Icon="@Icons.Material.Outlined.Headphones" Size="Size.Small" />
-            <span>Listen</span>
-        </NavLink>
-        <NavLink href="/settings/media-management/view" ActiveClass="is-active">
-            <MudIcon Icon="@Icons.Material.Outlined.FolderOpen" Size="Size.Small" />
-            <span>View</span>
-        </NavLink>
-    </nav>
-
     @if (unavailable)
     {
         <AppPageState Kind="AppPageStateKind.Unavailable"

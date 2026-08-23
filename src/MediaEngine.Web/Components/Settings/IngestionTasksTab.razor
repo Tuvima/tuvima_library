@@ -52,7 +52,7 @@
     ];
 
     private void NavigateToSection(string section) =>
-        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Ingestion, section));
+        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Libraries, "activity"));
 
     protected override async Task OnInitializedAsync()
     {

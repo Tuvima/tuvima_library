@@ -207,7 +207,7 @@ public sealed class UiArchitectureGuardrailTests
     }
 
     [Fact]
-    public void MetadataAdministration_UsesOneSharedShellAndOrderedTabs()
+    public void MetadataAdministration_UsesTheSharedSettingsHeaderAndSubsectionNavigation()
     {
         var shell = Read("src/MediaEngine.Web/Components/Settings/MetadataAdminShell.razor");
         var settings = Read("src/MediaEngine.Web/Components/Pages/Settings.razor");
@@ -215,14 +215,10 @@ public sealed class UiArchitectureGuardrailTests
         var enrichment = Read("src/MediaEngine.Web/Components/Settings/ProviderEnrichmentSurface.razor");
         var priority = Read("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
 
-        Assert.Contains("Title=\"Metadata\"", shell, StringComparison.Ordinal);
-        Assert.Contains("Manage provider connections, enrichment behavior, and source priority.", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("<Actions>", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("Label=\"Enrichment\"", shell, StringComparison.Ordinal);
-        Assert.DoesNotContain("Label=\"Source Priority\"", shell, StringComparison.Ordinal);
-        Assert.True(shell.IndexOf("new(\"overview\", \"Providers\"", StringComparison.Ordinal) < shell.IndexOf("new(\"enrichment\", \"Enrichment\"", StringComparison.Ordinal));
-        Assert.True(shell.IndexOf("new(\"enrichment\", \"Enrichment\"", StringComparison.Ordinal) < shell.IndexOf("new(\"priority\", \"Source Priority\"", StringComparison.Ordinal));
-        Assert.Contains("_activeSection != SettingsSection.Providers", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SidebarPageHeader", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("<nav", shell, StringComparison.Ordinal);
+        Assert.Contains("<SidebarPageHeader", settings, StringComparison.Ordinal);
+        Assert.Contains("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
         Assert.Contains("<MetadataAdminShell ActiveSubsection=\"@Subsection\">", providers, StringComparison.Ordinal);
         Assert.DoesNotContain("<h2>Enrichment</h2>", enrichment, StringComparison.Ordinal);
         Assert.DoesNotContain("<h2>Source Priority</h2>", priority, StringComparison.Ordinal);

@@ -1,23 +1,5 @@
 @namespace MediaEngine.Web.Components.Settings
-@using MediaEngine.Web.Models.ViewDTOs
-
 <section class="metadata-module">
-    <SidebarPageHeader Eyebrow="Administration"
-                       Title="Metadata"
-                       Subtitle="Manage provider connections, enrichment behavior, and source priority." />
-
-    <nav class="metadata-tabs" aria-label="Metadata administration sections">
-        @foreach (var tab in Tabs)
-        {
-            <a class="@TabClass(tab.Slug)"
-               href="@SettingsNav.RouteFor(SettingsSection.Providers, tab.Slug)"
-               aria-current="@(IsActive(tab.Slug) ? "page" : null)">
-                <MudIcon Icon="@tab.Icon" Size="Size.Small" />
-                <span>@tab.Label</span>
-            </a>
-        }
-    </nav>
-
     <div class="metadata-module__content">
         @ChildContent
     </div>
@@ -27,15 +9,4 @@
     [Parameter] public string ActiveSubsection { get; set; } = "overview";
     [Parameter] public RenderFragment? ChildContent { get; set; }
 
-    private static readonly MetadataTab[] Tabs =
-    [
-        new("overview", "Providers", Icons.Material.Outlined.Hub),
-        new("enrichment", "Enrichment", Icons.Material.Outlined.AutoAwesome),
-        new("priority", "Source Priority", Icons.Material.Outlined.SwapVert),
-    ];
-
-    private bool IsActive(string slug) => string.Equals(ActiveSubsection, slug, StringComparison.OrdinalIgnoreCase);
-    private string TabClass(string slug) => IsActive(slug) ? "metadata-tabs__item is-active" : "metadata-tabs__item";
-
-    private sealed record MetadataTab(string Slug, string Label, string Icon);
 }
