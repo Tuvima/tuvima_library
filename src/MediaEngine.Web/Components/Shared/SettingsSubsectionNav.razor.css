@@ -79,9 +79,18 @@
         margin-bottom: var(--tl-space-4, 16px);
     }
 
+    .settings-subsection-nav__list {
+        gap: 0;
+    }
+
     .settings-subsection-nav__item {
         min-height: 44px;
-        padding-inline: 10px;
-        font-size: 0.9rem;
+        gap: 0;
+        padding-inline: 6px;
+        font-size: 0.82rem;
+    }
+
+    .settings-subsection-nav__item ::deep .mud-icon-root {
+        display: none;
     }
 }
