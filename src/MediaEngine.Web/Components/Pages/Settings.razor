@@ -50,13 +50,13 @@
                 @switch (_activeSection)
                 {
                         case SettingsSection.Overview:
-                            <UserOverviewTab Subsection="@_activeSubsection" />
+                            <UserOverviewTab />
                             break;
                         case SettingsSection.AdminOverview:
                             <OverviewTab ReviewCount="_reviewCount" Subsection="@_activeSubsection" />
                             break;
                         case SettingsSection.Playback:
-                            <PlaybackTab Subsection="@_activeSubsection" />
+                            <PlaybackTab />
                             break;
                         case SettingsSection.Privacy:
                             <PrivacyHistoryTab Subsection="@_activeSubsection" />

@@ -124,8 +124,6 @@ else if (_settings is not null)
 }
 
 @code {
-    [Parameter] public string? Subsection { get; set; }
-
     private readonly JsonSerializerOptions _jsonOptions = MediaEngineJson.Web;
     private UserPlaybackSettingsDto? _settings;
     private ProfileViewModel? _activeProfile;
