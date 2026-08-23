@@ -156,7 +156,9 @@ public sealed class UiArchitectureGuardrailTests
         Assert.Contains("private Task? _pollTask", state);
         Assert.Contains("private Task? _snapshotRefreshTask", state);
         Assert.Contains("private Task? _liveNotifyTask", state);
+        Assert.Contains("private bool _signalsDisposed", state);
         Assert.Contains("await Task.WhenAll(tasks)", state);
+        Assert.Contains("if (!_signalsDisposed)", state);
         Assert.DoesNotContain("Task.Run", state);
         Assert.Contains("@implements IAsyncDisposable", component);
         Assert.Contains("await Dashboard.StopAsync()", component);

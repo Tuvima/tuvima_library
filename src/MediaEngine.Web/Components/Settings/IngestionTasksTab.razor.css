@@ -768,6 +768,16 @@
         padding: 0;
     }
 
+    ::deep .library-update-overall-progress__top {
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 12px;
+    }
+
+    ::deep .library-update-overall-progress__top > .library-update__actions {
+        grid-column: 1 / -1;
+        width: 100%;
+    }
+
     ::deep .library-update-status__line {
         font-size: 1.55rem;
     }

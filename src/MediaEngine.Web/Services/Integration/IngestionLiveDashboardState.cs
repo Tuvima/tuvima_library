@@ -26,6 +26,7 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
     private int _loadInProgress;
     private bool _loadAgainRequested;
     private bool _liveNotifyScheduled;
+    private bool _signalsDisposed;
     private bool _disposed;
     private bool _initialized;
 
@@ -704,8 +705,21 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
             _liveNotifyScheduled = false;
         }
 
-        while (_snapshotRefreshSignal.Wait(0)) { }
-        while (_liveNotifySignal.Wait(0)) { }
+        lock (_snapshotRefreshGate)
+        {
+            if (!_signalsDisposed)
+            {
+                while (_snapshotRefreshSignal.Wait(0)) { }
+            }
+        }
+
+        lock (_liveNotifyGate)
+        {
+            if (!_signalsDisposed)
+            {
+                while (_liveNotifySignal.Wait(0)) { }
+            }
+        }
     }
 
     private void UnsubscribeAndCancel()
@@ -729,15 +743,22 @@ public sealed partial class IngestionLiveDashboardState : IDisposable, IAsyncDis
 
     public async ValueTask DisposeAsync()
     {
+        if (_disposed)
+            return;
+
         _disposed = true;
         await StopAsync().ConfigureAwait(false);
         lock (_snapshotRefreshGate)
         {
-            _snapshotRefreshSignal.Dispose();
-        }
-        lock (_liveNotifyGate)
-        {
-            _liveNotifySignal.Dispose();
+            lock (_liveNotifyGate)
+            {
+                if (!_signalsDisposed)
+                {
+                    _signalsDisposed = true;
+                    _snapshotRefreshSignal.Dispose();
+                    _liveNotifySignal.Dispose();
+                }
+            }
         }
         GC.SuppressFinalize(this);
     }
