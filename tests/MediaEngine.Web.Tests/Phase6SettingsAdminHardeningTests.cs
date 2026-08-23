@@ -30,14 +30,15 @@ public sealed class Phase6SettingsAdminHardeningTests
     public void LibrariesTab_RendersSchemaThreeMediaManagement()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LibrariesTab.razor");
+        var nav = ReadRepoFile(@"src\MediaEngine.Web\Models\ViewDTOs\SettingsNav.cs");
+        var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
-        Assert.Contains("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/overview", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/incoming", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/read", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/watch", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/listen", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/view", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"overview\", \"Overview\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(\"incoming\", \"Incoming\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(\"libraries\", \"Libraries\"", nav, StringComparison.Ordinal);
+        Assert.Contains("new(\"activity\", \"Activity\"", nav, StringComparison.Ordinal);
+        Assert.Contains("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
         Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);

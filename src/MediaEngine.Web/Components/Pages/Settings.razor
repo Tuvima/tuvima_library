@@ -23,16 +23,17 @@
                        Options="@MobileNavigationOptions" />
         </nav>
 
-        @if (_activeSection != SettingsSection.Providers)
-        {
-            <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
-                               Title="@GetHeroTitle()"
-                               Subtitle="@GetSectionDescription(_activeSection)"
-                               Status="@GetHeaderStatusLabel()"
-                               Healthy="@(_systemStatus?.IsHealthy == true)" />
-        }
+        <SidebarPageHeader Eyebrow="@GetHeroEyebrow()"
+                           Title="@GetHeroTitle()"
+                           Subtitle="@GetSectionDescription(_activeSection)"
+                           Status="@GetHeaderStatusLabel()"
+                           Healthy="@(_systemStatus?.IsHealthy == true)" />
 
-        <div class="settings-page-canvas settings-admin-panel @(_activeSection == SettingsSection.Providers ? "settings-page-canvas--metadata" : null)">
+        <SettingsSubsectionNav Section="@_activeSection"
+                               ActiveSubsection="@_activeSubsection"
+                               AriaLabel="@($"{GetHeroTitle()} sections")" />
+
+        <div class="settings-page-canvas settings-admin-panel">
             @if (ShouldDeferForRoleResolution)
             {
                 <AppPageState Kind="AppPageStateKind.Loading"
@@ -67,9 +68,6 @@
                         case SettingsSection.Libraries:
                             <LibrariesTab Subsection="@_activeSubsection" />
                             break;
-                        case SettingsSection.Ingestion:
-                            <IngestionTasksTab Subsection="@_activeSubsection" />
-                            break;
                         case SettingsSection.DevHarness:
                             <DevHarnessTab Subsection="@_activeSubsection" />
                             break;
@@ -87,6 +85,9 @@
                             break;
                         case SettingsSection.Access:
                             <UsersAccessSettingsTab Subsection="@_activeSubsection" />
+                            break;
+                        case SettingsSection.Server:
+                            <BackupRecoveryPanel />
                             break;
                         case SettingsSection.ActivityLogs:
                             <ActivityTab Subsection="@_activeSubsection" />
@@ -384,7 +385,6 @@
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
         SettingsSection.AdminOverview => "Monitor library health, active work, and system status.",
         SettingsSection.Libraries => "Manage watched folders, library destinations, source health, organization rules, and write access.",
-        SettingsSection.Ingestion => "Track current library updates, recent batches, matching progress, and items that need review.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
         SettingsSection.Providers => "Manage the services Tuvima uses to identify and enrich your library.",
         SettingsSection.ActivityLogs => "Inspect batches, events, and retention.",
@@ -392,6 +392,7 @@
         SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",
         SettingsSection.Delivery => "Configure transcoding, prepared variants, active jobs, and delivery diagnostics.",
         SettingsSection.Access => "Manage profiles, roles, authentication, linked accounts, and guest API keys.",
+        SettingsSection.Server => "Create and restore backups for this Tuvima server.",
         SettingsSection.Review => "Items that Tuvima couldn't identify with high confidence and need your attention.",
         SettingsSection.ProviderTester => "Internal provider testing tool.",
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
