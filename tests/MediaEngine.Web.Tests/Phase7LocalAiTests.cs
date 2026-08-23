@@ -15,6 +15,7 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("MaxConcurrentInferences", source, StringComparison.Ordinal);
         Assert.Contains("MinimumFreeDiskMB", source, StringComparison.Ordinal);
         Assert.Contains("CpuPressureLabel(double pressure)", source, StringComparison.Ordinal);
+        Assert.Contains("switch (NormalizedSubsection)", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -44,7 +45,8 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("SaveAiConfigAsync", source, StringComparison.Ordinal);
         Assert.Contains("Missing model", source, StringComparison.Ordinal);
         Assert.Contains("Hardware limited", source, StringComparison.Ordinal);
-        Assert.Contains("Not connected", source, StringComparison.Ordinal);
+        Assert.Contains("Planned", source, StringComparison.Ordinal);
+        Assert.Contains("Series & relationship alignment", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Audiobook chapter naming", source, StringComparison.Ordinal);
     }
 
@@ -71,6 +73,20 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("GetAiConfigAsync", vocabulary, StringComparison.Ordinal);
         Assert.Contains("SaveAiConfigAsync", vocabulary, StringComparison.Ordinal);
         Assert.Contains("Duplicate tag", vocabulary, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void AdvancedSettings_UseTheSharedUrlBackedSubsectionNavigationOnly()
+    {
+        var localAi = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LocalAiSettingsTab.razor");
+        var plugins = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\PluginSettingsTab.razor");
+
+        Assert.Contains("NormalizedSubsection", localAi, StringComparison.Ordinal);
+        Assert.Contains("NormalizedSubsection", plugins, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppTabs", localAi, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppTabs", plugins, StringComparison.Ordinal);
+        Assert.Contains("PluginSubsection(plugin)", plugins, StringComparison.Ordinal);
+        Assert.Contains("Install and update marketplace flows are planned", plugins, StringComparison.Ordinal);
     }
 
     private static string ReadRepoFile(string relativePath) =>
