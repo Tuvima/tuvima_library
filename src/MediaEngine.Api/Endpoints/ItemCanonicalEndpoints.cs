@@ -1102,7 +1102,7 @@ public static class ItemCanonicalEndpoints
                 var replacementClaims = acceptedCandidateFields.Select(pair => new MetadataClaim
                 {
                     Id = Guid.NewGuid(),
-                    EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, pair.Key),
+                    EntityId = ResolvePolicyWorkTarget(lineage, policy, pair.Key),
                     ProviderId = WellKnownProviders.UserManual,
                     DecisionSourceProviderId = WellKnownProviders.UserManual,
                     ClaimKey = pair.Key,
@@ -1126,7 +1126,7 @@ public static class ItemCanonicalEndpoints
 
                 var replacementCanonicals = acceptedCandidateFields.Select(pair => new CanonicalValue
                 {
-                    EntityId = ResolvePolicyScopedTarget(context.AssetId, lineage, policy, pair.Key),
+                    EntityId = ResolvePolicyWorkTarget(lineage, policy, pair.Key),
                     Key = pair.Key,
                     Value = pair.Value,
                     LastScoredAt = now,

@@ -35,6 +35,7 @@ internal sealed partial class DetailCompositionOrchestrator
         DetailEntityType entityType,
         string? requestedContainerId,
         string? currentArtworkUrl,
+        string currentDisplayTitle,
         CancellationToken ct)
     {
         var labels = ResolveSequenceLabels(entityType);
@@ -257,7 +258,9 @@ internal sealed partial class DetailCompositionOrchestrator
             {
                 Id = row.WorkId.ToString("D"),
                 EntityType = entityType,
-                Title = ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
+                Title = row.WorkId == workId
+                    ? currentDisplayTitle
+                    : ResolveSequenceItemTitle(entityType, row.Title, containerTitle, positionLabel),
                 ArtworkUrl = StringHelpers.FirstNonBlankOr(string.Empty,
                     ResolveCollectionArtworkUrl(row.ArtworkUrl, row.AssetId?.ToString("D"), artworkKind, row.ArtworkState),
                     row.WorkId == workId ? currentArtworkUrl : null),
@@ -296,7 +299,7 @@ internal sealed partial class DetailCompositionOrchestrator
             {
                 Id = workId.ToString("D"),
                 EntityType = entityType,
-                Title = detail.Title,
+                Title = currentDisplayTitle,
                 ArtworkUrl = entityType == DetailEntityType.TvEpisode
                     ? StringHelpers.FirstNonBlankOr(string.Empty,
                         GetDetailCanonicalValue(detail, "episode_still_url"),

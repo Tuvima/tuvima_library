@@ -50,6 +50,9 @@ internal sealed partial class DetailCompositionOrchestrator
         var entityType = requestedType == DetailEntityType.Work ? InferWorkEntityType(detail.MediaType, detail) : requestedType;
         var ownedFormats = await LoadOwnedFormatsAsync(workId, detail, ct);
         var values = await LoadWorkCanonicalMapAsync(workId, detail, ct);
+        var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
+        var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
+        var resolvedTitle = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType);
         var artworkFallback = await LoadWorkArtworkFallbackAsync(workId, ct);
         var multiFormatState = ownedFormats.Count > 1
             ? MultiFormatState.MultipleFormatsSeparateProgress
@@ -122,14 +125,13 @@ internal sealed partial class DetailCompositionOrchestrator
             entityType,
             selectedContainerId,
             managedCurrentArtworkUrl,
+            resolvedTitle,
             ct);
         var mediaGroups = await BuildWorkMediaGroupsAsync(workId, entityType, profileId, ct);
         var heroProgress = BuildHeroProgress(entityType, detail.Runtime, ownedFormats)
             ?? BuildAudiobookHeroProgress(entityType, detail.Runtime, mediaGroups);
         var descriptionSelection = ResolveLongDescription(detail, values, entityType);
         var longDescription = descriptionSelection.Text;
-        var displayOverrides = await LoadWorkDisplayOverridesAsync(workId, ct);
-        var displayTitle = ResolveDisplayTitleOverride(displayOverrides, entityType);
         var displayDescription = ResolveDisplayOverride(displayOverrides, "description");
         var displayTagline = ResolveDisplayOverride(displayOverrides, "tagline");
         var displaySubtitle = ResolveDisplayOverride(displayOverrides, MetadataFieldConstants.Subtitle);
@@ -159,7 +161,7 @@ internal sealed partial class DetailCompositionOrchestrator
                 ContainerMode = IsCanonicalContainerEntity(entityType) ? "Canonical" : "Singular",
                 InitialTab = "details",
             },
-            Title = ResolveWorkDisplayTitle(displayTitle, detail, values, entityType),
+            Title = resolvedTitle,
             Subtitle = BuildSubtitle(detail, entityType, values, multiFormatState),
             Tagline = semanticTagline,
             SecondaryTitleText = secondaryTitle.Text,

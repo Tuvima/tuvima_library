@@ -842,8 +842,8 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.Audiobook => ["overview", "tracks", "details"],
             DetailEntityType.BookSeries when hasUniverse => ["overview", "universe", "related", "details"],
             DetailEntityType.BookSeries => ["overview", "related", "details"],
-            DetailEntityType.Work when hasUniverse => ["overview", "credits", "formats", "universe", "related", "details"],
-            DetailEntityType.Work => ["overview", "credits", "formats", "related", "details"],
+            DetailEntityType.Work when hasUniverse => ["overview", "credits", "universe", "related", "details"],
+            DetailEntityType.Work => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicIssue when hasUniverse => ["overview", "credits", "universe", "related", "details"],
             DetailEntityType.ComicIssue => ["overview", "credits", "related", "details"],
             DetailEntityType.ComicSeries when hasUniverse => ["overview", "universe", "related", "details"],
@@ -877,7 +877,7 @@ internal sealed partial class DetailCompositionOrchestrator
             DetailEntityType.MusicAlbum when mediaGroups.Any(group =>
                 string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
                 => DetailPrimaryModuleKind.Tracks,
-            DetailEntityType.Audiobook when mediaGroups.Any(group =>
+            DetailEntityType.Audiobook when sequencePlacement is null && mediaGroups.Any(group =>
                 string.Equals(group.Key, "tracks", StringComparison.OrdinalIgnoreCase))
                 => DetailPrimaryModuleKind.Tracks,
             DetailEntityType.TvShow or DetailEntityType.TvSeason or DetailEntityType.TvEpisode when sequencePlacement is not null
@@ -1381,7 +1381,14 @@ internal sealed partial class DetailCompositionOrchestrator
             return StringHelpers.FirstNonBlankOr(string.Empty, FormatIssue(issueNumber), detail.FileName, "Untitled");
         }
 
-        return StringHelpers.FirstNonBlankOr(string.Empty, displayTitle, detail.Title, detail.EpisodeTitle, detail.FileName, "Untitled");
+        return StringHelpers.FirstNonBlankOr(
+            string.Empty,
+            displayTitle,
+            GetValue(values, MetadataFieldConstants.Title),
+            detail.Title,
+            detail.EpisodeTitle,
+            detail.FileName,
+            "Untitled");
     }
 
     private static bool IsGeneratedComicIssueTitle(string? title, LibraryItemDetail detail, IReadOnlyDictionary<string, string> values)

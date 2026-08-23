@@ -39,6 +39,7 @@
     ],
     "field_priorities": {
       "title": [
+        "wikidata_reconciliation",
         "apple_api"
       ],
       "author": [

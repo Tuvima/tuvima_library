@@ -328,7 +328,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("EpisodesTab", source);
         Assert.Contains("CurrentActiveTab is \"episodes\"", source);
         Assert.Contains("<SequencePlacementPanel Placement=\"Model.SequencePlacement\"", source);
-        Assert.Contains("FormatsTab", source);
+        Assert.DoesNotContain("FormatsTab", source);
         Assert.Contains("SyncTab", source);
         Assert.Contains("RegistryTab", source);
     }
@@ -1050,10 +1050,12 @@ public sealed class UnifiedDetailComponentTests
         Assert.Contains("<DetailHero Model=\"Model\"", detailPage);
         Assert.DoesNotContain("<MusicTrackList", primaryModule);
         Assert.Contains("<MusicAlbumOverviewContent Model=\"Model\"", detailPage);
-        Assert.Contains("<AudiobookOverviewContent Model=\"Model\"", detailPage);
+        Assert.DoesNotContain("AudiobookOverviewContent", detailPage);
+        Assert.Contains("<MediaEngine.Web.Components.Details.OverviewTab Model=\"Model\"", detailPage);
+        Assert.DoesNotContain("FormatsTab", detailPage);
+        Assert.DoesNotContain("CurrentActiveTab is \"formats\"", detailPage);
         Assert.DoesNotContain("<AudiobookChapterList", primaryModule);
         Assert.DoesNotContain("IsAudiobook", ReadSource("src/MediaEngine.Web/Components/Details/MusicAlbumOverviewContent.razor"));
-        Assert.DoesNotContain("<MusicTrackList", ReadSource("src/MediaEngine.Web/Components/Details/AudiobookOverviewContent.razor"));
         Assert.Contains("IsAudiobook=\"true\"", ReadSource("src/MediaEngine.Web/Components/Details/AudiobookTracksContent.razor"));
         Assert.Contains("tl-embedded-audio__toolbar", audioTable);
         Assert.Contains("tl-embedded-audio__scroller", audioTable);
@@ -1255,7 +1257,7 @@ public sealed class UnifiedDetailComponentTests
         Assert.DoesNotContain("AudioDetailLayout", detailPage);
         Assert.DoesNotContain("Model.PrimaryModule.Kind == DetailPrimaryModuleKind.Tracks", primaryModule);
         Assert.Contains("<MusicAlbumOverviewContent Model=\"Model\"", detailPage);
-        Assert.Contains("<AudiobookOverviewContent Model=\"Model\"", detailPage);
+        Assert.DoesNotContain("AudiobookOverviewContent", detailPage);
         Assert.Contains("listen-page listen-page--detail", listenPage);
         Assert.Contains(".listen-page--detail", ReadSource("src/MediaEngine.Web/Components/Pages/ListenPage.razor.css"));
         Assert.DoesNotContain("HeroMetadataPills", primaryModule);

@@ -3,6 +3,7 @@ using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Persons;
 using MediaEngine.Domain;
 using MediaEngine.Domain.Entities;
+using MediaEngine.Domain.Models;
 using System.Text.Json;
 
 namespace MediaEngine.Api.Tests;
@@ -1381,6 +1382,21 @@ public sealed class DetailComposerServiceTests
     }
 
     [Fact]
+    public void BuildTabs_DoesNotExposeTheDeprecatedOwnedFormatsSurface()
+    {
+        var tabs = InvokePrivate<List<DetailTab>>(
+            "BuildTabs",
+            DetailEntityType.Work,
+            DetailPresentationContext.Default,
+            false,
+            false,
+            false,
+            true);
+
+        Assert.DoesNotContain(tabs, tab => tab.Key == "formats");
+    }
+
+    [Fact]
     public void SequencePlacement_DropsAnUnpositionedContainerNamedAfterTheWork()
     {
         IReadOnlyList<SequenceItemViewModel> items =
@@ -1483,6 +1499,58 @@ public sealed class DetailComposerServiceTests
 
         Assert.Equal(DetailPrimaryModuleKind.Tracks, module.Kind);
         Assert.Equal(["tracks"], module.GroupKeys);
+    }
+
+    [Fact]
+    public void BuildPrimaryModule_AudiobookPresentsItsSeriesBeforeItsTracks()
+    {
+        IReadOnlyList<MediaGroupingViewModel> groups =
+        [
+            new MediaGroupingViewModel
+            {
+                Key = "tracks",
+                Title = "Tracks",
+                Items = [new MediaGroupingItemViewModel { Id = "owned-track", Title = "001", IsOwned = true }],
+            },
+        ];
+        var placement = new SequencePlacementViewModel
+        {
+            ContainerId = "dungeon-crawler-carl",
+            ContainerTitle = "Dungeon Crawler Carl",
+            ItemPluralLabel = "Books",
+        };
+
+        var module = InvokePrivate<DetailPrimaryModuleViewModel>(
+            "BuildPrimaryModule",
+            DetailEntityType.Audiobook,
+            placement,
+            groups);
+
+        Assert.Equal(DetailPrimaryModuleKind.Sequence, module.Kind);
+        Assert.Equal("Books", module.Title);
+    }
+
+    [Fact]
+    public void ResolveWorkDisplayTitle_UsesTheConfirmedCanonicalTitleBeforeRetailFallback()
+    {
+        var detail = new LibraryItemDetail
+        {
+            Title = "Dungeon Crawler Carl: A LitRPG/Gamelit Adventure (Unabridged)",
+            FileName = "Dungeon Crawler Carl.m4b",
+        };
+        IReadOnlyDictionary<string, string> canonicalValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            [MetadataFieldConstants.Title] = "Dungeon Crawler Carl",
+        };
+
+        var title = InvokePrivateString(
+            "ResolveWorkDisplayTitle",
+            null,
+            detail,
+            canonicalValues,
+            DetailEntityType.Audiobook);
+
+        Assert.Equal("Dungeon Crawler Carl", title);
     }
 
     [Theory]

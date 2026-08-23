@@ -15,7 +15,7 @@
     "strategy": "Waterfall",
     "providers": [{ "rank": 1, "name": "apple_api", "purpose": "identity" }],
     "field_priorities": {
-      "title": ["apple_api"],
+      "title": ["wikidata_reconciliation", "apple_api"],
       "author": ["wikidata_reconciliation", "apple_api"],
       "cover": ["apple_api"],
       "narrator": ["apple_api"],

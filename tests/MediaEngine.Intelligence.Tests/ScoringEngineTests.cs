@@ -76,7 +76,7 @@ public sealed class ScoringEngineTests
     }
 
     [Fact]
-    public async Task AudiobookPipelinePriority_AllowsRetailTitleToWinDisplayIdentity()
+    public async Task AudiobookPipelinePriority_PreservesCanonicalWorkTitleWithRetailFallback()
     {
         var loader = new StubConfigurationLoader
         {
@@ -88,7 +88,7 @@ public sealed class ScoringEngineTests
                     {
                         FieldPriorities =
                         {
-                            ["title"] = ["apple_api"],
+                            ["title"] = ["wikidata_reconciliation", "apple_api"],
                         },
                     },
                 },
@@ -99,6 +99,12 @@ public sealed class ScoringEngineTests
                 {
                     Name = "apple_api",
                     ProviderId = AppleProviderId.ToString("D"),
+                    Enabled = true,
+                },
+                new MediaEngine.Domain.Configuration.ProviderConfiguration
+                {
+                    Name = "wikidata_reconciliation",
+                    ProviderId = WikidataProviderId.ToString("D"),
                     Enabled = true,
                 },
             ],
@@ -126,8 +132,8 @@ public sealed class ScoringEngineTests
         var result = await engine.ScoreEntityAsync(context);
 
         var titleScore = result.FieldScores.First(f => f.Key == "title");
-        Assert.Equal("Retail Audiobook Title", titleScore.WinningValue);
-        Assert.Equal(AppleProviderId, titleScore.WinningProviderId);
+        Assert.Equal("Wikidata Work Title", titleScore.WinningValue);
+        Assert.Equal(WikidataProviderId, titleScore.WinningProviderId);
     }
 
     [Fact]

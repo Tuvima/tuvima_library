@@ -68,12 +68,12 @@ public sealed class PipelineConfigurationTests
     }
 
     [Fact]
-    public void AudiobookPipeline_PreservesCanonicalBookAuthorIdentityWithRetailFallback()
+    public void AudiobookPipeline_PreservesCanonicalBookIdentityWithRetailFallback()
     {
         var configPath = FindRepoFile("config", "pipelines.json");
         using var document = JsonDocument.Parse(File.ReadAllText(configPath));
 
-        Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "title"));
+        Assert.Equal(["wikidata_reconciliation", "apple_api"], ReadPriority(document, "Audiobooks", "title"));
         Assert.Equal(["wikidata_reconciliation", "apple_api"], ReadPriority(document, "Audiobooks", "author"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "series"));
         Assert.Equal(["apple_api"], ReadPriority(document, "Audiobooks", "narrator"));

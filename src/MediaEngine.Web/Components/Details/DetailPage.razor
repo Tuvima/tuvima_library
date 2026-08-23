@@ -62,12 +62,6 @@
                 {
                     <MusicAlbumOverviewContent Model="Model" />
                 }
-                else if (IsAudiobook)
-                {
-                    <AudiobookOverviewContent Model="Model"
-                                              OnTabRequested="SetActiveTabAsync"
-                                              OnContainerSelected="HandleContainerSelectedAsync" />
-                }
                 else
                 {
                     <MediaEngine.Web.Components.Details.OverviewTab Model="Model"
@@ -138,10 +132,6 @@
             else if (CurrentActiveTab is "related")
             {
                 <RelatedTab Model="Model" />
-            }
-            else if (CurrentActiveTab is "formats")
-            {
-                <FormatsTab Formats="Model.OwnedFormats" />
             }
             else if (CurrentActiveTab is "sync")
             {

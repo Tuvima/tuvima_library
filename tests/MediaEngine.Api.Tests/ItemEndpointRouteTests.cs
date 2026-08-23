@@ -192,6 +192,7 @@ public sealed class ItemEndpointRouteTests
         Assert.Contains("policy.RequiredFieldKeys", route, StringComparison.Ordinal);
         Assert.Contains(".Concat(policy.SuggestedFieldKeys)", route, StringComparison.Ordinal);
         Assert.Contains("request.SuggestedFields.TryGetValue", route, StringComparison.Ordinal);
+        Assert.Contains("EntityId = ResolvePolicyWorkTarget(lineage, policy, pair.Key)", route, StringComparison.Ordinal);
         Assert.Contains("IsUserLocked = true", route, StringComparison.Ordinal);
         Assert.Contains("fieldsApplied = 1 + acceptedCandidateFields.Count", route, StringComparison.Ordinal);
     }

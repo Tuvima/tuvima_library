@@ -67,14 +67,11 @@ public sealed class Wave5AccessibilityGuardrailTests
     [Fact]
     public void ActiveSelectableSurfaces_ProvideKeyboardActivation()
     {
-        var formats = Read("src/MediaEngine.Web/Components/Details/OwnedFormatsPanel.razor");
         var plugins = Read("src/MediaEngine.Web/Components/Settings/PluginSettingsTab.razor");
         var providers = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")
                         + Read("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
         var activity = Read("src/MediaEngine.Web/Components/Activity/ActivityMediaTypeAuditGroup.razor");
 
-        Assert.Contains("@onkeydown=\"@(args => HandleFormatKeyDown(args, format.Id))\"", formats);
-        Assert.DoesNotContain("tl-detail-mini-action", formats);
         Assert.Contains("HandlePluginKeyDown", plugins);
         Assert.Contains("Drag {provider.DisplayName} to reorder", providers);
         Assert.Contains("Label=\"Move earlier\"", providers);

@@ -346,7 +346,9 @@ internal sealed partial class DetailCompositionOrchestrator
         var values = await LoadWorkAndAssetCanonicalMapAsync(workId, ct);
         foreach (var canonical in detail.CanonicalValues)
         {
-            values[canonical.Key] = canonical.Value;
+            // Repository detail values are edition/asset-oriented. They fill gaps,
+            // but must not replace the shared work identity loaded above.
+            values.TryAdd(canonical.Key, canonical.Value);
         }
 
         return values;
