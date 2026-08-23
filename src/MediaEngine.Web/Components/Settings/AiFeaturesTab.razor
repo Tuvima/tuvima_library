@@ -61,7 +61,7 @@
                                           StopClickPropagation="true" />
                             @if (!feature.Connected)
                             {
-                                <span class="ai-feature-table__description">Saved setting is not connected to Engine behavior yet.</span>
+                                <span class="ai-feature-table__description">Planned — this control is disabled until Engine support is available.</span>
                             }
                         </td>
                     </tr>
@@ -112,7 +112,7 @@
     private DependencyStatus GetDependency(FeatureDefinition feature)
     {
         if (!feature.Connected)
-            return new("Not connected", "This setting is saved but the Engine does not use it yet.", AppUiTone.Neutral);
+            return new("Planned", "The saved flag is not connected to Engine behavior yet.", AppUiTone.Neutral);
 
         if (_status is null)
             return new("Engine unavailable", "AI status could not be loaded.", AppUiTone.Warning);
@@ -173,7 +173,7 @@
         new("type_logic", "Type logic", "Classifies ambiguous media types during ingestion.", "text_fast", "low", true),
         new("audio_language_detection", "Audio language detection", "Uses Whisper to detect audio language.", "audio", "medium", true),
         new("qid_disambiguation", "QID disambiguation", "Ranks ambiguous Wikidata candidates.", "text_quality", "medium", true),
-        new("series_alignment", "Series alignment", "Assists order and grouping checks for multi-part works.", "text_quality", "medium", true),
+        new("series_alignment", "Series & relationship alignment", "Assists structural order, series grouping, and related-work alignment across media.", "text_quality", "medium", true),
         new("watching_order", "Watching order", "Optional on-demand order advice.", "text_fast", "low", true),
         new("vibe_tags", "Vibe tags", "Generates controlled vocabulary mood tags.", "text_quality", "medium", true),
         new("tldr", "TL;DR", "Generates short summaries from descriptions.", "text_fast", "low", true),

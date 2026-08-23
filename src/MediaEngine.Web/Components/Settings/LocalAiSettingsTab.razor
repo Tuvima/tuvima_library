@@ -2,105 +2,119 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page local-ai-settings">
-    <AppAlert Severity="Severity.Info" Variant="Variant.Outlined" Class="mb-4">
-        Local AI runs on this server. Model files are downloaded locally, inference stays local, and provider metadata calls remain separate from AI.
-    </AppAlert>
-
-    <div class="local-ai-settings__status-grid">
-        <AppCard Title="AI Readiness" Class="local-ai-settings__status-card">
-            @if (_status is null)
-            {
-                <AppEmptyState Title="AI status unavailable" Message="Library browsing continues without Local AI." />
-            }
-            else
-            {
-                <AppStatusBadge Text="@(_status.IsReady ? "Ready" : "Limited")"
-                                Tone="@(_status.IsReady ? AppUiTone.Success : AppUiTone.Warning)" />
-                <MudText Typo="Typo.body2" Class="mt-2">Memory profile: @_status.MemoryProfile</MudText>
-                <MudText Typo="Typo.body2">Loaded memory: @FormatMb(_status.MemoryUsedMB) / @FormatMb(_status.MemoryLimitMB)</MudText>
-            }
-        </AppCard>
-        <AppCard Title="Active Model" Class="local-ai-settings__status-card">
-            <Actions>
-                <AppButton Label="@(_benchmarking ? "Benchmarking" : "Benchmark")"
-                           StartIcon="@Icons.Material.Outlined.Speed"
-                           Size="AppControlSize.Compact"
-                           Disabled="@_benchmarking"
-                           OnClick="@RunBenchmark" />
-            </Actions>
-            <ChildContent>
-            <MudText Typo="Typo.h6">@(LoadedModel ?? "None loaded")</MudText>
-            <MudText Typo="Typo.body2" Color="Color.Secondary">@(_profile is null ? "Runtime unavailable" : $"{_profile.Backend} · {_profile.TokensPerSecond:F1} tok/s")</MudText>
-            @if (!string.IsNullOrWhiteSpace(_benchmarkProblem))
-            {
-                <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mt-2">@_benchmarkProblem</AppAlert>
-            }
-            </ChildContent>
-        </AppCard>
-        <AppCard Title="Resource Usage" Class="local-ai-settings__status-card">
-            @if (_resources is null)
-            {
-                <AppEmptyState Title="Resource snapshot unavailable" />
-            }
-            else
-            {
-                <MudText Typo="Typo.h6">@FormatMb(_resources.EngineRamMb)</MudText>
-                <MudText Typo="Typo.body2" Color="Color.Secondary">Engine RAM · @FormatMb(_resources.FreeRamMb) free</MudText>
-                <MudText Typo="Typo.body2">CPU pressure: @CpuPressureLabel(_resources.CpuPressure)</MudText>
-            }
-        </AppCard>
-        <AppCard Title="Enrichment Status" Class="local-ai-settings__status-card">
-            @EnrichmentContent()
-        </AppCard>
-    </div>
-
-    <div class="local-ai-settings__workspace">
-        <AppPanel Class="local-ai-settings__section local-ai-settings__section--models">
-            @SectionHeading("Models & Runtime", "Manage local models, storage, and runtime limits.", Icons.Material.Outlined.Storage)
-            <ModelsTab />
-            <AppCard Title="Runtime Settings" Density="AppSurfaceDensity.Compact">
-                @if (_config is null)
-                {
-                    <AppEmptyState Title="AI configuration unavailable" />
-                }
-                else
-                {
-                    <div class="tl-form-grid local-ai-settings__runtime-form">
-                        <AppTextField @bind-Value="_config.ModelsDirectory" Label="Models directory" />
-                        <AppNumericField T="int" @bind-Value="_config.IdleUnloadSeconds" Label="Idle unload seconds" Min="1" />
-                        <AppNumericField T="int" @bind-Value="_config.InferenceTimeoutSeconds" Label="Inference timeout seconds" Min="1" />
-                        <AppNumericField T="int" @bind-Value="_config.MaxConcurrentInferences" Label="Maximum concurrent inference" Min="1" Max="1" />
-                        <AppNumericField T="int" @bind-Value="_config.MinimumFreeDiskMB" Label="Minimum free disk (MB)" Min="256" />
-                        <AppNumericField T="int" @bind-Value="_config.EnrichmentBatchSize" Label="Enrichment batch size" Min="1" />
-                    </div>
-                    <AppButton Label="Save runtime settings" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary"
-                               Class="mt-3" Disabled="@_savingConfig" OnClick="@SaveConfig" />
-                }
-            </AppCard>
-        </AppPanel>
-
-        <AppPanel Class="local-ai-settings__section local-ai-settings__section--features">
-            @SectionHeading("Features", "Enable and configure AI-powered library features.", Icons.Material.Outlined.AutoAwesome)
-            <AiFeaturesTab />
-        </AppPanel>
-
-        <AppPanel Class="local-ai-settings__section local-ai-settings__section--vocabulary">
-            @SectionHeading("Vocabulary", "Manage custom terms used by enrichment.", Icons.Material.Outlined.Spellcheck)
-            <VibeVocabularyTab />
-        </AppPanel>
-
-        <AppPanel Class="local-ai-settings__section local-ai-settings__section--automation">
-            @SectionHeading("Automation Schedule", "Control when enrichment and maintenance run.", Icons.Material.Outlined.Schedule)
-            <AiScheduleTab />
-            <AppCard Title="Enrichment Progress" Density="AppSurfaceDensity.Compact">
-                @EnrichmentContent()
-            </AppCard>
-        </AppPanel>
-    </div>
+    @switch (NormalizedSubsection)
+    {
+        case "models":
+            <AppPanel Class="local-ai-settings__section">
+                @SectionHeading("Models & Runtime", "Manage downloaded models, lifecycle actions, storage, and runtime limits.", Icons.Material.Outlined.Storage)
+                <ModelsTab />
+                <AppCard Title="Runtime Settings" Density="AppSurfaceDensity.Compact">
+                    @if (_config is null)
+                    {
+                        <AppEmptyState Title="AI configuration unavailable" Message="Runtime controls are hidden until the Engine returns saved configuration." />
+                    }
+                    else
+                    {
+                        <div class="tl-form-grid local-ai-settings__runtime-form">
+                            <AppTextField @bind-Value="_config.ModelsDirectory" Label="Models directory" />
+                            <AppNumericField T="int" @bind-Value="_config.IdleUnloadSeconds" Label="Idle unload seconds" Min="1" />
+                            <AppNumericField T="int" @bind-Value="_config.InferenceTimeoutSeconds" Label="Inference timeout seconds" Min="1" />
+                            <AppNumericField T="int" @bind-Value="_config.MaxConcurrentInferences" Label="Maximum concurrent inference" Min="1" Max="1" />
+                            <AppNumericField T="int" @bind-Value="_config.MinimumFreeDiskMB" Label="Minimum free disk (MB)" Min="256" />
+                            <AppNumericField T="int" @bind-Value="_config.EnrichmentBatchSize" Label="Enrichment batch size" Min="1" />
+                        </div>
+                        <AppButton Label="Save runtime settings" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary"
+                                   Class="mt-3" Disabled="@_savingConfig" OnClick="@SaveConfig" />
+                    }
+                </AppCard>
+            </AppPanel>
+            break;
+        case "features":
+            <div class="local-ai-settings__feature-stack">
+                <AppPanel Class="local-ai-settings__section">
+                    @SectionHeading("Features", "Enable AI capabilities backed by the current model and hardware configuration.", Icons.Material.Outlined.AutoAwesome)
+                    <AiFeaturesTab />
+                </AppPanel>
+                <AppPanel Class="local-ai-settings__section">
+                    @SectionHeading("Vocabulary", "Manage the controlled terms used by local enrichment.", Icons.Material.Outlined.Spellcheck)
+                    <VibeVocabularyTab />
+                </AppPanel>
+            </div>
+            break;
+        case "automation":
+            <AppPanel Class="local-ai-settings__section">
+                @SectionHeading("Automation", "Control saved enrichment and maintenance schedules.", Icons.Material.Outlined.Schedule)
+                <AiScheduleTab />
+                <AppCard Title="Enrichment Progress" Density="AppSurfaceDensity.Compact">
+                    @EnrichmentContent()
+                </AppCard>
+            </AppPanel>
+            break;
+        default:
+            <AppAlert Severity="Severity.Info" Variant="Variant.Outlined">
+                Local AI runs on this server. Model files are downloaded locally, inference stays local, and provider metadata calls remain separate from AI.
+            </AppAlert>
+            <div class="local-ai-settings__status-grid">
+                <AppCard Title="AI Readiness" Class="local-ai-settings__status-card">
+                    @if (_status is null)
+                    {
+                        <AppEmptyState Title="AI status unavailable" Message="Library browsing continues without Local AI." />
+                    }
+                    else
+                    {
+                        <AppStatusBadge Text="@(_status.IsReady ? "Ready" : "Limited")"
+                                        Tone="@(_status.IsReady ? AppUiTone.Success : AppUiTone.Warning)" />
+                        <MudText Typo="Typo.body2" Class="mt-2">Memory profile: @_status.MemoryProfile</MudText>
+                        <MudText Typo="Typo.body2">Loaded memory: @FormatMb(_status.MemoryUsedMB) / @FormatMb(_status.MemoryLimitMB)</MudText>
+                    }
+                </AppCard>
+                <AppCard Title="Active Model" Class="local-ai-settings__status-card">
+                    <Actions>
+                        <AppButton Label="@(_benchmarking ? "Benchmarking" : "Benchmark")"
+                                   StartIcon="@Icons.Material.Outlined.Speed"
+                                   Size="AppControlSize.Compact"
+                                   Disabled="@_benchmarking"
+                                   OnClick="@RunBenchmark" />
+                    </Actions>
+                    <ChildContent>
+                        <MudText Typo="Typo.h6">@(LoadedModel ?? "None loaded")</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">@(_profile is null ? "Runtime unavailable" : $"{_profile.Backend} · {_profile.TokensPerSecond:F1} tok/s")</MudText>
+                        @if (!string.IsNullOrWhiteSpace(_benchmarkProblem))
+                        {
+                            <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mt-2">@_benchmarkProblem</AppAlert>
+                        }
+                    </ChildContent>
+                </AppCard>
+                <AppCard Title="Resource Usage" Class="local-ai-settings__status-card">
+                    @if (_resources is null)
+                    {
+                        <AppEmptyState Title="Resource snapshot unavailable" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.h6">@FormatMb(_resources.EngineRamMb)</MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">Engine RAM · @FormatMb(_resources.FreeRamMb) free</MudText>
+                        <MudText Typo="Typo.body2">CPU pressure: @CpuPressureLabel(_resources.CpuPressure)</MudText>
+                    }
+                </AppCard>
+                <AppCard Title="Enrichment Status" Class="local-ai-settings__status-card">
+                    @EnrichmentContent()
+                </AppCard>
+            </div>
+            break;
+    }
 </div>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "overview";
+
+    private string NormalizedSubsection => Subsection?.Trim().ToLowerInvariant() switch
+    {
+        "models" => "models",
+        "features" => "features",
+        "automation" => "automation",
+        _ => "overview",
+    };
 
     private AiHealthStatusDto? _status;
     private HardwareProfileDto? _profile;

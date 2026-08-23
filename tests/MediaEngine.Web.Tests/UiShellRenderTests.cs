@@ -396,7 +396,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.Contains("SaveAiConfigAsync", source);
         Assert.Contains("GetAiConfigAsync", source);
         Assert.Contains("GetAiModelStatusesAsync", source);
-        Assert.Contains("Not connected", source);
+        Assert.Contains("Planned", source);
         Assert.DoesNotContain("Toggle persistence is not wired to the Engine yet", source);
     }
 
