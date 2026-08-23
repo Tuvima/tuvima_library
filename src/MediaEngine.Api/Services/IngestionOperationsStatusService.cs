@@ -1643,7 +1643,7 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
+                    WHERE ea.asset_type IN ('Background', 'Logo', 'SeasonPoster', 'SeasonThumb', 'EpisodeStill')
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS DeepArtworkCount,
                 (
@@ -1661,13 +1661,13 @@ public sealed class IngestionOperationsStatusService : IIngestionOperationsStatu
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('Background', 'Banner', 'Logo')
+                    WHERE ea.asset_type IN ('Background', 'Logo')
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS BackdropBannerLogoCount,
                 (
                     SELECT COUNT(*)
                     FROM entity_assets ea
-                    WHERE ea.asset_type IN ('Background', 'Banner')
+                    WHERE ea.asset_type = 'Background'
                       AND (@hasBatchScope = 0 OR ea.entity_id IN (SELECT id FROM entity_scope))
                 ) AS BackdropBannerCount,
                 (

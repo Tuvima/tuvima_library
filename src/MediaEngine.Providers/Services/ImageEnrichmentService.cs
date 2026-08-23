@@ -16,7 +16,7 @@ namespace MediaEngine.Providers.Services;
 
 /// <summary>
 /// Orchestrates Stage 3 image enrichment for a work — fetches rich imagery
-/// from Fanart.tv (backgrounds, logos, banners, character art) and stores typed
+/// from Fanart.tv (backgrounds, logos, character art) and stores typed
 /// assets. Uses direct HTTP calls (not ConfigDrivenAdapter) for full control
 /// over the multi-image array response and character art name fields.
 /// </summary>
@@ -54,13 +54,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         ["Movies"] = [
             new(AssetType.Background, true, "moviebackground"),
             new(AssetType.Logo, true, "hdmovielogo", "movielogo"),
-            new(AssetType.Banner, true, "moviebanner"),
             new(AssetType.CoverArt, false, "movieposter"),
         ],
         ["TV"] = [
             new(AssetType.Background, true, "showbackground"),
             new(AssetType.Logo, true, "hdtvlogo", "clearlogo"),
-            new(AssetType.Banner, true, "tvbanner"),
             new(AssetType.CoverArt, false, "tvposter"),
         ],
         ["Music"] = [
@@ -1293,7 +1291,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
 
     private static bool IsAllowedArtworkLanguage(JsonNode? imageNode, AssetType assetType)
     {
-        if (assetType is not (AssetType.Logo or AssetType.Banner))
+        if (assetType is not AssetType.Logo)
             return true;
 
         return IsPreferredArtworkLanguage(imageNode?["lang"]?.GetValue<string>());

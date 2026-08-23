@@ -1308,7 +1308,6 @@ public sealed class CollectionRepository : ICollectionRepository
         {
             "poster" => ("cover_artwork_path", "cover_artwork_mime_type"),
             "background" => ("background_artwork_path", "background_artwork_mime_type"),
-            "banner" => ("banner_artwork_path", "banner_artwork_mime_type"),
             "logo" => ("logo_artwork_path", "logo_artwork_mime_type"),
             _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, "Unknown collection artwork slot."),
         };

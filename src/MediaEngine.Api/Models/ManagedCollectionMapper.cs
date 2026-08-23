@@ -23,8 +23,7 @@ internal static class ManagedCollectionMapper
                 : $"/collections/{collection.Id}/artwork/poster?profileId={activeProfile.Id:D}",
         BackgroundArtworkUrl = string.IsNullOrWhiteSpace(collection.BackgroundArtworkPath) ? null
             : activeProfile is null ? $"/collections/{collection.Id}/artwork/background" : $"/collections/{collection.Id}/artwork/background?profileId={activeProfile.Id:D}",
-        BannerArtworkUrl = string.IsNullOrWhiteSpace(collection.BannerArtworkPath) ? null
-            : activeProfile is null ? $"/collections/{collection.Id}/artwork/banner" : $"/collections/{collection.Id}/artwork/banner?profileId={activeProfile.Id:D}",
+        BannerArtworkUrl = null,
         LogoArtworkUrl = string.IsNullOrWhiteSpace(collection.LogoArtworkPath) ? null
             : activeProfile is null ? $"/collections/{collection.Id}/artwork/logo" : $"/collections/{collection.Id}/artwork/logo?profileId={activeProfile.Id:D}",
         CollectionType = collection.CollectionType.ToStorageValue(),

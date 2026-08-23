@@ -47,7 +47,7 @@
                 var captured = tab;
                 <AppButton Variant="Variant.Text"
                            Color="Color.Inherit"
-                           Class="@(_activeTab == captured.Id ? "person-editor__nav-item is-active" : "person-editor__nav-item")"
+                           Class="@GetPersonTabClass(captured.Id)"
                            OnClick="@(() => SelectPersonTabAsync(captured.Id))">
                     <MudIcon Icon="@captured.Icon" Size="Size.Small" />
                     <span>@captured.Label</span>
@@ -55,12 +55,13 @@
                 @if (captured.Id == "artwork" && _activeTab == "artwork")
                 {
                     <div class="person-editor__nav-nested" role="tablist" aria-label="Artwork types">
-                        @foreach (var slot in _artwork?.Slots ?? [])
+                        @foreach (var slot in PersonArtworkSlots)
                         {
                             var isActive = string.Equals(slot.AssetType, SelectedPersonArtworkSlot?.AssetType, StringComparison.OrdinalIgnoreCase);
                             <AppButton Variant="Variant.Text"
                                        Color="Color.Inherit"
                                        Class="@(isActive ? "person-editor__nav-nested-item is-active" : "person-editor__nav-nested-item")"
+                                       aria-current="@(isActive ? "page" : null)"
                                        OnClick="@(() => SelectPersonArtworkSlot(slot.AssetType))">
                                 <MudIcon Icon="@GetArtworkIcon(slot.AssetType)" Size="Size.Small" />
                                 <span>@FormatArtworkType(slot.AssetType)</span>
@@ -506,9 +507,24 @@
         }
     }
 
+    private IReadOnlyList<ArtworkSlotDto> PersonArtworkSlots =>
+        (_artwork?.Slots ?? [])
+            .Where(slot => !string.Equals(slot.AssetType, "Banner", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+
     private ArtworkSlotDto? SelectedPersonArtworkSlot =>
-        _artwork?.Slots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
-        ?? _artwork?.Slots.FirstOrDefault();
+        PersonArtworkSlots.FirstOrDefault(slot => string.Equals(slot.AssetType, _selectedArtworkAssetType, StringComparison.OrdinalIgnoreCase))
+        ?? PersonArtworkSlots.FirstOrDefault();
+
+    private string GetPersonTabClass(string tabId)
+    {
+        if (!string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase))
+            return "person-editor__nav-item";
+
+        return string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
+            ? "person-editor__nav-item is-group-open"
+            : "person-editor__nav-item is-active";
+    }
 
     private ArtworkVariantDto? SelectedPersonArtworkVariant
     {
@@ -550,7 +566,6 @@
     {
         "Headshot" => Icons.Material.Outlined.Person,
         "Background" => Icons.Material.Outlined.Landscape,
-        "Banner" => Icons.Material.Outlined.ViewAgenda,
         "Logo" => Icons.Material.Outlined.BrandingWatermark,
         _ => Icons.Material.Outlined.Image,
     };
@@ -559,7 +574,6 @@
     {
         "Headshot" => "portrait",
         "Background" => "background",
-        "Banner" => "banner",
         "Logo" => "logo",
         _ => "portrait",
     };
@@ -578,7 +592,6 @@
     {
         "Headshot" => "Use a high-resolution portrait with the face centered and enough space around the head for responsive crops. Aim for at least 1200 px on the longest edge.",
         "Background" => "Use a wide, text-free image with room for foreground copy. A 16:9 source at 1920 x 1080 px or larger works best.",
-        "Banner" => "Use a wide promotional strip with the subject centered. Aim for roughly 5:1 and at least 1920 px wide.",
         "Logo" => "Use a transparent PNG containing only the person's or group's mark. Leave clear padding and aim for at least 1200 px wide.",
         _ => "Use a high-resolution JPG or PNG and keep important content away from the edges.",
     };
@@ -626,7 +639,7 @@
     private static IReadOnlyList<string> SplitValues(string? value) => string.IsNullOrWhiteSpace(value) ? [] : value.Split([',', ';', '|'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     private static string BuildSortName(string name) { var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries); return parts.Length < 2 ? name : $"{parts[^1]}, {string.Join(" ", parts[..^1])}"; }
     private static string FormatArtworkType(string type) => type == "Headshot" ? "Portrait" : type;
-    private static string GetArtworkHelp(string type) => type switch { "Headshot" => "Primary portrait used on person cards and details.", "Background" => "Wide cinematic background for the person detail page.", "Banner" => "Wide banner alternative.", "Logo" => "Transparent identity mark; PNG only.", _ => "Custom artwork." };
+    private static string GetArtworkHelp(string type) => type switch { "Headshot" => "Primary portrait used on person cards and details.", "Background" => "Wide cinematic background for the person detail page.", "Logo" => "Transparent identity mark; PNG only.", _ => "Custom artwork." };
     private static string HistoryIcon(string category) => category switch { "artwork" => Icons.Material.Outlined.Collections, "match" => Icons.Material.Outlined.TravelExplore, _ => Icons.Material.Outlined.Edit };
     private static string FormatDate(DateTimeOffset? value) => value?.ToLocalTime().ToString("MMM d, yyyy · h:mm tt") ?? "Not yet";
 }

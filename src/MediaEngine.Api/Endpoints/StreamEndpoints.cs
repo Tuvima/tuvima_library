@@ -399,34 +399,6 @@ public static class StreamEndpoints
         // NOTE: No rate limit — thumbnails are loaded in bulk on Home/category pages.
         // The 100/min streaming cap was causing 429s on page reloads with many swimlanes.
 
-        group.MapGet("/{assetId:guid}/banner", async (
-            Guid assetId,
-            IMediaAssetRepository assetRepo,
-            IWorkRepository workRepo,
-            IEntityAssetRepository entityAssetRepo,
-            CancellationToken ct) =>
-        {
-            var asset = await assetRepo.FindByIdAsync(assetId, ct);
-            if (asset is null)
-                return ApiErrors.NotFound($"Asset '{assetId}' not found.");
-
-            var ownerEntityId = await ResolveArtworkOwnerEntityIdAsync(assetId, workRepo, ct);
-            var preferredVariant = await entityAssetRepo.GetPreferredAsync(ownerEntityId.ToString(), "Banner", ct);
-            var bannerPath = preferredVariant is null ? null : ResolveArtworkPath(preferredVariant, null);
-            var localArtworkResult = CreateLocalArtworkResult(bannerPath);
-            if (localArtworkResult is not null)
-            {
-                return localArtworkResult;
-            }
-
-            return CreateArtworkPlaceholderResult();
-        })
-        .WithName("GetAssetBanner")
-        .WithSummary("Serve uploaded banner artwork for a media asset.")
-        .Produces(StatusCodes.Status200OK)
-        .ProducesProblem(StatusCodes.Status404NotFound)
-        .RequireAnyRole();
-
         group.MapGet("/{assetId:guid}/background", async (
             Guid assetId,
             IMediaAssetRepository assetRepo,

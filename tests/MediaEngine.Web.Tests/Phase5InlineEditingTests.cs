@@ -122,6 +122,10 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("Poster / Cover", code, StringComparison.Ordinal);
         Assert.Contains("GetArtworkPreviewClass", shell, StringComparison.Ordinal);
         Assert.Contains("GetArtworkPreviewClass", code, StringComparison.Ordinal);
+        Assert.Contains("sme-cover-cluster--single {ArtworkShapeClass}", shell, StringComparison.Ordinal);
+        Assert.Contains("GetSectionNavClass(tab.Id)", shell, StringComparison.Ordinal);
+        Assert.DoesNotContain("BannerArtworkSlot", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Banner\" =>", code, StringComparison.Ordinal);
         Assert.DoesNotContain("\"SquareArt\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("\"DiscArt\"", code, StringComparison.Ordinal);
         Assert.DoesNotContain("\"ClearArt\"", code, StringComparison.Ordinal);
@@ -145,6 +149,9 @@ public sealed class Phase5InlineEditingTests
         Assert.Contains("person-editor__artwork-workspace", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__nav-nested", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__nav-nested-item", source, StringComparison.Ordinal);
+        Assert.Contains("GetPersonTabClass(captured.Id)", source, StringComparison.Ordinal);
+        Assert.Contains("PersonArtworkSlots", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"Banner\" =>", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-type-rail", source, StringComparison.Ordinal);
         Assert.DoesNotContain("person-editor__artwork-sidebar", source, StringComparison.Ordinal);
         Assert.Contains("person-editor__artwork-primary-card", source, StringComparison.Ordinal);

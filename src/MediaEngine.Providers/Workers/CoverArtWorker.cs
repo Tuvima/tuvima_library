@@ -698,7 +698,6 @@ public sealed class CoverArtWorker
         {
             "CoverArt" => "cover",
             "Background" => "background",
-            "Banner" => "banner",
             "Logo" => "logo",
             "SeasonPoster" => "season_poster",
             "SeasonThumb" => "season_thumb",
@@ -724,7 +723,6 @@ public sealed class CoverArtWorker
         {
             "CoverArt" => [MetadataFieldConstants.CoverUrl],
             "Background" => ["background", "background_url"],
-            "Banner" => ["banner", "banner_url"],
             "Logo" => ["logo", "logo_url"],
             "SeasonPoster" => ["season_poster", "season_poster_url"],
             "SeasonThumb" => ["season_thumb", "season_thumb_url"],

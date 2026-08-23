@@ -155,14 +155,20 @@ public sealed class CollectionRepositoryRelationshipTests : IDisposable
 
         await repo.UpsertAsync(collection);
         await repo.UpdateCollectionArtworkAsync(collection.Id, "poster", @"C:\Tuvima\collections\road-trip.jpg", "image/jpeg");
-        await repo.UpdateCollectionArtworkAsync(collection.Id, "banner", @"C:\Tuvima\collections\road-trip-banner.jpg", "image/jpeg");
+        await repo.UpdateCollectionArtworkAsync(collection.Id, "background", @"C:\Tuvima\collections\road-trip-background.jpg", "image/jpeg");
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => repo.UpdateCollectionArtworkAsync(
+            collection.Id,
+            "banner",
+            @"C:\Tuvima\collections\road-trip-banner.jpg",
+            "image/jpeg"));
 
         var saved = await repo.GetByIdAsync(collection.Id);
 
         Assert.NotNull(saved);
         Assert.Equal(@"C:\Tuvima\collections\road-trip.jpg", saved!.CoverArtworkPath);
         Assert.Equal("image/jpeg", saved.CoverArtworkMimeType);
-        Assert.Equal(@"C:\Tuvima\collections\road-trip-banner.jpg", saved.BannerArtworkPath);
+        Assert.Equal(@"C:\Tuvima\collections\road-trip-background.jpg", saved.BackgroundArtworkPath);
+        Assert.Null(saved.BannerArtworkPath);
         Assert.Equal("title", saved.SecondarySortField);
         Assert.Equal(MediaEngine.Domain.Enums.CollectionSortDirection.Asc, saved.SecondarySortDirection);
     }

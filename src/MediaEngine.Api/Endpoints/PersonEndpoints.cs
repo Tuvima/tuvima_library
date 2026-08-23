@@ -75,7 +75,7 @@ public static class PersonEndpoints
                 return ApiErrors.NotFound($"Person '{id}' not found.");
 
             var assets = await assetRepo.GetByEntityAsync(id.ToString(), null, ct);
-            var slots = new[] { "Headshot", "Background", "Banner", "Logo" }
+            var slots = new[] { "Headshot", "Background", "Logo" }
                 .Select(assetType => new ArtworkSlotDto(assetType, assets
                     .Where(asset => string.Equals(asset.AssetTypeValue, assetType, StringComparison.OrdinalIgnoreCase))
                     .OrderByDescending(asset => asset.IsPreferred)
@@ -136,12 +136,11 @@ public static class PersonEndpoints
             {
                 "Headshot" or "headshot" => "Headshot",
                 "Background" or "background" => "Background",
-                "Banner" or "banner" => "Banner",
                 "Logo" or "logo" => "Logo",
                 _ => null,
             };
             if (normalizedType is null)
-                return ApiErrors.BadRequest("Person artwork supports Headshot, Background, Banner, and Logo.");
+                return ApiErrors.BadRequest("Person artwork supports Headshot, Background, and Logo.");
             if (!httpRequest.HasFormContentType)
                 return ApiErrors.BadRequest("Expected multipart form data.");
 
@@ -209,7 +208,6 @@ public static class PersonEndpoints
 
             var groupMembers = await personCreditReadService.GetGroupMembersAsync(id, person.IsGroup, ct);
             var memberOfGroups = await personCreditReadService.GetGroupMembersAsync(id, false, ct);
-            var preferredBanner = await assetRepo.GetPreferredAsync(id.ToString(), "Banner", ct);
             var preferredBackground = await assetRepo.GetPreferredAsync(id.ToString(), "Background", ct);
             var preferredLogo = await assetRepo.GetPreferredAsync(id.ToString(), "Logo", ct);
             var preferredHeadshot = await assetRepo.GetPreferredAsync(id.ToString(), "Headshot", ct);
@@ -242,7 +240,7 @@ public static class PersonEndpoints
                 IsGroup = person.IsGroup,
                 GroupMembers = person.IsGroup ? groupMembers : [],
                 MemberOfGroups = person.IsGroup ? [] : memberOfGroups,
-                BannerUrl = preferredBanner is null ? null : $"/stream/artwork/{preferredBanner.Id}",
+                BannerUrl = null,
                 BackgroundUrl = preferredBackground is null ? null : $"/stream/artwork/{preferredBackground.Id}",
                 LogoUrl = preferredLogo is null ? null : $"/stream/artwork/{preferredLogo.Id}",
                 CreatedAt = person.CreatedAt,

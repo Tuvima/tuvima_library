@@ -111,6 +111,9 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
                       ],
                       "hdmovieclearart": [
                         { "url": "https://images.test/movie-clear.png", "likes": "11", "lang": "en" }
+                      ],
+                      "moviebanner": [
+                        { "url": "https://images.test/movie-banner.jpg", "likes": "15", "lang": "en" }
                       ]
                     }
                     """;
@@ -133,6 +136,8 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
         Assert.Equal(1, result.DownloadedCount);
         Assert.Equal(1, result.StoredVariantCounts["CoverArt"]);
         Assert.DoesNotContain("ClearArt", result.StoredVariantCounts.Keys);
+        Assert.DoesNotContain("Banner", result.StoredVariantCounts.Keys);
+        Assert.Empty(await _entityAssets.GetByEntityAsync(movie.WorkId.ToString(), "Banner"));
 
         var diagnostics = await _canonicals.GetByEntityAsync(movie.WorkId);
         Assert.Contains(diagnostics, value => value.Key == "fanart_status" && value.Value == "Completed");

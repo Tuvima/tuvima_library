@@ -14,7 +14,7 @@
             <div class="sme-header">
                 @if (!Inline)
                 {
-                    <div class="sme-cover-cluster @(IsSingleItem ? "sme-cover-cluster--single" : "sme-cover-cluster--batch") @(UsesLandscapeHeaderArtwork ? "sme-cover-cluster--landscape" : string.Empty)">
+                    <div class="sme-cover-cluster @(IsSingleItem ? $"sme-cover-cluster--single {ArtworkShapeClass}" : "sme-cover-cluster--batch")">
                     @if (IsBatchMode)
                     {
                         <div class="sme-batch-cover-grid">
@@ -237,7 +237,7 @@
                         var tab = Tabs[index];
                         <AppButton Variant="Variant.Text"
                                    Color="Color.Inherit"
-                                   Class="@(tab.Id == _activeTab ? "sme-section-nav__item is-active" : "sme-section-nav__item")"
+                                   Class="@GetSectionNavClass(tab.Id)"
                                    Disabled="@IsTabDisabled(tab.Id)"
                                    OnClick="@(() => OnTabChanged(tabIndex))">
                             <MudIcon Icon="@tab.Icon" Size="Size.Small" />
@@ -252,6 +252,7 @@
                                     <AppButton Variant="Variant.Text"
                                                Color="Color.Inherit"
                                                Class="@(isSelectedSlot ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
+                                               aria-current="@(isSelectedSlot ? "page" : null)"
                                                OnClick="@(() => SelectArtworkSlot(slotItem.AssetType))">
                                         <MudIcon Icon="@slotItem.Icon" Size="Size.Small" />
                                         <span>@slotItem.Label</span>

@@ -30,7 +30,6 @@ public sealed partial class SuccessResponseGuardrailTests
         "GetArtworkVariant",
         "GetCharacterPortrait",
         "GetAssetBackground",
-        "GetAssetBanner",
         "GetAssetCover",
         "GetAssetCoverThumb",
         "GetAssetLogo",
@@ -170,7 +169,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(385, routeCount);
+        Assert.Equal(384, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

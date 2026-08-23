@@ -14,9 +14,6 @@ public enum AssetType
     /// <summary>Person headshot or character portrait.</summary>
     Headshot,
 
-    /// <summary>Wide promotional banner image.</summary>
-    Banner,
-
     /// <summary>Transparent title treatment or faction logo.</summary>
     Logo,
 

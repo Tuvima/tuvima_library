@@ -186,7 +186,6 @@ public sealed class AssetPathService
         {
             "CoverArt" => GetMediaFilePosterPath(mediaFilePath),
             "Background" => GetMediaFileFanartPath(mediaFilePath),
-            "Banner" => GetMediaFileBannerPath(mediaFilePath),
             "Logo" => GetMediaFileLogoPath(mediaFilePath),
             "EpisodeStill" => GetMediaFileThumbPath(mediaFilePath),
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported export artwork type."),
@@ -200,7 +199,6 @@ public sealed class AssetPathService
         {
             "CoverArt" => "poster",
             "Background" => "fanart",
-            "Banner" => "banner",
             "Logo" => "logo",
             "SeasonPoster" => "poster",
             "SeasonThumb" => "thumb",
@@ -279,9 +277,6 @@ public sealed class AssetPathService
     public static string GetMediaFileLogoPath(string mediaFilePath) =>
         BuildSiblingPath(mediaFilePath, "logo", ".png");
 
-    public static string GetMediaFileBannerPath(string mediaFilePath) =>
-        BuildSiblingPath(mediaFilePath, "banner", ".jpg");
-
     public static string GetMediaFileHeroPath(string mediaFilePath) =>
         BuildSiblingPath(mediaFilePath, "hero", ".jpg");
 
@@ -305,7 +300,6 @@ public sealed class AssetPathService
         {
             "CoverArt" => "poster",
             "Background" => "fanart",
-            "Banner" => "banner",
             "Logo" => "logo",
             "EpisodeStill" => "thumb",
             _ => throw new ArgumentOutOfRangeException(nameof(assetType), assetType, "Unsupported artwork type."),
@@ -332,7 +326,6 @@ public sealed class AssetPathService
         {
             "CoverArt" => "poster",
             "Background" => "fanart",
-            "Banner" => "banner",
             "Logo" => "logo",
             "SeasonPoster" => "poster",
             "SeasonThumb" => "thumb",
@@ -375,7 +368,6 @@ public sealed class AssetPathService
         {
             "coverart" => "cover",
             "background" => "background",
-            "banner" => "banner",
             "logo" => "logo",
             "seasonposter" => "season-poster",
             "seasonthumb" => "season-thumb",

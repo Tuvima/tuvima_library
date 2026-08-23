@@ -262,11 +262,11 @@ public sealed class AssetExportService : IAssetExportService
         if (_assetPaths.Policy.Mode == StorageMode.CoLocated)
         {
             return assetType is
-                "CoverArt" or "Background" or "Banner" or "Logo" or "SeasonPoster" or "SeasonThumb" or "EpisodeStill";
+                "CoverArt" or "Background" or "Logo" or "SeasonPoster" or "SeasonThumb" or "EpisodeStill";
         }
 
         return assetType is
-            "CoverArt" or "Background" or "Banner" or "Logo" or "SeasonPoster" or "SeasonThumb";
+            "CoverArt" or "Background" or "Logo" or "SeasonPoster" or "SeasonThumb";
     }
 
     private static string ResolvePreferredExtension(string assetType) =>

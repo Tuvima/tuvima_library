@@ -59,6 +59,7 @@
                                 <AppButton Variant="Variant.Text"
                                            Color="Color.Inherit"
                                            Class="@(isSelected ? "sme-section-nav__nested-item is-active" : "sme-section-nav__nested-item")"
+                                           aria-current="@(isSelected ? "page" : null)"
                                            OnClick="@(() => SelectArtworkTab(artworkTab))">
                                     <MudIcon Icon="@artworkTab.Icon" Size="Size.Small" />
                                     <span>@artworkTab.Label</span>
@@ -92,7 +93,6 @@
                             break;
                         case "artwork":
                         case "artwork-background":
-                        case "artwork-banner":
                         case "artwork-logo":
                             @RenderArtworkTab()
                             break;
@@ -156,7 +156,6 @@
     [
         ("artwork", "poster", "Poster / Cover", Icons.Material.Outlined.Image),
         ("artwork-background", "background", "Background", Icons.Material.Outlined.Panorama),
-        ("artwork-banner", "banner", "Banner", Icons.Material.Outlined.ViewDay),
         ("artwork-logo", "logo", "Logo", Icons.Material.Outlined.BrandingWatermark),
     ];
     private static readonly (string Id, string Label, string Icon)[] PlaylistTabs = [("details", "Details", Icons.Material.Outlined.Article)];
@@ -223,11 +222,12 @@
         };
 
     private string TabClass(string tabId) =>
-        string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase)
-        || (string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
-            && _activeTab.StartsWith("artwork-", StringComparison.OrdinalIgnoreCase))
-            ? "sme-section-nav__item is-active"
-            : "sme-section-nav__item";
+        string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
+        && _activeTab.StartsWith("artwork", StringComparison.OrdinalIgnoreCase)
+            ? "sme-section-nav__item is-group-open"
+            : string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase)
+                ? "sme-section-nav__item is-active"
+                : "sme-section-nav__item";
     private string DialogEyebrow => IsPlaylistDialog ? "Playlist editor" : "Collection editor";
     private string DialogTitle => EditingCollection is not null
         ? "Edit Collection"
@@ -349,7 +349,6 @@
         _activeArtworkSlot = _activeTab switch
         {
             "artwork-background" => "background",
-            "artwork-banner" => "banner",
             "artwork-logo" => "logo",
             "artwork" => "poster",
             _ => _activeArtworkSlot,
@@ -936,31 +935,28 @@
     private string? CurrentArtworkUrl => _removedArtworkSlots.Contains(_activeArtworkSlot) ? null : _activeArtworkSlot switch
     {
         "background" => EditingCollection?.BackgroundUrl,
-        "banner" => EditingCollection?.BannerUrl,
         "logo" => EditingCollection?.LogoUrl,
         _ => EditingCollection?.CoverUrl,
     };
-    private string ArtworkSlotTitle => _activeArtworkSlot switch { "background" => "Background", "banner" => "Banner", "logo" => "Logo", _ => "Poster / Cover" };
+    private string ArtworkSlotTitle => _activeArtworkSlot switch { "background" => "Background", "logo" => "Logo", _ => "Poster / Cover" };
     private string ArtworkSlotDescription => _activeArtworkSlot switch
     {
         "background" => "Optional custom landscape artwork behind the collection detail presentation.",
-        "banner" => "Optional wide collection artwork for compact headers and banner placements.",
         "logo" => "Optional transparent collection branding shown without a boxed background.",
         _ => "Automatic representative artwork or an optional custom portrait image.",
     };
-    private string ArtworkUploadDescription => _activeArtworkSlot switch { "background" => "Upload a cinematic landscape image.", "banner" => "Upload a wide banner image.", "logo" => "Upload transparent collection branding.", _ => "Upload a custom portrait image or keep the automatic stack." };
+    private string ArtworkUploadDescription => _activeArtworkSlot switch { "background" => "Upload a cinematic landscape image.", "logo" => "Upload transparent collection branding.", _ => "Upload a custom portrait image or keep the automatic stack." };
     private string ArtworkFileRequirements => _activeArtworkSlot == "logo" ? "Transparent PNG, up to 5 MB" : "JPG or PNG, up to 5 MB";
     private string ArtworkAccept => _activeArtworkSlot == "logo" ? ".png" : ".jpg,.jpeg,.png";
     private string ArtworkGuidance => _activeArtworkSlot switch
     {
         "background" => "Use high-contrast 16:9 artwork near 1920 × 1080. Keep important subjects away from text areas.",
-        "banner" => "Use a wide image near 1920 × 480. Keep important subjects and text within the center safe area.",
         "logo" => "Use a wide transparent canvas near 1600 × 600 with generous clear padding. Do not bake in a background.",
         _ => "Automatic stacked is the default and updates with membership. Custom posters work best at a 2:3 ratio near 1000 × 1500.",
     };
-    private string ArtworkEmptyTitle => _activeArtworkSlot switch { "background" => "Neutral collection background", "banner" => "No custom banner", "logo" => "No custom logo", _ => "Automatic stacked artwork" };
-    private string ArtworkEmptyDescription => _activeArtworkSlot switch { "background" => "The standard Tuvima collection wash will be used until a custom background is uploaded.", "banner" => "The collection will use its normal compact header treatment until a banner is uploaded.", "logo" => "The collection name remains the visual identity until a transparent logo is uploaded.", _ => "Representative item art appears as members become available." };
-    private string ArtworkSlotIcon => _activeArtworkSlot switch { "background" => Icons.Material.Outlined.Panorama, "banner" => Icons.Material.Outlined.ViewDay, "logo" => Icons.Material.Outlined.BrandingWatermark, _ => Icons.Material.Outlined.AutoAwesomeMotion };
+    private string ArtworkEmptyTitle => _activeArtworkSlot switch { "background" => "Neutral collection background", "logo" => "No custom logo", _ => "Automatic stacked artwork" };
+    private string ArtworkEmptyDescription => _activeArtworkSlot switch { "background" => "The standard Tuvima collection wash will be used until a custom background is uploaded.", "logo" => "The collection name remains the visual identity until a transparent logo is uploaded.", _ => "Representative item art appears as members become available." };
+    private string ArtworkSlotIcon => _activeArtworkSlot switch { "background" => Icons.Material.Outlined.Panorama, "logo" => Icons.Material.Outlined.BrandingWatermark, _ => Icons.Material.Outlined.AutoAwesomeMotion };
     private IReadOnlyList<ArtworkStackItem> AutomaticArtworkItems => (SupportsManualItems
             ? _manualItems.Select(item => (item.WorkId, item.Title, item.CoverUrl, item.MediaType))
             : (_previewResult?.Items ?? []).Select(item => (item.EntityId, item.Title, item.CoverUrl, item.MediaType)))

@@ -465,18 +465,17 @@ public sealed class RepositoryTests : IDisposable
     // ════════════════════════════════════════════════════════════════════════
 
     [Fact]
-    public async Task EntityAsset_Upsert_AllowsBannerAndLogoTypes()
+    public async Task EntityAsset_Upsert_RejectsRetiredBannerTypeAndAllowsLogo()
     {
         var repo = new EntityAssetRepository(_db);
         var entityId = Guid.NewGuid().ToString();
         var createdAt = DateTimeOffset.UtcNow;
 
-        var bannerId = Guid.NewGuid();
         var logoId = Guid.NewGuid();
 
-        await repo.UpsertAsync(new EntityAsset
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => repo.UpsertAsync(new EntityAsset
         {
-            Id = bannerId,
+            Id = Guid.NewGuid(),
             EntityId = entityId,
             EntityType = "Work",
             AssetTypeValue = "Banner",
@@ -487,7 +486,8 @@ public sealed class RepositoryTests : IDisposable
             OwnerScope = "Work",
             IsPreferred = true,
             CreatedAt = createdAt,
-        });
+        }));
+        Assert.Equal("asset", exception.ParamName);
 
         await repo.UpsertAsync(new EntityAsset
         {
@@ -506,7 +506,7 @@ public sealed class RepositoryTests : IDisposable
 
         var assets = await repo.GetByEntityAsync(entityId);
 
-        Assert.Contains(assets, asset => asset.AssetTypeValue == "Banner");
+        Assert.DoesNotContain(assets, asset => asset.AssetTypeValue == "Banner");
         Assert.Contains(assets, asset => asset.AssetTypeValue == "Logo");
 
         using var conn = _db.CreateConnection();
@@ -514,11 +514,11 @@ public sealed class RepositoryTests : IDisposable
             """
             SELECT typeof(entity_id)
             FROM entity_assets
-            WHERE id = @bannerId OR id = @logoId
+            WHERE id = @logoId
             ORDER BY asset_type;
             """,
-            new { bannerId, logoId }).ToList();
-        Assert.Equal(2, storageTypes.Count);
+            new { logoId }).ToList();
+        Assert.Single(storageTypes);
         Assert.All(storageTypes, type => Assert.Equal("blob", type));
     }
 

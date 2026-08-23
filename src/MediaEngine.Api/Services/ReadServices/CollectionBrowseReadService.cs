@@ -1002,7 +1002,7 @@ public sealed class CollectionBrowseReadService(
                 PreviewItems = previews.GetValueOrDefault(row.GroupName) ?? [],
                 CoverUrl = assetRoute is null ? null : $"/stream/{assetRoute}/cover",
                 BackgroundUrl = assetRoute is null ? null : $"/stream/{assetRoute}/background",
-                BannerUrl = assetRoute is null ? null : $"/stream/{assetRoute}/banner",
+                BannerUrl = null,
                 LogoUrl = assetRoute is null ? null : $"/stream/{assetRoute}/logo",
                 CoverAspectClass = row.CoverAspectClass,
                 SquareAspectClass = row.SquareAspectClass,

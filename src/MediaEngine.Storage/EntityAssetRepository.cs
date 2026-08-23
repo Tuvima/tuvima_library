@@ -9,7 +9,7 @@ namespace MediaEngine.Storage;
 /// SQLite implementation of <see cref="IEntityAssetRepository"/>.
 /// Uses Dapper for type-safe column-to-property mapping.
 ///
-/// Manages typed image assets (Cover Art, Headshot, Banner, Logo, Background)
+/// Manages typed image assets (Cover Art, Headshot, Logo, Background)
 /// for any entity — Work, Person, Universe, or FictionalEntity.
 /// </summary>
 public sealed class EntityAssetRepository : IEntityAssetRepository
@@ -150,6 +150,8 @@ public sealed class EntityAssetRepository : IEntityAssetRepository
     {
         ct.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(asset);
+        if (!Enum.TryParse<MediaEngine.Domain.Enums.AssetType>(asset.AssetTypeValue, ignoreCase: true, out _))
+            throw new ArgumentOutOfRangeException(nameof(asset), asset.AssetTypeValue, "Unsupported entity artwork type.");
 
         using var conn = _db.CreateConnection();
         conn.Execute("""

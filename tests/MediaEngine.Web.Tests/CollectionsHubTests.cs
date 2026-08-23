@@ -343,7 +343,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("RenderArtworkTab", editor, StringComparison.Ordinal);
         Assert.Contains("(\"artwork\", \"poster\", \"Poster / Cover\"", editor, StringComparison.Ordinal);
         Assert.Contains("(\"artwork-background\", \"background\", \"Background\"", editor, StringComparison.Ordinal);
-        Assert.Contains("(\"artwork-banner\", \"banner\", \"Banner\"", editor, StringComparison.Ordinal);
+        Assert.DoesNotContain("artwork-banner", editor, StringComparison.Ordinal);
         Assert.Contains("(\"artwork-logo\", \"logo\", \"Logo\"", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav__nested", editor, StringComparison.Ordinal);
         Assert.Contains("RenderHistoryTab", editor, StringComparison.Ordinal);

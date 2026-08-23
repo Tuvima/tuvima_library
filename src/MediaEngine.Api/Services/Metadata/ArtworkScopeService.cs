@@ -100,7 +100,6 @@ internal sealed class ArtworkScopeService(
             [
                 "CoverArt",
                 "Background",
-                "Banner",
                 "Logo",
             ],
             ("TV", "season") =>
@@ -112,7 +111,6 @@ internal sealed class ArtworkScopeService(
             [
                 "CoverArt",
                 "Background",
-                "Banner",
                 "Logo",
             ],
             ("TV", "episode") =>
@@ -123,14 +121,12 @@ internal sealed class ArtworkScopeService(
             [
                 "CoverArt",
                 "Background",
-                "Banner",
                 "Logo",
             ],
             ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
             [
                 "CoverArt",
                 "Background",
-                "Banner",
                 "Logo",
             ],
             _ => [],
@@ -351,7 +347,6 @@ internal sealed class ArtworkScopeService(
         assetType.Trim() switch
         {
             "cover" or "Cover" or "Poster" or "poster" or "CoverArt" => "CoverArt",
-            "banner" or "Banner" => "Banner",
             "background" or "Background" => "Background",
             "logo" or "Logo" => "Logo",
             "seasonposter" or "SeasonPoster" => "SeasonPoster",
@@ -383,7 +378,6 @@ internal sealed class ArtworkScopeService(
         {
             "CoverArt" => detail?.CoverUrl,
             "Background" => detail?.BackgroundUrl,
-            "Banner" => detail?.BannerUrl,
             _ => null,
         };
 
@@ -423,7 +417,6 @@ internal sealed class ArtworkScopeService(
         {
             "CoverArt" => MetadataFieldConstants.CoverUrl,
             "Background" => "background",
-            "Banner" => "banner",
             "Logo" => "logo",
             "SeasonPoster" => "season_poster",
             "SeasonThumb" => "season_thumb",

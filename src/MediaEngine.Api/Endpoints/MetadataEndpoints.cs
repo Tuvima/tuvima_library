@@ -716,7 +716,6 @@ public static partial class MetadataEndpoints
             {
                 "CoverArt",
                 "Background",
-                "Banner",
                 "Logo",
             };
 
@@ -1067,7 +1066,7 @@ public static partial class MetadataEndpoints
         {
             var normalizedAssetType = ArtworkScopeService.NormalizeUploadedArtworkType(assetType);
             if (normalizedAssetType is null)
-                return ApiErrors.BadRequest("Artwork type must be CoverArt, Background, Banner, or Logo.");
+                return ApiErrors.BadRequest("Artwork type must be CoverArt, Background, or Logo.");
 
             if (!httpRequest.HasFormContentType)
                 return ApiErrors.BadRequest("Expected multipart form data.");

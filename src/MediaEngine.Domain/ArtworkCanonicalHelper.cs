@@ -121,7 +121,6 @@ public static class ArtworkCanonicalHelper
     {
         "CoverArt" => ["cover_url"],
         "Background" => ["background", "background_url"],
-        "Banner" => ["banner", "banner_url"],
         "Logo" => ["logo", "logo_url"],
         "Headshot" => ["artist_photo_url", "headshot_url"],
         "SeasonPoster" => ["season_poster", "season_poster_url"],
@@ -135,7 +134,6 @@ public static class ArtworkCanonicalHelper
     {
         "CoverArt" => "cover",
         "Background" => "background",
-        "Banner" => "banner",
         "Logo" => "logo",
         "Headshot" => "artist_photo",
         "SeasonPoster" => "season_poster",

@@ -757,7 +757,7 @@ public partial class IngestionLiveDashboard
         if (label.Contains("headshot"))
             return "Person images saved or linked.";
         if (label.Contains("backdrop"))
-            return "Backdrop or banner images saved.";
+            return "Backdrop images saved.";
         if (label.Contains("logo"))
             return "Logo artwork saved.";
         return $"{detail.Label} count for this stage.";

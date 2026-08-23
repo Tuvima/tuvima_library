@@ -361,7 +361,7 @@ public static class CollectionEndpoints
                     var primaryAssetId = primaryAssetIds.GetValueOrDefault(w.Id);
                     string? coverUrl = BuildCoverStreamUrl(w, primaryAssetId);
                     string? backgroundUrl = BuildBackgroundStreamUrl(w, primaryAssetId);
-                    string? bannerUrl = BuildBannerStreamUrl(w, primaryAssetId);
+                    string? bannerUrl = null;
                     string? season = GetCanonical(workDto, "season_number");
                     string? episode = GetCanonical(workDto, "episode_number");
                     string? trackNumber = GetCanonical(workDto, "track_number");
@@ -468,7 +468,6 @@ public static class CollectionEndpoints
                     var rootAssetStr = rootAssetId.ToString("D");
                     collectionCover = $"/stream/{rootAssetStr}/cover";
                     collectionBackground = $"/stream/{rootAssetStr}/background";
-                    collectionBanner = $"/stream/{rootAssetStr}/banner";
                 }
             }
 
@@ -984,7 +983,7 @@ public static class CollectionEndpoints
                     ? $"/stream/{assetId.Value:D}/cover"
                     : row.Cover;
                 var background = row.Background;
-                var banner = row.Banner;
+                string? banner = null;
                 var hero = row.Hero;
                 var logo = row.Logo;
                 var primaryColor = row.PrimaryColor;
@@ -1248,7 +1247,6 @@ public static class CollectionEndpoints
                     var primaryAssetId = primaryAssetIds.GetValueOrDefault(w.Id);
                     cover = BuildCoverStreamUrl(w, primaryAssetId);
                     background = BuildBackgroundStreamUrl(w, primaryAssetId);
-                    banner = BuildBannerStreamUrl(w, primaryAssetId);
                     logo = BuildLogoStreamUrl(w, primaryAssetId);
                     if (cover is not null || background is not null || banner is not null || logo is not null)
                     {
@@ -1271,7 +1269,7 @@ public static class CollectionEndpoints
                         var primaryAssetId = primaryAssetIds.GetValueOrDefault(work.Id);
                         var coverUrl = BuildCoverStreamUrl(work, primaryAssetId);
                         var backgroundUrl = BuildBackgroundStreamUrl(work, primaryAssetId);
-                        var bannerUrl = BuildBannerStreamUrl(work, primaryAssetId);
+                    string? bannerUrl = null;
                         var imageUrl = string.Equals(primaryMediaType, "TV", StringComparison.OrdinalIgnoreCase)
                             ? backgroundUrl ?? bannerUrl ?? coverUrl
                             : coverUrl ?? backgroundUrl ?? bannerUrl;
@@ -1719,7 +1717,7 @@ public static class CollectionEndpoints
         .Produces(StatusCodes.Status200OK)
         .RequireAnyRole();
 
-        // Collection artwork slots mirror the shared editor: poster, background, banner, and transparent logo.
+        // Collection artwork slots mirror the shared editor: poster, background, and transparent logo.
         group.MapGet("/{id:guid}/artwork/{slot}", async (
             Guid id,
             string slot,
@@ -1741,7 +1739,7 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out var artworkMimeType))
-                return ApiErrors.BadRequest("Artwork slot must be poster, background, banner, or logo.");
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
 
             if (string.IsNullOrWhiteSpace(artworkPath) || !File.Exists(artworkPath))
             {
@@ -1788,7 +1786,7 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var currentPath, out _))
-                return ApiErrors.BadRequest("Artwork slot must be poster, background, banner, or logo.");
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
 
             if (!request.HasFormContentType)
             {
@@ -1871,7 +1869,7 @@ public static class CollectionEndpoints
             }
 
             if (!TryGetCollectionArtwork(collection, slot, out var artworkPath, out _))
-                return ApiErrors.BadRequest("Artwork slot must be poster, background, banner, or logo.");
+                return ApiErrors.BadRequest("Artwork slot must be poster, background, or logo.");
 
             if (!string.IsNullOrWhiteSpace(artworkPath) && File.Exists(artworkPath))
             {
@@ -2566,13 +2564,11 @@ public static class CollectionEndpoints
         {
             "poster" => (collection.CoverArtworkPath, collection.CoverArtworkMimeType),
             "background" => (collection.BackgroundArtworkPath, collection.BackgroundArtworkMimeType),
-            "banner" => (collection.BannerArtworkPath, collection.BannerArtworkMimeType),
             "logo" => (collection.LogoArtworkPath, collection.LogoArtworkMimeType),
             _ => (null, null),
         };
         return slot.Equals("poster", StringComparison.OrdinalIgnoreCase)
             || slot.Equals("background", StringComparison.OrdinalIgnoreCase)
-            || slot.Equals("banner", StringComparison.OrdinalIgnoreCase)
             || slot.Equals("logo", StringComparison.OrdinalIgnoreCase);
     }
 
@@ -2596,17 +2592,6 @@ public static class CollectionEndpoints
             assetId,
             "background",
             "background_url");
-    }
-
-    private static string? BuildBannerStreamUrl(Work? w, Guid? assetId = null)
-    {
-        return BuildArtworkStreamUrl(
-            w,
-            "banner",
-            "banner_state",
-            assetId,
-            "banner",
-            "banner_url");
     }
 
     private static string? BuildLogoStreamUrl(Work? w, Guid? assetId = null)

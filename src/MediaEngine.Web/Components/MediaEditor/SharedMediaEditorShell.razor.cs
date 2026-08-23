@@ -40,9 +40,6 @@ public partial class SharedMediaEditorShell
     private static readonly ArtworkSlotDefinition BackgroundArtworkSlot =
         new("Background", "Background", "A cinematic wide image for backgrounds and immersive layouts.", Icons.Material.Outlined.Panorama, "background", "fit", true, "Best for scenic or full-bleed background art.", "Wide");
 
-    private static readonly ArtworkSlotDefinition BannerArtworkSlot =
-        new("Banner", "Banner", "A wide promotional strip for shelves and collection headers.", Icons.Material.Outlined.PanoramaWideAngle, "banner", "fit", true, "Best for landscape banners and shelf headers.", "Strip");
-
     private static readonly ArtworkSlotDefinition LogoArtworkSlot =
         new("Logo", "Logo", "Title treatment or transparent branding art.", Icons.Material.Outlined.BrandingWatermark, "logo", "logo", true, "Best for transparent logos or wordmarks.", "Logo");
 
@@ -179,9 +176,6 @@ public partial class SharedMediaEditorShell
     protected int ActiveTabIndex => GetSelectedIndex(Tabs.Select(tab => tab.Id), _activeTab);
     protected bool IsSingleItem => Request.EntityIds.Count == 1;
     protected bool IsBatchMode => Request.Mode == SharedMediaEditorMode.Batch || Request.EntityIds.Count > 1;
-    protected bool UsesLandscapeHeaderArtwork =>
-        string.Equals(ActiveScope?.ScopeId, "episode", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(SelectedArtworkSlot?.AssetType, "EpisodeStill", StringComparison.OrdinalIgnoreCase);
     protected Guid LaunchEntityId => Request.LaunchEntityId ?? Request.EntityIds[0];
     protected MediaEditorIdentityIntent EffectiveIdentityIntent =>
         _identityIntent == MediaEditorIdentityIntent.None ? Request.IdentityIntent : _identityIntent;
@@ -1748,8 +1742,7 @@ public partial class SharedMediaEditorShell
     protected string GetArtworkGalleryTitle(ArtworkSlotDefinition slot) =>
         slot.AssetType switch
         {
-            "Background" => "Banner / Backdrop Gallery",
-            "Banner" => "Banner Gallery",
+            "Background" => "Background Gallery",
             "Logo" => "Logo Gallery",
             _ => $"{slot.Label} Gallery",
         };
@@ -1789,7 +1782,6 @@ public partial class SharedMediaEditorShell
         {
             "CoverArt" => "Use the image's natural shape: portrait for books and posters, square for albums, or another proportion when the item calls for it. Prefer at least 1200 px on the longest edge and keep key subjects away from the crop boundary.",
             "Background" => "Use a wide, text-free image with room for foreground copy. A 16:9 source at 1920 x 1080 px or larger works best.",
-            "Banner" => "Use a wide promotional strip with important content centered. Aim for roughly 5:1 and at least 1920 px wide.",
             "Logo" => "Use a transparent PNG containing only the title treatment or mark. Leave clear padding around the artwork and aim for at least 1200 px wide.",
             "SeasonPoster" => "Use portrait season art at 1200 x 1800 px or larger. Keep season identity legible at card size.",
             "SeasonThumb" => "Use a wide season image at 1920 x 1080 px or larger and avoid important details near the edges.",
@@ -1892,6 +1884,16 @@ public partial class SharedMediaEditorShell
     }
 
     protected void SelectArtworkSlot(string assetType) => ApplyArtworkSlotSelection(assetType);
+
+    protected string GetSectionNavClass(string tabId)
+    {
+        if (!string.Equals(tabId, _activeTab, StringComparison.OrdinalIgnoreCase))
+            return "sme-section-nav__item";
+
+        return string.Equals(tabId, "artwork", StringComparison.OrdinalIgnoreCase)
+            ? "sme-section-nav__item is-group-open"
+            : "sme-section-nav__item is-active";
+    }
 
     protected Task OnTabChanged(int index)
     {
@@ -3678,17 +3680,17 @@ public partial class SharedMediaEditorShell
         return (_selectedMediaType, ArtworkScope.ScopeId) switch
         {
             ("TV", "series") =>
-                "Series scope manages poster/cover, background, banner, and logo artwork for the show. Those images are shared across episodes.",
+                "Series scope manages poster/cover, background, and logo artwork for the show. Those images are shared across episodes.",
             ("TV", "episode") =>
                 "Episode scope manages only the episode still. Series and season artwork remain inherited and can be opened from this panel.",
             ("Music", "album") =>
-                "Album scope manages cover, background, banner, and logo artwork shared by its tracks. Cover artwork keeps its natural aspect ratio.",
+                "Album scope manages cover, background, and logo artwork shared by its tracks. Cover artwork keeps its natural aspect ratio.",
             ("Music", "track") =>
                 "Track scope inherits art from the album. The Details page derives its music palette from that managed album cover.",
             ("Movies", "item") =>
-                "Movie scope manages poster/cover, background, banner, and logo artwork for the movie.",
+                "Movie scope manages poster/cover, background, and logo artwork for the movie.",
             ("Books", "item") or ("Audiobooks", "item") or ("Comics", "item") =>
-                "Item scope manages cover, background, banner, and logo artwork for this title.",
+                "Item scope manages cover, background, and logo artwork for this title.",
             _ =>
                 ArtworkScope.ScopeSummary ?? "Showing the artwork slots available for the selected owner.",
         };
@@ -4406,7 +4408,6 @@ public partial class SharedMediaEditorShell
         assetType switch
         {
             "Background" => "No background art stored yet.",
-            "Banner" => "No banner art stored yet.",
             "Logo" => "No logo art stored yet.",
             "CoverArt" => "No cover art stored yet.",
             "SeasonPoster" => "No season poster stored yet.",
@@ -4436,14 +4437,12 @@ public partial class SharedMediaEditorShell
             [
                 PosterCoverArtworkSlot,
                 BackgroundArtworkSlot,
-                BannerArtworkSlot,
                 LogoArtworkSlot,
             ],
             ("Movies", "item", true) =>
             [
                 PosterCoverArtworkSlot,
                 BackgroundArtworkSlot,
-                BannerArtworkSlot,
                 LogoArtworkSlot,
             ],
             ("TV", "season", true) =>
@@ -4455,7 +4454,6 @@ public partial class SharedMediaEditorShell
             [
                 PosterCoverArtworkSlot,
                 BackgroundArtworkSlot,
-                BannerArtworkSlot,
                 LogoArtworkSlot,
             ],
             ("TV", "episode", true) =>
@@ -4466,7 +4464,6 @@ public partial class SharedMediaEditorShell
             [
                 PosterCoverArtworkSlot,
                 BackgroundArtworkSlot,
-                BannerArtworkSlot,
                 LogoArtworkSlot,
             ],
             _ => [],
