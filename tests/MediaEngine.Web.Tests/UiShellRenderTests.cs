@@ -191,7 +191,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Change profile photo", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".settings-subsection-nav"));
+            Assert.Empty(cut.FindAll(".settings-subsection-nav"));
             Assert.Empty(cut.FindAll(".user-overview-continue-card"));
             Assert.Empty(cut.FindAll(".user-overview-history-card"));
             Assert.Empty(cut.FindAll(".user-overview-taste-card"));
@@ -266,7 +266,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Empty(cut.FindAll(".mud-tabs"));
-            Assert.NotEmpty(cut.FindAll(".settings-subsection-nav"));
+            Assert.Empty(cut.FindAll(".settings-subsection-nav"));
             Assert.NotEmpty(cut.FindAll(".playback-general-card"));
             Assert.NotEmpty(cut.FindAll(".settings-section-header"));
             Assert.Equal(2, cut.FindAll(".settings-interval-action").Count);

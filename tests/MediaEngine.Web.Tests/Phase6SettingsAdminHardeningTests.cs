@@ -49,11 +49,10 @@ public sealed class Phase6SettingsAdminHardeningTests
         var settings = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
 
         Assert.DoesNotContain("aria-label=\"Media Management sections\"", source, StringComparison.Ordinal);
-        Assert.Contains("new(\"overview\", \"Overview\"", nav, StringComparison.Ordinal);
         Assert.Contains("new(\"incoming\", \"Incoming\"", nav, StringComparison.Ordinal);
         Assert.Contains("new(\"libraries\", \"Libraries\"", nav, StringComparison.Ordinal);
         Assert.Contains("new(\"activity\", \"Activity\"", nav, StringComparison.Ordinal);
-        Assert.Contains("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("<SettingsSubsectionNav", settings, StringComparison.Ordinal);
 
         Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);

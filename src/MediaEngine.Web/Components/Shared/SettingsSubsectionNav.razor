@@ -5,23 +5,20 @@
 @if (Items.Count > 1 || ShowWhenSingle)
 {
     <nav class="@RootClass" aria-label="@AriaLabel">
-        <ul class="settings-subsection-nav__list" role="tablist">
+        <ul class="settings-subsection-nav__list">
             @foreach (var item in Items)
             {
                 var active = IsActive(item);
-                <li class="settings-subsection-nav__entry" role="presentation">
-                    <NavLink href="@SettingsNav.RouteFor(Section, item.Slug)"
-                             Match="NavLinkMatch.All"
-                             class="@(active ? "settings-subsection-nav__item is-active" : "settings-subsection-nav__item")"
-                             role="tab"
-                             aria-selected="@(active ? "true" : "false")"
-                             aria-current="@(active ? "page" : null)">
+                <li class="settings-subsection-nav__entry">
+                    <a href="@SettingsNav.RouteFor(Section, item.Slug)"
+                       class="@(active ? "settings-subsection-nav__item is-active" : "settings-subsection-nav__item")"
+                       aria-current="@(active ? "page" : null)">
                         @if (!string.IsNullOrWhiteSpace(item.Icon))
                         {
                             <MudIcon Icon="@item.Icon" Size="Size.Small" aria-hidden="true" />
                         }
                         <span>@item.Label</span>
-                    </NavLink>
+                    </a>
                 </li>
             }
         </ul>

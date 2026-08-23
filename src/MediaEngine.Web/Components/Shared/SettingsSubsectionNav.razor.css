@@ -22,7 +22,7 @@
     display: flex;
 }
 
-.settings-subsection-nav__item {
+.settings-subsection-nav ::deep .settings-subsection-nav__item {
     position: relative;
     display: inline-flex;
     align-items: center;
@@ -38,7 +38,7 @@
     transition: color 140ms ease, background-color 140ms ease;
 }
 
-.settings-subsection-nav__item::after {
+.settings-subsection-nav ::deep .settings-subsection-nav__item::after {
     position: absolute;
     right: var(--tl-space-2, 8px);
     bottom: -1px;
@@ -49,28 +49,28 @@
     content: "";
 }
 
-.settings-subsection-nav__item:hover {
+.settings-subsection-nav ::deep .settings-subsection-nav__item:hover {
     color: var(--tl-text-primary);
     background: rgba(var(--tl-accent-primary-rgb, 139, 92, 246), 0.07);
 }
 
-.settings-subsection-nav__item:focus-visible {
+.settings-subsection-nav ::deep .settings-subsection-nav__item:focus-visible {
     z-index: 1;
     border-radius: var(--tl-radius-sm, 6px);
     outline: 2px solid var(--tl-focus-ring, var(--tl-accent-primary));
     outline-offset: -3px;
 }
 
-.settings-subsection-nav__item.is-active {
+.settings-subsection-nav ::deep .settings-subsection-nav__item.is-active {
     color: var(--tl-accent-primary);
 }
 
-.settings-subsection-nav__item.is-active::after {
+.settings-subsection-nav ::deep .settings-subsection-nav__item.is-active::after {
     background: var(--tl-accent-primary);
     box-shadow: 0 0 12px rgba(var(--tl-accent-primary-rgb, 139, 92, 246), 0.4);
 }
 
-.settings-subsection-nav__item ::deep .mud-icon-root {
+.settings-subsection-nav ::deep .settings-subsection-nav__item .mud-icon-root {
     font-size: 20px;
 }
 
@@ -83,14 +83,14 @@
         gap: 0;
     }
 
-    .settings-subsection-nav__item {
+    .settings-subsection-nav ::deep .settings-subsection-nav__item {
         min-height: 44px;
         gap: 0;
         padding-inline: 6px;
         font-size: 0.82rem;
     }
 
-    .settings-subsection-nav__item ::deep .mud-icon-root {
+    .settings-subsection-nav ::deep .settings-subsection-nav__item .mud-icon-root {
         display: none;
     }
 }

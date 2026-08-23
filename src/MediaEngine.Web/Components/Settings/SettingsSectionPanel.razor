@@ -10,7 +10,7 @@
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
-    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = string.Empty;
     [Parameter] public string? Description { get; set; }
     [Parameter] public string Class { get; set; } = "tl-card settings-section-card settings-section-card--dense";
     [Parameter] public RenderFragment? ChildContent { get; set; }

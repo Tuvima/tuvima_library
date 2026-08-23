@@ -1,7 +1,10 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="@RootClass">
-    <MudIcon Icon="@Icon" Color="Color.Primary" />
+    @if (!string.IsNullOrWhiteSpace(Icon))
+    {
+        <MudIcon Icon="@Icon" Color="Color.Inherit" aria-hidden="true" />
+    }
     <div class="settings-section-header__copy settings-section-card__heading">
         <AppCssElement Tag="@HeadingTag" Class="settings-section-header__title settings-section-card__title">@Title</AppCssElement>
         @if (!string.IsNullOrWhiteSpace(Description))
@@ -17,7 +20,7 @@
 
 @code {
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
-    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public string Icon { get; set; } = string.Empty;
     [Parameter] public string? Description { get; set; }
     [Parameter] public string HeadingTag { get; set; } = "h2";
     [Parameter] public bool Divider { get; set; }
