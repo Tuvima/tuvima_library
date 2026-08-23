@@ -89,6 +89,34 @@ public sealed class Phase7LocalAiTests
         Assert.Contains("Install and update marketplace flows are planned", plugins, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void LocalAiOverview_SurfacesUsefulControlsAndLinksTechnicalDetails()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\LocalAiSettingsTab.razor");
+
+        Assert.Contains("Local AI is healthy", source, StringComparison.Ordinal);
+        Assert.Contains("Enabled features", source, StringComparison.Ordinal);
+        Assert.Contains("Subtitle synchronization — Planned", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/ai/models", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/ai/vocabulary", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/ai/automation", source, StringComparison.Ordinal);
+        Assert.Contains("OnParametersSetAsync", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PluginOverview_UsesInstalledTableAndLinksAdvancedOperations()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\PluginSettingsTab.razor");
+
+        Assert.Contains("@InstalledPluginsPanel()", source, StringComparison.Ordinal);
+        Assert.Contains("@AdvancedPluginLinks()", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/plugins/jobs-health", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/plugins/catalog", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/plugins/capabilities", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/plugins/danger", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("@PluginManager()", source, StringComparison.Ordinal);
+    }
+
     private static string ReadRepoFile(string relativePath) =>
         File.ReadAllText(Path.GetFullPath(Path.Combine(
             AppContext.BaseDirectory,
