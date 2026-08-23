@@ -68,7 +68,7 @@ public sealed class Phase5InlineEditingTests
 
         Assert.Contains("Mode = SharedMediaEditorMode.Review", source, StringComparison.Ordinal);
         Assert.Contains("ReviewItemId = item.Id", source, StringComparison.Ordinal);
-        Assert.Contains("Label=\"Find match\"", source, StringComparison.Ordinal);
+        Assert.Contains("Label=\"Review\"", source, StringComparison.Ordinal);
         Assert.Contains("InitialTab = \"links\"", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Open complete review", source, StringComparison.Ordinal);
         Assert.Contains("await LoadAsync();", source, StringComparison.Ordinal);

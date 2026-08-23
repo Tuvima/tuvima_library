@@ -74,6 +74,10 @@ public sealed class ActivityTabGuardrailTests
         Assert.Contains("QueryHelpers.ParseQuery", events, StringComparison.Ordinal);
         Assert.Contains("\"runId\"", events, StringComparison.Ordinal);
         Assert.Contains("\"batchId\"", events, StringComparison.Ordinal);
+        Assert.Contains("DateRangeOptions", events, StringComparison.Ordinal);
+        Assert.Contains("Actor =", events, StringComparison.Ordinal);
+        Assert.Contains("/settings/activity/events", events, StringComparison.Ordinal);
+        Assert.Contains("<details class=\"activity-page__advanced\"", tab, StringComparison.Ordinal);
 
         Assert.Contains("GetActivityStatsAsync", maintenance, StringComparison.Ordinal);
         Assert.Contains("TriggerPruneAsync", maintenance, StringComparison.Ordinal);

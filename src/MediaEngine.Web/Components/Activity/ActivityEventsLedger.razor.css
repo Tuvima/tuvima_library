@@ -2,6 +2,7 @@
     display: grid;
     gap: 16px;
 }
+.activity-events__heading h2{margin:0;font-size:1.25rem}.activity-events__heading p{margin:.25rem 0 0;color:var(--tl-text-muted);font-size:.9rem}
 
 .activity-events__filter {
     min-width: 180px;

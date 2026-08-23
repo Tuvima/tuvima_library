@@ -60,6 +60,11 @@
     font-size: 13px;
 }
 
+.app-timeline-list__actor {
+    color: var(--tl-text-muted);
+    font-size: .82rem;
+}
+
 .app-timeline-list__body p {
     margin: 2px 0;
     line-height: 1.35;

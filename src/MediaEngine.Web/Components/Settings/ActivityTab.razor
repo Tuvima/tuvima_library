@@ -4,7 +4,10 @@
     @if (ActiveSubsection == "events")
     {
         <ActivityEventsLedger />
-        <ActivityMaintenancePanel />
+        <details class="activity-page__advanced">
+            <summary>Maintenance &amp; retention</summary>
+            <ActivityMaintenancePanel />
+        </details>
     }
     else if (ActiveSubsection == "batches")
     {
