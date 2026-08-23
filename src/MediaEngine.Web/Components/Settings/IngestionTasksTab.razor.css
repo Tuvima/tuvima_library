@@ -819,3 +819,79 @@
         font-size: 1.25rem;
     }
 }
+
+::deep .library-update-processing-details {
+    margin-top: 14px;
+    border: 1px solid rgba(176, 190, 255, 0.14);
+    border-radius: 8px;
+    background: rgba(7, 14, 34, 0.42);
+}
+
+::deep .library-update-processing-details > summary {
+    padding: 13px 16px;
+    color: rgba(241, 245, 255, 0.9);
+    font-size: .88rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+::deep .library-update-processing-details[open] > summary {
+    border-bottom: 1px solid rgba(176, 190, 255, 0.12);
+}
+
+::deep .library-update-stage-cards {
+    grid-template-columns: 1fr;
+    gap: 0;
+    margin: 0;
+    padding: 8px 14px;
+}
+
+::deep .library-update-stage-card,
+::deep .library-update-stage-card:hover {
+    grid-template-columns: 28px 36px minmax(0, 1fr) auto;
+    grid-template-rows: auto;
+    justify-items: start;
+    min-height: 52px;
+    padding: 8px 6px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    text-align: left;
+    transform: none;
+}
+
+::deep .library-update-stage-card + .library-update-stage-card {
+    border-top: 1px solid rgba(176, 190, 255, 0.1);
+}
+
+::deep .library-update-stage-card__progress {
+    position: relative;
+    inset: auto;
+    width: 22px;
+    height: 22px;
+    background: transparent;
+}
+
+::deep .library-update-stage-card__icon {
+    grid-row: auto;
+    width: 32px;
+    height: 32px;
+}
+
+::deep .library-update-stage-card__icon .mud-icon-root,
+::deep .library-update-stage-card__icon img {
+    width: 18px;
+    height: 18px;
+    font-size: 18px;
+}
+
+::deep .library-update-stage-card strong,
+::deep .library-update-stage-card > span:last-child {
+    max-width: none;
+    text-align: left;
+}
+
+::deep .library-update-stage-card > span:last-child {
+    justify-self: end;
+}

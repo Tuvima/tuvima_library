@@ -1,6 +1,7 @@
 @namespace MediaEngine.Web.Components.Settings
 @using System.Globalization
 @using MediaEngine.Contracts.Playback
+@using MediaEngine.Contracts.System
 @using MediaEngine.Web.Components.Library
 @using MediaEngine.Web.Models.ViewDTOs
 @inject UIOrchestratorService Orchestrator
@@ -101,76 +102,22 @@
     </AppPanel>
 
     <div class="admin-overview-primary-grid">
-        <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--feature">
+        <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention">
             <div class="admin-overview-card__header">
                 <div>
-                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Ingestion</MudText>
-                    <MudText Typo="Typo.h6">Ingestion Progress</MudText>
+                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Needs attention</MudText>
+                    <MudText Typo="Typo.h6">@AttentionTitle</MudText>
                 </div>
-                <span class="@StatusBadgeClass(_currentRun.Status)">@_currentRun.Status</span>
-            </div>
-
-            @if (_currentRun.IsActive)
-            {
-                <div class="admin-run-progress">
-                    <div class="admin-run-progress__copy">
-                        <span>@DisplayFormat.FormatCount(_currentRun.Processed) / @DisplayFormat.FormatCount(_currentRun.Total) processed</span>
-                        <span>@_currentRun.Progress.ToString("0")%</span>
-                    </div>
-                    <div class="admin-progress-track">
-                        <AppCssElement Tag="span" Class="admin-progress-fill" Css="@ProgressStyle(_currentRun.Progress)"></AppCssElement>
-                    </div>
-                </div>
-
-                <div class="admin-detail-grid">
-                    @Detail("Library", _currentRun.Library)
-                    @Detail("Current item", _currentRun.CurrentItem)
-                    @Detail("Stage", _currentRun.Stage)
-                    @Detail("Started by", _currentRun.StartedBy)
-                    @Detail("Elapsed", _currentRun.Elapsed)
-                    @Detail("Remaining / ETA", _currentRun.Remaining)
-                </div>
-            }
-            else
-            {
-                <div class="admin-empty-state">
-                    <MudIcon Icon="@Icons.Material.Outlined.CheckCircle" />
-                    <div>
-                        <MudText Typo="Typo.subtitle2">No ingestion currently running</MudText>
-                        <MudText Typo="Typo.body2" Class="admin-overview-muted">@_currentRun.IdleDetail</MudText>
-                    </div>
-                </div>
-            }
-
-            <div class="admin-chip-row">
-                <span class="admin-chip admin-chip--info">@DisplayFormat.FormatCount(_currentRun.Queued) queued</span>
-                <span class="admin-chip @(_currentRun.Failed > 0 ? "admin-chip--danger" : "")">@DisplayFormat.FormatCount(_currentRun.Failed) failed</span>
-                <span class="admin-chip @(_pendingReviewCount > 0 ? "admin-chip--warning" : "admin-chip--success")">@DisplayFormat.FormatCount(_pendingReviewCount) needs review</span>
-            </div>
-
-            <div class="admin-card-actions">
-                <AppButton Href="/settings/ingestion" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">View run</AppButton>
-            </div>
-        </AppPanel>
-
-        <AppPanel Elevation="0" Class="tl-card admin-overview-card">
-            <div class="admin-overview-card__header">
-                <div>
-                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Curation</MudText>
-                    <MudText Typo="Typo.h6">Review Queue</MudText>
-                </div>
-                <span class="@(_pendingReviewCount > 0 ? "admin-status admin-status--warning" : "admin-status admin-status--success")">
-                    @(_pendingReviewCount > 0 ? $"{DisplayFormat.FormatCount(_pendingReviewCount)} pending" : "Clear")
-                </span>
+                <AppStatusBadge Text="@(_pendingReviewCount > 0 ? "Action needed" : "Clear")"
+                                Tone="@(_pendingReviewCount > 0 ? AppUiTone.Warning : AppUiTone.Success)" />
             </div>
 
             <div class="admin-review-stats">
                 @Metric("High priority", DisplayFormat.FormatCount(_highPriorityReviewCount), Icons.Material.Outlined.PriorityHigh)
-                @Metric("Oldest", _oldestReviewAge, Icons.Material.Outlined.Schedule)
-                @Metric("New today", DisplayFormat.FormatCount(_newReviewTodayCount), Icons.Material.Outlined.Today)
+                @Metric("Oldest waiting", _oldestReviewAge, Icons.Material.Outlined.Schedule)
             </div>
 
-            @if (_reviewItems.Count == 0)
+            @if (_pendingReviewCount == 0)
             {
                 <div class="admin-empty-state admin-empty-state--success">
                     <MudIcon Icon="@Icons.Material.Outlined.Verified" />
@@ -182,135 +129,77 @@
             }
             else
             {
-                <div class="admin-compact-list">
-                    @foreach (var item in _reviewItems.Take(3))
-                    {
-                        <div class="admin-compact-row">
-                            <MudIcon Icon="@MediaIcon(item.MediaType ?? item.EntityType)" />
-                            <div class="admin-compact-row__body">
-                                <span>@ReviewTitle(item)</span>
-                                <small>@StringHelpers.FirstNonBlankOr("", item.MediaType, item.EntityType, "Unknown")</small>
-                            </div>
-                            <span class="admin-reason-badge">@FormatTrigger(item.Trigger)</span>
-                        </div>
-                    }
+                <div class="admin-attention-copy">
+                    <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
+                    <p>These items could not be matched confidently and need a decision before they can join the library.</p>
                 </div>
             }
 
             <div class="admin-card-actions">
-                <AppButton Href="/settings/review" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Warning">Open review queue</AppButton>
+                <AppButton Href="/settings/review"
+                           Label="Review items"
+                           ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
+                           Disabled="@(_pendingReviewCount == 0)" />
             </div>
         </AppPanel>
 
         <AppPanel Elevation="0" Class="tl-card admin-overview-card">
             <div class="admin-overview-card__header">
-                <div>
-                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Playback</MudText>
-                    <MudText Typo="Typo.h6">Active Transcodes</MudText>
-                </div>
-                <span class="@(_activeTranscodes > 0 ? "admin-status admin-status--info" : "admin-status")">
-                    @(_activeTranscodes > 0 ? "Transcoding" : "Idle")
-                </span>
+                <MudText Typo="Typo.h6">System Status</MudText>
             </div>
 
-            <div class="admin-stream-stats">
-                @Metric("Active jobs", DisplayFormat.FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
-            </div>
-
-            @if (_activeEncodeJobs.Count == 0)
-            {
-                <div class="admin-empty-state">
-                    <MudIcon Icon="@Icons.Material.Outlined.PlayCircle" />
-                    <div>
-                        <MudText Typo="Typo.subtitle2">No active transcodes</MudText>
-                        <MudText Typo="Typo.body2" Class="admin-overview-muted">Live encoding and packaging jobs will appear here.</MudText>
-                    </div>
+            <div class="admin-system-status" role="list" aria-label="System status">
+                <div class="admin-system-status__row" role="listitem">
+                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Sync" /></span>
+                    <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
+                    <AppStatusBadge Text="@(_currentRun.IsActive ? "Processing" : _currentRun.Failed > 0 ? "Needs attention" : "Idle")"
+                                    Tone="@(_currentRun.Failed > 0 ? AppUiTone.Warning : _currentRun.IsActive ? AppUiTone.Primary : AppUiTone.Success)" />
                 </div>
-            }
-            else
-            {
-                <div class="admin-compact-list">
-                    @foreach (var job in _activeEncodeJobs.Take(3))
-                    {
-                        <div class="admin-compact-row">
-                            <MudIcon Icon="@Icons.Material.Outlined.VideoSettings" />
-                            <div class="admin-compact-row__body">
-                                <span>@ShortId(job.AssetId)</span>
-                                <small>@FormatEncodeTiming(job)</small>
-                            </div>
-                            <span class="admin-reason-badge">Transcoding @FormatProfile(job.ProfileKey)</span>
-                        </div>
-                    }
+                <div class="admin-system-status__row" role="listitem">
+                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.PlayCircle" /></span>
+                    <span><strong>Playback</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
+                    <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Success)" />
                 </div>
-            }
-
-            <div class="admin-card-actions">
-                <AppButton Href="/settings/delivery" Variant="Variant.Outlined" Size="Size.Small" Color="Color.Primary">Open playback</AppButton>
+                <div class="admin-system-status__row" role="listitem">
+                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.CloudDone" /></span>
+                    <span><strong>Backup</strong><small>@BackupStatusDetail</small></span>
+                    <AppStatusBadge Text="@(_backups.Count > 0 ? "Available" : "Not available")"
+                                    Tone="@(_backups.Count > 0 ? AppUiTone.Success : AppUiTone.Neutral)" />
+                </div>
             </div>
         </AppPanel>
     </div>
 
-    <div class="admin-overview-bottom-grid">
-        <AppPanel Elevation="0" Class="tl-card admin-overview-card">
-            <div class="admin-overview-card__header">
+    <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-recent-activity">
+        <div class="admin-overview-card__header">
+            <MudText Typo="Typo.h6">Recent Activity</MudText>
+            <AppButton Href="/settings/activity/events" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+        </div>
+        @if (_recentActivity.Count == 0)
+        {
+            <div class="admin-empty-state">
+                <MudIcon Icon="@Icons.Material.Outlined.History" />
                 <div>
-                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Recent Work</MudText>
-                    <MudText Typo="Typo.h6">Recent Ingestion Runs</MudText>
+                    <MudText Typo="Typo.subtitle2">No recent activity</MudText>
+                    <MudText Typo="Typo.body2" Class="admin-overview-muted">Meaningful library and system updates will appear here.</MudText>
                 </div>
             </div>
-
-            @if (_recentRuns.Count == 0)
-            {
-                <div class="admin-empty-state">
-                    <MudIcon Icon="@Icons.Material.Outlined.PendingActions" />
-                    <div>
-                        <MudText Typo="Typo.subtitle2">No recent ingestion runs</MudText>
-                        <MudText Typo="Typo.body2" Class="admin-overview-muted">Runs will appear after scans are started.</MudText>
+        }
+        else
+        {
+            <div class="admin-activity-list" role="list">
+                @foreach (var activity in _recentActivity.Take(5))
+                {
+                    <div class="admin-activity-list__row" role="listitem">
+                        <span class="admin-activity-list__icon"><MudIcon Icon="@ActivityIcon(activity)" /></span>
+                        <span>@ActivityText(activity)</span>
+                        <time datetime="@activity.OccurredAt">@FormatRelative(activity.OccurredAt)</time>
                     </div>
-                </div>
-            }
-            else
-            {
-                <div class="admin-run-table">
-                    <div class="admin-run-table__head">
-                        <span>Run ID</span>
-                        <span>Library</span>
-                        <span>Stage</span>
-                        <span>Status</span>
-                        <span>Started</span>
-                    </div>
-                    @foreach (var run in _recentRuns.Take(3))
-                    {
-                        <a class="admin-run-table__row" href="/settings/ingestion" aria-label="@($"Open ingestion run {ShortId(run.Id)}")">
-                            <span>@ShortId(run.Id)</span>
-                            <span>@RunLibrary(run)</span>
-                            <span>@RunStage(run)</span>
-                            <span><span class="@StatusBadgeClass(run.Status)">@FormatStatus(run.Status)</span></span>
-                            <span>@FormatRelative(run.StartedAt)</span>
-                        </a>
-                    }
-                </div>
-            }
-        </AppPanel>
-
-        <AppPanel Elevation="0" Class="tl-card admin-overview-card">
-            <div class="admin-overview-card__header">
-                <div>
-                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Today</MudText>
-                    <MudText Typo="Typo.h6">Operational Snapshot</MudText>
-                </div>
+                }
             </div>
-
-            <div class="admin-snapshot-grid">
-                @Metric("Added today", DisplayFormat.FormatCount(_overview?.Added24h ?? 0), Icons.Material.Outlined.AddCircle)
-                @Metric("Processed today", DisplayFormat.FormatCount(_processedToday), Icons.Material.Outlined.TaskAlt)
-                @Metric("Active transcodes", DisplayFormat.FormatCount(_activeTranscodes), Icons.Material.Outlined.VideoSettings)
-                @Metric("Recent imports", DisplayFormat.FormatCount(_recentImportsToday), Icons.Material.Outlined.MoveToInbox)
-            </div>
-        </AppPanel>
-    </div>
-
-    <BackupRecoveryPanel />
+        }
+    </AppPanel>
 </div>
 
 @code {
@@ -327,6 +216,7 @@
     private IReadOnlyList<IngestionBatchResponse> _recentRuns = [];
     private List<ActivityEntryResponse> _recentActivity = [];
     private List<EncodeJobDto> _encodeJobs = [];
+    private IReadOnlyList<BackupArchiveDto> _backups = [];
     private OverviewRun _currentRun = OverviewRun.Empty;
 
     private int _pendingReviewCount;
@@ -336,6 +226,19 @@
     private int _recentImportsToday;
     private int _activeTranscodes;
     private string _oldestReviewAge = "None";
+
+    private string AttentionTitle => _pendingReviewCount == 0
+        ? "Nothing needs your attention"
+        : $"{DisplayFormat.FormatCount(_pendingReviewCount)} item{(_pendingReviewCount == 1 ? "" : "s")} need review";
+
+    private string IngestionStatusDetail => _currentRun.IsActive
+        ? $"{DisplayFormat.FormatCount(_currentRun.Processed)} of {DisplayFormat.FormatCount(_currentRun.Total)} files processed"
+        : _currentRun.IdleDetail;
+
+    private string BackupStatusDetail => _backups
+        .OrderByDescending(backup => backup.CreatedAt)
+        .Select(backup => $"Last backup {FormatRelative(backup.CreatedAt)}")
+        .FirstOrDefault() ?? "No completed backup is reported";
 
     private int _libraryTotal
     {
@@ -406,14 +309,16 @@
             var runsTask = Orchestrator.GetIngestionBatchesAsync(6);
             var activityTask = Orchestrator.GetRecentActivityAsync(25);
             var encodeTask = ApiClient.GetEncodeJobsAsync();
+            var backupsTask = ApiClient.GetBackupsAsync();
 
-            await Task.WhenAll(overviewTask, reviewsTask, runsTask, activityTask, encodeTask);
+            await Task.WhenAll(overviewTask, reviewsTask, runsTask, activityTask, encodeTask, backupsTask);
 
             _overview = await overviewTask;
             _reviewItems = await reviewsTask;
             _recentRuns = await runsTask;
             _recentActivity = await activityTask;
             _encodeJobs = await encodeTask;
+            _backups = await backupsTask;
 
             Recompute();
             _lastUpdated = DateTimeOffset.Now;
@@ -634,6 +539,37 @@
 
     private static string ReviewTitle(ReviewItemViewModel item) =>
         StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
+
+    private static string ActivityText(ActivityEntryResponse activity) =>
+        StringHelpers.FirstNonBlankOr("", activity.Detail, FormatTrigger(activity.ActionType), "Library activity");
+
+    private static string ActivityIcon(ActivityEntryResponse activity)
+    {
+        var action = activity.ActionType;
+        if (action.Contains("fail", StringComparison.OrdinalIgnoreCase)
+            || action.Contains("error", StringComparison.OrdinalIgnoreCase))
+        {
+            return Icons.Material.Outlined.ErrorOutline;
+        }
+
+        if (action.Contains("review", StringComparison.OrdinalIgnoreCase))
+        {
+            return Icons.Material.Outlined.Flag;
+        }
+
+        if (action.Contains("backup", StringComparison.OrdinalIgnoreCase))
+        {
+            return Icons.Material.Outlined.CloudDone;
+        }
+
+        if (action.Contains("ingest", StringComparison.OrdinalIgnoreCase)
+            || action.Contains("mediaadded", StringComparison.OrdinalIgnoreCase))
+        {
+            return Icons.Material.Outlined.MoveToInbox;
+        }
+
+        return Icons.Material.Outlined.CheckCircleOutline;
+    }
 
     private static string FormatTrigger(string trigger)
     {
