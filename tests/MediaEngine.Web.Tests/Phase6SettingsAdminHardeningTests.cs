@@ -3,6 +3,21 @@ namespace MediaEngine.Web.Tests;
 public sealed class Phase6SettingsAdminHardeningTests
 {
     [Fact]
+    public void SystemOverview_RemainsConciseAndRoutesProcessingToMediaManagement()
+    {
+        var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OverviewTab.razor");
+
+        Assert.Contains("System Status", source, StringComparison.Ordinal);
+        Assert.Contains("Recent Activity", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/activity/events", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("<BackupRecoveryPanel", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("/settings/ingestion", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Operational Snapshot", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Recent Ingestion Runs", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Run ID", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void SettingsShell_RendersStatusBadgesAndEngineUnavailableState()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Pages\Settings.razor");
@@ -43,6 +58,14 @@ public sealed class Phase6SettingsAdminHardeningTests
         Assert.Contains("Structured libraries", source, StringComparison.Ordinal);
         Assert.Contains("Personal libraries (View)", source, StringComparison.Ordinal);
         Assert.Contains("Incoming folders", source, StringComparison.Ordinal);
+        Assert.Contains("Filter libraries", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"all\", \"All\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"read\", \"Read\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"watch\", \"Watch\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"listen\", \"Listen\"", source, StringComparison.Ordinal);
+        Assert.Contains("new(\"view\", \"View\"", source, StringComparison.Ordinal);
+        Assert.Contains("<IngestionTasksTab />", source, StringComparison.Ordinal);
+        Assert.Contains("Not checked", source, StringComparison.Ordinal);
         Assert.Contains("Folders &amp; sources", source, StringComparison.Ordinal);
         Assert.Contains("Existing folders stay unchanged", source, StringComparison.Ordinal);
         Assert.Contains("Primary destination", source, StringComparison.Ordinal);

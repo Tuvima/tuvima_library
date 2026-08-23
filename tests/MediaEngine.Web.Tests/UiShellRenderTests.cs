@@ -157,7 +157,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             builder.CloseComponent();
             builder.OpenComponent<Settings>(3);
             builder.AddAttribute(4, nameof(Settings.Section), "system");
-            builder.AddAttribute(5, nameof(Settings.Subsection), "ingestion");
+            builder.AddAttribute(5, nameof(Settings.Subsection), "overview");
             builder.CloseComponent();
         });
 
@@ -166,10 +166,10 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Single(cut.FindAll(".media-section-shell"));
             Assert.Single(cut.FindAll(".media-section-shell__rail"));
             Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item"));
-            Assert.Contains("Ingestion Progress", cut.Markup);
+            Assert.Contains("System Status", cut.Markup);
             Assert.NotEmpty(cut.FindAll(".admin-review-stats"));
-            Assert.Contains("No ingestion currently running", cut.Markup);
-            Assert.Contains("View run", cut.Markup);
+            Assert.Contains("No active transcodes", cut.Markup);
+            Assert.Contains("Recent Activity", cut.Markup);
         });
     }
 
