@@ -26,7 +26,9 @@
     {
         var profile = _overview.Profile;
 
-        <div class="user-overview-grid">
+        <div class="user-overview-grid" data-profile-section="@ActiveSubsection">
+        @if (ActiveSubsection == "profile")
+        {
             <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-profile-card">
                     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Class="user-overview-profile-layout">
                         <MudStack Spacing="1" AlignItems="AlignItems.Center" Class="user-overview-avatar-wrap">
@@ -130,7 +132,9 @@
                         </div>
                     </div>
             </AppPanel>
-
+        }
+        else if (ActiveSubsection == "activity")
+        {
             <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-stat-strip">
                 <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Activity Summary</MudText>
                 @if (HasActivitySummary)
@@ -160,7 +164,9 @@
                 <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Continue</MudText>
                 <MediaRail Items="@_overview.ContinueItems" EmptyText="Nothing is currently in progress." ShowContinuation="true" />
             </AppPanel>
-
+        }
+        else if (ActiveSubsection == "history")
+        {
             <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-history-card">
                 <MudText Typo="Typo.h6" Class="settings-card-title mb-3">Recent History</MudText>
                 @if (_overview.RecentItems.Count == 0)
@@ -191,7 +197,9 @@
                     </MudList>
                 }
             </AppPanel>
-
+        }
+        else if (ActiveSubsection == "taste")
+        {
             <AppPanel Elevation="0" Class="tl-card settings-section-card user-overview-card user-overview-taste-card">
                 <MudStack Row="true" Justify="Justify.SpaceBetween" AlignItems="AlignItems.Center" Class="mb-3 user-overview-card-header">
                     <MudText Typo="Typo.h6" Class="settings-card-title">Top Genres</MudText>
@@ -223,6 +231,7 @@
                     </div>
                 }
             </AppPanel>
+        }
         </div>
     }
 </div>
@@ -341,6 +350,14 @@
 
 @code {
     [Parameter] public string Subsection { get; set; } = "profile";
+
+    private string ActiveSubsection => Subsection.ToLowerInvariant() switch
+    {
+        "activity" => "activity",
+        "history" => "history",
+        "taste" => "taste",
+        _ => "profile",
+    };
 
     private bool _loading = true;
     private bool _savingProfile;

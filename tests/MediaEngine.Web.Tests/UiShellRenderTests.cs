@@ -191,9 +191,10 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         cut.WaitForAssertion(() =>
         {
             Assert.Contains("Change profile photo", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".user-overview-continue-card"));
-            Assert.NotEmpty(cut.FindAll(".user-overview-history-card"));
-            Assert.NotEmpty(cut.FindAll(".user-overview-taste-card"));
+            Assert.NotEmpty(cut.FindAll(".settings-subsection-nav"));
+            Assert.Empty(cut.FindAll(".user-overview-continue-card"));
+            Assert.Empty(cut.FindAll(".user-overview-history-card"));
+            Assert.Empty(cut.FindAll(".user-overview-taste-card"));
             Assert.DoesNotContain("At a Glance", cut.Markup);
             Assert.DoesNotContain("Your Statistics", cut.Markup);
             Assert.DoesNotContain("Recently Added", cut.Markup);
@@ -247,7 +248,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
     }
 
     [Fact]
-    public void PlaybackSettingsPage_RendersTabbedUserPlaybackPreferences()
+    public void PlaybackSettingsPage_RendersOnlyTheSelectedUserPlaybackPreferences()
     {
         var cut = Render(builder =>
         {
@@ -264,17 +265,16 @@ public sealed class UiShellRenderTests : AsyncBunitContext
 
         cut.WaitForAssertion(() =>
         {
-            Assert.NotEmpty(cut.FindAll(".mud-tabs"));
-            Assert.NotEmpty(cut.FindAll(".settings-tab-strip"));
+            Assert.Empty(cut.FindAll(".mud-tabs"));
+            Assert.NotEmpty(cut.FindAll(".settings-subsection-nav"));
             Assert.NotEmpty(cut.FindAll(".playback-general-card"));
             Assert.NotEmpty(cut.FindAll(".settings-section-header"));
             Assert.Equal(2, cut.FindAll(".settings-interval-action").Count);
             Assert.NotEmpty(cut.FindAll(".settings-preference-row"));
-            Assert.Contains("General", cut.Markup);
-            Assert.Contains("Watching", cut.Markup);
-            Assert.Contains("Listening", cut.Markup);
-            Assert.Contains("Reading", cut.Markup);
-            Assert.Contains("Subtitles", cut.Markup);
+            Assert.DoesNotContain("Video Speed", cut.Markup);
+            Assert.DoesNotContain("Audiobook Speed", cut.Markup);
+            Assert.DoesNotContain("Page & Text", cut.Markup);
+            Assert.DoesNotContain("Subtitle Appearance", cut.Markup);
             Assert.DoesNotContain("Saved locally", cut.Markup);
             Assert.DoesNotContain("Save changes", cut.Markup);
             Assert.DoesNotContain("Unsaved changes", cut.Markup);
@@ -287,14 +287,69 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         });
     }
 
+    [Theory]
+    [InlineData("watching", "Video Speed", "Audiobook Speed")]
+    [InlineData("listening", "Audiobook Speed", "Video Speed")]
+    [InlineData("reading", "Reading Mode", "Language Defaults")]
+    [InlineData("subtitles", "Language Defaults", "Reading Mode")]
+    public void PlaybackTab_RendersOnlyTheRequestedSubsection(string subsection, string expected, string excluded)
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<PlaybackTab>(3);
+            builder.AddAttribute(4, nameof(PlaybackTab.Subsection), subsection);
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(subsection, cut.Find(".settings-playback-section").GetAttribute("data-playback-section"));
+            Assert.Contains(expected, cut.Markup);
+            Assert.DoesNotContain(excluded, cut.Markup);
+        });
+    }
+
+    [Theory]
+    [InlineData("activity", "Activity Summary", "Recent History")]
+    [InlineData("history", "Recent History", "Activity Summary")]
+    [InlineData("taste", "Top Genres", "Change profile photo")]
+    public void UserOverviewTab_RendersOnlyTheRequestedSubsection(string subsection, string expected, string excluded)
+    {
+        var cut = Render(builder =>
+        {
+            builder.OpenComponent<MudPopoverProvider>(0);
+            builder.CloseComponent();
+            builder.OpenComponent<MudDialogProvider>(1);
+            builder.CloseComponent();
+            builder.OpenComponent<MudSnackbarProvider>(2);
+            builder.CloseComponent();
+            builder.OpenComponent<UserOverviewTab>(3);
+            builder.AddAttribute(4, nameof(UserOverviewTab.Subsection), subsection);
+            builder.CloseComponent();
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            Assert.Equal(subsection, cut.Find(".user-overview-grid").GetAttribute("data-profile-section"));
+            Assert.Contains(expected, cut.Markup);
+            Assert.DoesNotContain(excluded, cut.Markup);
+        });
+    }
+
     [Fact]
     public void PlaybackTab_UsesMudSlidersAndRealApiSavePath()
     {
         var source = File.ReadAllText(GetRepoFile("src", "MediaEngine.Web", "Components", "Settings", "PlaybackTab.razor"));
 
-        Assert.Contains("<AppTabs", source);
-        Assert.Contains("settings-tab-strip", source);
-        Assert.Contains("settings-tab-strip", source);
+        Assert.DoesNotContain("<AppTabs", source);
+        Assert.DoesNotContain("settings-playback-tabs", source);
+        Assert.Contains("data-playback-section", source);
         Assert.Contains("Size=\"AppControlSize.Compact\"", source);
         Assert.DoesNotContain("settings-field--compact", source);
         Assert.Contains("settings-preference-row", source);
