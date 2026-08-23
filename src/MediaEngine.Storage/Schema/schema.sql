@@ -437,6 +437,13 @@ CREATE TABLE IF NOT EXISTS image_cache (
     downloaded_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 , is_user_override INTEGER NOT NULL DEFAULT 0, phash INTEGER);
 
+CREATE TABLE IF NOT EXISTS image_cache_sources (
+    source_url    TEXT NOT NULL PRIMARY KEY,
+    content_hash  TEXT NOT NULL,
+    first_seen_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
+    FOREIGN KEY(content_hash) REFERENCES image_cache(content_hash) ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS ingestion_batches (
     id                BLOB NOT NULL PRIMARY KEY,
     status            TEXT NOT NULL DEFAULT 'running',
@@ -1480,6 +1487,10 @@ CREATE INDEX IF NOT EXISTS idx_entity_assets_entity
 
 CREATE INDEX IF NOT EXISTS idx_entity_assets_type
     ON entity_assets(entity_id, asset_type);
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_entity_assets_entity_type_source_url
+    ON entity_assets(entity_id, asset_type, image_url COLLATE NOCASE)
+    WHERE image_url IS NOT NULL AND length(trim(image_url)) > 0;
 
 CREATE INDEX IF NOT EXISTS idx_entity_capability_states_entity
 ON entity_capability_states(entity_id);

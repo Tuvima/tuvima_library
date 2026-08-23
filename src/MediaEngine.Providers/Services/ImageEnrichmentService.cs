@@ -36,6 +36,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
     private readonly IAssetExportService? _assetExportService;
     private readonly IHttpClientFactory _httpFactory;
     private readonly IFuzzyMatchingService _fuzzy;
+    private readonly ImageDownloadCoordinator _imageDownloadCoordinator;
     private readonly ILogger<ImageEnrichmentService> _logger;
 
     private const string FanartBaseUrl = "https://webservice.fanart.tv/v3";
@@ -96,7 +97,8 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         IAssetExportService? assetExportService,
         IHttpClientFactory httpFactory,
         IFuzzyMatchingService fuzzy,
-        ILogger<ImageEnrichmentService> logger)
+        ILogger<ImageEnrichmentService> logger,
+        ImageDownloadCoordinator? imageDownloadCoordinator = null)
     {
         ArgumentNullException.ThrowIfNull(assetRepo);
         ArgumentNullException.ThrowIfNull(mediaAssetRepo);
@@ -127,6 +129,7 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         _assetExportService  = assetExportService;
         _httpFactory          = httpFactory;
         _fuzzy               = fuzzy;
+        _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
         _logger              = logger;
     }
 
@@ -601,10 +604,30 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             if (string.IsNullOrWhiteSpace(imageUrl))
                 continue;
 
+            await using var downloadLease = await _imageDownloadCoordinator
+                .AcquireAsync(imageUrl, ct)
+                .ConfigureAwait(false);
+
+            // Another enrichment or rematch operation may have completed while
+            // this call waited. Refresh the durable variants inside the lease.
+            foreach (var durableVariant in await _assetRepo.GetByEntityAsync(
+                         ownerEntityId.ToString(),
+                         assetType.ToString(),
+                         ct))
+            {
+                var localIndex = existingVariants.FindIndex(asset => asset.Id == durableVariant.Id);
+                if (localIndex >= 0)
+                    existingVariants[localIndex] = durableVariant;
+                else
+                    existingVariants.Add(durableVariant);
+            }
+
             var existing = existingVariants.FirstOrDefault(asset =>
                 string.Equals(asset.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase));
 
-            if (existing is not null)
+            if (existing is not null
+                && !string.IsNullOrWhiteSpace(existing.LocalImagePath)
+                && File.Exists(existing.LocalImagePath))
             {
                 if (updatePreferred && preferredVariant is null && !existing.IsUserOverride)
                     preferredVariant = existing;
@@ -612,11 +635,11 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 continue;
             }
 
-            var bytes = await DownloadImageBytesAsync(imageUrl, ct);
+            var bytes = await GetCachedOrDownloadImageBytesAsync(imageUrl, ct);
             if (bytes is null || bytes.Length == 0)
                 continue;
 
-            var variant = new EntityAsset
+            var variant = existing ?? new EntityAsset
             {
                 Id = Guid.NewGuid(),
                 EntityId = ownerEntityId.ToString(),
@@ -633,17 +656,24 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
                 CreatedAt = DateTimeOffset.UtcNow,
             };
 
-            variant.LocalImagePath = _assetPaths.GetCentralAssetPath(
-                "Work",
-                ownerEntityId,
-                assetType.ToString(),
-                variant.Id,
-                InferVariantExtension(assetType, imageUrl));
+            if (string.IsNullOrWhiteSpace(variant.LocalImagePath))
+            {
+                variant.LocalImagePath = _assetPaths.GetCentralAssetPath(
+                    "Work",
+                    ownerEntityId,
+                    assetType.ToString(),
+                    variant.Id,
+                    InferVariantExtension(assetType, imageUrl));
+            }
 
             await PersistImageAsync(bytes, variant.LocalImagePath, imageUrl, ct);
             ArtworkVariantHelper.StampMetadataAndRenditions(variant, _assetPaths);
             await _assetRepo.UpsertAsync(variant, ct);
-            existingVariants.Add(variant);
+            var existingIndex = existingVariants.FindIndex(asset => asset.Id == variant.Id);
+            if (existingIndex >= 0)
+                existingVariants[existingIndex] = variant;
+            else
+                existingVariants.Add(variant);
             storedCount++;
 
             if (updatePreferred && preferredVariant is null)
@@ -1071,15 +1101,27 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             };
 
             // Download portrait image
-            var bytes = await DownloadImageBytesAsync(bestMatch.Art.Url, ct);
-            if (bytes is not null && bytes.Length > 0)
+            await using (var downloadLease = await _imageDownloadCoordinator
+                             .AcquireAsync(bestMatch.Art.Url, ct)
+                             .ConfigureAwait(false))
             {
                 var portraitPath = _assetPaths.GetCharacterPortraitPath(
                     personId,
                     entity.Id,
                     InferPortraitExtension(bestMatch.Art.Url));
-                await PersistImageAsync(bytes, portraitPath, bestMatch.Art.Url, ct);
-                portrait.LocalImagePath = portraitPath;
+                if (File.Exists(portraitPath))
+                {
+                    portrait.LocalImagePath = portraitPath;
+                }
+                else
+                {
+                    var bytes = await GetCachedOrDownloadImageBytesAsync(bestMatch.Art.Url, ct);
+                    if (bytes is not null && bytes.Length > 0)
+                    {
+                        await PersistImageAsync(bytes, portraitPath, bestMatch.Art.Url, ct);
+                        portrait.LocalImagePath = portraitPath;
+                    }
+                }
             }
 
             await _portraitRepo.UpsertAsync(portrait, ct);
@@ -1120,23 +1162,48 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
-        var bytes = await DownloadImageBytesAsync(imageUrl, ct);
-        if (bytes is not null && bytes.Length > 0)
+        await using (var downloadLease = await _imageDownloadCoordinator
+                         .AcquireAsync(imageUrl, ct)
+                         .ConfigureAwait(false))
         {
             var portraitPath = _assetPaths.GetCharacterPortraitPath(
                 personId,
                 fictionalEntityId,
                 InferPortraitExtension(imageUrl));
-            await PersistImageAsync(bytes, portraitPath, imageUrl, ct);
-            portrait.LocalImagePath = portraitPath;
+            if (File.Exists(portraitPath))
+            {
+                portrait.LocalImagePath = portraitPath;
+            }
+            else
+            {
+                var bytes = await GetCachedOrDownloadImageBytesAsync(imageUrl, ct);
+                if (bytes is not null && bytes.Length > 0)
+                {
+                    await PersistImageAsync(bytes, portraitPath, imageUrl, ct);
+                    portrait.LocalImagePath = portraitPath;
+                }
+            }
         }
 
         await _portraitRepo.UpsertAsync(portrait, ct);
     }
 
-    /// <summary>Downloads image bytes from a URL, returning null on failure.</summary>
-    private async Task<byte[]?> DownloadImageBytesAsync(string imageUrl, CancellationToken ct)
+    /// <summary>
+    /// Returns bytes from the durable source URL cache, downloading only when
+    /// no live cached path exists. Callers hold the source URL coordinator lease.
+    /// </summary>
+    private async Task<byte[]?> GetCachedOrDownloadImageBytesAsync(string imageUrl, CancellationToken ct)
     {
+        var cachedPath = await _imageCache.FindBySourceUrlAsync(imageUrl, ct);
+        if (!string.IsNullOrWhiteSpace(cachedPath) && File.Exists(cachedPath))
+        {
+            _logger.LogDebug(
+                "[IMAGE-ENRICH] Reusing source URL cache for {Url} from {CachedPath}",
+                imageUrl,
+                cachedPath);
+            return await File.ReadAllBytesAsync(cachedPath, ct);
+        }
+
         try
         {
             using var client = _httpFactory.CreateClient("fanart_tv");
@@ -1168,8 +1235,10 @@ public sealed class ImageEnrichmentService : IImageEnrichmentService
         {
             AssetPathService.EnsureDirectory(localPath);
             await File.WriteAllBytesAsync(localPath, bytes, ct);
-            await _imageCache.InsertAsync(hash, localPath, sourceUrl, ct);
         }
+
+        // Record every observed URL even when the hash was already cached.
+        await _imageCache.InsertAsync(hash, localPath, sourceUrl, ct);
     }
 
     private async Task<Dictionary<string, string>> LoadEffectiveCanonicalLookupAsync(

@@ -882,6 +882,10 @@ public sealed partial class RetailMatchWorker
         if (string.IsNullOrWhiteSpace(stillUrl))
             return;
 
+        await using var downloadLease = await _imageDownloadCoordinator
+            .AcquireAsync(stillUrl, ct)
+            .ConfigureAwait(false);
+
         var existingVariants = (await _entityAssetRepo.GetByEntityAsync(
             episodeWorkId.ToString(),
             AssetType.EpisodeStill.ToString(),
@@ -909,18 +913,28 @@ public sealed partial class RetailMatchWorker
         }
 
         byte[] bytes;
-        try
+        var sourceCachedPath = _imageCache is null
+            ? null
+            : await _imageCache.FindBySourceUrlAsync(stillUrl, ct);
+        if (!string.IsNullOrWhiteSpace(sourceCachedPath) && File.Exists(sourceCachedPath))
         {
-            using var client = _httpFactory.CreateClient("tmdb");
-            bytes = await client.GetByteArrayAsync(stillUrl, ct);
+            bytes = await File.ReadAllBytesAsync(sourceCachedPath, ct);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        else
         {
-            _logger.LogWarning(
-                ex,
-                "TV: failed to download TMDB episode still for Work {EpisodeWorkId}",
-                episodeWorkId);
-            return;
+            try
+            {
+                using var client = _httpFactory.CreateClient("tmdb");
+                bytes = await client.GetByteArrayAsync(stillUrl, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "TV: failed to download TMDB episode still for Work {EpisodeWorkId}",
+                    episodeWorkId);
+                return;
+            }
         }
 
         if (bytes.Length == 0)
@@ -989,11 +1003,12 @@ public sealed partial class RetailMatchWorker
         {
             if (!string.Equals(cachedPath, destinationPath, StringComparison.OrdinalIgnoreCase))
                 File.Copy(cachedPath, destinationPath, overwrite: true);
-
-            return;
+        }
+        else
+        {
+            await File.WriteAllBytesAsync(destinationPath, bytes, ct);
         }
 
-        await File.WriteAllBytesAsync(destinationPath, bytes, ct);
         await _imageCache.InsertAsync(hash, destinationPath, sourceUrl, ct);
     }
 

@@ -62,6 +62,7 @@ public sealed partial class RetailMatchWorker
     private readonly CoverArtWorker? _coverArtWorker;
     private readonly MusicBrainzReleaseClient? _musicBrainzReleaseClient;
     private readonly PersonEnrichmentWorker? _personEnrichment;
+    private readonly ImageDownloadCoordinator _imageDownloadCoordinator;
     private readonly ILogger<RetailMatchWorker> _logger;
 
     private static readonly TimeSpan LeaseDuration = TimeSpan.FromMinutes(5);
@@ -104,7 +105,8 @@ public sealed partial class RetailMatchWorker
         CoverArtWorker? coverArtWorker = null,
         IPipelineExecutionSnapshotProvider? configurationSnapshots = null,
         MusicBrainzReleaseClient? musicBrainzReleaseClient = null,
-        PersonEnrichmentWorker? personEnrichment = null)
+        PersonEnrichmentWorker? personEnrichment = null,
+        ImageDownloadCoordinator? imageDownloadCoordinator = null)
     {
         _jobRepo = jobRepo;
         _candidateRepo = candidateRepo;
@@ -143,6 +145,7 @@ public sealed partial class RetailMatchWorker
         _coverArtWorker = coverArtWorker;
         _musicBrainzReleaseClient = musicBrainzReleaseClient;
         _personEnrichment = personEnrichment;
+        _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
         _logger = logger;
 
         // Lease size is read once at construction. A restart applies any

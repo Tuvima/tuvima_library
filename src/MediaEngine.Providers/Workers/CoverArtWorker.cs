@@ -6,6 +6,7 @@ using MediaEngine.Domain.Services;
 using MediaEngine.Providers;
 using MediaEngine.Contracts.Realtime;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging;
 
 namespace MediaEngine.Providers.Workers;
@@ -36,6 +37,7 @@ public sealed class CoverArtWorker
     private readonly IAssetExportService? _assetExportService;
     private readonly ICoverArtHashService? _coverArtHash;
     private readonly IEventPublisher? _eventPublisher;
+    private readonly ImageDownloadCoordinator _imageDownloadCoordinator;
     private readonly ILogger<CoverArtWorker> _logger;
 
     public CoverArtWorker(
@@ -49,7 +51,8 @@ public sealed class CoverArtWorker
         IAssetExportService? assetExportService = null,
         ICoverArtHashService? coverArtHash = null,
         IEntityAssetRepository? entityAssetRepo = null,
-        IEventPublisher? eventPublisher = null)
+        IEventPublisher? eventPublisher = null,
+        ImageDownloadCoordinator? imageDownloadCoordinator = null)
     {
         _assetRepo = assetRepo;
         _entityAssetRepo = entityAssetRepo;
@@ -62,6 +65,7 @@ public sealed class CoverArtWorker
         _logger = logger;
         _coverArtHash = coverArtHash;
         _eventPublisher = eventPublisher;
+        _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
     }
 
     /// <summary>
@@ -310,6 +314,13 @@ public sealed class CoverArtWorker
             return;
         }
 
+        // Manual rematch and background enrichment can target the same URL at
+        // the same time. Hold the URL lease through the durable recheck,
+        // download/cache copy, and asset persistence so only one request wins.
+        await using var downloadLease = await _imageDownloadCoordinator
+            .AcquireAsync(coverUrl, ct)
+            .ConfigureAwait(false);
+
         // Resolve output path.
         //
         // Side-by-side-with-Plex plan §D — prefer the per-file location next
@@ -375,18 +386,32 @@ public sealed class CoverArtWorker
             embeddedPhash = await _imageCache.GetPerceptualHashAsync(existingHash, ct);
         }
 
-        // Download provider image
+        // Reuse a previously downloaded source URL before issuing any network
+        // request. The URL mapping is durable, so this also works after restart
+        // and when another entity owns the original cached file.
         byte[] bytes;
-        try
+        var sourceCachedPath = await _imageCache.FindBySourceUrlAsync(coverUrl, ct);
+        if (!string.IsNullOrWhiteSpace(sourceCachedPath) && File.Exists(sourceCachedPath))
         {
-            using var client = _httpFactory.CreateClient("cover_download");
-            bytes = await client.GetByteArrayAsync(coverUrl, ct);
+            bytes = await File.ReadAllBytesAsync(sourceCachedPath, ct);
+            _logger.LogDebug(
+                "Cover art: reusing source URL cache for {Url} from {CachedPath}",
+                coverUrl,
+                sourceCachedPath);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        else
         {
-            _logger.LogWarning(ex, "Failed to download cover from {Url} for entity {EntityId}", coverUrl, entityId);
-            await MarkCoverMissingAsync(ownerEntityId, "provider_unavailable", ct);
-            return;
+            try
+            {
+                using var client = _httpFactory.CreateClient("cover_download");
+                bytes = await client.GetByteArrayAsync(coverUrl, ct);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogWarning(ex, "Failed to download cover from {Url} for entity {EntityId}", coverUrl, entityId);
+                await MarkCoverMissingAsync(ownerEntityId, "provider_unavailable", ct);
+                return;
+            }
         }
 
         if (bytes.Length == 0)
@@ -405,8 +430,12 @@ public sealed class CoverArtWorker
         else
         {
             await File.WriteAllBytesAsync(coverPath, bytes, ct);
-            await _imageCache.InsertAsync(hash, coverPath, coverUrl, ct);
         }
+
+        // Always register the source URL. InsertAsync preserves the canonical
+        // hash row and records this URL as an alias when the bytes already
+        // existed under another path or URL.
+        await _imageCache.InsertAsync(hash, coverPath, coverUrl, ct);
 
         // Compute perceptual hash
         if (_coverArtHash is not null && bytes.Length > 100)

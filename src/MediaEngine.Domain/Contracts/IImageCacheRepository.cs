@@ -4,16 +4,18 @@ namespace MediaEngine.Domain.Contracts;
 /// Persistence contract for the image content hash cache.
 ///
 /// The <c>image_cache</c> table tracks downloaded images (cover art, headshots)
-/// by their SHA-256 content hash.  When the pipeline downloads an image, it:
+/// by their SHA-256 content hash and records every known source URL. Before
+/// downloading, the pipeline checks the source URL cache. For new URLs it:
 /// <list type="number">
 ///   <item>Computes a SHA-256 hash of the downloaded bytes.</item>
 ///   <item>Checks this cache for an existing entry with that hash.</item>
-///   <item>If found — skips the download and uses the cached file path.</item>
+///   <item>If found — reuses the cached file path.</item>
 ///   <item>If not found — saves to disk and inserts a cache entry.</item>
 /// </list>
 ///
-/// This ensures no redundant re-downloads when the same image URL appears
-/// across multiple entities.
+/// Source URL lookup prevents redundant network requests. Content-hash lookup
+/// prevents duplicate bytes from being stored when different URLs serve the
+/// same image.
 ///
 /// Implementations live in <c>MediaEngine.Storage</c>.
 /// </summary>

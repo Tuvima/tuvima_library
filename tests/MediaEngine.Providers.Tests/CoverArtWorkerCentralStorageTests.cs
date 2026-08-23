@@ -91,6 +91,42 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadAndPersistAsync_ConcurrentEntitiesDownloadSharedUrlOnce()
+    {
+        var firstWorkId = await _workRepo.InsertStandaloneAsync(MediaType.Movies);
+        var firstAssetId = await SeedAssetForExistingWorkAsync(firstWorkId, Path.Combine("Movies", "First.mkv"));
+        var secondWorkId = await _workRepo.InsertStandaloneAsync(MediaType.Movies);
+        var secondAssetId = await SeedAssetForExistingWorkAsync(secondWorkId, Path.Combine("Movies", "Second.mkv"));
+        const string sharedUrl = "https://images.test/shared-poster.jpg";
+        await SeedCanonicalsAsync(firstWorkId, ("cover", sharedUrl), ("title", "First"));
+        await SeedCanonicalsAsync(secondWorkId, ("cover", sharedUrl), ("title", "Second"));
+
+        var httpFactory = new CountingImageHttpClientFactory(CreateTestImageBytes());
+        var worker = new CoverArtWorker(
+            _assetRepo,
+            _canonicalRepo,
+            _workRepo,
+            new ImageCacheRepository(_db),
+            httpFactory,
+            _assetPaths,
+            NullLogger<CoverArtWorker>.Instance,
+            assetExportService: null,
+            coverArtHash: null,
+            entityAssetRepo: _entityAssetRepo,
+            imageDownloadCoordinator: new MediaEngine.Providers.Services.ImageDownloadCoordinator());
+
+        await Task.WhenAll(
+            worker.DownloadAndPersistAsync(firstAssetId, null, CancellationToken.None),
+            worker.DownloadAndPersistAsync(secondAssetId, null, CancellationToken.None));
+
+        Assert.Equal(1, httpFactory.RequestCount);
+        var firstCover = Assert.Single(await _entityAssetRepo.GetByEntityAsync(firstWorkId.ToString(), "CoverArt"));
+        var secondCover = Assert.Single(await _entityAssetRepo.GetByEntityAsync(secondWorkId.ToString(), "CoverArt"));
+        Assert.True(File.Exists(firstCover.LocalImagePath));
+        Assert.True(File.Exists(secondCover.LocalImagePath));
+    }
+
+    [Fact]
     public async Task DownloadAndPersistAsync_ComicIssueReadsCoverFromSelfScopedWork()
     {
         var parentWorkId = await _workRepo.InsertParentAsync(
@@ -368,5 +404,29 @@ public sealed class CoverArtWorkerCentralStorageTests : IDisposable
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(_responder(request));
+    }
+
+    private sealed class CountingImageHttpClientFactory(byte[] imageBytes) : IHttpClientFactory
+    {
+        private int _requestCount;
+
+        public int RequestCount => Volatile.Read(ref _requestCount);
+
+        public HttpClient CreateClient(string name) =>
+            new(new CountingImageHttpMessageHandler(this, imageBytes), disposeHandler: true);
+
+        private sealed class CountingImageHttpMessageHandler(
+            CountingImageHttpClientFactory owner,
+            byte[] bytes) : HttpMessageHandler
+        {
+            protected override async Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken)
+            {
+                Interlocked.Increment(ref owner._requestCount);
+                await Task.Delay(50, cancellationToken);
+                return ImageResponse(bytes);
+            }
+        }
     }
 }

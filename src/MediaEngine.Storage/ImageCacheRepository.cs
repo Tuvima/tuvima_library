@@ -49,6 +49,7 @@ public sealed class ImageCacheRepository : IImageCacheRepository
         ArgumentException.ThrowIfNullOrWhiteSpace(filePath);
 
         using var conn = _db.CreateConnection();
+        using var transaction = conn.BeginTransaction();
         conn.Execute("""
             INSERT OR IGNORE INTO image_cache
                 (content_hash, file_path, source_url, downloaded_at)
@@ -59,9 +60,30 @@ public sealed class ImageCacheRepository : IImageCacheRepository
             {
                 contentHash,
                 filePath,
-                sourceUrl,
+                sourceUrl = NormalizeSourceUrl(sourceUrl),
                 downloadedAt = DateTimeOffset.UtcNow.ToString("O"),
-            });
+            }, transaction);
+
+        if (!string.IsNullOrWhiteSpace(sourceUrl))
+        {
+            conn.Execute("""
+                INSERT INTO image_cache_sources
+                    (source_url, content_hash, first_seen_at)
+                VALUES
+                    (@sourceUrl, @contentHash, @firstSeenAt)
+                ON CONFLICT(source_url) DO UPDATE SET
+                    content_hash = excluded.content_hash;
+                """,
+                new
+                {
+                    sourceUrl = NormalizeSourceUrl(sourceUrl),
+                    contentHash,
+                    firstSeenAt = DateTimeOffset.UtcNow.ToString("O"),
+                },
+                transaction);
+        }
+
+        transaction.Commit();
 
         return Task.CompletedTask;
     }
@@ -88,13 +110,41 @@ public sealed class ImageCacheRepository : IImageCacheRepository
 
         using var conn = _db.CreateConnection();
         var result = conn.ExecuteScalar<string>("""
+            SELECT cached.file_path
+            FROM image_cache_sources source
+            JOIN image_cache cached ON cached.content_hash = source.content_hash
+            WHERE source.source_url = @normalizedSourceUrl
+            UNION ALL
             SELECT file_path
-            FROM   image_cache
-            WHERE  source_url = @sourceUrl
-            LIMIT  1;
-            """, new { sourceUrl });
+            FROM image_cache
+            WHERE source_url IN (@sourceUrl, @normalizedSourceUrl)
+            LIMIT 1;
+            """,
+            new
+            {
+                sourceUrl,
+                normalizedSourceUrl = NormalizeSourceUrl(sourceUrl),
+            });
 
         return Task.FromResult(result);
+    }
+
+    private static string? NormalizeSourceUrl(string? sourceUrl)
+    {
+        if (string.IsNullOrWhiteSpace(sourceUrl))
+            return null;
+
+        var trimmed = sourceUrl.Trim();
+        if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri))
+            return trimmed;
+
+        var builder = new UriBuilder(uri)
+        {
+            Scheme = uri.Scheme.ToLowerInvariant(),
+            Host = uri.Host.ToLowerInvariant(),
+        };
+
+        return builder.Uri.AbsoluteUri;
     }
 
     /// <inheritdoc/>

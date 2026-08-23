@@ -42,6 +42,7 @@ public static class TuvimaProviderServiceCollectionExtensions
         services.AddSingleton<IArtworkPaletteService, ArtworkPaletteService>();
         services.AddSingleton<ILoreDeltaService, LoreDeltaService>();
         services.AddSingleton<IEraActorResolverService, EraActorResolverService>();
+        services.AddSingleton<ImageDownloadCoordinator>();
         services.AddSingleton<IImageEnrichmentService, ImageEnrichmentService>();
         services.AddSingleton<IHydrationPipelineService, SynchronousIdentityPipelineService>();
         services.AddSingleton<DeferredEnrichmentService>();

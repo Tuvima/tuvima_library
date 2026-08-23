@@ -6,6 +6,7 @@ using MediaEngine.Domain.Entities;
 using MediaEngine.Domain.Enums;
 using MediaEngine.Domain.Services;
 using MediaEngine.Providers.Helpers;
+using MediaEngine.Providers.Services;
 using Microsoft.Extensions.Logging;
 using SkiaSharp;
 
@@ -30,6 +31,8 @@ public sealed class PersonImageEnrichmentWorker
     private readonly IConfigurationLoader _configLoader;
     private readonly IHttpClientFactory _httpFactory;
     private readonly AssetPathService _assetPaths;
+    private readonly IImageCacheRepository? _imageCache;
+    private readonly ImageDownloadCoordinator _imageDownloadCoordinator;
     private readonly ILogger<PersonImageEnrichmentWorker> _logger;
 
     public PersonImageEnrichmentWorker(
@@ -39,7 +42,9 @@ public sealed class PersonImageEnrichmentWorker
         IConfigurationLoader configLoader,
         IHttpClientFactory httpFactory,
         AssetPathService assetPaths,
-        ILogger<PersonImageEnrichmentWorker> logger)
+        ILogger<PersonImageEnrichmentWorker> logger,
+        IImageCacheRepository? imageCache = null,
+        ImageDownloadCoordinator? imageDownloadCoordinator = null)
     {
         ArgumentNullException.ThrowIfNull(personRepo);
         ArgumentNullException.ThrowIfNull(assetRepo);
@@ -55,6 +60,8 @@ public sealed class PersonImageEnrichmentWorker
         _configLoader = configLoader;
         _httpFactory = httpFactory;
         _assetPaths = assetPaths;
+        _imageCache = imageCache;
+        _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
         _logger = logger;
     }
 
@@ -113,6 +120,10 @@ public sealed class PersonImageEnrichmentWorker
         if (string.IsNullOrWhiteSpace(imageUrl))
             return;
 
+        await using var downloadLease = await _imageDownloadCoordinator
+            .AcquireAsync(imageUrl, ct)
+            .ConfigureAwait(false);
+
         var existingAssets = (await _assetRepo.GetByEntityAsync(personId.ToString("D"), "Headshot", ct).ConfigureAwait(false)).ToList();
         var existingTmdbAsset = existingAssets.FirstOrDefault(asset =>
             string.Equals(asset.ImageUrl, imageUrl, StringComparison.OrdinalIgnoreCase));
@@ -126,7 +137,14 @@ public sealed class PersonImageEnrichmentWorker
         if (selected is not null && !ShouldReplaceCurrentHeadshot(person, existingAssets, selected))
             return;
 
-        var bytes = await DownloadImageAsync(imageUrl, ct).ConfigureAwait(false);
+        byte[]? bytes = null;
+        var sourceCachedPath = _imageCache is null
+            ? null
+            : await _imageCache.FindBySourceUrlAsync(imageUrl, ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(sourceCachedPath) && File.Exists(sourceCachedPath))
+            bytes = await File.ReadAllBytesAsync(sourceCachedPath, ct).ConfigureAwait(false);
+
+        bytes ??= await DownloadImageAsync(imageUrl, ct).ConfigureAwait(false);
         if (bytes is null || bytes.Length == 0)
             return;
 
@@ -147,7 +165,23 @@ public sealed class PersonImageEnrichmentWorker
 
         asset.LocalImagePath = _assetPaths.GetPersonHeadshotPath(personId, InferExtension(imageUrl));
         AssetPathService.EnsureDirectory(asset.LocalImagePath);
-        await File.WriteAllBytesAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+        string? imageContentHash = null;
+        if (_imageCache is null)
+        {
+            await File.WriteAllBytesAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+        }
+        else
+        {
+            imageContentHash = Hashing.Sha256Hex(bytes);
+            var contentCachedPath = await _imageCache.FindByHashAsync(imageContentHash, ct).ConfigureAwait(false);
+            if (!string.IsNullOrWhiteSpace(contentCachedPath) && File.Exists(contentCachedPath))
+            {
+                if (!string.Equals(contentCachedPath, asset.LocalImagePath, StringComparison.OrdinalIgnoreCase))
+                    File.Copy(contentCachedPath, asset.LocalImagePath, overwrite: true);
+            }
+            else
+                await File.WriteAllBytesAsync(asset.LocalImagePath, bytes, ct).ConfigureAwait(false);
+        }
 
         ArtworkVariantHelper.StampMetadataAndRenditions(asset, _assetPaths);
         if ((asset.WidthPx ?? 0) < MinimumProfileWidth || (asset.HeightPx ?? 0) < MinimumProfileHeight)
@@ -160,6 +194,12 @@ public sealed class PersonImageEnrichmentWorker
         {
             TryDelete(asset.LocalImagePath);
             return;
+        }
+
+        if (_imageCache is not null && imageContentHash is not null)
+        {
+            await _imageCache.InsertAsync(imageContentHash, asset.LocalImagePath, imageUrl, ct)
+                .ConfigureAwait(false);
         }
 
         await _assetRepo.UpsertAsync(asset, ct).ConfigureAwait(false);

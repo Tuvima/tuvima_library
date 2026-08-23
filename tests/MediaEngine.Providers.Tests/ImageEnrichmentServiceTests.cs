@@ -183,6 +183,45 @@ public sealed class ImageEnrichmentServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task EnrichWorkImagesAsync_ReusesSharedSourceUrlAcrossWorks()
+    {
+        var first = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "First Shared.mkv");
+        var second = await SeedStandaloneAssetAsync(MediaType.Movies, "Movies", "Movies", "Second Shared.mkv");
+        await SeedCanonicalsAsync(first.WorkId, ("tmdb_movie_id", "111"));
+        await SeedCanonicalsAsync(second.WorkId, ("tmdb_movie_id", "222"));
+
+        var imageRequestCount = 0;
+        const string sharedImageUrl = "https://images.test/shared-fanart-poster.jpg";
+        var service = CreateService(request =>
+        {
+            var url = request.RequestUri?.ToString() ?? string.Empty;
+            if (url.Contains("/movies/111?", StringComparison.OrdinalIgnoreCase)
+                || url.Contains("/movies/222?", StringComparison.OrdinalIgnoreCase))
+            {
+                return JsonResponse($$"""
+                    {
+                      "movieposter": [
+                        { "url": "{{sharedImageUrl}}", "likes": "7", "lang": "en" }
+                      ]
+                    }
+                    """);
+            }
+
+            if (string.Equals(url, sharedImageUrl, StringComparison.OrdinalIgnoreCase))
+                Interlocked.Increment(ref imageRequestCount);
+
+            return ImageResponse([1, 2, 3, 4]);
+        });
+
+        await service.EnrichWorkImagesAsync(first.AssetId, "QFIRST");
+        await service.EnrichWorkImagesAsync(second.AssetId, "QSECOND");
+
+        Assert.Equal(1, imageRequestCount);
+        Assert.Single(await _entityAssets.GetByEntityAsync(first.WorkId.ToString(), "CoverArt"));
+        Assert.Single(await _entityAssets.GetByEntityAsync(second.WorkId.ToString(), "CoverArt"));
+    }
+
+    [Fact]
     public async Task EnrichWorkImagesAsync_TvSeasonAndEpisodeArt_AttachesToResolvedChildWorks()
     {
         var show = await _works.InsertParentAsync(MediaType.TV, "show:the-expanse", null, null);

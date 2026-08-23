@@ -66,6 +66,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
     private readonly IConfigurationLoader _configLoader;
     private readonly IHttpClientFactory _httpFactory;
     private readonly IImageCacheRepository _imageCache;
+    private readonly ImageDownloadCoordinator _imageDownloadCoordinator;
     private readonly ISystemActivityRepository _activityRepo;
     private readonly IQidLabelRepository _qidLabelRepo;
     private readonly IEntityTimelineRepository? _timelineRepo;
@@ -91,7 +92,8 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         IQidLabelRepository qidLabelRepo,
         AssetPathService assetPathService,
         ILogger<MetadataHarvestingService> logger,
-        IEntityTimelineRepository? timelineRepo = null)
+        IEntityTimelineRepository? timelineRepo = null,
+        ImageDownloadCoordinator? imageDownloadCoordinator = null)
     {
         ArgumentNullException.ThrowIfNull(providers);
         ArgumentNullException.ThrowIfNull(claimRepo);
@@ -122,6 +124,7 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         _configLoader         = configLoader;
         _httpFactory          = httpFactory;
         _imageCache           = imageCache;
+        _imageDownloadCoordinator = imageDownloadCoordinator ?? ImageDownloadCoordinator.Shared;
         _activityRepo         = activityRepo;
         _qidLabelRepo         = qidLabelRepo;
         _assetPathService     = assetPathService;
@@ -1094,6 +1097,10 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
         {
             var headshotPath = _assetPathService.GetPersonHeadshotPath(personId, MediaMimeTypes.InferImageExtension(headshotUrl) ?? ".jpg");
 
+            await using var downloadLease = await _imageDownloadCoordinator
+                .AcquireAsync(headshotUrl, ct)
+                .ConfigureAwait(false);
+
             // Download headshot if URL is available and file doesn't exist.
             if (File.Exists(headshotPath))
             {
@@ -1105,9 +1112,19 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
 
             try
             {
-                using var client = _httpFactory.CreateClient("headshot_download");
-                var bytes = await client.GetByteArrayAsync(headshotUrl, ct)
+                byte[] bytes;
+                var sourceCachedPath = await _imageCache.FindBySourceUrlAsync(headshotUrl, ct)
                     .ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(sourceCachedPath) && File.Exists(sourceCachedPath))
+                {
+                    bytes = await File.ReadAllBytesAsync(sourceCachedPath, ct).ConfigureAwait(false);
+                }
+                else
+                {
+                    using var client = _httpFactory.CreateClient("headshot_download");
+                    bytes = await client.GetByteArrayAsync(headshotUrl, ct)
+                        .ConfigureAwait(false);
+                }
 
                 if (bytes.Length > 0)
                 {
@@ -1127,9 +1144,10 @@ public sealed class MetadataHarvestingService : BackgroundService, IMetadataHarv
                     {
                         await File.WriteAllBytesAsync(headshotPath, bytes, ct)
                             .ConfigureAwait(false);
-                        await _imageCache.InsertAsync(hash, headshotPath, headshotUrl, ct)
-                            .ConfigureAwait(false);
                     }
+
+                    await _imageCache.InsertAsync(hash, headshotPath, headshotUrl, ct)
+                        .ConfigureAwait(false);
 
                     await _personRepo.UpdateLocalHeadshotPathAsync(personId, headshotPath, ct)
                         .ConfigureAwait(false);
