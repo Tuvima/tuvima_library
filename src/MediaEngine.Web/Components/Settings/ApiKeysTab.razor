@@ -38,7 +38,7 @@
                   Class="tl-table-transparent">
             <HeaderContent>
                 <MudTh>@L["ApiKeys_Label"]</MudTh>
-                <MudTh>@L["ApiKeys_Key"]</MudTh>
+                <MudTh>Role</MudTh>
                 <MudTh>@L["ApiKeys_Created"]</MudTh>
                 <MudTh Class="tl-text-right">@L["ApiKeys_Actions"]</MudTh>
             </HeaderContent>
@@ -50,24 +50,13 @@
                         <MudText>@context.Label</MudText>
                     </MudStack>
                 </MudTd>
-                <MudTd>
-                    <code class="tl-inline-code">
-                        @GetKeyDisplay(context.Id)
-                    </code>
-                </MudTd>
+                <MudTd><AppChip Text="@context.Role" Tone="AppUiTone.Neutral" /></MudTd>
                 <MudTd>
                     <MudText Typo="Typo.body2" Color="Color.Secondary">
                         @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy  -  HH:mm")
                     </MudText>
                 </MudTd>
                 <MudTd Class="tl-text-right">
-                    <AppIconButton Icon="@(_revealedKeys.Contains(context.Id)
-                                             ? Icons.Material.Filled.VisibilityOff
-                                             : Icons.Material.Filled.Visibility)"
-                                   Color="Color.Default"
-                                   Size="Size.Medium"
-                                   title="@L["ApiKeys_ToggleKeyVisibility"]"
-                                   OnClick="@(() => ToggleReveal(context.Id))" />
                     <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
                                    Color="Color.Error"
                                    Size="Size.Medium"
@@ -186,8 +175,6 @@
     private bool                  _revokeAllOpen;
     private bool                  _revokingAll;
 
-    private readonly HashSet<Guid> _revealedKeys = [];
-
     private readonly DialogOptions _dialogOptions = new()
     {
         MaxWidth         = MaxWidth.Small,
@@ -198,21 +185,6 @@
     protected override async Task OnInitializedAsync()
     {
         await RefreshKeysAsync();
-    }
-
-    private string GetKeyDisplay(Guid keyId)
-    {
-        if (_revealedKeys.Contains(keyId))
-        {
-            return keyId.ToString("N")[..8] + "...";
-        }
-        return "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
-    }
-
-    private void ToggleReveal(Guid keyId)
-    {
-        if (!_revealedKeys.Remove(keyId))
-            _revealedKeys.Add(keyId);
     }
 
     private async Task RefreshKeysAsync()
@@ -285,7 +257,6 @@
         if (ok)
         {
             Snackbar.Add($"{L["ApiKeys_KeyRevoked"]} \"{key.Label}\"", Severity.Info);
-            _revealedKeys.Remove(key.Id);
             await RefreshKeysAsync();
         }
         else
@@ -304,7 +275,6 @@
 
         var revoked = await Orchestrator.RevokeAllApiKeysAsync();
 
-        _revealedKeys.Clear();
         _revokeAllOpen = false;
         _revokingAll   = false;
 

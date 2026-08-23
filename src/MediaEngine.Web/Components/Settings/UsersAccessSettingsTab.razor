@@ -1,41 +1,43 @@
 @namespace MediaEngine.Web.Components.Settings
 
 <div class="tl-page users-access-settings">
-    <div class="users-access-settings__grid">
-        <AppPanel Class="users-access-settings__section users-access-settings__section--profiles">
-            <SettingsSectionHeader Title="Profiles & Roles"
-                                   Description="Manage user roles, permissions, and local profiles."
-                                   Icon="@Icons.Material.Outlined.Group"
-                                   Divider="true" />
+    <section class="users-access-settings__section"
+             data-access-section="@ActiveSection"
+             aria-label="@ActiveSectionLabel">
+        @switch (ActiveSection)
+        {
+            case "security":
+                <SecurityTab />
+                break;
+            case "linked-accounts":
+                <UsersTab LinkedAccountsOnly="true" />
+                break;
+            case "api-keys":
+                <ApiKeysTab />
+                break;
+            default:
             <UsersTab />
-        </AppPanel>
-
-        <AppPanel Class="users-access-settings__section users-access-settings__section--authentication">
-            <SettingsSectionHeader Title="Authentication"
-                                   Description="Review how users sign in to this Tuvima server."
-                                   Icon="@Icons.Material.Outlined.AdminPanelSettings"
-                                   Divider="true" />
-            <SecurityTab />
-        </AppPanel>
-
-        <AppPanel Class="users-access-settings__section users-access-settings__section--linked">
-            <SettingsSectionHeader Title="Linked Accounts"
-                                   Description="Manage external identities associated with local profiles."
-                                   Icon="@Icons.Material.Outlined.Link"
-                                   Divider="true" />
-            <UsersTab LinkedAccountsOnly="true" />
-        </AppPanel>
-
-        <AppPanel Class="users-access-settings__section users-access-settings__section--keys">
-            <SettingsSectionHeader Title="Guest API Keys"
-                                   Description="Issue and revoke keys used by approved integrations."
-                                   Icon="@Icons.Material.Outlined.Key"
-                                   Divider="true" />
-            <ApiKeysTab />
-        </AppPanel>
-    </div>
+                break;
+        }
+    </section>
 </div>
 
 @code {
     [Parameter] public string Subsection { get; set; } = "profiles";
+
+    private string ActiveSection => Subsection.ToLowerInvariant() switch
+    {
+        "security" => "security",
+        "linked-accounts" => "linked-accounts",
+        "api-keys" => "api-keys",
+        _ => "profiles",
+    };
+
+    private string ActiveSectionLabel => ActiveSection switch
+    {
+        "security" => "Authentication",
+        "linked-accounts" => "Linked Accounts",
+        "api-keys" => "Guest API Keys",
+        _ => "Profiles & Roles",
+    };
 }

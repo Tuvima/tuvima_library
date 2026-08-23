@@ -5,78 +5,62 @@
 @inject ISnackbar Snackbar
 
 <div class="tl-page">
-    <AppActionBar Class="mb-4">
+    <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-4">
         <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@LoadJobsAsync" />
-        <AppButton Label="Run cleanup" StartIcon="@Icons.Material.Outlined.DeleteSweep" OnClick="@CleanupAsync" />
     </AppActionBar>
 
-    <AppCard Title="@Title">
+    <AppCard Title="Encode jobs">
         @if (_loading)
         {
             <AppProgressBar Indeterminate="true" />
         }
         else if (_jobs.Count == 0)
         {
-            <AppEmptyState Title="No encode jobs have been queued yet." />
+            <AppEmptyState Title="No encode jobs"
+                           Message="Prepared variants will appear here when an encode is queued from a supported media item." />
         }
         else
         {
-            <AppTable Class="offline-downloads-table">
-                <thead>
-                    <tr>
-                        <th>Asset</th>
-                        <th>Profile</th>
-                        <th>Status</th>
-                        <th>Progress</th>
-                        <th>Scheduled</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var job in _jobs)
-                    {
+            <div class="offline-downloads-table-wrap">
+                <AppTable Class="offline-downloads-table">
+                    <thead>
                         <tr>
-                            <td>@job.AssetId</td>
-                            <td>@job.ProfileKey</td>
-                            <td><AppChip Text="@job.Status" Tone="@StatusTone(job.Status)" /></td>
-                            <td>@job.ProgressPct.ToString("0.#")%</td>
-                            <td>@(job.ScheduledFor?.LocalDateTime.ToString("g") ?? "Immediate")</td>
-                            <td>
-                                <AppButton Label="Cancel"
-                                           ButtonStyle="AppButtonStyle.Text"
-                                           Tone="AppUiTone.Warning"
-                                           Size="AppControlSize.Compact"
-                                           Disabled="@IsTerminal(job.Status)"
-                                           OnClick="@(() => CancelAsync(job.Id))" />
-                            </td>
+                            <th>Asset</th>
+                            <th>Profile</th>
+                            <th>Status</th>
+                            <th>Progress</th>
+                            <th>Scheduled</th>
+                            <th></th>
                         </tr>
-                    }
-                </tbody>
-            </AppTable>
+                    </thead>
+                    <tbody>
+                        @foreach (var job in _jobs)
+                        {
+                            <tr>
+                                <td>@job.AssetId</td>
+                                <td>@job.ProfileKey</td>
+                                <td><AppChip Text="@job.Status" Tone="@StatusTone(job.Status)" /></td>
+                                <td>@job.ProgressPct.ToString("0.#")%</td>
+                                <td>@(job.ScheduledFor?.LocalDateTime.ToString("g") ?? "Immediate")</td>
+                                <td>
+                                    <AppButton Label="Cancel"
+                                               ButtonStyle="AppButtonStyle.Text"
+                                               Tone="AppUiTone.Warning"
+                                               Size="AppControlSize.Compact"
+                                               Disabled="@IsTerminal(job.Status)"
+                                               OnClick="@(() => CancelAsync(job.Id))" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </AppTable>
+            </div>
         }
     </AppCard>
 
-    <AppCard Title="Prepared Variant Actions" Class="mt-4">
-        <div class="offline-actions-grid">
-            <div class="offline-action-block">
-                <strong>Queue</strong>
-                <span>Prepare mobile versions from item detail pages or future watchlist rules.</span>
-            </div>
-            <div class="offline-action-block">
-                <strong>Retry and delete</strong>
-                <span>Failed jobs and old variants are managed without touching original library files.</span>
-            </div>
-            <div class="offline-action-block">
-                <strong>Download</strong>
-                <span>Ready variants use range-capable Engine download URLs for clients.</span>
-            </div>
-        </div>
-    </AppCard>
 </div>
 
 @code {
-    [Parameter] public string Title { get; set; } = "Encode Queue";
-
     private bool _loading;
     private List<EncodeJobDto> _jobs = [];
 
@@ -94,12 +78,6 @@
         var ok = await ApiClient.CancelEncodeJobAsync(jobId);
         Snackbar.Add(ok ? "Encode job cancelled" : "Encode job could not be cancelled", ok ? Severity.Success : Severity.Warning);
         await LoadJobsAsync();
-    }
-
-    private Task CleanupAsync()
-    {
-        Snackbar.Add("Cleanup policy is captured here; backend cleanup execution comes with variant generation.", Severity.Info);
-        return Task.CompletedTask;
     }
 
     private static bool IsTerminal(string status) =>
