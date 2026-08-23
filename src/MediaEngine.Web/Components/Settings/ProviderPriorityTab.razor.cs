@@ -38,6 +38,8 @@ public partial class ProviderPriorityTab
 
     private bool IsPrioritySurface => string.Equals(Subsection, "priority", StringComparison.OrdinalIgnoreCase);
     private bool IsEnrichmentSurface => string.Equals(Subsection, "enrichment", StringComparison.OrdinalIgnoreCase);
+    private bool IsHealthSurface => string.Equals(Subsection, "health", StringComparison.OrdinalIgnoreCase);
+    private bool IsProvidersSurface => !IsPrioritySurface && !IsEnrichmentSurface && !IsHealthSurface;
     private int EnabledCount => _providers.Count(provider => provider.Enabled);
     private int HealthyCount => _providers.Count(provider => provider.Health == ProviderManagementHealth.Healthy);
     private int IssueCount => _providers.Count(provider => provider.Enabled && provider.Health is
@@ -48,13 +50,13 @@ public partial class ProviderPriorityTab
 
     protected override async Task OnInitializedAsync()
     {
-        if (!IsPrioritySurface)
+        if (IsProvidersSurface)
             await LoadProvidersAsync();
     }
 
     protected override async Task OnParametersSetAsync()
     {
-        if (!IsPrioritySurface && _providers.Count == 0 && !_loading)
+        if (IsProvidersSurface && _providers.Count == 0 && !_loading)
             await LoadProvidersAsync();
     }
 

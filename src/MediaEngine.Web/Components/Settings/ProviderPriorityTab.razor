@@ -14,6 +14,10 @@
     {
         <ProviderEnrichmentSurface />
     }
+    else if (IsHealthSurface)
+    {
+        <ProviderHealthSurface />
+    }
     else
     {
         <div class="provider-page">
@@ -138,7 +142,7 @@
     }
 </MetadataAdminShell>
 
-@if (!IsPrioritySurface && !IsEnrichmentSurface)
+@if (IsProvidersSurface)
 {
     <ProviderEditDrawer @ref="_editDrawer" Open="@(_selectedProvider is not null)" Provider="@_selectedProvider"
                         Closed="CloseEditor" SaveRequested="SaveProviderAsync" TestRequested="TestSelectedProviderAsync" />
