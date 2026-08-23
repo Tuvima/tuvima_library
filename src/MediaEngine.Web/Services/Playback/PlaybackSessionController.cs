@@ -1692,12 +1692,22 @@ public sealed class PlaybackSessionController
     private async Task<double> InitialPositionForAsync(ListenQueueItem item, CancellationToken ct)
     {
         var position = InitialPositionFor(item);
-        if (position <= 0 || !MediaKindClassifier.IsAudiobook(item.MediaType) || item.StartAtExactPosition)
+        if (position <= 0 || item.StartAtExactPosition)
         {
             return position;
         }
 
         var settings = await PlaybackSettingsAsync(ct);
+        if (!settings.General.ResumePlayback)
+        {
+            return 0;
+        }
+
+        if (!MediaKindClassifier.IsAudiobook(item.MediaType))
+        {
+            return position;
+        }
+
         return Math.Max(0, position - settings.Listening.ResumeRewindSeconds);
     }
 

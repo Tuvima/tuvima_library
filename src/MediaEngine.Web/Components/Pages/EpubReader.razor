@@ -18,7 +18,7 @@
 
 <link href="css/epub-reader.css" rel="stylesheet" />
 
-<div class="reader-shell reader-theme-@_settings.Theme">
+<div class="reader-shell reader-theme-dark">
 
     @* -- Persistent close  -  always visible regardless of chrome state -- *@
     <AppNativeButton Class="reader-persistent-close" OnClick="ExitReader" Title="Close reader">
@@ -199,16 +199,6 @@
                 </AppNativeButton>
             </div>
             <div class="reader-drawer-body">
-                @* Theme *@
-                <div class="reader-settings-section">
-                    <div class="reader-settings-label">Theme</div>
-                    <div class="reader-theme-picker">
-                        <AppNativeButton Class='@($"reader-theme-btn dark {(_settings.Theme == "dark" ? "active" : "")}")' OnClick="@(() => SetTheme("dark"))">Aa</AppNativeButton>
-                        <AppNativeButton Class='@($"reader-theme-btn sepia {(_settings.Theme == "sepia" ? "active" : "")}")' OnClick="@(() => SetTheme("sepia"))">Aa</AppNativeButton>
-                        <AppNativeButton Class='@($"reader-theme-btn light {(_settings.Theme == "light" ? "active" : "")}")' OnClick="@(() => SetTheme("light"))">Aa</AppNativeButton>
-                    </div>
-                </div>
-
                 @* Font *@
                 <div class="reader-settings-section">
                     <div class="reader-settings-label">Font</div>
@@ -620,12 +610,6 @@
             _bookmarks.RemoveAll(b => b.Id == id);
             StateHasChanged();
         }
-    }
-
-    private async Task SetTheme(string theme)
-    {
-        _settings.Theme = theme;
-        await ApplySettings();
     }
 
     private async Task SetFont(string family)
