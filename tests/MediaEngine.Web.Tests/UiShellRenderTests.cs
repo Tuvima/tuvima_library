@@ -167,7 +167,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
             Assert.Single(cut.FindAll(".media-section-shell__rail"));
             Assert.NotEmpty(cut.FindAll(".media-section-shell__rail-item"));
             Assert.Contains("System Status", cut.Markup);
-            Assert.NotEmpty(cut.FindAll(".admin-review-stats"));
+            Assert.NotEmpty(cut.FindAll(".admin-overview-card--attention"));
             Assert.Contains("No active transcodes", cut.Markup);
             Assert.Contains("Recent Activity", cut.Markup);
         });

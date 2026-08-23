@@ -46,33 +46,23 @@
         <AppAlert Severity="Severity.Warning" Variant="Variant.Outlined" Class="mb-4">@_error</AppAlert>
     }
 
-    <AppPanel Elevation="0" Class="tl-card admin-library-banner">
-        <div class="admin-library-banner__content">
-            <div class="admin-library-banner__main">
-                <div class="admin-library-banner__icon">
-                    <MudIcon Icon="@Icons.Material.Outlined.Layers" />
-                </div>
-                <div>
-                    <MudText Typo="Typo.h4" Class="admin-library-banner__title">
-                        <span>@DisplayFormat.FormatCount(_libraryTotal)</span> items in your library
-                    </MudText>
-                    <MudText Typo="Typo.body2" Class="admin-library-banner__subtitle">
-                        Books, movies, TV, music, audiobooks, and comics
-                    </MudText>
-                </div>
+    <AppPanel Elevation="0" Class="tl-card admin-library-summary">
+        <div class="admin-overview-card__header">
+            <div>
+                <MudText Typo="Typo.h6">Library summary</MudText>
+                <MudText Typo="Typo.body2" Class="admin-overview-muted">@DisplayFormat.FormatCount(_libraryTotal) items across your catalogued media.</MudText>
             </div>
+            <AppButton Href="/settings/media-management" Label="Manage media" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+        </div>
 
             <div class="admin-library-breakdown" aria-label="Library media type breakdown">
                 @foreach (var media in MediaBreakdown)
                 {
-                    <AppCssElement Tag="div" Class="admin-library-media" Css="@media.AccentStyle">
-                        <span class="admin-library-media__icon">
-                            <MudIcon Icon="@media.Icon" />
-                        </span>
+                    <div class="admin-library-media">
                         <span class="admin-library-media__label">@media.Label</span>
                         <span class="admin-library-media__count">@DisplayFormat.FormatCount(media.Count)</span>
                         <span class="admin-library-media__percent">@FormatPercent(media.Percent)</span>
-                    </AppCssElement>
+                    </div>
                 }
             </div>
 
@@ -92,30 +82,11 @@
                 }
             </div>
 
-            <div class="admin-composition-labels" aria-hidden="true">
-                @foreach (var media in MediaBreakdown.Where(item => item.Count > 0))
-                {
-                    <AppCssElement Tag="span" Css="@CompositionLabelStyle(media)">@FormatPercent(media.Percent)</AppCssElement>
-                }
-            </div>
-        </div>
     </AppPanel>
 
     <div class="admin-overview-primary-grid">
         <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-overview-card--attention">
-            <div class="admin-overview-card__header">
-                <div>
-                    <MudText Typo="Typo.caption" Class="admin-overview-eyebrow">Needs attention</MudText>
-                    <MudText Typo="Typo.h6">@AttentionTitle</MudText>
-                </div>
-                <AppStatusBadge Text="@(_pendingReviewCount > 0 ? "Action needed" : "Clear")"
-                                Tone="@(_pendingReviewCount > 0 ? AppUiTone.Warning : AppUiTone.Success)" />
-            </div>
-
-            <div class="admin-review-stats">
-                @Metric("High priority", DisplayFormat.FormatCount(_highPriorityReviewCount), Icons.Material.Outlined.PriorityHigh)
-                @Metric("Oldest waiting", _oldestReviewAge, Icons.Material.Outlined.Schedule)
-            </div>
+            <div class="admin-overview-card__header"><MudText Typo="Typo.h6">Needs attention</MudText></div>
 
             @if (_pendingReviewCount == 0)
             {
@@ -131,7 +102,7 @@
             {
                 <div class="admin-attention-copy">
                     <MudIcon Icon="@Icons.Material.Outlined.WarningAmber" />
-                    <p>These items could not be matched confidently and need a decision before they can join the library.</p>
+                    <div><strong>@AttentionTitle</strong><p>These items could not be identified confidently.</p></div>
                 </div>
             }
 
@@ -150,23 +121,27 @@
             </div>
 
             <div class="admin-system-status" role="list" aria-label="System status">
-                <div class="admin-system-status__row" role="listitem">
+                <a class="admin-system-status__row" role="listitem" href="/settings/media-management/activity">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Sync" /></span>
                     <span><strong>Media processing</strong><small>@IngestionStatusDetail</small></span>
                     <AppStatusBadge Text="@(_currentRun.IsActive ? "Processing" : _currentRun.Failed > 0 ? "Needs attention" : "Idle")"
-                                    Tone="@(_currentRun.Failed > 0 ? AppUiTone.Warning : _currentRun.IsActive ? AppUiTone.Primary : AppUiTone.Success)" />
-                </div>
-                <div class="admin-system-status__row" role="listitem">
+                                    Tone="@(_currentRun.Failed > 0 ? AppUiTone.Warning : _currentRun.IsActive ? AppUiTone.Primary : AppUiTone.Neutral)" />
+                </a>
+                <a class="admin-system-status__row" role="listitem" href="/settings/delivery">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.PlayCircle" /></span>
-                    <span><strong>Playback</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
-                    <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Success)" />
-                </div>
-                <div class="admin-system-status__row" role="listitem">
+                    <span><strong>Playback &amp; delivery</strong><small>@(_activeTranscodes > 0 ? $"{DisplayFormat.FormatCount(_activeTranscodes)} active transcode job{(_activeTranscodes == 1 ? "" : "s")}" : "No active transcodes")</small></span>
+                    <AppStatusBadge Text="@(_activeTranscodes > 0 ? "Active" : "Idle")" Tone="@(_activeTranscodes > 0 ? AppUiTone.Primary : AppUiTone.Neutral)" />
+                </a>
+                <a class="admin-system-status__row" role="listitem" href="/settings/providers">
+                    <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.Hub" /></span>
+                    <span><strong>Metadata providers</strong><small>Provider status and issues</small></span>
+                    <span class="admin-system-status__open">View</span>
+                </a>
+                <a class="admin-system-status__row" role="listitem" href="/settings/backup-recovery">
                     <span class="admin-system-status__icon"><MudIcon Icon="@Icons.Material.Outlined.CloudDone" /></span>
                     <span><strong>Backup</strong><small>@BackupStatusDetail</small></span>
-                    <AppStatusBadge Text="@(_backups.Count > 0 ? "Available" : "Not available")"
-                                    Tone="@(_backups.Count > 0 ? AppUiTone.Success : AppUiTone.Neutral)" />
-                </div>
+                    <AppStatusBadge Text="@(_backups.Count > 0 ? "Available" : "No backup")" Tone="AppUiTone.Neutral" />
+                </a>
             </div>
         </AppPanel>
     </div>
@@ -174,7 +149,7 @@
     <AppPanel Elevation="0" Class="tl-card admin-overview-card admin-recent-activity">
         <div class="admin-overview-card__header">
             <MudText Typo="Typo.h6">Recent Activity</MudText>
-            <AppButton Href="/settings/activity/events" Label="View all activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+            <AppButton Href="/settings/activity" Label="View activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
         </div>
         @if (_recentActivity.Count == 0)
         {
@@ -188,11 +163,11 @@
         }
         else
         {
-            <div class="admin-activity-list" role="list">
+            <div class="admin-activity-table" role="table" aria-label="Recent activity">
+                <div class="admin-activity-table__head" role="row"><span>Activity</span><span>When</span></div>
                 @foreach (var activity in _recentActivity.Take(5))
                 {
-                    <div class="admin-activity-list__row" role="listitem">
-                        <span class="admin-activity-list__icon"><MudIcon Icon="@ActivityIcon(activity)" /></span>
+                    <div class="admin-activity-table__row" role="row">
                         <span>@ActivityText(activity)</span>
                         <time datetime="@activity.OccurredAt">@FormatRelative(activity.OccurredAt)</time>
                     </div>
@@ -212,7 +187,6 @@
     private DateTimeOffset? _lastUpdated;
 
     private LibraryOverviewDto? _overview;
-    private List<ReviewItemViewModel> _reviewItems = [];
     private IReadOnlyList<IngestionBatchResponse> _recentRuns = [];
     private List<ActivityEntryResponse> _recentActivity = [];
     private List<EncodeJobDto> _encodeJobs = [];
@@ -220,12 +194,7 @@
     private OverviewRun _currentRun = OverviewRun.Empty;
 
     private int _pendingReviewCount;
-    private int _highPriorityReviewCount;
-    private int _newReviewTodayCount;
-    private int _processedToday;
-    private int _recentImportsToday;
     private int _activeTranscodes;
-    private string _oldestReviewAge = "None";
 
     private string AttentionTitle => _pendingReviewCount == 0
         ? "Nothing needs your attention"
@@ -266,12 +235,12 @@
             var counts = _overview?.MediaTypeCounts ?? [];
             var items = new[]
             {
-                MediaItem("Books", Icons.Material.Outlined.MenuBook, counts),
-                MediaItem("Audiobooks", Icons.Material.Outlined.Headphones, counts),
-                MediaItem("Movies", Icons.Material.Outlined.Movie, counts),
-                MediaItem("TV Episodes", Icons.Material.Outlined.LiveTv, counts),
-                MediaItem("Music", Icons.Material.Outlined.MusicNote, counts),
-                MediaItem("Comics", Icons.Material.Outlined.AutoStories, counts),
+                MediaItem("Books", counts),
+                MediaItem("Audiobooks", counts),
+                MediaItem("Movies", counts),
+                MediaItem("TV Episodes", counts),
+                MediaItem("Music", counts),
+                MediaItem("Comics", counts),
             };
 
             var total = items.Sum(item => item.Count);
@@ -305,16 +274,14 @@
         try
         {
             var overviewTask = ApiClient.GetLibraryOverviewAsync();
-            var reviewsTask = Orchestrator.GetPendingReviewsAsync(3);
             var runsTask = Orchestrator.GetIngestionBatchesAsync(6);
             var activityTask = Orchestrator.GetRecentActivityAsync(25);
             var encodeTask = ApiClient.GetEncodeJobsAsync();
             var backupsTask = ApiClient.GetBackupsAsync();
 
-            await Task.WhenAll(overviewTask, reviewsTask, runsTask, activityTask, encodeTask, backupsTask);
+            await Task.WhenAll(overviewTask, runsTask, activityTask, encodeTask, backupsTask);
 
             _overview = await overviewTask;
-            _reviewItems = await reviewsTask;
             _recentRuns = await runsTask;
             _recentActivity = await activityTask;
             _encodeJobs = await encodeTask;
@@ -355,24 +322,7 @@
 
     private void Recompute()
     {
-        _pendingReviewCount = Math.Max(ReviewCount, Math.Max(_overview?.ReviewTotal ?? 0, _reviewItems.Count));
-        _highPriorityReviewCount = _reviewItems.Count(item =>
-            item.ConfidenceScore is <= 0.60
-            || item.Trigger.Contains("LowConfidence", StringComparison.OrdinalIgnoreCase)
-            || item.Trigger.Contains("Multiple", StringComparison.OrdinalIgnoreCase));
-        _newReviewTodayCount = _reviewItems.Count(item => IsToday(item.CreatedAt));
-        _oldestReviewAge = _reviewItems.Count == 0
-            ? "None"
-            : FormatRelative(_reviewItems.Min(item => item.CreatedAt));
-
-        _processedToday = _recentRuns
-            .Where(run => IsToday(run.StartedAt))
-            .Sum(run => run.FilesProcessed);
-
-        _recentImportsToday = _recentActivity.Count(entry =>
-            IsToday(entry.OccurredAt)
-            && (entry.ActionType.Contains("Ingest", StringComparison.OrdinalIgnoreCase)
-                || entry.ActionType.Contains("MediaAdded", StringComparison.OrdinalIgnoreCase)));
+        _pendingReviewCount = Math.Max(ReviewCount, _overview?.ReviewTotal ?? 0);
 
         _activeTranscodes = _activeEncodeJobs.Count;
 
@@ -461,21 +411,8 @@
         };
     }
 
-    private static RenderFragment Detail(string label, string value) => @<div class="admin-detail">
-        <span>@label</span>
-        <strong>@value</strong>
-    </div>;
-
-    private static RenderFragment Metric(string label, string value, string icon) => @<div class="admin-metric">
-        <MudIcon Icon="@icon" />
-        <div>
-            <span>@label</span>
-            <strong>@value</strong>
-        </div>
-    </div>;
-
-    private static MediaBreakdownItem MediaItem(string label, string icon, Dictionary<string, int> counts) =>
-        new(label, icon, CountFor(counts, label), 0);
+    private static MediaBreakdownItem MediaItem(string label, Dictionary<string, int> counts) =>
+        new(label, CountFor(counts, label), 0);
 
     private static int CountFor(Dictionary<string, int> counts, string label)
     {
@@ -505,12 +442,6 @@
     private static string SegmentStyle(MediaBreakdownItem item) =>
         $"width: {Math.Max(item.Percent, 1).ToString("0.###", CultureInfo.InvariantCulture)}%; background: {item.Color};";
 
-    private static string CompositionLabelStyle(MediaBreakdownItem item) =>
-        $"flex-basis: {Math.Max(item.Percent, 1).ToString("0.###", CultureInfo.InvariantCulture)}%; color: {item.Color};";
-
-    private static string ProgressStyle(double percent) =>
-        $"width: {Math.Clamp(percent, 0, 100).ToString("0.###", CultureInfo.InvariantCulture)}%;";
-
     private static string FormatPercent(double value) =>
         value <= 0 ? "0%" : $"{Math.Round(value):0}%";
 
@@ -532,44 +463,8 @@
         };
     }
 
-    private static bool IsToday(DateTimeOffset value) => value.ToLocalTime().Date == DateTimeOffset.Now.Date;
-
-    private static bool IsToday(string value) =>
-        DateTimeOffset.TryParse(value, out var parsed) && IsToday(parsed);
-
-    private static string ReviewTitle(ReviewItemViewModel item) =>
-        StringHelpers.FirstNonBlankOr("", item.EntityTitle, item.Detail, item.EntityId.ToString());
-
     private static string ActivityText(ActivityEntryResponse activity) =>
         StringHelpers.FirstNonBlankOr("", activity.Detail, FormatTrigger(activity.ActionType), "Library activity");
-
-    private static string ActivityIcon(ActivityEntryResponse activity)
-    {
-        var action = activity.ActionType;
-        if (action.Contains("fail", StringComparison.OrdinalIgnoreCase)
-            || action.Contains("error", StringComparison.OrdinalIgnoreCase))
-        {
-            return Icons.Material.Outlined.ErrorOutline;
-        }
-
-        if (action.Contains("review", StringComparison.OrdinalIgnoreCase))
-        {
-            return Icons.Material.Outlined.Flag;
-        }
-
-        if (action.Contains("backup", StringComparison.OrdinalIgnoreCase))
-        {
-            return Icons.Material.Outlined.CloudDone;
-        }
-
-        if (action.Contains("ingest", StringComparison.OrdinalIgnoreCase)
-            || action.Contains("mediaadded", StringComparison.OrdinalIgnoreCase))
-        {
-            return Icons.Material.Outlined.MoveToInbox;
-        }
-
-        return Icons.Material.Outlined.CheckCircleOutline;
-    }
 
     private static string FormatTrigger(string trigger)
     {
@@ -687,7 +582,7 @@
         return FormatStatus(job.Status);
     }
 
-    private sealed record MediaBreakdownItem(string Label, string Icon, int Count, double Percent)
+    private sealed record MediaBreakdownItem(string Label, int Count, double Percent)
     {
         public string Color => Label switch
         {
@@ -700,7 +595,6 @@
             _ => "#94a3b8",
         };
 
-        public string AccentStyle => $"--media-color: {Color};";
     }
 
     private sealed record OverviewRun(
