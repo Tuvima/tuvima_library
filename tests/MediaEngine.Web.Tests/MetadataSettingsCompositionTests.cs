@@ -5,7 +5,7 @@ namespace MediaEngine.Web.Tests;
 public sealed class MetadataSettingsCompositionTests
 {
     [Fact]
-    public void MetadataSubsections_RenderOnlyTheirOwnedSurface()
+    public void MetadataOverview_ComposesProvidersPriorityEnrichmentAndHealth()
     {
         var tab = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor");
         var codeBehind = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor.cs");
@@ -13,6 +13,8 @@ public sealed class MetadataSettingsCompositionTests
         Assert.Contains("<ProviderEnrichmentSurface", tab, StringComparison.Ordinal);
         Assert.Contains("<ProviderPrioritySurface", tab, StringComparison.Ordinal);
         Assert.Contains("<ProviderHealthSurface", tab, StringComparison.Ordinal);
+        Assert.Contains("Source priority", tab, StringComparison.Ordinal);
+        Assert.Contains("Current issues", tab, StringComparison.Ordinal);
         Assert.Contains("IsProvidersSurface", tab, StringComparison.Ordinal);
         Assert.Contains("IsHealthSurface", codeBehind, StringComparison.Ordinal);
         Assert.Contains("if (IsProvidersSurface)", codeBehind, StringComparison.Ordinal);
@@ -49,13 +51,15 @@ public sealed class MetadataSettingsCompositionTests
         var review = Read("src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor");
         var css = Read("src/MediaEngine.Web/Components/Settings/SettingsReviewQueueTab.razor.css");
 
-        Assert.Contains("\"Needing review\"", review, StringComparison.Ordinal);
-        Assert.Contains("\"High priority\"", review, StringComparison.Ordinal);
-        Assert.Contains("\"Oldest waiting\"", review, StringComparison.Ordinal);
+        Assert.Contains("items need review", review, StringComparison.Ordinal);
+        Assert.Contains("settings-review-table-header", review, StringComparison.Ordinal);
+        Assert.Contains("Why it is here", review, StringComparison.Ordinal);
+        Assert.Contains("Dismiss from review", review, StringComparison.Ordinal);
+        Assert.DoesNotContain("settings-review-inspector", review, StringComparison.Ordinal);
         Assert.Contains("OpenReviewEditorAsync", review, StringComparison.Ordinal);
         Assert.Contains("DismissAsync", review, StringComparison.Ordinal);
-        Assert.Contains("@media (max-width: 720px)", css, StringComparison.Ordinal);
-        Assert.Contains("grid-template-columns: minmax(0, 1fr) auto", css, StringComparison.Ordinal);
+        Assert.Contains("@media(max-width:900px)", css, StringComparison.Ordinal);
+        Assert.Contains("flex-wrap:wrap", css, StringComparison.Ordinal);
         Assert.DoesNotContain("min-width: 660px", css, StringComparison.Ordinal);
     }
 

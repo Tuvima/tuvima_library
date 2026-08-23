@@ -137,6 +137,21 @@
             </section>
 
             <div class="provider-page__note"><MudIcon Icon="@Icons.Material.Outlined.Info" Size="Size.Small" />Provider health uses recorded Engine checks. Response time appears only after a live connection test.</div>
+
+            <section class="metadata-overview-section" aria-labelledby="metadata-priority-heading">
+                <header><div><h2 id="metadata-priority-heading">Source priority</h2><p>Choose the order used for each media type.</p></div></header>
+                <ProviderPrioritySurface />
+            </section>
+
+            <section class="metadata-overview-section" aria-labelledby="metadata-enrichment-heading">
+                <header><div><h2 id="metadata-enrichment-heading">Enrichment</h2><p>Control supported artwork, lyrics, subtitle, and refresh behavior.</p></div></header>
+                <ProviderEnrichmentSurface />
+            </section>
+
+            <section class="metadata-overview-section" aria-labelledby="metadata-health-heading">
+                <header><div><h2 id="metadata-health-heading">Current issues</h2><p>Recorded provider health and actionable failures.</p></div></header>
+                <ProviderHealthSurface />
+            </section>
         }
         </div>
     }

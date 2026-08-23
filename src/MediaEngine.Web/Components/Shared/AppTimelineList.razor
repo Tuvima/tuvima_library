@@ -16,6 +16,10 @@ else
                         <strong>@LabelFor(item)</strong>
                         <time>@item.OccurredAt.ToLocalTime().ToString("MMM d, yyyy h:mm tt")</time>
                     </div>
+                    @if (!string.IsNullOrWhiteSpace(item.Actor))
+                    {
+                        <span class="app-timeline-list__actor">@item.Actor</span>
+                    }
                     @if (!string.IsNullOrWhiteSpace(item.Detail))
                     {
                         <p>@item.Detail</p>

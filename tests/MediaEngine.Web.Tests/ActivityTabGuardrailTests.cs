@@ -33,6 +33,7 @@ public sealed class ActivityTabGuardrailTests
         Assert.Contains("<ActivityMaintenancePanel", tab, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppTabs", tab, StringComparison.Ordinal);
         Assert.Contains("@if (ActiveSubsection == \"events\")", tab, StringComparison.Ordinal);
+        Assert.Contains("_ => \"events\"", tab, StringComparison.Ordinal);
         Assert.True(tab.IndexOf("<ActivityEventsLedger", StringComparison.Ordinal) < tab.IndexOf("<ActivityBatchExplorer", StringComparison.Ordinal));
         Assert.True(tab.IndexOf("<ActivityBatchExplorer", StringComparison.Ordinal) < tab.IndexOf("<ActivityPeopleAudit", StringComparison.Ordinal));
         Assert.DoesNotContain("GetActivity", tab, StringComparison.Ordinal);
@@ -74,6 +75,10 @@ public sealed class ActivityTabGuardrailTests
         Assert.Contains("QueryHelpers.ParseQuery", events, StringComparison.Ordinal);
         Assert.Contains("\"runId\"", events, StringComparison.Ordinal);
         Assert.Contains("\"batchId\"", events, StringComparison.Ordinal);
+        Assert.Contains("DateRangeOptions", events, StringComparison.Ordinal);
+        Assert.Contains("Actor =", events, StringComparison.Ordinal);
+        Assert.Contains("/settings/activity", events, StringComparison.Ordinal);
+        Assert.Contains("<details class=\"activity-page__advanced\"", tab, StringComparison.Ordinal);
 
         Assert.Contains("GetActivityStatsAsync", maintenance, StringComparison.Ordinal);
         Assert.Contains("TriggerPruneAsync", maintenance, StringComparison.Ordinal);
