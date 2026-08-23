@@ -226,16 +226,18 @@ public sealed class Phase6SettingsAdminHardeningTests
     }
 
     [Fact]
-    public void AccessSettings_UsesRealApiKeyTabAndMarksUnpersistedControls()
+    public void AccessSettings_UsesRealAuthenticationKeysAndProfileLinkedAccounts()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersAccessSettingsTab.razor");
+        var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersTab.razor");
 
         Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
         Assert.Contains("Authentication", source, StringComparison.Ordinal);
-        Assert.Contains("Linked Accounts", source, StringComparison.Ordinal);
+        Assert.Contains("GetProfileExternalLoginsAsync", users, StringComparison.Ordinal);
+        Assert.Contains("Sign-in accounts", users, StringComparison.Ordinal);
         Assert.DoesNotContain("Owner Administrator\", \"library:read, ingest:write", source, StringComparison.Ordinal);
         Assert.DoesNotContain("Access Rules", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Sessions", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Active sessions", source, StringComparison.Ordinal);
     }
 
     [Fact]

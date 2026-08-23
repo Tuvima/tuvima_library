@@ -2,7 +2,9 @@
 @inject UIOrchestratorService Orchestrator
 
 <div class="tl-page security-settings">
-    <AppCard Title="Authentication">
+    <SettingsSectionPanel Title="@PanelTitle"
+                          Description="@PanelDescription"
+                          Icon="@PanelIcon">
         @if (_authLoading)
         {
             <AppSkeleton Size="AppControlSize.Large" Class="security-settings__skeleton" />
@@ -14,25 +16,47 @@
         }
         else
         {
-            <dl class="security-settings__facts">
-                <div><dt>Authentication mode</dt><dd>@_authSettings.Mode</dd></div>
-                <div><dt>OIDC status</dt><dd>@(_authSettings.OidcEnabled ? "Enabled" : "Disabled")</dd></div>
-                <div><dt>Provider</dt><dd>@ValueOrNotConfigured(_authSettings.OidcDisplayName)</dd></div>
-                <div><dt>Authority</dt><dd>@ValueOrNotConfigured(_authSettings.OidcAuthority)</dd></div>
-                <div><dt>Client ID</dt><dd>@ValueOrNotConfigured(_authSettings.OidcClientId)</dd></div>
-                <div><dt>Require HTTPS</dt><dd>@YesNo(_authSettings.RequireHttpsRemote)</dd></div>
-                <div><dt>Localhost bypass</dt><dd>@YesNo(_authSettings.LocalhostBypass)</dd></div>
-            </dl>
-            <AppAlert Tone="AppUiTone.Info" Class="mt-4">
-                Authentication is configured by the Engine. Linked external identities are managed from Profiles &amp; Roles.
-            </AppAlert>
+            @if (IsSessionPolicy)
+            {
+                <dl class="security-settings__facts">
+                    <div><dt>Remote connections</dt><dd>@(_authSettings.RequireHttpsRemote ? "HTTPS required" : "HTTPS not required")</dd></div>
+                    <div><dt>Local access</dt><dd>@(_authSettings.LocalhostBypass ? "Localhost bypass allowed" : "Authentication required")</dd></div>
+                    <div><dt>Sign-in policy</dt><dd>@FriendlyMode(_authSettings.Mode)</dd></div>
+                </dl>
+                <AppAlert Tone="AppUiTone.Info" Class="mt-4">
+                    Session duration is not separately configurable. The Engine owns active session lifecycle and player takeover rules.
+                </AppAlert>
+            }
+            else
+            {
+                <dl class="security-settings__facts">
+                    <div><dt>Authentication mode</dt><dd>@FriendlyMode(_authSettings.Mode)</dd></div>
+                    <div><dt>External sign-in</dt><dd>@(_authSettings.OidcEnabled ? "Enabled" : "Disabled")</dd></div>
+                    <div><dt>Provider</dt><dd>@ValueOrNotConfigured(_authSettings.OidcDisplayName)</dd></div>
+                    <div><dt>Authority</dt><dd>@ValueOrNotConfigured(_authSettings.OidcAuthority)</dd></div>
+                    <div><dt>Client ID</dt><dd>@ValueOrNotConfigured(_authSettings.OidcClientId)</dd></div>
+                </dl>
+                <AppAlert Tone="AppUiTone.Info" Class="mt-4">
+                    Authentication is configured by the Engine. Linked external identities are managed from each profile on Users &amp; Access.
+                </AppAlert>
+            }
         }
-    </AppCard>
+    </SettingsSectionPanel>
 </div>
 
 @code {
+    [Parameter] public string Section { get; set; } = "authentication";
+
     private bool _authLoading = true;
     private AuthSettingsDto? _authSettings;
+    private bool IsSessionPolicy => string.Equals(Section, "session-policy", StringComparison.OrdinalIgnoreCase);
+    private string PanelTitle => IsSessionPolicy ? "Session policy" : "Authentication";
+    private string PanelDescription => IsSessionPolicy
+        ? "Review the connection rules currently enforced by the Engine."
+        : "Review how people sign in to this Tuvima Library.";
+    private string PanelIcon => IsSessionPolicy
+        ? Icons.Material.Outlined.Policy
+        : Icons.Material.Outlined.AdminPanelSettings;
 
     protected override async Task OnInitializedAsync()
     {
@@ -43,5 +67,11 @@
     private static string ValueOrNotConfigured(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "Not configured" : value;
 
-    private static string YesNo(bool value) => value ? "Yes" : "No";
+    private static string FriendlyMode(string value) => value switch
+    {
+        "DisabledLocalOnly" => "Local access only",
+        "Optional" => "Optional sign-in",
+        "Required" => "Sign-in required",
+        _ => value,
+    };
 }

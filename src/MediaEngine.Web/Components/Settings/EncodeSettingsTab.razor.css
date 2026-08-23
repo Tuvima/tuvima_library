@@ -16,6 +16,11 @@
     justify-content: flex-end;
 }
 
+.encode-settings__form {
+    display: grid;
+    gap: var(--tl-space-4);
+}
+
 .encode-settings__diagnostics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
 }

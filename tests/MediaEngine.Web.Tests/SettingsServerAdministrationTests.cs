@@ -3,15 +3,20 @@ namespace MediaEngine.Web.Tests;
 public sealed class SettingsServerAdministrationTests
 {
     [Fact]
-    public void Delivery_RendersOnlyTheUrlSelectedSubsection()
+    public void Delivery_HasAUsefulRootAndUrlBackedAdvancedSections()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\PlaybackDeliverySettingsTab.razor");
         var jobs = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\OfflineDownloadsTab.razor");
 
         Assert.Contains("data-delivery-section", source, StringComparison.Ordinal);
+        Assert.Contains("LandingPage", source, StringComparison.Ordinal);
+        Assert.Contains("case \"scheduling\"", source, StringComparison.Ordinal);
         Assert.Contains("case \"active-jobs\"", source, StringComparison.Ordinal);
         Assert.Contains("Section=\"diagnostics\"", source, StringComparison.Ordinal);
+        Assert.Contains("/settings/delivery/storage", source, StringComparison.Ordinal);
         Assert.DoesNotContain("<AppTabs", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Active streams", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Bandwidth", source, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("Run cleanup", jobs, StringComparison.Ordinal);
         Assert.DoesNotContain("CleanupAsync", jobs, StringComparison.Ordinal);
     }
@@ -31,12 +36,13 @@ public sealed class SettingsServerAdministrationTests
     }
 
     [Fact]
-    public void Access_RendersOnlyTheUrlSelectedSubsection()
+    public void Access_HasAUsefulRootAndUrlBackedAdvancedSections()
     {
         var source = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersAccessSettingsTab.razor");
 
         Assert.Contains("data-access-section", source, StringComparison.Ordinal);
-        Assert.Contains("case \"linked-accounts\"", source, StringComparison.Ordinal);
+        Assert.Contains("case \"authentication\"", source, StringComparison.Ordinal);
+        Assert.Contains("case \"session-policy\"", source, StringComparison.Ordinal);
         Assert.Contains("<ApiKeysTab />", source, StringComparison.Ordinal);
         Assert.DoesNotContain("SettingsSectionHeader", source, StringComparison.Ordinal);
     }
@@ -47,9 +53,13 @@ public sealed class SettingsServerAdministrationTests
         var users = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\UsersTab.razor");
         var keys = ReadRepoFile(@"src\MediaEngine.Web\Components\Settings\ApiKeysTab.razor");
 
-        Assert.Contains("<th>Created</th>", users, StringComparison.Ordinal);
+        Assert.Contains("Created", users, StringComparison.Ordinal);
+        Assert.Contains("AdministratorCount", users, StringComparison.Ordinal);
+        Assert.Contains("/settings/access/authentication", users, StringComparison.Ordinal);
         Assert.DoesNotContain("row.LastActive", users, StringComparison.Ordinal);
         Assert.DoesNotContain("row.Status", users, StringComparison.Ordinal);
+        Assert.DoesNotContain("pending invite", users, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("foreach (var p in profiles)", users, StringComparison.Ordinal);
         Assert.DoesNotContain("GetKeyDisplay", keys, StringComparison.Ordinal);
         Assert.DoesNotContain("ToggleReveal", keys, StringComparison.Ordinal);
     }

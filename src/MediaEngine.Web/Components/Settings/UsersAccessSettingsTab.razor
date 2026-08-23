@@ -6,38 +6,38 @@
              aria-label="@ActiveSectionLabel">
         @switch (ActiveSection)
         {
-            case "security":
-                <SecurityTab />
-                break;
-            case "linked-accounts":
-                <UsersTab LinkedAccountsOnly="true" />
+            case "authentication":
+                <SecurityTab Section="authentication" />
                 break;
             case "api-keys":
                 <ApiKeysTab />
                 break;
+            case "session-policy":
+                <SecurityTab Section="session-policy" />
+                break;
             default:
-            <UsersTab />
+                <UsersTab />
                 break;
         }
     </section>
 </div>
 
 @code {
-    [Parameter] public string Subsection { get; set; } = "profiles";
+    [Parameter] public string Subsection { get; set; } = string.Empty;
 
     private string ActiveSection => Subsection.ToLowerInvariant() switch
     {
-        "security" => "security",
-        "linked-accounts" => "linked-accounts",
+        "authentication" => "authentication",
         "api-keys" => "api-keys",
-        _ => "profiles",
+        "session-policy" => "session-policy",
+        _ => "overview",
     };
 
     private string ActiveSectionLabel => ActiveSection switch
     {
-        "security" => "Authentication",
-        "linked-accounts" => "Linked Accounts",
+        "authentication" => "Authentication",
         "api-keys" => "Guest API Keys",
-        _ => "Profiles & Roles",
+        "session-policy" => "Session Policy",
+        _ => "Users and Access overview",
     };
 }
