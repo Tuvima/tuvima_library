@@ -2,11 +2,3 @@
     display: grid;
     gap: 18px;
 }
-
-.activity-page__tabs {
-    min-width: 0;
-}
-
-.activity-page__panel {
-    padding-top: 16px;
-}

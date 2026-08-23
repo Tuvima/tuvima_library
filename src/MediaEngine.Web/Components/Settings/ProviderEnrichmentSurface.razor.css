@@ -1,4 +1,4 @@
-.enrichment-page { display: grid; min-width: 0; }
+.enrichment-page { display: grid; gap: 18px; min-width: 0; }
 .enrichment-layout { display: grid; grid-template-columns: 170px minmax(0,1fr); overflow: hidden; border: 1px solid var(--metadata-border); border-radius: var(--metadata-radius); background: var(--metadata-surface); box-shadow: var(--metadata-shadow); }
 .enrichment-table { min-width: 0; }
 .enrichment-table__header,.enrichment-row { display: grid; grid-template-columns: minmax(160px,1fr) minmax(210px,1.4fr) minmax(230px,1.2fr) 110px 160px; gap: .85rem; align-items: center; padding: .7rem .85rem; }

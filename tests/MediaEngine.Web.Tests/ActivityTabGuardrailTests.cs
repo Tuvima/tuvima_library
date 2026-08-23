@@ -31,6 +31,10 @@ public sealed class ActivityTabGuardrailTests
         Assert.Contains("<ActivityPeopleAudit", tab, StringComparison.Ordinal);
         Assert.Contains("<ActivityEventsLedger", tab, StringComparison.Ordinal);
         Assert.Contains("<ActivityMaintenancePanel", tab, StringComparison.Ordinal);
+        Assert.DoesNotContain("<AppTabs", tab, StringComparison.Ordinal);
+        Assert.Contains("@if (ActiveSubsection == \"events\")", tab, StringComparison.Ordinal);
+        Assert.True(tab.IndexOf("<ActivityEventsLedger", StringComparison.Ordinal) < tab.IndexOf("<ActivityBatchExplorer", StringComparison.Ordinal));
+        Assert.True(tab.IndexOf("<ActivityBatchExplorer", StringComparison.Ordinal) < tab.IndexOf("<ActivityPeopleAudit", StringComparison.Ordinal));
         Assert.DoesNotContain("GetActivity", tab, StringComparison.Ordinal);
         Assert.DoesNotContain("SELECT", tab, StringComparison.OrdinalIgnoreCase);
 

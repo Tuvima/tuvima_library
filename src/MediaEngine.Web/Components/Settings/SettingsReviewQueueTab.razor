@@ -16,17 +16,31 @@
     <div class="settings-review-summary" aria-label="Review queue summary">
         @foreach (var summary in SummaryCards)
         {
-            <AppNativeButton Type="button"
-                             Class="@($"settings-review-summary__card is-{summary.Tone} {(summary.Bucket == _bucketFilter ? "is-active" : string.Empty)}")"
-                             aria-pressed="@(summary.Bucket == _bucketFilter)"
-                             OnClick="@(() => SelectSummaryBucket(summary.Bucket))">
-                <span class="settings-review-summary__icon"><MudIcon Icon="@summary.Icon" /></span>
-                <span class="settings-review-summary__copy">
-                    <small>@summary.Label</small>
-                    <strong>@summary.Count</strong>
-                    <span>@summary.Description</span>
-                </span>
-            </AppNativeButton>
+            @if (summary.Bucket.HasValue)
+            {
+                <AppNativeButton Type="button"
+                                 Class="@($"settings-review-summary__card is-{summary.Tone} {(summary.Bucket == _bucketFilter ? "is-active" : string.Empty)}")"
+                                 aria-pressed="@(summary.Bucket == _bucketFilter)"
+                                 OnClick="@(() => SelectSummaryBucket(summary.Bucket.Value))">
+                    <span class="settings-review-summary__icon"><MudIcon Icon="@summary.Icon" /></span>
+                    <span class="settings-review-summary__copy">
+                        <small>@summary.Label</small>
+                        <strong>@summary.Value</strong>
+                        <span>@summary.Description</span>
+                    </span>
+                </AppNativeButton>
+            }
+            else
+            {
+                <article class="@($"settings-review-summary__card is-{summary.Tone} is-informational")">
+                    <span class="settings-review-summary__icon"><MudIcon Icon="@summary.Icon" /></span>
+                    <span class="settings-review-summary__copy">
+                        <small>@summary.Label</small>
+                        <strong>@summary.Value</strong>
+                        <span>@summary.Description</span>
+                    </span>
+                </article>
+            }
         }
     </div>
 
@@ -331,13 +345,14 @@
             .Concat(item.DetectedFacts.Values)
             .Concat(item.BridgeIdentifiers.Values);
 
-    private IReadOnlyList<(ReviewIssueBucket Bucket, string Label, int Count, string Icon, string Description, string Tone)> SummaryCards =>
+    private IReadOnlyList<ReviewSummaryCard> SummaryCards =>
     [
-        (ReviewIssueBucket.All, "Open issues", _items.Count, Icons.Material.Outlined.AssignmentLate, "Items need your review", "open"),
-        (ReviewIssueBucket.QuickFix, "Quick fixes", Count(ReviewIssueBucket.QuickFix), Icons.Material.Outlined.Bolt, "Can be resolved quickly", "quick"),
-        (ReviewIssueBucket.ManualReview, "Manual review", Count(ReviewIssueBucket.ManualReview), Icons.Material.Outlined.PersonSearch, "Require a decision", "manual"),
-        (ReviewIssueBucket.HighPriority, "High priority", Count(ReviewIssueBucket.HighPriority), Icons.Material.Outlined.Flag, "Critical items", "priority"),
+        new("Needing review", _items.Count.ToString(), Icons.Material.Outlined.AssignmentLate, "Across all media types", "open", ReviewIssueBucket.All),
+        new("High priority", Count(ReviewIssueBucket.HighPriority).ToString(), Icons.Material.Outlined.Flag, "Needs your attention", "priority", ReviewIssueBucket.HighPriority),
+        new("Oldest waiting", OldestWaiting, Icons.Material.Outlined.Schedule, "Since it entered the queue", "oldest", null),
     ];
+
+    private string OldestWaiting => _items.Count == 0 ? "—" : WaitingAge(_items.Min(item => item.CreatedAt));
 
     private int Count(ReviewIssueBucket bucket) => _items.Count(item => ReviewIssueClassifier.Classify(item.Trigger).Bucket == bucket);
     private int CountCategory(string category) => _items.Count(item => ReviewIssueClassifier.MatchesCategory(item.Trigger, category));
@@ -534,4 +549,21 @@
             _ => $"{Math.Max(1, (int)elapsed.TotalDays)} day{(elapsed.TotalDays < 2 ? string.Empty : "s")} ago",
         };
     }
+
+    private static string WaitingAge(DateTimeOffset createdAt)
+    {
+        var elapsed = DateTimeOffset.UtcNow - createdAt;
+        if (elapsed.TotalHours < 1) return $"{Math.Max(1, (int)elapsed.TotalMinutes)} min";
+        if (elapsed.TotalDays < 1) return $"{Math.Max(1, (int)elapsed.TotalHours)} hr";
+        var days = Math.Max(1, (int)elapsed.TotalDays);
+        return $"{days} day{(days == 1 ? string.Empty : "s")}";
+    }
+
+    private sealed record ReviewSummaryCard(
+        string Label,
+        string Value,
+        string Icon,
+        string Description,
+        string Tone,
+        ReviewIssueBucket? Bucket);
 }

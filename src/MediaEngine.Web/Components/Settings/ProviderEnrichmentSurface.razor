@@ -70,6 +70,8 @@
             <AppButton Label="@(_running ? "Queueing..." : "Run Enrichment Now")" StartIcon="@Icons.Material.Outlined.Bolt"
                        Disabled="@(_running || _hydration?.Stage3Enabled != true)" OnClick="RunEnrichmentNowAsync" />
         </footer>
+
+        <EnrichmentRefreshSchedulePanel />
     }
 </div>
 
