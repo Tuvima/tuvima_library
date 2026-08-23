@@ -1,0 +1,108 @@
+.settings-plugin-page {
+    display: grid;
+    min-width: 0;
+    gap: 18px;
+}
+
+.settings-plugin-summary__grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.settings-plugin-summary__grid ::deep .settings-plugin-summary__card .app-card__content {
+    display: grid;
+    gap: 5px;
+}
+
+.settings-plugin-summary__card strong {
+    color: var(--tl-text-primary);
+    font-size: 24px;
+    line-height: 1.2;
+}
+
+.settings-plugin-summary__card span,
+.settings-plugin-table-meta,
+.settings-plugin-detail-header__description {
+    color: var(--tl-text-muted);
+    font-size: 14px;
+}
+
+.settings-plugin-table-title,
+.settings-plugin-table-meta {
+    display: block;
+}
+
+.settings-plugin-table-title {
+    color: var(--tl-text-primary);
+}
+
+.settings-plugin-page ::deep .settings-plugin-installed-table td:nth-child(1) {
+    min-width: 180px;
+}
+
+.settings-plugin-page ::deep .settings-plugin-installed-table td:nth-child(2) {
+    width: 42%;
+}
+
+.settings-plugin-page ::deep .settings-plugin-installed-table td:last-child {
+    text-align: right;
+}
+
+.settings-plugin-configure-panel {
+    scroll-margin-top: 96px;
+}
+
+.settings-plugin-detail-stack {
+    display: grid;
+    gap: 18px;
+}
+
+.settings-plugin-detail-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.settings-plugin-detail-header__icon {
+    display: grid;
+    width: 44px;
+    height: 44px;
+    flex: 0 0 auto;
+    place-items: center;
+    color: var(--tl-accent-primary);
+    border-radius: 12px;
+    background: var(--tl-accent-primary-soft);
+}
+
+.settings-plugin-detail-header__copy {
+    display: grid;
+    min-width: 0;
+    flex: 1;
+    gap: 3px;
+}
+
+.settings-plugin-detail-header__title {
+    color: var(--tl-text-primary);
+    font-size: 18px;
+}
+
+@media (max-width: 800px) {
+    .settings-plugin-summary__grid {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-plugin-page ::deep .settings-plugin-installed-table th:nth-child(2),
+    .settings-plugin-page ::deep .settings-plugin-installed-table td:nth-child(2),
+    .settings-plugin-page ::deep .settings-plugin-installed-table th:nth-child(4),
+    .settings-plugin-page ::deep .settings-plugin-installed-table td:nth-child(4) {
+        display: none;
+    }
+}
+
+@media (max-width: 520px) {
+    .settings-plugin-page ::deep .settings-plugin-installed-table th:nth-child(3),
+    .settings-plugin-page ::deep .settings-plugin-installed-table td:nth-child(3) {
+        display: none;
+    }
+}

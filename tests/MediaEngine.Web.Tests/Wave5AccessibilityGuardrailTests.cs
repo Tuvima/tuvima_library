@@ -72,7 +72,8 @@ public sealed class Wave5AccessibilityGuardrailTests
                         + Read("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
         var activity = Read("src/MediaEngine.Web/Components/Activity/ActivityMediaTypeAuditGroup.razor");
 
-        Assert.Contains("HandlePluginKeyDown", plugins);
+        Assert.Contains("<AppButton Label=\"Configure\"", plugins);
+        Assert.DoesNotContain("role=\"button\"", plugins);
         Assert.Contains("Drag {provider.DisplayName} to reorder", providers);
         Assert.Contains("Label=\"Move earlier\"", providers);
         Assert.Contains("Label=\"Move later\"", providers);

@@ -6,9 +6,9 @@
     {
         case "models":
             <AppPanel Class="local-ai-settings__section">
-                @SectionHeading("Models & Runtime", "Manage downloaded models, lifecycle actions, storage, and runtime limits.", Icons.Material.Outlined.Storage)
+                @SectionHeading("Models & Runtime", "Manage local model files, lifecycle actions, and runtime limits.", Icons.Material.Outlined.Storage)
                 <ModelsTab />
-                <AppCard Title="Runtime Settings" Density="AppSurfaceDensity.Compact">
+                <AppCard Title="Runtime settings" Density="AppSurfaceDensity.Compact">
                     @if (_config is null)
                     {
                         <AppEmptyState Title="AI configuration unavailable" Message="Runtime controls are hidden until the Engine returns saved configuration." />
@@ -27,80 +27,42 @@
                                    Class="mt-3" Disabled="@_savingConfig" OnClick="@SaveConfig" />
                     }
                 </AppCard>
+                @if (_profile is not null || _resources is not null)
+                {
+                    <AppCard Title="Runtime diagnostics" Density="AppSurfaceDensity.Compact">
+                        <div class="local-ai-settings__diagnostics">
+                            @if (_profile is not null)
+                            {
+                                <span><strong>Backend</strong>@_profile.Backend</span>
+                                <span><strong>Benchmark</strong>@($"{_profile.TokensPerSecond:F1} tokens/sec")</span>
+                            }
+                            @if (_resources is not null)
+                            {
+                                <span><strong>Engine memory</strong>@FormatMb(_resources.EngineRamMb)</span>
+                                <span><strong>CPU pressure</strong>@CpuPressureLabel(_resources.CpuPressure)</span>
+                            }
+                        </div>
+                    </AppCard>
+                }
+                <AppCard Title="Feature readiness" Description="Inspect model and hardware dependencies for every Local AI capability." Density="AppSurfaceDensity.Compact">
+                    <AiFeaturesTab />
+                </AppCard>
             </AppPanel>
             break;
-        case "features":
-            <div class="local-ai-settings__feature-stack">
-                <AppPanel Class="local-ai-settings__section">
-                    @SectionHeading("Features", "Enable AI capabilities backed by the current model and hardware configuration.", Icons.Material.Outlined.AutoAwesome)
-                    <AiFeaturesTab />
-                </AppPanel>
-                <AppPanel Class="local-ai-settings__section">
-                    @SectionHeading("Vocabulary", "Manage the controlled terms used by local enrichment.", Icons.Material.Outlined.Spellcheck)
-                    <VibeVocabularyTab />
-                </AppPanel>
-            </div>
+        case "vocabulary":
+            <AppPanel Class="local-ai-settings__section">
+                @SectionHeading("Vocabulary", "Manage the controlled terms used by local enrichment.", Icons.Material.Outlined.Spellcheck)
+                <VibeVocabularyTab />
+            </AppPanel>
             break;
         case "automation":
             <AppPanel Class="local-ai-settings__section">
                 @SectionHeading("Automation", "Control saved enrichment and maintenance schedules.", Icons.Material.Outlined.Schedule)
                 <AiScheduleTab />
-                <AppCard Title="Enrichment Progress" Density="AppSurfaceDensity.Compact">
-                    @EnrichmentContent()
-                </AppCard>
             </AppPanel>
             break;
         default:
-            <AppAlert Severity="Severity.Info" Variant="Variant.Outlined">
-                Local AI runs on this server. Model files are downloaded locally, inference stays local, and provider metadata calls remain separate from AI.
-            </AppAlert>
-            <div class="local-ai-settings__status-grid">
-                <AppCard Title="AI Readiness" Class="local-ai-settings__status-card">
-                    @if (_status is null)
-                    {
-                        <AppEmptyState Title="AI status unavailable" Message="Library browsing continues without Local AI." />
-                    }
-                    else
-                    {
-                        <AppStatusBadge Text="@(_status.IsReady ? "Ready" : "Limited")"
-                                        Tone="@(_status.IsReady ? AppUiTone.Success : AppUiTone.Warning)" />
-                        <MudText Typo="Typo.body2" Class="mt-2">Memory profile: @_status.MemoryProfile</MudText>
-                        <MudText Typo="Typo.body2">Loaded memory: @FormatMb(_status.MemoryUsedMB) / @FormatMb(_status.MemoryLimitMB)</MudText>
-                    }
-                </AppCard>
-                <AppCard Title="Active Model" Class="local-ai-settings__status-card">
-                    <Actions>
-                        <AppButton Label="@(_benchmarking ? "Benchmarking" : "Benchmark")"
-                                   StartIcon="@Icons.Material.Outlined.Speed"
-                                   Size="AppControlSize.Compact"
-                                   Disabled="@_benchmarking"
-                                   OnClick="@RunBenchmark" />
-                    </Actions>
-                    <ChildContent>
-                        <MudText Typo="Typo.h6">@(LoadedModel ?? "None loaded")</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">@(_profile is null ? "Runtime unavailable" : $"{_profile.Backend} · {_profile.TokensPerSecond:F1} tok/s")</MudText>
-                        @if (!string.IsNullOrWhiteSpace(_benchmarkProblem))
-                        {
-                            <AppAlert Severity="Severity.Error" Variant="Variant.Outlined" Dense="true" Class="mt-2">@_benchmarkProblem</AppAlert>
-                        }
-                    </ChildContent>
-                </AppCard>
-                <AppCard Title="Resource Usage" Class="local-ai-settings__status-card">
-                    @if (_resources is null)
-                    {
-                        <AppEmptyState Title="Resource snapshot unavailable" />
-                    }
-                    else
-                    {
-                        <MudText Typo="Typo.h6">@FormatMb(_resources.EngineRamMb)</MudText>
-                        <MudText Typo="Typo.body2" Color="Color.Secondary">Engine RAM · @FormatMb(_resources.FreeRamMb) free</MudText>
-                        <MudText Typo="Typo.body2">CPU pressure: @CpuPressureLabel(_resources.CpuPressure)</MudText>
-                    }
-                </AppCard>
-                <AppCard Title="Enrichment Status" Class="local-ai-settings__status-card">
-                    @EnrichmentContent()
-                </AppCard>
-            </div>
+            @OverviewContent()
             break;
     }
 </div>
@@ -111,7 +73,7 @@
     private string NormalizedSubsection => Subsection?.Trim().ToLowerInvariant() switch
     {
         "models" => "models",
-        "features" => "features",
+        "vocabulary" => "vocabulary",
         "automation" => "automation",
         _ => "overview",
     };
@@ -121,54 +83,151 @@
     private ResourceSnapshotDto? _resources;
     private EnrichmentProgressDto? _progress;
     private AiConfigDto? _config;
-    private bool _benchmarking;
+    private List<AiModelStatusDto> _models = [];
+    private string? _loadedSubsection;
+    private bool _loading = true;
     private bool _savingConfig;
-    private string? _benchmarkProblem;
+    private bool _savingFeatures;
+    private string? _featureMessage;
 
-    private string? LoadedModel => _status?.Models.FirstOrDefault(model => model.Loaded || model.Active)?.Role;
-    private double ProgressPercent => _progress is { Total: > 0 }
-        ? (double)_progress.CompletedCount / _progress.Total * 100
-        : 0;
+    private AiModelStatusDto? ActiveModel => _models.FirstOrDefault(model => model.Active)
+        ?? _models.FirstOrDefault(model => model.Loaded);
 
-    protected override async Task OnInitializedAsync() => await RefreshAsync();
+    private int EnabledFeatureCount => FeatureDefinitions()
+        .Count(feature => feature.Connected && IsFeatureEnabled(feature.Key));
 
-    private async Task RefreshAsync()
+    protected override async Task OnParametersSetAsync()
     {
-        _status = await Orchestrator.GetAiStatusAsync();
-        _profile = await Orchestrator.GetAiProfileAsync();
-        _resources = await Orchestrator.GetResourceSnapshotAsync();
-        _progress = await Orchestrator.GetEnrichmentProgressAsync();
-        _config = await Orchestrator.GetAiConfigAsync();
+        if (string.Equals(_loadedSubsection, NormalizedSubsection, StringComparison.Ordinal))
+            return;
+
+        _loadedSubsection = NormalizedSubsection;
+        _loading = true;
+
+        if (NormalizedSubsection == "overview")
+        {
+            _status = await Orchestrator.GetAiStatusAsync();
+            _config = await Orchestrator.GetAiConfigAsync();
+            _models = (await Orchestrator.GetAiModelStatusesAsync()).ToList();
+            _progress = await Orchestrator.GetEnrichmentProgressAsync();
+        }
+        else if (NormalizedSubsection == "models")
+        {
+            _config = await Orchestrator.GetAiConfigAsync();
+            _profile = await Orchestrator.GetAiProfileAsync();
+            _resources = await Orchestrator.GetResourceSnapshotAsync();
+        }
+
+        _loading = false;
     }
 
-    private RenderFragment EnrichmentContent() => @<text>
-        @if (_progress is null)
+    private RenderFragment OverviewContent() => @<text>
+        @if (_loading)
         {
-            <AppEmptyState Title="Enrichment progress unavailable" />
+            <AppProgressBar Indeterminate="true" />
         }
         else
         {
-            <MudText Typo="Typo.body2">@_progress.PendingCount pending, @_progress.CompletedCount completed, @_progress.Total total</MudText>
-            <AppProgressBar Value="@ProgressPercent" Class="mt-2" />
+            <AppAlert Tone="@OverviewTone" Class="local-ai-settings__health-banner">
+                <strong>@OverviewStatusTitle</strong>
+                <span>@OverviewStatusDescription</span>
+            </AppAlert>
+
+            <div class="local-ai-settings__summary-grid">
+                <AppCard Title="Runtime" Class="local-ai-settings__summary-card">
+                    <strong>@(_status?.IsReady == true ? "Running" : _status is null ? "Unavailable" : "Limited")</strong>
+                    <span>Local inference service</span>
+                </AppCard>
+                <AppCard Title="Active model" Class="local-ai-settings__summary-card">
+                    <strong>@ActiveModelName()</strong>
+                    <span>@(ActiveModel is null ? "No model is currently loaded" : "Primary local model")</span>
+                </AppCard>
+                <AppCard Title="Features" Class="local-ai-settings__summary-card">
+                    <strong>@EnabledFeatureCount enabled</strong>
+                    <span>Connected local capabilities</span>
+                </AppCard>
+                <AppCard Title="Automation" Class="local-ai-settings__summary-card">
+                    <strong>@AutomationSummary()</strong>
+                    <span>@AutomationDescription()</span>
+                </AppCard>
+            </div>
+
+            <AppCard Title="Enabled features" Description="Choose which connected Local AI capabilities Tuvima may use.">
+                @if (_config is null)
+                {
+                    <AppEmptyState Title="AI configuration unavailable" Message="Feature controls are hidden until saved configuration can be loaded." />
+                }
+                else
+                {
+                    @if (!string.IsNullOrWhiteSpace(_featureMessage))
+                    {
+                        <AppAlert Tone="AppUiTone.Info" Class="mb-3">@_featureMessage</AppAlert>
+                    }
+                    <div class="local-ai-settings__feature-grid">
+                        @foreach (var feature in FeatureDefinitions())
+                        {
+                            <AppSwitchRow Label="@feature.Name" Description="@feature.Description"
+                                          Value="@IsFeatureEnabled(feature.Key)"
+                                          ValueChanged="@(value => SetFeatureEnabled(feature.Key, value))"
+                                          Disabled="@(!feature.Connected)"
+                                          Class="@(!feature.Connected ? "local-ai-settings__feature--planned" : null)" />
+                        }
+                    </div>
+                    <AppButton Label="Save features" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary"
+                               Class="mt-3" Disabled="@_savingFeatures" OnClick="@SaveFeaturesAsync" />
+                }
+            </AppCard>
+
+            <AppCard Title="Advanced AI" Description="Technical controls stay available when you need them.">
+                <SettingsAdvancedLinkRow Title="Models & Runtime" Description="Manage model files, lifecycle actions, validation, and runtime limits." Href="/settings/ai/models" ActionLabel="Manage" />
+                <SettingsAdvancedLinkRow Title="Vocabulary" Description="Edit the controlled vocabulary used by local tagging." Href="/settings/ai/vocabulary" ActionLabel="Manage" />
+                <SettingsAdvancedLinkRow Title="Automation" Description="Review enrichment progress and edit saved schedules." Href="/settings/ai/automation" ActionLabel="Manage" />
+            </AppCard>
         }
     </text>;
 
-    private static RenderFragment SectionHeading(string title, string description, string icon) => @<SettingsSectionHeader Title="@title"
-                                                                                                    Description="@description"
-                                                                                                    Icon="@icon"
-                                                                                                    Divider="true" />;
+    private AppUiTone OverviewTone => _status?.IsReady == true ? AppUiTone.Success : _status is null ? AppUiTone.Warning : AppUiTone.Info;
 
-    private async Task RunBenchmark()
+    private string OverviewStatusTitle => _status?.IsReady == true
+        ? "Local AI is healthy"
+        : _status is null ? "Local AI status is unavailable" : "Local AI is available with limitations";
+
+    private string OverviewStatusDescription => _status?.IsReady == true
+        ? "Local AI runs on this server; local intelligence is ready and inference stays private."
+        : _status is null ? "Library browsing continues without Local AI status." : "Review models and runtime details before relying on every feature.";
+
+    private string ActiveModelName()
     {
-        _benchmarking = true;
-        _benchmarkProblem = null;
-        var result = await Orchestrator.RunBenchmarkAsync();
-        if (result.Succeeded)
-            _profile = result.Value;
-        else
-            _benchmarkProblem = result.Problem?.ToUserMessage() ?? "Hardware benchmark failed.";
-        _benchmarking = false;
+        if (ActiveModel is null)
+            return "None loaded";
+
+        return !string.IsNullOrWhiteSpace(ActiveModel.DisplayName) ? ActiveModel.DisplayName : ActiveModel.Role;
     }
+
+    private string AutomationSummary() => _progress is null ? "Unavailable" : _progress.PendingCount == 0 ? "Up to date" : $"{_progress.PendingCount} pending";
+
+    private string AutomationDescription() => _progress is null ? "Progress could not be loaded" : $"{_progress.CompletedCount} of {_progress.Total} completed";
+
+    private bool IsFeatureEnabled(string key) => _config?.Features.TryGetValue(key, out var enabled) == true && enabled;
+
+    private void SetFeatureEnabled(string key, bool enabled)
+    {
+        if (_config is not null)
+            _config.Features[key] = enabled;
+    }
+
+    private async Task SaveFeaturesAsync()
+    {
+        if (_config is null)
+            return;
+
+        _savingFeatures = true;
+        var saved = await Orchestrator.SaveAiConfigAsync(_config);
+        _savingFeatures = false;
+        _featureMessage = saved ? "Local AI features saved." : "Local AI features could not be saved.";
+    }
+
+    private static RenderFragment SectionHeading(string title, string description, string icon) => @<SettingsSectionHeader Title="@title" Description="@description" Icon="@icon" Divider="true" />;
 
     private async Task SaveConfig()
     {
@@ -193,8 +252,21 @@
 
     private static string CpuPressureLabel(double pressure) => pressure switch
     {
-        >= 0.85 => "high",
-        >= 0.5 => "moderate",
-        _ => "low",
+        >= 0.85 => "High",
+        >= 0.5 => "Moderate",
+        _ => "Low",
     };
+
+    private sealed record FeatureDefinition(string Key, string Name, string Description, bool Connected = true);
+
+    private static IReadOnlyList<FeatureDefinition> FeatureDefinitions() =>
+    [
+        new("smart_labeling", "Smart labeling", "Improve filenames and initial metadata."),
+        new("intent_search", "Intent search", "Understand natural-language search."),
+        new("taste_profiling", "Taste profiling", "Build local preference signals."),
+        new("series_alignment", "Series & universe alignment", "Assist grouping and order checks."),
+        new("vibe_tags", "Vibe tags", "Generate local mood tags."),
+        new("description_intelligence", "Description intelligence", "Extract themes and useful context."),
+        new("subtitle_sync", "Subtitle synchronization — Planned", "Future local alignment support.", Connected: false),
+    ];
 }

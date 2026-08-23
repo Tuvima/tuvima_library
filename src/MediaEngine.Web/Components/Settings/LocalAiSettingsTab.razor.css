@@ -1,34 +1,75 @@
 .local-ai-settings {
     display: grid;
-    gap: 16px;
     min-width: 0;
+    gap: 18px;
 }
 
-.local-ai-settings__status-grid,
-.local-ai-settings__feature-stack {
+.local-ai-settings ::deep .local-ai-settings__health-banner .mud-alert-message {
     display: grid;
-    min-width: 0;
+    gap: 3px;
+}
+
+.local-ai-settings__health-banner strong {
+    font-size: 17px;
+}
+
+.local-ai-settings__summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 16px;
 }
 
-.local-ai-settings__status-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+.local-ai-settings__summary-grid ::deep .local-ai-settings__summary-card .app-card__content {
+    display: grid;
+    gap: 5px;
 }
 
-.local-ai-settings__feature-stack {
+.local-ai-settings__summary-card strong {
+    color: var(--tl-text-primary);
+    font-size: 20px;
+    line-height: 1.25;
+}
+
+.local-ai-settings__summary-card span,
+.local-ai-settings__diagnostics span {
+    color: var(--tl-text-muted);
+    font-size: 14px;
+}
+
+.local-ai-settings__feature-grid {
+    display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: start;
+    column-gap: 28px;
+}
+
+.local-ai-settings__feature--planned {
+    opacity: .65;
 }
 
 .local-ai-settings__section {
     display: flex;
     flex-direction: column;
     min-width: 0;
-    gap: 14px;
+    gap: 16px;
 }
 
 .local-ai-settings__runtime-form {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.local-ai-settings__diagnostics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.local-ai-settings__diagnostics span {
+    display: grid;
+    gap: 4px;
+}
+
+.local-ai-settings__diagnostics strong {
+    color: var(--tl-text-primary);
 }
 
 ::deep .local-ai-settings__section > .tl-page,
@@ -37,19 +78,18 @@
     min-width: 0;
 }
 
-@media (max-width: 1499px) {
-    .local-ai-settings__status-grid {
+@media (max-width: 1100px) {
+    .local-ai-settings__summary-grid,
+    .local-ai-settings__diagnostics {
         grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    .local-ai-settings__feature-stack {
-        grid-template-columns: 1fr;
     }
 }
 
-@media (max-width: 680px) {
-    .local-ai-settings__status-grid,
-    .local-ai-settings__runtime-form {
+@media (max-width: 700px) {
+    .local-ai-settings__summary-grid,
+    .local-ai-settings__feature-grid,
+    .local-ai-settings__runtime-form,
+    .local-ai-settings__diagnostics {
         grid-template-columns: 1fr;
     }
 }
