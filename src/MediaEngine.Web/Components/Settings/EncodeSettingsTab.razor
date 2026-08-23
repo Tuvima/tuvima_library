@@ -12,7 +12,9 @@
     }
     else if (IsSection("diagnostics"))
     {
-        <AppCard Title="Playback tools and services">
+        <SettingsSectionPanel Title="Playback tools and services"
+                              Description="Technical checks reported directly by the Engine."
+                              Icon="@Icons.Material.Outlined.MonitorHeart">
             @if (_diagnostics is null)
             {
                 <AppErrorState Title="Diagnostics are unavailable"
@@ -50,97 +52,57 @@
                     </AppAlert>
                 }
             }
-        </AppCard>
+        </SettingsSectionPanel>
     }
     else if (!_settingsAvailable)
     {
         <AppErrorState Title="Playback delivery settings are unavailable"
                        Message="Start the Engine or retry before changing transcoding and variant storage." />
     }
-    else if (IsSection("transcoding"))
+    else if (IsSection("scheduling"))
     {
-        <div class="encode-settings__grid">
-            <AppCard Title="Scheduled Encodes">
+        <SettingsSectionPanel Title="Scheduling"
+                              Description="Limit prepared variant work to a predictable maintenance window."
+                              Icon="@Icons.Material.Outlined.Schedule">
+            <div class="encode-settings__form">
                 <AppSwitchRow @bind-Value="_scheduledEncodesEnabled"
-                              Label="Enable scheduled encodes" />
+                              Label="Schedule prepared encodes"
+                              Description="Queue non-urgent variant work for the maintenance window." />
                 <AppTextField @bind-Value="_maintenanceWindow"
-                              Label="Maintenance window" />
-                <AppNumericField @bind-Value="_maxConcurrentJobs"
-                                 Label="Maximum active jobs"
-                                 Min="1"
-                                 Max="4" />
-                <AppSelect T="string" @bind-Value="_hardwarePreference"
-                           Label="CPU / GPU preference"
-                           Options="@HardwareOptions" />
-            </AppCard>
-
-            <AppCard Title="Encode Profiles">
-                @if (_settings.QualityProfiles.Count == 0)
-                {
-                    <AppEmptyState Title="No encode profiles are configured"
-                                   Message="Add profiles to the Engine transcoding configuration before scheduling encodes." />
-                }
-                else
-                {
-                    <div class="encode-settings__table-wrap">
-                        <AppTable>
-                            <thead>
-                                <tr>
-                                    <th>Profile</th>
-                                    <th>Target</th>
-                                    <th>Codec</th>
-                                    <th>Container</th>
-                                    <th>Size guidance</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var profile in _settings.QualityProfiles)
-                                {
-                                    <tr>
-                                        <td>@profile.Name</td>
-                                        <td>@profile.Resolution</td>
-                                        <td>@profile.Codec / @profile.AudioCodec</td>
-                                        <td>@profile.Container</td>
-                                        <td>@profile.SizeGuidance</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </AppTable>
-                    </div>
-                }
-            </AppCard>
-        </div>
-        @SaveButton("Save Transcoding Settings")
+                              Label="Maintenance window"
+                              HelpText="Use 24-hour time, for example 01:00-05:00." />
+            </div>
+        </SettingsSectionPanel>
+        @SaveButton("Save schedule")
     }
     else if (IsSection("storage"))
     {
-        <AppCard Title="Variant Storage">
-            <AppTextField @bind-Value="_variantRoot"
-                          Label="Variant cache location" />
-            <AppNumericField @bind-Value="_cacheSizeGb"
-                             Label="Cache size limit (GB)"
-                             Min="1"
-                             Max="5000" />
-            <AppNumericField @bind-Value="_retentionDays"
-                             Label="Retention days"
-                             Min="1"
-                             Max="3650" />
-            <AppSwitchRow @bind-Value="_cleanupLru"
-                          Label="Use least-recently-used cleanup before deleting old variants" />
-        </AppCard>
-        @SaveButton("Save Variant Storage")
+        <SettingsSectionPanel Title="Variant storage"
+                              Description="Control where prepared playback files are kept and when they are removed."
+                              Icon="@Icons.Material.Outlined.Storage">
+            <div class="encode-settings__form">
+                <AppTextField @bind-Value="_variantRoot"
+                              Label="Cache location" />
+                <AppNumericField @bind-Value="_cacheSizeGb"
+                                 Label="Cache size limit (GB)"
+                                 Min="1"
+                                 Max="5000" />
+                <AppNumericField @bind-Value="_retentionDays"
+                                 Label="Keep unused variants for"
+                                 HelpText="Number of days before unused variants become eligible for cleanup."
+                                 Min="1"
+                                 Max="3650" />
+                <AppSwitchRow @bind-Value="_cleanupLru"
+                              Label="Remove least-used variants first"
+                              Description="Free space by removing the least recently used prepared files before newer ones." />
+            </div>
+        </SettingsSectionPanel>
+        @SaveButton("Save storage settings")
     }
 </div>
 
 @code {
-    [Parameter] public string Section { get; set; } = "transcoding";
-
-    private static readonly IReadOnlyList<AppSelectOption> HardwareOptions =
-    [
-        new("auto", "Auto"),
-        new("cpu", "CPU"),
-        new("gpu", "GPU when available"),
-    ];
+    [Parameter] public string Section { get; set; } = "scheduling";
 
     private TranscodingSettings _settings = new();
     private bool _loading = true;

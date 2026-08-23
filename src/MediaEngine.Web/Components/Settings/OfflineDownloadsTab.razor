@@ -9,7 +9,9 @@
         <AppButton Label="Refresh" StartIcon="@Icons.Material.Outlined.Refresh" OnClick="@LoadJobsAsync" />
     </AppActionBar>
 
-    <AppCard Title="Encode jobs">
+    <SettingsSectionPanel Title="Encode jobs"
+                          Description="Current and queued work for prepared playback variants."
+                          Icon="@Icons.Material.Outlined.PendingActions">
         @if (_loading)
         {
             <AppProgressBar Indeterminate="true" />
@@ -56,7 +58,7 @@
                 </AppTable>
             </div>
         }
-    </AppCard>
+    </SettingsSectionPanel>
 
 </div>
 

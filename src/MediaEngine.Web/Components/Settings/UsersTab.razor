@@ -1,98 +1,111 @@
-﻿@namespace MediaEngine.Web.Components.Settings
+@namespace MediaEngine.Web.Components.Settings
 @inject UIOrchestratorService Orchestrator
 @inject ISnackbar Snackbar
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="tl-page users-page">
-    @if (!LinkedAccountsOnly)
-    {
-        <AppActionBar Align="AppHorizontalAlignment.End" Class="users-page__actions mb-3">
-            <AppButton Label="@L["Users_NewProfile"].Value"
-                       StartIcon="@Icons.Material.Filled.PersonAdd"
-                       ButtonStyle="AppButtonStyle.Filled"
-                       Tone="AppUiTone.Primary"
-                       Disabled="@_loading"
-                       OnClick="@OpenCreateDialog" />
-        </AppActionBar>
-    }
-
     @if (_loading)
     {
         <AppProgressBar Indeterminate="true" Class="users-page__progress" />
     }
-    else if (_allRows.Count == 0)
-    {
-        <AppEmptyState Title="@L["Users_NoProfiles"].Value" />
-    }
     else
     {
-        @if (LinkedAccountsOnly)
-        {
-            <AppAlert Tone="AppUiTone.Info" Class="mb-3">
-                External identities are linked to local Tuvima profiles. Select a profile to link or unlink an account.
-            </AppAlert>
-        }
-        <AppTable Class="users-table">
-            <thead>
-                <tr>
-                    <th>@L["Users_ColAvatar"]</th>
-                    <th>@L["Users_ColName"]</th>
-                    @if (!LinkedAccountsOnly)
-                    {
-                        <th>@L["Users_ColRole"]</th>
-                    }
-                    <th>Sign-in</th>
-                    @if (!LinkedAccountsOnly)
-                    {
-                        <th>Created</th>
-                    }
-                    <th class="users-table__actions">@L["Users_ColActions"]</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var row in _allRows)
-                {
-                    <tr>
-                        <td>
-                            <AppAvatar Initials="@row.Initials"
-                                       AccentColor="@row.AvatarColor"
-                                       Size="AppControlSize.Compact"
-                                       Title="@row.DisplayName" />
-                        </td>
-                        <td>
-                            <div class="users-table__name">@row.DisplayName</div>
-                        </td>
-                        @if (!LinkedAccountsOnly)
-                        {
-                            <td><AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" /></td>
-                        }
-                        <td>
-                            <AppChip Text="@(row.ExternalLoginCount == 0 ? "Local profile" : $"{row.ExternalLoginCount} linked")" />
-                        </td>
-                        @if (!LinkedAccountsOnly)
-                        {
-                            <td><span class="users-table__muted">@row.Created</span></td>
-                        }
-                        <td class="users-table__actions">
-                            <AppIconButton Icon="@Icons.Material.Outlined.Link"
-                                           Tooltip="Manage sign-in accounts"
-                                           AriaLabel="Manage sign-in accounts"
-                                           Disabled="@row.Id.Equals(Guid.Empty)"
-                                           OnClick="@(() => OpenExternalLoginsDialogAsync(row))" />
-                            @if (!LinkedAccountsOnly)
+        <section class="users-page__summary" aria-label="User summary">
+            <div>
+                <span>Profiles</span>
+                <strong>@_allRows.Count</strong>
+            </div>
+            <div>
+                <span>Administrators</span>
+                <strong>@AdministratorCount</strong>
+            </div>
+            <div>
+                <span>Other roles</span>
+                <strong>@(_allRows.Count - AdministratorCount)</strong>
+            </div>
+        </section>
+
+        <SettingsSectionPanel Title="Profiles"
+                              Description="Manage the people who can use this Tuvima Library."
+                              Icon="@Icons.Material.Outlined.Group">
+            <AppActionBar Align="AppHorizontalAlignment.End" Class="users-page__actions">
+                <AppButton Label="@L["Users_NewProfile"].Value"
+                           StartIcon="@Icons.Material.Filled.PersonAdd"
+                           ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary"
+                           OnClick="@OpenCreateDialog" />
+            </AppActionBar>
+
+            @if (_allRows.Count == 0)
+            {
+                <AppEmptyState Title="@L["Users_NoProfiles"].Value" />
+            }
+            else
+            {
+                <div class="users-page__table-wrap">
+                    <AppTable Class="users-table">
+                        <thead>
+                            <tr>
+                                <th>Profile</th>
+                                <th>@L["Users_ColRole"]</th>
+                                <th>Created</th>
+                                <th class="users-table__actions">@L["Users_ColActions"]</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var row in _allRows)
                             {
-                                <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                               Tooltip="@L["Users_DeleteProfileTooltip"].Value"
-                                               AriaLabel="@L["Users_DeleteProfileTooltip"].Value"
-                                               Tone="AppUiTone.Error"
-                                               Disabled="@row.IsSeed"
-                                               OnClick="@(() => DeleteProfileAsync(row))" />
+                                <tr>
+                                    <td>
+                                        <div class="users-table__identity">
+                                            <AppAvatar Initials="@row.Initials"
+                                                       ImageUrl="@row.AvatarImageUrl"
+                                                       AltText="@row.DisplayName"
+                                                       AccentColor="@row.AvatarColor"
+                                                       Size="AppControlSize.Compact"
+                                                       Title="@row.DisplayName" />
+                                            <span class="users-table__name">@row.DisplayName</span>
+                                        </div>
+                                    </td>
+                                    <td><AppChip Text="@row.Role" Tone="@RoleTone(row.Role)" /></td>
+                                    <td><span class="users-table__muted">@row.Created</span></td>
+                                    <td class="users-table__actions">
+                                        <AppIconButton Icon="@Icons.Material.Outlined.ManageAccounts"
+                                                       Tooltip="Manage sign-in accounts"
+                                                       AriaLabel="@($"Manage sign-in accounts for {row.DisplayName}")"
+                                                       Disabled="@row.Id.Equals(Guid.Empty)"
+                                                       OnClick="@(() => OpenExternalLoginsDialogAsync(row))" />
+                                        <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                       Tooltip="@L["Users_DeleteProfileTooltip"].Value"
+                                                       AriaLabel="@L["Users_DeleteProfileTooltip"].Value"
+                                                       Tone="AppUiTone.Error"
+                                                       Disabled="@row.IsSeed"
+                                                       OnClick="@(() => DeleteProfileAsync(row))" />
+                                    </td>
+                                </tr>
                             }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </AppTable>
+                        </tbody>
+                    </AppTable>
+                </div>
+            }
+        </SettingsSectionPanel>
+
+        <SettingsSectionPanel Title="Advanced"
+                              Description="Authentication, guest integrations, and connection policy."
+                              Icon="@Icons.Material.Outlined.Tune">
+            <SettingsAdvancedLinkRow Title="Authentication"
+                                     Description="Review local and external sign-in configuration."
+                                     Href="/settings/access/authentication"
+                                     ActionLabel="View" />
+            <SettingsAdvancedLinkRow Title="Guest API keys"
+                                     Description="Create or revoke keys for approved integrations."
+                                     Href="/settings/access/api-keys"
+                                     ActionLabel="Manage" />
+            <SettingsAdvancedLinkRow Title="Session policy"
+                                     Description="Review how remote and local connections are protected."
+                                     Href="/settings/access/session-policy"
+                                     ActionLabel="View" />
+        </SettingsSectionPanel>
     }
 </div>
 
@@ -108,23 +121,14 @@
                           Label="@L["Users_DisplayNameLabel"].Value"
                           Placeholder="@L["Users_DisplayNamePlaceholder"].Value"
                           MaxLength="50" />
-
             <AppSelect T="string" @bind-Value="_newRole"
                        Label="@L["Users_RoleLabel"].Value"
                        Options="@RoleOptions" />
-
-            <div class="users-dialog-preview">
-                <AppAvatar Initials="@PreviewInitial"
-                           AccentColor="@_newAvatarColor"
-                           Size="AppControlSize.Large"
-                           Title="@PreviewInitial" />
-            </div>
         </AppForm>
     </ChildContent>
     <FooterContent>
         <AppActionBar>
-            <AppButton Label="@L["Users_Cancel"].Value"
-                       OnClick="@CloseCreateDialog" />
+            <AppButton Label="@L["Users_Cancel"].Value" OnClick="@CloseCreateDialog" />
             <AppButton Label="@(_creating ? L["Users_Creating"].Value : L["Users_Create"].Value)"
                        ButtonStyle="AppButtonStyle.Filled"
                        Tone="AppUiTone.Primary"
@@ -136,7 +140,7 @@
 
 <AppDialog @bind-Visible="_externalLoginsOpen"
            Title="Sign-in accounts"
-           Icon="@Icons.Material.Outlined.Link"
+           Icon="@Icons.Material.Outlined.ManageAccounts"
            Size="Small"
            Options="@_dialogOptions"
            OnClose="@CloseExternalLoginsDialog">
@@ -153,7 +157,7 @@
         else if (_externalLogins.Count == 0)
         {
             <AppAlert Tone="AppUiTone.Info">
-                No SSO or OAuth accounts are linked to this profile yet.
+                No SSO or OAuth accounts are linked to this profile.
             </AppAlert>
         }
         else
@@ -170,7 +174,7 @@
                         </div>
                         <AppIconButton Icon="@Icons.Material.Outlined.LinkOff"
                                        Tooltip="Unlink account"
-                                       AriaLabel="Unlink account"
+                                       AriaLabel="@($"Unlink {login.Provider} account")"
                                        Tone="AppUiTone.Error"
                                        Size="AppControlSize.Compact"
                                        OnClick="@(() => UnlinkExternalLoginAsync(login.Id))" />
@@ -188,17 +192,14 @@
             <AppTextField @bind-Value="_newLoginSubject"
                           Label="Subject"
                           Placeholder="Stable user ID from the identity provider" />
-            <AppTextField @bind-Value="_newLoginEmail"
-                          Label="Email" />
-            <AppTextField @bind-Value="_newLoginDisplayName"
-                          Label="Display name" />
+            <AppTextField @bind-Value="_newLoginEmail" Label="Email" />
+            <AppTextField @bind-Value="_newLoginDisplayName" Label="Display name" />
         </AppForm>
     </ChildContent>
     <FooterContent>
         <AppActionBar>
-            <AppButton Label="Close"
-                       OnClick="@CloseExternalLoginsDialog" />
-            <AppButton Label="@(_linkingExternalLogin ? "Linking" : "Link account")"
+            <AppButton Label="Close" OnClick="@CloseExternalLoginsDialog" />
+            <AppButton Label="@(_linkingExternalLogin ? "Linking…" : "Link account")"
                        ButtonStyle="AppButtonStyle.Filled"
                        Tone="AppUiTone.Primary"
                        Disabled="@(_selectedUser is null || string.IsNullOrWhiteSpace(_newLoginProvider) || string.IsNullOrWhiteSpace(_newLoginSubject) || _linkingExternalLogin)"
@@ -208,28 +209,26 @@
 </AppDialog>
 
 @code {
-    [Parameter] public bool LinkedAccountsOnly { get; set; }
-
     private sealed record UserRow(
-        Guid   Id,
+        Guid Id,
         string DisplayName,
         string Initials,
         string AvatarColor,
+        string? AvatarImageUrl,
         string Role,
-        int    ExternalLoginCount,
         string Created,
-        bool   IsSeed);
+        bool IsSeed);
 
-    private bool           _loading  = true;
-    private List<UserRow>  _allRows  = [];
-    private bool   _createOpen;
-    private bool   _creating;
+    private bool _loading = true;
+    private List<UserRow> _allRows = [];
+    private bool _createOpen;
+    private bool _creating;
     private string _newDisplayName = string.Empty;
-    private string _newRole        = "Consumer";
-    private string _newAvatarColor = "#7C4DFF";
-    private bool   _externalLoginsOpen;
-    private bool   _externalLoginsLoading;
-    private bool   _linkingExternalLogin;
+    private string _newRole = "Consumer";
+    private const string NewAvatarColor = "#7C4DFF";
+    private bool _externalLoginsOpen;
+    private bool _externalLoginsLoading;
+    private bool _linkingExternalLogin;
     private UserRow? _selectedUser;
     private List<ProfileExternalLoginViewModel> _externalLogins = [];
     private string _newLoginProvider = string.Empty;
@@ -237,10 +236,13 @@
     private string? _newLoginEmail;
     private string? _newLoginDisplayName;
 
+    private int AdministratorCount => _allRows.Count(row =>
+        string.Equals(row.Role, "Administrator", StringComparison.OrdinalIgnoreCase));
+
     private readonly DialogOptions _dialogOptions = new()
     {
-        MaxWidth         = MaxWidth.Small,
-        FullWidth        = true,
+        MaxWidth = MaxWidth.Small,
+        FullWidth = true,
         CloseOnEscapeKey = true,
     };
 
@@ -251,19 +253,13 @@
         new("Consumer", L["Users_RoleConsumer"].Value),
     ];
 
-    private string PreviewInitial =>
-        _newDisplayName.Length > 0 ? _newDisplayName[0].ToString().ToUpperInvariant() : "?";
-
-    protected override async Task OnInitializedAsync()
-    {
-        await RefreshProfilesAsync();
-    }
+    protected override async Task OnInitializedAsync() => await RefreshProfilesAsync();
 
     private static AppUiTone RoleTone(string role) => role switch
     {
         "Administrator" => AppUiTone.Primary,
-        "Curator"       => AppUiTone.Info,
-        _               => AppUiTone.Neutral,
+        "Curator" => AppUiTone.Info,
+        _ => AppUiTone.Neutral,
     };
 
     private static string GetInitials(string displayName)
@@ -272,93 +268,72 @@
         return parts.Length switch
         {
             0 => "?",
-            1 => parts[0][0].ToString().ToUpper(),
-            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpper(),
+            1 => parts[0][0].ToString().ToUpperInvariant(),
+            _ => $"{parts[0][0]}{parts[^1][0]}".ToUpperInvariant(),
         };
     }
 
     private async Task RefreshProfilesAsync()
     {
         _loading = true;
-
         var profiles = await Orchestrator.GetProfilesAsync();
-        if (profiles.Count > 0)
-        {
-            var rows = new List<UserRow>();
-            foreach (var p in profiles)
-            {
-                var linkedAccounts = await Orchestrator.GetProfileExternalLoginsAsync(p.Id);
-                rows.Add(new UserRow(
-                    p.Id,
-                    p.DisplayName,
-                    GetInitials(p.DisplayName),
-                    p.AvatarColor,
-                    p.Role,
-                    linkedAccounts.Count,
-                    p.CreatedAt.LocalDateTime.ToString("MMM d, yyyy"),
-                    p.IsSeed));
-            }
-
-            _allRows = rows;
-        }
-        else
-        {
-            _allRows = [];
-        }
-
+        _allRows = profiles.Select(profile => new UserRow(
+            profile.Id,
+            profile.DisplayName,
+            GetInitials(profile.DisplayName),
+            profile.AvatarColor,
+            profile.AvatarImageUrl,
+            profile.Role,
+            profile.CreatedAt.LocalDateTime.ToString("MMM d, yyyy"),
+            profile.IsSeed)).ToList();
         _loading = false;
     }
 
     private void OpenCreateDialog()
     {
         _newDisplayName = string.Empty;
-        _newRole        = "Consumer";
-        _newAvatarColor = "#7C4DFF";
-        _createOpen     = true;
+        _newRole = "Consumer";
+        _createOpen = true;
     }
 
     private void CloseCreateDialog()
     {
-        _createOpen     = false;
+        _createOpen = false;
         _newDisplayName = string.Empty;
     }
 
     private async Task CreateProfileAsync()
     {
-        if (string.IsNullOrWhiteSpace(_newDisplayName)) return;
+        if (string.IsNullOrWhiteSpace(_newDisplayName))
+            return;
+
         _creating = true;
-
-        var ok = await Orchestrator.CreateProfileAsync(
-            _newDisplayName.Trim(), _newAvatarColor, _newRole);
-
+        var displayName = _newDisplayName.Trim();
+        var ok = await Orchestrator.CreateProfileAsync(displayName, NewAvatarColor, _newRole);
         _creating = false;
 
-        if (ok)
-        {
-            Snackbar.Add($"Profile \"{_newDisplayName.Trim()}\" created", Severity.Success);
-            _createOpen = false;
-            await RefreshProfilesAsync();
-        }
-        else
+        if (!ok)
         {
             Snackbar.Add(L["Users_CreateError"], Severity.Error);
+            return;
         }
+
+        Snackbar.Add($"Profile \"{displayName}\" created", Severity.Success);
+        _createOpen = false;
+        await RefreshProfilesAsync();
     }
 
     private async Task DeleteProfileAsync(UserRow row)
     {
-        if (row.IsSeed || row.Id == Guid.Empty) return;
+        if (row.IsSeed || row.Id == Guid.Empty)
+            return;
 
         var ok = await Orchestrator.DeleteProfileAsync(row.Id);
+        Snackbar.Add(
+            ok ? $"Profile \"{row.DisplayName}\" deleted" : L["Users_DeleteError"],
+            ok ? Severity.Info : Severity.Error);
         if (ok)
-        {
-            Snackbar.Add($"Profile \"{row.DisplayName}\" deleted", Severity.Info);
             await RefreshProfilesAsync();
-        }
-        else
-        {
-            Snackbar.Add(L["Users_DeleteError"], Severity.Error);
-        }
     }
 
     private async Task OpenExternalLoginsDialogAsync(UserRow row)
@@ -381,12 +356,10 @@
 
     private async Task LinkExternalLoginAsync()
     {
-        if (_selectedUser is null ||
-            string.IsNullOrWhiteSpace(_newLoginProvider) ||
-            string.IsNullOrWhiteSpace(_newLoginSubject))
-        {
+        if (_selectedUser is null
+            || string.IsNullOrWhiteSpace(_newLoginProvider)
+            || string.IsNullOrWhiteSpace(_newLoginSubject))
             return;
-        }
 
         _linkingExternalLogin = true;
         var login = await Orchestrator.LinkProfileExternalLoginAsync(
@@ -406,7 +379,6 @@
         Snackbar.Add("Sign-in account linked.", Severity.Success);
         ResetExternalLoginForm();
         _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(_selectedUser.Id);
-        await RefreshProfilesAsync();
     }
 
     private async Task UnlinkExternalLoginAsync(Guid loginId)
@@ -423,7 +395,6 @@
 
         Snackbar.Add("Sign-in account unlinked.", Severity.Info);
         _externalLogins = await Orchestrator.GetProfileExternalLoginsAsync(_selectedUser.Id);
-        await RefreshProfilesAsync();
     }
 
     private void ResetExternalLoginForm()

@@ -3,80 +3,68 @@
 @inject ISnackbar Snackbar
 @inject IJSRuntime JS
 @inject IStringLocalizer<SharedStrings> L
-<div class="tl-page">
+<div class="tl-page api-keys-page">
+    <SettingsSectionPanel Title="Guest API keys"
+                          Description="Keys allow approved tools to connect without using a person's sign-in."
+                          Icon="@Icons.Material.Outlined.Key">
+        <AppActionBar Align="AppHorizontalAlignment.End" Class="mb-3">
+            <AppButton Label="@L["ApiKeys_GenerateKey"].Value"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       ButtonStyle="AppButtonStyle.Filled"
+                       Tone="AppUiTone.Primary"
+                       OnClick="@OpenGenerateDialog"
+                       Disabled="@_loading" />
+        </AppActionBar>
 
-    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-        <MudIcon Icon="@Icons.Material.Filled.VpnKey" Color="Color.Default" Class="mr-2" />
-        <MudText Typo="Typo.h6">@L["ApiKeys_GuestApiKeys"]</MudText>
-        <MudSpacer />
-        <AppButton Variant="Variant.Filled"
-                   Color="Color.Primary"
-                   StartIcon="@Icons.Material.Filled.Add"
-                   OnClick="@OpenGenerateDialog"
-                   Disabled="@_loading">
-            @L["ApiKeys_GenerateKey"]
-        </AppButton>
-    </MudStack>
-
-    <MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-4">
-        @L["ApiKeys_GuestApiKeysDescription"]
-    </MudText>
-
-    @if (_loading)
-    {
-        <MudProgressLinear Indeterminate="true" Color="Color.Primary" Class="mb-2" />
-    }
-    else if (_keys.Count == 0)
-    {
-        <AppAlert Severity="Severity.Info" Class="mt-2">
-            @L["ApiKeys_NoKeysIssued"]
-        </AppAlert>
-    }
-    else
-    {
-        <AppDataTable Items="@_keys" Dense="true" Hover="true" Breakpoint="Breakpoint.Sm"
-                  Class="tl-table-transparent">
-            <HeaderContent>
-                <MudTh>@L["ApiKeys_Label"]</MudTh>
-                <MudTh>Role</MudTh>
-                <MudTh>@L["ApiKeys_Created"]</MudTh>
-                <MudTh Class="tl-text-right">@L["ApiKeys_Actions"]</MudTh>
-            </HeaderContent>
-            <RowTemplate>
-                <MudTd>
-                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="1">
-                        <MudIcon Icon="@Icons.Material.Filled.Key" Size="Size.Small"
-                                 Color="Color.Secondary" />
-                        <MudText>@context.Label</MudText>
-                    </MudStack>
-                </MudTd>
-                <MudTd><AppChip Text="@context.Role" Tone="AppUiTone.Neutral" /></MudTd>
-                <MudTd>
-                    <MudText Typo="Typo.body2" Color="Color.Secondary">
-                        @context.CreatedAt.LocalDateTime.ToString("MMM d, yyyy  -  HH:mm")
-                    </MudText>
-                </MudTd>
-                <MudTd Class="tl-text-right">
-                    <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
-                                   Color="Color.Error"
-                                   Size="Size.Medium"
-                                   title="@L["ApiKeys_RevokeThisKey"]"
-                                   OnClick="@(() => RevokeKeyAsync(context))" />
-                </MudTd>
-            </RowTemplate>
-        </AppDataTable>
-
-        @* Revoke All Keys *@
-        <AppButton Variant="Variant.Outlined"
-                   Color="Color.Error"
-                   FullWidth="true"
-                   StartIcon="@Icons.Material.Filled.DeleteSweep"
-                   OnClick="@OpenRevokeAllDialog"
-                   Class="mt-4"
-                   Disabled="@_revokingAll">
-            @L["ApiKeys_RevokeAllKeys"]
-        </AppButton>
-    }
+        @if (_loading)
+        {
+            <AppProgressBar Indeterminate="true" />
+        }
+        else if (_keys.Count == 0)
+        {
+            <AppEmptyState Title="@L["ApiKeys_NoKeysIssued"].Value" />
+        }
+        else
+        {
+            <div class="api-keys-page__table-wrap">
+                <AppTable>
+                    <thead>
+                        <tr>
+                            <th>@L["ApiKeys_Label"]</th>
+                            <th>Role</th>
+                            <th>@L["ApiKeys_Created"]</th>
+                            <th class="tl-text-right">@L["ApiKeys_Actions"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var key in _keys)
+                        {
+                            <tr>
+                                <td>@key.Label</td>
+                                <td><AppChip Text="@key.Role" Tone="AppUiTone.Neutral" /></td>
+                                <td>@key.CreatedAt.LocalDateTime.ToString("MMM d, yyyy · HH:mm")</td>
+                                <td class="tl-text-right">
+                                    <AppIconButton Icon="@Icons.Material.Filled.DeleteOutline"
+                                                   Tone="AppUiTone.Error"
+                                                   AriaLabel="@($"Revoke {key.Label}")"
+                                                   Tooltip="@L["ApiKeys_RevokeThisKey"].Value"
+                                                   OnClick="@(() => RevokeKeyAsync(key))" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </AppTable>
+            </div>
+            <AppActionBar Align="AppHorizontalAlignment.End" Class="mt-4">
+                <AppButton Label="@L["ApiKeys_RevokeAllKeys"].Value"
+                           StartIcon="@Icons.Material.Filled.DeleteSweep"
+                           ButtonStyle="AppButtonStyle.Outlined"
+                           Tone="AppUiTone.Error"
+                           OnClick="@OpenRevokeAllDialog"
+                           Disabled="@_revokingAll" />
+            </AppActionBar>
+        }
+    </SettingsSectionPanel>
 </div>
 <AppDialog @bind-Visible="_generateOpen" Options="_dialogOptions">
     <TitleContent>
