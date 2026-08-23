@@ -29,10 +29,6 @@
                            Status="@GetHeaderStatusLabel()"
                            Healthy="@(_systemStatus?.IsHealthy == true)" />
 
-        <SettingsSubsectionNav Section="@_activeSection"
-                               ActiveSubsection="@_activeSubsection"
-                               AriaLabel="@($"{GetHeroTitle()} sections")" />
-
         <div class="settings-page-canvas settings-admin-panel">
             @if (ShouldDeferForRoleResolution)
             {
@@ -118,7 +114,7 @@
     [Parameter] public string? Subsection { get; set; }
 
     private SettingsSection _activeSection = SettingsSection.Overview;
-    private string _activeSubsection = "profile";
+    private string _activeSubsection = string.Empty;
     private string _currentRole = "Administrator";
     private ProfileViewModel? _activeProfile;
     private bool _profileRoleLoaded;
@@ -263,19 +259,26 @@
             return;
         }
 
-        var subsection = SettingsNav.ResolveSubsection(_activeSection, Subsection);
-        if (subsection is null)
+        if (string.IsNullOrWhiteSpace(Subsection))
         {
-            Nav.NavigateTo("/not-found", replace: true);
-            return;
+            _activeSubsection = string.Empty;
         }
+        else
+        {
+            var subsection = SettingsNav.ResolveSubsection(_activeSection, Subsection);
+            if (subsection is null)
+            {
+                Nav.NavigateTo("/not-found", replace: true);
+                return;
+            }
 
-        _activeSubsection = subsection.Slug;
+            _activeSubsection = subsection.Slug;
+        }
 
         var currentPath = NormalizePath(Nav.ToBaseRelativePath(Nav.Uri));
         var targetRoute = string.IsNullOrWhiteSpace(Subsection)
             ? resolution.CanonicalRoute
-            : SettingsNav.RouteFor(_activeSection, subsection.Slug);
+            : SettingsNav.RouteFor(_activeSection, _activeSubsection);
         var targetPath = NormalizePath(targetRoute);
 
         if (!string.Equals(currentPath, targetPath, StringComparison.OrdinalIgnoreCase))
@@ -362,8 +365,9 @@
 
     private string GetHeroTitle() => SettingsNav.GetItem(_activeSection).Label;
 
-    private string GetSubsectionLabel() =>
-        SettingsNav.ResolveSubsection(_activeSection, _activeSubsection)?.Label ?? GetHeroTitle();
+    private string GetSubsectionLabel() => string.IsNullOrWhiteSpace(_activeSubsection)
+        ? GetHeroTitle()
+        : SettingsNav.ResolveSubsection(_activeSection, _activeSubsection)?.Label ?? GetHeroTitle();
 
     private string? GetHeaderStatusLabel()
     {
@@ -380,20 +384,20 @@
 
     private static string GetSectionDescription(SettingsSection section) => section switch
     {
-        SettingsSection.Overview => "Manage your profile, preferences, and view your activity.",
-        SettingsSection.Playback => "Control how you watch, listen, and read across Tuvima.",
+        SettingsSection.Overview => "Manage your profile and see your personal library activity.",
+        SettingsSection.Playback => "Set the defaults that shape how you watch, listen, and read.",
         SettingsSection.Privacy => "Personal history and export controls are not yet available.",
-        SettingsSection.AdminOverview => "Monitor library health, active work, and system status.",
-        SettingsSection.Libraries => "Manage watched folders, library destinations, source health, organization rules, and write access.",
+        SettingsSection.AdminOverview => "A quick look at your library, system health, and anything that needs attention.",
+        SettingsSection.Libraries => "Manage where your media lives and how each area is organized.",
         SettingsSection.DevHarness => "Internal tools for validation, testing, and diagnostics.",
-        SettingsSection.Providers => "Manage the services Tuvima uses to identify and enrich your library.",
-        SettingsSection.ActivityLogs => "Inspect batches, events, and retention.",
-        SettingsSection.LocalAi => "Manage local models, AI feature toggles, vocabulary, hardware profile, and scheduled enrichment jobs.",
-        SettingsSection.Plugins => "Manage optional extension features, tool health, background jobs, and guarded AI access.",
-        SettingsSection.Delivery => "Configure transcoding, prepared variants, active jobs, and delivery diagnostics.",
-        SettingsSection.Access => "Manage profiles, roles, authentication, linked accounts, and guest API keys.",
-        SettingsSection.Server => "Create and restore backups for this Tuvima server.",
-        SettingsSection.Review => "Items that Tuvima couldn't identify with high confidence and need your attention.",
+        SettingsSection.Providers => "Control which providers identify and enrich each type of media.",
+        SettingsSection.ActivityLogs => "See meaningful system activity and important administrative changes.",
+        SettingsSection.LocalAi => "Manage local intelligence features while keeping technical details out of the way.",
+        SettingsSection.Plugins => "Manage installed extensions and keep plugin health under control.",
+        SettingsSection.Delivery => "Manage server-side playback quality, transcoding, storage, and delivery health.",
+        SettingsSection.Access => "Manage who can use Tuvima and how they sign in.",
+        SettingsSection.Server => "Protect your Tuvima configuration and recover it when needed.",
+        SettingsSection.Review => "Resolve items Tuvima could not identify confidently.",
         SettingsSection.ProviderTester => "Internal provider testing tool.",
         SettingsSection.EnrichmentTester => "Internal enrichment debugging tool.",
         _ => "Settings",

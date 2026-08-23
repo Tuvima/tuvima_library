@@ -1,0 +1,22 @@
+@namespace MediaEngine.Web.Components.Settings
+
+<div class="settings-advanced-link-row">
+    <div class="settings-advanced-link-row__copy">
+        <span class="settings-advanced-link-row__title">@Title</span>
+        @if (!string.IsNullOrWhiteSpace(Description))
+        {
+            <span class="settings-advanced-link-row__description">@Description</span>
+        }
+    </div>
+    <a class="settings-advanced-link-row__action" href="@Href">
+        <span>@ActionLabel</span>
+        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" aria-hidden="true" />
+    </a>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Href { get; set; } = string.Empty;
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public string ActionLabel { get; set; } = "Open";
+}
