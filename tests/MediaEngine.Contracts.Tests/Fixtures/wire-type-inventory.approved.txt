@@ -706,6 +706,13 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Featured: System.Boolean | json=featured | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
+[contracts] MediaEngine.Contracts.Collections.CollectionGalleryReferenceDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  GalleryId: System.Guid | json=gallery_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GalleryKind: System.String | json=gallery_kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UpdatedAt: System.DateTimeOffset | json=updated_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
 [contracts] MediaEngine.Contracts.Collections.CollectionGroupDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
   CollectionId: System.Guid | json=collection_id | nullability=not-null | accessors=get,init | required=yes | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -908,6 +915,27 @@
 [contracts] MediaEngine.Contracts.Collections.CollectionParentResponse
   kind=class | converter=default | number-handling=default | unmapped=default
   parentCollection: MediaEngine.Contracts.Collections.ParentCollectionSummary | json=parentCollection | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  SourceId: System.Guid | json=source_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CollectionId: System.Guid | json=collection_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OwnerProfileId: System.Guid | json=owner_profile_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Kind: System.String | json=kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GalleryId: System.Guid? | json=gallery_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleVersion: System.Int32? | json=rule_version | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Position: System.Int32 | json=position | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceWriteRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Kind: System.String | json=kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GalleryId: System.Guid? | json=gallery_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleVersion: System.Int32? | json=rule_version | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Position: System.Int32 | json=position | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AdditionalMembers: System.Collections.Generic.Dictionary<System.String, System.Text.Json.JsonElement> | json=additionalMembers | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=yes
+  sample={"kind":"sample","gallery_id":"11111111-2222-3333-4444-555555555555","rule_version":7,"rule_definition":null,"position":7}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionPlacementRequest
   kind=class | converter=default | number-handling=default | unmapped=default

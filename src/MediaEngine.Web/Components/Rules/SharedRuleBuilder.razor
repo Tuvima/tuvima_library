@@ -2,12 +2,12 @@
 @using MediaEngine.Contracts.Collections
 @implements IDisposable
 
-<section class="collection-rule-builder @($"collection-rule-builder--{Density}")" data-rule-domain="@Registry.Domain">
+<section class="collection-rule-builder @($"collection-rule-builder--{Density}")" data-rule-domain="@Catalog.Domain">
     <header class="collection-rule-builder__header">
         <div>
-            <span class="collection-rule-builder__eyebrow">@Registry.Eyebrow</span>
-            <h3>@Registry.Title</h3>
-            <p>@Registry.Description</p>
+            <span class="collection-rule-builder__eyebrow">@Catalog.Eyebrow</span>
+            <h3>@Catalog.Title</h3>
+            <p>@Catalog.Description</p>
         </div>
     </header>
 
@@ -139,7 +139,7 @@
                                           AdornmentIcon="@Icons.Material.Outlined.Search" Immediate="true"
                                           Class="collection-rule-builder__picker-search" />
                             <nav class="collection-rule-builder__picker-families" aria-label="Rule families">
-                                @foreach (var category in Registry.Categories)
+                                @foreach (var category in Catalog.Categories)
                                 {
                                     <AppNativeButton Type="button" Class="@(category.Key == _pickerCategory ? "is-selected" : null)"
                                                      OnClick="@(() => SelectPickerCategory(category.Key))">
@@ -166,7 +166,7 @@
             <AppButton Variant="Variant.Outlined" Color="Color.Primary" StartIcon="@Icons.Material.Outlined.Add"
                        Class="collection-rule-builder__add-group" OnClick="AddGroupAsync">Add group</AppButton>
 
-            @if (Registry.ShowSortControls)
+            @if (Catalog.ShowSortControls)
             {
                 <div class="collection-rule-builder__ordering">
                     <div class="collection-rule-builder__ordering-header">
@@ -175,8 +175,8 @@
                     </div>
                     <div class="collection-rule-builder__sort">
                         <span>Sort by</span>
-                        @RenderSortFieldSelect(SortField ?? Registry.SortFields.First().Key, OnSortFieldChangedAsync)
-                        @RenderSortDirectionSelect(SortField ?? Registry.SortFields.First().Key, SortDirection, OnSortDirectionChangedAsync)
+                        @RenderSortFieldSelect(SortField ?? Catalog.SortFields.First().Key, OnSortFieldChangedAsync)
+                        @RenderSortDirectionSelect(SortField ?? Catalog.SortFields.First().Key, SortDirection, OnSortDirectionChangedAsync)
                     </div>
                     @if (string.IsNullOrWhiteSpace(SecondarySortField))
                     {
@@ -201,7 +201,7 @@
 </section>
 
 @code {
-    [Parameter, EditorRequired] public RuleBuilderRegistry Registry { get; set; } = null!;
+    [Parameter, EditorRequired] public RuleBuilderCatalog Catalog { get; set; } = null!;
     [Parameter, EditorRequired] public CollectionRuleDefinitionViewModel Definition { get; set; } = new();
     [Parameter] public EventCallback<CollectionRuleDefinitionViewModel> DefinitionChanged { get; set; }
     [Parameter] public string? SortField { get; set; }
@@ -225,7 +225,7 @@
     private bool _initialPreviewQueued;
     private CancellationTokenSource? _previewCts;
 
-    private IReadOnlyList<RuleFieldDefinition> Fields => Registry.Fields.Where(IsCapabilityEnabled).ToList();
+    private IReadOnlyList<RuleFieldDefinition> Fields => Catalog.Fields.Where(IsCapabilityEnabled).ToList();
     private List<CollectionRulePredicateViewModel> CompleteConditions => Definition.AllConditions.Where(IsComplete).ToList();
     private IReadOnlyList<RuleFieldDefinition> PickerFields => Fields
         .Where(item => !string.IsNullOrWhiteSpace(_pickerSearch) || item.Category == _pickerCategory)
@@ -237,7 +237,7 @@
 
     protected override void OnParametersSet()
     {
-        _pickerCategory = string.IsNullOrWhiteSpace(_pickerCategory) ? Registry.DefaultCategory : _pickerCategory;
+        _pickerCategory = string.IsNullOrWhiteSpace(_pickerCategory) ? Catalog.DefaultCategory : _pickerCategory;
         if (Definition.Groups.Count == 0)
             Definition.Groups.Add(NewGroup());
         foreach (var condition in Definition.AllConditions.Where(condition => Fields.All(field => field.Key != condition.Field)))
@@ -266,11 +266,11 @@
     private bool IsCapabilityEnabled(RuleFieldDefinition field) => field.RequiredCapability switch
     {
         null => true,
-        "people-metadata" => Registry.Capabilities.PeopleMetadata,
-        "place-metadata" => Registry.Capabilities.PlaceMetadata,
-        "face-recognition" => Registry.Capabilities.FaceRecognition,
-        "semantic-search" => Registry.Capabilities.SemanticSearch,
-        "ocr" => Registry.Capabilities.Ocr,
+        "people-metadata" => Catalog.Capabilities.PeopleMetadata,
+        "place-metadata" => Catalog.Capabilities.PlaceMetadata,
+        "face-recognition" => Catalog.Capabilities.FaceRecognition,
+        "semantic-search" => Catalog.Capabilities.SemanticSearch,
+        "ocr" => Catalog.Capabilities.Ocr,
         _ => false,
     };
 
@@ -282,7 +282,7 @@
             return;
         }
         _pickerGroupId = group.Id;
-        _pickerCategory = Registry.DefaultCategory;
+        _pickerCategory = Catalog.DefaultCategory;
         _pickerSearch = string.Empty;
     }
 
@@ -405,7 +405,7 @@
 
     private async Task AddSecondarySortAsync()
     {
-        SecondarySortField = Registry.SortFields.First(option => option.Key != SortField).Key;
+        SecondarySortField = Catalog.SortFields.First(option => option.Key != SortField).Key;
         SecondarySortDirection = "asc";
         await SecondarySortFieldChanged.InvokeAsync(SecondarySortField);
         await SecondarySortDirectionChanged.InvokeAsync(SecondarySortDirection);
@@ -431,7 +431,7 @@
     }
 
     private RenderFragment RenderSortFieldSelect(string value, Func<string, Task> changed) => @<AppSelect T="string" Value="@value" ValueChanged="@changed" Dense="true">
-        @foreach (var option in Registry.SortFields)
+        @foreach (var option in Catalog.SortFields)
         {
             <MudSelectItem T="string" Value="@option.Key">@option.Label</MudSelectItem>
         }

@@ -281,7 +281,7 @@ public sealed class CollectionsHubTests
         var editor = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionEditorShell.razor"));
         var ruleBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionRuleBuilder.razor"));
         var sharedRuleBuilder = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\SharedRuleBuilder.razor"));
-        var collectionRegistry = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\CollectionRuleRegistry.cs"));
+        var collectionCatalog = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\CollectionRuleCatalog.cs"));
         var ruleConfiguration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Rules\RuleBuilderConfiguration.cs"));
         var collectionsPage = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsPage.razor"));
         var sectionConfiguration = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Collections\CollectionsSectionConfiguration.cs"));
@@ -299,8 +299,8 @@ public sealed class CollectionsHubTests
         Assert.Contains("How should this", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", wizard, StringComparison.Ordinal);
         Assert.Contains("<CollectionRuleBuilder", editor, StringComparison.Ordinal);
-        Assert.Contains("CollectionRuleRegistry.Instance", ruleBuilder, StringComparison.Ordinal);
-        Assert.Contains("Build rules", collectionRegistry, StringComparison.Ordinal);
+        Assert.Contains("CollectionRuleCatalog.Instance", ruleBuilder, StringComparison.Ordinal);
+        Assert.Contains("Build rules", collectionCatalog, StringComparison.Ordinal);
         Assert.DoesNotContain("Live matches", sharedRuleBuilder, StringComparison.Ordinal);
         Assert.Contains("Sort results", sharedRuleBuilder, StringComparison.Ordinal);
         Assert.Contains("Add group", sharedRuleBuilder, StringComparison.Ordinal);
@@ -340,7 +340,7 @@ public sealed class CollectionsHubTests
         Assert.Contains("OpenItemPickerAsync", editor, StringComparison.Ordinal);
         Assert.Contains("item(s) in this collection", editor, StringComparison.Ordinal);
         Assert.DoesNotContain("collection-editor-column-title\">Available", editor, StringComparison.Ordinal);
-        Assert.Contains("RuleValueProviderKind.CollectionLibrary", collectionRegistry, StringComparison.Ordinal);
+        Assert.Contains("RuleValueProviderKind.CollectionLibrary", collectionCatalog, StringComparison.Ordinal);
         Assert.Contains("GetCollectionFieldValuesAsync", valuePicker, StringComparison.Ordinal);
         Assert.Contains("collection-editor-workspace", editor, StringComparison.Ordinal);
         Assert.Contains("sme-section-nav collection-editor-rail", editor, StringComparison.Ordinal);

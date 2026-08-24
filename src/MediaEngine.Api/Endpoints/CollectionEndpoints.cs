@@ -47,6 +47,8 @@ public static class CollectionEndpoints
         var group = app.MapGroup("/collections")
                        .WithTags("Collections");
 
+        group.MapCollectionPersonalMediaEndpoints();
+
         group.MapGet("/{collectionId:guid}/series-manifest", async (
             Guid collectionId,
             ISeriesManifestRepository manifestRepo,

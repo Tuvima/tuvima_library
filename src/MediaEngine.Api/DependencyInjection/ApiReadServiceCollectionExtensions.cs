@@ -1,4 +1,5 @@
 using MediaEngine.Api.Services.ReadServices;
+using MediaEngine.Api.Services.Collections;
 using MediaEngine.Application.Services;
 
 namespace MediaEngine.Api.DependencyInjection;
@@ -27,6 +28,7 @@ public static class ApiReadServiceCollectionExtensions
         services.AddSingleton<IUniversalSearchReadService, UniversalSearchReadService>();
         services.AddSingleton<ICollectionMediaLookupReadService, CollectionMediaLookupReadService>();
         services.AddSingleton<CollectionCatalogReadService>();
+        services.AddSingleton<CollectionPersonalMediaService>();
         services.AddSingleton<IReviewQueueReadService, ReviewQueueReadService>();
         services.AddSingleton<EditorSuggestionReadService>();
         services.AddSingleton<PersonEditorReadService>();

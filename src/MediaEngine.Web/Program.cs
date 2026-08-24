@@ -179,6 +179,18 @@ builder.Services.AddScoped<IViewMediaEngineClient>(services =>
     ConfigureEngineClient(client);
     return new ViewMediaEngineClient(client);
 });
+builder.Services.AddScoped<ICollectionPersonalMediaClient>(services =>
+{
+    var assertionHandler = new ViewProfileAssertionHandler(
+        services.GetRequiredService<IActiveProfileAccessor>(),
+        apiKey)
+    {
+        InnerHandler = new HttpClientHandler(),
+    };
+    var client = new HttpClient(assertionHandler);
+    ConfigureEngineClient(client);
+    return ActivatorUtilities.CreateInstance<CollectionPersonalMediaClient>(services, client);
+});
 
 // Named "EngineApi" client — same base address and API key as the scoped client above.
 // Used by ad-hoc pages (e.g. the Enrichment Tester) that need direct HttpClient access
