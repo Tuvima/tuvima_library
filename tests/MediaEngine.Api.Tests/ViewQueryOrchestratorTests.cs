@@ -1,5 +1,6 @@
 using MediaEngine.Api.Services.View;
 using MediaEngine.Contracts.LocalAssets;
+using MediaEngine.Domain.PersonalMedia;
 using Microsoft.AspNetCore.Http;
 
 namespace MediaEngine.Api.Tests;
@@ -15,7 +16,7 @@ public sealed class ViewQueryOrchestratorTests
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(
             http,
-            new ViewRequestProfile(caller.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
         var context = new HttpViewRequestProfileContext(
             new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(
@@ -30,7 +31,7 @@ public sealed class ViewQueryOrchestratorTests
 
         Assert.Equal(ViewAccessOutcome.Allowed, result.Outcome);
         var plan = Assert.IsType<ViewAssetQueryPlan>(backend.Plan);
-        Assert.Equal([included.PersonalLibraryId!.Value], plan.Scope.LibraryIds);
+        Assert.Equal([included.PersonalSpace!.LibraryId], plan.Scope.LibraryIds);
         Assert.Equal("lake", plan.Search);
     }
 
@@ -59,7 +60,7 @@ public sealed class ViewQueryOrchestratorTests
         var http = new DefaultHttpContext();
         HttpViewRequestProfileContext.SetTrustedProfile(
             http,
-            new ViewRequestProfile(caller.ProfileId, "Consumer"));
+            new ViewRequestProfile(caller.Policy.ProfileId, "Consumer"));
         var context = new HttpViewRequestProfileContext(
             new HttpContextAccessor { HttpContext = http });
         var resolver = new ViewScopeResolver(new ViewScopeResolverTests.ScopeStore(caller));
@@ -75,14 +76,21 @@ public sealed class ViewQueryOrchestratorTests
         Assert.Null(backend.Plan);
     }
 
-    private static ViewProfileScopeState State(bool access, bool include) =>
-        new(Guid.NewGuid(), true, access, include, Guid.NewGuid());
+    private static ViewScopeStoreEntry State(bool access, bool include)
+    {
+        var profileId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        return new ViewScopeStoreEntry(
+            new ViewProfilePolicy(profileId, true, access, include, true, now),
+            new ViewPersonalSpace(Guid.NewGuid(), profileId, Guid.NewGuid(), now, now));
+    }
 
     private sealed class EmptyResourceStore : IViewResourceStore
     {
         public Task<ViewResourceDescriptor?> FindAsync(
             ViewResourceKind kind,
             Guid resourceId,
+            Guid requestingProfileId,
             CancellationToken ct = default) => Task.FromResult<ViewResourceDescriptor?>(null);
     }
 
@@ -90,12 +98,12 @@ public sealed class ViewQueryOrchestratorTests
     {
         public ViewAssetQueryPlan? Plan { get; private set; }
 
-        public Task<LocalAssetPageDto> QueryAsync(
+        public Task<ViewAssetTimelinePageDto> QueryAsync(
             ViewAssetQueryPlan plan,
             CancellationToken ct = default)
         {
             Plan = plan;
-            return Task.FromResult(new LocalAssetPageDto([], 0, plan.Limit, 0, false));
+            return Task.FromResult(new ViewAssetTimelinePageDto([], null, false));
         }
     }
 }

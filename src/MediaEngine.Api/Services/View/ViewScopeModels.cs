@@ -1,16 +1,11 @@
+using MediaEngine.Domain.PersonalMedia;
+
 namespace MediaEngine.Api.Services.View;
 
 /// <summary>
 /// A user-facing View scope. Physical library identifiers are deliberately not
 /// part of this contract; they are resolved only after the caller is trusted.
 /// </summary>
-public enum ViewScopeKind
-{
-    Shared,
-    Mine,
-    Profile,
-}
-
 public sealed record ViewScopeRequest(ViewScopeKind Kind, Guid? ProfileId = null)
 {
     public static ViewScopeRequest Shared { get; } = new(ViewScopeKind.Shared);
@@ -27,12 +22,9 @@ public sealed record ViewRequestProfile(Guid ProfileId, string Role);
 /// what the profile may see; IncludeInSharedView independently controls whether
 /// this profile contributes content to Shared View.
 /// </summary>
-public sealed record ViewProfileScopeState(
-    Guid ProfileId,
-    bool ViewEnabled,
-    bool AccessSharedView,
-    bool IncludeInSharedView,
-    Guid? PersonalLibraryId);
+public sealed record ViewScopeStoreEntry(
+    ViewProfilePolicy Policy,
+    ViewPersonalSpace? PersonalSpace);
 
 public sealed record ResolvedViewScope(
     ViewScopeKind Kind,

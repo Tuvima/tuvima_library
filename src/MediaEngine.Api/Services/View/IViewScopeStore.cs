@@ -7,8 +7,7 @@ namespace MediaEngine.Api.Services.View;
 /// </summary>
 public interface IViewScopeStore
 {
-    Task<ViewProfileScopeState?> FindProfileAsync(Guid profileId, CancellationToken ct = default);
+    Task<ViewScopeStoreEntry?> FindProfileAsync(Guid profileId, CancellationToken ct = default);
 
-    Task<IReadOnlyList<ViewProfileScopeState>> GetProfilesAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<ViewScopeStoreEntry>> GetProfilesAsync(CancellationToken ct = default);
 }
-

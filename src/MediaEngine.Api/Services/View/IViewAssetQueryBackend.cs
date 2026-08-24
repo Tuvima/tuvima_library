@@ -4,6 +4,5 @@ namespace MediaEngine.Api.Services.View;
 
 public interface IViewAssetQueryBackend
 {
-    Task<LocalAssetPageDto> QueryAsync(ViewAssetQueryPlan plan, CancellationToken ct = default);
+    Task<ViewAssetTimelinePageDto> QueryAsync(ViewAssetQueryPlan plan, CancellationToken ct = default);
 }
-

@@ -1,3 +1,5 @@
+using MediaEngine.Domain.PersonalMedia;
+
 namespace MediaEngine.Api.Services.View;
 
 public enum ViewResourceKind
@@ -90,7 +92,11 @@ public sealed class ViewResourceAuthorizationService(
             return ViewAccessDecision.NotFound(resolution.Scope);
         }
 
-        var resource = await resourceStore.FindAsync(request.Kind, resourceId, ct).ConfigureAwait(false);
+        var resource = await resourceStore.FindAsync(
+            request.Kind,
+            resourceId,
+            caller.ProfileId,
+            ct).ConfigureAwait(false);
         if (resource is null || resource.Kind != request.Kind)
         {
             return ViewAccessDecision.NotFound(resolution.Scope);
