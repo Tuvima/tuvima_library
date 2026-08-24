@@ -25,7 +25,7 @@ Together, these pages answer six operational questions:
 - what is happening right now
 - what has been processed recently
 - what needs review
-- which Read, Watch, Listen, View, and universal incoming folders are configured
+- which Read, Watch, Listen, personal View, and universal incoming sources are configured
 - which provider or pipeline stage is failing, waiting, or unknown
 - how close the library is to being registered and healthy
 
@@ -101,7 +101,7 @@ Configured folders are grouped by user intent:
 - **Watch**: Movies and TV Shows
 - **Listen**: Music and audiobooks
 - **Read**: Books and Comics
-- **View**: Personal mixed media such as photos, short videos, documents, and audio notes
+- **View**: sources feeding the owning profile's single Personal Space, such as photos, short videos, documents, and audio notes
 
 Each logical library contains stable `sources` in `config/libraries.json`. The UI renders every source with its role, management mode, access mode, intake role, reachability, and permission status. Existing library sources are read-only and indexed in place; only managed writable sources can participate in organization or writeback.
 
@@ -116,9 +116,11 @@ destination only when exactly one library accepts incoming-folder intake and
 the detected media type; ambiguous or unsupported files stop for attention
 rather than being guessed into a library.
 
-Direct browser, drag-and-drop, mobile, device, and API intake retains the
-selected destination library ID through the pipeline. Users do not configure
-or browse internal staging paths.
+Direct producers must retain the resolved destination and provenance through
+the pipeline. Browser upload is connected for View. Drag-and-drop, mobile
+backup, connected-device, and direct API producer types remain modeled for
+future clients and must not be presented as operational backup/sync features.
+Users do not configure or browse internal staging paths.
 
 ## Managed and Existing Sources
 

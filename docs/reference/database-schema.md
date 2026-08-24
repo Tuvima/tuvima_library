@@ -14,7 +14,10 @@ tags:
 
 SQLite database located at `.data/database/library.db` (path set in `config/core.json`).
 
-Latest storage epoch: **guid-blob-v1**. Fresh databases are initialized from `src/MediaEngine.Storage/Schema/schema.sql`; startup migrations are still idempotent, but databases from the previous TEXT-GUID epoch are not read in place.
+Latest storage epoch: **guid-blob-v2**. Fresh databases are initialized from
+`src/MediaEngine.Storage/Schema/schema.sql`; startup migrations remain
+idempotent inside the current epoch, but obsolete development epochs are not
+read in place.
 
 **Conventions:**
 - Internal UUIDs are stored as 16-byte SQLite `BLOB` values in RFC4122/network byte order. API JSON still serializes GUIDs as strings.
@@ -26,8 +29,9 @@ Latest storage epoch: **guid-blob-v1**. Fresh databases are initialized from `sr
 
 Startup safety:
 
-- Current databases record `storage_metadata.storage_epoch = guid-blob-v1`.
-- Legacy TEXT-GUID databases are rejected on startup.
+- Current databases record `storage_metadata.storage_epoch = guid-blob-v2`.
+- Older epochs, including the legacy TEXT-GUID database and `guid-blob-v1`, are
+  rejected on startup.
 - Setting `TUVIMA_STORAGE_RESET=1` or `TUVIMA_STORAGE_RESET=destructive-reingest` renames the legacy database and starts a clean database for reingestion. The old database is kept as a `.legacy-text-guid.<timestamp>.bak` file.
 
 ---
@@ -128,6 +132,117 @@ Many-to-many cross-links between works and collections for works that span multi
 | `collection_id` | TEXT | FK -> `collections.id` |
 | `work_id` | TEXT | FK -> `works.id` |
 | `link_type` | TEXT | Relationship type (e.g., `"adaptation"`, `"companion"`) |
+
+---
+
+## View Personal Media
+
+View is deliberately separate from `works`, `editions`, `media_assets`,
+canonical claims, providers, Wikidata, and Review Queue. Internal library IDs
+bridge configuration/intake to one profile-owned Personal Space; users do not
+browse several source-based destinations.
+
+### `view_personal_spaces`
+
+One stable Personal Space per enabled profile.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | BLOB | Internal UUID, primary key. |
+| `owner_profile_id` | BLOB | Unique FK to `profiles.id`. |
+| `library_id` | BLOB | Unique bridge to the configured `personal` library. |
+| `created_at`, `updated_at` | TEXT | Lifecycle timestamps. |
+
+### `view_sources` and `view_devices`
+
+Provenance records for folders, browser uploads, future device producers, and
+other intake origins. They do not create separate Personal Spaces.
+
+`view_sources` stores `personal_space_id`, `source_type`, display `name`, an
+optional stable `source_key`, activity time, and timestamps.
+`view_devices` stores the Personal Space, optional source, stable client-device
+ID, display/device facts, last-backup time, and a modeled backup state. The
+mobile/device producer itself is not implemented merely because these rows
+exist.
+
+### `local_items`
+
+One profile-owned logical image, short video, document, audio item, or other
+personal asset. Compound files share one item.
+
+| Column | Type | Notes |
+| --- | --- | --- |
+| `id` | BLOB | Internal UUID, primary key. |
+| `personal_space_id` | BLOB | Owning Personal Space. |
+| `owner_profile_id` | BLOB | Owning profile; indexed access boundary. |
+| `library_id` | BLOB | Internal intake/configuration bridge. |
+| `media_kind` | TEXT | `image`, `video`, `document`, `audio`, or `other`. |
+| `title`, `primary_file_name`, `primary_mime_type` | TEXT | Local display identity. |
+| `captured_at`, `created_at`, `updated_at` | TEXT | Timeline values and timestamps. |
+| `favorite`, `hidden` | INTEGER | Profile-owned logical flags. |
+| `archived_at`, `trashed_at` | TEXT | Reversible lifecycle timestamps; neither deletes a file. |
+
+Timeline indexes cover owner, library, and Personal Space with lifecycle state,
+effective capture/creation time, and stable item ID. Additional indexes cover
+kind, favorites, and active discovery.
+
+### Local metadata, files, and provenance
+
+- `local_item_metadata` stores dimensions, duration, page count, camera/device,
+  GPS, normalized place, safely extracted document text, and additional local
+  metadata JSON.
+- `local_files` stores one exact content hash, size, MIME type, extension, and
+  creation time. Hash equality does not imply shared logical ownership.
+- `local_file_sources` retains every observed library/source/device path and
+  timestamps. Its unique key is library plus case-insensitive path.
+- `local_item_files` relates logical items to physical files with roles such as
+  primary, original, Live Photo video, RAW, JPEG, sidecar, audio companion, or
+  derivative. Only one primary is allowed per item.
+- `local_item_tags` stores case-insensitive user/local tags.
+- `local_item_search_keys` maps BLOB item IDs to FTS rowids, while the
+  `local_item_search` FTS5 table indexes title, filename, MIME/media kind, date,
+  device, location, document text, and tags.
+- `local_item_annotations` is reserved for provenance-aware extracted/reviewed
+  facts. It stores kind, value, confidence, source, model provenance, and review
+  time; the table does not perform or imply face recognition, OCR, captions,
+  object detection, or semantic processing.
+
+GPS and annotation indexes support Places and evidence-based People discovery.
+
+### Galleries
+
+`view_galleries` stores owner, Personal Space, name/description, kind, optional
+cover, ordering, and timestamps. `gallery_kind` is `manual` or `smart`; Manual
+Galleries must have no rule JSON and Smart Galleries must have valid rule JSON.
+
+`view_gallery_items` stores unique Manual Gallery membership with explicit
+position and added time. Smart Galleries reject manual membership.
+`view_gallery_shares` stores selected-profile `view` or `contribute`
+permission. Sharing one Gallery does not grant Shared View or access to the
+owner's other assets.
+
+### `collection_view_sources`
+
+Personal-media sources for administrator-authored Collections. A row is either:
+
+- a dynamic Gallery reference, or
+- a saved smart-rule JSON object with `rule_version = 1`.
+
+The mutually exclusive constraints prevent storing both forms, and individual
+local asset IDs are intentionally absent. Unique/indexed Gallery references and
+ordered Collection lookups keep evaluation dynamic while the projection layer
+reapplies View authorization.
+
+### Profile policy and preferences
+
+`profile_view_policies` stores four independent administrator-managed
+capabilities: View enabled, access Shared View, include the profile's Personal
+Space in Shared View, and share Galleries.
+
+`profile_view_preferences` stores the last Shared/Mine/Profile scope and
+compact/comfortable/relaxed timeline density. The Profile form requires a
+profile ID; other forms forbid one. The authorization layer owns fallback when
+a saved scope is no longer permitted.
 
 ---
 

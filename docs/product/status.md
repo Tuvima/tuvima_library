@@ -30,8 +30,11 @@ For the row-by-row implementation truth table, see the [Feature Truth Inventory]
 | Capability readiness | Partial | Media assets can expose explicit readiness rows for identity, enrichment, text tracks, commercial skip, writeback, AI, and plugin work. More workers will be wired over time. |
 | Ingestion dashboard | Partial | Active operations, recent batches, folder health, provider health, progress, and review reasons are visible from durable Engine data where available. |
 | Settings > Media Management | Live | Catalogued and personal libraries, stable sources, incoming locations, source safety, organization, metadata, ownership, visibility, intake, and duplicate policies are backed by Engine/config APIs. |
-| Personal View libraries | Live | Administrators can create mixed local libraries whose local-only or manual policy bypasses retail providers, Wikidata matching, and identity review. |
-| View | Live (MVP) | A mixed local index provides library-scoped timeline/gallery browsing, search, thumbnails, favorites, hidden items, compound-file grouping, content-hash duplicate tracking, and local camera/GPS/document details where available. |
+| View Personal Spaces | Live (foundation) | Each enabled profile resolves one Personal Space. One configured `personal` library and any number of sources or devices may feed it; those implementation records are not separate user-facing destinations. Local-only/manual personal media bypasses retail providers, Wikidata, canonical claims, and Review Queue. |
+| View: Photos | Partial | `/view` uses the four-item View shell and same-origin media grants. The Engine has trusted profile scopes, cursor-paged mixed local assets, local metadata search, Personal Space uploads, favorites, hidden state, archive, trash, and restore APIs. The Dashboard data client, scope selector, lifecycle, selection, and viewer actions are still being cut over to those trusted routes; Archive is intentionally disabled meanwhile. |
+| View: Galleries | Partial | Manual and Smart Gallery persistence, ownership, selected-profile sharing, item paging, membership, ordering, and Engine APIs are implemented. Dashboard creation/editing and rule-builder workflows are still being completed. |
+| View: People and Places | Partial | Authorized Engine queries return real GPS/place aggregates and only named or reviewed, provenance-aware people annotations. The current Dashboard pages remain truthful capability states; map presentation and people browsing are not yet complete. |
+| View in Collections | Partial | Administrator-authored Collections may store a dynamic Gallery reference or a versioned View smart rule. Individual local asset IDs are rejected, and projections reapply View authorization. Full editor and browse presentation remains in progress. |
 | Backup and recovery | Live | Administrators can create, list, download, validate, stage, and apply backups containing the data store and non-secret configuration. |
 | Settings > Providers | Live | Provider catalogue/status/config, credential state, health, tests, and pipeline priority are backed where the Engine exposes them. |
 | Settings > Local AI | Live | Model inventory, download/cancel/load/unload, hardware profile, benchmark, resources, feature flags, vocabulary, and schedules are connected where endpoints exist. |
@@ -51,15 +54,18 @@ These items are not presented as complete user workflows yet:
 - Richer playlist editing, recommendation automation, smart collections, and broader discovery intelligence.
 - Full remote-access hardening and account/session policy beyond the local-first role/API-key model.
 - Interoperability targets such as OPDS, Audiobookshelf-compatible APIs, import wizards, webhooks, and PWA behavior.
-- Post-beta photo intelligence: face/object/OCR search, maps, memories, remote sharing, and mobile upload/sync.
-- Trusted-profile end-user personal-library creation. Administrators can create
-  and govern View libraries now, but API-key requests do not yet carry the
-  profile identity needed for a safe self-service creation endpoint.
-- Mobile-backup and connected-device producers. Their policy and intake modes
-  are modeled, but device-specific clients are not part of this implementation.
-- Automatic shared-incoming routing into personal View libraries. Mixed local
-  candidates are classified and left in place for review today; direct personal
-  browser uploads already index through View without catalogue processing.
+- Post-beta photo intelligence: face recognition, object/scene detection, OCR,
+  captions, embeddings, semantic search, memories, and AI-assisted organization.
+- Privacy-safe map rendering, remote/public-link sharing, and mobile
+  upload/backup/sync. GPS-based place aggregation exists, but these client and
+  presentation experiences are not implemented.
+- Device-specific mobile-backup and connected-device producers. Source/device
+  records and intake policy vocabulary exist so future clients have a safe
+  target, but they are not working backup products today.
+- Automatic shared-incoming routing into a profile's Personal Space. Mixed
+  local candidates are classified and left for attention today; explicit
+  browser uploads already resolve the caller's Personal Space and bypass
+  catalogue processing.
 
 ## Product Guardrails
 

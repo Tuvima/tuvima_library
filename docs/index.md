@@ -36,7 +36,8 @@ Tuvima Library is a private, local-first story library. It watches your folders,
 
 ### Install and launch
 
-Run the Engine and Dashboard locally, configure library paths, and start the first scan.
+Run the Engine and Dashboard locally, configure governed sources, and begin
+catalogued intake or a View Personal Space.
 
 [Open Getting Started](tutorials/getting-started.md)
 
@@ -51,7 +52,8 @@ Run the Engine and Dashboard locally, configure library paths, and start the fir
 
 ### Build your first library
 
-Add folders, scan media, watch ingestion progress, and resolve anything that needs review.
+Add catalogued sources or personal View sources, watch the applicable intake
+path, and resolve only catalogued items that need identity review.
 
 [Open Your First Library](tutorials/first-library.md)
 
@@ -143,6 +145,8 @@ The user-facing Dashboard is organized around current workflows:
 - **Read**, **Watch**, and **Listen** for media lanes and shelves.
 - **Collections** for automatic broader rollups, administrator-curated collections, a cross-lane shelf index, and canonical people.
 - **Search** for cross-library discovery.
+- **View** for one profile-owned Personal Space with exactly Photos, Galleries,
+  People, and Places.
 - **Detail pages** for viewing items and launching inline corrections.
 - **Review Queue** for blocked or uncertain items.
 - **Settings/Admin** for configuration and operations.
@@ -154,6 +158,8 @@ The user-facing Dashboard is organized around current workflows:
 - [Wikidata Property Map](reference/wikidata-property-map.md)
 - [How the Pipeline Works](explanation/how-the-pipeline-works.md)
 - [Ingestion Pipeline](architecture/ingestion-pipeline.md)
+- [Libraries, Sources, and Intake](architecture/library-model-and-intake.md)
+- [View Personal Media Architecture and Static Review](architecture/view-personal-media.md)
 - [Hydration Pipeline and Providers](architecture/hydration-and-providers.md)
 - [Priority Cascade Engine](architecture/scoring-and-cascade.md)
 - [Attributions](reference/attributions.md)
