@@ -82,6 +82,15 @@ public partial interface IEngineApiClient
         string? navigationConfig = null,
         CancellationToken ct = default);
 
+    /// <summary>GET /profiles/{id}/settings/view — read the administrator-managed View policy.</summary>
+    Task<ViewProfilePolicyDto?> GetViewProfilePolicyAsync(Guid id, CancellationToken ct = default);
+
+    /// <summary>PUT /profiles/{id}/settings/view — save independent View access and sharing controls.</summary>
+    Task<ViewProfilePolicyDto?> UpdateViewProfilePolicyAsync(
+        Guid id,
+        UpdateViewProfilePolicyRequest request,
+        CancellationToken ct = default);
+
     /// <summary>POST /profiles/{id}/avatar — upload a persisted profile avatar image.</summary>
     Task<ProfileViewModel?> UploadProfileAvatarAsync(
         Guid id,

@@ -209,6 +209,47 @@ public sealed class UpdateProfileRequest
     public string? NavigationConfig { get; init; }
 }
 
+/// <summary>
+/// Administrator-managed access policy for a profile's personal View space.
+/// Access to the shared aggregate and contribution to it are intentionally
+/// independent decisions.
+/// </summary>
+public sealed class ViewProfilePolicyDto
+{
+    [JsonPropertyName("profile_id")]
+    public Guid ProfileId { get; init; }
+
+    [JsonPropertyName("view_enabled")]
+    public bool ViewEnabled { get; init; }
+
+    [JsonPropertyName("access_shared_view")]
+    public bool AccessSharedView { get; init; }
+
+    [JsonPropertyName("include_in_shared_view")]
+    public bool IncludeInSharedView { get; init; }
+
+    [JsonPropertyName("allow_gallery_sharing")]
+    public bool AllowGallerySharing { get; init; }
+
+    [JsonPropertyName("updated_at")]
+    public DateTimeOffset? UpdatedAt { get; init; }
+}
+
+public sealed class UpdateViewProfilePolicyRequest
+{
+    [JsonPropertyName("view_enabled")]
+    public bool ViewEnabled { get; init; }
+
+    [JsonPropertyName("access_shared_view")]
+    public bool AccessSharedView { get; init; }
+
+    [JsonPropertyName("include_in_shared_view")]
+    public bool IncludeInSharedView { get; init; }
+
+    [JsonPropertyName("allow_gallery_sharing")]
+    public bool AllowGallerySharing { get; init; }
+}
+
 public sealed class ProfileExternalLoginDto
 {
     [JsonPropertyName("id")]

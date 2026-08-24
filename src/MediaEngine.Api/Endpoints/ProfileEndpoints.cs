@@ -126,6 +126,53 @@ public static class ProfileEndpoints
         .ProducesProblem(StatusCodes.Status404NotFound)
         .RequireAnyRole();
 
+        group.MapGet("/{id:guid}/settings/view", async (
+            Guid id,
+            IProfileService profileService,
+            IViewProfileRepository viewProfiles,
+            CancellationToken ct) =>
+        {
+            if (await profileService.GetProfileAsync(id, ct) is null)
+            {
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
+            }
+
+            var policy = await viewProfiles.GetPolicyAsync(id, ct);
+            return Results.Ok(ProfileContractMapper.ToResponse(policy));
+        })
+        .WithName("GetViewProfilePolicy")
+        .WithSummary("Get the administrator-managed View access policy for a profile.")
+        .Produces<ViewProfilePolicyDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
+        group.MapPut("/{id:guid}/settings/view", async (
+            Guid id,
+            UpdateViewProfilePolicyRequest request,
+            IProfileService profileService,
+            IViewProfileRepository viewProfiles,
+            CancellationToken ct) =>
+        {
+            if (await profileService.GetProfileAsync(id, ct) is null)
+            {
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
+            }
+
+            var policy = ProfileContractMapper.ToDomain(id, request);
+            if (!await viewProfiles.SavePolicyAsync(policy, ct))
+            {
+                return ApiErrors.NotFound($"Profile '{id}' not found.");
+            }
+
+            return Results.Ok(ProfileContractMapper.ToResponse(
+                await viewProfiles.GetPolicyAsync(id, ct)));
+        })
+        .WithName("UpdateViewProfilePolicy")
+        .WithSummary("Update View access, shared aggregation, and Gallery sharing for a profile.")
+        .Produces<ViewProfilePolicyDto>(StatusCodes.Status200OK)
+        .ProducesProblem(StatusCodes.Status404NotFound)
+        .RequireAdmin();
+
         group.MapPut("/{id:guid}/settings/playback", async (
             Guid id,
             UserPlaybackSettingsDto request,
