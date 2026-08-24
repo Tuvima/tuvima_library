@@ -107,6 +107,7 @@ public sealed class ViewAssetQueryService(ILocalAssetRepository assets) : IViewA
             plan.MediaKinds,
             plan.FavoritesOnly,
             plan.IncludeHidden,
+            plan.HiddenOnly,
             plan.GalleryId,
             plan.Lifecycle,
             plan.SmartRule), ct);
