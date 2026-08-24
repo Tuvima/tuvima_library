@@ -157,6 +157,12 @@ public sealed class ViewPersistenceRepositoryTests : IDisposable
         await _assets.SetFlagsAsync(first.ItemId, favorite: true, hidden: null);
         Assert.True(await _galleries.IsItemSharedWithProfileAsync(first.ItemId, smartRecipient));
         Assert.False(await _galleries.IsItemSharedWithProfileAsync(foreign.ItemId, smartRecipient));
+        Assert.Equal(1, Assert.Single(await _galleries.GetOwnedAsync(owner.ProfileId),
+            gallery => gallery.Id == smart.Id).ItemCount);
+        Assert.Equal(1, Assert.Single(await _galleries.GetSharedWithAsync(smartRecipient)).ItemCount);
+        await _assets.SetFlagsAsync(first.ItemId, favorite: null, hidden: true);
+        Assert.Equal(0, Assert.IsType<ViewGallery>(await _galleries.GetAsync(smart.Id)).ItemCount);
+        await _assets.SetFlagsAsync(first.ItemId, favorite: null, hidden: false);
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             _galleries.AddItemsAsync(smart.Id, [first.ItemId]));
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
