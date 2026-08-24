@@ -31,6 +31,7 @@ public static class TuvimaStorageServiceCollectionExtensions
         services.AddSingleton<IViewProfileRepository, ViewProfileRepository>();
         services.AddSingleton<IViewPersonalSpaceRepository, ViewPersonalSpaceRepository>();
         services.AddSingleton<IViewGalleryRepository, ViewGalleryRepository>();
+        services.AddSingleton<ICollectionViewSourceRepository, CollectionViewSourceRepository>();
         services.AddSingleton<ViewLibraryService>();
         services.AddSingleton<IViewScopeStore, ViewScopeStore>();
         services.AddSingleton<IViewScopeResolver, ViewScopeResolver>();

@@ -673,6 +673,30 @@ CREATE TABLE IF NOT EXISTS view_gallery_shares (
     PRIMARY KEY (gallery_id, profile_id)
 );
 
+-- Personal-media inputs for administrator-authored Custom Collections. Each
+-- row remains a dynamic Gallery reference or a saved View rule; local asset
+-- IDs and expanded Gallery membership are intentionally absent.
+CREATE TABLE IF NOT EXISTS collection_view_sources (
+    id                  BLOB NOT NULL PRIMARY KEY,
+    collection_id       BLOB NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    owner_profile_id    BLOB NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    source_kind         TEXT NOT NULL CHECK (source_kind IN ('gallery', 'smart_rule')),
+    gallery_id          BLOB REFERENCES view_galleries(id) ON DELETE CASCADE,
+    rule_version        INTEGER CHECK (rule_version IS NULL OR rule_version = 1),
+    rule_json           TEXT CHECK (
+                            rule_json IS NULL
+                            OR CASE WHEN json_valid(rule_json)
+                                    THEN json_type(rule_json) = 'object'
+                                    ELSE 0 END),
+    position            INTEGER NOT NULL DEFAULT 0 CHECK (position >= 0),
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    CHECK ((source_kind = 'gallery'
+            AND gallery_id IS NOT NULL AND rule_version IS NULL AND rule_json IS NULL)
+        OR (source_kind = 'smart_rule'
+            AND gallery_id IS NULL AND rule_version IS NOT NULL AND rule_json IS NOT NULL))
+);
+
 -- Reserved for optional, provenance-aware inferred metadata. The table does
 -- not run inference; it only prevents future annotations from being confused
 -- with user-authored or extracted facts.
@@ -761,6 +785,13 @@ CREATE INDEX IF NOT EXISTS ix_view_gallery_items_item
     ON view_gallery_items(item_id, gallery_id);
 CREATE INDEX IF NOT EXISTS ix_view_gallery_shares_profile
     ON view_gallery_shares(profile_id, shared_at DESC, gallery_id);
+CREATE INDEX IF NOT EXISTS ix_collection_view_sources_collection
+    ON collection_view_sources(collection_id, position, id);
+CREATE INDEX IF NOT EXISTS ix_collection_view_sources_owner
+    ON collection_view_sources(owner_profile_id, source_kind, collection_id, id);
+CREATE UNIQUE INDEX IF NOT EXISTS ux_collection_view_sources_gallery
+    ON collection_view_sources(collection_id, gallery_id)
+    WHERE source_kind = 'gallery';
 CREATE INDEX IF NOT EXISTS ix_local_item_annotations_item
     ON local_item_annotations(item_id, annotation_kind, created_at);
 
