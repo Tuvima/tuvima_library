@@ -2625,6 +2625,17 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewAssetTim
   NextCursor: System.String | nullability=nullable | accessors=get,init
   HasMore: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDeviceAdminDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  SourceId: System.Guid? | nullability=nullable | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  Make: System.String | nullability=nullable | accessors=get,init
+  Model: System.String | nullability=nullable | accessors=get,init
+  LastBackupAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  BackupState: System.String | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewDiscoveryCapabilityDto
   State: System.String | nullability=not-null | accessors=get,init
   HasIndexedData: System.Boolean | nullability=not-null | accessors=get,init
@@ -2721,6 +2732,17 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPersonDt
   ProvenanceSources: System.Collections.Generic.IReadOnlyList<System.String> | nullability=not-null | accessors=get,init
   HasReviewedEvidence: System.Boolean | nullability=not-null | accessors=get,init
 
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPersonalSpaceAdminDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPersonalSpaceAdminReviewDto
+  ProfileId: System.Guid | nullability=not-null | accessors=get,init
+  PersonalSpace: MediaEngine.Contracts.LocalAssets.ViewPersonalSpaceAdminDto | nullability=nullable | accessors=get,init
+  Sources: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewSourceAdminDto> | nullability=not-null | accessors=get,init
+  Devices: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewDeviceAdminDto> | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewPlaceDto
   Key: System.String | nullability=not-null | accessors=get,init
   Name: System.String | nullability=not-null | accessors=get,init
@@ -2763,6 +2785,14 @@ MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewScopeOpt
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewScopeResolutionDto
   Scope: MediaEngine.Contracts.LocalAssets.ViewResolvedScopeDto | nullability=not-null | accessors=get,init
   AvailableScopes: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.ViewScopeOptionDto> | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewSourceAdminDto
+  Id: System.Guid | nullability=not-null | accessors=get,init
+  SourceType: System.String | nullability=not-null | accessors=get,init
+  Name: System.String | nullability=not-null | accessors=get,init
+  LastActivityAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+  CreatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
+  UpdatedAt: System.DateTimeOffset | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.LocalAssets.MediaEngine.Contracts.LocalAssets.ViewUploadResponseDto
   ItemId: System.Guid | nullability=not-null | accessors=get,init

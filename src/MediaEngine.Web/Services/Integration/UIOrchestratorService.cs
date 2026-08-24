@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using System.Text.Json;
 using MediaEngine.Contracts.Admin;
 using MediaEngine.Contracts.Ai;
+using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Maintenance;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;

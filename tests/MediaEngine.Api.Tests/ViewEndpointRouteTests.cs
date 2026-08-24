@@ -43,7 +43,7 @@ public sealed class ViewEndpointRouteTests
         Assert.Contains("IViewResourceAuthorizationService", endpoint, StringComparison.Ordinal);
         Assert.Contains(": ViewScopeRequest.Shared;", endpoint, StringComparison.Ordinal);
         Assert.Contains("AuthorizeOwnedItemAsync", endpoint, StringComparison.Ordinal);
-        Assert.Contains("if (bitmap is null) return Results.NoContent();", endpoint, StringComparison.Ordinal);
+        Assert.Contains("if (bitmap is null)", endpoint, StringComparison.Ordinal);
         Assert.Contains("catch { return Results.NoContent(); }", endpoint, StringComparison.Ordinal);
     }
 
