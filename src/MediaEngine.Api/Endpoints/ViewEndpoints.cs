@@ -143,6 +143,17 @@ public static class ViewEndpoints
         MapLifecycle(group, "restore", LocalAssetLifecycleState.Active);
         MapGalleries(group);
 
+        group.MapGet("/share-targets", async (IViewRequestProfileContext identity,
+            IViewProfileRepository policies, IViewScopeStore scopes, CancellationToken ct) =>
+        {
+            if (identity.Current is not { } caller) return Unauthenticated();
+            var targets = await GetGalleryShareTargetsAsync(
+                caller.ProfileId, policies, scopes, ct).ConfigureAwait(false);
+            return targets is null ? Missing() : Results.Ok(targets);
+        }).WithName("GetViewGalleryShareTargets")
+            .WithSummary("List enabled profiles eligible to receive an individual Gallery share.")
+            .Produces<IReadOnlyList<ViewGalleryShareTargetDto>>();
+
         group.MapPost("/admin/libraries/{libraryId:guid}/scan", async (
             Guid libraryId, ViewLibraryService service, CancellationToken ct) =>
             await service.ScanAsync(libraryId, ct) is { } result ? Results.Ok(result) : Missing())
@@ -267,17 +278,70 @@ public static class ViewEndpoints
 
         group.MapPut("/galleries/{id:guid}/shares", async (Guid id, ViewGallerySharesRequest request,
             IViewRequestProfileContext identity, IViewResourceAuthorizationService authorization,
-            IViewProfileRepository profiles, IViewGalleryRepository repository, CancellationToken ct) =>
+            IViewProfileRepository profiles, IViewScopeStore scopes,
+            IViewGalleryRepository repository, CancellationToken ct) =>
         {
             if (identity.Current is not { } caller) return Unauthenticated();
             var decision = await GalleryAccessAsync(id, ViewResourceAction.Manage, identity, authorization, ct);
             if (!decision.IsAllowed) return Access(decision.Outcome);
-            if (!(await profiles.GetPolicyAsync(caller.ProfileId, ct)).ShareGalleries) return Missing();
+            var targets = await GetGalleryShareTargetsAsync(
+                caller.ProfileId, profiles, scopes, ct).ConfigureAwait(false);
+            if (targets is null) return Missing();
+            if (!TryValidateGalleryShares(request.Shares, caller.ProfileId, targets, out var shares))
+                return ApiErrors.BadRequest("One or more selected profiles cannot receive Gallery shares.");
             await repository.ReplaceSharesAsync(id,
-                request.Shares.Select(value => (value.ProfileId, value.Permission)).ToList(), ct);
+                shares, ct);
             return Results.NoContent();
         }).WithName("UpdateViewGalleryShares")
             .Produces<Microsoft.AspNetCore.Http.HttpResults.NoContent>(StatusCodes.Status204NoContent);
+    }
+
+    internal static async Task<IReadOnlyList<ViewGalleryShareTargetDto>?> GetGalleryShareTargetsAsync(
+        Guid callerProfileId,
+        IViewProfileRepository policies,
+        IViewScopeStore scopes,
+        CancellationToken ct = default)
+    {
+        var callerPolicy = await policies.GetPolicyAsync(callerProfileId, ct).ConfigureAwait(false);
+        if (!callerPolicy.ViewEnabled || !callerPolicy.ShareGalleries)
+            return null;
+
+        return (await scopes.GetProfilesAsync(ct).ConfigureAwait(false))
+            .Where(profile => profile.Policy.ProfileId != callerProfileId
+                && profile.Policy.ViewEnabled
+                && profile.PersonalSpace is not null)
+            .OrderBy(profile => profile.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(profile => profile.Policy.ProfileId)
+            .Select(profile => new ViewGalleryShareTargetDto(
+                profile.Policy.ProfileId,
+                profile.DisplayName,
+                profile.AvatarColor,
+                profile.AvatarUrl))
+            .ToList();
+    }
+
+    internal static bool TryValidateGalleryShares(
+        IReadOnlyCollection<ViewGalleryShareRequest>? requested,
+        Guid callerProfileId,
+        IReadOnlyCollection<ViewGalleryShareTargetDto> targets,
+        out IReadOnlyCollection<(Guid ProfileId, ViewGallerySharePermission Permission)> shares)
+    {
+        shares = [];
+        if (requested is null)
+            return false;
+
+        var eligible = targets.Select(target => target.ProfileId).ToHashSet();
+        if (requested.Any(share => share.ProfileId == Guid.Empty
+                || share.ProfileId == callerProfileId
+                || !eligible.Contains(share.ProfileId)
+                || !Enum.IsDefined(share.Permission))
+            || requested.Select(share => share.ProfileId).Distinct().Count() != requested.Count)
+        {
+            return false;
+        }
+
+        shares = requested.Select(share => (share.ProfileId, share.Permission)).ToList();
+        return true;
     }
 
     private static void MapFlag(RouteGroupBuilder group, string name,

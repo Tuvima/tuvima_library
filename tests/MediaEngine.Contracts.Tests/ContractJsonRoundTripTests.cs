@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MediaEngine.Contracts.Details;
 using MediaEngine.Contracts.Display;
+using MediaEngine.Contracts.LocalAssets;
 using MediaEngine.Contracts.Paging;
 using MediaEngine.Contracts.Playback;
 using MediaEngine.Contracts.Settings;
@@ -11,6 +12,24 @@ namespace MediaEngine.Contracts.Tests;
 public sealed class ContractJsonRoundTripTests
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    [Fact]
+    public void ViewGalleryShareTarget_RoundTripsOnlyCountFreeProfileIdentity()
+    {
+        var profileId = Guid.Parse("11111111-2222-3333-4444-555555555555");
+        var dto = new ViewGalleryShareTargetDto(profileId, "Sarah", "#7457D9", "/avatars/sarah.jpg");
+
+        var json = JsonSerializer.Serialize(dto, JsonOptions);
+        var roundTrip = JsonSerializer.Deserialize<ViewGalleryShareTargetDto>(json, JsonOptions);
+
+        Assert.Equal(dto, roundTrip);
+        Assert.Equal(
+            "{\"profile_id\":\"11111111-2222-3333-4444-555555555555\",\"display_name\":\"Sarah\",\"avatar_color\":\"#7457D9\",\"avatar_url\":\"/avatars/sarah.jpg\"}",
+            json);
+        Assert.DoesNotContain("count", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("library", json, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("asset", json, StringComparison.OrdinalIgnoreCase);
+    }
 
     [Fact]
     public void DetailsDto_RoundTripsRepresentativeShape()

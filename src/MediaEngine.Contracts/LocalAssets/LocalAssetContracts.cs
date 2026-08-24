@@ -140,6 +140,17 @@ public sealed record ViewGalleryShareDto(
     [property: JsonPropertyName("permission")] ViewGallerySharePermission Permission,
     [property: JsonPropertyName("shared_at")] DateTimeOffset SharedAt);
 
+/// <summary>
+/// Count-free profile identity that an authorized Gallery owner may select as
+/// a share recipient. Personal Space, library, asset, and Gallery facts are
+/// intentionally absent.
+/// </summary>
+public sealed record ViewGalleryShareTargetDto(
+    [property: JsonPropertyName("profile_id")] Guid ProfileId,
+    [property: JsonPropertyName("display_name")] string DisplayName,
+    [property: JsonPropertyName("avatar_color")] string AvatarColor,
+    [property: JsonPropertyName("avatar_url")] string? AvatarUrl);
+
 public sealed record ViewGalleryItemsRequest(
     [property: JsonPropertyName("item_ids")] IReadOnlyCollection<Guid> ItemIds);
 
