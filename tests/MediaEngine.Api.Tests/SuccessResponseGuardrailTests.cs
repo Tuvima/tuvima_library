@@ -45,6 +45,7 @@ public sealed partial class SuccessResponseGuardrailTests
         "GetProviderIcon",
         "HidePlaybackSegment",
         "RemoveCollectionItem",
+        "RemoveCollectionPersonalMediaSource",
         "RevokeApiKey",
         "ReorderCollectionItems",
         "RetryMediaOperation",
@@ -169,7 +170,7 @@ public sealed partial class SuccessResponseGuardrailTests
             }
         }
 
-        Assert.Equal(384, routeCount);
+        Assert.Equal(389, routeCount);
         Assert.True(
             missingSuccessMetadata.Count == 0,
             "Routes missing explicit 2xx Produces metadata: " + string.Join(", ", missingSuccessMetadata));

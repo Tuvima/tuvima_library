@@ -2,9 +2,9 @@ using MudBlazor;
 
 namespace MediaEngine.Web.Components.Rules;
 
-public static class ViewRuleRegistry
+public static class ViewRuleCatalog
 {
-    public static RuleBuilderRegistry Instance { get; } = new()
+    public static RuleBuilderCatalog Instance { get; } = new()
     {
         Domain = "view",
         Eyebrow = "Smart Gallery membership",

@@ -157,8 +157,9 @@
   Label: System.String | json=label | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Detail: System.String | json=detail | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Source: System.String | json=source | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Actor: System.String | json=actor | nullability=nullable | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Tone: System.String | json=tone | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"occurred_at":"2025-01-02T03:04:05+00:00","event_type":"sample","label":"sample","detail":"sample","source":"sample","tone":"sample"}
+  sample={"occurred_at":"2025-01-02T03:04:05+00:00","event_type":"sample","label":"sample","detail":"sample","source":"sample","actor":"sample","tone":"sample"}
 
 [contracts] MediaEngine.Contracts.Activity.PruneResponse
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -705,6 +706,13 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   Featured: System.Boolean | json=featured | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
+[contracts] MediaEngine.Contracts.Collections.CollectionGalleryReferenceDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  GalleryId: System.Guid | json=gallery_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GalleryKind: System.String | json=gallery_kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  UpdatedAt: System.DateTimeOffset | json=updated_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
 [contracts] MediaEngine.Contracts.Collections.CollectionGroupDetailDto
   kind=class | converter=default | number-handling=default | unmapped=default
   CollectionId: System.Guid | json=collection_id | nullability=not-null | accessors=get,init | required=yes | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -907,6 +915,27 @@
 [contracts] MediaEngine.Contracts.Collections.CollectionParentResponse
   kind=class | converter=default | number-handling=default | unmapped=default
   parentCollection: MediaEngine.Contracts.Collections.ParentCollectionSummary | json=parentCollection | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  SourceId: System.Guid | json=source_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  CollectionId: System.Guid | json=collection_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OwnerProfileId: System.Guid | json=owner_profile_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Kind: System.String | json=kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GalleryId: System.Guid? | json=gallery_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleVersion: System.Int32? | json=rule_version | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Position: System.Int32 | json=position | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.Collections.CollectionPersonalMediaSourceWriteRequest
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Kind: System.String | json=kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  GalleryId: System.Guid? | json=gallery_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleVersion: System.Int32? | json=rule_version | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  RuleDefinition: MediaEngine.Contracts.Collections.CollectionRuleDefinitionDto | json=rule_definition | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  Position: System.Int32 | json=position | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  AdditionalMembers: System.Collections.Generic.Dictionary<System.String, System.Text.Json.JsonElement> | json=additionalMembers | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=yes
+  sample={"kind":"sample","gallery_id":"11111111-2222-3333-4444-555555555555","rule_version":7,"rule_definition":null,"position":7}
 
 [contracts] MediaEngine.Contracts.Collections.CollectionPlacementRequest
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -3100,25 +3129,12 @@
   WikidataQid: System.String | json=wikidata_qid | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   sample={"work_id":"11111111-2222-3333-4444-555555555555","entity_id":"11111111-2222-3333-4444-555555555555","title":"sample","media_type":"sample","wikidata_qid":"sample"}
 
-[contracts] MediaEngine.Contracts.LocalAssets.AddLocalCollectionItemsRequest
-  kind=class | converter=default | number-handling=default | unmapped=default
-  ItemIds: System.Collections.Generic.IReadOnlyList<System.Guid> | json=item_ids | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.LocalAssets.AddLocalCollectionItemsResult
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Added: System.Int32 | json=added | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
-[contracts] MediaEngine.Contracts.LocalAssets.CreateLocalCollectionRequest
-  kind=class | converter=default | number-handling=default | unmapped=default
-  LibraryId: System.Guid | json=library_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  CollectionKind: System.String | json=collection_kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
 [contracts] MediaEngine.Contracts.LocalAssets.LocalAssetDto
   kind=class | converter=default | number-handling=default | unmapped=default
   Id: System.Guid | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LibraryId: System.Guid | json=library_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  PersonalSpaceId: System.Guid | json=personal_space_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  OwnerProfileId: System.Guid | json=owner_profile_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   MediaKind: System.String | json=media_kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Title: System.String | json=title | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FileName: System.String | json=file_name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -3136,6 +3152,8 @@
   LocationName: System.String | json=location_name | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Favorite: System.Boolean | json=favorite | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Hidden: System.Boolean | json=hidden | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  ArchivedAt: System.DateTimeOffset? | json=archived_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  TrashedAt: System.DateTimeOffset? | json=trashed_at | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   SourceCount: System.Int32 | json=source_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Files: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.LocalAssetFileDto> | json=files | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Tags: System.Collections.Generic.IReadOnlyList<System.String> | json=tags | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
@@ -3169,20 +3187,15 @@
   DuplicatesFound: System.Int32 | json=duplicates_found | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Errors: System.Int32 | json=errors | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
-[contracts] MediaEngine.Contracts.LocalAssets.LocalCollectionDto
-  kind=class | converter=default | number-handling=default | unmapped=default
-  Id: System.Guid | json=id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  LibraryId: System.Guid | json=library_id | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Name: System.String | json=name | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Description: System.String | json=description | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  CollectionKind: System.String | json=collection_kind | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  ItemCount: System.Int32 | json=item_count | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  CoverItemId: System.Guid? | json=cover_item_id | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  CreatedAt: System.DateTimeOffset | json=created_at | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-
 [contracts] MediaEngine.Contracts.LocalAssets.SetLocalAssetFlagRequest
   kind=class | converter=default | number-handling=default | unmapped=default
   Value: System.Boolean | json=value | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+
+[contracts] MediaEngine.Contracts.LocalAssets.ViewAssetTimelinePageDto
+  kind=class | converter=default | number-handling=default | unmapped=default
+  Items: System.Collections.Generic.IReadOnlyList<MediaEngine.Contracts.LocalAssets.LocalAssetDto> | json=items | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  NextCursor: System.String | json=next_cursor | nullability=nullable | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
+  HasMore: System.Boolean | json=has_more | nullability=not-null | accessors=get,init | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
 
 [contracts] MediaEngine.Contracts.LocalAssets.ViewLibrarySummaryDto
   kind=class | converter=default | number-handling=default | unmapped=default
@@ -4595,14 +4608,13 @@
   kind=class | converter=default | number-handling=default | unmapped=default
   ReadingMode: System.String | json=readingMode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   FontSizePercent: System.Int32 | json=fontSizePercent | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  Theme: System.String | json=theme | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   LineSpacing: System.String | json=lineSpacing | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   Margins: System.String | json=margins | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   KeepScreenAwake: System.Boolean | json=keepScreenAwake | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ShowChapterProgress: System.Boolean | json=showChapterProgress | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   ShowPageNumbers: System.Boolean | json=showPageNumbers | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
   DefaultComicMode: System.String | json=defaultComicMode | nullability=not-null | accessors=get,set | required=no | order=0 | ignore=never(global) | converter=default | number-handling=default | extension-data=no
-  sample={"readingMode":"sample","fontSizePercent":7,"theme":"sample","lineSpacing":"sample","margins":"sample","keepScreenAwake":true,"showChapterProgress":true,"showPageNumbers":true,"defaultComicMode":"sample"}
+  sample={"readingMode":"sample","fontSizePercent":7,"lineSpacing":"sample","margins":"sample","keepScreenAwake":true,"showChapterProgress":true,"showPageNumbers":true,"defaultComicMode":"sample"}
 
 [contracts] MediaEngine.Contracts.Playback.RefreshTextTracksResponse
   kind=class | converter=default | number-handling=default | unmapped=default

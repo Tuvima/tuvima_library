@@ -44,7 +44,7 @@ public sealed record RuleBuilderCapabilities(
     bool SemanticSearch = false,
     bool Ocr = false);
 
-public sealed class RuleBuilderRegistry
+public sealed class RuleBuilderCatalog
 {
     public required string Domain { get; init; }
     public required string Eyebrow { get; init; }

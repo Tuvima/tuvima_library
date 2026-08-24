@@ -17,9 +17,9 @@ public sealed class SharedRuleBuilderTests : AsyncBunitContext
     }
 
     [Fact]
-    public void CollectionRegistry_RendersCollectionFieldsThroughSharedCore()
+    public void CollectionCatalog_RendersCollectionFieldsThroughSharedCore()
     {
-        var cut = RenderBuilder(CollectionRuleRegistry.Instance);
+        var cut = RenderBuilder(CollectionRuleCatalog.Instance);
 
         Assert.Equal("collection", cut.Find("[data-rule-domain]").GetAttribute("data-rule-domain"));
         Assert.Contains("Smart membership", cut.Markup);
@@ -27,15 +27,15 @@ public sealed class SharedRuleBuilderTests : AsyncBunitContext
 
         Assert.Contains("Media type", cut.Markup);
         Assert.Contains("Genre", cut.Markup);
-        Assert.Contains("Release year", CollectionRuleRegistry.Instance.SortFields.Select(option => option.Label));
-        Assert.Contains(CollectionRuleRegistry.Instance.Fields, field =>
+        Assert.Contains("Release year", CollectionRuleCatalog.Instance.SortFields.Select(option => option.Label));
+        Assert.Contains(CollectionRuleCatalog.Instance.Fields, field =>
             field.Key == "person_qid" && field.ValueProvider.Kind == RuleValueProviderKind.CollectionLibrary);
     }
 
     [Fact]
-    public void ViewRegistry_RendersPersonalMediaFieldsAndTruthfulCapabilitiesThroughSharedCore()
+    public void ViewCatalog_RendersPersonalMediaFieldsAndTruthfulCapabilitiesThroughSharedCore()
     {
-        var cut = RenderBuilder(ViewRuleRegistry.Instance);
+        var cut = RenderBuilder(ViewRuleCatalog.Instance);
 
         Assert.Equal("view", cut.Find("[data-rule-domain]").GetAttribute("data-rule-domain"));
         Assert.Contains("Smart Gallery membership", cut.Markup);
@@ -50,11 +50,11 @@ public sealed class SharedRuleBuilderTests : AsyncBunitContext
             "people", "place", "captured_date", "media_type", "device", "tags", "favorite",
             "orientation", "duration", "file_type", "owner", "source",
         };
-        Assert.All(expectedFields, key => Assert.Contains(ViewRuleRegistry.Instance.Fields, field => field.Key == key));
-        Assert.False(ViewRuleRegistry.Instance.Capabilities.FaceRecognition);
-        Assert.False(ViewRuleRegistry.Instance.Capabilities.SemanticSearch);
-        Assert.False(ViewRuleRegistry.Instance.Capabilities.Ocr);
-        Assert.DoesNotContain(ViewRuleRegistry.Instance.Fields, field =>
+        Assert.All(expectedFields, key => Assert.Contains(ViewRuleCatalog.Instance.Fields, field => field.Key == key));
+        Assert.False(ViewRuleCatalog.Instance.Capabilities.FaceRecognition);
+        Assert.False(ViewRuleCatalog.Instance.Capabilities.SemanticSearch);
+        Assert.False(ViewRuleCatalog.Instance.Capabilities.Ocr);
+        Assert.DoesNotContain(ViewRuleCatalog.Instance.Fields, field =>
             field.RequiredCapability is "face-recognition" or "semantic-search" or "ocr");
     }
 
@@ -76,16 +76,16 @@ public sealed class SharedRuleBuilderTests : AsyncBunitContext
         Assert.Contains("_previewCts?.Cancel()", sharedBuilder, StringComparison.Ordinal);
     }
 
-    private IRenderedComponent<SharedRuleBuilder> RenderBuilder(RuleBuilderRegistry registry)
+    private IRenderedComponent<SharedRuleBuilder> RenderBuilder(RuleBuilderCatalog catalog)
     {
         Render<MudPopoverProvider>();
         return Render<SharedRuleBuilder>(parameters => parameters
-            .Add(component => component.Registry, registry)
+            .Add(component => component.Catalog, catalog)
             .Add(component => component.Definition, new CollectionRuleDefinitionViewModel
             {
                 Groups = [new CollectionRuleGroupViewModel()],
             })
-            .Add(component => component.SortField, registry.SortFields[0].Key));
+            .Add(component => component.SortField, catalog.SortFields[0].Key));
     }
 
     private static void OpenConditionPicker(IRenderedComponent<SharedRuleBuilder> cut) =>

@@ -5,7 +5,7 @@
 @inject IEngineApiClient ApiClient
 
 <SharedRuleBuilder @ref="_builder"
-                   Registry="@CollectionRuleRegistry.Instance"
+                   Catalog="@CollectionRuleCatalog.Instance"
                    Definition="@Definition"
                    DefinitionChanged="@DefinitionChanged"
                    SortField="@SortField"

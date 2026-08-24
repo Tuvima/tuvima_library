@@ -914,7 +914,7 @@ public sealed class UiShellRenderTests : AsyncBunitContext
         Assert.DoesNotContain("Show in My Profile and Search", source);
         Assert.DoesNotContain("<MudSelectItem T=\"string\" Value=\"@(\"media_type\")\">Media Type</MudSelectItem>", source);
         Assert.Contains("RenderRulesSection", source);
-        Assert.Contains("CollectionRuleRegistry.Instance", ruleBuilder);
+        Assert.Contains("CollectionRuleCatalog.Instance", ruleBuilder);
         Assert.Contains("Add group", sharedRuleBuilder);
         Assert.Contains("collection-rule-builder__group", sharedRuleBuilder);
         Assert.Contains("collection-rule-builder__row", sharedRuleBuilder);
