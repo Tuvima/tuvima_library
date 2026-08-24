@@ -14,8 +14,6 @@ using MediaEngine.Providers.Services;
 using MediaEngine.Storage.Configuration;
 using MediaEngine.Storage.Contracts;
 using AuthSettingsDto = MediaEngine.Contracts.Settings.AuthSettingsDto;
-using BrowseDirectoryRequest = MediaEngine.Contracts.Settings.BrowseDirectoryRequest;
-using BrowseDirectoryResponse = MediaEngine.Contracts.Settings.BrowseDirectoryResultDto;
 using ContractPipelineConfiguration = MediaEngine.Contracts.Settings.PipelineConfiguration;
 using ContractTranscodingSettings = MediaEngine.Contracts.Settings.TranscodingSettings;
 using FieldMappingResponse = MediaEngine.Contracts.Settings.FieldMappingDto;
@@ -63,7 +61,7 @@ namespace MediaEngine.Api.Endpoints;
 ///   Providers (write) — Administrator only.
 ///
 /// <list type="bullet">
-///   <item><c>GET/PUT /settings/libraries</c> — complete schema 3 library configuration</item>
+///   <item><c>GET/PUT /settings/libraries</c> — complete schema 4 library and approved server-root configuration</item>
 ///   <item><c>GET/PUT /settings/incoming-sources</c> — shared universal-intake folders</item>
 ///   <item><c>POST   /settings/test-path</c> — probe a path for existence / read / write access</item>
 ///   <item><c>GET    /settings/providers</c> — enabled state + async reachability for each provider</item>
@@ -168,7 +166,7 @@ public static class SettingsEndpoints
             return Results.Ok(SettingsContractMapper.ToContract(configLoader.LoadLibraries()));
         })
         .WithName("GetLibraries")
-        .WithSummary("Returns the complete schema 3 library and shared incoming-source configuration.")
+        .WithSummary("Returns the complete schema 4 library, approved server-root, and shared incoming-source configuration.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .RequireAdmin();
 
@@ -191,7 +189,7 @@ public static class SettingsEndpoints
             return Results.Ok(SettingsContractMapper.ToContract(config));
         })
         .WithName("UpdateLibraries")
-        .WithSummary("Replaces the complete schema 3 library and shared incoming-source configuration.")
+        .WithSummary("Replaces the complete schema 4 library, approved server-root, and shared incoming-source configuration.")
         .Produces<LibrariesConfigurationSettingsDto>(StatusCodes.Status200OK)
         .ProducesProblem(StatusCodes.Status400BadRequest)
         .RequireAdmin();
@@ -284,73 +282,6 @@ public static class SettingsEndpoints
         .WithName("TestPath")
         .WithSummary("Probes a directory path for existence, read access, and write access.")
         .Produces<TestPathResponse>(StatusCodes.Status200OK)
-        .RequireAdmin();
-
-        // ── POST /settings/browse-directory ────────────────────────────────────────
-
-        grp.MapPost("/browse-directory", (BrowseDirectoryRequest request) =>
-        {
-            var path = request.Path?.Trim();
-
-            // Empty/null → list drive roots.
-            if (string.IsNullOrEmpty(path))
-            {
-                var drives = DriveInfo.GetDrives()
-                    .Where(d => d.IsReady)
-                    .Select(d => d.Name)
-                    .Order()
-                    .ToList();
-
-                return Results.Ok(new BrowseDirectoryResponse
-                {
-                    CurrentPath = string.Empty,
-                    ParentPath = null,
-                    Directories = drives,
-                });
-            }
-
-            // Path traversal validation.
-            var pathError = PathValidator.Validate(path);
-            if (pathError is not null)
-            {
-                return ApiErrors.BadRequest(pathError);
-            }
-
-            if (!Directory.Exists(path))
-            {
-                return Results.Ok(new BrowseDirectoryResponse
-                {
-                    CurrentPath = path,
-                    ParentPath = Path.GetDirectoryName(path),
-                    Directories = [],
-                });
-            }
-
-            List<string> dirs;
-            try
-            {
-                dirs = Directory.GetDirectories(path)
-                    .Select(Path.GetFileName)
-                    .Where(n => n is not null && !n.StartsWith('.'))
-                    .Select(n => n!)
-                    .Order()
-                    .ToList();
-            }
-            catch
-            {
-                dirs = [];
-            }
-
-            return Results.Ok(new BrowseDirectoryResponse
-            {
-                CurrentPath = path,
-                ParentPath = Path.GetDirectoryName(path),
-                Directories = dirs,
-            });
-        })
-        .WithName("BrowseDirectory")
-        .WithSummary("Lists subdirectories at the given path, or drive roots if path is empty.")
-        .Produces<BrowseDirectoryResponse>(StatusCodes.Status200OK)
         .RequireAdmin();
 
         // ── GET /settings/providers/health ────────────────────────────────────────

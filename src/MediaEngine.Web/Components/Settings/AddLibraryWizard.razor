@@ -1,0 +1,451 @@
+@namespace MediaEngine.Web.Components.Settings
+@inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@inject NavigationManager Nav
+
+<div class="add-library-wizard">
+    @if (_loading)
+    {
+        <AppPageState Kind="AppPageStateKind.Loading" Title="Preparing library setup" Class="py-8" />
+    }
+    else if (_configuration is null)
+    {
+        <AppPageState Kind="AppPageStateKind.Error"
+                      Icon="@Icons.Material.Outlined.CloudOff"
+                      Title="Library setup is unavailable"
+                      Message="@(_loadError ?? "The Engine did not return library configuration.")" />
+    }
+    else
+    {
+        <div class="add-library-wizard__header">
+            <AppIconButton Icon="@Icons.Material.Outlined.ArrowBack" Tooltip="Back to libraries" AriaLabel="Back to libraries" OnClick="Cancel" />
+            <div><h2>Add Library</h2><p>Create a structured library to organize and enrich your media.</p></div>
+        </div>
+
+        <ol class="add-library-wizard__steps" aria-label="Library setup progress">
+            @foreach (var step in WizardSteps)
+            {
+                <li class="@StepClass(step.Number)" aria-current="@(step.Number == _step ? "step" : null)">
+                    <span>@(step.Number < _step ? "✓" : step.Number)</span>
+                    <div><strong>@step.Title</strong><small>@step.Help</small></div>
+                </li>
+            }
+        </ol>
+
+        @if (_step == 1)
+        {
+            <section class="add-library-wizard__stage" aria-labelledby="library-type-heading">
+                <div class="add-library-wizard__stage-heading">
+                    <h3 id="library-type-heading">Choose your library type</h3>
+                    <p>Structured libraries identify media and enrich it with artwork, credits, and relationships.</p>
+                </div>
+                <div class="add-library-wizard__type-layout">
+                    <div class="add-library-wizard__type-category">
+                        <span class="add-library-wizard__category-icon"><MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" /></span>
+                        <div><strong>Structured Media</strong><p>Identified and enriched with metadata.</p></div>
+                    </div>
+                    <div class="add-library-wizard__types" role="radiogroup" aria-label="Structured library type">
+                        @foreach (var option in LibraryTypes)
+                        {
+                            <AppNativeButton Type="button"
+                                             Class="@($"add-library-wizard__type is-{option.Key} {(_selectedType?.Key == option.Key ? "is-selected" : null)}")"
+                                             role="radio"
+                                             aria-checked="@(_selectedType?.Key == option.Key)"
+                                             OnClick="@(() => SelectType(option))">
+                                <span class="add-library-wizard__type-icon"><MudIcon Icon="@option.Icon" /></span>
+                                <strong>@option.Label</strong>
+                                @if (_selectedType?.Key == option.Key)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Class="add-library-wizard__selected-check" />
+                                }
+                            </AppNativeButton>
+                        }
+                    </div>
+                </div>
+                <AppAlert Tone="AppUiTone.Info">
+                    Personal photos, home videos, documents, and recordings belong to each profile's single Personal Space in View. Add those sources from Users &amp; Access.
+                </AppAlert>
+            </section>
+        }
+        else if (_step == 2)
+        {
+            <section class="add-library-wizard__stage" aria-labelledby="library-folders-heading">
+                <div class="add-library-wizard__stage-heading add-library-wizard__stage-heading--actions">
+                    <div>
+                        <h3 id="library-folders-heading">Where are your @(_selectedType?.PluralLabel.ToLowerInvariant())?</h3>
+                        <p>Add one or more server-visible folders that contain your @(_selectedType?.PluralLabel.ToLowerInvariant()).</p>
+                    </div>
+                    <div class="add-library-wizard__folder-actions">
+                        <AppSegmentedControl Value="@_newFolderMode" ValueChanged="SetNewFolderMode" Options="@FolderModeOptions" Size="AppControlSize.Compact" AriaLabel="New folder mode" />
+                        <AppButton Label="Add folder" StartIcon="@Icons.Material.Outlined.CreateNewFolder" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" OnClick="AddFolderAsync" />
+                    </div>
+                </div>
+
+                @if (_draft.Sources.Count == 0)
+                {
+                    <AppPageState Kind="AppPageStateKind.Empty" Icon="@Icons.Material.Outlined.FolderOpen"
+                                  Title="No folders selected" Message="Choose a managed destination or an existing read-only library folder." />
+                }
+                else
+                {
+                    <div class="add-library-wizard__folder-list">
+                        @foreach (var source in _draft.Sources)
+                        {
+                            <article class="add-library-wizard__folder" @key="source.Id">
+                                <div class="add-library-wizard__folder-identity">
+                                    <span class="add-library-wizard__folder-icon"><MudIcon Icon="@Icons.Material.Outlined.Folder" /></span>
+                                    <div>
+                                        <AppTextField Label="Friendly name" Value="@SourceFriendlyName(source)" ValueChanged="@((string? value) => source.Notes = value)" />
+                                        <code>@source.Path</code>
+                                    </div>
+                                </div>
+                                <div class="add-library-wizard__folder-control">
+                                    <span>Role</span>
+                                    <AppSelect Value="@source.Role" ValueChanged="@((string? value) => SetSourceRole(source, value))" Options="@RoleOptionsFor(source)" />
+                                </div>
+                                <div class="add-library-wizard__folder-control">
+                                    <span>Mode</span>
+                                    <AppSelect Value="@source.ManagementMode" ValueChanged="@((string? value) => ChangeSourceModeAsync(source, value))" Options="@FolderModeOptions" />
+                                    <small>@ModeHelp(source.ManagementMode)</small>
+                                </div>
+                                <div class="add-library-wizard__folder-control">
+                                    <span>Access</span>
+                                    <strong>@(source.ManagementMode == "managed_by_tuvima" ? "Read / Write" : "Read-only permitted")</strong>
+                                </div>
+                                <div class="add-library-wizard__folder-control">
+                                    <AppSwitchRow Label="Include subfolders" Value="@source.IncludeSubdirectories" ValueChanged="@((bool value) => source.IncludeSubdirectories = value)" />
+                                </div>
+                                <div class="add-library-wizard__folder-health">
+                                    <AppStatusBadge Text="@ValidationLabel(source)" Tone="@ValidationTone(source)" />
+                                    <AppIconButton Icon="@Icons.Material.Outlined.Delete" Tooltip="Remove folder" AriaLabel="Remove folder" Tone="AppUiTone.Error" OnClick="@(() => RemoveSource(source))" />
+                                </div>
+                            </article>
+                        }
+                    </div>
+                    @if (AllFoldersValid)
+                    {
+                        <AppAlert Tone="AppUiTone.Success" Icon="@Icons.Material.Outlined.CheckCircle">All folders look good. Paths are accessible and the primary destination is explicit.</AppAlert>
+                    }
+                }
+            </section>
+        }
+        else if (_step == 3)
+        {
+            <section class="add-library-wizard__stage" aria-labelledby="library-organization-heading">
+                <div class="add-library-wizard__stage-heading">
+                    <h3 id="library-organization-heading">Choose how new media is organized</h3>
+                    <p>Organization applies only to managed folders. Existing library files remain unchanged.</p>
+                </div>
+                <div class="add-library-wizard__organization" role="radiogroup" aria-label="Organization mode">
+                    @foreach (var option in OrganizationModes)
+                    {
+                        <AppNativeButton Type="button" role="radio" aria-checked="@(_draft.OrganizationPolicy.Mode == option.Value)"
+                                         Class="@($"add-library-wizard__organization-option {(_draft.OrganizationPolicy.Mode == option.Value ? "is-selected" : null)}")"
+                                         OnClick="@(() => _draft.OrganizationPolicy.Mode = option.Value)">
+                            <MudIcon Icon="@option.Icon" />
+                            <span><strong>@option.Label</strong><small>@option.Description</small></span>
+                            <MudIcon Icon="@(_draft.OrganizationPolicy.Mode == option.Value ? Icons.Material.Filled.RadioButtonChecked : Icons.Material.Outlined.RadioButtonUnchecked)" />
+                        </AppNativeButton>
+                    }
+                </div>
+                @if (_draft.OrganizationPolicy.Mode == "custom")
+                {
+                    <AppTextField Label="Naming template" Value="@_draft.OrganizationPolicy.CustomTemplate"
+                                  ValueChanged="@((string? value) => _draft.OrganizationPolicy.CustomTemplate = value)"
+                                  Placeholder="{Title} ({Year})/{Title} ({Year}).{Extension}" />
+                }
+                <div class="add-library-wizard__example"><MudIcon Icon="@Icons.Material.Outlined.AccountTree" /><span>Example</span><code>@OrganizationExample</code></div>
+            </section>
+        }
+        else
+        {
+            <section class="add-library-wizard__stage" aria-labelledby="library-review-heading">
+                <div class="add-library-wizard__stage-heading">
+                    <h3 id="library-review-heading">Review your library</h3>
+                    <p>Nothing is saved until you create the library.</p>
+                </div>
+                <div class="add-library-wizard__review-identity">
+                    <span class="@($"add-library-wizard__type-icon is-{_selectedType?.Key}")"><MudIcon Icon="@_selectedType?.Icon" /></span>
+                    <div><h3>@_draft.Name</h3><p>@TitleCase(_draft.Area) library · @(_selectedType?.Description)</p></div>
+                </div>
+                <dl class="add-library-wizard__review">
+                    <div><dt>Area</dt><dd>@TitleCase(_draft.Area)</dd></div>
+                    <div><dt>Type</dt><dd>Structured media</dd></div>
+                    <div><dt>Folders</dt><dd>@_draft.Sources.Count</dd></div>
+                    <div><dt>Primary folder</dt><dd>@(_draft.GetPrimaryDestination()?.Path ?? "Not configured")</dd></div>
+                    <div><dt>Other folders</dt><dd>@SecondaryFolderSummary</dd></div>
+                    <div><dt>Organization</dt><dd>@OrganizationLabel</dd></div>
+                    <div><dt>Existing files unchanged</dt><dd>Yes, for Existing Library sources</dd></div>
+                </dl>
+            </section>
+        }
+
+        <div class="add-library-wizard__footer">
+            <AppButton Label="Back" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(_step == 1 || _saving)" OnClick="Back" />
+            <div>
+                <AppButton Label="Cancel" ButtonStyle="AppButtonStyle.Text" Disabled="@_saving" OnClick="Cancel" />
+                @if (_step < 4)
+                {
+                    <AppButton Label="Next" EndIcon="@Icons.Material.Outlined.ArrowForward" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(!CanContinue)" OnClick="Next" />
+                }
+                else
+                {
+                    <AppButton Label="Create library" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Loading="@_saving" Disabled="@(_saving || !AllFoldersValid)" OnClick="CreateAsync" />
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private sealed record LibraryTypeOption(string Key, string Label, string PluralLabel, string Area, string MediaType, string Icon, string Accent, string Description);
+    private sealed record WizardStep(int Number, string Title, string Help);
+    private sealed record OrganizationMode(string Value, string Label, string Description, string Icon);
+
+    private static readonly LibraryTypeOption[] LibraryTypes =
+    [
+        new("books", "Books", "Books", "read", "Books", Icons.Material.Outlined.MenuBook, "#61a8ff", "Ebooks and PDFs"),
+        new("comics", "Comics", "Comics", "read", "Comics", Icons.Material.Outlined.AutoStories, "#7de568", "Issues and graphic novels"),
+        new("movies", "Movies", "Movies", "watch", "Movies", Icons.Material.Outlined.Movie, "#a16dff", "Films and full-length features"),
+        new("tv", "TV Shows", "TV shows", "watch", "TVShows", Icons.Material.Outlined.Tv, "#49a7ff", "Series and owned episodes"),
+        new("music", "Music", "Music", "listen", "Music", Icons.Material.Outlined.MusicNote, "#e76fce", "Albums and tracks"),
+        new("audiobooks", "Audiobooks", "Audiobooks", "listen", "Audiobooks", Icons.Material.Outlined.Headphones, "#f1b95b", "Narrated books"),
+    ];
+
+    private static readonly WizardStep[] WizardSteps =
+    [
+        new(1, "Select type", "Choose your library type"),
+        new(2, "Add folders", "Choose source folders"),
+        new(3, "Organization", "Set naming and options"),
+        new(4, "Review", "Confirm and create"),
+    ];
+
+    private static readonly OrganizationMode[] OrganizationModes =
+    [
+        new("tuvima_standard", "Tuvima Standard", "Apply media-aware folders and filenames to new imports.", Icons.Material.Outlined.AutoAwesome),
+        new("keep_original_names", "Keep original names", "Preserve existing names and folder structure.", Icons.Material.Outlined.FolderCopy),
+        new("custom", "Custom", "Use a library-specific naming template.", Icons.Material.Outlined.Tune),
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> FolderModeOptions =
+    [
+        new("managed_by_tuvima", "Managed by Tuvima", Icons.Material.Outlined.DriveFileMove),
+        new("existing_library", "Existing library", Icons.Material.Outlined.Lock),
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> PrimaryRoleOptions =
+    [
+        new("primary_destination", "Primary", Icons.Material.Outlined.Star),
+        new("secondary", "Secondary", Icons.Material.Outlined.StarOutline),
+    ];
+
+    private static readonly IReadOnlyList<AppSelectOption> SecondaryRoleOptions =
+    [
+        new("secondary", "Secondary", Icons.Material.Outlined.StarOutline),
+    ];
+
+    private LibrariesConfigurationDto? _configuration;
+    private LibraryFolderDto _draft = new();
+    private LibraryTypeOption? _selectedType;
+    private readonly Dictionary<string, ServerFolderValidationResultDto> _validation = new(StringComparer.OrdinalIgnoreCase);
+    private string _newFolderMode = "managed_by_tuvima";
+    private string? _loadError;
+    private bool _loading = true;
+    private bool _saving;
+    private int _step = 1;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _configuration = await Orchestrator.GetLibrariesAsync();
+        _loadError = _configuration is null ? ApiClient.LastError : null;
+        _loading = false;
+    }
+
+    private void SelectType(LibraryTypeOption option)
+    {
+        _selectedType = option;
+        _draft = new LibraryFolderDto
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            Name = option.Label,
+            Category = option.Label,
+            Kind = "catalogued",
+            Area = option.Area,
+            Presentation = "catalogue",
+            MetadataPolicy = "enriched",
+            MediaTypes = [option.MediaType],
+            Visibility = "household",
+            AcceptedIntakeModes = ["incoming_folder"],
+            DuplicatePolicy = "skip_exact",
+            OrganizationPolicy = new LibraryOrganizationPolicyDto { Mode = "tuvima_standard", PreserveOriginals = true },
+        };
+        _validation.Clear();
+    }
+
+    private async Task AddFolderAsync()
+    {
+        var mode = _newFolderMode == "existing_library"
+            ? ServerFolderSelectionModes.ExistingLibrary
+            : ServerFolderSelectionModes.ManagedLibrary;
+        var parameters = new DialogParameters<ServerFolderPicker>
+        {
+            { component => component.SelectionMode, mode },
+            { component => component.HelpText, $"Choose a folder on the Tuvima server to add to the {_draft.Name} library." },
+        };
+        var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, new DialogOptions
+        {
+            MaxWidth = MaxWidth.ExtraExtraLarge,
+            FullWidth = false,
+            CloseButton = false,
+            CloseOnEscapeKey = true,
+        });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: ServerFolderValidationResultDto selected }) return;
+
+        var managed = _newFolderMode == "managed_by_tuvima";
+        var isPrimary = managed && _draft.GetPrimaryDestination() is null;
+        var source = new LibrarySourceDto
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            Path = selected.Path,
+            Notes = Path.GetFileName(selected.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            Role = isPrimary ? "primary_destination" : "secondary",
+            ManagementMode = _newFolderMode,
+            SourceType = "local_folder",
+            IncludeSubdirectories = true,
+            AccessMode = managed ? "writable" : "read_only",
+            ParticipatesInOrganization = managed,
+            IntakeRole = isPrimary ? "direct" : "none",
+            WritebackOverride = false,
+        };
+        _draft.Sources.Add(source);
+        if (isPrimary) _draft.PrimaryDestinationSourceId = source.Id;
+        _validation[source.Id] = selected;
+    }
+
+    private async Task ChangeSourceModeAsync(LibrarySourceDto source, string? value)
+    {
+        var managed = value == "managed_by_tuvima";
+        var validation = await ApiClient.ValidateServerFolderAsync(new ValidateServerFolderRequest
+        {
+            ManualPath = source.Path,
+            SelectionMode = managed ? ServerFolderSelectionModes.ManagedLibrary : ServerFolderSelectionModes.ExistingLibrary,
+            CurrentSourceId = source.Id,
+        });
+        if (validation is null || !validation.CanSelect)
+        {
+            Snackbar.Add(validation?.Issues.FirstOrDefault()?.Message ?? ApiClient.LastError ?? "This folder does not meet the selected mode's access requirements.", Severity.Error);
+            return;
+        }
+
+        source.ManagementMode = managed ? "managed_by_tuvima" : "existing_library";
+        source.AccessMode = managed ? "writable" : "read_only";
+        source.ParticipatesInOrganization = managed;
+        source.WritebackOverride = false;
+        if (!managed && source.Role == "primary_destination")
+        {
+            source.Role = "secondary";
+            _draft.PrimaryDestinationSourceId = null;
+        }
+        _validation[source.Id] = validation!;
+    }
+
+    private void SetSourceRole(LibrarySourceDto source, string? role)
+    {
+        if (role != "primary_destination" || source.ManagementMode != "managed_by_tuvima")
+        {
+            source.Role = "secondary";
+            if (_draft.PrimaryDestinationSourceId == source.Id) _draft.PrimaryDestinationSourceId = null;
+            return;
+        }
+
+        foreach (var other in _draft.Sources.Where(other => other.Id != source.Id && other.Role == "primary_destination"))
+        {
+            other.Role = "secondary";
+            other.IntakeRole = "none";
+        }
+        source.Role = "primary_destination";
+        source.IntakeRole = "direct";
+        _draft.PrimaryDestinationSourceId = source.Id;
+    }
+
+    private void RemoveSource(LibrarySourceDto source)
+    {
+        _draft.Sources.Remove(source);
+        _validation.Remove(source.Id);
+        if (_draft.PrimaryDestinationSourceId == source.Id) _draft.PrimaryDestinationSourceId = null;
+    }
+
+    private void SetNewFolderMode(string value) => _newFolderMode = value;
+    private IReadOnlyList<AppSelectOption> RoleOptionsFor(LibrarySourceDto source) => source.ManagementMode == "managed_by_tuvima" ? PrimaryRoleOptions : SecondaryRoleOptions;
+    private string SourceFriendlyName(LibrarySourceDto source) => string.IsNullOrWhiteSpace(source.Notes) ? Path.GetFileName(source.Path) : source.Notes;
+    private string ValidationLabel(LibrarySourceDto source) => _validation.TryGetValue(source.Id, out var result) && result.CanSelect ? "Healthy" : "Needs validation";
+    private AppUiTone ValidationTone(LibrarySourceDto source) => _validation.TryGetValue(source.Id, out var result) && result.CanSelect ? AppUiTone.Success : AppUiTone.Warning;
+    private bool AllFoldersValid => _draft.Sources.Count > 0
+        && _draft.GetPrimaryDestination() is not null
+        && _draft.Sources.All(source => _validation.TryGetValue(source.Id, out var result) && result.CanSelect);
+    private bool CanContinue => _step switch
+    {
+        1 => _selectedType is not null,
+        2 => AllFoldersValid,
+        3 => _draft.OrganizationPolicy.Mode != "custom" || !string.IsNullOrWhiteSpace(_draft.OrganizationPolicy.CustomTemplate),
+        _ => true,
+    };
+
+    private string StepClass(int step) => step == _step ? "is-active" : step < _step ? "is-complete" : string.Empty;
+    private void Back() => _step = Math.Max(1, _step - 1);
+    private void Next() { if (CanContinue) _step = Math.Min(4, _step + 1); }
+    private void Cancel() => Nav.NavigateTo("/settings/libraries");
+
+    private async Task CreateAsync()
+    {
+        if (_configuration is null || _saving || !AllFoldersValid) return;
+        _saving = true;
+        try
+        {
+            _configuration.Libraries.Add(_draft);
+            var saved = await Orchestrator.UpdateLibrariesAsync(new UpdateLibrariesRequest
+            {
+                SchemaVersion = _configuration.SchemaVersion,
+                StorageLocations = _configuration.StorageLocations,
+                Libraries = _configuration.Libraries,
+                IncomingSources = _configuration.IncomingSources,
+                PersonalLibraryPolicy = _configuration.PersonalLibraryPolicy,
+            });
+            if (saved is null)
+            {
+                _configuration.Libraries.Remove(_draft);
+                Snackbar.Add(ApiClient.LastError ?? "The library could not be created.", Severity.Error);
+                return;
+            }
+            Snackbar.Add($"{_draft.Name} library created.", Severity.Success);
+            Nav.NavigateTo($"/settings/libraries/{_draft.Id}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private string ModeHelp(string mode) => mode == "managed_by_tuvima"
+        ? "Tuvima may organize new files and apply naming rules."
+        : "Tuvima indexes files without moving, renaming, or modifying them.";
+    private string OrganizationExample => _draft.OrganizationPolicy.Mode switch
+    {
+        "keep_original_names" => "Original Folder / Original Name.ext",
+        "custom" => _draft.OrganizationPolicy.CustomTemplate ?? "Add a custom template",
+        _ when _draft.Area == "read" => "Author / Series / Title (2026) / Title.epub",
+        _ when _draft.Area == "listen" => "Artist / Album (2026) / 01 - Track.flac",
+        _ => "Movies / Title (2026) / Title (2026).mkv",
+    };
+    private string OrganizationLabel => OrganizationModes.First(mode => mode.Value == _draft.OrganizationPolicy.Mode).Label;
+    private string SecondaryFolderSummary => _draft.Sources.Count(source => source.Role == "secondary") switch
+    {
+        0 => "None",
+        1 => _draft.Sources.First(source => source.Role == "secondary").Path,
+        var count => $"{count} secondary folders",
+    };
+    private static string TitleCase(string value) => char.ToUpperInvariant(value[0]) + value[1..];
+}

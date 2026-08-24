@@ -401,21 +401,17 @@ public sealed class UIOrchestratorService : IAsyncDisposable
     public Task<bool> UpdateServerGeneralAsync(ServerGeneralSettingsDto settings, CancellationToken ct = default)
         => _api.UpdateServerGeneralAsync(settings, ct);
 
-    /// <summary>Returns complete schema 3 library and shared incoming-source configuration.</summary>
+    /// <summary>Returns complete schema 4 library, server-root, and incoming-source configuration.</summary>
     public Task<LibrariesConfigurationDto?> GetLibrariesAsync(CancellationToken ct = default)
         => _api.GetLibrariesAsync(ct);
 
-    /// <summary>Replaces complete schema 3 library and shared incoming-source configuration.</summary>
+    /// <summary>Replaces complete schema 4 library, server-root, and incoming-source configuration.</summary>
     public Task<LibrariesConfigurationDto?> UpdateLibrariesAsync(UpdateLibrariesRequest request, CancellationToken ct = default)
         => _api.UpdateLibrariesAsync(request, ct);
 
     /// <summary>Probes a directory path for existence, read, and write access.</summary>
     public Task<PathTestResultDto?> TestPathAsync(string path, CancellationToken ct = default)
         => _api.TestPathAsync(path, ct);
-
-    /// <summary>Lists subdirectories at the given path, or drive roots when the path is empty.</summary>
-    public Task<BrowseDirectoryResultDto?> BrowseDirectoryAsync(string? path, CancellationToken ct = default)
-        => _api.BrowseDirectoryAsync(path, ct);
 
     /// <summary>Returns enabled state and live reachability for all registered metadata providers.</summary>
     public Task<IReadOnlyList<ProviderStatusDto>> GetProviderStatusAsync(CancellationToken ct = default)

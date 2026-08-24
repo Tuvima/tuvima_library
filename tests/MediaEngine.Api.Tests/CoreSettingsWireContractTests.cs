@@ -114,11 +114,21 @@ public sealed class CoreSettingsWireContractTests
     }
 
     [Fact]
-    public void LibrarySettingsMapper_PreservesSchemaThreeLibrariesAndIncomingSources()
+    public void LibrarySettingsMapper_PreservesSchemaFourLibrariesIncomingSourcesAndStorageLocations()
     {
         var request = new UpdateLibrariesRequest
         {
-            SchemaVersion = "3.0",
+            SchemaVersion = "4.0",
+            StorageLocations =
+            [
+                new ServerStorageLocationDto
+                {
+                    Id = "media",
+                    Label = "Media",
+                    Path = @"D:\Media",
+                    AllowWrite = true,
+                },
+            ],
             PersonalLibraryPolicy = new PersonalLibraryPolicyDto
             {
                 AllowUserCreation = true,
@@ -169,7 +179,8 @@ public sealed class CoreSettingsWireContractTests
         var storage = SettingsContractMapper.ToStorage(request);
         var contract = SettingsContractMapper.ToContract(storage);
 
-        Assert.Equal("3.0", storage.SchemaVersion);
+        Assert.Equal("4.0", storage.SchemaVersion);
+        Assert.Equal(@"D:\Media", storage.StorageLocations.Single().Path);
         Assert.Equal(@"D:\Media\Movies", storage.Libraries.Single().PrimaryDestination?.Path);
         Assert.True(storage.Libraries.Single().PrimaryDestination?.AllowsFileMutation);
         Assert.Equal(@"D:\Incoming", contract.IncomingSources.Single().Path);
@@ -181,7 +192,7 @@ public sealed class CoreSettingsWireContractTests
     }
 
     [Fact]
-    public void AuthPathBrowseAndSystemContracts_KeepEstablishedJsonNames()
+    public void AuthPathAndSystemContracts_KeepEstablishedJsonNames()
     {
         var authJson = JsonSerializer.Serialize(new AuthSettingsDto
         {
@@ -195,9 +206,6 @@ public sealed class CoreSettingsWireContractTests
             OidcScopes = ["openid", "profile"],
         }, JsonOptions);
         var pathJson = JsonSerializer.Serialize(new PathTestResultDto(@"D:\Media", true, true, false), JsonOptions);
-        var browseJson = JsonSerializer.Serialize(
-            new BrowseDirectoryResultDto(@"D:\Media", @"D:\", [@"D:\Media\Books"]),
-            JsonOptions);
         var systemJson = JsonSerializer.Serialize(new SystemStatusResponse
         {
             Status = "ok",
@@ -208,7 +216,6 @@ public sealed class CoreSettingsWireContractTests
         Assert.Contains("\"localhost_bypass\":false", authJson, StringComparison.Ordinal);
         Assert.Contains("\"oidc_scopes\":[\"openid\",\"profile\"]", authJson, StringComparison.Ordinal);
         Assert.Contains("\"has_write\":false", pathJson, StringComparison.Ordinal);
-        Assert.Contains("\"current_path\":\"D:\\\\Media\"", browseJson, StringComparison.Ordinal);
         Assert.Contains("\"language\":\"de\"", systemJson, StringComparison.Ordinal);
     }
 

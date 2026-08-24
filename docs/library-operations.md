@@ -12,13 +12,12 @@ tags:
 
 # Library Admin Pages
 
-**Media Management**, Ingestion, Metadata Providers, Activity & Audit, and
-Developer Tools are first-class Settings pages for the part of Tuvima Library
-that turns folders into registered media. Media Management is available at
-`/settings/media-management` and contains Overview, Incoming, Libraries, and
-Activity. Ingestion operations are part of Media Management at
-`/settings/media-management/activity`; the feature-gated development harness is
-available at `/settings/developer/options`.
+**Libraries**, **Import Folders**, Ingestion, Metadata Providers, Activity & Audit,
+and Developer Tools are first-class Settings pages for the part of Tuvima Library
+that turns folders into registered media. Structured destinations and profile
+Personal Space status live at `/settings/libraries`; watched intake locations live
+at `/settings/import-folders`; ingestion operations live at `/settings/ingestion`.
+The feature-gated development harness is available at `/settings/developer/options`.
 
 Together, these pages answer six operational questions:
 

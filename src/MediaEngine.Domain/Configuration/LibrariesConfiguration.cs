@@ -7,7 +7,10 @@ namespace MediaEngine.Domain.Configuration;
 public sealed class LibrariesConfiguration
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; set; } = "3.0";
+    public string SchemaVersion { get; set; } = "4.0";
+
+    [JsonPropertyName("storage_locations")]
+    public List<ServerStorageLocationConfig> StorageLocations { get; set; } = [];
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderConfig> Libraries { get; set; } = [];
@@ -17,6 +20,28 @@ public sealed class LibrariesConfiguration
 
     [JsonPropertyName("personal_library_policy")]
     public PersonalLibraryPolicyConfig PersonalLibraryPolicy { get; set; } = new();
+
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }
+}
+
+/// <summary>
+/// An administrator-approved server/container root that may be exposed by the
+/// folder browser. Paths outside these roots are never browsable through the UI.
+/// </summary>
+public sealed class ServerStorageLocationConfig
+{
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; set; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string Path { get; set; } = string.Empty;
+
+    [JsonPropertyName("allow_write")]
+    public bool AllowWrite { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? UnmappedProperties { get; set; }

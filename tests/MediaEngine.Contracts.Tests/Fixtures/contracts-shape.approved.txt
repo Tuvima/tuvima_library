@@ -4918,13 +4918,17 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.AuthSettingsDto
   OidcClientId: System.String | nullability=not-null | accessors=get,init
   OidcScopes: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
 
-MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.BrowseDirectoryRequest
-  Path: System.String | nullability=nullable | accessors=get,init
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.BrowseServerFoldersRequest
+  StorageLocationId: System.String | nullability=not-null | accessors=get,init
+  RelativePath: System.String | nullability=nullable | accessors=get,init
+  Search: System.String | nullability=nullable | accessors=get,init
 
-MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.BrowseDirectoryResultDto
-  CurrentPath: System.String | nullability=not-null | accessors=get,init
-  ParentPath: System.String | nullability=nullable | accessors=get,init
-  Directories: System.Collections.Generic.List<System.String> | nullability=not-null | accessors=get,init
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.BrowseServerFoldersResultDto
+  StorageLocation: MediaEngine.Contracts.Settings.ServerStorageLocationDto | nullability=not-null | accessors=get,init
+  RelativePath: System.String | nullability=not-null | accessors=get,init
+  ParentRelativePath: System.String | nullability=nullable | accessors=get,init
+  DisplayPath: System.String | nullability=not-null | accessors=get,init
+  Directories: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerFolderEntryDto> | nullability=not-null | accessors=get,init
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.FieldMappingDto
   ClaimKey: System.String | nullability=not-null | accessors=get,set
@@ -4995,6 +4999,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.IncomingSourceDto
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.LibrariesConfigurationDto
   SchemaVersion: System.String | nullability=not-null | accessors=get,init
+  StorageLocations: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerStorageLocationDto> | nullability=not-null | accessors=get,init
   Libraries: System.Collections.Generic.List<MediaEngine.Contracts.Settings.LibraryFolderDto> | nullability=not-null | accessors=get,init
   IncomingSources: System.Collections.Generic.List<MediaEngine.Contracts.Settings.IncomingSourceDto> | nullability=not-null | accessors=get,init
   PersonalLibraryPolicy: MediaEngine.Contracts.Settings.PersonalLibraryPolicyDto | nullability=not-null | accessors=get,init
@@ -5261,6 +5266,30 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.SeriesMissingItemP
   ShowMissing: System.Boolean? | nullability=nullable | accessors=get,init
   UpdatedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
 
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderEntryDto
+  Name: System.String | nullability=not-null | accessors=get,init
+  RelativePath: System.String | nullability=not-null | accessors=get,init
+  ModifiedAt: System.DateTimeOffset? | nullability=nullable | accessors=get,init
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderSelectionModes
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderValidationIssueDto
+  Code: System.String | nullability=not-null | accessors=get,init
+  Message: System.String | nullability=not-null | accessors=get,init
+  Severity: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerFolderValidationResultDto
+  StorageLocationId: System.String | nullability=not-null | accessors=get,init
+  RelativePath: System.String | nullability=not-null | accessors=get,init
+  Path: System.String | nullability=not-null | accessors=get,init
+  Exists: System.Boolean | nullability=not-null | accessors=get,init
+  HasRead: System.Boolean | nullability=not-null | accessors=get,init
+  HasWrite: System.Boolean | nullability=not-null | accessors=get,init
+  AvailableBytes: System.Int64? | nullability=nullable | accessors=get,init
+  FileSystem: System.String | nullability=nullable | accessors=get,init
+  CanSelect: System.Boolean | nullability=not-null | accessors=get,init
+  Issues: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerFolderValidationIssueDto> | nullability=not-null | accessors=get,init
+
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerGeneralSettingsDto
   ServerName: System.String | nullability=not-null | accessors=get,init
   Language: System.String | nullability=not-null | accessors=get,init
@@ -5271,6 +5300,14 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerGeneralSetti
   Country: System.String | nullability=not-null | accessors=get,init
   DateFormat: System.String | nullability=not-null | accessors=get,init
   TimeFormat: System.String | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ServerStorageLocationDto
+  Id: System.String | nullability=not-null | accessors=get,init
+  Label: System.String | nullability=not-null | accessors=get,init
+  Path: System.String | nullability=not-null | accessors=get,init
+  AllowWrite: System.Boolean | nullability=not-null | accessors=get,init
+  AvailableBytes: System.Int64? | nullability=nullable | accessors=get,init
+  FileSystem: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.SettingsCatalogEntryResponse
   key: System.String | nullability=not-null | accessors=get,init
@@ -5394,6 +5431,7 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UpdateIncomingSour
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UpdateLibrariesRequest
   SchemaVersion: System.String | nullability=not-null | accessors=get,init
+  StorageLocations: System.Collections.Generic.List<MediaEngine.Contracts.Settings.ServerStorageLocationDto> | nullability=not-null | accessors=get,init
   Libraries: System.Collections.Generic.List<MediaEngine.Contracts.Settings.LibraryFolderDto> | nullability=not-null | accessors=get,init
   IncomingSources: System.Collections.Generic.List<MediaEngine.Contracts.Settings.IncomingSourceDto> | nullability=not-null | accessors=get,init
   PersonalLibraryPolicy: MediaEngine.Contracts.Settings.PersonalLibraryPolicyDto | nullability=not-null | accessors=get,init
@@ -5404,6 +5442,13 @@ MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UpdateOrganization
 
 MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.UpdateProviderRequest
   Enabled: System.Boolean | nullability=not-null | accessors=get,init
+
+MediaEngine.Contracts.Settings.MediaEngine.Contracts.Settings.ValidateServerFolderRequest
+  StorageLocationId: System.String | nullability=not-null | accessors=get,init
+  RelativePath: System.String | nullability=nullable | accessors=get,init
+  ManualPath: System.String | nullability=nullable | accessors=get,init
+  SelectionMode: System.String | nullability=not-null | accessors=get,init
+  CurrentSourceId: System.String | nullability=nullable | accessors=get,init
 
 MediaEngine.Contracts.System.MediaEngine.Contracts.System.BackupArchiveDto
   FileName: System.String | nullability=not-null | accessors=get,init

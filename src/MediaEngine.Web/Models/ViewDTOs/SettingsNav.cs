@@ -13,6 +13,8 @@ public enum SettingsSection
 
     AdminOverview,
     Libraries,
+    ImportFolders,
+    Ingestion,
     DevHarness,
     Providers,
     LocalAi,
@@ -99,8 +101,10 @@ public static class SettingsNav
         new(SettingsSection.Privacy, "personal", "privacy", Icons.Material.Outlined.Lock, "Privacy & Data", false, null, [], "unavailable", Placeholder: true),
 
         new(SettingsSection.AdminOverview, "administration", "system", Icons.Material.Outlined.Dashboard, "System Overview", true, null, [], "json+sqlite", Status: SettingsStatusKind.Live),
-        new(SettingsSection.Libraries, "administration", "media-management", Icons.Material.Outlined.PermMedia, "Media Management", true, null, [], Status: SettingsStatusKind.Live),
-        new(SettingsSection.Providers, "administration", "providers", Icons.Material.Outlined.Hub, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Libraries, "administration", "libraries", Icons.Material.Outlined.VideoLibrary, "Libraries", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.ImportFolders, "administration", "import-folders", Icons.Material.Outlined.MoveToInbox, "Import Folders", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Ingestion, "administration", "ingestion", Icons.Material.Outlined.MonitorHeart, "Ingestion", true, null, [], Status: SettingsStatusKind.Live),
+        new(SettingsSection.Providers, "administration", "metadata", Icons.Material.Outlined.Storage, "Metadata", true, null, [], Status: SettingsStatusKind.Live),
         new(SettingsSection.Review, "administration", "review", Icons.Material.Outlined.RateReview, "Needs Review", true, "review", [], "mixed"),
         new(SettingsSection.ActivityLogs, "administration", "activity", Icons.Material.Outlined.Timeline, "Activity & Audit", true, null, [], "sqlite"),
         new(SettingsSection.Delivery, "administration", "delivery", Icons.Material.Outlined.VideoSettings, "Playback & Delivery", true, null, [], Status: SettingsStatusKind.Partial),
@@ -122,6 +126,8 @@ public static class SettingsNav
             [
                 SettingsSection.AdminOverview,
                 SettingsSection.Libraries,
+                SettingsSection.ImportFolders,
+                SettingsSection.Ingestion,
                 SettingsSection.Providers,
                 SettingsSection.Review,
                 SettingsSection.ActivityLogs,
@@ -146,12 +152,9 @@ public static class SettingsNav
                 new("export-reset", "Export & Reset", Icons.Material.Outlined.SettingsBackupRestore),
             ],
             [SettingsSection.AdminOverview] = [],
-            [SettingsSection.Libraries] =
-            [
-                new("incoming", "Incoming", Icons.Material.Outlined.MoveToInbox),
-                new("libraries", "Libraries", Icons.Material.Outlined.FolderOpen),
-                new("activity", "Activity", Icons.Material.Outlined.Timeline),
-            ],
+            [SettingsSection.Libraries] = [],
+            [SettingsSection.ImportFolders] = [],
+            [SettingsSection.Ingestion] = [],
             [SettingsSection.DevHarness] =
             [
                 new("options", "Run Options", Icons.Material.Outlined.Tune),
@@ -160,9 +163,9 @@ public static class SettingsNav
             ],
             [SettingsSection.Providers] =
             [
+                new("providers", "Providers", Icons.Material.Outlined.Dns),
                 new("enrichment", "Enrichment", Icons.Material.Outlined.AutoAwesome),
-                new("priority", "Source Priority", Icons.Material.Outlined.SwapVert),
-                new("health", "Health", Icons.Material.Outlined.MonitorHeart),
+                new("canonical", "Canonical & Universes", Icons.Material.Outlined.AccountTree),
             ],
             [SettingsSection.ActivityLogs] =
             [
@@ -226,7 +229,8 @@ public static class SettingsNav
         SettingsSection.Playback,
         SettingsSection.AdminOverview,
         SettingsSection.Libraries,
-        SettingsSection.Providers,
+        SettingsSection.ImportFolders,
+        SettingsSection.Ingestion,
         SettingsSection.Review,
         SettingsSection.ActivityLogs,
         SettingsSection.Delivery,

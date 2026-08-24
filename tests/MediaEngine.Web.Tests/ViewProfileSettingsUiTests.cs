@@ -25,7 +25,9 @@ public sealed class ViewProfileSettingsUiTests
         Assert.DoesNotContain("SourceKey", source, StringComparison.Ordinal);
         Assert.DoesNotContain("ClientDeviceId", source, StringComparison.Ordinal);
         Assert.Contains("there are no separate or simulated View AI controls", source, StringComparison.Ordinal);
-        Assert.Contains("/settings/media-management/libraries", source, StringComparison.Ordinal);
+        Assert.Contains("AddPersonalSpaceFolderAsync", source, StringComparison.Ordinal);
+        Assert.Contains("DialogParameters<ServerFolderPicker>", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("/settings/media-management", source, StringComparison.Ordinal);
         Assert.Contains("/settings/ai", source, StringComparison.Ordinal);
     }
 

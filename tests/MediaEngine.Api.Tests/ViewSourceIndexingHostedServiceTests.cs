@@ -81,6 +81,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         var libraryId = Guid.NewGuid();
         _configuration.SaveLibraries(new LibrariesConfiguration
         {
+            StorageLocations = [StorageRoot()],
             Libraries = [Library(libraryId, LibraryKinds.Personal, LibraryAreas.View,
                 LibraryMetadataPolicies.LocalOnly, personalRoot, includeSubdirectories: true)],
         });
@@ -132,6 +133,7 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
         var second = Directory.CreateDirectory(Path.Combine(_root, "two")).FullName;
         _configuration.SaveLibraries(new LibrariesConfiguration
         {
+            StorageLocations = [StorageRoot()],
             Libraries =
             [
                 Library(Guid.NewGuid(), LibraryKinds.Personal, LibraryAreas.View,
@@ -156,6 +158,14 @@ public sealed class ViewSourceIndexingHostedServiceTests : IDisposable
             Assert.True(watcher.Disposed);
         });
     }
+
+    private ServerStorageLocationConfig StorageRoot() => new()
+    {
+        Id = "view-tests",
+        Label = "View tests",
+        Path = _root,
+        AllowWrite = true,
+    };
 
     private ViewSourceIndexingHostedService Service(
         IViewPathIndexer indexer,

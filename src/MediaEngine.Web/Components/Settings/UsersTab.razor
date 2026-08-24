@@ -1,7 +1,9 @@
 @namespace MediaEngine.Web.Components.Settings
 @using MediaEngine.Contracts.LocalAssets
 @inject UIOrchestratorService Orchestrator
+@inject IEngineApiClient ApiClient
 @inject ISnackbar Snackbar
+@inject IDialogService DialogService
 @inject IStringLocalizer<SharedStrings> L
 
 <div class="tl-page users-page">
@@ -103,8 +105,8 @@
                 Folder sources and connected devices are managed as real personal-library sources. Face grouping and other local analysis use the existing Local AI settings; there are no separate or simulated View AI controls.
             </AppAlert>
             <SettingsAdvancedLinkRow Title="Folders and sources"
-                                     Description="Attach or review personal media folders in Media Management."
-                                     Href="/settings/media-management/libraries"
+                                     Description="Attach or review server-visible folders for each profile's Personal Space."
+                                     Href="/settings/access"
                                      ActionLabel="Manage" />
             <SettingsAdvancedLinkRow Title="Local AI"
                                      Description="Review the server's existing local analysis models and schedules."
@@ -207,10 +209,20 @@
                     <div class="users-dialog-title" id="view-sources-heading">Sources &amp; Devices</div>
                     <p>Read-only status from this profile's persisted Personal Space.</p>
                 </div>
-                <AppButton Label="Manage folders"
-                           Href="/settings/media-management/libraries"
-                           ButtonStyle="AppButtonStyle.Outlined"
-                           Size="AppControlSize.Compact" />
+                <AppActionBar>
+                    <AppButton Label="Add managed folder"
+                               StartIcon="@Icons.Material.Outlined.CreateNewFolder"
+                               ButtonStyle="AppButtonStyle.Outlined"
+                               Size="AppControlSize.Compact"
+                               Disabled="@(_selectedViewUser is null || _viewSourcesLoading)"
+                               OnClick="@(() => AddPersonalSpaceFolderAsync(true))" />
+                    <AppButton Label="Attach existing folder"
+                               StartIcon="@Icons.Material.Outlined.FolderOpen"
+                               ButtonStyle="AppButtonStyle.Text"
+                               Size="AppControlSize.Compact"
+                               Disabled="@(_selectedViewUser is null || _viewSourcesLoading)"
+                               OnClick="@(() => AddPersonalSpaceFolderAsync(false))" />
+                </AppActionBar>
             </div>
 
             @if (_viewSourcesLoading)
@@ -587,6 +599,94 @@
 
         Snackbar.Add($"View access saved for {_selectedViewUser.DisplayName}.", Severity.Success);
         CloseViewPolicyDialog();
+    }
+
+    private async Task AddPersonalSpaceFolderAsync(bool managed)
+    {
+        if (_selectedViewUser is null) return;
+        var mode = managed ? ServerFolderSelectionModes.PersonalSpaceManaged : ServerFolderSelectionModes.PersonalSpaceExisting;
+        var parameters = new DialogParameters<ServerFolderPicker>
+        {
+            { component => component.SelectionMode, mode },
+            { component => component.HelpText, $"Choose a server folder to attach to {_selectedViewUser.DisplayName}'s Personal Space." },
+        };
+        var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, new DialogOptions
+        {
+            MaxWidth = MaxWidth.ExtraExtraLarge,
+            FullWidth = false,
+            CloseButton = false,
+            CloseOnEscapeKey = true,
+        });
+        var result = await dialog.Result;
+        if (result is not { Canceled: false, Data: ServerFolderValidationResultDto selected }) return;
+
+        var configuration = await Orchestrator.GetLibrariesAsync();
+        if (configuration is null)
+        {
+            Snackbar.Add(ApiClient.LastError ?? "Personal Space configuration could not be loaded.", Severity.Error);
+            return;
+        }
+
+        var ownerId = _selectedViewUser.Id.ToString("D");
+        var library = configuration.Libraries.FirstOrDefault(candidate =>
+            candidate.Kind == "personal" && string.Equals(candidate.OwnerProfileId, ownerId, StringComparison.OrdinalIgnoreCase));
+        if (library is null)
+        {
+            library = new LibraryFolderDto
+            {
+                Id = Guid.NewGuid().ToString("D"),
+                Name = $"{_selectedViewUser.DisplayName} Personal Space",
+                Kind = "personal",
+                Area = "view",
+                Presentation = "mixed_gallery",
+                MetadataPolicy = "local_only",
+                OwnerProfileId = ownerId,
+                Visibility = configuration.PersonalLibraryPolicy.DefaultVisibility,
+                DuplicatePolicy = "skip_exact",
+                AcceptedIntakeModes = ["browser_upload", "drag_and_drop"],
+                OrganizationPolicy = new LibraryOrganizationPolicyDto { Mode = "capture_year_month", PreserveOriginals = true },
+            };
+            configuration.Libraries.Add(library);
+        }
+
+        var sourceId = Guid.NewGuid().ToString("D");
+        var primary = managed && library.GetPrimaryDestination() is null;
+        library.Sources.Add(new LibrarySourceDto
+        {
+            Id = sourceId,
+            Path = selected.Path,
+            Notes = Path.GetFileName(selected.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
+            Role = primary ? "primary_destination" : "secondary",
+            ManagementMode = managed ? "managed_by_tuvima" : "existing_library",
+            SourceType = "local_folder",
+            IncludeSubdirectories = true,
+            AccessMode = managed ? "writable" : "read_only",
+            ParticipatesInOrganization = managed,
+            IntakeRole = primary ? "direct" : "none",
+            WritebackOverride = false,
+            ProfileId = ownerId,
+        });
+        if (primary) library.PrimaryDestinationSourceId = sourceId;
+
+        var saved = await Orchestrator.UpdateLibrariesAsync(new UpdateLibrariesRequest
+        {
+            SchemaVersion = configuration.SchemaVersion,
+            StorageLocations = configuration.StorageLocations,
+            Libraries = configuration.Libraries,
+            IncomingSources = configuration.IncomingSources,
+            PersonalLibraryPolicy = configuration.PersonalLibraryPolicy,
+        });
+        if (saved is null)
+        {
+            Snackbar.Add(ApiClient.LastError ?? "The Personal Space folder could not be attached.", Severity.Error);
+            return;
+        }
+
+        Snackbar.Add($"Folder attached to {_selectedViewUser.DisplayName}'s Personal Space.", Severity.Success);
+        _viewSourcesLoading = true;
+        _viewSources = await Orchestrator.GetViewProfileSourcesAsync(_selectedViewUser.Id);
+        _viewSourcesLoading = false;
+        _viewSourcesUnavailable = _viewSources is null;
     }
 
     private void CloseExternalLoginsDialog()

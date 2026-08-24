@@ -151,7 +151,10 @@ public sealed class LibraryOrganizationPolicyDto
 public sealed class UpdateLibrariesRequest
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; init; } = "3.0";
+    public string SchemaVersion { get; init; } = "4.0";
+
+    [JsonPropertyName("storage_locations")]
+    public List<ServerStorageLocationDto> StorageLocations { get; init; } = [];
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
@@ -166,7 +169,10 @@ public sealed class UpdateLibrariesRequest
 public sealed class LibrariesConfigurationDto
 {
     [JsonPropertyName("schema_version")]
-    public string SchemaVersion { get; init; } = "3.0";
+    public string SchemaVersion { get; init; } = "4.0";
+
+    [JsonPropertyName("storage_locations")]
+    public List<ServerStorageLocationDto> StorageLocations { get; init; } = [];
 
     [JsonPropertyName("libraries")]
     public List<LibraryFolderDto> Libraries { get; init; } = [];
@@ -268,33 +274,145 @@ public sealed class PathTestResultDto
     public bool HasWrite { get; init; }
 }
 
-public sealed class BrowseDirectoryRequest
+public sealed class ServerStorageLocationDto
 {
+    [JsonPropertyName("id")]
+    public string Id { get; init; } = string.Empty;
+
+    [JsonPropertyName("label")]
+    public string Label { get; init; } = string.Empty;
+
     [JsonPropertyName("path")]
-    public string? Path { get; init; }
+    public string Path { get; init; } = string.Empty;
+
+    [JsonPropertyName("allow_write")]
+    public bool AllowWrite { get; init; }
+
+    [JsonPropertyName("available_bytes")]
+    public long? AvailableBytes { get; init; }
+
+    [JsonPropertyName("file_system")]
+    public string? FileSystem { get; init; }
 }
 
-public sealed class BrowseDirectoryResultDto
+public sealed class BrowseServerFoldersRequest
 {
-    public BrowseDirectoryResultDto()
-    {
-    }
+    [JsonPropertyName("storage_location_id")]
+    public string StorageLocationId { get; init; } = string.Empty;
 
-    public BrowseDirectoryResultDto(string currentPath, string? parentPath, List<string> directories)
-    {
-        CurrentPath = currentPath;
-        ParentPath = parentPath;
-        Directories = directories;
-    }
+    [JsonPropertyName("relative_path")]
+    public string? RelativePath { get; init; }
 
-    [JsonPropertyName("current_path")]
-    public string CurrentPath { get; init; } = string.Empty;
+    [JsonPropertyName("search")]
+    public string? Search { get; init; }
+}
 
-    [JsonPropertyName("parent_path")]
-    public string? ParentPath { get; init; }
+public sealed class ServerFolderEntryDto
+{
+    [JsonPropertyName("name")]
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("relative_path")]
+    public string RelativePath { get; init; } = string.Empty;
+
+    [JsonPropertyName("modified_at")]
+    public DateTimeOffset? ModifiedAt { get; init; }
+}
+
+public sealed class BrowseServerFoldersResultDto
+{
+    [JsonPropertyName("storage_location")]
+    public ServerStorageLocationDto StorageLocation { get; init; } = new();
+
+    [JsonPropertyName("relative_path")]
+    public string RelativePath { get; init; } = string.Empty;
+
+    [JsonPropertyName("parent_relative_path")]
+    public string? ParentRelativePath { get; init; }
+
+    [JsonPropertyName("display_path")]
+    public string DisplayPath { get; init; } = string.Empty;
 
     [JsonPropertyName("directories")]
-    public List<string> Directories { get; init; } = [];
+    public List<ServerFolderEntryDto> Directories { get; init; } = [];
+}
+
+public sealed class ValidateServerFolderRequest
+{
+    [JsonPropertyName("storage_location_id")]
+    public string StorageLocationId { get; init; } = string.Empty;
+
+    [JsonPropertyName("relative_path")]
+    public string? RelativePath { get; init; }
+
+    [JsonPropertyName("manual_path")]
+    public string? ManualPath { get; init; }
+
+    [JsonPropertyName("selection_mode")]
+    public string SelectionMode { get; init; } = ServerFolderSelectionModes.ExistingLibrary;
+
+    [JsonPropertyName("current_source_id")]
+    public string? CurrentSourceId { get; init; }
+}
+
+public static class ServerFolderSelectionModes
+{
+    public const string ManagedLibrary = "managed_library";
+    public const string ExistingLibrary = "existing_library";
+    public const string Incoming = "incoming";
+    public const string PersonalSpaceManaged = "personal_space_managed";
+    public const string PersonalSpaceExisting = "personal_space_existing";
+
+    public static bool RequiresWrite(string? value) => value is
+        ManagedLibrary or Incoming or PersonalSpaceManaged;
+
+    public static bool IsValid(string? value) => value is
+        ManagedLibrary or ExistingLibrary or Incoming or PersonalSpaceManaged or PersonalSpaceExisting;
+}
+
+public sealed class ServerFolderValidationIssueDto
+{
+    [JsonPropertyName("code")]
+    public string Code { get; init; } = string.Empty;
+
+    [JsonPropertyName("message")]
+    public string Message { get; init; } = string.Empty;
+
+    [JsonPropertyName("severity")]
+    public string Severity { get; init; } = "error";
+}
+
+public sealed class ServerFolderValidationResultDto
+{
+    [JsonPropertyName("storage_location_id")]
+    public string StorageLocationId { get; init; } = string.Empty;
+
+    [JsonPropertyName("relative_path")]
+    public string RelativePath { get; init; } = string.Empty;
+
+    [JsonPropertyName("path")]
+    public string Path { get; init; } = string.Empty;
+
+    [JsonPropertyName("exists")]
+    public bool Exists { get; init; }
+
+    [JsonPropertyName("has_read")]
+    public bool HasRead { get; init; }
+
+    [JsonPropertyName("has_write")]
+    public bool HasWrite { get; init; }
+
+    [JsonPropertyName("available_bytes")]
+    public long? AvailableBytes { get; init; }
+
+    [JsonPropertyName("file_system")]
+    public string? FileSystem { get; init; }
+
+    [JsonPropertyName("can_select")]
+    public bool CanSelect { get; init; }
+
+    [JsonPropertyName("issues")]
+    public List<ServerFolderValidationIssueDto> Issues { get; init; } = [];
 }
 
 public sealed class OrganizationTemplateDto

@@ -221,6 +221,7 @@ builder.Services.AddScoped<IUserPlaybackPreferencesAccessor, UserPlaybackPrefere
 // Caches provider UI metadata from GET /providers/catalogue in IMemoryCache while
 // keeping the circuit-scoped Engine API failure state out of the root provider.
 builder.Services.AddScoped<ProviderCatalogueService>();
+builder.Services.AddScoped<MetadataSettingsStateService>();
 
 // ── Device Context (scoped = per-tab; a TV in television mode won't affect a mobile session) ──
 // Generalised device-context model supporting web, mobile, television, and automotive classes.

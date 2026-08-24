@@ -5,44 +5,77 @@ namespace MediaEngine.Web.Tests;
 public sealed class MetadataSettingsCompositionTests
 {
     [Fact]
-    public void MetadataOverview_ComposesProvidersPriorityEnrichmentAndHealth()
+    public void MetadataSettings_ComposesTheThreeProductSurfaces()
     {
-        var tab = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor");
-        var codeBehind = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor.cs");
+        var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var state = Read("src/MediaEngine.Web/Services/Integration/MetadataSettingsStateService.cs");
 
-        Assert.Contains("<ProviderEnrichmentSurface", tab, StringComparison.Ordinal);
-        Assert.Contains("<ProviderPrioritySurface", tab, StringComparison.Ordinal);
-        Assert.Contains("<ProviderHealthSurface", tab, StringComparison.Ordinal);
-        Assert.Contains("Source priority", tab, StringComparison.Ordinal);
-        Assert.Contains("Current issues", tab, StringComparison.Ordinal);
-        Assert.Contains("IsProvidersSurface", tab, StringComparison.Ordinal);
-        Assert.Contains("IsHealthSurface", codeBehind, StringComparison.Ordinal);
-        Assert.Contains("if (IsProvidersSurface)", codeBehind, StringComparison.Ordinal);
+        Assert.Contains("<SettingsSubsectionNav", page, StringComparison.Ordinal);
+        Assert.Contains("ProvidersOverview()", page, StringComparison.Ordinal);
+        Assert.Contains("EnrichmentOverview()", page, StringComparison.Ordinal);
+        Assert.Contains("CanonicalOverview()", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("Source Priority", page, StringComparison.Ordinal);
+        Assert.Contains("[\"Books\", \"Audiobooks\", \"Comics\", \"Movies\", \"TV\", \"Music\"]", state, StringComparison.Ordinal);
+        Assert.Contains("\"artwork\", \"Artwork\"", state, StringComparison.Ordinal);
+        Assert.Contains("\"lyrics\", \"Lyrics\"", state, StringComparison.Ordinal);
+        Assert.Contains("\"subtitles\", \"Subtitles\"", state, StringComparison.Ordinal);
+        Assert.Contains("\"people\", \"People\"", state, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"ratings\", \"Ratings\"", state, StringComparison.Ordinal);
+        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")));
+        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor")));
+        Assert.False(File.Exists(PathFor("src/MediaEngine.Web/Components/Settings/ProviderHealthSurface.razor")));
     }
 
     [Fact]
-    public void ProviderHealth_UsesRecordedEngineDataWithoutInventedMetrics()
+    public void ProviderHealth_IsEmbeddedAndUsesRecordedEngineState()
     {
-        var health = Read("src/MediaEngine.Web/Components/Settings/ProviderHealthSurface.razor");
+        var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+        var state = Read("src/MediaEngine.Web/Services/Integration/MetadataSettingsStateService.cs");
 
-        Assert.Contains("GetProviderHealthAsync", health, StringComparison.Ordinal);
-        Assert.Contains("GetProviderStatusAsync", health, StringComparison.Ordinal);
-        Assert.Contains("TestProviderAsync", health, StringComparison.Ordinal);
-        Assert.Contains("No check recorded", health, StringComparison.Ordinal);
-        Assert.Contains("Response time is shown only after", health, StringComparison.Ordinal);
-        Assert.DoesNotContain("98%", health, StringComparison.Ordinal);
-        Assert.DoesNotContain("209 ms", health, StringComparison.Ordinal);
+        Assert.Contains("TestProviderAsync", page, StringComparison.Ordinal);
+        Assert.Contains("GetProviderStatusAsync", state, StringComparison.Ordinal);
+        Assert.Contains("HealthLabel(status)", state, StringComparison.Ordinal);
+        Assert.DoesNotContain("98%", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("209 ms", page, StringComparison.Ordinal);
     }
 
     [Fact]
     public void Enrichment_OwnsTheRealRefreshSchedule()
     {
-        var enrichment = Read("src/MediaEngine.Web/Components/Settings/ProviderEnrichmentSurface.razor");
+        var enrichment = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
         var schedule = Read("src/MediaEngine.Web/Components/Settings/EnrichmentRefreshSchedulePanel.razor");
 
         Assert.Contains("<EnrichmentRefreshSchedulePanel", enrichment, StringComparison.Ordinal);
         Assert.Contains("GetEnrichmentRefreshScheduleAsync", schedule, StringComparison.Ordinal);
         Assert.Contains("QueueEnrichmentRefreshNowAsync", schedule, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ArtworkSettings_ProtectManualChoicesAndExposeOnlyRealPolicy()
+    {
+        var page = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
+
+        Assert.Contains("Initial Artwork", page, StringComparison.Ordinal);
+        Assert.Contains("Additional Artwork", page, StringComparison.Ordinal);
+        Assert.Contains("Fill missing artwork automatically", page, StringComparison.Ordinal);
+        Assert.Contains("Keep manually selected artwork", page, StringComparison.Ordinal);
+        Assert.Contains("always protected from automation", page, StringComparison.Ordinal);
+        Assert.Contains("Use existing local artwork", page, StringComparison.Ordinal);
+        Assert.Contains("Built in", page, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void LibraryOverview_ExplainsTheConfiguredMetadataPipeline()
+    {
+        var libraries = Read("src/MediaEngine.Web/Components/Settings/LibrariesTab.razor");
+        var summary = Read("src/MediaEngine.Web/Components/Settings/MetadataPipelineStrip.razor");
+
+        Assert.Contains("<MetadataPipelineStrip", libraries, StringComparison.Ordinal);
+        Assert.Contains("Stage 1 — Metadata Provider", summary, StringComparison.Ordinal);
+        Assert.Contains("Stage 2 — Canonical Identity", summary, StringComparison.Ordinal);
+        Assert.Contains("Stage 3 — Enrichment", summary, StringComparison.Ordinal);
+        Assert.Contains("Manage Metadata Settings", summary, StringComparison.Ordinal);
+        Assert.Contains("Local metadata only", summary, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -63,6 +96,8 @@ public sealed class MetadataSettingsCompositionTests
         Assert.DoesNotContain("min-width: 660px", css, StringComparison.Ordinal);
     }
 
-    private static string Read(string relativePath) =>
-        File.ReadAllText(Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath)));
+    private static string Read(string relativePath) => File.ReadAllText(PathFor(relativePath));
+
+    private static string PathFor(string relativePath) =>
+        Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "..", relativePath));
 }

@@ -38,7 +38,7 @@ public sealed class SettingsNavTests
         Assert.False(File.Exists(legacyPath));
 
         var settingsSource = File.ReadAllText(GetRepoFilePath(@"src\MediaEngine.Web\Components\Pages\Settings.razor"));
-        Assert.Contains("<LibrariesTab Subsection=\"@_activeSubsection\" />", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("<LibrariesTab Subsection=\"@_activeSubsection\" DetailTab=\"@DetailTab\" />", settingsSource, StringComparison.Ordinal);
         Assert.DoesNotContain("FoldersTab", settingsSource, StringComparison.Ordinal);
     }
 
@@ -67,8 +67,9 @@ public sealed class SettingsNavTests
     [Theory]
     [InlineData(SettingsSection.ActivityLogs, "batches", "/settings/activity/batches")]
     [InlineData(SettingsSection.LocalAi, "models", "/settings/ai/models")]
-    [InlineData(SettingsSection.Providers, "priority", "/settings/providers/priority")]
-    [InlineData(SettingsSection.Providers, "enrichment", "/settings/providers/enrichment")]
+    [InlineData(SettingsSection.Providers, "providers", "/settings/metadata/providers")]
+    [InlineData(SettingsSection.Providers, "enrichment", "/settings/metadata/enrichment")]
+    [InlineData(SettingsSection.Providers, "canonical", "/settings/metadata/canonical")]
     public void RouteFor_Subsection_UsesNestedCanonicalUrl(
         SettingsSection section,
         string subsection,
@@ -94,12 +95,12 @@ public sealed class SettingsNavTests
     }
 
     [Fact]
-    public void ProviderManagement_UsesFourClearUnifiedSubsections()
+    public void MetadataManagement_UsesThreeClearPipelineSubsections()
     {
         var subsections = SettingsNav.GetSubsections(SettingsSection.Providers).ToArray();
 
-        Assert.Equal(["Enrichment", "Source Priority", "Health"], subsections.Select(item => item.Label));
-        Assert.Equal(["enrichment", "priority", "health"], subsections.Select(item => item.Slug));
+        Assert.Equal(["Providers", "Enrichment", "Canonical & Universes"], subsections.Select(item => item.Label));
+        Assert.Equal(["providers", "enrichment", "canonical"], subsections.Select(item => item.Slug));
     }
 
     [Fact]
@@ -115,9 +116,11 @@ public sealed class SettingsNavTests
     [Theory]
     [InlineData(SettingsSection.AdminOverview, "/settings/system")]
     [InlineData(SettingsSection.Playback, "/settings/playback")]
-    [InlineData(SettingsSection.Libraries, "/settings/media-management")]
+    [InlineData(SettingsSection.Libraries, "/settings/libraries")]
+    [InlineData(SettingsSection.ImportFolders, "/settings/import-folders")]
+    [InlineData(SettingsSection.Ingestion, "/settings/ingestion")]
     [InlineData(SettingsSection.DevHarness, "/settings/developer/options")]
-    [InlineData(SettingsSection.Providers, "/settings/providers")]
+    [InlineData(SettingsSection.Providers, "/settings/metadata/providers")]
     [InlineData(SettingsSection.LocalAi, "/settings/ai")]
     [InlineData(SettingsSection.Plugins, "/settings/plugins")]
     [InlineData(SettingsSection.Delivery, "/settings/delivery")]
@@ -208,7 +211,7 @@ public sealed class SettingsNavTests
     [Fact]
     public void ResolveRoute_DisallowedAdminPage_FallsBackToUserOverview()
     {
-        var resolution = SettingsNav.ResolveRoute("providers", "Viewer");
+        var resolution = SettingsNav.ResolveRoute("metadata", "Viewer");
 
         Assert.Equal(SettingsSection.Overview, resolution.Section);
         Assert.Equal("/settings/profile", resolution.CanonicalRoute);
@@ -219,9 +222,9 @@ public sealed class SettingsNavTests
     }
 
     [Theory]
-    [InlineData("metadata")]
+    [InlineData("providers")]
     [InlineData("wikidata")]
-    public void ResolveRoute_MetadataManagementRoutes_AreHidden(string segment)
+    public void ResolveRoute_RemovedMetadataAliases_AreUnknown(string segment)
     {
         var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
 
@@ -258,7 +261,9 @@ public sealed class SettingsNavTests
 
         Assert.Equal([
             "System Overview",
-            "Media Management",
+            "Libraries",
+            "Import Folders",
+            "Ingestion",
             "Metadata",
             "Needs Review",
             "Activity & Audit",
@@ -315,35 +320,28 @@ public sealed class SettingsNavTests
         Assert.Equal(expectedRoute, SettingsNav.RouteFor(section));
     }
 
-    [Theory]
-    [InlineData("incoming")]
-    [InlineData("libraries")]
-    [InlineData("activity")]
-    public void MediaManagement_SubsectionsUseCanonicalRoutes(string subsection)
+    [Fact]
+    public void LibrariesRoute_IsCanonicalAndFoldersAliasRemainsRemoved()
     {
-        Assert.Equal($"/settings/media-management/{subsection}", SettingsNav.RouteFor(SettingsSection.Libraries, subsection));
+        var libraries = SettingsNav.ResolveRoute("libraries", "Administrator");
+        Assert.True(libraries.IsKnownRoute);
+        Assert.Equal(SettingsSection.Libraries, libraries.Section);
+        Assert.Equal("/settings/libraries", libraries.CanonicalRoute);
+
+        var folders = SettingsNav.ResolveRoute("folders", "Administrator");
+        Assert.False(folders.IsKnownRoute);
+        Assert.Equal("/not-found", folders.CanonicalRoute);
     }
 
     [Fact]
-    public void RemovedLibraryRoutes_AreNotCompatibilityAliases()
-    {
-        foreach (var segment in new[] { "libraries", "folders" })
-        {
-            var resolution = SettingsNav.ResolveRoute(segment, "Administrator");
-
-            Assert.False(resolution.IsKnownRoute);
-            Assert.Equal("/not-found", resolution.CanonicalRoute);
-        }
-    }
-
-    [Fact]
-    public void RemovedIngestionRoute_IsNotACompatibilityAlias()
+    public void IngestionRoute_IsCanonical()
     {
         var resolution = SettingsNav.ResolveRoute("ingestion", "Administrator");
 
-        Assert.False(resolution.IsKnownRoute);
-        Assert.Equal("/not-found", resolution.CanonicalRoute);
-        Assert.DoesNotContain(SettingsNav.AllItems, item => item.Label == "Ingestion");
+        Assert.True(resolution.IsKnownRoute);
+        Assert.Equal(SettingsSection.Ingestion, resolution.Section);
+        Assert.Equal("/settings/ingestion", resolution.CanonicalRoute);
+        Assert.Contains(SettingsNav.AllItems, item => item.Label == "Ingestion");
     }
 
     [Fact]

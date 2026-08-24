@@ -48,7 +48,7 @@ public sealed class Wave5AccessibilityGuardrailTests
     {
         var reader = Read("src/MediaEngine.Web/Components/Pages/EpubReader.razor");
         var book = Read("src/MediaEngine.Web/Components/Universe/BookDetailContent.razor");
-        var folderBrowser = Read("src/MediaEngine.Web/Components/Settings/FolderBrowserDialog.razor");
+        var folderBrowser = Read("src/MediaEngine.Web/Components/Shared/ServerFolderPicker.razor");
 
         Assert.Contains("Class=\"reader-tap-zone left\" AriaLabel=\"Previous page\"", reader);
         Assert.Contains("Class=\"reader-search-result\"", reader);
@@ -59,28 +59,25 @@ public sealed class Wave5AccessibilityGuardrailTests
         Assert.Contains("AriaLabel=\"Close cover\"", book);
         Assert.Contains("AriaLabel=\"@($\"Open author {_authorPerson.Name}\")\"", book);
         Assert.DoesNotContain("Nav.NavigateTo($\" /details/person/", book);
-        Assert.Contains("Class=\"folder-browser-row\"", folderBrowser);
-        Assert.Contains("AriaLabel=\"@($\"Open folder {dir}\")\"", folderBrowser);
-        Assert.DoesNotContain("<div class=\"folder-browser-row\"", folderBrowser);
+        Assert.Contains("role=\"listbox\"", folderBrowser);
+        Assert.Contains("AriaLabel=\"@($\"Open folder {folder.Name}\")\"", folderBrowser);
+        Assert.Contains("aria-live=\"polite\"", folderBrowser);
+        Assert.Contains("Select this folder", folderBrowser);
+        Assert.DoesNotContain("@ondblclick", folderBrowser);
     }
 
     [Fact]
     public void ActiveSelectableSurfaces_ProvideKeyboardActivation()
     {
         var plugins = Read("src/MediaEngine.Web/Components/Settings/PluginSettingsTab.razor");
-        var providers = Read("src/MediaEngine.Web/Components/Settings/ProviderPriorityTab.razor")
-                        + Read("src/MediaEngine.Web/Components/Settings/ProviderPrioritySurface.razor");
+        var metadata = Read("src/MediaEngine.Web/Components/Settings/MetadataSettingsPage.razor");
         var activity = Read("src/MediaEngine.Web/Components/Activity/ActivityMediaTypeAuditGroup.razor");
 
         Assert.Contains("<AppButton Label=\"Configure\"", plugins);
         Assert.DoesNotContain("role=\"button\"", plugins);
-        Assert.Contains("Drag {provider.DisplayName} to reorder", providers);
-        Assert.Contains("Label=\"Move earlier\"", providers);
-        Assert.Contains("Label=\"Move later\"", providers);
-        Assert.Contains("Icons.Material.Outlined.DragIndicator", providers);
-        Assert.DoesNotContain("Icons.Material.Outlined.KeyboardArrowUp", providers);
-        Assert.DoesNotContain("Icons.Material.Outlined.KeyboardArrowDown", providers);
-        Assert.Contains("<AppNativeButton Type=\"button\"", providers);
+        Assert.Contains("<AppButton Label=\"Manage\"", metadata);
+        Assert.Contains("aria-label=\"Used for\"", metadata);
+        Assert.DoesNotContain("role=\"button\"", metadata);
         Assert.Contains("HandleItemKeyDownAsync", activity);
     }
 

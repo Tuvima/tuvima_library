@@ -5,14 +5,13 @@
 @inject DeviceContextService DeviceContext
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
-@inject IStringLocalizer<SharedStrings> L
 @inject NavigationManager Nav
 
 @{
     var readOnly = DeviceContext.IsMobile;
     var unavailable = DeviceContext.IsTelevision || DeviceContext.IsAutomotive;
     var section = NormalizeSection(Subsection);
-    var activeLibrary = section == "libraries" ? ActiveFilteredLibrary : ActiveLibrary(section);
+    var activeLibrary = ResolveActiveLibrary(section);
 }
 
 <div class="media-management">
@@ -39,14 +38,19 @@
         <AppActionBar Align="AppHorizontalAlignment.End" Class="media-management__actions">
             <AppStatusBadge Text="@(_engineUnavailable ? "Engine unavailable" : "Live")"
                             Tone="@(_engineUnavailable ? AppUiTone.Error : AppUiTone.Success)" />
-            @if (section == "libraries")
+            @if (section == "overview")
             {
-                <AppButton Label="Add Personal Library"
+                <AppButton Label="Add import folder"
+                           StartIcon="@Icons.Material.Outlined.MoveToInbox"
+                           ButtonStyle="AppButtonStyle.Outlined"
+                           Disabled="@(readOnly || _engineUnavailable)"
+                           Href="/settings/import-folders" />
+                <AppButton Label="Add library"
                            StartIcon="@Icons.Material.Outlined.CreateNewFolder"
                            ButtonStyle="AppButtonStyle.Filled"
                            Tone="AppUiTone.Primary"
                            Disabled="@(readOnly || _engineUnavailable)"
-                           OnClick="BeginPersonalLibrary" />
+                           Href="/settings/libraries/new" />
             }
         </AppActionBar>
 
@@ -61,11 +65,7 @@
             <AppAlert Tone="AppUiTone.Warning">@_loadError</AppAlert>
         }
 
-        @if (_creatingPersonal)
-        {
-            @PersonalLibraryWizard(readOnly)
-        }
-        else if (section == "overview")
+        @if (section == "overview")
         {
             @OverviewSurface(readOnly)
         }
@@ -77,12 +77,16 @@
         {
             <IngestionTasksTab />
         }
+        else if (activeLibrary is not null)
+        {
+            @LibraryDetailSurface(activeLibrary, readOnly)
+        }
         else
         {
-            @LibrariesSurface(activeLibrary, readOnly)
+            <AppPageState Kind="AppPageStateKind.Error" Icon="@Icons.Material.Outlined.SearchOff" Title="Library not found" Message="This library does not exist or is no longer configured." />
         }
 
-        @if (!_creatingPersonal && HasUnsavedChanges)
+        @if (HasUnsavedChanges)
         {
             <div class="media-management__savebar">
                 <span>Library configuration has unsaved changes.</span>
@@ -106,7 +110,11 @@
 </div>
 
 @code {
+    private sealed record LibraryDetailTabOption(string Value, string Label);
+    private sealed record OrganizationDetailOption(string Value, string Label, string Help, string Icon);
+
     [Parameter] public string? Subsection { get; set; }
+    [Parameter] public string? DetailTab { get; set; }
 
     private LibrariesConfigurationDto? _configuration;
     private IngestionOperationsSnapshotDto? _ingestionSnapshot;
@@ -115,10 +123,10 @@
     private bool _loading = true;
     private bool _saving;
     private bool _engineUnavailable;
-    private bool _creatingPersonal;
-    private string _libraryFilter = "read";
+    // Kept temporarily while the retired personal-library wizard helpers are removed below.
     private int _wizardStep = 1;
     private LibraryFolderDto _draft = NewPersonalLibrary(null);
+    private string _libraryFilter = "all";
     private readonly Dictionary<string, PathTestResultDto> _pathResults = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _selectedLibraryIds = new(StringComparer.OrdinalIgnoreCase);
 
@@ -202,6 +210,21 @@
         new("view", "View", Icons.Material.Outlined.FolderOpen),
     ];
 
+    private static readonly LibraryDetailTabOption[] LibraryDetailTabs =
+    [
+        new("overview", "Overview"),
+        new("folders", "Folders"),
+        new("organization", "Organization"),
+        new("advanced", "Advanced"),
+    ];
+
+    private static readonly OrganizationDetailOption[] OrganizationDetailOptions =
+    [
+        new("tuvima_standard", "Tuvima Standard", "Use media-aware folders and filenames for new imports.", Icons.Material.Outlined.AutoAwesome),
+        new("keep_original_names", "Keep original names", "Preserve existing names and folder structure.", Icons.Material.Outlined.FolderCopy),
+        new("custom", "Custom", "Use a library-specific naming template.", Icons.Material.Outlined.Tune),
+    ];
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     protected override void OnParametersSet()
@@ -213,13 +236,32 @@
     private RenderFragment OverviewSurface(bool readOnly) => @<div class="media-management__overview">
         <AppSegmentedControl Value="@_libraryFilter"
                              ValueChanged="@SetLibraryFilter"
-                             Options="@LibraryFilterOptions.Where(option => option.Value != "all").ToList()"
+                             Options="@LibraryFilterOptions"
                              AriaLabel="Choose a media area" />
+
+        <div class="media-management-metrics" aria-label="Library summary">
+            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
+                <span class="media-management-metric__icon"><MudIcon Icon="@Icons.Material.Outlined.VideoLibrary" /></span>
+                <span><small>Total libraries</small><strong>@(_configuration?.Libraries.Count ?? 0)</strong><em>Across Read, Watch, Listen, and View</em></span>
+            </AppPanel>
+            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
+                <span class="media-management-metric__icon media-management-metric__icon--blue"><MudIcon Icon="@Icons.Material.Outlined.Folder" /></span>
+                <span><small>Total folders</small><strong>@(_configuration?.Libraries.Sum(library => library.Sources.Count) ?? 0)</strong><em>Organized server locations</em></span>
+            </AppPanel>
+            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric media-management-metric--link">
+                <a href="/settings/review" aria-label="Open items needing review"></a>
+                <span class="media-management-metric__icon media-management-metric__icon--warning"><MudIcon Icon="@Icons.Material.Outlined.WarningAmber" /></span>
+                <span><small>Items needing review</small><strong>@(_ingestionSnapshot?.Summary.ItemsNeedingReview ?? 0)</strong><em>Across all libraries</em></span>
+            </AppPanel>
+            <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-metric">
+                <span class="media-management-metric__icon media-management-metric__icon--success"><MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" /></span>
+                <span><small>Monitored import folders</small><strong>@(_configuration?.IncomingSources.Count ?? 0)</strong><em>Watching for new media</em></span>
+            </AppPanel>
+        </div>
 
         <AppCard Class="media-management-card">
             <div class="media-management-card__heading">
-                <div><h3>@TitleCase(_libraryFilter) folders</h3><p>Configured locations in this media area. Open a library to change its storage and organization rules.</p></div>
-                <AppButton Href="/settings/media-management/libraries" Label="Manage folders" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                <div><h3>@(_libraryFilter == "all" ? "All libraries" : $"{TitleCase(_libraryFilter)} libraries")</h3><p>Open a library to review its folders, organization rules, and health.</p></div>
             </div>
             @if (FilteredLibraries.Count == 0)
             {
@@ -227,15 +269,17 @@
             }
             else
             {
-            <div class="media-management-table media-management-table--summary" role="table" aria-label="Configured folders">
-                <div class="media-management-table__head" role="row"><span>Library</span><span>Type</span><span>Folders</span><span>Status</span></div>
+            <div class="media-management-table media-management-table--summary" role="table" aria-label="Configured libraries">
+                <div class="media-management-table__head" role="row"><span>Library</span><span>Area</span><span>Folders</span><span>Items</span><span>Health</span><span></span></div>
                 @foreach (var library in FilteredLibraries)
                 {
                     <AppNativeButton Type="button" Class="media-management-table__row" OnClick="@(() => OpenLibrary(library))">
-                        <span class="media-management-table__identity"><MudIcon Icon="@AreaIcon(library.Area)" Size="Size.Small" /><strong>@library.Name</strong></span>
-                        <span>@(library.Kind == "personal" ? "Personal" : "Catalogued")</span>
-                        <span>@library.Sources.Count</span>
+                        <span class="media-management-table__identity"><span class="media-management-table__media-icon @($"is-{library.Area}")"><MudIcon Icon="@LibraryIcon(library)" Size="Size.Small" /></span><span><strong>@LibraryDisplayName(library)</strong><small>@LibraryDescription(library)</small></span></span>
+                        <AppStatusBadge Text="@TitleCase(library.Area)" Tone="@AreaTone(library.Area)" />
+                        <span>@library.Sources.Count @(library.Sources.Count == 1 ? "folder" : "folders")</span>
+                        <span>@DisplayFormat.FormatCount(LibraryItemCount(library))</span>
                         <AppStatusBadge Text="@LibraryStatus(library)" Tone="@LibraryStatusTone(library)" />
+                        <MudIcon Icon="@Icons.Material.Outlined.ChevronRight" Size="Size.Small" />
                     </AppNativeButton>
                 }
             </div>
@@ -245,7 +289,7 @@
         <div class="media-management__aside-grid">
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
                 <MudIcon Icon="@Icons.Material.Outlined.MoveToInbox" />
-                <div><strong>Incoming</strong><p>@IncomingSummary</p><a href="/settings/media-management/incoming">Manage incoming folders</a></div>
+                <div><strong>Import folders</strong><p>@IncomingSummary</p><a href="/settings/import-folders">Manage import folders</a></div>
             </AppPanel>
             <AppPanel Density="AppSurfaceDensity.Compact" Class="media-management-info">
                 <MudIcon Icon="@Icons.Material.Outlined.Shield" />
@@ -258,8 +302,8 @@
         <AppCard Class="media-management-card">
             <div class="media-management-card__heading">
                 <div><h3>Incoming folders</h3><p>Shared intake locations are unassigned. Tuvima receives each file, determines its destination, then applies that library's policy.</p></div>
-                <AppButton Label="Add incoming folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled"
-                           Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="AddIncomingSource" />
+                <AppButton Label="Add import folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled"
+                           Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="AddIncomingSourceAsync" />
             </div>
             <div class="media-management-source-list">
                 @foreach (var source in _configuration!.IncomingSources)
@@ -282,6 +326,7 @@
                             <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
                         </div>
                         <div class="media-management-source__fields">
+                            <AppTextField Label="Friendly name" Value="@source.Notes" ValueChanged="@((string? value) => source.Notes = value)" ReadOnly="@(readOnly || _engineUnavailable)" />
                             <AppSelect Label="Purpose" Value="@source.Purpose" Options="@IncomingPurposeOptions"
                                        ValueChanged="@((string? value) => source.Purpose = value ?? string.Empty)" Disabled="@(readOnly || _engineUnavailable)" />
                             <AppSelect Label="Default handling" Value="@source.DefaultHandling" Options="@IncomingHandlingOptions"
@@ -356,7 +401,7 @@
         <AppCard Class="media-management-card">
             <div class="media-management-card__heading">
                 <div><h3>Recent scans</h3><p>Latest processing outcomes reported by the Engine.</p></div>
-                <AppButton Href="/settings/media-management/activity" Label="View activity" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
+                <AppButton Href="/settings/ingestion" Label="View ingestion" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" />
             </div>
             @if (RecentScans.Count == 0)
             {
@@ -411,6 +456,131 @@
         </details>
     </div>;
 
+    private RenderFragment LibraryDetailSurface(LibraryFolderDto library, bool readOnly) => @<div class="library-detail">
+        <header class="library-detail__header">
+            <div class="library-detail__identity">
+                <span class="library-detail__icon @($"is-{library.Area}")"><MudIcon Icon="@LibraryIcon(library)" /></span>
+                <div>
+                    <h2>@LibraryDisplayName(library)</h2>
+                    <p>@TitleCase(library.Area) library · @LibraryDescription(library)</p>
+                    <span><AppStatusBadge Text="@TitleCase(library.Area)" Tone="@AreaTone(library.Area)" /><code>ID: @library.Id</code></span>
+                </div>
+            </div>
+            <AppActionBar>
+                <AppButton Label="Edit library" StartIcon="@Icons.Material.Outlined.Edit" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Href="@LibraryTabRoute(library, "advanced")" />
+                <AppButton Label="Add folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Outlined" Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => AddAndBrowseLibrarySourceAsync(library))" />
+            </AppActionBar>
+        </header>
+
+        <nav class="library-detail__tabs" aria-label="Library detail sections">
+            @foreach (var tab in LibraryDetailTabs)
+            {
+                <a href="@LibraryTabRoute(library, tab.Value)" class="@(CurrentDetailTab == tab.Value ? "is-active" : null)" aria-current="@(CurrentDetailTab == tab.Value ? "page" : null)">@tab.Label</a>
+            }
+        </nav>
+
+        @if (CurrentDetailTab == "overview")
+        {
+            <MetadataPipelineStrip MediaType="@library.MediaTypes.FirstOrDefault()"
+                                   LocalOnly="@(library.Kind == "personal" || library.MetadataPolicy is "local_only" or "manual")" />
+            <div class="library-detail__metrics" aria-label="Library health summary">
+                @DetailMetric(Icons.Material.Outlined.CollectionsBookmark, "Items", DisplayFormat.FormatCount(LibraryItemCount(library)), "Owned media")
+                @DetailMetric(Icons.Material.Outlined.Folder, "Folders", library.Sources.Count.ToString(), "Server locations")
+                @DetailMetric(Icons.Material.Outlined.CalendarMonth, "Last scan", LibraryLastScan(library), "Across all folders")
+                @DetailMetric(Icons.Material.Outlined.CheckCircle, "Health", LibraryStatus(library), "Current folder access")
+            </div>
+            <div class="library-detail__overview-grid">
+                <AppCard Class="library-detail__folders-card">
+                    <div class="media-management-card__heading"><div><h3>Folders in this library</h3><p>Managed destinations and protected existing sources.</p></div><AppButton Label="Manage folders" Href="@LibraryTabRoute(library, "folders")" ButtonStyle="AppButtonStyle.Text" EndIcon="@Icons.Material.Outlined.ChevronRight" /></div>
+                    <div class="library-detail__folder-summary" role="list">
+                        @foreach (var source in library.Sources)
+                        {
+                            <div role="listitem">
+                                <span class="library-detail__folder-path"><MudIcon Icon="@Icons.Material.Outlined.Folder" /><span><strong>@SourceFriendlyName(source)</strong><code>@source.Path</code></span></span>
+                                <AppStatusBadge Text="@(source.Role == "primary_destination" ? "Primary" : "Secondary")" Tone="@(source.Role == "primary_destination" ? AppUiTone.Primary : AppUiTone.Neutral)" />
+                                <span>@(source.ManagementMode == "managed_by_tuvima" ? "Managed" : "Existing library")</span>
+                                <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
+                            </div>
+                        }
+                    </div>
+                </AppCard>
+                <AppCard Class="library-detail__organization-card">
+                    <div class="media-management-card__heading"><div><h3>Organization</h3><p>How managed media is named and placed.</p></div><AppButton Label="Customize" Href="@LibraryTabRoute(library, "organization")" ButtonStyle="AppButtonStyle.Text" /></div>
+                    <dl class="library-detail__summary-list">
+                        <div><dt>Naming mode</dt><dd>@OrganizationModeLabel(library.OrganizationPolicy.Mode)</dd></div>
+                        <div><dt>Organize new imports</dt><dd>@(library.Sources.Any(source => source.ParticipatesInOrganization) ? "On" : "Off")</dd></div>
+                        <div><dt>Existing files unchanged</dt><dd>Yes</dd></div>
+                        <div><dt>Metadata writeback</dt><dd>@(library.Sources.Any(source => source.WritebackOverride == true) ? "On" : "Off")</dd></div>
+                    </dl>
+                </AppCard>
+            </div>
+            <AppPanel Density="AppSurfaceDensity.Compact" Class="library-detail__explanation">
+                <MudIcon Icon="@LibraryIcon(library)" />
+                <div><strong>@LibraryDisplayName(library) is a @TitleCase(library.Area) library</strong><p>@LibraryDescription(library). Tuvima identifies owned media, enriches it with trusted metadata, and keeps Existing Library folders unchanged.</p></div>
+            </AppPanel>
+        }
+        else if (CurrentDetailTab == "folders")
+        {
+            <AppCard Class="media-management-card">
+                <div class="media-management-card__heading"><div><h3>Folders</h3><p>Choose an explicit primary destination and protect existing libraries from mutation.</p></div><AppButton Label="Add folder" StartIcon="@Icons.Material.Outlined.Add" ButtonStyle="AppButtonStyle.Filled" Tone="AppUiTone.Primary" Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => AddAndBrowseLibrarySourceAsync(library))" /></div>
+                <div class="media-management-source-list">
+                    @foreach (var source in library.Sources)
+                    {
+                        <article class="library-detail__folder-editor @(source.ManagementMode == "existing_library" ? "is-existing" : null)" @key="source.Id">
+                            <div class="library-detail__folder-path"><MudIcon Icon="@Icons.Material.Outlined.Folder" /><span><strong>@SourceFriendlyName(source)</strong><code>@source.Path</code></span></div>
+                            <div><span>Role</span><AppSelect Value="@source.Role" Options="@SourceRoleOptions" ValueChanged="@((string? value) => SetSourceRole(library, source, value))" Disabled="@(readOnly || _engineUnavailable)" /></div>
+                            <div><span>Mode</span><AppSelect Value="@source.ManagementMode" Options="@ManagementOptions" ValueChanged="@((string? value) => SetManagementMode(library, source, value))" Disabled="@(readOnly || _engineUnavailable)" /></div>
+                            <div><span>Access</span><strong>@(source.ManagementMode == "managed_by_tuvima" ? "Read / Write" : "Read-only")</strong></div>
+                            <AppSwitchRow Label="Include subfolders" Value="@source.IncludeSubdirectories" ValueChanged="@((bool value) => source.IncludeSubdirectories = value)" Disabled="@(readOnly || _engineUnavailable)" />
+                            <div class="library-detail__folder-actions"><AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" /><AppIconButton Icon="@Icons.Material.Outlined.FolderOpen" Tooltip="Change path" AriaLabel="Change folder path" OnClick="@(() => BrowseLibrarySourceAsync(library, source))" /><AppIconButton Icon="@Icons.Material.Outlined.Refresh" Tooltip="Test path" AriaLabel="Test folder path" OnClick="@(() => CheckPathAsync(source.Path))" /><AppIconButton Icon="@Icons.Material.Outlined.Delete" Tooltip="Remove" AriaLabel="Remove folder" Tone="AppUiTone.Error" Disabled="@(library.Sources.Count == 1)" OnClick="@(() => RemoveLibrarySource(library, source))" /></div>
+                            <p>@(source.ManagementMode == "managed_by_tuvima" ? "Tuvima may organize new files here and apply naming rules." : "Tuvima scans and indexes this folder without renaming, moving, or modifying existing files.")</p>
+                        </article>
+                    }
+                </div>
+            </AppCard>
+        }
+        else if (CurrentDetailTab == "organization")
+        {
+            <AppCard Class="media-management-card">
+                <div class="media-management-card__heading"><div><h3>Naming &amp; organization</h3><p>These rules apply only to new media entering managed folders.</p></div></div>
+                <div class="library-detail__organization-options" role="radiogroup" aria-label="Organization mode">
+                    @foreach (var option in OrganizationDetailOptions)
+                    {
+                        <AppNativeButton Type="button" Class="@($"library-detail__organization-option {(library.OrganizationPolicy.Mode == option.Value ? "is-active" : null)}")" OnClick="@(() => library.OrganizationPolicy.Mode = option.Value)">
+                            <MudIcon Icon="@option.Icon" /><span><strong>@option.Label</strong><small>@option.Help</small></span><MudIcon Icon="@(library.OrganizationPolicy.Mode == option.Value ? Icons.Material.Filled.RadioButtonChecked : Icons.Material.Outlined.RadioButtonUnchecked)" />
+                        </AppNativeButton>
+                    }
+                </div>
+                @if (library.OrganizationPolicy.Mode == "custom")
+                {
+                    <AppTextField Label="Naming template" Value="@library.OrganizationPolicy.CustomTemplate" ValueChanged="@((string? value) => library.OrganizationPolicy.CustomTemplate = value)" Placeholder="{Title} ({Year})/{Title} ({Year}).{Extension}" />
+                }
+                <div class="media-management-example"><span>Live example</span><code>@OrganizationExample(library)</code></div>
+                <AppAlert Tone="AppUiTone.Info">Changing organization rules does not alter existing files. Preview any reorganization from a managed folder before applying filesystem changes.</AppAlert>
+            </AppCard>
+        }
+        else
+        {
+            <AppCard Class="media-management-card">
+                <div class="media-management-card__heading"><div><h3>Advanced library settings</h3><p>Identity and source policies that rarely need adjustment.</p></div></div>
+                <div class="media-management-form-grid">
+                    <AppTextField Label="Library name" Value="@library.Name" ValueChanged="@((string? value) => library.Name = value ?? string.Empty)" ReadOnly="@(readOnly || _engineUnavailable || library.Kind == "personal")" />
+                    <AppSelect Label="Duplicate handling" Value="@library.DuplicatePolicy" Options="@DuplicateOptions" ValueChanged="@((string? value) => library.DuplicatePolicy = value ?? "skip_exact")" Disabled="@(readOnly || _engineUnavailable)" />
+                </div>
+                <dl class="library-detail__summary-list">
+                    <div><dt>Library kind</dt><dd>@(library.Kind == "personal" ? "Personal Space bridge" : "Catalogued")</dd></div>
+                    <div><dt>Metadata policy</dt><dd>@PolicyLabel(library.MetadataPolicy)</dd></div>
+                    <div><dt>Primary destination</dt><dd>@(library.GetPrimaryDestination()?.Path ?? "Not configured")</dd></div>
+                    <div><dt>Visibility</dt><dd>@TitleCase(library.Visibility)</dd></div>
+                </dl>
+            </AppCard>
+        }
+    </div>;
+
+    private RenderFragment DetailMetric(string icon, string label, string value, string help) => @<AppPanel Density="AppSurfaceDensity.Compact" Class="library-detail__metric">
+        <span><MudIcon Icon="@icon" /></span><div><small>@label</small><strong>@value</strong><em>@help</em></div>
+    </AppPanel>;
+
     private RenderFragment LibraryEditor(LibraryFolderDto library, bool readOnly) => @<div class="media-management__editor">
         <AppCard Class="media-management-card">
             <div class="media-management-card__heading">
@@ -458,7 +628,7 @@
                             <AppTextField Value="@source.Path" ValueChanged="@((string? value) => source.Path = value ?? string.Empty)"
                                           Label="Folder path" ReadOnly="@(readOnly || _engineUnavailable)" />
                             <AppIconButton Icon="@Icons.Material.Outlined.FolderOpen" Tooltip="Browse" AriaLabel="Browse source folder"
-                                           Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => BrowseLibrarySourceAsync(source))" />
+                                           Disabled="@(readOnly || _engineUnavailable)" OnClick="@(() => BrowseLibrarySourceAsync(library, source))" />
                             <AppStatusBadge Text="@PathStatus(source.Path)" Tone="@PathTone(source.Path)" />
                         </div>
                         <div class="media-management-source__fields">
@@ -696,7 +866,6 @@
 
     private async Task ReloadAsync()
     {
-        _creatingPersonal = false;
         await LoadAsync();
     }
 
@@ -717,6 +886,7 @@
             var saved = await Orchestrator.UpdateLibrariesAsync(new UpdateLibrariesRequest
             {
                 SchemaVersion = _configuration.SchemaVersion,
+                StorageLocations = _configuration.StorageLocations,
                 Libraries = _configuration.Libraries,
                 IncomingSources = _configuration.IncomingSources,
                 PersonalLibraryPolicy = _configuration.PersonalLibraryPolicy,
@@ -774,7 +944,6 @@
     private void BeginPersonalLibrary()
     {
         _draft = NewPersonalLibrary(null, _configuration?.PersonalLibraryPolicy);
-        _creatingPersonal = true;
         _wizardStep = 1;
         _ = InitializeDraftOwnerAsync();
     }
@@ -786,7 +955,7 @@
         await InvokeAsync(StateHasChanged);
     }
 
-    private void CancelPersonalLibrary() => _creatingPersonal = false;
+    private void CancelPersonalLibrary() => Nav.NavigateTo("/settings/libraries");
     private void WizardBack() => _wizardStep = Math.Max(1, _wizardStep - 1);
     private void WizardNext() => _wizardStep = Math.Min(4, _wizardStep + 1);
 
@@ -794,7 +963,6 @@
     {
         _configuration!.Libraries.Add(_draft);
         _selectedLibraryIds["view"] = _draft.Id;
-        _creatingPersonal = false;
         await SaveAsync();
     }
 
@@ -844,11 +1012,27 @@
         return modes;
     }
 
-    private void AddIncomingSource() => _configuration!.IncomingSources.Add(new IncomingSourceDto
+    private async Task AddIncomingSourceAsync()
     {
-        Id = Guid.NewGuid().ToString("D"), Path = string.Empty, Purpose = "shared_intake",
-        DefaultHandling = "route_automatically", IncludeSubdirectories = true, SourceType = "local_folder",
-    });
+        var source = new IncomingSourceDto
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            Purpose = "shared_intake",
+            DefaultHandling = "route_automatically",
+            IncludeSubdirectories = true,
+            SourceType = "local_folder",
+        };
+        var selected = await BrowseForPathAsync(
+            string.Empty,
+            ServerFolderSelectionModes.Incoming,
+            source.Id,
+            "Choose a server folder to watch for incoming media.");
+        if (selected is null) return;
+        source.Path = selected;
+        source.Notes = Path.GetFileName(selected.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        _configuration!.IncomingSources.Add(source);
+        await CheckPathAsync(selected);
+    }
 
     private void RemoveIncomingSource(IncomingSourceDto source) => _configuration!.IncomingSources.Remove(source);
 
@@ -857,6 +1041,23 @@
         Id = Guid.NewGuid().ToString("D"), Role = "secondary", ManagementMode = "existing_library",
         SourceType = "local_folder", AccessMode = "read_only", IncludeSubdirectories = true, IntakeRole = "none",
     });
+
+    private async Task AddAndBrowseLibrarySourceAsync(LibraryFolderDto library)
+    {
+        var source = new LibrarySourceDto
+        {
+            Id = Guid.NewGuid().ToString("D"),
+            Role = "secondary",
+            ManagementMode = "existing_library",
+            SourceType = "local_folder",
+            AccessMode = "read_only",
+            IncludeSubdirectories = true,
+            IntakeRole = "none",
+        };
+        library.Sources.Add(source);
+        await BrowseLibrarySourceAsync(library, source);
+        if (string.IsNullOrWhiteSpace(source.Path)) library.Sources.Remove(source);
+    }
 
     private void RemoveLibrarySource(LibraryFolderDto library, LibrarySourceDto source)
     {
@@ -935,27 +1136,60 @@
 
     private async Task BrowseIncomingAsync(IncomingSourceDto source)
     {
-        var selected = await BrowseForPathAsync(source.Path);
+        var selected = await BrowseForPathAsync(
+            source.Path,
+            ServerFolderSelectionModes.Incoming,
+            source.Id,
+            "Choose a server folder to watch for incoming media.");
         if (selected is null) return;
         source.Path = selected;
         await CheckPathAsync(selected);
     }
 
-    private async Task BrowseLibrarySourceAsync(LibrarySourceDto source)
+    private async Task BrowseLibrarySourceAsync(LibraryFolderDto library, LibrarySourceDto source)
     {
-        var selected = await BrowseForPathAsync(source.Path);
+        var selectionMode = (library.Kind, source.ManagementMode) switch
+        {
+            ("personal", "managed_by_tuvima") => ServerFolderSelectionModes.PersonalSpaceManaged,
+            ("personal", _) => ServerFolderSelectionModes.PersonalSpaceExisting,
+            (_, "managed_by_tuvima") => ServerFolderSelectionModes.ManagedLibrary,
+            _ => ServerFolderSelectionModes.ExistingLibrary,
+        };
+        var selected = await BrowseForPathAsync(
+            source.Path,
+            selectionMode,
+            source.Id,
+            "Choose a server folder to attach to this library.");
         if (selected is null) return;
         source.Path = selected;
         await CheckPathAsync(selected);
     }
 
-    private async Task<string?> BrowseForPathAsync(string currentPath)
+    private async Task<string?> BrowseForPathAsync(
+        string currentPath,
+        string selectionMode,
+        string? currentSourceId,
+        string helpText)
     {
-        var parameters = new DialogParameters<FolderBrowserDialog> { { x => x.InitialPath, currentPath } };
-        var options = new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true, CloseButton = true, CloseOnEscapeKey = true };
-        var dialog = await DialogService.ShowAsync<FolderBrowserDialog>(L["Libraries_BrowseFolders"], parameters, options);
+        var parameters = new DialogParameters<ServerFolderPicker>
+        {
+            { component => component.InitialPath, currentPath },
+            { component => component.SelectionMode, selectionMode },
+            { component => component.CurrentSourceId, currentSourceId },
+            { component => component.HelpText, helpText },
+        };
+        var options = new DialogOptions
+        {
+            MaxWidth = MaxWidth.ExtraExtraLarge,
+            FullWidth = false,
+            CloseButton = false,
+            CloseOnEscapeKey = true,
+        };
+        var dialog = await DialogService.ShowAsync<ServerFolderPicker>(string.Empty, parameters, options);
         var result = await dialog.Result;
-        return result is { Canceled: false, Data: string selectedPath } ? selectedPath : null;
+        return result is { Canceled: false, Data: ServerFolderValidationResultDto selection }
+            ? selection.Path
+            : null;
     }
 
     private void OpenLibrary(LibraryFolderDto library)
@@ -963,7 +1197,7 @@
         _selectedLibraryIds[library.Area] = library.Id;
         _selectedLibraryIds["all"] = library.Id;
         _libraryFilter = library.Area;
-        Nav.NavigateTo(SettingsNav.RouteFor(SettingsSection.Libraries, "libraries"));
+        Nav.NavigateTo($"/settings/libraries/{library.Id}");
     }
 
     private void SelectLibrary(string section, string id) => _selectedLibraryIds[section] = id;
@@ -1060,10 +1294,23 @@
         _ => AppUiTone.Warning,
     };
 
-    private static string NormalizeSection(string? section) => section?.Trim().ToLowerInvariant() switch
+    private LibraryFolderDto? ResolveActiveLibrary(string section)
     {
-        "incoming" => "incoming", "libraries" => "libraries", "activity" => "activity", _ => "overview",
-    };
+        if (_configuration is null) return null;
+        if (Guid.TryParse(section, out var id))
+            return _configuration.Libraries.FirstOrDefault(library => Guid.TryParse(library.Id, out var libraryId) && libraryId == id);
+        return section == "overview" ? null : ActiveLibrary(section);
+    }
+
+    private static string NormalizeSection(string? section)
+    {
+        var normalized = section?.Trim().ToLowerInvariant();
+        if (Guid.TryParse(normalized, out _)) return normalized!;
+        return normalized switch
+        {
+            "incoming" => "incoming", "libraries" => "libraries", "activity" => "activity", _ => "overview",
+        };
+    }
 
     private static string TitleCase(string? value) => string.IsNullOrWhiteSpace(value)
         ? "Unknown"
@@ -1076,6 +1323,87 @@
         "listen" => Icons.Material.Outlined.Headphones,
         "view" => Icons.Material.Outlined.FolderOpen,
         _ => Icons.Material.Outlined.PermMedia,
+    };
+
+    private string CurrentDetailTab
+    {
+        get
+        {
+            var normalized = DetailTab?.Trim().ToLowerInvariant();
+            return LibraryDetailTabs.Any(tab => tab.Value == normalized) ? normalized! : "overview";
+        }
+    }
+
+    private static string LibraryTabRoute(LibraryFolderDto library, string tab) =>
+        tab == "overview" ? $"/settings/libraries/{library.Id}" : $"/settings/libraries/{library.Id}?tab={tab}";
+
+    private static string SourceFriendlyName(LibrarySourceDto source) => string.IsNullOrWhiteSpace(source.Notes)
+        ? Path.GetFileName(source.Path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+        : source.Notes;
+
+    private string LibraryLastScan(LibraryFolderDto library)
+    {
+        var latest = _ingestionSnapshot?.SourceGroups
+            .SelectMany(group => group.Libraries)
+            .SelectMany(sourceLibrary => sourceLibrary.Folders)
+            .Where(folder => library.Sources.Any(source => string.Equals(source.Path, folder.Path, StringComparison.OrdinalIgnoreCase)))
+            .Where(folder => folder.LastScan.HasValue)
+            .Select(folder => folder.LastScan!.Value)
+            .DefaultIfEmpty()
+            .Max();
+        return latest is null || latest == default ? "Not scanned" : FormatRelative(latest.Value);
+    }
+
+    private static string OrganizationModeLabel(string? mode) => mode switch
+    {
+        "tuvima_standard" => "Tuvima Standard",
+        "keep_original_names" => "Keep original names",
+        "custom" => "Custom",
+        _ => TitleCase(mode),
+    };
+
+    private static string LibraryIcon(LibraryFolderDto library)
+    {
+        var mediaType = library.MediaTypes.FirstOrDefault()?.ToLowerInvariant();
+        return mediaType switch
+        {
+            "movies" => Icons.Material.Outlined.Movie,
+            "tvshows" or "tv_shows" => Icons.Material.Outlined.Tv,
+            "books" => Icons.Material.Outlined.MenuBook,
+            "comics" => Icons.Material.Outlined.AutoStories,
+            "music" => Icons.Material.Outlined.MusicNote,
+            "audiobooks" => Icons.Material.Outlined.Headphones,
+            _ => AreaIcon(library.Area),
+        };
+    }
+
+    private static string LibraryDisplayName(LibraryFolderDto library) => library.Kind == "personal" ? "Personal Space" : library.Name;
+    private static string LibraryDescription(LibraryFolderDto library) => library.Kind == "personal"
+        ? "Profile-owned photos, videos, documents, and recordings"
+        : library.MediaTypes.FirstOrDefault()?.ToLowerInvariant() switch
+        {
+            "movies" => "Films and full-length features",
+            "tvshows" or "tv_shows" => "Series and owned episodes",
+            "books" => "Ebooks and PDFs",
+            "comics" => "Issues and graphic novels",
+            "music" => "Albums and tracks",
+            "audiobooks" => "Narrated books",
+            _ => library.Notes ?? "Structured media library",
+        };
+
+    private int LibraryItemCount(LibraryFolderDto library) => _ingestionSnapshot?.SourceGroups
+        .SelectMany(group => group.Libraries)
+        .SelectMany(sourceLibrary => sourceLibrary.Folders)
+        .Where(folder => library.Sources.Any(source => string.Equals(source.Path, folder.Path, StringComparison.OrdinalIgnoreCase)))
+        .Sum(folder => folder.ItemCount) ?? 0;
+
+    private static AppUiTone AreaTone(string? area) => area?.ToLowerInvariant() switch
+    {
+        "watch" => AppUiTone.Primary,
+        "read" => AppUiTone.Info,
+        "listen" => AppUiTone.Warning,
+        "view" => AppUiTone.Success,
+        _ => AppUiTone.Neutral,
     };
 
     private static string PolicyLabel(string? value) => value switch

@@ -172,7 +172,7 @@ The pipeline is designed to fail safely:
 
 ## Watching Operations
 
-**Media Management > Activity** is the admin view for this pipeline at `/settings/media-management/activity`. It presents ingestion as operational library health rather than a raw task log.
+**Settings > Ingestion** is the admin view for this pipeline at `/settings/ingestion`. It presents ingestion as operational library health rather than a raw task log.
 
 It shows real application state from the Engine:
 
