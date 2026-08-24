@@ -1,0 +1,26 @@
+@namespace MediaEngine.Web.Components.Pages
+
+<MediaSectionShell Title="View"
+                   NavigationGroups="@NavigationGroups"
+                   OnNavigationItemDrop="@OnNavigationItemDrop">
+    @ChildContent
+</MediaSectionShell>
+
+@code {
+    [Parameter, EditorRequired] public RenderFragment ChildContent { get; set; } = default!;
+    [Parameter] public IReadOnlyList<MediaSectionNavigationItem> GalleryShortcuts { get; set; } = [];
+    [Parameter] public EventCallback<MediaSectionNavigationDropEvent> OnNavigationItemDrop { get; set; }
+
+    private IReadOnlyList<MediaSectionNavigationGroup> NavigationGroups =>
+    [
+        new("View",
+        [
+            new("Photos", "/view", Icons.Material.Outlined.PhotoLibrary, Exact: true),
+            new("Galleries", "/view/galleries", Icons.Material.Outlined.Collections,
+                Exact: true,
+                Children: GalleryShortcuts),
+            new("People", "/view/people", Icons.Material.Outlined.People, Exact: true),
+            new("Places", "/view/places", Icons.Material.Outlined.Place, Exact: true),
+        ]),
+    ];
+}

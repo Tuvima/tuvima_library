@@ -1,0 +1,20 @@
+@page "/view/people"
+@namespace MediaEngine.Web.Components.Pages
+
+<PageTitle>People - Tuvima</PageTitle>
+
+<ViewSectionShell>
+    <div class="view-feature-page">
+        <header class="view-feature-page__header">
+            <div>
+                <span>View</span>
+                <h1>People</h1>
+                <p>Browse people recognized in your personal photos when local analysis is available.</p>
+            </div>
+        </header>
+
+        <AppPageState Kind="AppPageStateKind.Unavailable"
+                      Title="People discovery is not available yet"
+                      Message="No face-analysis capability is connected, so Tuvima will not invent people or matches." />
+    </div>
+</ViewSectionShell>
