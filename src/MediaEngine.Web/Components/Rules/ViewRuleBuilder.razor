@@ -1,11 +1,6 @@
-@namespace MediaEngine.Web.Components.Collections
-@using MediaEngine.Contracts.Collections
-@using MediaEngine.Web.Components.Rules
+@namespace MediaEngine.Web.Components.Rules
 
-@inject IEngineApiClient ApiClient
-
-<SharedRuleBuilder @ref="_builder"
-                   Registry="@CollectionRuleRegistry.Instance"
+<SharedRuleBuilder Registry="@ViewRuleRegistry.Instance"
                    Definition="@Definition"
                    DefinitionChanged="@DefinitionChanged"
                    SortField="@SortField"
@@ -16,39 +11,22 @@
                    SecondarySortFieldChanged="@SecondarySortFieldChanged"
                    SecondarySortDirection="@SecondarySortDirection"
                    SecondarySortDirectionChanged="@SecondarySortDirectionChanged"
-                   Preview="@Preview"
-                   PreviewChanged="@PreviewChanged"
                    Changed="@Changed"
                    Density="@Density"
-                   PreviewLoader="PreviewRulesAsync" />
+                   PreviewLoader="@PreviewLoader" />
 
 @code {
     [Parameter, EditorRequired] public CollectionRuleDefinitionViewModel Definition { get; set; } = new();
     [Parameter] public EventCallback<CollectionRuleDefinitionViewModel> DefinitionChanged { get; set; }
-    [Parameter] public string? SortField { get; set; } = "title";
+    [Parameter] public string? SortField { get; set; } = "captured_date";
     [Parameter] public EventCallback<string?> SortFieldChanged { get; set; }
-    [Parameter] public string SortDirection { get; set; } = "asc";
+    [Parameter] public string SortDirection { get; set; } = "desc";
     [Parameter] public EventCallback<string> SortDirectionChanged { get; set; }
     [Parameter] public string? SecondarySortField { get; set; }
     [Parameter] public EventCallback<string?> SecondarySortFieldChanged { get; set; }
     [Parameter] public string? SecondarySortDirection { get; set; }
     [Parameter] public EventCallback<string?> SecondarySortDirectionChanged { get; set; }
-    [Parameter] public CollectionPreviewResult? Preview { get; set; }
-    [Parameter] public EventCallback<CollectionPreviewResult?> PreviewChanged { get; set; }
     [Parameter] public EventCallback Changed { get; set; }
     [Parameter] public string Density { get; set; } = "editor";
-
-    private SharedRuleBuilder? _builder;
-
-    public Task RefreshAsync() => _builder?.RefreshAsync() ?? Task.CompletedTask;
-
-    private async Task<CollectionPreviewResult?> PreviewRulesAsync(RuleBuilderPreviewRequest request, CancellationToken token) =>
-        await ApiClient.PreviewCollectionRulesAsync(
-            request.Definition,
-            request.SortField,
-            request.SortDirection,
-            limit: request.Limit,
-            ct: token,
-            secondarySortField: request.SecondarySortField,
-            secondarySortDirection: request.SecondarySortDirection);
+    [Parameter] public Func<RuleBuilderPreviewRequest, CancellationToken, Task<CollectionPreviewResult?>>? PreviewLoader { get; set; }
 }
